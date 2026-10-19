@@ -1,5 +1,6 @@
 extends SceneTree
-# 0.0.2.12 : thème commun, fond 3D « vitrine » de l'accueil, pause semi-transparente.
+# 0.0.2.12-0.0.2.13 : thème commun, fond 3D « vitrine » de l'accueil, pause semi-transparente,
+# point de vue posé sur une tour, boutons-icônes, menus larges.
 const MenuShowcase = preload("res://scripts/menu_showcase.gd")
 var checks := 0
 var failures := 0
@@ -28,7 +29,8 @@ func _run() -> void:
 	await process_frame
 	# Thème commun.
 	check(app.menu_root.theme != null and app.return_button.theme == app.menu_root.theme, "menus and return button share one theme")
-	check(app.menu_panel.get_theme_stylebox("panel").bg_color.a < 1.0, "menu panel is slightly transparent")
+	var alpha: float = app.menu_panel.get_theme_stylebox("panel").bg_color.a
+	check(alpha > 0.4 and alpha < 0.75, "menu panel is see-through but readable")
 	for key in app.pages:
 		var title: Label = app.pages[key].get_child(0)
 		check(title.theme_type_variation == "OrbTitle", "page title uses common style: " + key)
@@ -39,9 +41,18 @@ func _run() -> void:
 	check(showcase.find_children("*", "MultiMeshInstance3D", true, false).size() >= 3, "showcase is built from block meshes in code")
 	check(app.news_label.text == MenuShowcase.NEWS_TEXT and app.news_label.is_visible_in_tree(), "home shows the version news")
 	check(MenuShowcase.NEWS_VERSION == ProjectSettings.get_setting("application/config/version"), "showcase news matches project version")
+	var start_basis: Basis = showcase.camera.basis
 	var start_position: Vector3 = showcase.camera.position
 	showcase._process(3.0)
-	check(not showcase.camera.position.is_equal_approx(start_position), "showcase camera turns slowly")
+	check(not showcase.camera.basis.is_equal_approx(start_basis), "showcase camera turns slowly")
+	check(showcase.camera.position.is_equal_approx(start_position), "showcase viewpoint stays in place (no flying)")
+	var feet: float = showcase.camera.position.y - showcase.EYE_HEIGHT
+	check(is_equal_approx(feet, showcase.TOWER_HEIGHT) and showcase.TOWER_HEIGHT >= 3 and showcase.TOWER_HEIGHT <= 4, "viewpoint stands on a 3-4 block tower")
+	check(showcase.find_children("*", "MeshInstance3D", true, false).filter(func(mesh): return mesh.material_override and mesh.material_override.transparency != BaseMaterial3D.TRANSPARENCY_DISABLED).is_empty(), "showcase shows no glass (not in the game yet)")
+	# Boutons-icônes de Mes mondes.
+	for button in [app.new_world_button, app.rename_button, app.duplicate_button, app.world_settings_button, app.delete_button]:
+		check(button.text.length() <= 2 and not button.tooltip_text.is_empty(), "icon button with tooltip: " + button.tooltip_text)
+	check(app.delete_button.tooltip_text == "Supprimer" and app.rename_button.tooltip_text == "Renommer", "icons keep their action names")
 	var widths := {}
 	for step in range(40):
 		showcase._process(0.25)

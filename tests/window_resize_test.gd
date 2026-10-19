@@ -37,13 +37,15 @@ func _run() -> void:
 		var panel: Control = app.pages.home.get_parent().get_parent()
 		check(_inside(panel.get_global_rect(), view), "menu panel stays inside window" + tag)
 		check(panel.get_global_rect().get_center().distance_to(view.get_center()) < 2, "menu panel stays centred" + tag)
+		# Accueil compact ; pages de contenu larges (0.0.2.13).
 		var expected_width := minf(560.0 * maxf(1.0, view.size.x / 1280.0), view.size.x * 0.7)
 		check(absf(panel.size.x - expected_width) < 2, "menu panel width follows window width" + tag)
-		check(is_equal_approx(app.history_scroll.custom_minimum_size.y, 350.0 * maxf(1.0, view.size.y / 720.0)), "scroll areas follow window height" + tag)
+		check(is_equal_approx(app.history_scroll.custom_minimum_size.y, maxf(140.0, view.size.y - 300.0)), "scroll areas fill free window height" + tag)
 		for page_name in ["history", "settings", "worlds"]:
 			app.show_page(page_name)
 			await process_frame
 			check(_inside(panel.get_global_rect(), view), page_name + " page fits in window" + tag)
+			check(absf(panel.size.x - clampf(view.size.x * 0.72, 560.0, view.size.x * 0.92)) < 2, page_name + " page uses a wide panel" + tag)
 		app.show_page("home")
 	root.size = Vector2i(1280, 720)
 	app.open_world("resize-test")

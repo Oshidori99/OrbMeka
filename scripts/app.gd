@@ -12,6 +12,11 @@ const MIN_WINDOW_SIZE := Vector2i(800, 450)
 const MENU_BASE_SIZE := Vector2(1280, 720)
 const MENU_BASE_WIDTH := 560.0
 const MENU_MAX_WIDTH_RATIO := 0.7
+# Pages de contenu (paramètres, listes, textes) : plus larges, pour moins de lignes et de défilement.
+const COMPACT_PAGES := ["home", "pause", "delete"]
+const WIDE_WIDTH_RATIO := 0.72
+const WIDE_MAX_RATIO := 0.92
+const SCROLL_MIN_HEIGHT := 140.0
 
 var settings: RefCounted
 var setting_fields: Dictionary = {}
@@ -24,7 +29,7 @@ var active_world: Node3D
 var current_world_id := ""
 var menu_root: Control
 var menu_panel: PanelContainer
-var menu_base_heights: Dictionary = {}
+var menu_reserved_heights: Dictionary = {}
 var pages: Dictionary = {}
 var world_list: ItemList
 var open_button: Button
@@ -89,9 +94,18 @@ func _ready() -> void:
 func _button(text: String, parent: Node, action: Callable) -> Button:
 	var button := Button.new()
 	button.text = text
-	button.custom_minimum_size.y = 46
+	button.custom_minimum_size.y = 40
 	parent.add_child(button)
 	button.pressed.connect(action)
+	return button
+
+func _icon_button(icon: String, label: String, parent: Node, action: Callable) -> Button:
+	# Bouton compact à icône ; le nom de l'action reste dans l'infobulle et pour l'accessibilité.
+	var button := _button(icon, parent, action)
+	button.custom_minimum_size.x = 58
+	button.tooltip_text = label
+	button.accessibility_name = label
+	button.add_theme_font_size_override("font_size", 22)
 	return button
 
 func _explanation(parent: Node, text: String) -> void:
@@ -179,7 +193,7 @@ func _build_interface() -> void:
 	var home := _page(stack, "OrbMeka™")
 	pages.home = home
 	var version := Label.new()
-	version.text = "v" + str(ProjectSettings.get_setting("application/config/version", "0.0.2.12"))
+	version.text = "v" + str(ProjectSettings.get_setting("application/config/version", "0.0.2.13"))
 	version.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	version.theme_type_variation = "OrbNote"
 	home.add_child(version)
@@ -198,7 +212,7 @@ func _build_interface() -> void:
 	pages.history = history_page
 	history_scroll = ScrollContainer.new()
 	history_scroll.custom_minimum_size = Vector2(0, 350)
-	menu_base_heights[history_scroll] = 350.0
+	menu_reserved_heights[history_scroll] = 300.0
 	history_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
 	history_scroll.focus_mode = Control.FOCUS_ALL
 	history_page.add_child(history_scroll)
@@ -213,7 +227,7 @@ func _build_interface() -> void:
 	pages.settings = settings_page
 	var settings_scroll := ScrollContainer.new()
 	settings_scroll.custom_minimum_size = Vector2(0, 320)
-	menu_base_heights[settings_scroll] = 320.0
+	menu_reserved_heights[settings_scroll] = 300.0
 	settings_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
 	settings_scroll.focus_mode = Control.FOCUS_ALL
 	settings_scroll.follow_focus = true
@@ -263,7 +277,7 @@ F1 : revenir à la liste des mondes depuis la partie." % [int(WorldRules.BASE_SI
 	list_page.add_theme_constant_override("separation", 10)
 	world_list = ItemList.new()
 	world_list.custom_minimum_size = Vector2(0, 144)
-	menu_base_heights[world_list] = 144.0
+	menu_reserved_heights[world_list] = 380.0
 	world_list.add_theme_font_size_override("font_size", 21)
 	list_page.add_child(world_list)
 	world_list.item_selected.connect(func(_index: int): _update_world_actions())
@@ -271,22 +285,17 @@ F1 : revenir à la liste des mondes depuis la partie." % [int(WorldRules.BASE_SI
 	list_message = Label.new()
 	list_message.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	list_page.add_child(list_message)
+	# Une seule rangée : Ouvrir en toutes lettres, les autres actions en icônes (nom au survol).
 	var actions_row := HBoxContainer.new()
-	actions_row.add_theme_constant_override("separation", 10)
+	actions_row.add_theme_constant_override("separation", 8)
 	list_page.add_child(actions_row)
-	open_button = _button("Ouvrir", actions_row, open_selected_world)
-	rename_button = _button("Renommer", actions_row, request_rename)
-	delete_button = _button("Supprimer", actions_row, request_delete)
-	for button in [open_button, rename_button, delete_button]:
-		button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	var extra_actions := HBoxContainer.new()
-	extra_actions.add_theme_constant_override("separation", 10)
-	list_page.add_child(extra_actions)
-	duplicate_button = _button("Dupliquer", extra_actions, duplicate_selected_world)
-	world_settings_button = _button("Paramètres du monde", extra_actions, open_world_settings)
-	for button in [duplicate_button, world_settings_button]:
-		button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	new_world_button = _button("Créer un monde", list_page, func(): show_page("create"))
+	open_button = _button("▶ Ouvrir", actions_row, open_selected_world)
+	open_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	new_world_button = _icon_button("➕", "Créer un monde", actions_row, func(): show_page("create"))
+	rename_button = _icon_button("✏️", "Renommer", actions_row, request_rename)
+	duplicate_button = _icon_button("📋", "Dupliquer (même graine)", actions_row, duplicate_selected_world)
+	world_settings_button = _icon_button("⚙️", "Paramètres du monde", actions_row, open_world_settings)
+	delete_button = _icon_button("🗑️", "Supprimer", actions_row, request_delete)
 	_button("Retour", list_page, func(): show_page("home"))
 	var form := _page(stack, "Créer un monde")
 	pages.create = form
@@ -321,7 +330,7 @@ Nom et graine conservés ; constructions non sauvegardées." % Catalog.MAX_NAME_
 	form_error.add_theme_color_override("font_color", UiTheme.ERROR)
 	form_error.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	form.add_child(form_error)
-	create_button = _button("Créer", form, create_named_world)
+	create_button = _button("➕ Créer", form, create_named_world)
 	_button("Retour", form, func(): show_page("worlds"))
 	var world_settings_page := _page(stack, "Paramètres du monde")
 	pages.world_settings = world_settings_page
@@ -341,14 +350,14 @@ La graine et le terrain initial sont conservés." % Catalog.MAX_NAME_LENGTH)
 	rename_error = Label.new()
 	rename_error.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	rename_page.add_child(rename_error)
-	_button("Renommer", rename_page, confirm_rename)
+	_button("✏️ Renommer", rename_page, confirm_rename)
 	_button("Annuler", rename_page, cancel_world_action)
 	var delete_page := _page(stack, "Supprimer ce monde ?")
 	pages.delete = delete_page
 	delete_message = Label.new()
 	delete_message.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	delete_page.add_child(delete_message)
-	_button("Confirmer la suppression", delete_page, confirm_delete)
+	_button("🗑️ Confirmer la suppression", delete_page, confirm_delete)
 	cancel_delete_button = _button("Annuler", delete_page, cancel_world_action)
 	var pause_page := _page(stack, "Pause")
 	pages.pause = pause_page
@@ -365,7 +374,7 @@ La graine et le terrain initial sont conservés." % Catalog.MAX_NAME_LENGTH)
 	pages.help = help_page
 	var scroll := ScrollContainer.new()
 	scroll.custom_minimum_size = Vector2(0, 350)
-	menu_base_heights[scroll] = 350.0
+	menu_reserved_heights[scroll] = 300.0
 	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
 	help_page.add_child(scroll)
 	help_text = Label.new()
@@ -400,12 +409,17 @@ F3 : Informations du monde"
 	return_button.visible = false
 
 func fit_menus_to_window() -> void:
-	# Le panneau et les zones défilantes grandissent avec la fenêtre (taille de base : 1280 × 720).
+	# Taille de base : 1280 × 720. Accueil et pause restent compacts ; les pages de contenu
+	# prennent la plupart de la largeur, et leurs zones défilantes toute la hauteur libre
+	# (hauteur de la fenêtre moins la place réservée au reste de la page).
 	var view := get_viewport().get_visible_rect().size
-	var grow := Vector2(maxf(1.0, view.x / MENU_BASE_SIZE.x), maxf(1.0, view.y / MENU_BASE_SIZE.y))
-	menu_panel.custom_minimum_size.x = minf(MENU_BASE_WIDTH * grow.x, view.x * MENU_MAX_WIDTH_RATIO)
-	for control in menu_base_heights:
-		control.custom_minimum_size.y = menu_base_heights[control] * grow.y
+	var grow := maxf(1.0, view.x / MENU_BASE_SIZE.x)
+	if page in COMPACT_PAGES:
+		menu_panel.custom_minimum_size.x = minf(MENU_BASE_WIDTH * grow, view.x * MENU_MAX_WIDTH_RATIO)
+	else:
+		menu_panel.custom_minimum_size.x = clampf(view.x * WIDE_WIDTH_RATIO, MENU_BASE_WIDTH, view.x * WIDE_MAX_RATIO)
+	for control in menu_reserved_heights:
+		control.custom_minimum_size.y = maxf(SCROLL_MIN_HEIGHT, view.y - menu_reserved_heights[control])
 
 func _update_backdrop() -> void:
 	# En pause : monde visible derrière, assombri et flouté. À l'accueil : fond 3D à peine voilé.
@@ -417,6 +431,7 @@ func show_page(next_page: String) -> void:
 	page = next_page
 	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
 	menu_root.visible = true
+	fit_menus_to_window()
 	_update_backdrop()
 	return_button.visible = false
 	for key in pages:

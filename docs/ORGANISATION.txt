@@ -13,6 +13,7 @@ ui_theme pour le thème des menus et menu_showcase pour le fond 3D de l'accueil
 (vitrine de la nouveauté, à mettre à jour à chaque version).
 tests/ contient les vérifications automatiques, lancées sans fenêtre.
 docs/ contient le guide détaillé README.md et cette note.
+docs/idees/ garde des images d'idées pas encore dans le jeu (pour plus tard).
 L'icône icon.svg reste à la racine avec son fichier icon.svg.import :
 inutile de créer un dossier de ressources pour cette seule image.
 

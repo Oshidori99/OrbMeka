@@ -1,38 +1,30 @@
 extends Node3D
 # Fond 3D de l'accueil : un petit monde en blocs, généré en code, avec une caméra qui tourne lentement.
+# Règle : n'y montrer que ce qui existe déjà dans le jeu (blocs Sable, Pierre, Terre, sol, collines, ciel).
+# Les idées pas encore dans le jeu sont gardées en image dans docs/idees/.
 #
 # ===== VITRINE DE LA VERSION (à modifier à chaque mise à jour) =====
 # 1. NEWS_VERSION et NEWS_TEXT : le bandeau « Nouveau » affiché sous la version, à l'accueil.
 # 2. _build_news() : la construction 3D qui met en scène la nouveauté, au centre du petit monde.
 #    _animate_news(delta) l'anime (vide si rien ne bouge).
 # Le reste du fichier (sol, collines, ciel, caméra) ne change pas d'une version à l'autre.
-const NEWS_VERSION := "0.0.2.12"
-const NEWS_TEXT := "Nouveau : menus Orbe violet, pause transparente,\nfenêtre redimensionnable à toutes les tailles."
+const NEWS_VERSION := "0.0.2.13"
+const NEWS_TEXT := "Nouveau : menus plus larges et plus transparents,\nmoins de défilement dans les fenêtres agrandies."
 
-# 0.0.2.12 : un cadre de fenêtre en blocs qui s'élargit et se resserre pas à pas
-# (fenêtre redimensionnable), avec un panneau de menu violet et ses boutons sable.
+# 0.0.2.13 : un cadre en blocs de pierre qui s'élargit et se resserre pas à pas
+# (menus et fenêtre qui s'adaptent), avec deux rangées de sable en guise de boutons.
 const FRAME_HEIGHT := 6
 const FRAME_MIN_WIDTH := 5
 const FRAME_MAX_WIDTH := 11
 var frame_width := 0
 var frame_blocks: MultiMeshInstance3D
-var frame_pane: MeshInstance3D
-var frame_buttons: Array[MeshInstance3D] = []
+var frame_rows: MultiMeshInstance3D
 
 func _build_news() -> void:
 	frame_blocks = _multimesh(STONE)
 	add_child(frame_blocks)
-	frame_pane = MeshInstance3D.new()
-	frame_pane.mesh = BoxMesh.new()
-	frame_pane.material_override = _material(Color(0.36, 0.2, 0.58, 0.72), 0.35)
-	frame_pane.material_override.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
-	add_child(frame_pane)
-	for index in range(3):
-		var button := MeshInstance3D.new()
-		button.mesh = BoxMesh.new()
-		button.material_override = materials[SAND]
-		add_child(button)
-		frame_buttons.append(button)
+	frame_rows = _multimesh(SAND)
+	add_child(frame_rows)
 	_set_frame_width(FRAME_MIN_WIDTH)
 
 func _animate_news(_delta: float) -> void:
@@ -45,17 +37,15 @@ func _set_frame_width(width: int) -> void:
 	frame_width = width
 	var half := width / 2
 	var cells: Array[Vector3i] = []
+	var rows: Array[Vector3i] = []
 	for x in range(-half, half + 1):
 		for y in range(FRAME_HEIGHT):
 			if x == -half or x == half or y == 0 or y == FRAME_HEIGHT - 1:
 				cells.append(Vector3i(x, y, -1))
+			elif y == 2 or y == 4:
+				rows.append(Vector3i(x, y, -1))
 	_fill_multimesh(frame_blocks, cells)
-	var inner := float(width - 2)
-	frame_pane.mesh.size = Vector3(inner, FRAME_HEIGHT - 2, 0.2)
-	frame_pane.position = Vector3(0.5, FRAME_HEIGHT / 2.0, -0.5)
-	for index in range(frame_buttons.size()):
-		frame_buttons[index].mesh.size = Vector3(maxf(1.0, inner * 0.6), 0.5, 0.25)
-		frame_buttons[index].position = Vector3(0.5, FRAME_HEIGHT - 2.0 - index * 1.0, -0.3)
+	_fill_multimesh(frame_rows, rows)
 # ===== FIN DE LA VITRINE =====
 
 const Terrain = preload("res://scripts/terrain_generator.gd")
@@ -64,11 +54,15 @@ const SAND := 0
 const STONE := 1
 const DIRT := 2
 const SCENE_SEED := 20612
-const ORBIT_RADIUS := 18.0
-const ORBIT_HEIGHT := 10.0
-# Décalage de visée : la vitrine apparaît sur le côté, hors du panneau des menus.
-const SIDE_TURN := 0.55
-const ORBIT_SPEED := 0.07
+# Point de vue : un joueur debout sur une tour de pierre (on ne vole pas dans le jeu).
+# Il tourne lentement la tête ; la vitrine reste sur le côté, hors du panneau des menus.
+const TOWER_CELL := Vector2i(12, 12)
+const TOWER_HEIGHT := 4
+const EYE_HEIGHT := 1.62
+const SIDE_TURN := 0.42
+const PAN_RANGE := 0.15
+const PAN_SPEED := 0.12
+const LOOK_DOWN := 0.2
 
 var camera: Camera3D
 var materials: Array[StandardMaterial3D] = []
@@ -95,10 +89,10 @@ func _process(delta: float) -> void:
 	_animate_news(delta)
 
 func _place_camera() -> void:
-	var angle := elapsed * ORBIT_SPEED + 0.6
-	camera.position = Vector3(sin(angle) * ORBIT_RADIUS, ORBIT_HEIGHT, cos(angle) * ORBIT_RADIUS)
-	camera.look_at(Vector3(0.5, 3.0, -0.5))
-	camera.rotate_object_local(Vector3.UP, SIDE_TURN)
+	camera.position = Vector3(TOWER_CELL.x + 1.5, TOWER_HEIGHT + EYE_HEIGHT, TOWER_CELL.y + 1.5)
+	camera.look_at(Vector3(0.5, camera.position.y, -0.5))
+	camera.rotate_y(SIDE_TURN + sin(elapsed * PAN_SPEED) * PAN_RANGE)
+	camera.rotate_object_local(Vector3.RIGHT, -LOOK_DOWN)
 
 func _material(color: Color, roughness: float) -> StandardMaterial3D:
 	var material := StandardMaterial3D.new()
@@ -170,6 +164,10 @@ func _build_hills() -> void:
 	for x in range(2, 5):
 		for y in range(x - 1):
 			sand.append(Vector3i(x, y, -4))
+	for x in range(3):
+		for z in range(3):
+			for y in range(TOWER_HEIGHT):
+				stone.append(Vector3i(TOWER_CELL.x + x, y, TOWER_CELL.y + z))
 	for cells_kind in [[dirt, DIRT], [sand, SAND], [stone, STONE]]:
 		var instance := _multimesh(cells_kind[1])
 		add_child(instance)

@@ -1,6 +1,10 @@
 ORBMEKA — HISTORIQUE DES VERSIONS
 Du plus récent au plus ancien. Ce fichier est mis à jour à chaque version.
 
+0.0.2.13 — Menus plus larges et icônes
+Panneau plus transparent, pages de contenu plus larges et plus hautes : moins de défilement.
+Boutons-icônes dans Mes mondes ; fond de l'accueil vu depuis une tour de blocs, sans verre.
+
 0.0.2.12 — Menus Orbe violet
 Accueil sur un petit monde 3D animé qui montre la nouveauté de la version ; pause semi-transparente et floutée.
 Thème commun violet et sable pour tous les menus, lisible à toutes les tailles de fenêtre.

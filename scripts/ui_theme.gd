@@ -3,7 +3,7 @@ extends RefCounted
 # accents sable doré (couleur du bloc Sable) et turquoise doux ; coins peu arrondis, esprit « blocs ».
 # Variations de Label : OrbTitle (titres de page), OrbSection (sous-titres), OrbNote (textes discrets).
 
-const PANEL := Color(0.13, 0.08, 0.21, 0.9)
+const PANEL := Color(0.13, 0.08, 0.21, 0.62)
 const BUTTON := Color("#3a2858")
 const BUTTON_HOVER := Color("#503a78")
 const BUTTON_PRESSED := Color("#2a1c42")
@@ -65,6 +65,10 @@ static func build() -> Theme:
 	theme.set_font_size("font_size", "Button", 20)
 	# Textes.
 	theme.set_color("font_color", "Label", TEXT)
+	# Ombre légère : texte lisible sur le panneau transparent.
+	theme.set_color("font_shadow_color", "Label", Color(0.05, 0.02, 0.1, 0.6))
+	theme.set_constant("shadow_offset_x", "Label", 1)
+	theme.set_constant("shadow_offset_y", "Label", 1)
 	theme.set_type_variation("OrbTitle", "Label")
 	theme.set_font_size("font_size", "OrbTitle", 34)
 	theme.set_color("font_color", "OrbTitle", ACCENT)

@@ -1,4 +1,4 @@
-# OrbMeka™ — prototype 0.0.2.12
+# OrbMeka™ — prototype 0.0.2.13
 
 Godot 4.7 / GDScript. Formes et couleurs simples, sans assets externes.
 
@@ -508,3 +508,29 @@ fond 3D et sa caméra, cadre animé, pause floutée, retour du fond, 6 pages à
 800 × 450, 1920 × 1080, 2560 × 1080 et 800 × 900). Résultat : 16 tests,
 0 échec. À tester manuellement : aspect réel des menus et du fond 3D,
 fluidité de la caméra, flou de la pause, survol des boutons à la souris.
+
+## Menus plus larges et icônes — 0.0.2.13
+- Panneau des menus plus transparent (on voit mieux le fond), texte avec
+  une ombre légère pour rester lisible.
+- Pages de contenu (Mes mondes, formulaires, Attributs, Informations,
+  Historique, Comment jouer) : panneau à 72 % de la largeur de la fenêtre,
+  zones défilantes qui prennent toute la hauteur libre. Phrases plus longues
+  sur une ligne, beaucoup moins de défilement. Accueil et pause restent compacts.
+- Mes mondes : une seule rangée, ▶ Ouvrir puis des boutons-icônes
+  ➕ Créer, ✏️ Renommer, 📋 Dupliquer, ⚙️ Paramètres du monde, 🗑️ Supprimer
+  (nom de l'action au survol). Créer, Renommer et Confirmer la suppression
+  ont aussi leur icône. Tous les boutons sont un peu moins hauts.
+- Fond de l'accueil : seuls des éléments déjà dans le jeu. Le panneau de
+  verre violet de la 0.0.2.12 est retiré (le verre n'existe pas encore) ;
+  son image est gardée pour plus tard dans docs/idees/vitrine-verre-0.0.2.12.png.
+  Le point de vue est celui d'un joueur debout sur une tour de 4 blocs de
+  pierre, qui tourne lentement la tête : on ne vole plus.
+- Règle ajoutée en tête de scripts/menu_showcase.gd : la vitrine ne montre
+  que ce qui existe dans le jeu.
+
+Tests : menu_style_test.gd (59 contrôles : point de vue fixe sur la tour,
+pas de verre, boutons-icônes avec infobulle, transparence) et
+window_resize_test.gd (74 contrôles : panneau large des pages de contenu,
+hauteur libre des zones défilantes). Résultat : 16 tests, 0 échec.
+À tester manuellement : lisibilité sur le panneau transparent, icônes
+(police emoji de Windows), aspect du fond depuis la tour, fenêtre agrandie.
