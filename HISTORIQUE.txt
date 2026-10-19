@@ -1,0 +1,58 @@
+ORBMEKA — HISTORIQUE DES VERSIONS
+Du plus récent au plus ancien. Ce fichier est mis à jour à chaque version.
+
+0.0.2.8 — Historique et reprise directe
+Historique des versions intégré à l'accueil, lu depuis HISTORIQUE.txt, du plus récent au plus ancien.
+Reprendre ou Échap depuis la pause rend directement la souris au jeu ; Échap libère toujours la souris et ouvre la pause.
+
+0.0.2.7 — Organisation du projet
+Scènes dans scenes/, documentation dans docs/, guide et note des fichiers techniques accessibles depuis la racine.
+Chemins mis à jour, archive 0.0.2.6 vérifiée et préservée ; aucun changement de gameplay.
+
+0.0.2.6 — Accueil et informations générales
+Accueil : Jouer, Paramètres (sans réglage disponible), Informations → Génération des mondes.
+Détails généraux déplacés hors de Mes mondes ; informations du monde actif en pause conservées.
+
+0.0.2.5.1 — Rappels de commandes
+Comment jouer conserve la molette sans détailler 1/2/3 ; ces touches restent actives.
+Rappels F2 et F3 ajoutés sous le retour F1 pendant la partie, sans changer les mécaniques.
+
+0.0.2.5 — Raccourcis et sélection
+F2 ouvre Comment jouer, F3 ouvre Informations du monde, avec pause réelle et souris libre.
+Indicateur discret du bloc sélectionné en haut à gauche, actualisé par touches et molette.
+
+0.0.2.4 — Informations du monde
+Écran dans la pause : nom, graine exacte, nombre réel de collines, hauteur initiale et dimensions du monde chargé.
+Informations en lecture seule, jeu toujours en pause ; retour vers pause, aide consacrée aux commandes et limites.
+
+0.0.2.3 — Pause et Comment jouer
+Échap met réellement en pause ; l'ancien panneau d'aide est déplacé dans Pause → Comment jouer.
+Reprise sans perdre les constructions ni relancer les interactions ; version à l'accueil et dans la pause.
+
+0.0.2.2 — Informations des interfaces
+Détails du monde sélectionné : base 128 × 128, génération 41 × 41, construction jusqu'à 25 blocs ; collines jusqu'à 3 blocs.
+Formulaires et aide précisés : commandes, matériaux, limites et conservation des noms/graines, sans sauvegarde des constructions.
+
+0.0.2.1 — Pose et gestion des mondes
+Pose maintenue à 300 ms, casse conservée à 300 ms.
+Renommage persistant sans changer la graine ; suppression du monde choisi avec confirmation nominative.
+
+0.0.2 — Menu de départ et informations
+Jouer, liste des mondes, création par nom ; graine aléatoire et 3 ou 4 collines par monde.
+Noms et graines conservés, constructions non sauvegardées ; retour à la liste avec F1.
+
+0.0.1.3 — Construction et saut
+Casse maintenue toutes les 300 ms, pose maintenue toutes les 400 ms.
+Saut accéléré et tolérant ; arrêt des interactions au relâchement, à Échap ou à la perte de focus.
+
+0.0.1.2 — Sable et pierre
+Sable beige et pierre grise remplacent les blocs jaunes et bleus.
+Terre brune conservée ; le sable reste immobile, même sans support.
+
+0.0.1.1 — Collines de terre
+Trois petites collines à graine fixe, terre cassable et posable, base protégée.
+Aide : hauteur maximale de 25 blocs au-dessus du sol plat, collines incluses.
+
+0.0.1 — Premier prototype
+Ciel bleu, terrain plat, vue première personne, marche et saut.
+Deux blocs colorés cassables et posables, viseur et portée limitée.
