@@ -1,4 +1,4 @@
-# OrbMeka™ — prototype 0.0.2.10
+# OrbMeka™ — prototype 0.0.2.11
 
 Godot 4.7 / GDScript. Formes et couleurs simples, sans assets externes.
 
@@ -439,3 +439,19 @@ capture automatique sur une vraie fenêtre restent à confirmer manuellement.
 
 Tests : tests/attributes_test.gd, tests/action_timing_test.gd,
 tests/jump_profile_test.gd. Aucun test exhaustif supplémentaire effectué.
+## Fenêtre redimensionnable — 0.0.2.11
+La fenêtre garde ses boutons réduire / agrandir / fermer ; pas de plein écran.
+En la redimensionnant ou en l'agrandissant, menus, HUD et vue 3D s'adaptent :
+l'interface est mise à l'échelle sans déformation et l'espace en plus est
+rempli (fond des menus, champ de vision). Le panneau des menus reste centré,
+le viseur reste au centre (il était placé de façon fragile), le bloc choisi
+en haut à gauche, Retour aux mondes en haut à droite, l'aide en bas.
+Taille minimale de la fenêtre : 800 × 450, pour garder les menus lisibles.
+
+Test ajouté : tests/window_resize_test.gd (34 contrôles, tailles 1280 × 720,
+1920 × 1080, 960 × 540, 800 × 900 et 2560 × 1080). Tests liés réussis :
+pause, menus, raccourcis, historique, prototype et autres tests de partie.
+Échecs anciens, sans lien avec cette version : interface_info_test.gd
+(attend encore la version 0.0.2.9) et catalog_restart_test.gd (relance
+d'un second processus). À tester manuellement : aspect réel en agrandissant
+et en réduisant la fenêtre, notamment écran large et fenêtre étroite.

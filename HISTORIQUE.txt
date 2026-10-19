@@ -1,6 +1,10 @@
 ORBMEKA — HISTORIQUE DES VERSIONS
 Du plus récent au plus ancien. Ce fichier est mis à jour à chaque version.
 
+0.0.2.11 — Fenêtre redimensionnable
+Menus, HUD et vue 3D s'adaptent à toute taille de fenêtre, agrandie comprise, sans plein écran.
+Viseur toujours centré ; taille minimale de fenêtre 800×450.
+
 0.0.2.10 — Entrée directe et attributs
 Ouverture d'un monde avec contrôle immédiat de la souris ; pause et reprise sûres conservées.
 Attributs de saut et délais de blocs réglables, défauts/reset individuels, validation et sauvegarde locale indépendante des mondes.

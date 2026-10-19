@@ -231,8 +231,14 @@ func _create_hud() -> void:
 	crosshair.add_theme_font_size_override("font_size", 30)
 	crosshair.add_theme_color_override("font_shadow_color", Color.BLACK)
 	crosshair.add_theme_constant_override("shadow_outline_size", 3)
-	crosshair.set_anchors_and_offsets_preset(Control.PRESET_CENTER)
-	crosshair.position = Vector2(-10, -22)
+	crosshair.name = "Crosshair"
+	crosshair.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	crosshair.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	crosshair.set_anchors_preset(Control.PRESET_CENTER)
+	crosshair.offset_left = -20
+	crosshair.offset_right = 20
+	crosshair.offset_top = -24
+	crosshair.offset_bottom = 24
 	crosshair.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	layer.add_child(crosshair)
 	hint = Label.new()

@@ -5,6 +5,7 @@ const WorldScene = preload("res://scenes/world.tscn")
 const WorldRules = preload("res://scripts/world.gd")
 const UserSettings = preload("res://scripts/user_settings.gd")
 const Terrain = preload("res://scripts/terrain_generator.gd")
+const MIN_WINDOW_SIZE := Vector2i(800, 450)
 
 var settings: RefCounted
 var setting_fields: Dictionary = {}
@@ -61,6 +62,7 @@ var info_text: Label
 func _ready() -> void:
 	process_mode = Node.PROCESS_MODE_ALWAYS
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
+	get_window().min_size = MIN_WINDOW_SIZE
 	if catalog == null:
 		catalog = Catalog.new()
 	if settings == null:
@@ -170,7 +172,7 @@ func _build_interface() -> void:
 	var home := _page(stack, "OrbMeka™")
 	pages.home = home
 	var version := Label.new()
-	version.text = "v" + str(ProjectSettings.get_setting("application/config/version", "0.0.2.10"))
+	version.text = "v" + str(ProjectSettings.get_setting("application/config/version", "0.0.2.11"))
 	version.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	home.add_child(version)
 	home_version = version
