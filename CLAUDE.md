@@ -7,6 +7,11 @@ Guide complet : docs/README.md. Fichiers techniques : docs/ORGANISATION.txt.
 - Répondre en français, de façon **très synthétique** (l'utilisateur lit souvent à voix haute).
 - L'utilisateur n'est pas expert Git : expliquer les étapes simplement.
 
+## Juridique (prioritaire)
+- Signaler **immédiatement** tout risque : droit suisse/UE, Mojang/Microsoft, licences, données personnelles.
+- Ne rien reprendre de Minecraft (code, assets, noms, éléments emblématiques, interface identique) ; proposer une alternative originale.
+- Voir « Cadre juridique » dans README.md.
+
 ## Structure
 - scenes/ : main.tscn (menus), world.tscn (partie). scripts/ : code. tests/ : tests sans fenêtre.
 - Garder les .gd.uid avec leurs scripts. Ne pas toucher à .godot/ (cache) ni à Archives/ (local, ignoré par Git).
