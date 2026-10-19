@@ -112,7 +112,7 @@ et les fonctions de déplacement sans interaction avec le PC.
 
 Exemple de test depuis PowerShell dans le dossier du projet :
 
-    & 'C:UsersDevDownloadsGodot_v4.7.2-stable_win64.exeGodot_v4.7.2-stable_win64_console.exe' --headless --path . --log-file (Join-Path (Get-Location) '.godot/menu-tests.log') --script res://tests/menu_test.gd
+    & 'C:\Users\Dev\Downloads\Godot_v4.7.2-stable_win64.exe\Godot_v4.7.2-stable_win64_console.exe' --headless --path . --log-file (Join-Path (Get-Location) '.godot/menu-tests.log') --script res://tests/menu_test.gd
 
 Même commande avec prototype_test.gd, action_timing_test.gd, breaking_test.gd
 ou jump_profile_test.gd pour les autres suites. catalog_restart_test.gd se lance
