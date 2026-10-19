@@ -8,44 +8,51 @@ extends Node3D
 # 2. _build_news() : la construction 3D qui met en scène la nouveauté, au centre du petit monde.
 #    _animate_news(delta) l'anime (vide si rien ne bouge).
 # Le reste du fichier (sol, collines, ciel, caméra) ne change pas d'une version à l'autre.
-const NEWS_VERSION := "0.0.2.13"
-const NEWS_TEXT := "Nouveau : menus plus larges et plus transparents,\nmoins de défilement dans les fenêtres agrandies."
+const NEWS_VERSION := "0.0.2.14"
+const NEWS_TEXT := "Nouveau : Paramètres avec menu latéral et vitesses de marche réglables,\nhistorique des versions réparé."
 
-# 0.0.2.13 : un cadre en blocs de pierre qui s'élargit et se resserre pas à pas
-# (menus et fenêtre qui s'adaptent), avec deux rangées de sable en guise de boutons.
-const FRAME_HEIGHT := 6
-const FRAME_MIN_WIDTH := 5
-const FRAME_MAX_WIDTH := 11
-var frame_width := 0
-var frame_blocks: MultiMeshInstance3D
-var frame_rows: MultiMeshInstance3D
+# 0.0.2.14 : une piste de sable sur laquelle un marcheur (deux blocs de pierre, taille du joueur)
+# avance vite puis recule plus lentement : trois vitesses de marche réglables.
+const NEWS_HEIGHT := 3
+const TRACK_START := -4
+const TRACK_LENGTH := 8
+const WALK_FORWARD_SPEED := 4.0
+const WALK_BACK_SPEED := 2.0
+const WALK_PAUSE := 0.8
+var track: MultiMeshInstance3D
+var walker: MultiMeshInstance3D
+var walker_offset := 0.0
 
 func _build_news() -> void:
-	frame_blocks = _multimesh(STONE)
-	add_child(frame_blocks)
-	frame_rows = _multimesh(SAND)
-	add_child(frame_rows)
-	_set_frame_width(FRAME_MIN_WIDTH)
+	track = _multimesh(SAND)
+	add_child(track)
+	var cells: Array[Vector3i] = []
+	for x in range(TRACK_START, TRACK_START + TRACK_LENGTH + 1):
+		cells.append(Vector3i(x, 0, -1))
+	_fill_multimesh(track, cells)
+	walker = _multimesh(STONE)
+	add_child(walker)
+	walker.multimesh.instance_count = 2
+	_place_walker()
 
 func _animate_news(_delta: float) -> void:
-	var wave := sin(elapsed * 0.7) * 0.5 + 0.5
-	_set_frame_width(FRAME_MIN_WIDTH + 2 * roundi(wave * (FRAME_MAX_WIDTH - FRAME_MIN_WIDTH) / 2.0))
+	# Aller rapide, pause, retour lent, pause : le cycle se répète.
+	var forward_time := TRACK_LENGTH / WALK_FORWARD_SPEED
+	var back_time := TRACK_LENGTH / WALK_BACK_SPEED
+	var t := fmod(elapsed, forward_time + back_time + 2.0 * WALK_PAUSE)
+	if t < forward_time:
+		walker_offset = t * WALK_FORWARD_SPEED
+	elif t < forward_time + WALK_PAUSE:
+		walker_offset = TRACK_LENGTH
+	elif t < forward_time + WALK_PAUSE + back_time:
+		walker_offset = TRACK_LENGTH - (t - forward_time - WALK_PAUSE) * WALK_BACK_SPEED
+	else:
+		walker_offset = 0.0
+	_place_walker()
 
-func _set_frame_width(width: int) -> void:
-	if width == frame_width:
-		return
-	frame_width = width
-	var half := width / 2
-	var cells: Array[Vector3i] = []
-	var rows: Array[Vector3i] = []
-	for x in range(-half, half + 1):
-		for y in range(FRAME_HEIGHT):
-			if x == -half or x == half or y == 0 or y == FRAME_HEIGHT - 1:
-				cells.append(Vector3i(x, y, -1))
-			elif y == 2 or y == 4:
-				rows.append(Vector3i(x, y, -1))
-	_fill_multimesh(frame_blocks, cells)
-	_fill_multimesh(frame_rows, rows)
+func _place_walker() -> void:
+	for y in range(2):
+		walker.multimesh.set_instance_transform(y, Transform3D(Basis(), Vector3(TRACK_START + walker_offset + 0.5, y + 1.5, -0.5)))
 # ===== FIN DE LA VITRINE =====
 
 const Terrain = preload("res://scripts/terrain_generator.gd")
@@ -85,7 +92,7 @@ func _ready() -> void:
 func _process(delta: float) -> void:
 	elapsed += delta
 	_place_camera()
-	orb.position.y = FRAME_HEIGHT + 1.6 + sin(elapsed * 1.3) * 0.25
+	orb.position.y = NEWS_HEIGHT + 1.6 + sin(elapsed * 1.3) * 0.25
 	_animate_news(delta)
 
 func _place_camera() -> void:
@@ -185,5 +192,5 @@ func _build_orb() -> void:
 	material.emission = Color("#9a6cff")
 	material.emission_energy_multiplier = 1.6
 	orb.material_override = material
-	orb.position = Vector3(0.5, FRAME_HEIGHT + 1.6, -0.5)
+	orb.position = Vector3(0.5, NEWS_HEIGHT + 1.6, -0.5)
 	add_child(orb)

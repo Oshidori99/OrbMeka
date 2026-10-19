@@ -1,4 +1,4 @@
-# OrbMeka™ — prototype 0.0.2.13
+# OrbMeka™ — prototype 0.0.2.14
 
 Godot 4.7 / GDScript. Formes et couleurs simples, sans assets externes.
 
@@ -534,3 +534,28 @@ window_resize_test.gd (74 contrôles : panneau large des pages de contenu,
 hauteur libre des zones défilantes). Résultat : 16 tests, 0 échec.
 À tester manuellement : lisibilité sur le panneau transparent, icônes
 (police emoji de Windows), aspect du fond depuis la tour, fenêtre agrandie.
+
+## Paramètres en onglets et marche réglable — 0.0.2.14
+- Historique des versions réparé : le fichier a été rangé dans
+  docs/HISTORIQUE.txt, mais le jeu le cherchait encore à la racine (écran
+  « indisponible »). Le jeu et le plugin d'export lisent maintenant docs/.
+- Accueil → Paramètres : menu latéral à gauche, boutons rectangulaires.
+  « Paramètres généraux » (ouvert par défaut, aucun réglage pour le moment)
+  et « Attributs » (l'écran des attributs). Changer d'onglet garde les
+  saisies ; Retour ou Échap les abandonne toujours.
+- Attributs : bouton ↻ par catégorie (Saut, Blocs, Marche) et
+  « ↻ Tout réinitialiser ». Comme le ↻ d'un champ, ils remettent les
+  défauts dans les champs ; Appliquer enregistre.
+- Nouvelle catégorie Marche (en dernier) : Avancer, Avancer de côté, Reculer,
+  de 1 à 12 m/s, défaut 5,5 m/s (ancienne vitesse unique). Enregistrées dans
+  user://settings.json et utilisées par le joueur. Un ancien fichier de
+  réglages se charge sans avertissement, avec les défauts de marche.
+- Vitrine de l'accueil : un marcheur en blocs de pierre avance vite sur une
+  piste de sable, puis recule plus lentement.
+
+Test ajouté : tests/settings_walk_test.gd (44 contrôles : historique,
+menu latéral, réinitialisations, bornes et sauvegarde de la marche, vitesses
+réelles du joueur, mise en page de 800 × 450 à 2560 × 1080). Tests mis à jour
+pour la nouvelle page et la vitrine. Résultat : 17 tests, 0 échec.
+À tester manuellement : aspect du menu latéral et des onglets, sensation de
+marche aux différentes vitesses, vitrine animée, écran Historique dans le jeu.

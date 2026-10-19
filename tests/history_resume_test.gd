@@ -27,13 +27,13 @@ func _run() -> void:
 	root.add_child(app)
 	current_scene = app
 	app.history_button.pressed.emit()
-	check(app.page == "history" and app.history_text.text == FileAccess.get_file_as_string("res://HISTORIQUE.txt"), "history displays current UTF-8 source file")
+	check(app.page == "history" and app.history_text.text == FileAccess.get_file_as_string("res://docs/HISTORIQUE.txt"), "history displays current UTF-8 source file")
 	var titles: Array = []
 	for line in app.history_text.text.split("
 "):
 		if line.begins_with("0.0."):
 			titles.append(line)
-	check(titles.size() == 21 and titles[0].begins_with("0.0.2.13 ") and titles[-1].begins_with("0.0.1 "), "all twenty-one versions shown latest to earliest")
+	check(titles.size() == 22 and titles[0].begins_with("0.0.2.14 ") and titles[-1].begins_with("0.0.1 "), "all twenty-two versions shown latest to earliest")
 	check(titles.find("0.0.2.5.1 — Rappels de commandes") < titles.find("0.0.2.5 — Raccourcis et sélection"), "five-part patch number sorted correctly")
 	check(not is_instance_valid(app.active_world) and Input.mouse_mode == Input.MOUSE_MODE_VISIBLE, "history does not launch game or capture pointer")
 	await process_frame

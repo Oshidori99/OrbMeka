@@ -1,6 +1,10 @@
 ORBMEKA — HISTORIQUE DES VERSIONS
 Du plus récent au plus ancien. Ce fichier est mis à jour à chaque version.
 
+0.0.2.14 — Paramètres en onglets et marche réglable
+Historique réparé (fichier déplacé dans docs/) ; Paramètres : menu latéral Paramètres généraux / Attributs.
+Attributs : nouvelle catégorie Marche (avancer, de côté, reculer), ↻ par catégorie et ↻ Tout réinitialiser.
+
 0.0.2.13 — Menus plus larges et icônes
 Panneau plus transparent, pages de contenu plus larges et plus hautes : moins de défilement.
 Boutons-icônes dans Mes mondes ; fond de l'accueil vu depuis une tour de blocs, sans verre.

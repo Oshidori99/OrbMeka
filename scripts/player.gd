@@ -15,6 +15,10 @@ var gravity: float = JUMP_GRAVITY
 var jump_height := JUMP_SPEED * JUMP_SPEED / (2.0 * JUMP_GRAVITY)
 var jump_speed := JUMP_SPEED
 var rise_gravity := JUMP_GRAVITY
+# Vitesses de marche réglables (Paramètres → Attributs → Marche).
+var walk_forward := SPEED
+var walk_side := SPEED
+var walk_back := SPEED
 var input_ready_frame := -1
 var selected_type := 0:
 	set(value):
@@ -113,6 +117,9 @@ func apply_settings(values: Dictionary) -> void:
 	gravity = values.fall_gravity
 	actions.place_interval = values.place_ms / 1000.0
 	actions.break_interval = values.break_ms / 1000.0
+	walk_forward = values.walk_forward
+	walk_side = values.walk_side
+	walk_back = values.walk_back
 	actions.cancel()
 
 func resume_controls() -> void:
@@ -157,9 +164,12 @@ func step_movement(delta: float, direction: Vector2, jump_requested: bool) -> vo
 		vertical_distance += end_speed * remaining - 0.5 * gravity * remaining * remaining
 		end_speed -= gravity * remaining
 	velocity.y = vertical_distance / delta if delta > 0.0 else 0.0
-	var movement := global_transform.basis * Vector3(direction.x, 0.0, direction.y).limit_length(1.0)
-	velocity.x = movement.x * SPEED
-	velocity.z = movement.z * SPEED
+	# direction.y < 0 : avancer ; > 0 : reculer ; direction.x : de côté.
+	var step := direction.limit_length(1.0)
+	var local := Vector3(step.x * walk_side, 0.0, step.y * (walk_forward if step.y < 0.0 else walk_back))
+	var movement := global_transform.basis * local
+	velocity.x = movement.x
+	velocity.z = movement.z
 	move_and_slide()
 	velocity.y = 0.0 if is_on_floor() or is_on_ceiling() else end_speed
 	position.x = clampf(position.x, -58.0, 58.0)

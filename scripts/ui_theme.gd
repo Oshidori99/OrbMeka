@@ -40,6 +40,12 @@ static func _button_box(color: Color, border: Color, border_width: int) -> Style
 	box.border_width_bottom = border_width + 3
 	return box
 
+static func _tab_box(color: Color, mark: Color) -> StyleBoxFlat:
+	# Barre verticale à gauche : repère de la section ouverte.
+	var box := _box(color, 0, mark, 0, Vector2(14, 10))
+	box.border_width_left = 4
+	return box
+
 static func build() -> Theme:
 	var theme := Theme.new()
 	theme.default_font_size = 18
@@ -63,6 +69,16 @@ static func build() -> Theme:
 	theme.set_color("font_hover_pressed_color", "Button", ACCENT)
 	theme.set_color("font_disabled_color", "Button", Color(TEXT_DIM, 0.5))
 	theme.set_font_size("font_size", "Button", 20)
+	# Onglets du menu latéral (OrbTab) : rectangles à angles droits, section active surlignée de sable.
+	theme.set_type_variation("OrbTab", "Button")
+	theme.set_stylebox("normal", "OrbTab", _tab_box(Color(BUTTON, 0.7), Color.TRANSPARENT))
+	theme.set_stylebox("hover", "OrbTab", _tab_box(BUTTON_HOVER, ACCENT_SOFT))
+	theme.set_stylebox("pressed", "OrbTab", _tab_box(BUTTON_HOVER, ACCENT))
+	theme.set_stylebox("hover_pressed", "OrbTab", _tab_box(BUTTON_HOVER, ACCENT))
+	theme.set_color("font_pressed_color", "OrbTab", ACCENT)
+	theme.set_color("font_hover_pressed_color", "OrbTab", ACCENT)
+	theme.set_font_size("font_size", "OrbTab", 18)
+	theme.set_constant("h_separation", "OrbTab", 8)
 	# Textes.
 	theme.set_color("font_color", "Label", TEXT)
 	# Ombre légère : texte lisible sur le panneau transparent.

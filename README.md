@@ -1,10 +1,10 @@
-# OrbMeka™ 0.0.2.13
+# OrbMeka™ 0.0.2.14
 
 Dans Godot, ouvrez **project.godot**, puis **F5** pour lancer le jeu.
 
 - [Guide détaillé et commandes](docs/README.md)
 - [Organisation et fichiers techniques](docs/ORGANISATION.txt)
-- [Historique des versions](HISTORIQUE.txt)
+- [Historique des versions](docs/HISTORIQUE.txt)
 
 Scènes : scenes/ · Scripts : scripts/ · Tests : tests/ · Documentation : docs/.
 Les mondes personnels restent dans les données Godot user://.

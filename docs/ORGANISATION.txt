@@ -25,7 +25,7 @@ Gardez-les avec les sources, notamment lors d'un déplacement.
 icon.svg.import conserve les options d'importation de l'icône : ce n'est pas
 l'image elle-même. Godot peut le régénérer, mais ses réglages sont à préserver.
 README.md, à la racine, renvoie vers docs/README.md et les explications.
-HISTORIQUE.txt reste à la racine pour retrouver rapidement les versions.
+docs/HISTORIQUE.txt liste les versions (lu par l'écran Historique du jeu, depuis 0.0.2.14).
 project.godot.before-prototype est une copie de la toute première configuration,
 pas la configuration active : conservée comme référence, elle ne lance pas le jeu.
 
@@ -43,7 +43,7 @@ Les noms et graines personnels sont dans user://worlds.json, hors des sources.
 Les constructions ne sont pas sauvegardées. La copie vérifiée 0.0.2.6 reste
 hors du projet, dans le dossier voisin Archives/OrbMeka/orb-meka 0.0.2.6.
 Depuis 0.0.2.8, addons/history_export/ contient un petit plugin d'éditeur
-qui inclut HISTORIQUE.txt lors des exports. Gardez ses fichiers sources.
+qui inclut docs/HISTORIQUE.txt lors des exports. Gardez ses fichiers sources.
 Le README à la racine et docs/README.md restent les points d'entrée du guide.
 
 Depuis 0.0.2.10, scripts/user_settings.gd valide et conserve les attributs

@@ -58,7 +58,7 @@ func _run() -> void:
 	check(is_equal_approx(settings.values.jump_height, 2.52) and settings.values.jump_speed == 8.4 and settings.values.fall_gravity == 14, "defaults derived from original impulse and gravity")
 	check(settings.values.place_ms == 300 and settings.values.break_ms == 300, "both block defaults remain 300 ms")
 	var defaults: Dictionary = settings.values.duplicate()
-	var desired := {"jump_height":"3,0","jump_speed":"9","fall_gravity":"18","place_ms":"450","break_ms":"650"}
+	var desired := {"jump_height":"3,0","jump_speed":"9","fall_gravity":"18","place_ms":"450","break_ms":"650","walk_forward":"7","walk_side":"4,5","walk_back":"3"}
 	check(settings.apply_texts(desired), "French decimal comma and custom attributes accepted")
 	check(Settings.new(fixture).values == settings.values, "all settings persist independently in local file")
 	var committed: Dictionary = settings.values.duplicate()
@@ -86,7 +86,7 @@ func _run() -> void:
 	root.add_child(app)
 	current_scene = app
 	app.settings_button.pressed.emit()
-	check(app.pages.settings.get_child(0).text == "Attributs" and app.setting_fields.size() == 5 and app.setting_resets.size() == 5, "Attributs contains five numeric fields and five individual reset buttons")
+	check(app.pages.settings.get_child(0).text == "Paramètres" and app.setting_fields.size() == 8 and app.setting_resets.size() == 8, "Attributs contains eight numeric fields and eight individual reset buttons")
 	for field in app.setting_fields:
 		check(app.setting_fields[field].text == Settings.number_text(settings.values[field]) and app.setting_fields[field].placeholder_text == Settings.number_text(Settings.SPECS[field].default), "active value and default placeholder: " + field)
 		var before := {}

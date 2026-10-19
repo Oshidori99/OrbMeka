@@ -17,10 +17,29 @@ const COMPACT_PAGES := ["home", "pause", "delete"]
 const WIDE_WIDTH_RATIO := 0.72
 const WIDE_MAX_RATIO := 0.92
 const SCROLL_MIN_HEIGHT := 140.0
+# Lu à chaque ouverture de l'écran Historique ; inclus dans les exports par addons/history_export.
+const HISTORY_PATH := "res://docs/HISTORIQUE.txt"
+# Catégories de l'écran Attributs, dans l'ordre d'affichage, avec leur texte d'aide.
+const ATTRIBUTE_CATEGORIES := {
+	"Saut": {"keys": ["jump_height", "jump_speed", "fall_gravity"], "help": "Hauteur : sommet visé (1 m = 1 bloc).
+Vitesse : départ plus vif ou plus doux ; hauteur conservée.
+Gravité de descente : retombée plus ou moins rapide."},
+	"Blocs": {"keys": ["place_ms", "break_ms"], "help": "Temps entre deux actions au maintien du clic.
+Première action immédiate ; un délai plus court accélère la répétition."},
+	"Marche": {"keys": ["walk_forward", "walk_side", "walk_back"], "help": "Vitesse au sol dans chaque direction (1 bloc = 1 m)."},
+}
+# Menu latéral de Paramètres : sections dans l'ordre des boutons ; la première s'ouvre par défaut.
+const SETTINGS_SECTIONS := {"general": "Paramètres généraux", "attributes": "Attributs"}
+const SETTINGS_NAV_WIDTH := 190.0
 
 var settings: RefCounted
 var setting_fields: Dictionary = {}
 var setting_resets: Dictionary = {}
+var category_resets: Dictionary = {}
+var settings_reset_all_button: Button
+var settings_tabs: Dictionary = {}
+var settings_sections: Dictionary = {}
+var settings_section := "general"
 var settings_message: Label
 var settings_apply_button: Button
 var catalog: RefCounted
@@ -147,6 +166,23 @@ func reset_setting(key: String) -> void:
 	setting_fields[key].text = UserSettings.number_text(UserSettings.SPECS[key].default)
 	settings_message.text = "Défaut rétabli pour ce champ. Appliquer pour enregistrer."
 
+func reset_category(category: String) -> void:
+	for key in ATTRIBUTE_CATEGORIES[category].keys:
+		setting_fields[key].text = UserSettings.number_text(UserSettings.SPECS[key].default)
+	settings_message.text = "Défauts rétablis : %s. Appliquer pour enregistrer." % category
+
+func reset_all_settings() -> void:
+	for key in setting_fields:
+		setting_fields[key].text = UserSettings.number_text(UserSettings.SPECS[key].default)
+	settings_message.text = "Tous les défauts rétablis. Appliquer pour enregistrer."
+
+func show_settings_section(section: String) -> void:
+	# Changer de section garde les saisies en cours ; seul Retour les abandonne.
+	settings_section = section
+	for key in settings_sections:
+		settings_sections[key].visible = key == section
+		settings_tabs[key].set_pressed_no_signal(key == section)
+
 func apply_user_settings() -> void:
 	var texts := {}
 	for key in setting_fields:
@@ -193,7 +229,7 @@ func _build_interface() -> void:
 	var home := _page(stack, "OrbMeka™")
 	pages.home = home
 	var version := Label.new()
-	version.text = "v" + str(ProjectSettings.get_setting("application/config/version", "0.0.2.13"))
+	version.text = "v" + str(ProjectSettings.get_setting("application/config/version", "0.0.2.14"))
 	version.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	version.theme_type_variation = "OrbNote"
 	home.add_child(version)
@@ -222,39 +258,78 @@ func _build_interface() -> void:
 	history_text.add_theme_font_size_override("font_size", 17)
 	history_scroll.add_child(history_text)
 	history_back_button = _button("Retour", history_page, func(): show_page("home"))
-	var settings_page := _page(stack, "Attributs")
+	var settings_page := _page(stack, "Paramètres")
 	settings_page.add_theme_constant_override("separation", 10)
 	pages.settings = settings_page
+	# Menu latéral à gauche (onglets rectangulaires), contenu de la section à droite.
+	var settings_body := HBoxContainer.new()
+	settings_body.add_theme_constant_override("separation", 16)
+	settings_page.add_child(settings_body)
+	var settings_nav := VBoxContainer.new()
+	settings_nav.custom_minimum_size.x = SETTINGS_NAV_WIDTH
+	settings_nav.add_theme_constant_override("separation", 6)
+	settings_body.add_child(settings_nav)
+	var nav_group := ButtonGroup.new()
+	for section in SETTINGS_SECTIONS:
+		var tab := _button(SETTINGS_SECTIONS[section], settings_nav, func(): show_settings_section(section))
+		tab.theme_type_variation = "OrbTab"
+		tab.alignment = HORIZONTAL_ALIGNMENT_LEFT
+		tab.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		tab.toggle_mode = true
+		tab.button_group = nav_group
+		settings_tabs[section] = tab
+	var general := VBoxContainer.new()
+	general.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	general.add_theme_constant_override("separation", 10)
+	settings_body.add_child(general)
+	settings_sections.general = general
+	_explanation(general, "Paramètres généraux")
+	general.get_child(-1).theme_type_variation = "OrbSection"
+	_explanation(general, "Aucun réglage disponible pour le moment.")
+	general.get_child(-1).theme_type_variation = "OrbNote"
+	var attributes_box := VBoxContainer.new()
+	attributes_box.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	attributes_box.add_theme_constant_override("separation", 10)
+	settings_body.add_child(attributes_box)
+	settings_sections.attributes = attributes_box
 	var settings_scroll := ScrollContainer.new()
 	settings_scroll.custom_minimum_size = Vector2(0, 320)
 	menu_reserved_heights[settings_scroll] = 300.0
 	settings_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
 	settings_scroll.focus_mode = Control.FOCUS_ALL
 	settings_scroll.follow_focus = true
-	settings_page.add_child(settings_scroll)
+	attributes_box.add_child(settings_scroll)
 	var attributes := VBoxContainer.new()
 	attributes.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	attributes.add_theme_constant_override("separation", 10)
 	settings_scroll.add_child(attributes)
-	_explanation(attributes, "Saut")
-	attributes.get_child(-1).theme_type_variation = "OrbSection"
-	_explanation(attributes, "Hauteur : sommet visé (1 m = 1 bloc).
-Vitesse : départ plus vif ou plus doux ; hauteur conservée.
-Gravité de descente : retombée plus ou moins rapide.")
-	for key in ["jump_height", "jump_speed", "fall_gravity"]:
-		_add_setting_row(attributes, key)
-	_explanation(attributes, "Blocs")
-	attributes.get_child(-1).theme_type_variation = "OrbSection"
-	_explanation(attributes, "Temps entre deux actions au maintien du clic.
-Première action immédiate ; un délai plus court accélère la répétition.")
-	for key in ["place_ms", "break_ms"]:
-		_add_setting_row(attributes, key)
-	_explanation(attributes, "↻ : défaut de ce champ. Champ vide : défaut.
+	var all_row := HBoxContainer.new()
+	attributes.add_child(all_row)
+	_explanation(all_row, "Attributs")
+	all_row.get_child(-1).theme_type_variation = "OrbSection"
+	all_row.get_child(-1).size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	settings_reset_all_button = _button("↻ Tout réinitialiser", all_row, reset_all_settings)
+	settings_reset_all_button.tooltip_text = "Rétablir les défauts de tous les attributs"
+	for category in ATTRIBUTE_CATEGORIES:
+		var header := HBoxContainer.new()
+		attributes.add_child(header)
+		_explanation(header, category)
+		header.get_child(-1).theme_type_variation = "OrbSection"
+		header.get_child(-1).size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		var keys: Array = ATTRIBUTE_CATEGORIES[category].keys
+		var reset := _button("↻", header, func(): reset_category(category))
+		reset.custom_minimum_size.x = 42
+		reset.tooltip_text = "Rétablir les défauts de la catégorie " + category
+		category_resets[category] = reset
+		_explanation(attributes, ATTRIBUTE_CATEGORIES[category].help)
+		for key in keys:
+			_add_setting_row(attributes, key)
+	_explanation(attributes, "↻ : défauts du champ, de la catégorie ou de tout. Champ vide : défaut.
 Appliquer enregistre pour tous les mondes. Retour annule les modifications.")
 	settings_message = Label.new()
 	settings_message.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	settings_page.add_child(settings_message)
-	settings_apply_button = _button("Appliquer", settings_page, apply_user_settings)
+	attributes_box.add_child(settings_message)
+	settings_apply_button = _button("Appliquer", attributes_box, apply_user_settings)
 	settings_back_button = _button("Retour", settings_page, func(): show_page("home"))
 	var information_page := _page(stack, "Génération des mondes")
 	pages.information = information_page
@@ -447,7 +522,8 @@ func show_page(next_page: String) -> void:
 		history_back_button.grab_focus()
 	elif page == "settings":
 		_fill_settings()
-		setting_fields.jump_height.grab_focus()
+		show_settings_section(SETTINGS_SECTIONS.keys()[0])
+		settings_tabs[settings_section].grab_focus()
 	elif page == "information":
 		information_back_button.grab_focus()
 	elif page == "create":
@@ -619,7 +695,7 @@ func pause_game() -> void:
 func open_history() -> void:
 	if is_instance_valid(active_world):
 		return
-	var file := FileAccess.open("res://HISTORIQUE.txt", FileAccess.READ)
+	var file := FileAccess.open(HISTORY_PATH, FileAccess.READ)
 	history_text.text = file.get_as_text() if file != null else "L'historique des versions est indisponible."
 	history_scroll.scroll_vertical = 0
 	show_page("history")

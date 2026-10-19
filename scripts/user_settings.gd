@@ -1,12 +1,17 @@
 extends RefCounted
 const ORIGINAL_JUMP_SPEED := 8.4
 const ORIGINAL_GRAVITY := 14.0
+# Vitesse de marche unique avant 0.0.2.14 : défaut des trois directions.
+const ORIGINAL_WALK_SPEED := 5.5
 const SPECS := {
 	"jump_height": {"label": "Hauteur du saut", "unit": "m", "default": ORIGINAL_JUMP_SPEED * ORIGINAL_JUMP_SPEED / (2.0 * ORIGINAL_GRAVITY), "min": 1.1, "max": 8.0},
 	"jump_speed": {"label": "Vitesse de montée", "unit": "m/s", "default": ORIGINAL_JUMP_SPEED, "min": 3.0, "max": 16.0},
 	"fall_gravity": {"label": "Gravité de descente", "unit": "m/s²", "default": ORIGINAL_GRAVITY, "min": 4.0, "max": 40.0},
 	"place_ms": {"label": "Intervalle de pose", "unit": "ms", "default": 300.0, "min": 100.0, "max": 2000.0},
 	"break_ms": {"label": "Intervalle de casse", "unit": "ms", "default": 300.0, "min": 100.0, "max": 2000.0},
+	"walk_forward": {"label": "Avancer", "unit": "m/s", "default": ORIGINAL_WALK_SPEED, "min": 1.0, "max": 12.0},
+	"walk_side": {"label": "Avancer de côté", "unit": "m/s", "default": ORIGINAL_WALK_SPEED, "min": 1.0, "max": 12.0},
+	"walk_back": {"label": "Reculer", "unit": "m/s", "default": ORIGINAL_WALK_SPEED, "min": 1.0, "max": 12.0},
 }
 var values: Dictionary = {}
 var storage_path: String
@@ -25,6 +30,9 @@ func _init(path: String = "user://settings.json") -> void:
 		load_notice = "Réglages illisibles : valeurs par défaut chargées."
 		return
 	for key in SPECS:
+		# Réglage absent (fichier d'une version précédente) : défaut, sans avertissement.
+		if not parser.data.has(key):
+			continue
 		var value: Variant = parser.data.get(key)
 		if (value is int or value is float) and is_finite(float(value)) and value >= SPECS[key].min and value <= SPECS[key].max:
 			values[key] = float(value)
