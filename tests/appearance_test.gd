@@ -1,5 +1,6 @@
 extends SceneTree
 # 0.0.3.4 : synthèse des textes (− / Par défaut / +) et thème (sombre / par défaut / clair).
+# 0.0.3.5 : profondeur des menus (oui / non).
 const Settings = preload("res://scripts/user_settings.gd")
 const UiTheme = preload("res://scripts/ui_theme.gd")
 var checks := 0
@@ -26,7 +27,7 @@ func _run() -> void:
 	root.size = Vector2i(1280, 720)
 	var fixture := "res://.godot/appearance-test-%d.json" % Time.get_ticks_usec()
 	var settings := Settings.new(fixture)
-	check(settings.values.text_detail == "default" and settings.values.theme_mode == "default", "choice defaults: default detail and default theme")
+	check(settings.values.text_detail == "default" and settings.values.theme_mode == "default" and settings.values.menu_depth == "on", "choice defaults: default detail, default theme, depth on")
 	check(Settings.SPECS.nav_width.default == 120 and Settings.SPECS.nav_width.min == 80 and Settings.SPECS.nav_width.max == 250, "left menu scale lowered to 80-250 px, 120 by default")
 	check(Settings.SPECS.text_px.unit == "px" and Settings.SPECS.text_px.default == 18 and Settings.SPECS.text_px.min <= 18 * 0.4 + 0.5, "text size in px, minimum about 40 %")
 	var app: Control = load("res://scenes/main.tscn").instantiate()
@@ -39,9 +40,19 @@ func _run() -> void:
 	# Boutons de choix, à leur place et dans l'ordre demandé.
 	check(app.choice_buttons.text_detail.keys() == ["minus", "default", "plus"] and app.choice_buttons.text_detail.plus.text == "+", "synthesis offers −, Par défaut, +")
 	check(app.choice_buttons.theme_mode.values().map(func(button): return button.text) == ["Sombre", "Par défaut", "Clair"], "theme offers Sombre, Par défaut, Clair")
-	check(app.settings_sections.general.is_ancestor_of(app.choice_buttons.text_detail.plus) and app.settings_sections.video.is_ancestor_of(app.choice_buttons.theme_mode.light), "synthesis in general settings, theme in Vidéo")
+	check(app.choice_buttons.menu_depth.values().map(func(button): return button.text) == ["Oui", "Non"], "depth offers Oui, Non")
+	check(app.settings_sections.general.is_ancestor_of(app.choice_buttons.text_detail.plus) and app.settings_sections.video.is_ancestor_of(app.choice_buttons.theme_mode.light) and app.settings_sections.video.is_ancestor_of(app.choice_buttons.menu_depth.off), "synthesis in general settings, theme and depth in Vidéo")
 	app.show_page("settings")
 	check(app.choice_buttons.text_detail.default.button_pressed and not app.choice_buttons.text_detail.plus.button_pressed, "saved choice shown pressed")
+	# Profondeur : contenu sous le titre dans un encadré, catégories dans un encadré plus profond.
+	var home_inset: Node = app.pages.home.get_child(1)
+	check(app.pages.home.get_child(0).theme_type_variation == "OrbTitle" and home_inset is PanelContainer and home_inset.theme_type_variation == "OrbInset" and home_inset.is_ancestor_of(app.play_button), "page content sits in an inset below the title")
+	var deep: Node = app.setting_fields.mouse_sensitivity.get_parent().get_parent().get_parent()
+	check(deep is PanelContainer and deep.theme_type_variation == "OrbInsetDeep", "settings categories sit one level deeper")
+	check(app.menu_root.theme.get_stylebox("panel", "OrbInset") is StyleBoxFlat, "depth on: insets drawn")
+	choose(app, {"menu_depth": "off"})
+	check(settings.values.menu_depth == "off" and app.menu_root.theme.get_stylebox("panel", "OrbInset") is StyleBoxEmpty and app.menu_root.theme.get_stylebox("panel", "OrbInsetDeep") is StyleBoxEmpty, "depth off: flat menus")
+	choose(app, {"menu_depth": "on"})
 	# Thèmes.
 	for mode in ["dark", "light", "default"]:
 		choose(app, {"theme_mode": mode})
@@ -86,8 +97,9 @@ func _run() -> void:
 	app.setting_resets.theme_mode.pressed.emit()
 	check(app.choice_values.theme_mode == "default" and app.choice_buttons.theme_mode.default.button_pressed, "↻ restores the default choice")
 	app.choice_buttons.theme_mode.dark.pressed.emit()
+	app.choice_buttons.menu_depth.off.pressed.emit()
 	app.category_resets.Apparence.pressed.emit()
-	check(app.choice_values.theme_mode == "default" and settings.values.theme_mode == "default", "category ↻ restores choices, not saved before Apply")
+	check(app.choice_values.theme_mode == "default" and app.choice_values.menu_depth == "on" and settings.values.theme_mode == "default", "category ↻ restores choices, not saved before Apply")
 	choose(app, {"theme_mode": "light", "text_detail": "plus"})
 	check(Settings.new(fixture).values == settings.values and settings.values.theme_mode == "light", "choices reload from the settings file")
 	var texts := {}
@@ -101,14 +113,15 @@ func _run() -> void:
 	file.close()
 	var loaded := Settings.new(bad)
 	check(not loaded.load_notice.is_empty() and loaded.values.theme_mode == "default" and loaded.values.text_detail == "default" and loaded.values.text_px == 18, "invalid choices fall back to defaults; old % text size ignored")
-	# Toutes les pages restent dans la fenêtre : thèmes clair et sombre, petit écran, grand texte.
+	# Toutes les pages restent dans la fenêtre, thème clair sans profondeur, petit écran, grand texte.
+	choose(app, {"menu_depth": "off"})
 	for size in [Vector2i(800, 450), Vector2i(1280, 720)]:
 		root.size = size
 		await process_frame
-		for theme_name in ["light", "dark"]:
+		for depth in ["off", "on"]:
 			app.show_page("settings")
 			app.setting_fields.text_px.text = "27"
-			choose(app, {"theme_mode": theme_name})
+			choose(app, {"menu_depth": depth})
 			var ok := true
 			for page_name in ["home", "settings", "information", "worlds", "create", "rename", "delete"]:
 				app.show_page(page_name)
@@ -120,7 +133,7 @@ func _run() -> void:
 				if not inside:
 					print("OVERFLOW: ", page_name, " ", rect)
 				ok = ok and inside
-			check(ok, "pages inside %dx%d with 27 px text, theme %s" % [size.x, size.y, theme_name])
+			check(ok, "pages inside %dx%d with 27 px text, depth %s" % [size.x, size.y, depth])
 	check(Input.mouse_mode == Input.MOUSE_MODE_VISIBLE, "verification never captures pointer")
 	root.remove_child(app)
 	app.queue_free()

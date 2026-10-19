@@ -1,11 +1,11 @@
-# OrbMeka™ — prototype 0.0.3.4
+# OrbMeka™ — prototype 0.0.3.5
 
 Godot 4.7 / GDScript. Formes et couleurs simples, sans assets externes.
 
 ## Lancer et choisir un monde
 1. Dans Godot, arrêtez l'ancienne partie si nécessaire, puis appuyez sur **F5**.
 2. L'accueil affiche **Jouer**, **Paramètres**, **Informations**, dans cet ordre.
-   Jouer ouvre Mes mondes. Paramètres : Paramètres généraux (souris, synthèse), Vidéo (panneaux, texte, thème), Attributs.
+   Jouer ouvre Mes mondes. Paramètres : Paramètres généraux (souris, synthèse), Vidéo (panneaux, texte, thème, profondeur), Attributs.
    Informations explique la génération des mondes, sans désigner de monde particulier.
 3. Choisissez **Créer un monde**, saisissez son nom et, si souhaité, une graine, puis **Créer**.
    La création ouvre directement la partie.
@@ -674,3 +674,15 @@ Test ajouté : tests/appearance_test.gd (choix, thèmes, niveaux de texte,
 sauvegarde, pages dans la fenêtre). Tests de contenu passés en « + ».
 Résultat : 20 tests, 0 échec.
 À tester manuellement : rendu des thèmes sombre et clair, textes en « − ».
+
+## Profondeur des menus — 0.0.3.5
+- Vidéo → Apparence : **Profondeur des menus** Oui (par défaut) ou Non.
+- Oui : le titre reste sur le panneau ; le contenu est dans un encadré
+  creusé, et chaque bloc de réglages dans un encadré encore plus profond.
+  Non : menus à plat, comme avant.
+- Fonctionne avec les trois thèmes ; les panneaux restent dans la fenêtre.
+
+Tests mis à jour : appearance_test (encadrés, Oui / Non, pages dans la
+fenêtre avec et sans profondeur), settings_walk_test, et les tests qui
+cherchent des boutons dans les pages. Résultat : 20 tests, 0 échec.
+À tester manuellement : effet de profondeur dans les trois thèmes.

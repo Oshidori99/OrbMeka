@@ -5,6 +5,8 @@ extends RefCounted
 # (titres de page), OrbSection (sous-titres), OrbNote (textes discrets).
 # text_scale : réglage Vidéo → Taille du texte (1.0 = tailles d'origine).
 # mode : réglage Vidéo → Thème (« dark », « default », « light ») ; « default » = couleurs d'origine.
+# Profondeur (0.0.3.5) : sous le titre, le contenu est dans un encadré creusé (OrbInset),
+# et les blocs de réglages dans un second encadré plus profond (OrbInsetDeep).
 
 # Couleurs du thème par défaut (gardées en constantes pour les autres scripts).
 const PANEL := Color(0.13, 0.08, 0.21, 0.62)
@@ -30,6 +32,7 @@ static func palette(mode: String = "default") -> Dictionary:
 		"button_edge": Color("#251838"), "field": FIELD, "accent": ACCENT, "section": TURQUOISE,
 		"text": TEXT, "text_strong": Color.WHITE, "text_dim": TEXT_DIM, "error": ERROR,
 		"shadow": Color(0.05, 0.02, 0.1, 0.6), "title_outline": Color("#2a1440"),
+		"inset": Color(0.04, 0.02, 0.08, 0.3), "inset_edge": Color(0.02, 0.01, 0.05, 0.55),
 		"panel_shadow": Color(0.05, 0.02, 0.1, 0.45),
 	}
 	if mode == "dark":
@@ -37,6 +40,7 @@ static func palette(mode: String = "default") -> Dictionary:
 			"panel": Color(0.05, 0.035, 0.08, 0.88), "button": Color("#261a3a"), "button_hover": Color("#3a2b56"),
 			"button_pressed": Color("#191126"), "button_edge": Color("#0e0916"), "field": Color("#110b1b"),
 			"section": Color("#6cc4b6"), "text": Color("#e4ddee"), "text_dim": Color("#9a8fae"),
+			"inset": Color(0.0, 0.0, 0.0, 0.35), "inset_edge": Color(0.0, 0.0, 0.0, 0.6),
 		}, true)
 	elif mode == "light":
 		colors.merge({
@@ -45,6 +49,7 @@ static func palette(mode: String = "default") -> Dictionary:
 			"accent": Color("#8a5a00"), "section": Color("#1d7468"), "text": Color("#241638"),
 			"text_strong": Color("#100820"), "text_dim": Color("#5e5175"), "error": Color("#b3261e"),
 			"shadow": Color(1, 1, 1, 0.0), "title_outline": Color("#fff6e0"),
+			"inset": Color(0.4, 0.3, 0.6, 0.1), "inset_edge": Color(0.3, 0.2, 0.5, 0.3),
 			"panel_shadow": Color(0.2, 0.1, 0.3, 0.25),
 		}, true)
 	return colors
@@ -66,9 +71,15 @@ static func scaled(size: int, text_scale: float) -> int:
 
 static func panel_style(mode: String = "default") -> StyleBoxFlat:
 	var colors := palette(mode)
-	var box := _box(colors.panel, 8, Color(colors.accent, 0.35), 2, Vector2(30, 28))
+	var box := _box(colors.panel, 8, Color(colors.accent, 0.35), 2, Vector2(26, 22))
 	box.shadow_color = colors.panel_shadow
 	box.shadow_size = 14
+	return box
+
+static func inset_style(colors: Dictionary, margin: Vector2) -> StyleBoxFlat:
+	# Encadré creusé : fond plus sombre, bord haut épais (ombre intérieure), bord bas fin.
+	var box := _box(colors.inset, 6, colors.inset_edge, 1, margin)
+	box.border_width_top = 3
 	return box
 
 static func _button_box(color: Color, border: Color, border_width: int) -> StyleBoxFlat:
@@ -83,11 +94,16 @@ static func _tab_box(color: Color, mark: Color) -> StyleBoxFlat:
 	box.border_width_left = 4
 	return box
 
-static func build(text_scale: float = 1.0, mode: String = "default") -> Theme:
+static func build(text_scale: float = 1.0, mode: String = "default", depth: bool = true) -> Theme:
 	var c := palette(mode)
 	var theme := Theme.new()
 	theme.default_font_size = scaled(18, text_scale)
 	theme.set_stylebox("panel", "PanelContainer", panel_style(mode))
+	theme.set_type_variation("OrbInset", "PanelContainer")
+	# Profondeur désactivée (Vidéo → Profondeur des menus : Non) : encadrés invisibles et sans marge.
+	theme.set_stylebox("panel", "OrbInset", inset_style(c, Vector2(14, 12)) if depth else StyleBoxEmpty.new())
+	theme.set_type_variation("OrbInsetDeep", "PanelContainer")
+	theme.set_stylebox("panel", "OrbInsetDeep", inset_style(c, Vector2(12, 8)) if depth else StyleBoxEmpty.new())
 	# Boutons : pavés violets, contour sable au survol et au focus clavier.
 	theme.set_stylebox("normal", "Button", _button_box(c.button, c.button_edge, 1))
 	theme.set_stylebox("hover", "Button", _button_box(c.button_hover, c.accent, 1))

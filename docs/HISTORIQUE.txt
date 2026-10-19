@@ -3,6 +3,10 @@ Du plus récent au plus ancien. Ce fichier est mis à jour à chaque version.
 
 === Thème « Contrôles et Paramètres » (0.0.3 et suivantes) ===
 
+0.0.3.5 — Profondeur des menus
+Contenu des menus dans des encadrés creusés sous le titre, réglages encore plus profonds.
+Vidéo : profondeur des menus oui ou non.
+
 0.0.3.4 — Synthèse des textes et thèmes
 Paramètres généraux : synthèse des textes (−, par défaut, +) ; + garde les textes complets d'avant.
 Vidéo : thème sombre, par défaut ou clair.

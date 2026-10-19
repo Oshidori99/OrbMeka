@@ -42,7 +42,7 @@ const GENERAL_CATEGORIES := {
 	"video": {
 		"Panneaux": {"keys": ["panel_size", "nav_width"], "help": ["", "Largeur des menus et de la colonne d'onglets.", "Largeur des menus ; le menu de gauche est la colonne d'onglets."]},
 		"Texte": {"keys": ["text_px"], "help": ["", "Taille des textes.", "Taille de tous les textes, menus et jeu (18 px : taille d'origine)."]},
-		"Apparence": {"keys": ["theme_mode"], "help": ["", "Couleurs des menus.", "Thème de couleurs des menus : sombre, par défaut (couleurs d'origine) ou clair."]},
+		"Apparence": {"keys": ["theme_mode", "menu_depth"], "help": ["", "Couleurs et encadrés des menus.", "Thème de couleurs des menus. Profondeur : contenu dans des encadrés creusés sous le titre."]},
 	},
 }
 # Menu latéral de Paramètres : sections dans l'ordre des boutons ; la première s'ouvre par défaut.
@@ -188,7 +188,7 @@ func _text_scale() -> float:
 	return settings.values.text_px / UserSettings.SPECS.text_px.default
 
 func _build_theme() -> Theme:
-	return UiTheme.build(_text_scale(), settings.values.theme_mode)
+	return UiTheme.build(_text_scale(), settings.values.theme_mode, settings.values.menu_depth == "on")
 
 # Taille du texte, thème et profondeur : appliqués à tous les menus, immédiatement.
 func apply_appearance() -> void:
@@ -291,6 +291,13 @@ func _add_setting_category(parent: Node, category: String, data: Dictionary) -> 
 	var gap := Control.new()
 	gap.custom_minimum_size.y = CATEGORY_GAP
 	parent.add_child(gap)
+	# Profondeur : chaque catégorie dans un encadré plus creusé que la page.
+	var inset := PanelContainer.new()
+	inset.theme_type_variation = "OrbInsetDeep"
+	parent.add_child(inset)
+	parent = VBoxContainer.new()
+	parent.add_theme_constant_override("separation", 10)
+	inset.add_child(parent)
 	var header := HBoxContainer.new()
 	parent.add_child(header)
 	_explanation(header, category)
@@ -355,16 +362,28 @@ func apply_user_settings() -> void:
 	fit_menus_to_window()
 	settings_message.text = "Paramètres enregistrés."
 
+# Page : titre sur le panneau, puis contenu « plus profond » dans un encadré creusé.
+# Renvoie le contenu ; la page entière (titre compris) est _page_root(contenu).
 func _page(parent: Node, heading: String) -> VBoxContainer:
-	var box := VBoxContainer.new()
-	box.add_theme_constant_override("separation", 16)
-	parent.add_child(box)
+	var root := VBoxContainer.new()
+	root.add_theme_constant_override("separation", 12)
+	parent.add_child(root)
 	var title := _text_label()
 	title.text = heading
 	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	title.theme_type_variation = "OrbTitle"
-	box.add_child(title)
+	root.add_child(title)
+	var inset := PanelContainer.new()
+	inset.theme_type_variation = "OrbInset"
+	root.add_child(inset)
+	var box := VBoxContainer.new()
+	box.add_theme_constant_override("separation", 16)
+	inset.add_child(box)
+	box.set_meta("page_root", root)
 	return box
+
+func _page_root(content: VBoxContainer) -> VBoxContainer:
+	return content.get_meta("page_root")
 
 func _build_interface() -> void:
 	var layer := CanvasLayer.new()
@@ -398,9 +417,9 @@ func _build_interface() -> void:
 	menu_stack = stack
 	stack.minimum_size_changed.connect(_queue_fit)
 	var home := _page(stack, "OrbMeka™")
-	pages.home = home
+	pages.home = _page_root(home)
 	var version := _text_label()
-	version.text = "v" + str(ProjectSettings.get_setting("application/config/version", "0.0.3.4"))
+	version.text = "v" + str(ProjectSettings.get_setting("application/config/version", "0.0.3.5"))
 	version.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	version.theme_type_variation = "OrbNote"
 	home.add_child(version)
@@ -415,7 +434,7 @@ func _build_interface() -> void:
 	information_button = _button("Informations", home, func(): show_page("information"))
 	history_button = _button("Historique des versions", home, open_history)
 	var history_page := _page(stack, "Historique des versions")
-	pages.history = history_page
+	pages.history = _page_root(history_page)
 	history_scroll = ScrollContainer.new()
 	history_scroll.custom_minimum_size = Vector2(0, 350)
 	menu_reserved_heights[history_scroll] = 300.0
@@ -430,7 +449,7 @@ func _build_interface() -> void:
 	history_back_button = _button("Retour", history_page, func(): show_page("home"))
 	var settings_page := _page(stack, "Paramètres")
 	settings_page.add_theme_constant_override("separation", 10)
-	pages.settings = settings_page
+	pages.settings = _page_root(settings_page)
 	# Menu latéral à gauche (onglets rectangulaires), contenu de la section à droite.
 	var settings_body := HBoxContainer.new()
 	settings_body.add_theme_constant_override("separation", 16)
@@ -491,7 +510,7 @@ func _build_interface() -> void:
 	settings_apply_button = _button("Appliquer", settings_page, apply_user_settings)
 	settings_back_button = _button("Retour", settings_page, func(): show_page("home"))
 	var information_page := _page(stack, "Génération des mondes")
-	pages.information = information_page
+	pages.information = _page_root(information_page)
 	var span := Terrain.MAX_CELL - Terrain.MIN_CELL + 1
 	var sizes := [int(WorldRules.BASE_SIZE.x), int(WorldRules.BASE_SIZE.z), span, span, WorldRules.MAX_BUILD_HEIGHT, Terrain.MAX_HEIGHT]
 	_explanation(information_page, [
@@ -512,7 +531,7 @@ F1 : revenir à la liste des mondes depuis la partie." % sizes,
 	generation_info = information_page.get_child(-1)
 	information_back_button = _button("Retour", information_page, func(): show_page("home"))
 	var list_page := _page(stack, "Mes mondes")
-	pages.worlds = list_page
+	pages.worlds = _page_root(list_page)
 	list_page.add_theme_constant_override("separation", 10)
 	world_list = ItemList.new()
 	world_list.custom_minimum_size = Vector2(0, 144)
@@ -537,7 +556,7 @@ F1 : revenir à la liste des mondes depuis la partie." % sizes,
 	delete_button = _icon_button("🗑️", "Supprimer", actions_row, request_delete)
 	_button("Retour", list_page, func(): show_page("home"))
 	var form := _page(stack, "Créer un monde")
-	pages.create = form
+	pages.create = _page_root(form)
 	form.add_theme_constant_override("separation", 10)
 	var name_label := _text_label()
 	name_label.text = "Nom du monde"
@@ -588,21 +607,21 @@ Nom, graine et mode conservés ; constructions non sauvegardées." % Catalog.MAX
 	create_button = _button("➕ Créer", form, create_named_world)
 	_button("Retour", form, func(): show_page("worlds"))
 	var world_settings_page := _page(stack, "Paramètres du monde")
-	pages.world_settings = world_settings_page
+	pages.world_settings = _page_root(world_settings_page)
 	world_settings_text = _text_label()
 	world_settings_text.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	world_settings_page.add_child(world_settings_text)
 	world_developer_button = _button("Passer en mode développeur…", world_settings_page, request_developer_mode)
 	world_settings_back_button = _button("Retour", world_settings_page, cancel_world_action)
 	var developer_page := _page(stack, "Passer en mode développeur ?")
-	pages.developer_confirm = developer_page
+	pages.developer_confirm = _page_root(developer_page)
 	developer_confirm_message = _text_label()
 	developer_confirm_message.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	developer_page.add_child(developer_confirm_message)
 	developer_confirm_button = _button("Confirmer : mode développeur définitif", developer_page, confirm_developer_mode)
 	developer_cancel_button = _button("Annuler", developer_page, open_world_settings_for_pending)
 	var rename_page := _page(stack, "Renommer le monde")
-	pages.rename = rename_page
+	pages.rename = _page_root(rename_page)
 	_explanation(rename_page, ["", "Seul le nom change.", "Seul le nom change (1 à %d caractères).
 La graine et le terrain initial sont conservés." % Catalog.MAX_NAME_LENGTH])
 	rename_field = LineEdit.new()
@@ -616,14 +635,14 @@ La graine et le terrain initial sont conservés." % Catalog.MAX_NAME_LENGTH])
 	_button("✏️ Renommer", rename_page, confirm_rename)
 	_button("Annuler", rename_page, cancel_world_action)
 	var delete_page := _page(stack, "Supprimer ce monde ?")
-	pages.delete = delete_page
+	pages.delete = _page_root(delete_page)
 	delete_message = _text_label()
 	delete_message.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	delete_page.add_child(delete_message)
 	_button("🗑️ Confirmer la suppression", delete_page, confirm_delete)
 	cancel_delete_button = _button("Annuler", delete_page, cancel_world_action)
 	var pause_page := _page(stack, "Pause")
-	pages.pause = pause_page
+	pages.pause = _page_root(pause_page)
 	pause_version = _text_label()
 	pause_version.text = version.text
 	pause_version.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
@@ -634,7 +653,7 @@ La graine et le terrain initial sont conservés." % Catalog.MAX_NAME_LENGTH])
 	info_button = _button("Informations du monde", pause_page, open_world_info)
 	_button("Retour aux mondes", pause_page, return_to_worlds)
 	var help_page := _page(stack, "Comment jouer")
-	pages.help = help_page
+	pages.help = _page_root(help_page)
 	var scroll := ScrollContainer.new()
 	scroll.custom_minimum_size = Vector2(0, 350)
 	menu_reserved_heights[scroll] = 300.0
@@ -647,7 +666,7 @@ La graine et le terrain initial sont conservés." % Catalog.MAX_NAME_LENGTH])
 	scroll.add_child(help_text)
 	help_back_button = _button("Retour à la pause", help_page, func(): show_page("pause"))
 	var info_page := _page(stack, "Informations du monde")
-	pages.world_info = info_page
+	pages.world_info = _page_root(info_page)
 	info_text = _text_label()
 	info_text.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	info_page.add_child(info_text)

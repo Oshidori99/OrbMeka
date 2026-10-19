@@ -19,10 +19,11 @@ const SPECS := {
 	# Taille du texte en px (0.0.3.3) ; 18 px = taille d'origine ; minimum environ 40 %.
 	"text_px": {"label": "Taille du texte", "unit": "px", "default": 18.0, "min": 7.0, "max": 27.0},
 }
-# Réglages à choix (0.0.3.4), affichés en boutons ; options dans l'ordre d'affichage.
+# Réglages à choix (0.0.3.4 ; profondeur 0.0.3.5), affichés en boutons ; options dans l'ordre d'affichage.
 const CHOICES := {
 	"text_detail": {"label": "Synthèse des textes", "options": {"minus": "−", "default": "Par défaut", "plus": "+"}, "default": "default"},
 	"theme_mode": {"label": "Thème", "options": {"dark": "Sombre", "default": "Par défaut", "light": "Clair"}, "default": "default"},
+	"menu_depth": {"label": "Profondeur des menus", "options": {"on": "Oui", "off": "Non"}, "default": "on"},
 }
 # Attributs du joueur : par défaut dans un monde par défaut, réglables en mode développeur.
 const ATTRIBUTE_KEYS := ["jump_height", "jump_speed", "fall_gravity", "place_ms", "break_ms", "walk_forward", "walk_side", "walk_back"]

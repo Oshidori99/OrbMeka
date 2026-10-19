@@ -107,7 +107,9 @@ func _run() -> void:
 	var gaps_ok := true
 	for category in app.category_resets:
 		var header: Node = app.category_resets[category].get_parent()
-		var gap: Control = header.get_parent().get_child(header.get_index() - 1)
+		# Catégorie dans son encadré (profondeur) : l'espace précède l'encadré.
+		var inset: Node = header.get_parent().get_parent()
+		var gap: Control = inset.get_parent().get_child(inset.get_index() - 1)
 		gaps_ok = gaps_ok and gap.custom_minimum_size.y >= 20
 	check(gaps_ok, "extra space before each category")
 	app.settings_reset_all_button.pressed.emit()
