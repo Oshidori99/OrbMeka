@@ -126,6 +126,13 @@ var delete_message: RichTextLabel
 var cancel_delete_button: Button
 var pending_world_id := ""
 var resume_button: Button
+var pause_settings_button: Button
+var attributes_gate: VBoxContainer
+var attributes_gate_text: RichTextLabel
+var attributes_gate_button: Button
+var attributes_gate_confirm: Button
+var attributes_gate_cancel: Button
+var attributes_scroll: ScrollContainer
 var how_button: Button
 var help_back_button: Button
 var help_text: RichTextLabel
@@ -397,6 +404,56 @@ func reset_all_settings() -> void:
 	settings_message.text = "Tous les attributs par défaut."
 	_autosave()
 
+# Attributs verrouillés : en pause, dans un monde en mode par défaut.
+func _attributes_locked() -> bool:
+	return is_instance_valid(active_world) and not active_world.developer_mode
+
+func _show_attributes_gate(confirming: bool) -> void:
+	var locked := _attributes_locked()
+	attributes_gate.visible = locked
+	attributes_scroll.visible = not locked
+	attributes_gate_button.visible = locked and not confirming
+	attributes_gate_confirm.visible = confirming
+	attributes_gate_cancel.visible = confirming
+	if confirming:
+		attributes_gate_text.text = "Attention : ce choix est irréversible.
+Ce monde passera en mode développeur, sans retour possible au mode par défaut."
+		attributes_gate_cancel.grab_focus()
+	else:
+		attributes_gate_text.text = "Ce monde est en mode par défaut : ses attributs ne sont pas modifiables.
+Pour les régler, passez-le en mode développeur."
+
+func request_game_developer_mode() -> void:
+	_show_attributes_gate(true)
+
+func confirm_game_developer_mode() -> void:
+	if not _attributes_locked():
+		return
+	if not catalog.enable_developer_mode(current_world_id):
+		attributes_gate_text.text = catalog.last_error
+		return
+	active_world.developer_mode = true
+	active_world.world_mode_text = Catalog.MODE_NAMES[Catalog.MODE_DEVELOPER]
+	_apply_to_game()
+	_show_attributes_gate(false)
+	settings_message.text = "Monde passé en mode développeur : attributs modifiables."
+
+# En partie, les réglages s'appliquent tout de suite au joueur et aux textes du jeu.
+func _apply_to_game() -> void:
+	if not is_instance_valid(active_world):
+		return
+	active_world.player.apply_settings(settings.world_values(active_world.developer_mode))
+	active_world.apply_text_scale(_text_scale())
+
+func open_pause_settings() -> void:
+	if page != "pause" or not is_instance_valid(active_world):
+		return
+	show_page("settings")
+
+# Retour de Paramètres : vers la pause en partie, sinon vers l'accueil.
+func leave_settings() -> void:
+	show_page("pause" if is_instance_valid(active_world) else "home")
+
 func show_settings_section(section: String) -> void:
 	# Changer de section ne change rien : chaque réglage est déjà enregistré (0.0.3.8).
 	settings_section = section
@@ -416,6 +473,7 @@ func _autosave() -> bool:
 		settings_message.text = settings.last_error
 		return false
 	apply_appearance()
+	_apply_to_game()
 	fit_menus_to_window()
 	settings_message.text = "Enregistré."
 	return true
@@ -487,7 +545,7 @@ func _build_interface() -> void:
 	var home := _page(stack, "OrbMeka™")
 	pages.home = _page_root(home)
 	var version := _text_label()
-	version.text = "v" + str(ProjectSettings.get_setting("application/config/version", "0.0.3.8"))
+	version.text = "v" + str(ProjectSettings.get_setting("application/config/version", "0.0.3.9"))
 	version.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	version.theme_type_variation = "OrbNote"
 	home.add_child(version)
@@ -550,7 +608,19 @@ func _build_interface() -> void:
 	attributes_box.add_theme_constant_override("separation", 10)
 	settings_body.add_child(attributes_box)
 	settings_sections.attributes = attributes_box
+	# En pause dans un monde par défaut (0.0.3.9) : les attributs sont remplacés par une
+	# proposition de passer le monde en mode développeur, avec avertissement « sans retour ».
+	attributes_gate = VBoxContainer.new()
+	attributes_gate.add_theme_constant_override("separation", 10)
+	attributes_box.add_child(attributes_gate)
+	attributes_gate_text = _text_label()
+	attributes_gate_text.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	attributes_gate.add_child(attributes_gate_text)
+	attributes_gate_button = _button("Passer ce monde en mode développeur…", attributes_gate, request_game_developer_mode)
+	attributes_gate_confirm = _button("Confirmer : mode développeur définitif", attributes_gate, confirm_game_developer_mode)
+	attributes_gate_cancel = _button("Annuler", attributes_gate, func(): _show_attributes_gate(false))
 	var settings_scroll := ScrollContainer.new()
+	attributes_scroll = settings_scroll
 	settings_scroll.custom_minimum_size = Vector2(0, 320)
 	menu_reserved_heights[settings_scroll] = 300.0
 	settings_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
@@ -575,7 +645,7 @@ func _build_interface() -> void:
 	settings_message = _text_label()
 	settings_message.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	settings_page.add_child(settings_message)
-	settings_back_button = _button("Retour", settings_page, func(): show_page("home"))
+	settings_back_button = _button("Retour", settings_page, leave_settings)
 	var information_page := _page(stack, "Génération des mondes")
 	pages.information = _page_root(information_page)
 	var span := Terrain.MAX_CELL - Terrain.MIN_CELL + 1
@@ -716,6 +786,8 @@ La graine et le terrain initial sont conservés." % Catalog.MAX_NAME_LENGTH])
 	pause_version.theme_type_variation = "OrbNote"
 	pause_page.add_child(pause_version)
 	resume_button = _button("Reprendre", pause_page, resume_game)
+	# 0.0.3.9 : Paramètres aussi en pause, juste sous Reprendre (sans Attributs dans un monde par défaut).
+	pause_settings_button = _button("Paramètres", pause_page, open_pause_settings)
 	how_button = _button("Comment jouer", pause_page, open_help)
 	info_button = _button("Informations du monde", pause_page, open_world_info)
 	_button("Retour aux mondes", pause_page, return_to_worlds)
@@ -820,6 +892,7 @@ func show_page(next_page: String) -> void:
 		history_back_button.grab_focus()
 	elif page == "settings":
 		_fill_settings()
+		_show_attributes_gate(false)
 		show_settings_section(SETTINGS_SECTIONS.keys()[0])
 		settings_tabs[settings_section].grab_focus()
 	elif page == "information":
@@ -1078,10 +1151,12 @@ func resume_game() -> void:
 func _unhandled_key_input(event: InputEvent) -> void:
 	if not event.is_pressed() or event.is_echo():
 		return
-	if page in ["playing", "pause", "help", "world_info"] and event is InputEventKey and event.keycode == KEY_F1:
+	# Paramètres ouverts depuis la pause comptent comme une page de la partie (F1, F2, F3).
+	var in_game_pages := ["playing", "pause", "help", "world_info", "settings"] if is_instance_valid(active_world) else ["playing", "pause", "help", "world_info"]
+	if page in in_game_pages and event is InputEventKey and event.keycode == KEY_F1:
 		return_to_worlds()
 		get_viewport().set_input_as_handled()
-	elif is_instance_valid(active_world) and page in ["playing", "pause", "help", "world_info"] and event is InputEventKey and event.keycode in [KEY_F2, KEY_F3]:
+	elif is_instance_valid(active_world) and page in in_game_pages and event is InputEventKey and event.keycode in [KEY_F2, KEY_F3]:
 		if page == "playing":
 			pause_game()
 		else:
@@ -1112,6 +1187,8 @@ func _cancel_page() -> void:
 		cancel_world_action()
 	elif page == "developer_confirm":
 		open_world_settings_for_pending()
+	elif page == "settings" and is_instance_valid(active_world):
+		leave_settings()
 	elif page in ["settings", "information", "history"]:
 		show_page("home")
 	elif page == "create":

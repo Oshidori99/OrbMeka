@@ -256,6 +256,13 @@ func _create_hud() -> void:
 	hint.add_theme_constant_override("shadow_outline_size", 4)
 	layer.add_child(hint)
 
+# Taille du texte changée en pause (Paramètres, 0.0.3.9) : textes du jeu mis à jour aussitôt.
+func apply_text_scale(scale: float) -> void:
+	text_scale = scale
+	if is_instance_valid(selected_block_label):
+		selected_block_label.add_theme_font_size_override("font_size", roundi(18 * text_scale))
+		hint.add_theme_font_size_override("font_size", roundi(19 * text_scale))
+
 func update_selected_block() -> void:
 	if is_instance_valid(selected_block_label) and is_instance_valid(player):
 		selected_block_label.text = "Bloc sélectionné : %s" % BLOCK_NAMES[player.selected_type]

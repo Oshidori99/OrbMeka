@@ -1,4 +1,4 @@
-# OrbMeka™ — prototype 0.0.3.8
+# OrbMeka™ — prototype 0.0.3.9
 
 Godot 4.7 / GDScript. Formes et couleurs simples, sans assets externes.
 
@@ -730,3 +730,19 @@ Tests mis à jour : enregistrement immédiat (barres, interrupteur, ↻,
 saisie), plus de bouton Appliquer, menu de gauche en %. Résultat : 22 tests, 0 échec.
 À tester manuellement : saisie au clavier dans les champs (pas de saut du
 curseur), glisser les barres, menu de gauche à 5 et 40 %.
+
+## Paramètres dans la pause — 0.0.3.9
+- Pause : bouton **Paramètres** en 2e position, sous Reprendre. Il ouvre le
+  même panneau Paramètres ; Retour et Échap reviennent à la pause, F1 aux mondes.
+- En partie, chaque réglage s'applique aussitôt : FOV, souris, taille du
+  texte du jeu, thème, échelle… et les attributs dans un monde développeur.
+- Monde par défaut : l'onglet Attributs reste dans la colonne de gauche,
+  mais explique qu'il faut passer le monde en mode développeur et le propose.
+  Confirmation claire : « irréversible », sans retour au mode par défaut
+  (Annuler sélectionné). Après confirmation, les attributs deviennent
+  modifiables et s'appliquent tout de suite ; le mode est enregistré.
+
+Test ajouté : tests/pause_settings_test.gd (bouton, retour, Échap, F1,
+réglages en direct, passage au mode développeur avec confirmation).
+Résultat : 23 tests, 0 échec.
+À tester manuellement : régler en pause puis reprendre (souris, FOV).
