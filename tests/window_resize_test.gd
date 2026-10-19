@@ -45,7 +45,7 @@ func _run() -> void:
 			app.show_page(page_name)
 			await process_frame
 			check(_inside(panel.get_global_rect(), view), page_name + " page fits in window" + tag)
-			check(absf(panel.size.x - clampf(view.size.x * 0.72, 560.0, view.size.x * 0.92)) < 2, page_name + " page uses a wide panel" + tag)
+			check(absf(panel.size.x - clampf(view.size.x * 0.72, 560.0, view.size.x * 0.95)) < 2, page_name + " page uses a wide panel" + tag)
 		app.show_page("home")
 	root.size = Vector2i(1280, 720)
 	app.open_world("resize-test")

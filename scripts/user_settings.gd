@@ -12,7 +12,13 @@ const SPECS := {
 	"walk_forward": {"label": "Avancer", "unit": "m/s", "default": ORIGINAL_WALK_SPEED, "min": 1.0, "max": 12.0},
 	"walk_side": {"label": "Avancer de côté", "unit": "m/s", "default": ORIGINAL_WALK_SPEED, "min": 1.0, "max": 12.0},
 	"walk_back": {"label": "Reculer", "unit": "m/s", "default": ORIGINAL_WALK_SPEED, "min": 1.0, "max": 12.0},
+	# Réglages généraux (0.0.3.1) : valables dans tous les mondes, quel que soit leur mode.
+	"mouse_sensitivity": {"label": "Sensibilité de la souris", "unit": "%", "default": 100.0, "min": 10.0, "max": 300.0},
+	"panel_size": {"label": "Taille des panneaux", "unit": "% de la fenêtre", "default": 72.0, "min": 50.0, "max": 95.0},
+	"nav_width": {"label": "Largeur du menu de gauche", "unit": "px", "default": 190.0, "min": 120.0, "max": 400.0},
 }
+# Attributs du joueur : par défaut dans un monde par défaut, réglables en mode développeur.
+const ATTRIBUTE_KEYS := ["jump_height", "jump_speed", "fall_gravity", "place_ms", "break_ms", "walk_forward", "walk_side", "walk_back"]
 var values: Dictionary = {}
 var storage_path: String
 var last_error := ""
@@ -44,6 +50,15 @@ static func default_values() -> Dictionary:
 	var result := {}
 	for key in SPECS:
 		result[key] = SPECS[key].default
+	return result
+
+# Valeurs pour une partie : monde développeur = tous les réglages ; monde par défaut =
+# attributs par défaut, réglages généraux (souris…) conservés.
+func world_values(developer: bool) -> Dictionary:
+	var result := values.duplicate()
+	if not developer:
+		for key in ATTRIBUTE_KEYS:
+			result[key] = SPECS[key].default
 	return result
 
 static func number_text(value: float) -> String:

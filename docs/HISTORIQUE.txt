@@ -3,6 +3,10 @@ Du plus récent au plus ancien. Ce fichier est mis à jour à chaque version.
 
 === Thème « Contrôles et Paramètres » (0.0.3 et suivantes) ===
 
+0.0.3.1 — Vidéo et sensibilité de la souris
+Paramètres → Vidéo : taille des panneaux (% de la fenêtre) et largeur du menu de gauche.
+Paramètres généraux : sensibilité de la souris, valable dans tous les mondes.
+
 0.0.3 — Mode par défaut et mode développeur
 Créer un monde : Par défaut (attributs par défaut) ou Mode développeur (attributs de Paramètres).
 Paramètres du monde : passage définitif au mode développeur, avec confirmation ; mode affiché dans F3.

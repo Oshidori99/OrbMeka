@@ -61,17 +61,16 @@ func _run() -> void:
 	app.settings_button.pressed.emit()
 	check(app.page == "settings" and app.pages.settings.get_child(0).text == "Paramètres", "home opens Paramètres")
 	var tabs: Array = app.settings_tabs.values()
-	check(tabs.map(func(tab): return tab.text) == ["Paramètres généraux", "Attributs"], "side menu lists Paramètres généraux then Attributs")
+	check(tabs.map(func(tab): return tab.text) == ["Paramètres généraux", "Vidéo", "Attributs"], "side menu lists Paramètres généraux, Vidéo, then Attributs")
 	check(tabs.all(func(tab): return tab.theme_type_variation == "OrbTab" and tab.toggle_mode and tab.button_group == tabs[0].button_group), "side buttons are rectangular toggle tabs in one group")
 	check(tabs[0].get_parent().get_index() == 0 and tabs[0].get_parent().get_parent() is HBoxContainer, "side menu sits on the left")
 	check(app.settings_section == "general" and app.settings_sections.general.visible and not app.settings_sections.attributes.visible and tabs[0].button_pressed, "general settings open first")
-	var general_texts: Array = app.settings_sections.general.get_children().map(func(label): return label.text)
-	check(general_texts.has("Aucun réglage disponible pour le moment."), "general settings say no setting is available")
-	tabs[1].pressed.emit()
-	check(app.settings_section == "attributes" and app.settings_sections.attributes.visible and not app.settings_sections.general.visible and tabs[1].button_pressed and not tabs[0].button_pressed, "Attributs tab shows the attribute screen")
+	check(app.settings_sections.general.is_ancestor_of(app.setting_fields.mouse_sensitivity) and app.settings_sections.video.is_ancestor_of(app.setting_fields.panel_size) and app.settings_sections.video.is_ancestor_of(app.setting_fields.nav_width), "mouse in general, panel sizes in Vidéo")
+	tabs[2].pressed.emit()
+	check(app.settings_section == "attributes" and app.settings_sections.attributes.visible and not app.settings_sections.general.visible and tabs[2].button_pressed and not tabs[0].button_pressed, "Attributs tab shows the attribute screen")
 	app.setting_fields.walk_forward.text = "9"
 	tabs[0].pressed.emit()
-	tabs[1].pressed.emit()
+	tabs[2].pressed.emit()
 	check(app.setting_fields.walk_forward.text == "9", "switching sections keeps unsaved edits")
 	escape()
 	check(app.page == "home" and settings.values.walk_forward == Settings.SPECS.walk_forward.default, "Escape abandons edits")
@@ -113,7 +112,7 @@ func _run() -> void:
 	check(gaps_ok, "extra space before each category")
 	app.settings_reset_all_button.pressed.emit()
 	var all_default := true
-	for key in Settings.SPECS:
+	for key in Settings.ATTRIBUTE_KEYS:
 		all_default = all_default and app.setting_fields[key].text == Settings.number_text(Settings.SPECS[key].default)
 	check(all_default, "reset all restores every default")
 	# Bornes et sauvegarde.

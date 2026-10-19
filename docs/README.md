@@ -1,11 +1,11 @@
-# OrbMeka™ — prototype 0.0.3
+# OrbMeka™ — prototype 0.0.3.1
 
 Godot 4.7 / GDScript. Formes et couleurs simples, sans assets externes.
 
 ## Lancer et choisir un monde
 1. Dans Godot, arrêtez l'ancienne partie si nécessaire, puis appuyez sur **F5**.
 2. L'accueil affiche **Jouer**, **Paramètres**, **Informations**, dans cet ordre.
-   Jouer ouvre Mes mondes. Paramètres ouvre Attributs : Saut et Blocs.
+   Jouer ouvre Mes mondes. Paramètres : Paramètres généraux (souris), Vidéo (panneaux), Attributs.
    Informations explique la génération des mondes, sans désigner de monde particulier.
 3. Choisissez **Créer un monde**, saisissez son nom et, si souhaité, une graine, puis **Créer**.
    La création ouvre directement la partie.
@@ -607,3 +607,27 @@ Tests mis à jour : world_options_test, attributes_test, settings_walk_test,
 menu_style_test, version. Résultat : 18 tests, 0 échec.
 À tester manuellement : aspect des boutons de mode et de la page de
 confirmation, vitrine animée.
+
+## Vidéo et sensibilité de la souris — 0.0.3.1
+- Paramètres, menu de gauche : **Paramètres généraux**, **Vidéo**, **Attributs**.
+- Paramètres généraux → Souris : **Sensibilité de la souris**, de 10 à 300 %
+  (100 % par défaut = sensibilité d'avant). Valable dans tous les mondes,
+  y compris en mode par défaut.
+- Vidéo → Panneaux : **Taille des panneaux**, de 50 à 95 % de la largeur de
+  la fenêtre (72 % par défaut, comme avant). Tous les panneaux suivent dans la
+  même proportion (accueil, pause, création, listes…), sans jamais dépasser la
+  fenêtre. **Largeur du menu de gauche** : 120 à 400 px (190 par défaut), au
+  plus 40 % du panneau pour laisser la place au contenu.
+- Mêmes boutons qu'Attributs : ↻ par champ, ↻ orange par catégorie.
+  Un seul bouton **Appliquer** sous les sections enregistre tout ; Retour annule.
+  ↻ Tout réinitialiser (Attributs) ne touche que les attributs.
+- Réglages enregistrés dans user://settings.json ; un ancien fichier se charge
+  sans avertissement avec les nouveaux défauts.
+
+Test ajouté : tests/display_settings_test.gd (panneaux dans la fenêtre à 50
+et 95 % en 800 × 450, 1280 × 720, 2560 × 1080 ; menu de gauche ; bornes ;
+réinitialisations ; sauvegarde ; sensibilité en monde par défaut).
+Tests mis à jour : attributes, interface_info, settings_walk, window_resize,
+version. Résultat : 19 tests, 0 échec.
+À tester manuellement : sensation de la souris, aspect des panneaux aux
+tailles extrêmes et du menu de gauche élargi.

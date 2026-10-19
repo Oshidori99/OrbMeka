@@ -14,8 +14,10 @@ const MENU_BASE_WIDTH := 560.0
 const MENU_MAX_WIDTH_RATIO := 0.7
 # Pages de contenu (paramètres, listes, textes) : plus larges, pour moins de lignes et de défilement.
 const COMPACT_PAGES := ["home", "pause", "delete", "developer_confirm"]
-const WIDE_WIDTH_RATIO := 0.72
-const WIDE_MAX_RATIO := 0.92
+# Pages larges : réglage Vidéo → Taille des panneaux (72 % par défaut). Les pages compactes
+# suivent dans la même proportion. Jamais plus de 95 % de la fenêtre.
+const WIDE_MAX_RATIO := 0.95
+const COMPACT_MIN_WIDTH := 400.0
 const SCROLL_MIN_HEIGHT := 140.0
 # Lu à chaque ouverture de l'écran Historique ; inclus dans les exports par addons/history_export.
 const HISTORY_PATH := "res://docs/HISTORIQUE.txt"
@@ -28,9 +30,17 @@ Gravité de descente : retombée plus ou moins rapide."},
 Première action immédiate ; un délai plus court accélère la répétition."},
 	"Marche": {"keys": ["walk_forward", "walk_side", "walk_back"], "help": "Vitesse au sol dans chaque direction (1 bloc = 1 m)."},
 }
+# Réglages généraux (tous les mondes, quel que soit leur mode), par section du menu latéral.
+const GENERAL_CATEGORIES := {
+	"general": {"Souris": {"keys": ["mouse_sensitivity"], "help": "Vitesse de rotation de la vue. 100 % : sensibilité d'origine."}},
+	"video": {"Panneaux": {"keys": ["panel_size", "nav_width"], "help": "Taille : largeur des panneaux de menu, en % de la fenêtre ; tous suivent.
+Menu de gauche : largeur de la colonne d'onglets, quand le panneau en a une.
+Jamais plus large que la fenêtre ; le menu de gauche garde de la place au contenu."}},
+}
 # Menu latéral de Paramètres : sections dans l'ordre des boutons ; la première s'ouvre par défaut.
-const SETTINGS_SECTIONS := {"general": "Paramètres généraux", "attributes": "Attributs"}
-const SETTINGS_NAV_WIDTH := 190.0
+const SETTINGS_SECTIONS := {"general": "Paramètres généraux", "video": "Vidéo", "attributes": "Attributs"}
+# Menu de gauche : largeur réglée (Vidéo), au plus 40 % du panneau pour laisser la place au contenu.
+const NAV_MAX_SHARE := 0.4
 const CATEGORY_GAP := 22.0
 
 var settings: RefCounted
@@ -41,6 +51,7 @@ var settings_reset_all_button: Button
 var settings_tabs: Dictionary = {}
 var settings_sections: Dictionary = {}
 var settings_section := "general"
+var settings_nav: VBoxContainer
 var settings_message: Label
 var settings_apply_button: Button
 var catalog: RefCounted
@@ -167,6 +178,25 @@ Défaut : %s · %s à %s" % [spec.label, spec.unit, UserSettings.number_text(spe
 	reset.tooltip_text = "Rétablir le défaut de ce champ : " + UserSettings.number_text(spec.default)
 	setting_resets[key] = reset
 
+func _add_setting_category(parent: Node, category: String, data: Dictionary) -> void:
+	# Espace avant chaque catégorie : titres et ↻ de catégorie bien détachés des champs.
+	var gap := Control.new()
+	gap.custom_minimum_size.y = CATEGORY_GAP
+	parent.add_child(gap)
+	var header := HBoxContainer.new()
+	parent.add_child(header)
+	_explanation(header, category)
+	header.get_child(-1).theme_type_variation = "OrbSection"
+	header.get_child(-1).size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	var reset := _button("↻", header, func(): reset_category(category))
+	reset.custom_minimum_size.x = 48
+	reset.theme_type_variation = "OrbCategoryReset"
+	reset.tooltip_text = "Rétablir les défauts de la catégorie " + category
+	category_resets[category] = reset
+	_explanation(parent, data.help)
+	for key in data.keys:
+		_add_setting_row(parent, key)
+
 func _fill_settings() -> void:
 	for key in setting_fields:
 		setting_fields[key].text = UserSettings.number_text(settings.values[key])
@@ -176,15 +206,24 @@ func reset_setting(key: String) -> void:
 	setting_fields[key].text = UserSettings.number_text(UserSettings.SPECS[key].default)
 	settings_message.text = "Défaut rétabli pour ce champ. Appliquer pour enregistrer."
 
+func _category_keys(category: String) -> Array:
+	if ATTRIBUTE_CATEGORIES.has(category):
+		return ATTRIBUTE_CATEGORIES[category].keys
+	for section in GENERAL_CATEGORIES:
+		if GENERAL_CATEGORIES[section].has(category):
+			return GENERAL_CATEGORIES[section][category].keys
+	return []
+
 func reset_category(category: String) -> void:
-	for key in ATTRIBUTE_CATEGORIES[category].keys:
+	for key in _category_keys(category):
 		setting_fields[key].text = UserSettings.number_text(UserSettings.SPECS[key].default)
 	settings_message.text = "Défauts rétablis : %s. Appliquer pour enregistrer." % category
 
 func reset_all_settings() -> void:
-	for key in setting_fields:
+	# Bouton de l'écran Attributs : seuls les attributs reprennent leur défaut.
+	for key in UserSettings.ATTRIBUTE_KEYS:
 		setting_fields[key].text = UserSettings.number_text(UserSettings.SPECS[key].default)
-	settings_message.text = "Tous les défauts rétablis. Appliquer pour enregistrer."
+	settings_message.text = "Tous les attributs par défaut. Appliquer pour enregistrer."
 
 func show_settings_section(section: String) -> void:
 	# Changer de section garde les saisies en cours ; seul Retour les abandonne.
@@ -201,6 +240,7 @@ func apply_user_settings() -> void:
 		settings_message.text = settings.last_error
 		return
 	_fill_settings()
+	fit_menus_to_window()
 	settings_message.text = "Paramètres enregistrés."
 
 func _page(parent: Node, heading: String) -> VBoxContainer:
@@ -239,7 +279,7 @@ func _build_interface() -> void:
 	var home := _page(stack, "OrbMeka™")
 	pages.home = home
 	var version := Label.new()
-	version.text = "v" + str(ProjectSettings.get_setting("application/config/version", "0.0.3"))
+	version.text = "v" + str(ProjectSettings.get_setting("application/config/version", "0.0.3.1"))
 	version.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	version.theme_type_variation = "OrbNote"
 	home.add_child(version)
@@ -275,8 +315,7 @@ func _build_interface() -> void:
 	var settings_body := HBoxContainer.new()
 	settings_body.add_theme_constant_override("separation", 16)
 	settings_page.add_child(settings_body)
-	var settings_nav := VBoxContainer.new()
-	settings_nav.custom_minimum_size.x = SETTINGS_NAV_WIDTH
+	settings_nav = VBoxContainer.new()
 	settings_nav.add_theme_constant_override("separation", 6)
 	settings_body.add_child(settings_nav)
 	var nav_group := ButtonGroup.new()
@@ -288,15 +327,19 @@ func _build_interface() -> void:
 		tab.toggle_mode = true
 		tab.button_group = nav_group
 		settings_tabs[section] = tab
-	var general := VBoxContainer.new()
-	general.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	general.add_theme_constant_override("separation", 10)
-	settings_body.add_child(general)
-	settings_sections.general = general
-	_explanation(general, "Paramètres généraux")
-	general.get_child(-1).theme_type_variation = "OrbSection"
-	_explanation(general, "Aucun réglage disponible pour le moment.")
-	general.get_child(-1).theme_type_variation = "OrbNote"
+	for section in GENERAL_CATEGORIES:
+		var box := VBoxContainer.new()
+		box.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		box.add_theme_constant_override("separation", 10)
+		settings_body.add_child(box)
+		settings_sections[section] = box
+		_explanation(box, SETTINGS_SECTIONS[section])
+		box.get_child(-1).theme_type_variation = "OrbSection"
+		for category in GENERAL_CATEGORIES[section]:
+			_add_setting_category(box, category, GENERAL_CATEGORIES[section][category])
+		_explanation(box, "↻ : défaut du champ ou de la catégorie. Champ vide : défaut.
+Réglage commun à tous les mondes. Retour annule les modifications.")
+		box.get_child(-1).theme_type_variation = "OrbNote"
 	var attributes_box := VBoxContainer.new()
 	attributes_box.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	attributes_box.add_theme_constant_override("separation", 10)
@@ -321,31 +364,15 @@ func _build_interface() -> void:
 	settings_reset_all_button = _button("↻ Tout réinitialiser", all_row, reset_all_settings)
 	settings_reset_all_button.tooltip_text = "Rétablir les défauts de tous les attributs"
 	for category in ATTRIBUTE_CATEGORIES:
-		# Espace avant chaque catégorie : titres et ↻ de catégorie bien détachés des champs.
-		var gap := Control.new()
-		gap.custom_minimum_size.y = CATEGORY_GAP
-		attributes.add_child(gap)
-		var header := HBoxContainer.new()
-		attributes.add_child(header)
-		_explanation(header, category)
-		header.get_child(-1).theme_type_variation = "OrbSection"
-		header.get_child(-1).size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		var keys: Array = ATTRIBUTE_CATEGORIES[category].keys
-		var reset := _button("↻", header, func(): reset_category(category))
-		reset.custom_minimum_size.x = 48
-		reset.theme_type_variation = "OrbCategoryReset"
-		reset.tooltip_text = "Rétablir les défauts de la catégorie " + category
-		category_resets[category] = reset
-		_explanation(attributes, ATTRIBUTE_CATEGORIES[category].help)
-		for key in keys:
-			_add_setting_row(attributes, key)
+		_add_setting_category(attributes, category, ATTRIBUTE_CATEGORIES[category])
 	_explanation(attributes, "↻ : défauts du champ, de la catégorie ou de tout. Champ vide : défaut.
 Appliquer enregistre pour les mondes en mode développeur ; les mondes par défaut gardent les défauts.
 Retour annule les modifications.")
+	# Message et Appliquer communs aux trois sections : un seul enregistrement pour tout.
 	settings_message = Label.new()
 	settings_message.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	attributes_box.add_child(settings_message)
-	settings_apply_button = _button("Appliquer", attributes_box, apply_user_settings)
+	settings_page.add_child(settings_message)
+	settings_apply_button = _button("Appliquer", settings_page, apply_user_settings)
 	settings_back_button = _button("Retour", settings_page, func(): show_page("home"))
 	var information_page := _page(stack, "Génération des mondes")
 	pages.information = information_page
@@ -528,10 +555,14 @@ func fit_menus_to_window() -> void:
 	# (hauteur de la fenêtre moins la place réservée au reste de la page).
 	var view := get_viewport().get_visible_rect().size
 	var grow := maxf(1.0, view.x / MENU_BASE_SIZE.x)
+	var ratio: float = settings.values.panel_size / 100.0
+	var limit := view.x * WIDE_MAX_RATIO
 	if page in COMPACT_PAGES:
-		menu_panel.custom_minimum_size.x = minf(MENU_BASE_WIDTH * grow, view.x * MENU_MAX_WIDTH_RATIO)
+		var scale: float = settings.values.panel_size / UserSettings.SPECS.panel_size.default
+		menu_panel.custom_minimum_size.x = minf(maxf(COMPACT_MIN_WIDTH, minf(MENU_BASE_WIDTH * grow, view.x * MENU_MAX_WIDTH_RATIO) * scale), limit)
 	else:
-		menu_panel.custom_minimum_size.x = clampf(view.x * WIDE_WIDTH_RATIO, MENU_BASE_WIDTH, view.x * WIDE_MAX_RATIO)
+		menu_panel.custom_minimum_size.x = minf(maxf(view.x * ratio, MENU_BASE_WIDTH), limit)
+	settings_nav.custom_minimum_size.x = minf(settings.values.nav_width, menu_panel.custom_minimum_size.x * NAV_MAX_SHARE)
 	for control in menu_reserved_heights:
 		control.custom_minimum_size.y = maxf(SCROLL_MIN_HEIGHT, view.y - menu_reserved_heights[control])
 
@@ -750,7 +781,7 @@ func open_world(id: String) -> void:
 	add_child(active_world)
 	shortcut_hints.show()
 	# Monde par défaut : réglages ignorés ; monde développeur : réglages globaux.
-	active_world.player.apply_settings(settings.values if developer else UserSettings.default_values())
+	active_world.player.apply_settings(settings.world_values(developer))
 	# Opening from a menu is an explicit request to play immediately.
 	active_world.player.resume_controls()
 

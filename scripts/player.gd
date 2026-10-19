@@ -6,6 +6,8 @@ const SPEED := 5.5
 const JUMP_SPEED := 8.4
 const JUMP_GRAVITY := 14.0
 const SENSITIVITY := 0.0025
+# Sensibilité réglée (Paramètres généraux → Souris), 100 % = SENSITIVITY.
+var sensitivity := SENSITIVITY
 const REACH := 5.0
 
 var actions := ActionTiming.new()
@@ -66,8 +68,8 @@ func _unhandled_input(event: InputEvent) -> void:
 		elif event.keycode == KEY_3 or event.physical_keycode == KEY_3:
 			selected_type = 2
 	if event is InputEventMouseMotion and Input.mouse_mode == Input.MOUSE_MODE_CAPTURED:
-		rotate_y(-event.relative.x * SENSITIVITY)
-		camera.rotation.x = clampf(camera.rotation.x - event.relative.y * SENSITIVITY, deg_to_rad(-89.0), deg_to_rad(89.0))
+		rotate_y(-event.relative.x * sensitivity)
+		camera.rotation.x = clampf(camera.rotation.x - event.relative.y * sensitivity, deg_to_rad(-89.0), deg_to_rad(89.0))
 	if event is InputEventMouseButton and event.pressed:
 		if Input.mouse_mode != Input.MOUSE_MODE_CAPTURED:
 			actions.cancel()
@@ -120,6 +122,7 @@ func apply_settings(values: Dictionary) -> void:
 	walk_forward = values.walk_forward
 	walk_side = values.walk_side
 	walk_back = values.walk_back
+	sensitivity = SENSITIVITY * float(values.get("mouse_sensitivity", 100.0)) / 100.0
 	actions.cancel()
 
 func resume_controls() -> void:

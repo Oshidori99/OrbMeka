@@ -86,7 +86,7 @@ func _run() -> void:
 	root.add_child(app)
 	current_scene = app
 	app.settings_button.pressed.emit()
-	check(app.pages.settings.get_child(0).text == "Paramètres" and app.setting_fields.size() == 8 and app.setting_resets.size() == 8, "Attributs contains eight numeric fields and eight individual reset buttons")
+	check(app.pages.settings.get_child(0).text == "Paramètres" and app.setting_fields.size() == Settings.SPECS.size() and app.setting_resets.size() == Settings.SPECS.size(), "Paramètres contains one numeric field and one reset button per setting")
 	for field in app.setting_fields:
 		check(app.setting_fields[field].text == Settings.number_text(settings.values[field]) and app.setting_fields[field].placeholder_text == Settings.number_text(Settings.SPECS[field].default), "active value and default placeholder: " + field)
 		var before := {}
