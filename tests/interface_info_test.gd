@@ -35,7 +35,7 @@ func _run() -> void:
 	check(app.home_version.text == "v" + str(ProjectSettings.get_setting("application/config/version")), "home shows current project version")
 	app.settings_button.pressed.emit()
 	check(app.page == "settings" and app.settings_tabs.general.has_focus(), "settings opens with keyboard focus on the first side tab")
-	check(app.pages.settings.get_child(0).text == "Paramètres" and app.setting_fields.size() == 12, "settings shows Paramètres with twelve fields (8 attributes, mouse, 3 video)")
+	check(app.pages.settings.get_child(0).text == "Paramètres" and app.setting_fields.size() == 14, "settings shows Paramètres with fourteen fields (8 attributes, mouse, 5 video)")
 	check(app.settings_apply_button != null and app.pages.settings.find_children("*", "Button", true, false).slice(-2) == [app.settings_apply_button, app.settings_back_button], "shared Apply then Return available")
 	app.settings_back_button.pressed.emit()
 	check(app.page == "home", "settings return button restores home")

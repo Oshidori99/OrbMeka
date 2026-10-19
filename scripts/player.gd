@@ -123,6 +123,8 @@ func apply_settings(values: Dictionary) -> void:
 	walk_side = values.walk_side
 	walk_back = values.walk_back
 	sensitivity = SENSITIVITY * float(values.get("mouse_sensitivity", 100.0)) / 100.0
+	# Champ de vision réglé (Vidéo → Jeu), valable dans tous les mondes.
+	camera.fov = float(values.get("fov", 75.0))
 	actions.cancel()
 
 func resume_controls() -> void:

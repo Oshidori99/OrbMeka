@@ -1,11 +1,11 @@
-# OrbMeka™ — prototype 0.0.3.5
+# OrbMeka™ — prototype 0.0.3.6
 
 Godot 4.7 / GDScript. Formes et couleurs simples, sans assets externes.
 
 ## Lancer et choisir un monde
 1. Dans Godot, arrêtez l'ancienne partie si nécessaire, puis appuyez sur **F5**.
 2. L'accueil affiche **Jouer**, **Paramètres**, **Informations**, dans cet ordre.
-   Jouer ouvre Mes mondes. Paramètres : Paramètres généraux (souris, synthèse), Vidéo (panneaux, texte, thème, profondeur), Attributs.
+   Jouer ouvre Mes mondes. Paramètres : Paramètres généraux (souris, synthèse), Vidéo (panneaux, échelle, texte, thème, profondeur, FOV), Attributs.
    Informations explique la génération des mondes, sans désigner de monde particulier.
 3. Choisissez **Créer un monde**, saisissez son nom et, si souhaité, une graine, puis **Créer**.
    La création ouvre directement la partie.
@@ -686,3 +686,20 @@ Tests mis à jour : appearance_test (encadrés, Oui / Non, pages dans la
 fenêtre avec et sans profondeur), settings_walk_test, et les tests qui
 cherchent des boutons dans les pages. Résultat : 20 tests, 0 échec.
 À tester manuellement : effet de profondeur dans les trois thèmes.
+
+## Échelle des menus, FOV et fichiers par menu — 0.0.3.6
+- Vidéo → Échelle : **Échelle des menus**, 50 à 150 % (100 % par défaut).
+  Zoom de tout l'affichage : panneaux, textes et boutons ensemble (comme un
+  dézoom), en plus des réglages de taille des panneaux et du texte.
+- Vidéo → Jeu : **Champ de vision (FOV)**, 50 à 110° (75° par défaut,
+  vue d'origine), dans tous les mondes.
+- Un fichier par menu de Paramètres, nommé d'après lui, dans user://
+  (Windows : %APPDATA%\Godot\app_userdata\OrbMeka\) :
+  parametres-generaux.json, video.json, attributs.json.
+  L'ancien settings.json est lu une fois pour reprendre les réglages, sans
+  être modifié ni supprimé. Un fichier illisible ne remet à zéro que son menu.
+
+Test ajouté : tests/settings_files_test.gd (noms et contenu des trois
+fichiers, reprise de l'ancien fichier, fichier illisible, échelle 50 à
+150 % dans les petites et grandes fenêtres, FOV en jeu). Résultat : 21 tests, 0 échec.
+À tester manuellement : échelle des menus à 50 et 150 %, sensation du FOV.

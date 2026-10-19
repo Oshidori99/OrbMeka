@@ -3,6 +3,10 @@ Du plus récent au plus ancien. Ce fichier est mis à jour à chaque version.
 
 === Thème « Contrôles et Paramètres » (0.0.3 et suivantes) ===
 
+0.0.3.6 — Échelle des menus, FOV et fichiers par menu
+Vidéo : échelle de tout l'affichage des menus (100 % par défaut) et champ de vision en jeu (75°).
+Réglages enregistrés dans un fichier par menu : parametres-generaux.json, video.json, attributs.json.
+
 0.0.3.5 — Profondeur des menus
 Contenu des menus dans des encadrés creusés sous le titre, réglages encore plus profonds.
 Vidéo : profondeur des menus oui ou non.

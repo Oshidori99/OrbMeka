@@ -18,6 +18,9 @@ const SPECS := {
 	"nav_width": {"label": "Largeur du menu de gauche", "unit": "px", "default": 120.0, "min": 80.0, "max": 250.0},
 	# Taille du texte en px (0.0.3.3) ; 18 px = taille d'origine ; minimum environ 40 %.
 	"text_px": {"label": "Taille du texte", "unit": "px", "default": 18.0, "min": 7.0, "max": 27.0},
+	# 0.0.3.6 : échelle de tout l'affichage des menus (zoom) et champ de vision en jeu.
+	"ui_scale": {"label": "Échelle des menus", "unit": "%", "default": 100.0, "min": 50.0, "max": 150.0},
+	"fov": {"label": "Champ de vision (FOV)", "unit": "°", "default": 75.0, "min": 50.0, "max": 110.0},
 }
 # Réglages à choix (0.0.3.4 ; profondeur 0.0.3.5), affichés en boutons ; options dans l'ordre d'affichage.
 const CHOICES := {
@@ -27,16 +30,41 @@ const CHOICES := {
 }
 # Attributs du joueur : par défaut dans un monde par défaut, réglables en mode développeur.
 const ATTRIBUTE_KEYS := ["jump_height", "jump_speed", "fall_gravity", "place_ms", "break_ms", "walk_forward", "walk_side", "walk_back"]
+# Un fichier par menu de Paramètres (0.0.3.6), nommé d'après le menu, dans user://
+# (Windows : %APPDATA%\Godot\app_userdata\OrbMeka\). L'ancien settings.json (avant 0.0.3.6)
+# n'est que lu, pour reprendre les réglages, si aucun de ces fichiers n'existe encore.
+const DEFAULT_PATH := "user://settings.json"
+const FILES := {"general": "parametres-generaux.json", "video": "video.json", "attributes": "attributs.json"}
+const GENERAL_KEYS := ["mouse_sensitivity", "text_detail"]
 var values: Dictionary = {}
 var storage_path: String
 var last_error := ""
 var load_notice := ""
 
-func _init(path: String = "user://settings.json") -> void:
+func _init(path: String = DEFAULT_PATH) -> void:
 	storage_path = path
 	values = default_values()
-	if not FileAccess.file_exists(path):
-		return
+	var found := false
+	for menu in FILES:
+		if FileAccess.file_exists(file_path(menu)):
+			found = true
+			_read(file_path(menu))
+	if not found and FileAccess.file_exists(path):
+		_read(path)
+
+# Fichier d'un menu. Chemin par défaut : user://video.json… ; autre chemin (tests) :
+# même dossier, préfixé du nom de ce chemin, pour ne jamais toucher aux fichiers du joueur.
+func file_path(menu: String) -> String:
+	if storage_path == DEFAULT_PATH:
+		return storage_path.get_base_dir().path_join(FILES[menu])
+	return storage_path.get_basename() + "-" + FILES[menu]
+
+static func menu_of(key: String) -> String:
+	if key in ATTRIBUTE_KEYS:
+		return "attributes"
+	return "general" if key in GENERAL_KEYS else "video"
+
+func _read(path: String) -> void:
 	var file := FileAccess.open(path, FileAccess.READ)
 	var parser := JSON.new()
 	if file == null or parser.parse(file.get_as_text()) != OK or not parser.data is Dictionary:
@@ -102,17 +130,28 @@ func apply_texts(texts: Dictionary) -> bool:
 			last_error = "%s : choix inconnu." % CHOICES[key].label
 			return false
 		candidate[key] = choice
-	var file := FileAccess.open(storage_path + ".tmp", FileAccess.WRITE)
+	# Chaque menu dans son fichier, écrit d'abord à côté (.tmp) puis remplacé d'un coup.
+	for menu in FILES:
+		var part := {}
+		for key in candidate:
+			if menu_of(key) == menu:
+				part[key] = candidate[key]
+		if not _write(file_path(menu), part):
+			return false
+	values = candidate
+	load_notice = ""
+	return true
+
+func _write(path: String, data: Dictionary) -> bool:
+	var file := FileAccess.open(path + ".tmp", FileAccess.WRITE)
 	if file == null:
 		last_error = "Impossible d'enregistrer les paramètres."
 		return false
-	file.store_string(JSON.stringify(candidate, "	"))
+	file.store_string(JSON.stringify(data, "	"))
 	file.flush()
 	var error := file.get_error()
 	file.close()
-	if error != OK or DirAccess.rename_absolute(ProjectSettings.globalize_path(storage_path + ".tmp"), ProjectSettings.globalize_path(storage_path)) != OK:
+	if error != OK or DirAccess.rename_absolute(ProjectSettings.globalize_path(path + ".tmp"), ProjectSettings.globalize_path(path)) != OK:
 		last_error = "Échec de l'enregistrement des paramètres."
 		return false
-	values = candidate
-	load_notice = ""
 	return true

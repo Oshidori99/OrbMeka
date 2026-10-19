@@ -41,8 +41,10 @@ const GENERAL_CATEGORIES := {
 	},
 	"video": {
 		"Panneaux": {"keys": ["panel_size", "nav_width"], "help": ["", "Largeur des menus et de la colonne d'onglets.", "Largeur des menus ; le menu de gauche est la colonne d'onglets."]},
+		"Échelle": {"keys": ["ui_scale"], "help": ["", "Taille de tout le menu.", "Zoom de tout l'affichage des menus : panneaux, textes et boutons ensemble (100 % : taille d'origine)."]},
 		"Texte": {"keys": ["text_px"], "help": ["", "Taille des textes.", "Taille de tous les textes, menus et jeu (18 px : taille d'origine)."]},
 		"Apparence": {"keys": ["theme_mode", "menu_depth"], "help": ["", "Couleurs et encadrés des menus.", "Thème de couleurs des menus. Profondeur : contenu dans des encadrés creusés sous le titre."]},
+		"Jeu": {"keys": ["fov"], "help": ["", "Champ de vision en partie.", "Champ de vision de la caméra en partie, en degrés (75° : vue d'origine)."]},
 	},
 }
 # Menu latéral de Paramètres : sections dans l'ordre des boutons ; la première s'ouvre par défaut.
@@ -193,6 +195,8 @@ func _build_theme() -> Theme:
 # Taille du texte, thème et profondeur : appliqués à tous les menus, immédiatement.
 func apply_appearance() -> void:
 	menu_root.theme = _build_theme()
+	# Échelle des menus : zoom de tout l'affichage 2D (menus et textes en jeu).
+	get_window().content_scale_factor = settings.values.ui_scale / 100.0
 	for control in font_sizes:
 		control.add_theme_font_size_override(font_sizes[control][0], UiTheme.scaled(font_sizes[control][1], _text_scale()))
 	var colors := UiTheme.palette(settings.values.theme_mode)
@@ -419,7 +423,7 @@ func _build_interface() -> void:
 	var home := _page(stack, "OrbMeka™")
 	pages.home = _page_root(home)
 	var version := _text_label()
-	version.text = "v" + str(ProjectSettings.get_setting("application/config/version", "0.0.3.5"))
+	version.text = "v" + str(ProjectSettings.get_setting("application/config/version", "0.0.3.6"))
 	version.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	version.theme_type_variation = "OrbNote"
 	home.add_child(version)
