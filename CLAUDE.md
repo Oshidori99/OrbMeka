@@ -14,7 +14,7 @@ Guide complet : docs/README.md. Fichiers techniques : docs/ORGANISATION.txt.
 
 ## Structure
 - scenes/ : main.tscn (menus), world.tscn (partie). scripts/ : code. tests/ : tests sans fenêtre.
-- Garder les .gd.uid avec leurs scripts. Ne pas toucher à .godot/ (cache) ni à Archives/ (local, ignoré par Git).
+- Garder les .gd.uid avec leurs scripts. Ne pas toucher à .godot/ (cache) ni au contenu existant d'Archives/ (local, ignoré par Git) ; on y ajoute seulement l'archive de chaque version.
 - Données joueur dans user:// (worlds.json, settings.json), jamais dans les sources.
 
 ## Tests
@@ -30,5 +30,6 @@ Lancer les tests liés au changement ; ce qui ne peut être vérifié qu'en joua
 3. Section dans docs/README.md : ce qui change, tests réussis, ce qui reste à tester.
 4. Item dans le GitHub Project https://github.com/users/Oshidori99/projects/10 (Done une fois fini).
 5. Commit puis push sur Oshidori99/OrbMeka (main).
+6. Archive : copie du dossier du jeu (sans .git/ ni Archives/) dans « Archives/orb-meka X.Y.Z ». Ne jamais écraser une archive existante.
 
 gh CLI : "C:\Program Files\GitHub CLI\gh.exe" (connecté en Oshidori99).
