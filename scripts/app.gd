@@ -167,7 +167,7 @@ func _build_interface() -> void:
 	center.add_child(panel)
 	var stack := VBoxContainer.new()
 	panel.add_child(stack)
-	var home := _page(stack, "OrbMeka")
+	var home := _page(stack, "OrbMeka™")
 	pages.home = home
 	var version := Label.new()
 	version.text = "v" + str(ProjectSettings.get_setting("application/config/version", "0.0.2.10"))

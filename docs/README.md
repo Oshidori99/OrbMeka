@@ -1,4 +1,4 @@
-# OrbMeka — prototype 0.0.2.10
+# OrbMeka™ — prototype 0.0.2.10
 
 Godot 4.7 / GDScript. Formes et couleurs simples, sans assets externes.
 
