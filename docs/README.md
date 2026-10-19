@@ -1,4 +1,4 @@
-# OrbMeka™ — prototype 0.0.3.6
+# OrbMeka™ — prototype 0.0.3.7
 
 Godot 4.7 / GDScript. Formes et couleurs simples, sans assets externes.
 
@@ -703,3 +703,17 @@ Test ajouté : tests/settings_files_test.gd (noms et contenu des trois
 fichiers, reprise de l'ancien fichier, fichier illisible, échelle 50 à
 150 % dans les petites et grandes fenêtres, FOV en jeu). Résultat : 21 tests, 0 échec.
 À tester manuellement : échelle des menus à 50 et 150 %, sensation du FOV.
+
+## Barres de réglage et interrupteur — 0.0.3.7
+- Chaque réglage chiffré a une **barre** entre son nom et son champ :
+  la glisser remplit le champ, saisir dans le champ déplace la barre.
+  Pas adaptés : 0,1 pour les petites plages, 1 (%, °, px), 10 ms pour les blocs.
+  Rien n'est enregistré avant Appliquer ; les ↻ remettent aussi les barres.
+- Profondeur des menus : **interrupteur on/off** au lieu de Oui / Non.
+  Les choix à trois options (synthèse, thème) gardent leurs boutons.
+
+Test ajouté : tests/sliders_test.gd (barres liées aux champs, bornes, pas,
+réinitialisations, interrupteur, place dans les petites fenêtres).
+Résultat : 22 tests, 0 échec.
+À tester manuellement : prise en main des barres à la souris et au clavier,
+aspect de l'interrupteur dans les trois thèmes.

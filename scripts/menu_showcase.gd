@@ -8,11 +8,11 @@ extends Node3D
 # 2. _build_news() : la construction 3D qui met en scène la nouveauté, au centre du petit monde.
 #    _animate_news(delta) l'anime (vide si rien ne bouge).
 # Le reste du fichier (sol, collines, ciel, caméra) ne change pas d'une version à l'autre.
-const NEWS_VERSION := "0.0.3.6"
-const NEWS_TEXT := "Nouveau : échelle des menus et champ de vision (Vidéo),
-un fichier de réglages par menu."
+const NEWS_VERSION := "0.0.3.7"
+const NEWS_TEXT := "Nouveau : barres de réglage dans Paramètres,
+interrupteur on/off pour la profondeur des menus."
 
-# 0.0.3.1 à 0.0.3.6 : réglages de menus, sans scène 3D propre : les sauteurs de la 0.0.3 restent en vitrine.
+# 0.0.3.1 à 0.0.3.7 : réglages de menus, sans scène 3D propre : les sauteurs de la 0.0.3 restent en vitrine.
 # 0.0.3 : deux sauteurs (deux blocs de pierre, taille du joueur) côte à côte.
 # À gauche, sur la pierre, le monde par défaut : saut normal. À droite, sur le sable,
 # le monde développeur : attributs réglés, saut plus haut.

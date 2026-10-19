@@ -3,6 +3,10 @@ Du plus récent au plus ancien. Ce fichier est mis à jour à chaque version.
 
 === Thème « Contrôles et Paramètres » (0.0.3 et suivantes) ===
 
+0.0.3.7 — Barres de réglage et interrupteur
+Paramètres : une barre par réglage chiffré, liée à son champ ; ↻ remet aussi les barres.
+Profondeur des menus : interrupteur on/off.
+
 0.0.3.6 — Échelle des menus, FOV et fichiers par menu
 Vidéo : échelle de tout l'affichage des menus (100 % par défaut) et champ de vision en jeu (75°).
 Réglages enregistrés dans un fichier par menu : parametres-generaux.json, video.json, attributs.json.

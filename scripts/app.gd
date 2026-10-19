@@ -52,6 +52,7 @@ const SETTINGS_SECTIONS := {"general": "Paramètres généraux", "video": "Vidé
 # Menu de gauche : largeur réglée (Vidéo), au plus 40 % du panneau pour laisser la place au contenu.
 const NAV_MAX_SHARE := 0.4
 const CATEGORY_GAP := 22.0
+const SLIDER_WIDTH := 150.0
 
 var settings: RefCounted
 var setting_fields: Dictionary = {}
@@ -66,6 +67,9 @@ var font_sizes: Dictionary = {}
 # Réglages à choix : boutons par option, et choix en cours (enregistré par Appliquer).
 var choice_buttons: Dictionary = {}
 var choice_values: Dictionary = {}
+# 0.0.3.7 : barres des réglages chiffrés, interrupteurs des choix Oui / Non.
+var setting_sliders: Dictionary = {}
+var choice_switches: Dictionary = {}
 # Textes fixes à trois niveaux de détail : label → [−, Par défaut, +].
 var detail_labels: Dictionary = {}
 var menu_scroll: ScrollContainer
@@ -241,13 +245,25 @@ Défaut : %s · %s à %s" % [spec.label, spec.unit, default_text, UserSettings.n
 	label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	row.add_child(label)
+	# Barre (0.0.3.7) : la glisser remplit le champ ; saisir dans le champ déplace la barre.
+	var slider := HSlider.new()
+	slider.min_value = spec.min
+	slider.max_value = spec.max
+	slider.step = _slider_step(spec)
+	slider.custom_minimum_size.x = SLIDER_WIDTH
+	slider.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	slider.tooltip_text = "%s — %s à %s %s" % [spec.label, UserSettings.number_text(spec.min), UserSettings.number_text(spec.max), spec.unit]
+	row.add_child(slider)
+	setting_sliders[key] = slider
 	var field := LineEdit.new()
 	field.custom_minimum_size = Vector2(85,46)
 	field.max_length = 24
 	field.placeholder_text = UserSettings.number_text(spec.default)
-	field.tooltip_text = "%s — %s à %s %s" % [spec.label, UserSettings.number_text(spec.min), UserSettings.number_text(spec.max), spec.unit]
+	field.tooltip_text = slider.tooltip_text
 	row.add_child(field)
 	field.text_submitted.connect(func(_text: String): apply_user_settings())
+	field.text_changed.connect(func(_text: String): _sync_slider(key))
+	slider.value_changed.connect(func(value: float): field.text = UserSettings.number_text(value))
 	setting_fields[key] = field
 	var reset := _button("↻", row, func(): reset_setting(key))
 	reset.custom_minimum_size.x = 42
@@ -265,9 +281,18 @@ func _add_choice_row(parent: Node, key: String) -> void:
 	label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	row.add_child(label)
+	if spec.options.keys() == ["on", "off"]:
+		# Oui / Non : interrupteur on/off (0.0.3.7) plutôt que deux boutons.
+		var switch := CheckButton.new()
+		switch.tooltip_text = spec.label
+		switch.toggled.connect(func(on: bool): _set_choice(key, "on" if on else "off"))
+		row.add_child(switch)
+		choice_switches[key] = switch
 	var group := ButtonGroup.new()
 	choice_buttons[key] = {}
 	for option in spec.options:
+		if choice_switches.has(key):
+			break
 		var button := _button(spec.options[option], row, func(): _set_choice(key, option))
 		button.theme_type_variation = "OrbTab"
 		button.toggle_mode = true
@@ -281,6 +306,8 @@ func _add_choice_row(parent: Node, key: String) -> void:
 
 func _set_choice(key: String, option: String) -> void:
 	choice_values[key] = option
+	if choice_switches.has(key):
+		choice_switches[key].set_pressed_no_signal(option == "on")
 	for each in choice_buttons[key]:
 		choice_buttons[key][each].set_pressed_no_signal(each == option)
 
@@ -289,6 +316,24 @@ func _set_default(key: String) -> void:
 		_set_choice(key, UserSettings.CHOICES[key].default)
 	else:
 		setting_fields[key].text = UserSettings.number_text(UserSettings.SPECS[key].default)
+		_sync_slider(key)
+
+# Pas de la barre : fin pour les petites plages (mètres), plus large pour les millisecondes.
+static func _slider_step(spec: Dictionary) -> float:
+	var span: float = spec.max - spec.min
+	if span <= 50.0:
+		return 0.1
+	return 1.0 if span <= 300.0 else 10.0
+
+func _sync_slider(key: String) -> void:
+	# Champ vide : défaut ; saisie invalide : la barre ne bouge pas (Appliquer signalera l'erreur).
+	var text: String = setting_fields[key].text.strip_edges().replace(",", ".")
+	var value: float = UserSettings.SPECS[key].default
+	if not text.is_empty():
+		if not text.is_valid_float():
+			return
+		value = text.to_float()
+	setting_sliders[key].set_value_no_signal(value)
 
 func _add_setting_category(parent: Node, category: String, data: Dictionary) -> void:
 	# Espace avant chaque catégorie : titres et ↻ de catégorie bien détachés des champs.
@@ -319,6 +364,7 @@ func _add_setting_category(parent: Node, category: String, data: Dictionary) -> 
 func _fill_settings() -> void:
 	for key in setting_fields:
 		setting_fields[key].text = UserSettings.number_text(settings.values[key])
+		_sync_slider(key)
 	for key in choice_buttons:
 		_set_choice(key, settings.values[key])
 	settings_message.text = settings.load_notice
@@ -343,7 +389,7 @@ func reset_category(category: String) -> void:
 func reset_all_settings() -> void:
 	# Bouton de l'écran Attributs : seuls les attributs reprennent leur défaut.
 	for key in UserSettings.ATTRIBUTE_KEYS:
-		setting_fields[key].text = UserSettings.number_text(UserSettings.SPECS[key].default)
+		_set_default(key)
 	settings_message.text = "Tous les attributs par défaut. Appliquer pour enregistrer."
 
 func show_settings_section(section: String) -> void:
@@ -423,7 +469,7 @@ func _build_interface() -> void:
 	var home := _page(stack, "OrbMeka™")
 	pages.home = _page_root(home)
 	var version := _text_label()
-	version.text = "v" + str(ProjectSettings.get_setting("application/config/version", "0.0.3.6"))
+	version.text = "v" + str(ProjectSettings.get_setting("application/config/version", "0.0.3.7"))
 	version.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	version.theme_type_variation = "OrbNote"
 	home.add_child(version)

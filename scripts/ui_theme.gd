@@ -187,6 +187,12 @@ static func build(text_scale: float = 1.0, mode: String = "default", depth: bool
 	theme.set_color("font_selected_color", "ItemList", c.text_strong)
 	theme.set_color("font_hovered_color", "ItemList", c.text_strong)
 	theme.set_constant("v_separation", "ItemList", 8)
+	# Barres de réglage (0.0.3.7) : rail creusé, partie remplie couleur sable.
+	theme.set_stylebox("slider", "HSlider", _box(c.field, 3, Color(c.accent, 0.3), 1, Vector2(0, 3)))
+	theme.set_stylebox("grabber_area", "HSlider", _box(Color(c.accent, 0.7), 3, Color.TRANSPARENT, 0, Vector2(0, 3)))
+	theme.set_stylebox("grabber_area_highlight", "HSlider", _box(c.accent, 3, Color.TRANSPARENT, 0, Vector2(0, 3)))
+	theme.set_stylebox("focus", "HSlider", _box(Color.TRANSPARENT, 4, c.accent, 1))
+	theme.set_stylebox("focus", "CheckButton", _box(Color.TRANSPARENT, 6, c.accent, 1))
 	# Barres de défilement fines.
 	theme.set_stylebox("scroll", "VScrollBar", _box(Color(c.field, 0.6), 3, Color.TRANSPARENT, 0, Vector2(3, 3)))
 	theme.set_stylebox("grabber", "VScrollBar", _box(Color(c.accent, 0.5), 3))

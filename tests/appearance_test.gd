@@ -20,7 +20,10 @@ func check(ok: bool, label: String) -> void:
 func choose(app: Control, values: Dictionary) -> void:
 	app.show_page("settings")
 	for key in values:
-		app.choice_buttons[key][values[key]].pressed.emit()
+		if app.choice_switches.has(key):
+			app.choice_switches[key].button_pressed = values[key] == "on"
+		else:
+			app.choice_buttons[key][values[key]].pressed.emit()
 	app.settings_apply_button.pressed.emit()
 
 func _run() -> void:
@@ -40,8 +43,9 @@ func _run() -> void:
 	# Boutons de choix, à leur place et dans l'ordre demandé.
 	check(app.choice_buttons.text_detail.keys() == ["minus", "default", "plus"] and app.choice_buttons.text_detail.plus.text == "+", "synthesis offers −, Par défaut, +")
 	check(app.choice_buttons.theme_mode.values().map(func(button): return button.text) == ["Sombre", "Par défaut", "Clair"], "theme offers Sombre, Par défaut, Clair")
-	check(app.choice_buttons.menu_depth.values().map(func(button): return button.text) == ["Oui", "Non"], "depth offers Oui, Non")
-	check(app.settings_sections.general.is_ancestor_of(app.choice_buttons.text_detail.plus) and app.settings_sections.video.is_ancestor_of(app.choice_buttons.theme_mode.light) and app.settings_sections.video.is_ancestor_of(app.choice_buttons.menu_depth.off), "synthesis in general settings, theme and depth in Vidéo")
+	app.show_page("settings")
+	check(app.choice_switches.menu_depth is CheckButton and app.choice_switches.menu_depth.button_pressed, "depth is an on/off switch, on by default")
+	check(app.settings_sections.general.is_ancestor_of(app.choice_buttons.text_detail.plus) and app.settings_sections.video.is_ancestor_of(app.choice_buttons.theme_mode.light) and app.settings_sections.video.is_ancestor_of(app.choice_switches.menu_depth), "synthesis in general settings, theme and depth in Vidéo")
 	app.show_page("settings")
 	check(app.choice_buttons.text_detail.default.button_pressed and not app.choice_buttons.text_detail.plus.button_pressed, "saved choice shown pressed")
 	# Profondeur : contenu sous le titre dans un encadré, catégories dans un encadré plus profond.
@@ -97,7 +101,7 @@ func _run() -> void:
 	app.setting_resets.theme_mode.pressed.emit()
 	check(app.choice_values.theme_mode == "default" and app.choice_buttons.theme_mode.default.button_pressed, "↻ restores the default choice")
 	app.choice_buttons.theme_mode.dark.pressed.emit()
-	app.choice_buttons.menu_depth.off.pressed.emit()
+	app.choice_switches.menu_depth.button_pressed = false
 	app.category_resets.Apparence.pressed.emit()
 	check(app.choice_values.theme_mode == "default" and app.choice_values.menu_depth == "on" and settings.values.theme_mode == "default", "category ↻ restores choices, not saved before Apply")
 	choose(app, {"theme_mode": "light", "text_detail": "plus"})
