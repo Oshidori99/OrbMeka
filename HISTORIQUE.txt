@@ -1,6 +1,10 @@
 ORBMEKA — HISTORIQUE DES VERSIONS
 Du plus récent au plus ancien. Ce fichier est mis à jour à chaque version.
 
+0.0.2.11.2 — Menus élargis
+Le panneau des menus s'élargit avec la fenêtre (jusqu'à 70 % de sa largeur).
+Listes et textes défilants gagnent en hauteur dans une fenêtre plus haute.
+
 0.0.2.11 — Fenêtre redimensionnable
 Menus, HUD et vue 3D s'adaptent à toute taille de fenêtre, agrandie comprise, sans plein écran.
 Viseur toujours centré ; taille minimale de fenêtre 800×450.

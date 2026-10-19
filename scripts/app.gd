@@ -6,6 +6,9 @@ const WorldRules = preload("res://scripts/world.gd")
 const UserSettings = preload("res://scripts/user_settings.gd")
 const Terrain = preload("res://scripts/terrain_generator.gd")
 const MIN_WINDOW_SIZE := Vector2i(800, 450)
+const MENU_BASE_SIZE := Vector2(1280, 720)
+const MENU_BASE_WIDTH := 560.0
+const MENU_MAX_WIDTH_RATIO := 0.7
 
 var settings: RefCounted
 var setting_fields: Dictionary = {}
@@ -17,6 +20,8 @@ var page := "home"
 var active_world: Node3D
 var current_world_id := ""
 var menu_root: Control
+var menu_panel: PanelContainer
+var menu_base_heights: Dictionary = {}
 var pages: Dictionary = {}
 var world_list: ItemList
 var open_button: Button
@@ -68,6 +73,8 @@ func _ready() -> void:
 	if settings == null:
 		settings = UserSettings.new()
 	_build_interface()
+	get_viewport().size_changed.connect(fit_menus_to_window)
+	fit_menus_to_window()
 	show_page("home")
 
 func _button(text: String, parent: Node, action: Callable) -> Button:
@@ -154,7 +161,7 @@ func _build_interface() -> void:
 	menu_root.add_child(center)
 	center.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	var panel := PanelContainer.new()
-	panel.custom_minimum_size.x = 560
+	menu_panel = panel
 	var style := StyleBoxFlat.new()
 	style.bg_color = Color("#243e4d")
 	style.content_margin_left = 28
@@ -172,7 +179,7 @@ func _build_interface() -> void:
 	var home := _page(stack, "OrbMeka™")
 	pages.home = home
 	var version := Label.new()
-	version.text = "v" + str(ProjectSettings.get_setting("application/config/version", "0.0.2.11"))
+	version.text = "v" + str(ProjectSettings.get_setting("application/config/version", "0.0.2.11.2"))
 	version.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	home.add_child(version)
 	home_version = version
@@ -184,6 +191,7 @@ func _build_interface() -> void:
 	pages.history = history_page
 	history_scroll = ScrollContainer.new()
 	history_scroll.custom_minimum_size = Vector2(0, 350)
+	menu_base_heights[history_scroll] = 350.0
 	history_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
 	history_scroll.focus_mode = Control.FOCUS_ALL
 	history_page.add_child(history_scroll)
@@ -198,6 +206,7 @@ func _build_interface() -> void:
 	pages.settings = settings_page
 	var settings_scroll := ScrollContainer.new()
 	settings_scroll.custom_minimum_size = Vector2(0, 320)
+	menu_base_heights[settings_scroll] = 320.0
 	settings_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
 	settings_scroll.focus_mode = Control.FOCUS_ALL
 	settings_scroll.follow_focus = true
@@ -247,6 +256,7 @@ F1 : revenir à la liste des mondes depuis la partie." % [int(WorldRules.BASE_SI
 	list_page.add_theme_constant_override("separation", 10)
 	world_list = ItemList.new()
 	world_list.custom_minimum_size = Vector2(0, 144)
+	menu_base_heights[world_list] = 144.0
 	world_list.add_theme_font_size_override("font_size", 21)
 	list_page.add_child(world_list)
 	world_list.item_selected.connect(func(_index: int): _update_world_actions())
@@ -347,6 +357,7 @@ La graine et le terrain initial sont conservés." % Catalog.MAX_NAME_LENGTH)
 	pages.help = help_page
 	var scroll := ScrollContainer.new()
 	scroll.custom_minimum_size = Vector2(0, 350)
+	menu_base_heights[scroll] = 350.0
 	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
 	help_page.add_child(scroll)
 	help_text = Label.new()
@@ -378,6 +389,14 @@ F3 : Informations du monde"
 	shortcut_hints.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	return_button.add_child(shortcut_hints)
 	return_button.visible = false
+
+func fit_menus_to_window() -> void:
+	# Le panneau et les zones défilantes grandissent avec la fenêtre (taille de base : 1280 × 720).
+	var view := get_viewport().get_visible_rect().size
+	var grow := Vector2(maxf(1.0, view.x / MENU_BASE_SIZE.x), maxf(1.0, view.y / MENU_BASE_SIZE.y))
+	menu_panel.custom_minimum_size.x = minf(MENU_BASE_WIDTH * grow.x, view.x * MENU_MAX_WIDTH_RATIO)
+	for control in menu_base_heights:
+		control.custom_minimum_size.y = menu_base_heights[control] * grow.y
 
 func show_page(next_page: String) -> void:
 	page = next_page

@@ -1,4 +1,4 @@
-# OrbMeka™ — prototype 0.0.2.11
+# OrbMeka™ — prototype 0.0.2.11.2
 
 Godot 4.7 / GDScript. Formes et couleurs simples, sans assets externes.
 
@@ -455,3 +455,15 @@ pause, menus, raccourcis, historique, prototype et autres tests de partie.
 (attend encore la version 0.0.2.9) et catalog_restart_test.gd (relance
 d'un second processus). À tester manuellement : aspect réel en agrandissant
 et en réduisant la fenêtre, notamment écran large et fenêtre étroite.
+
+## Menus élargis — 0.0.2.11.2
+Les menus suivent maintenant la forme de la fenêtre. Dans une fenêtre plus
+large que 16:9, le panneau s'élargit dans la même proportion (560 de base,
+au plus 70 % de la largeur). Dans une fenêtre plus haute, la liste des mondes,
+les paramètres, l'historique et Comment jouer gagnent en hauteur.
+Dans une fenêtre 16:9 agrandie, tout est simplement mis à l'échelle, comme avant.
+
+Test complété : tests/window_resize_test.gd (59 contrôles : largeur du
+panneau, hauteur des zones défilantes, pages Historique, Paramètres et
+Mes mondes dans la fenêtre, à 5 tailles). À tester manuellement : aspect
+réel en élargissant la fenêtre, en dehors du mode intégré de l'éditeur.
