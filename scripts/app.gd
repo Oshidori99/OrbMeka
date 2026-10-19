@@ -35,7 +35,7 @@ const GENERAL_CATEGORIES := {
 	"general": {"Souris": {"keys": ["mouse_sensitivity"], "help": "Vitesse de rotation de la vue."}},
 	"video": {
 		"Panneaux": {"keys": ["panel_size", "nav_width"], "help": "Largeur des menus ; le menu de gauche est la colonne d'onglets."},
-		"Texte": {"keys": ["text_size"], "help": "Taille de tous les textes des menus."},
+		"Texte": {"keys": ["text_px"], "help": "Taille de tous les textes, menus et jeu (18 px : taille d'origine)."},
 	},
 }
 # Menu latéral de Paramètres : sections dans l'ordre des boutons ; la première s'ouvre par défaut.
@@ -173,7 +173,7 @@ func _font_size(control: Control, base: int) -> void:
 	control.add_theme_font_size_override(item, UiTheme.scaled(base, _text_scale()))
 
 func _text_scale() -> float:
-	return settings.values.text_size / 100.0
+	return settings.values.text_px / UserSettings.SPECS.text_px.default
 
 func apply_text_size() -> void:
 	menu_root.theme = UiTheme.build(_text_scale())
@@ -321,7 +321,7 @@ func _build_interface() -> void:
 	var home := _page(stack, "OrbMeka™")
 	pages.home = home
 	var version := _text_label()
-	version.text = "v" + str(ProjectSettings.get_setting("application/config/version", "0.0.3.2"))
+	version.text = "v" + str(ProjectSettings.get_setting("application/config/version", "0.0.3.3"))
 	version.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	version.theme_type_variation = "OrbNote"
 	home.add_child(version)

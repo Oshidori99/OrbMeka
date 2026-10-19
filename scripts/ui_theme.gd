@@ -34,7 +34,7 @@ static func _box(color: Color, radius: int, border: Color = Color.TRANSPARENT, b
 	return box
 
 static func scaled(size: int, text_scale: float) -> int:
-	return maxi(8, roundi(size * text_scale))
+	return maxi(5, roundi(size * text_scale))
 
 static func panel_style() -> StyleBoxFlat:
 	var box := _box(PANEL, 8, ACCENT_SOFT, 2, Vector2(30, 28))

@@ -1,4 +1,4 @@
-# OrbMeka™ — prototype 0.0.3.2
+# OrbMeka™ — prototype 0.0.3.3
 
 Godot 4.7 / GDScript. Formes et couleurs simples, sans assets externes.
 
@@ -649,3 +649,13 @@ sélectionnables, aucun titre répété). Les tests utilisent désormais des
 réglages par défaut isolés, jamais ceux du joueur. Résultat : 19 tests, 0 échec.
 À tester manuellement : sélection et copie des textes, lisibilité à 75 et
 150 %, défilement d'un panneau à 150 % dans une petite fenêtre.
+
+## Texte en px et menu de gauche plus étroit — 0.0.3.3
+- Vidéo → Texte : **Taille du texte** en px, de 7 (environ 40 %) à 27 px,
+  18 par défaut (taille d'origine). L'ancien réglage en % est ignoré.
+- Vidéo → Largeur du menu de gauche : échelle abaissée, **80 à 250 px**,
+  120 par défaut.
+
+Test mis à jour : display_settings_test (bornes en px, 7 et 27 px dans les
+petites et grandes fenêtres). Résultat : 19 tests, 0 échec.
+À tester manuellement : lisibilité à 7 et 27 px, menu de gauche à 80 px.
