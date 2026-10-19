@@ -22,7 +22,7 @@ func apply(app: Control, values: Dictionary) -> void:
 	app.show_page("settings")
 	for key in values:
 		app.setting_fields[key].text = values[key]
-	app.settings_apply_button.pressed.emit()
+	app.apply_user_settings()
 
 func _run() -> void:
 	root.size = Vector2i(1280, 720)

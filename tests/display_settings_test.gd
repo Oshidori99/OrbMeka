@@ -21,7 +21,7 @@ func check(ok: bool, label: String) -> void:
 func apply(app: Control, values: Dictionary) -> void:
 	for key in values:
 		app.setting_fields[key].text = values[key]
-	app.settings_apply_button.pressed.emit()
+	app.apply_user_settings()
 
 func panels_fit(app: Control, tag: String) -> void:
 	var view: Vector2 = app.get_viewport().get_visible_rect().size
@@ -39,7 +39,7 @@ func panels_fit(app: Control, tag: String) -> void:
 func _run() -> void:
 	var fixture := "res://.godot/display-test-%d.json" % Time.get_ticks_usec()
 	var settings := Settings.new(fixture)
-	check(settings.values.mouse_sensitivity == 100 and settings.values.panel_size == 72 and settings.values.nav_width == 120 and settings.values.text_px == 18, "defaults keep previous look and feel")
+	check(settings.values.mouse_sensitivity == 100 and settings.values.panel_size == 72 and settings.values.nav_percent == 15 and settings.values.text_px == 18, "defaults keep previous look and feel")
 	var app: Control = load("res://scenes/main.tscn").instantiate()
 	app.settings = settings
 	app.catalog = load("res://scripts/world_catalog.gd").new(fixture + ".worlds")
@@ -50,10 +50,10 @@ func _run() -> void:
 		root.size = size
 		await process_frame
 		app.show_page("settings")
-		apply(app, {"panel_size": "95", "nav_width": "250", "text_px": "27"})
+		apply(app, {"panel_size": "95", "nav_percent": "40", "text_px": "27"})
 		await panels_fit(app, "at 95 %% and text 27 px in %dx%d" % [size.x, size.y])
 		app.show_page("settings")
-		apply(app, {"panel_size": "50", "nav_width": "80", "text_px": "7"})
+		apply(app, {"panel_size": "50", "nav_percent": "5", "text_px": "7"})
 		await panels_fit(app, "at 50 %% and text 7 px in %dx%d" % [size.x, size.y])
 	root.size = Vector2i(1280, 720)
 	await process_frame
@@ -96,8 +96,8 @@ func _run() -> void:
 	app.show_page("home")
 	check(home_large > app.menu_panel.custom_minimum_size.x and is_equal_approx(app.menu_panel.custom_minimum_size.x, 560.0), "compact panels grow in the same proportion")
 	app.show_page("settings")
-	apply(app, {"nav_width": "200"})
-	check(app.settings_nav.custom_minimum_size.x == 200, "left menu takes the chosen width")
+	apply(app, {"nav_percent": "25"})
+	check(is_equal_approx(app.settings_nav.custom_minimum_size.x, app.menu_panel.custom_minimum_size.x * 0.25), "left menu takes the chosen share of the panel")
 	root.size = Vector2i(800, 450)
 	await process_frame
 	check(app.settings_nav.custom_minimum_size.x <= app.menu_panel.custom_minimum_size.x * 0.4 + 0.01, "left menu always leaves room for content")
@@ -112,21 +112,21 @@ func _run() -> void:
 		apply(app, {"mouse_sensitivity": invalid})
 		check(settings.values.mouse_sensitivity == 100, "mouse sensitivity rejected: " + invalid)
 	app.setting_fields.mouse_sensitivity.text = "100"
-	apply(app, {"mouse_sensitivity": "250", "panel_size": "60", "nav_width": "250", "jump_height": "4"})
+	apply(app, {"mouse_sensitivity": "250", "panel_size": "60", "nav_percent": "40", "jump_height": "4"})
 	check(Settings.new(fixture).values == settings.values and settings.values.mouse_sensitivity == 250, "general and video settings reload from the settings file")
 	app.show_page("settings")
 	app.settings_reset_all_button.pressed.emit()
 	check(app.setting_fields.mouse_sensitivity.text == Settings.number_text(250) and app.setting_fields.panel_size.text == Settings.number_text(60) and app.setting_fields.jump_height.text == Settings.number_text(Settings.SPECS.jump_height.default), "Attributs reset all leaves mouse and video untouched")
 	app.category_resets.Panneaux.pressed.emit()
-	check(app.setting_fields.panel_size.text == Settings.number_text(72) and app.setting_fields.nav_width.text == Settings.number_text(120) and app.setting_fields.mouse_sensitivity.text == Settings.number_text(250), "Panneaux reset restores both video defaults only")
+	check(app.setting_fields.panel_size.text == Settings.number_text(72) and app.setting_fields.nav_percent.text == Settings.number_text(15) and app.setting_fields.mouse_sensitivity.text == Settings.number_text(250), "Panneaux reset restores both video defaults only")
 	app.category_resets.Souris.pressed.emit()
 	check(app.setting_fields.mouse_sensitivity.text == Settings.number_text(100), "Souris reset restores sensitivity")
 	app.setting_fields.mouse_sensitivity.text = "250"
 	app.setting_resets.mouse_sensitivity.pressed.emit()
 	check(app.setting_fields.mouse_sensitivity.text == Settings.number_text(100), "field reset restores sensitivity")
-	check(settings.values.mouse_sensitivity == 250 and settings.values.panel_size == 60, "resets are not saved before Apply")
+	check(settings.values.mouse_sensitivity == 100 and settings.values.panel_size == 72, "resets are saved at once")
 	app.setting_fields.mouse_sensitivity.text = "250"
-	app.settings_apply_button.pressed.emit()
+	app.apply_user_settings()
 	# Sensibilité : valable aussi dans un monde par défaut ; attributs restent par défaut.
 	app.show_page("worlds")
 	app.open_world(item.id)
@@ -139,7 +139,7 @@ func _run() -> void:
 	file.store_string('{"jump_height":3,"walk_side":4}')
 	file.close()
 	var upgraded := Settings.new(old)
-	check(upgraded.load_notice.is_empty() and upgraded.values.mouse_sensitivity == 100 and upgraded.values.panel_size == 72 and upgraded.values.nav_width == 120 and settings.values.text_px == 18, "older settings file loads silently with new defaults")
+	check(upgraded.load_notice.is_empty() and upgraded.values.mouse_sensitivity == 100 and upgraded.values.panel_size == 72 and upgraded.values.nav_percent == 15 and settings.values.text_px == 18, "older settings file loads silently with new defaults")
 	check(Input.mouse_mode == Input.MOUSE_MODE_VISIBLE, "verification never captures pointer")
 	root.remove_child(app)
 	app.queue_free()

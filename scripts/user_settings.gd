@@ -15,7 +15,8 @@ const SPECS := {
 	# Réglages généraux (0.0.3.1) : valables dans tous les mondes, quel que soit leur mode.
 	"mouse_sensitivity": {"label": "Sensibilité de la souris", "unit": "%", "default": 100.0, "min": 10.0, "max": 300.0},
 	"panel_size": {"label": "Taille des panneaux", "unit": "% de la fenêtre", "default": 72.0, "min": 50.0, "max": 95.0},
-	"nav_width": {"label": "Largeur du menu de gauche", "unit": "px", "default": 120.0, "min": 80.0, "max": 250.0},
+	# 0.0.3.8 : largeur du menu de gauche en % de la largeur du panneau (avant : en px, ignorée).
+	"nav_percent": {"label": "Largeur du menu de gauche", "unit": "% du panneau", "default": 15.0, "min": 5.0, "max": 40.0},
 	# Taille du texte en px (0.0.3.3) ; 18 px = taille d'origine ; minimum environ 40 %.
 	"text_px": {"label": "Taille du texte", "unit": "px", "default": 18.0, "min": 7.0, "max": 27.0},
 	# 0.0.3.6 : échelle de tout l'affichage des menus (zoom) et champ de vision en jeu.

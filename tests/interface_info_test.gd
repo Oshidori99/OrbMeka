@@ -36,7 +36,7 @@ func _run() -> void:
 	app.settings_button.pressed.emit()
 	check(app.page == "settings" and app.settings_tabs.general.has_focus(), "settings opens with keyboard focus on the first side tab")
 	check(app.pages.settings.get_child(0).text == "Paramètres" and app.setting_fields.size() == 14, "settings shows Paramètres with fourteen fields (8 attributes, mouse, 5 video)")
-	check(app.settings_apply_button != null and app.pages.settings.find_children("*", "Button", true, false).slice(-2) == [app.settings_apply_button, app.settings_back_button], "shared Apply then Return available")
+	check(app.pages.settings.find_children("*", "Button", true, false).back() == app.settings_back_button and not app.pages.settings.find_children("*", "Button", true, false).any(func(button): return button.text == "Appliquer"), "no Apply button, Return available")
 	app.settings_back_button.pressed.emit()
 	check(app.page == "home", "settings return button restores home")
 	app.settings_button.pressed.emit()

@@ -100,7 +100,7 @@ func _run() -> void:
 		check(others_unchanged and app.setting_fields[field].text == Settings.number_text(Settings.SPECS[field].default), "reset affects only " + field)
 	for field in desired:
 		app.setting_fields[field].text = desired[field]
-	app.settings_apply_button.pressed.emit()
+	app.apply_user_settings()
 	check(settings.values.jump_height == 3 and settings.values.place_ms == 450 and settings.values.break_ms == 650, "Apply saves UI values")
 	check(FileAccess.get_file_as_bytes(fixture+".worlds") == world_file_before, "settings never modify worlds catalog or seeds")
 	await process_frame

@@ -1,4 +1,4 @@
-# OrbMeka™ — prototype 0.0.3.7
+# OrbMeka™ — prototype 0.0.3.8
 
 Godot 4.7 / GDScript. Formes et couleurs simples, sans assets externes.
 
@@ -717,3 +717,16 @@ réinitialisations, interrupteur, place dans les petites fenêtres).
 Résultat : 22 tests, 0 échec.
 À tester manuellement : prise en main des barres à la souris et au clavier,
 aspect de l'interrupteur dans les trois thèmes.
+
+## Enregistrement automatique et menu de gauche en % — 0.0.3.8
+- Plus de bouton **Appliquer** : chaque changement (champ, barre, choix,
+  interrupteur, ↻) est enregistré et appliqué aussitôt. Retour et Échap
+  gardent donc tout. Une valeur invalide affiche un message et n'est pas
+  enregistrée ; Entrée dans un champ réaffiche la valeur enregistrée.
+- Vidéo → Panneaux : **Largeur du menu de gauche** en % de la largeur du
+  panneau, 5 à 40 % (15 % par défaut). L'ancien réglage en px est ignoré.
+
+Tests mis à jour : enregistrement immédiat (barres, interrupteur, ↻,
+saisie), plus de bouton Appliquer, menu de gauche en %. Résultat : 22 tests, 0 échec.
+À tester manuellement : saisie au clavier dans les champs (pas de saut du
+curseur), glisser les barres, menu de gauche à 5 et 40 %.

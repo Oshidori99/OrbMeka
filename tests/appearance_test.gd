@@ -24,14 +24,14 @@ func choose(app: Control, values: Dictionary) -> void:
 			app.choice_switches[key].button_pressed = values[key] == "on"
 		else:
 			app.choice_buttons[key][values[key]].pressed.emit()
-	app.settings_apply_button.pressed.emit()
+	app.apply_user_settings()
 
 func _run() -> void:
 	root.size = Vector2i(1280, 720)
 	var fixture := "res://.godot/appearance-test-%d.json" % Time.get_ticks_usec()
 	var settings := Settings.new(fixture)
 	check(settings.values.text_detail == "default" and settings.values.theme_mode == "default" and settings.values.menu_depth == "on", "choice defaults: default detail, default theme, depth on")
-	check(Settings.SPECS.nav_width.default == 120 and Settings.SPECS.nav_width.min == 80 and Settings.SPECS.nav_width.max == 250, "left menu scale lowered to 80-250 px, 120 by default")
+	check(Settings.SPECS.nav_percent.default == 15 and Settings.SPECS.nav_percent.min == 5 and Settings.SPECS.nav_percent.max == 40, "left menu width in % of the panel, 15 by default")
 	check(Settings.SPECS.text_px.unit == "px" and Settings.SPECS.text_px.default == 18 and Settings.SPECS.text_px.min <= 18 * 0.4 + 0.5, "text size in px, minimum about 40 %")
 	var app: Control = load("res://scenes/main.tscn").instantiate()
 	app.settings = settings
@@ -103,7 +103,7 @@ func _run() -> void:
 	app.choice_buttons.theme_mode.dark.pressed.emit()
 	app.choice_switches.menu_depth.button_pressed = false
 	app.category_resets.Apparence.pressed.emit()
-	check(app.choice_values.theme_mode == "default" and app.choice_values.menu_depth == "on" and settings.values.theme_mode == "default", "category ↻ restores choices, not saved before Apply")
+	check(app.choice_values.theme_mode == "default" and app.choice_values.menu_depth == "on" and settings.values.theme_mode == "default", "category ↻ restores and saves choices at once")
 	choose(app, {"theme_mode": "light", "text_detail": "plus"})
 	check(Settings.new(fixture).values == settings.values and settings.values.theme_mode == "light", "choices reload from the settings file")
 	var texts := {}

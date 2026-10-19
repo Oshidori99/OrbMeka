@@ -45,30 +45,30 @@ func _run() -> void:
 	app.setting_fields.walk_forward.text = "abc"
 	app.setting_fields.walk_forward.text_changed.emit("abc")
 	check(is_equal_approx(app.setting_sliders.walk_forward.value, 8.5), "invalid typing leaves the slider still")
-	check(settings.values.fov == 75, "slider is not saved before Apply")
+	check(settings.values.fov == 90, "moving the slider saves at once")
 	app.setting_fields.walk_forward.text = "8,5"
-	app.settings_apply_button.pressed.emit()
-	check(settings.values.fov == 90 and settings.values.walk_forward == 8.5, "Apply saves slider values")
+	app.apply_user_settings()
+	check(settings.values.fov == 90 and settings.values.walk_forward == 8.5, "Enter saves typed values")
 	# Réinitialisations : les barres suivent.
 	app.setting_resets.fov.pressed.emit()
 	check(app.setting_fields.fov.text == Settings.number_text(75) and app.setting_sliders.fov.value == 75, "field reset moves the slider back")
 	app.settings_reset_all_button.pressed.emit()
 	check(app.setting_sliders.walk_forward.value == Settings.SPECS.walk_forward.default, "reset all moves attribute sliders back")
 	app.category_resets.Panneaux.pressed.emit()
-	check(app.setting_sliders.panel_size.value == 72 and app.setting_sliders.nav_width.value == 120, "category reset moves its sliders back")
+	check(app.setting_sliders.panel_size.value == 72 and app.setting_sliders.nav_percent.value == 15, "category reset moves its sliders back")
 	# Interrupteur Oui / Non.
 	var switch: CheckButton = app.choice_switches.menu_depth
 	check(switch.button_pressed and app.choice_buttons.menu_depth.is_empty(), "depth uses one on/off switch, on by default")
 	switch.button_pressed = false
-	check(app.choice_values.menu_depth == "off" and settings.values.menu_depth == "on", "switch off is pending until Apply")
-	app.settings_apply_button.pressed.emit()
-	check(settings.values.menu_depth == "off", "Apply saves the switch")
+	check(app.choice_values.menu_depth == "off" and settings.values.menu_depth == "off", "switch off is saved at once")
+	app.apply_user_settings()
+	check(settings.values.menu_depth == "off", "switch stays saved")
 	app.setting_resets.menu_depth.pressed.emit()
 	check(switch.button_pressed and app.choice_values.menu_depth == "on", "↻ turns the switch back on")
 	check(app.choice_buttons.theme_mode.size() == 3 and app.choice_buttons.text_detail.size() == 3, "three-way choices keep their buttons")
 	# Les barres tiennent dans les petites fenêtres, texte grand compris.
 	app.setting_fields.text_px.text = "27"
-	app.settings_apply_button.pressed.emit()
+	app.apply_user_settings()
 	var ok := true
 	for size in [Vector2i(800, 450), Vector2i(1280, 720)]:
 		root.size = size

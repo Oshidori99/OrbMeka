@@ -65,17 +65,20 @@ func _run() -> void:
 	check(tabs.all(func(tab): return tab.theme_type_variation == "OrbTab" and tab.toggle_mode and tab.button_group == tabs[0].button_group), "side buttons are rectangular toggle tabs in one group")
 	check(tabs[0].get_parent().get_index() == 0 and tabs[0].get_parent().get_parent() is HBoxContainer, "side menu sits on the left")
 	check(app.settings_section == "general" and app.settings_sections.general.visible and not app.settings_sections.attributes.visible and tabs[0].button_pressed, "general settings open first")
-	check(app.settings_sections.general.is_ancestor_of(app.setting_fields.mouse_sensitivity) and app.settings_sections.video.is_ancestor_of(app.setting_fields.panel_size) and app.settings_sections.video.is_ancestor_of(app.setting_fields.nav_width), "mouse in general, panel sizes in Vidéo")
+	check(app.settings_sections.general.is_ancestor_of(app.setting_fields.mouse_sensitivity) and app.settings_sections.video.is_ancestor_of(app.setting_fields.panel_size) and app.settings_sections.video.is_ancestor_of(app.setting_fields.nav_percent), "mouse in general, panel sizes in Vidéo")
 	tabs[2].pressed.emit()
 	check(app.settings_section == "attributes" and app.settings_sections.attributes.visible and not app.settings_sections.general.visible and tabs[2].button_pressed and not tabs[0].button_pressed, "Attributs tab shows the attribute screen")
 	app.setting_fields.walk_forward.text = "9"
+	app.setting_fields.walk_forward.text_changed.emit("9")
 	tabs[0].pressed.emit()
 	tabs[2].pressed.emit()
-	check(app.setting_fields.walk_forward.text == "9", "switching sections keeps unsaved edits")
+	check(app.setting_fields.walk_forward.text == "9", "switching sections keeps the typed value")
 	escape()
-	check(app.page == "home" and settings.values.walk_forward == Settings.SPECS.walk_forward.default, "Escape abandons edits")
+	check(app.page == "home" and settings.values.walk_forward == 9, "typed value saved without Apply, kept on Escape")
 	app.settings_button.pressed.emit()
-	check(app.setting_fields.walk_forward.text == Settings.number_text(Settings.SPECS.walk_forward.default) and app.settings_section == "general", "reopening shows saved values on the first tab")
+	check(app.setting_fields.walk_forward.text == Settings.number_text(9) and app.settings_section == "general", "reopening shows saved values on the first tab")
+	app.setting_resets.walk_forward.pressed.emit()
+	check(settings.values.walk_forward == Settings.SPECS.walk_forward.default, "field reset saves the default at once")
 	# Catégorie Marche.
 	check(App.ATTRIBUTE_CATEGORIES.keys() == ["Saut", "Blocs", "Marche"] and App.ATTRIBUTE_CATEGORIES.Marche.keys == WALK_KEYS, "Marche is the last category with three speeds")
 	for key in WALK_KEYS:
@@ -95,7 +98,7 @@ func _run() -> void:
 			var expected: String = Settings.number_text(Settings.SPECS[key].default) if key in keys else custom[key]
 			ok = ok and app.setting_fields[key].text == expected
 		check(ok, "category reset affects only " + category)
-	check(settings.values.jump_height == Settings.SPECS.jump_height.default, "category reset is not saved before Apply")
+	check(settings.values.walk_forward == Settings.SPECS.walk_forward.default and settings.values.jump_height == 3, "category reset saves at once: its defaults and the other values shown")
 	for key in custom:
 		app.setting_fields[key].text = custom[key]
 	check(app.settings_reset_all_button.text.begins_with("↻"), "reset all uses the round arrow")
@@ -120,11 +123,11 @@ func _run() -> void:
 	# Bornes et sauvegarde.
 	for invalid in ["0,5", "12,5", "abc"]:
 		app.setting_fields.walk_back.text = invalid
-		app.settings_apply_button.pressed.emit()
+		app.apply_user_settings()
 		check(settings.values.walk_back == 5.5 and app.settings_message.text.begins_with("Reculer"), "walking speed rejected: " + invalid)
 	for key in custom:
 		app.setting_fields[key].text = custom[key]
-	app.settings_apply_button.pressed.emit()
+	app.apply_user_settings()
 	check(settings.values.walk_forward == 7 and settings.values.walk_side == 4 and settings.values.walk_back == 3, "walking speeds saved")
 	check(Settings.new(fixture).values == settings.values, "walking speeds reload from the settings file")
 	var old := fixture + ".old"

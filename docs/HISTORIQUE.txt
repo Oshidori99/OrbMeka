@@ -3,6 +3,10 @@ Du plus récent au plus ancien. Ce fichier est mis à jour à chaque version.
 
 === Thème « Contrôles et Paramètres » (0.0.3 et suivantes) ===
 
+0.0.3.8 — Enregistrement automatique et menu de gauche en %
+Plus de bouton Appliquer : chaque réglage est enregistré et appliqué aussitôt.
+Vidéo : largeur du menu de gauche en % du panneau (5 à 40 %, 15 % par défaut).
+
 0.0.3.7 — Barres de réglage et interrupteur
 Paramètres : une barre par réglage chiffré, liée à son champ ; ↻ remet aussi les barres.
 Profondeur des menus : interrupteur on/off.

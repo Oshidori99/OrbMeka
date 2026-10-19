@@ -40,7 +40,7 @@ const GENERAL_CATEGORIES := {
 		"Textes": {"keys": ["text_detail"], "help": ["", "Détail des explications.", "Quantité de détails dans les explications : − l'essentiel, + tout."]},
 	},
 	"video": {
-		"Panneaux": {"keys": ["panel_size", "nav_width"], "help": ["", "Largeur des menus et de la colonne d'onglets.", "Largeur des menus ; le menu de gauche est la colonne d'onglets."]},
+		"Panneaux": {"keys": ["panel_size", "nav_percent"], "help": ["", "Largeur des menus et de la colonne d'onglets.", "Largeur des menus ; le menu de gauche est la colonne d'onglets."]},
 		"Échelle": {"keys": ["ui_scale"], "help": ["", "Taille de tout le menu.", "Zoom de tout l'affichage des menus : panneaux, textes et boutons ensemble (100 % : taille d'origine)."]},
 		"Texte": {"keys": ["text_px"], "help": ["", "Taille des textes.", "Taille de tous les textes, menus et jeu (18 px : taille d'origine)."]},
 		"Apparence": {"keys": ["theme_mode", "menu_depth"], "help": ["", "Couleurs et encadrés des menus.", "Thème de couleurs des menus. Profondeur : contenu dans des encadrés creusés sous le titre."]},
@@ -49,8 +49,6 @@ const GENERAL_CATEGORIES := {
 }
 # Menu latéral de Paramètres : sections dans l'ordre des boutons ; la première s'ouvre par défaut.
 const SETTINGS_SECTIONS := {"general": "Paramètres généraux", "video": "Vidéo", "attributes": "Attributs"}
-# Menu de gauche : largeur réglée (Vidéo), au plus 40 % du panneau pour laisser la place au contenu.
-const NAV_MAX_SHARE := 0.4
 const CATEGORY_GAP := 22.0
 const SLIDER_WIDTH := 150.0
 
@@ -64,7 +62,7 @@ var settings_sections: Dictionary = {}
 var settings_section := "general"
 var settings_nav: VBoxContainer
 var font_sizes: Dictionary = {}
-# Réglages à choix : boutons par option, et choix en cours (enregistré par Appliquer).
+# Réglages à choix : boutons par option, et choix en cours (enregistré aussitôt).
 var choice_buttons: Dictionary = {}
 var choice_values: Dictionary = {}
 # 0.0.3.7 : barres des réglages chiffrés, interrupteurs des choix Oui / Non.
@@ -78,7 +76,7 @@ var fit_queued := false
 # Marge entre le panneau et les bords haut et bas de la fenêtre.
 const WINDOW_MARGIN := 12.0
 var settings_message: RichTextLabel
-var settings_apply_button: Button
+
 var catalog: RefCounted
 var page := "home"
 var active_world: Node3D
@@ -262,8 +260,12 @@ Défaut : %s · %s à %s" % [spec.label, spec.unit, default_text, UserSettings.n
 	field.tooltip_text = slider.tooltip_text
 	row.add_child(field)
 	field.text_submitted.connect(func(_text: String): apply_user_settings())
-	field.text_changed.connect(func(_text: String): _sync_slider(key))
-	slider.value_changed.connect(func(value: float): field.text = UserSettings.number_text(value))
+	field.text_changed.connect(func(_text: String):
+		_sync_slider(key)
+		_autosave())
+	slider.value_changed.connect(func(value: float):
+		field.text = UserSettings.number_text(value)
+		_autosave())
 	setting_fields[key] = field
 	var reset := _button("↻", row, func(): reset_setting(key))
 	reset.custom_minimum_size.x = 42
@@ -285,7 +287,7 @@ func _add_choice_row(parent: Node, key: String) -> void:
 		# Oui / Non : interrupteur on/off (0.0.3.7) plutôt que deux boutons.
 		var switch := CheckButton.new()
 		switch.tooltip_text = spec.label
-		switch.toggled.connect(func(on: bool): _set_choice(key, "on" if on else "off"))
+		switch.toggled.connect(func(on: bool): _choose(key, "on" if on else "off"))
 		row.add_child(switch)
 		choice_switches[key] = switch
 	var group := ButtonGroup.new()
@@ -293,7 +295,7 @@ func _add_choice_row(parent: Node, key: String) -> void:
 	for option in spec.options:
 		if choice_switches.has(key):
 			break
-		var button := _button(spec.options[option], row, func(): _set_choice(key, option))
+		var button := _button(spec.options[option], row, func(): _choose(key, option))
 		button.theme_type_variation = "OrbTab"
 		button.toggle_mode = true
 		button.button_group = group
@@ -326,7 +328,7 @@ static func _slider_step(spec: Dictionary) -> float:
 	return 1.0 if span <= 300.0 else 10.0
 
 func _sync_slider(key: String) -> void:
-	# Champ vide : défaut ; saisie invalide : la barre ne bouge pas (Appliquer signalera l'erreur).
+	# Champ vide : défaut ; saisie invalide : la barre ne bouge pas (le message signale l'erreur).
 	var text: String = setting_fields[key].text.strip_edges().replace(",", ".")
 	var value: float = UserSettings.SPECS[key].default
 	if not text.is_empty():
@@ -371,7 +373,8 @@ func _fill_settings() -> void:
 
 func reset_setting(key: String) -> void:
 	_set_default(key)
-	settings_message.text = "Défaut rétabli pour ce champ. Appliquer pour enregistrer."
+	settings_message.text = "Défaut rétabli pour ce champ."
+	_autosave()
 
 func _category_keys(category: String) -> Array:
 	if ATTRIBUTE_CATEGORIES.has(category):
@@ -384,33 +387,48 @@ func _category_keys(category: String) -> Array:
 func reset_category(category: String) -> void:
 	for key in _category_keys(category):
 		_set_default(key)
-	settings_message.text = "Défauts rétablis : %s. Appliquer pour enregistrer." % category
+	settings_message.text = "Défauts rétablis : %s." % category
+	_autosave()
 
 func reset_all_settings() -> void:
 	# Bouton de l'écran Attributs : seuls les attributs reprennent leur défaut.
 	for key in UserSettings.ATTRIBUTE_KEYS:
 		_set_default(key)
-	settings_message.text = "Tous les attributs par défaut. Appliquer pour enregistrer."
+	settings_message.text = "Tous les attributs par défaut."
+	_autosave()
 
 func show_settings_section(section: String) -> void:
-	# Changer de section garde les saisies en cours ; seul Retour les abandonne.
+	# Changer de section ne change rien : chaque réglage est déjà enregistré (0.0.3.8).
 	settings_section = section
 	for key in settings_sections:
 		settings_sections[key].visible = key == section
 		settings_tabs[key].set_pressed_no_signal(key == section)
 
-func apply_user_settings() -> void:
+# Enregistrement automatique (0.0.3.8) : chaque changement est validé, enregistré et appliqué
+# aussitôt, sans bouton Appliquer. Valeur invalide : message, rien n'est enregistré.
+# Les champs ne sont pas réécrits ici, pour ne pas gêner la saisie en cours.
+func _autosave() -> bool:
 	var texts := {}
 	for key in setting_fields:
 		texts[key] = setting_fields[key].text
 	texts.merge(choice_values, true)
 	if not settings.apply_texts(texts):
 		settings_message.text = settings.last_error
-		return
-	_fill_settings()
+		return false
 	apply_appearance()
 	fit_menus_to_window()
-	settings_message.text = "Paramètres enregistrés."
+	settings_message.text = "Enregistré."
+	return true
+
+func _choose(key: String, option: String) -> void:
+	_set_choice(key, option)
+	_autosave()
+
+# Entrée dans un champ : enregistre et affiche les valeurs telles qu'enregistrées.
+func apply_user_settings() -> void:
+	if _autosave():
+		_fill_settings()
+		settings_message.text = "Enregistré."
 
 # Page : titre sur le panneau, puis contenu « plus profond » dans un encadré creusé.
 # Renvoie le contenu ; la page entière (titre compris) est _page_root(contenu).
@@ -469,7 +487,7 @@ func _build_interface() -> void:
 	var home := _page(stack, "OrbMeka™")
 	pages.home = _page_root(home)
 	var version := _text_label()
-	version.text = "v" + str(ProjectSettings.get_setting("application/config/version", "0.0.3.7"))
+	version.text = "v" + str(ProjectSettings.get_setting("application/config/version", "0.0.3.8"))
 	version.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	version.theme_type_variation = "OrbNote"
 	home.add_child(version)
@@ -553,11 +571,10 @@ func _build_interface() -> void:
 		_add_setting_category(attributes, category, ATTRIBUTE_CATEGORIES[category])
 	_explanation(attributes, ["", "Mondes en mode développeur seulement.", "Utilisés seulement par les mondes en mode développeur. Champ vide : défaut."])
 	attributes.get_child(-1).theme_type_variation = "OrbNote"
-	# Message et Appliquer communs aux trois sections : un seul enregistrement pour tout.
+	# Message commun aux trois sections : enregistrement automatique à chaque changement (0.0.3.8).
 	settings_message = _text_label()
 	settings_message.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	settings_page.add_child(settings_message)
-	settings_apply_button = _button("Appliquer", settings_page, apply_user_settings)
 	settings_back_button = _button("Retour", settings_page, func(): show_page("home"))
 	var information_page := _page(stack, "Génération des mondes")
 	pages.information = _page_root(information_page)
@@ -753,7 +770,7 @@ func fit_menus_to_window() -> void:
 		menu_panel.custom_minimum_size.x = minf(maxf(COMPACT_MIN_WIDTH, minf(MENU_BASE_WIDTH * grow, view.x * MENU_MAX_WIDTH_RATIO) * scale), limit)
 	else:
 		menu_panel.custom_minimum_size.x = minf(maxf(view.x * ratio, MENU_BASE_WIDTH), limit)
-	settings_nav.custom_minimum_size.x = minf(settings.values.nav_width, menu_panel.custom_minimum_size.x * NAV_MAX_SHARE)
+	settings_nav.custom_minimum_size.x = menu_panel.custom_minimum_size.x * settings.values.nav_percent / 100.0
 	for control in menu_reserved_heights:
 		control.custom_minimum_size.y = maxf(SCROLL_MIN_HEIGHT, view.y - menu_reserved_heights[control])
 	_fit_height()
