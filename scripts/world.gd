@@ -275,7 +275,17 @@ func _process(delta: float) -> void:
 		selection.global_position = hit.collider.global_position
 	hint.text = notice if notice_time > 0.0 else ""
 
-static func get_help_text() -> String:
+# level : 0 = −, 1 = Par défaut, 2 = + (textes complets d'avant 0.0.3.3), selon Synthèse des textes.
+static func get_help_text(level: int = 2) -> String:
+	if level == 0:
+		return "ZQSD : marcher. Espace : sauter. Clic gauche : casser ; clic droit : poser.
+Molette : bloc. Échap : pause. F1 : mondes."
+	if level == 1:
+		return "ZQSD / WASD / flèches : marcher. Souris : regarder. Espace : sauter.
+Maintenir clic gauche : casser ; clic droit : poser. Molette : changer de bloc.
+Échap : pause. F1 : liste des mondes. F2 : Comment jouer. F3 : Informations.
+Portée : %d blocs. Maximum : %d blocs, hauteur %d.
+Constructions réinitialisées en quittant le monde." % [int(PlayerScript.REACH), MAX_BLOCKS, MAX_BUILD_HEIGHT]
 	return "ZQSD / WASD / flèches : marcher. Souris : regarder. Espace : sauter.
 
 Maintenir clic gauche : casser ; clic droit : poser.
@@ -293,8 +303,18 @@ Portée : %d blocs. Base protégée. Maximum : %d blocs présents.
 Hauteur maximale : %d blocs au-dessus du sol plat, collines comprises.
 
 Nom, graine et mode conservés ; constructions réinitialisées en quittant le monde." % [int(PlayerScript.REACH), MAX_BLOCKS, MAX_BUILD_HEIGHT]
-func get_world_info_text() -> String:
+
+func get_world_info_text(level: int = 2) -> String:
 	var span := TerrainGenerator.MAX_CELL - TerrainGenerator.MIN_CELL + 1
+	if level == 0:
+		return "Monde : %s · Graine : %d
+Mode : %s" % [world_name, terrain_seed, world_mode_text]
+	if level == 1:
+		return "Monde : %s
+Graine : %d
+Mode : %s
+Collines : %d, jusqu'à %d blocs. Base %d × %d.
+Constructions non sauvegardées." % [world_name, terrain_seed, world_mode_text, generated_hill_count, generated_max_height, int(BASE_SIZE.x), int(BASE_SIZE.z)]
 	var mode_line := "Mode : %s — %s" % [world_mode_text, "attributs de Paramètres → Attributs" if developer_mode else "attributs par défaut, non modifiables"]
 	return "Monde : %s
 Graine : %d

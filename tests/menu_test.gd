@@ -56,14 +56,14 @@ func _run() -> void:
 	current_scene = app
 	await process_frame
 	check(app.page == "home" and app.play_button.visible, "startup opens home with Play")
-	check(app.pages.home.get_children().filter(func(child): return child is Button).size() == 4, "home has four main buttons")
+	check(app.pages.home.find_children("*", "Button", true, false).size() == 4, "home has four main buttons")
 	app.play_button.pressed.emit()
 	await process_frame
 	check(app.page == "worlds" and app.world_list.item_count == 2, "Play opens the world list")
 	app.new_world_button.pressed.emit()
 	await process_frame
 	check(app.page == "create" and app.name_field.has_focus(), "create page focuses the name field")
-	check(app.pages.create.get_children().filter(func(child): return child is LineEdit).size() == 2, "creation form has name and seed fields")
+	check(app.pages.create.find_children("*", "LineEdit", true, false).size() == 2, "creation form has name and seed fields")
 	app.name_field.text = " "
 	app.create_button.pressed.emit()
 	check(app.page == "create" and not app.form_error.text.is_empty(), "form explains empty-name error")

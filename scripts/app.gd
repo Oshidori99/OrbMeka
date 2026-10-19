@@ -21,21 +21,28 @@ const COMPACT_MIN_WIDTH := 400.0
 const SCROLL_MIN_HEIGHT := 140.0
 # Lu à chaque ouverture de l'écran Historique ; inclus dans les exports par addons/history_export.
 const HISTORY_PATH := "res://docs/HISTORIQUE.txt"
+# Textes à trois niveaux de détail (Paramètres généraux → Synthèse des textes) :
+# [−, Par défaut, +] ; « + » garde les textes complets d'avant 0.0.3.3, « − » l'essentiel.
+const DETAIL_LEVELS := ["minus", "default", "plus"]
 # Catégories de l'écran Attributs, dans l'ordre d'affichage, avec leur texte d'aide.
 const ATTRIBUTE_CATEGORIES := {
-	"Saut": {"keys": ["jump_height", "jump_speed", "fall_gravity"], "help": "Hauteur : sommet visé (1 m = 1 bloc).
+	"Saut": {"keys": ["jump_height", "jump_speed", "fall_gravity"], "help": ["", "Hauteur, vitesse de montée et retombée du saut.", "Hauteur : sommet visé (1 m = 1 bloc).
 Vitesse : départ plus vif ou plus doux ; hauteur conservée.
-Gravité de descente : retombée plus ou moins rapide."},
-	"Blocs": {"keys": ["place_ms", "break_ms"], "help": "Temps entre deux actions au maintien du clic.
-Première action immédiate ; un délai plus court accélère la répétition."},
-	"Marche": {"keys": ["walk_forward", "walk_side", "walk_back"], "help": "Vitesse au sol dans chaque direction (1 bloc = 1 m)."},
+Gravité de descente : retombée plus ou moins rapide."]},
+	"Blocs": {"keys": ["place_ms", "break_ms"], "help": ["", "Temps entre deux actions au maintien du clic.", "Temps entre deux actions au maintien du clic.
+Première action immédiate ; un délai plus court accélère la répétition."]},
+	"Marche": {"keys": ["walk_forward", "walk_side", "walk_back"], "help": ["", "Vitesse au sol par direction.", "Vitesse au sol dans chaque direction (1 bloc = 1 m)."]},
 }
 # Réglages généraux (tous les mondes, quel que soit leur mode), par section du menu latéral.
 const GENERAL_CATEGORIES := {
-	"general": {"Souris": {"keys": ["mouse_sensitivity"], "help": "Vitesse de rotation de la vue."}},
+	"general": {
+		"Souris": {"keys": ["mouse_sensitivity"], "help": ["", "Rotation de la vue.", "Vitesse de rotation de la vue."]},
+		"Textes": {"keys": ["text_detail"], "help": ["", "Détail des explications.", "Quantité de détails dans les explications : − l'essentiel, + tout."]},
+	},
 	"video": {
-		"Panneaux": {"keys": ["panel_size", "nav_width"], "help": "Largeur des menus ; le menu de gauche est la colonne d'onglets."},
-		"Texte": {"keys": ["text_px"], "help": "Taille de tous les textes, menus et jeu (18 px : taille d'origine)."},
+		"Panneaux": {"keys": ["panel_size", "nav_width"], "help": ["", "Largeur des menus et de la colonne d'onglets.", "Largeur des menus ; le menu de gauche est la colonne d'onglets."]},
+		"Texte": {"keys": ["text_px"], "help": ["", "Taille des textes.", "Taille de tous les textes, menus et jeu (18 px : taille d'origine)."]},
+		"Apparence": {"keys": ["theme_mode"], "help": ["", "Couleurs des menus.", "Thème de couleurs des menus : sombre, par défaut (couleurs d'origine) ou clair."]},
 	},
 }
 # Menu latéral de Paramètres : sections dans l'ordre des boutons ; la première s'ouvre par défaut.
@@ -54,6 +61,11 @@ var settings_sections: Dictionary = {}
 var settings_section := "general"
 var settings_nav: VBoxContainer
 var font_sizes: Dictionary = {}
+# Réglages à choix : boutons par option, et choix en cours (enregistré par Appliquer).
+var choice_buttons: Dictionary = {}
+var choice_values: Dictionary = {}
+# Textes fixes à trois niveaux de détail : label → [−, Par défaut, +].
+var detail_labels: Dictionary = {}
 var menu_scroll: ScrollContainer
 var menu_stack: VBoxContainer
 var fit_queued := false
@@ -175,25 +187,53 @@ func _font_size(control: Control, base: int) -> void:
 func _text_scale() -> float:
 	return settings.values.text_px / UserSettings.SPECS.text_px.default
 
-func apply_text_size() -> void:
-	menu_root.theme = UiTheme.build(_text_scale())
+func _build_theme() -> Theme:
+	return UiTheme.build(_text_scale(), settings.values.theme_mode)
+
+# Taille du texte, thème et profondeur : appliqués à tous les menus, immédiatement.
+func apply_appearance() -> void:
+	menu_root.theme = _build_theme()
 	for control in font_sizes:
 		control.add_theme_font_size_override(font_sizes[control][0], UiTheme.scaled(font_sizes[control][1], _text_scale()))
+	var colors := UiTheme.palette(settings.values.theme_mode)
+	news_label.add_theme_color_override("default_color", colors.section)
+	form_error.add_theme_color_override("default_color", colors.error)
+	_refresh_details()
 
-func _explanation(parent: Node, text: String) -> void:
+# Texte choisi selon Synthèse des textes ; « − » peut être vide (texte masqué).
+func _detail(variants: Array) -> String:
+	return variants[DETAIL_LEVELS.find(settings.values.text_detail)]
+
+func _refresh_details() -> void:
+	for label in detail_labels:
+		label.text = _detail(detail_labels[label])
+		label.visible = not label.text.is_empty()
+
+func _explanation(parent: Node, text: Variant) -> void:
+	# text : chaîne fixe, ou [−, Par défaut, +] selon Synthèse des textes.
 	var label := _text_label()
-	label.text = text
 	label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	parent.add_child(label)
+	if text is Array:
+		detail_labels[label] = text
+		label.text = _detail(text)
+		label.visible = not label.text.is_empty()
+	else:
+		label.text = text
 
 func _add_setting_row(parent: Node, key: String) -> void:
+	if UserSettings.CHOICES.has(key):
+		_add_choice_row(parent, key)
+		return
 	var spec: Dictionary = UserSettings.SPECS[key]
 	var row := HBoxContainer.new()
 	row.add_theme_constant_override("separation", 10)
 	parent.add_child(row)
 	var label := _text_label()
-	label.text = "%s (%s)
-Défaut : %s · %s à %s" % [spec.label, spec.unit, UserSettings.number_text(spec.default), UserSettings.number_text(spec.min), UserSettings.number_text(spec.max)]
+	var default_text := UserSettings.number_text(spec.default)
+	detail_labels[label] = [spec.label, "%s (%s) · défaut %s" % [spec.label, spec.unit, default_text], "%s (%s)
+Défaut : %s · %s à %s" % [spec.label, spec.unit, default_text, UserSettings.number_text(spec.min), UserSettings.number_text(spec.max)]]
+	label.text = _detail(detail_labels[label])
 	label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	row.add_child(label)
@@ -209,6 +249,42 @@ Défaut : %s · %s à %s" % [spec.label, spec.unit, UserSettings.number_text(spe
 	reset.custom_minimum_size.x = 42
 	reset.tooltip_text = "Rétablir le défaut de ce champ : " + UserSettings.number_text(spec.default)
 	setting_resets[key] = reset
+
+# Choix en boutons exclusifs (synthèse, thème, profondeur), avec ↻ comme les champs.
+func _add_choice_row(parent: Node, key: String) -> void:
+	var spec: Dictionary = UserSettings.CHOICES[key]
+	var row := HBoxContainer.new()
+	row.add_theme_constant_override("separation", 10)
+	parent.add_child(row)
+	var label := _text_label()
+	label.text = spec.label
+	label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	row.add_child(label)
+	var group := ButtonGroup.new()
+	choice_buttons[key] = {}
+	for option in spec.options:
+		var button := _button(spec.options[option], row, func(): _set_choice(key, option))
+		button.theme_type_variation = "OrbTab"
+		button.toggle_mode = true
+		button.button_group = group
+		button.custom_minimum_size.x = 52
+		choice_buttons[key][option] = button
+	var reset := _button("↻", row, func(): reset_setting(key))
+	reset.custom_minimum_size.x = 42
+	reset.tooltip_text = "Rétablir le défaut : " + spec.options[spec.default]
+	setting_resets[key] = reset
+
+func _set_choice(key: String, option: String) -> void:
+	choice_values[key] = option
+	for each in choice_buttons[key]:
+		choice_buttons[key][each].set_pressed_no_signal(each == option)
+
+func _set_default(key: String) -> void:
+	if UserSettings.CHOICES.has(key):
+		_set_choice(key, UserSettings.CHOICES[key].default)
+	else:
+		setting_fields[key].text = UserSettings.number_text(UserSettings.SPECS[key].default)
 
 func _add_setting_category(parent: Node, category: String, data: Dictionary) -> void:
 	# Espace avant chaque catégorie : titres et ↻ de catégorie bien détachés des champs.
@@ -232,10 +308,12 @@ func _add_setting_category(parent: Node, category: String, data: Dictionary) -> 
 func _fill_settings() -> void:
 	for key in setting_fields:
 		setting_fields[key].text = UserSettings.number_text(settings.values[key])
+	for key in choice_buttons:
+		_set_choice(key, settings.values[key])
 	settings_message.text = settings.load_notice
 
 func reset_setting(key: String) -> void:
-	setting_fields[key].text = UserSettings.number_text(UserSettings.SPECS[key].default)
+	_set_default(key)
 	settings_message.text = "Défaut rétabli pour ce champ. Appliquer pour enregistrer."
 
 func _category_keys(category: String) -> Array:
@@ -248,7 +326,7 @@ func _category_keys(category: String) -> Array:
 
 func reset_category(category: String) -> void:
 	for key in _category_keys(category):
-		setting_fields[key].text = UserSettings.number_text(UserSettings.SPECS[key].default)
+		_set_default(key)
 	settings_message.text = "Défauts rétablis : %s. Appliquer pour enregistrer." % category
 
 func reset_all_settings() -> void:
@@ -268,11 +346,12 @@ func apply_user_settings() -> void:
 	var texts := {}
 	for key in setting_fields:
 		texts[key] = setting_fields[key].text
+	texts.merge(choice_values, true)
 	if not settings.apply_texts(texts):
 		settings_message.text = settings.last_error
 		return
 	_fill_settings()
-	apply_text_size()
+	apply_appearance()
 	fit_menus_to_window()
 	settings_message.text = "Paramètres enregistrés."
 
@@ -294,7 +373,7 @@ func _build_interface() -> void:
 	menu_root = Control.new()
 	layer.add_child(menu_root)
 	menu_root.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	menu_root.theme = UiTheme.build(_text_scale())
+	menu_root.theme = _build_theme()
 	# Voile derrière le panneau : léger sur le fond 3D de l'accueil, sombre et flou en pause.
 	backdrop = ColorRect.new()
 	backdrop.material = ShaderMaterial.new()
@@ -321,7 +400,7 @@ func _build_interface() -> void:
 	var home := _page(stack, "OrbMeka™")
 	pages.home = home
 	var version := _text_label()
-	version.text = "v" + str(ProjectSettings.get_setting("application/config/version", "0.0.3.3"))
+	version.text = "v" + str(ProjectSettings.get_setting("application/config/version", "0.0.3.4"))
 	version.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	version.theme_type_variation = "OrbNote"
 	home.add_child(version)
@@ -330,7 +409,6 @@ func _build_interface() -> void:
 	news_label.text = MenuShowcase.NEWS_TEXT
 	news_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	news_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	news_label.add_theme_color_override("default_color", UiTheme.TURQUOISE)
 	home.add_child(news_label)
 	play_button = _button("Jouer", home, func(): show_page("worlds"))
 	settings_button = _button("Paramètres", home, func(): show_page("settings"))
@@ -378,7 +456,7 @@ func _build_interface() -> void:
 		# Pas de titre de section : l'onglet de gauche le donne déjà.
 		for category in GENERAL_CATEGORIES[section]:
 			_add_setting_category(box, category, GENERAL_CATEGORIES[section][category])
-		_explanation(box, "Commun à tous les mondes. Champ vide : défaut.")
+		_explanation(box, ["", "Commun à tous les mondes.", "Commun à tous les mondes. Champ vide : défaut."])
 		box.get_child(-1).theme_type_variation = "OrbNote"
 	var attributes_box := VBoxContainer.new()
 	attributes_box.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -404,7 +482,7 @@ func _build_interface() -> void:
 	settings_reset_all_button.tooltip_text = "Rétablir les défauts de tous les attributs"
 	for category in ATTRIBUTE_CATEGORIES:
 		_add_setting_category(attributes, category, ATTRIBUTE_CATEGORIES[category])
-	_explanation(attributes, "Utilisés seulement par les mondes en mode développeur. Champ vide : défaut.")
+	_explanation(attributes, ["", "Mondes en mode développeur seulement.", "Utilisés seulement par les mondes en mode développeur. Champ vide : défaut."])
 	attributes.get_child(-1).theme_type_variation = "OrbNote"
 	# Message et Appliquer communs aux trois sections : un seul enregistrement pour tout.
 	settings_message = _text_label()
@@ -414,10 +492,14 @@ func _build_interface() -> void:
 	settings_back_button = _button("Retour", settings_page, func(): show_page("home"))
 	var information_page := _page(stack, "Génération des mondes")
 	pages.information = information_page
-	generation_info = _text_label()
-	generation_info.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	var span := Terrain.MAX_CELL - Terrain.MIN_CELL + 1
-	generation_info.text = "Base plate : largeur %d × longueur %d blocs
+	var sizes := [int(WorldRules.BASE_SIZE.x), int(WorldRules.BASE_SIZE.z), span, span, WorldRules.MAX_BUILD_HEIGHT, Terrain.MAX_HEIGHT]
+	_explanation(information_page, [
+		"Base %d × %d, hauteur maximale %d. Constructions non sauvegardées." % [sizes[0], sizes[1], sizes[4]],
+		"Base plate : %d × %d blocs ; génération : %d × %d.
+Hauteur maximale : %d blocs ; 3 ou 4 collines de %d blocs au plus.
+Graine aléatoire si vide. Constructions non sauvegardées." % sizes,
+		"Base plate : largeur %d × longueur %d blocs
 Zone de génération : largeur %d × longueur %d blocs
 Construction : hauteur maximale %d blocs au-dessus du sol plat, collines comprises.
 Collines : 3 ou 4, hauteur maximale %d blocs
@@ -425,8 +507,9 @@ Collines : 3 ou 4, hauteur maximale %d blocs
 Graine choisie à la création, ou aléatoire si le champ est vide.
 Nom, graine et mode conservés ; constructions non sauvegardées.
 Réouvrir un monde régénère son terrain initial.
-F1 : revenir à la liste des mondes depuis la partie." % [int(WorldRules.BASE_SIZE.x), int(WorldRules.BASE_SIZE.z), span, span, WorldRules.MAX_BUILD_HEIGHT, Terrain.MAX_HEIGHT]
-	information_page.add_child(generation_info)
+F1 : revenir à la liste des mondes depuis la partie." % sizes,
+	])
+	generation_info = information_page.get_child(-1)
 	information_back_button = _button("Retour", information_page, func(): show_page("home"))
 	var list_page := _page(stack, "Mes mondes")
 	pages.worlds = list_page
@@ -459,9 +542,9 @@ F1 : revenir à la liste des mondes depuis la partie." % [int(WorldRules.BASE_SI
 	var name_label := _text_label()
 	name_label.text = "Nom du monde"
 	form.add_child(name_label)
-	_explanation(form, "Un nom de 1 à %d caractères suffit.
+	_explanation(form, ["", "Graine facultative : vide = aléatoire.", "Un nom de 1 à %d caractères suffit.
 Graine facultative : vide pour un terrain aléatoire.
-Nom, graine et mode conservés ; constructions non sauvegardées." % Catalog.MAX_NAME_LENGTH)
+Nom, graine et mode conservés ; constructions non sauvegardées." % Catalog.MAX_NAME_LENGTH])
 	name_field = LineEdit.new()
 	name_field.placeholder_text = "Mon monde"
 	name_field.max_length = Catalog.MAX_NAME_LENGTH
@@ -500,7 +583,6 @@ Nom, graine et mode conservés ; constructions non sauvegardées." % Catalog.MAX
 	create_mode_note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	form.add_child(create_mode_note)
 	form_error = _text_label()
-	form_error.add_theme_color_override("default_color", UiTheme.ERROR)
 	form_error.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	form.add_child(form_error)
 	create_button = _button("➕ Créer", form, create_named_world)
@@ -521,8 +603,8 @@ Nom, graine et mode conservés ; constructions non sauvegardées." % Catalog.MAX
 	developer_cancel_button = _button("Annuler", developer_page, open_world_settings_for_pending)
 	var rename_page := _page(stack, "Renommer le monde")
 	pages.rename = rename_page
-	_explanation(rename_page, "Seul le nom change (1 à %d caractères).
-La graine et le terrain initial sont conservés." % Catalog.MAX_NAME_LENGTH)
+	_explanation(rename_page, ["", "Seul le nom change.", "Seul le nom change (1 à %d caractères).
+La graine et le terrain initial sont conservés." % Catalog.MAX_NAME_LENGTH])
 	rename_field = LineEdit.new()
 	rename_field.max_length = Catalog.MAX_NAME_LENGTH
 	rename_field.custom_minimum_size.y = 46
@@ -586,6 +668,8 @@ F3 : Informations du monde"
 	shortcut_hints.add_theme_constant_override("shadow_outline_size", 3)
 	shortcut_hints.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	shortcut_hints.visible = false
+	apply_appearance()
+	apply_appearance()
 
 func fit_menus_to_window() -> void:
 	# Taille de base : 1280 × 720. Accueil et pause restent compacts ; les pages de contenu
@@ -634,6 +718,7 @@ func show_page(next_page: String) -> void:
 	fit_menus_to_window()
 	_update_backdrop()
 	shortcut_hints.visible = false
+	apply_appearance()
 	for key in pages:
 		pages[key].visible = key == page
 	_fit_height()
@@ -722,9 +807,10 @@ func set_create_mode(mode: String) -> void:
 	create_default_button.set_pressed_no_signal(mode == Catalog.MODE_DEFAULT)
 	create_developer_button.set_pressed_no_signal(mode == Catalog.MODE_DEVELOPER)
 	if mode == Catalog.MODE_DEVELOPER:
-		create_mode_note.text = "Attributs modifiables (Paramètres → Attributs). Définitif pour ce monde."
+		create_mode_note.text = _detail(["", "Attributs modifiables. Définitif.", "Attributs modifiables (Paramètres → Attributs). Définitif pour ce monde."])
 	else:
-		create_mode_note.text = "Attributs par défaut, non modifiables. Passage au mode développeur possible plus tard."
+		create_mode_note.text = _detail(["", "Attributs par défaut, non modifiables.", "Attributs par défaut, non modifiables. Passage au mode développeur possible plus tard."])
+	create_mode_note.visible = not create_mode_note.text.is_empty()
 
 func open_world_settings() -> void:
 	var item: Dictionary = catalog.find_world(_selected_world_id())
@@ -742,9 +828,12 @@ func open_world_settings_for_pending() -> void:
 
 func _show_world_settings(item: Dictionary) -> void:
 	var developer: bool = item.get("mode", Catalog.MODE_DEFAULT) == Catalog.MODE_DEVELOPER
-	world_settings_text.text = "Monde : %s
+	var mode_name: String = Catalog.MODE_NAMES[Catalog.MODE_DEVELOPER if developer else Catalog.MODE_DEFAULT]
+	var plus := "Attributs modifiables dans Paramètres → Attributs. Ce choix est définitif." if developer else "Attributs par défaut, non modifiables."
+	world_settings_text.text = _detail(["« %s » · Mode : %s" % [item.name, mode_name], "Monde : %s
+Mode : %s" % [item.name, mode_name], "Monde : %s
 Mode : %s
-%s" % [item.name, Catalog.MODE_NAMES[Catalog.MODE_DEVELOPER if developer else Catalog.MODE_DEFAULT], "Attributs modifiables dans Paramètres → Attributs. Ce choix est définitif." if developer else "Attributs par défaut, non modifiables."]
+%s" % [item.name, mode_name, plus]])
 	world_developer_button.visible = not developer
 	show_page("world_settings")
 
@@ -752,8 +841,10 @@ func request_developer_mode() -> void:
 	var item: Dictionary = catalog.find_world(pending_world_id)
 	if item.is_empty() or item.get("mode", Catalog.MODE_DEFAULT) == Catalog.MODE_DEVELOPER:
 		return
-	developer_confirm_message.text = "Le monde « %s » utilisera les attributs de Paramètres → Attributs.
-Attention : ce choix est irréversible. Le retour au mode par défaut sera impossible." % item.name
+	# Toujours « irréversible », quel que soit le niveau de détail.
+	developer_confirm_message.text = _detail(["« %s » : irréversible." % item.name, "« %s » passera en mode développeur.
+Choix irréversible : aucun retour au mode par défaut." % item.name, "Le monde « %s » utilisera les attributs de Paramètres → Attributs.
+Attention : ce choix est irréversible. Le retour au mode par défaut sera impossible." % item.name])
 	show_page("developer_confirm")
 
 func confirm_developer_mode() -> void:
@@ -783,8 +874,8 @@ func request_delete() -> void:
 	if item.is_empty():
 		return
 	pending_world_id = item.id
-	delete_message.text = "Supprimer le monde « %s » ?
-Son nom et sa graine seront retirés de la liste." % item.name
+	delete_message.text = _detail(["« %s »" % item.name, "Supprimer le monde « %s » ?" % item.name, "Supprimer le monde « %s » ?
+Son nom et sa graine seront retirés de la liste." % item.name])
 	show_page("delete")
 
 func confirm_delete() -> void:
@@ -874,7 +965,7 @@ func open_history() -> void:
 func open_help() -> void:
 	if page != "pause" or not is_instance_valid(active_world):
 		return
-	help_text.text = WorldRules.get_help_text() + "
+	help_text.text = WorldRules.get_help_text(DETAIL_LEVELS.find(settings.values.text_detail)) + "
 
 Bloc choisi : %s · %d blocs présents." % [WorldRules.BLOCK_NAMES[active_world.player.selected_type], active_world.blocks.size()]
 	show_page("help")
@@ -882,7 +973,7 @@ Bloc choisi : %s · %d blocs présents." % [WorldRules.BLOCK_NAMES[active_world.
 func open_world_info() -> void:
 	if page != "pause" or not is_instance_valid(active_world):
 		return
-	info_text.text = active_world.get_world_info_text()
+	info_text.text = active_world.get_world_info_text(DETAIL_LEVELS.find(settings.values.text_detail))
 	show_page("world_info")
 
 func resume_game() -> void:

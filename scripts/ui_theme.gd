@@ -4,7 +4,9 @@ extends RefCounted
 # Textes des menus : RichTextLabel sélectionnables (copie possible), variations OrbTitle
 # (titres de page), OrbSection (sous-titres), OrbNote (textes discrets).
 # text_scale : réglage Vidéo → Taille du texte (1.0 = tailles d'origine).
+# mode : réglage Vidéo → Thème (« dark », « default », « light ») ; « default » = couleurs d'origine.
 
+# Couleurs du thème par défaut (gardées en constantes pour les autres scripts).
 const PANEL := Color(0.13, 0.08, 0.21, 0.62)
 const BUTTON := Color("#3a2858")
 const BUTTON_HOVER := Color("#503a78")
@@ -20,6 +22,32 @@ const ERROR := Color("#ffb7a8")
 const RESET := Color("#f0a640")
 const RESET_HOVER := Color("#ffc25e")
 const RESET_PRESSED := Color("#d88a2a")
+const MODES := ["dark", "default", "light"]
+
+static func palette(mode: String = "default") -> Dictionary:
+	var colors := {
+		"panel": PANEL, "button": BUTTON, "button_hover": BUTTON_HOVER, "button_pressed": BUTTON_PRESSED,
+		"button_edge": Color("#251838"), "field": FIELD, "accent": ACCENT, "section": TURQUOISE,
+		"text": TEXT, "text_strong": Color.WHITE, "text_dim": TEXT_DIM, "error": ERROR,
+		"shadow": Color(0.05, 0.02, 0.1, 0.6), "title_outline": Color("#2a1440"),
+		"panel_shadow": Color(0.05, 0.02, 0.1, 0.45),
+	}
+	if mode == "dark":
+		colors.merge({
+			"panel": Color(0.05, 0.035, 0.08, 0.88), "button": Color("#261a3a"), "button_hover": Color("#3a2b56"),
+			"button_pressed": Color("#191126"), "button_edge": Color("#0e0916"), "field": Color("#110b1b"),
+			"section": Color("#6cc4b6"), "text": Color("#e4ddee"), "text_dim": Color("#9a8fae"),
+		}, true)
+	elif mode == "light":
+		colors.merge({
+			"panel": Color(0.96, 0.94, 0.99, 0.92), "button": Color("#ddd0f0"), "button_hover": Color("#cdb9ec"),
+			"button_pressed": Color("#bba5e0"), "button_edge": Color("#9c86c4"), "field": Color("#ffffff"),
+			"accent": Color("#8a5a00"), "section": Color("#1d7468"), "text": Color("#241638"),
+			"text_strong": Color("#100820"), "text_dim": Color("#5e5175"), "error": Color("#b3261e"),
+			"shadow": Color(1, 1, 1, 0.0), "title_outline": Color("#fff6e0"),
+			"panel_shadow": Color(0.2, 0.1, 0.3, 0.25),
+		}, true)
+	return colors
 
 static func _box(color: Color, radius: int, border: Color = Color.TRANSPARENT, border_width: int = 0, margin: Vector2 = Vector2(14, 8)) -> StyleBoxFlat:
 	var box := StyleBoxFlat.new()
@@ -36,9 +64,10 @@ static func _box(color: Color, radius: int, border: Color = Color.TRANSPARENT, b
 static func scaled(size: int, text_scale: float) -> int:
 	return maxi(5, roundi(size * text_scale))
 
-static func panel_style() -> StyleBoxFlat:
-	var box := _box(PANEL, 8, ACCENT_SOFT, 2, Vector2(30, 28))
-	box.shadow_color = Color(0.05, 0.02, 0.1, 0.45)
+static func panel_style(mode: String = "default") -> StyleBoxFlat:
+	var colors := palette(mode)
+	var box := _box(colors.panel, 8, Color(colors.accent, 0.35), 2, Vector2(30, 28))
+	box.shadow_color = colors.panel_shadow
 	box.shadow_size = 14
 	return box
 
@@ -54,40 +83,41 @@ static func _tab_box(color: Color, mark: Color) -> StyleBoxFlat:
 	box.border_width_left = 4
 	return box
 
-static func build(text_scale: float = 1.0) -> Theme:
+static func build(text_scale: float = 1.0, mode: String = "default") -> Theme:
+	var c := palette(mode)
 	var theme := Theme.new()
 	theme.default_font_size = scaled(18, text_scale)
-	theme.set_stylebox("panel", "PanelContainer", panel_style())
+	theme.set_stylebox("panel", "PanelContainer", panel_style(mode))
 	# Boutons : pavés violets, contour sable au survol et au focus clavier.
-	theme.set_stylebox("normal", "Button", _button_box(BUTTON, Color("#251838"), 1))
-	theme.set_stylebox("hover", "Button", _button_box(BUTTON_HOVER, ACCENT, 1))
-	theme.set_stylebox("pressed", "Button", _box(BUTTON_PRESSED, 6, ACCENT, 1))
-	theme.set_stylebox("hover_pressed", "Button", _box(BUTTON_PRESSED, 6, ACCENT, 1))
-	theme.set_stylebox("disabled", "Button", _box(Color(BUTTON, 0.45), 6))
-	var focus := _box(Color.TRANSPARENT, 8, ACCENT, 2)
+	theme.set_stylebox("normal", "Button", _button_box(c.button, c.button_edge, 1))
+	theme.set_stylebox("hover", "Button", _button_box(c.button_hover, c.accent, 1))
+	theme.set_stylebox("pressed", "Button", _box(c.button_pressed, 6, c.accent, 1))
+	theme.set_stylebox("hover_pressed", "Button", _box(c.button_pressed, 6, c.accent, 1))
+	theme.set_stylebox("disabled", "Button", _box(Color(c.button, 0.45), 6))
+	var focus := _box(Color.TRANSPARENT, 8, c.accent, 2)
 	focus.expand_margin_left = 3
 	focus.expand_margin_right = 3
 	focus.expand_margin_top = 3
 	focus.expand_margin_bottom = 3
 	theme.set_stylebox("focus", "Button", focus)
-	theme.set_color("font_color", "Button", TEXT)
-	theme.set_color("font_hover_color", "Button", Color.WHITE)
-	theme.set_color("font_pressed_color", "Button", ACCENT)
-	theme.set_color("font_focus_color", "Button", Color.WHITE)
-	theme.set_color("font_hover_pressed_color", "Button", ACCENT)
-	theme.set_color("font_disabled_color", "Button", Color(TEXT_DIM, 0.5))
+	theme.set_color("font_color", "Button", c.text)
+	theme.set_color("font_hover_color", "Button", c.text_strong)
+	theme.set_color("font_pressed_color", "Button", c.accent)
+	theme.set_color("font_focus_color", "Button", c.text_strong)
+	theme.set_color("font_hover_pressed_color", "Button", c.accent)
+	theme.set_color("font_disabled_color", "Button", Color(c.text_dim, 0.5))
 	theme.set_font_size("font_size", "Button", scaled(20, text_scale))
 	# Onglets du menu latéral (OrbTab) : rectangles à angles droits, section active surlignée de sable.
 	theme.set_type_variation("OrbTab", "Button")
-	theme.set_stylebox("normal", "OrbTab", _tab_box(Color(BUTTON, 0.7), Color.TRANSPARENT))
-	theme.set_stylebox("hover", "OrbTab", _tab_box(BUTTON_HOVER, ACCENT_SOFT))
-	theme.set_stylebox("pressed", "OrbTab", _tab_box(BUTTON_HOVER, ACCENT))
-	theme.set_stylebox("hover_pressed", "OrbTab", _tab_box(BUTTON_HOVER, ACCENT))
-	theme.set_color("font_pressed_color", "OrbTab", ACCENT)
-	theme.set_color("font_hover_pressed_color", "OrbTab", ACCENT)
+	theme.set_stylebox("normal", "OrbTab", _tab_box(Color(c.button, 0.7), Color.TRANSPARENT))
+	theme.set_stylebox("hover", "OrbTab", _tab_box(c.button_hover, Color(c.accent, 0.35)))
+	theme.set_stylebox("pressed", "OrbTab", _tab_box(c.button_hover, c.accent))
+	theme.set_stylebox("hover_pressed", "OrbTab", _tab_box(c.button_hover, c.accent))
+	theme.set_color("font_pressed_color", "OrbTab", c.accent)
+	theme.set_color("font_hover_pressed_color", "OrbTab", c.accent)
 	theme.set_font_size("font_size", "OrbTab", scaled(18, text_scale))
 	theme.set_constant("h_separation", "OrbTab", 8)
-	# ↻ d'une catégorie d'attributs (OrbCategoryReset) : pavé orangé, bien visible.
+	# ↻ d'une catégorie d'attributs (OrbCategoryReset) : pavé orangé, bien visible, dans tous les thèmes.
 	theme.set_type_variation("OrbCategoryReset", "Button")
 	theme.set_stylebox("normal", "OrbCategoryReset", _button_box(RESET, Color("#8a4a12"), 1))
 	theme.set_stylebox("hover", "OrbCategoryReset", _button_box(RESET_HOVER, Color.WHITE, 1))
@@ -97,56 +127,56 @@ static func build(text_scale: float = 1.0) -> Theme:
 		theme.set_color(state, "OrbCategoryReset", Color("#2a1440"))
 	theme.set_font_size("font_size", "OrbCategoryReset", scaled(22, text_scale))
 	# Textes.
-	theme.set_color("font_color", "Label", TEXT)
+	theme.set_color("font_color", "Label", c.text)
 	# Ombre légère : texte lisible sur le panneau transparent.
-	theme.set_color("font_shadow_color", "Label", Color(0.05, 0.02, 0.1, 0.6))
+	theme.set_color("font_shadow_color", "Label", c.shadow)
 	theme.set_constant("shadow_offset_x", "Label", 1)
 	theme.set_constant("shadow_offset_y", "Label", 1)
 	theme.set_font_size("font_size", "Label", scaled(18, text_scale))
 	# Textes sélectionnables des menus : mêmes couleurs et ombre que les Label.
-	theme.set_color("default_color", "RichTextLabel", TEXT)
-	theme.set_color("font_shadow_color", "RichTextLabel", Color(0.05, 0.02, 0.1, 0.6))
+	theme.set_color("default_color", "RichTextLabel", c.text)
+	theme.set_color("font_shadow_color", "RichTextLabel", c.shadow)
 	theme.set_constant("shadow_offset_x", "RichTextLabel", 1)
 	theme.set_constant("shadow_offset_y", "RichTextLabel", 1)
-	theme.set_color("selection_color", "RichTextLabel", Color(ACCENT, 0.35))
+	theme.set_color("selection_color", "RichTextLabel", Color(c.accent, 0.35))
 	theme.set_font_size("normal_font_size", "RichTextLabel", scaled(18, text_scale))
 	theme.set_stylebox("focus", "RichTextLabel", StyleBoxEmpty.new())
 	theme.set_type_variation("OrbTitle", "RichTextLabel")
 	theme.set_font_size("normal_font_size", "OrbTitle", scaled(34, text_scale))
-	theme.set_color("default_color", "OrbTitle", ACCENT)
-	theme.set_color("font_outline_color", "OrbTitle", Color("#2a1440"))
+	theme.set_color("default_color", "OrbTitle", c.accent)
+	theme.set_color("font_outline_color", "OrbTitle", c.title_outline)
 	theme.set_constant("outline_size", "OrbTitle", 6)
 	theme.set_type_variation("OrbSection", "RichTextLabel")
 	theme.set_font_size("normal_font_size", "OrbSection", scaled(22, text_scale))
-	theme.set_color("default_color", "OrbSection", TURQUOISE)
+	theme.set_color("default_color", "OrbSection", c.section)
 	theme.set_type_variation("OrbNote", "RichTextLabel")
 	theme.set_font_size("normal_font_size", "OrbNote", scaled(16, text_scale))
-	theme.set_color("default_color", "OrbNote", TEXT_DIM)
+	theme.set_color("default_color", "OrbNote", c.text_dim)
 	# Champs de saisie et liste des mondes.
 	for state in ["normal", "read_only"]:
-		theme.set_stylebox(state, "LineEdit", _box(FIELD, 6, ACCENT_FAINT, 1))
-	theme.set_stylebox("focus", "LineEdit", _box(Color.TRANSPARENT, 6, ACCENT, 2))
-	theme.set_color("font_color", "LineEdit", TEXT)
-	theme.set_color("font_placeholder_color", "LineEdit", Color(TEXT_DIM, 0.7))
-	theme.set_color("caret_color", "LineEdit", ACCENT)
-	theme.set_color("selection_color", "LineEdit", Color(ACCENT, 0.3))
-	theme.set_stylebox("panel", "ItemList", _box(FIELD, 6, ACCENT_FAINT, 1, Vector2(8, 8)))
-	theme.set_stylebox("focus", "ItemList", _box(Color.TRANSPARENT, 6, ACCENT, 2))
-	theme.set_stylebox("selected", "ItemList", _box(BUTTON_HOVER, 4))
-	theme.set_stylebox("selected_focus", "ItemList", _box(BUTTON_HOVER, 4, ACCENT, 1))
-	theme.set_stylebox("hovered", "ItemList", _box(Color(BUTTON_HOVER, 0.5), 4))
+		theme.set_stylebox(state, "LineEdit", _box(c.field, 6, Color(c.accent, 0.2), 1))
+	theme.set_stylebox("focus", "LineEdit", _box(Color.TRANSPARENT, 6, c.accent, 2))
+	theme.set_color("font_color", "LineEdit", c.text)
+	theme.set_color("font_placeholder_color", "LineEdit", Color(c.text_dim, 0.7))
+	theme.set_color("caret_color", "LineEdit", c.accent)
+	theme.set_color("selection_color", "LineEdit", Color(c.accent, 0.3))
+	theme.set_stylebox("panel", "ItemList", _box(c.field, 6, Color(c.accent, 0.2), 1, Vector2(8, 8)))
+	theme.set_stylebox("focus", "ItemList", _box(Color.TRANSPARENT, 6, c.accent, 2))
+	theme.set_stylebox("selected", "ItemList", _box(c.button_hover, 4))
+	theme.set_stylebox("selected_focus", "ItemList", _box(c.button_hover, 4, c.accent, 1))
+	theme.set_stylebox("hovered", "ItemList", _box(Color(c.button_hover, 0.5), 4))
 	theme.set_stylebox("cursor", "ItemList", _box(Color.TRANSPARENT, 4))
 	theme.set_stylebox("cursor_unfocused", "ItemList", _box(Color.TRANSPARENT, 4))
-	theme.set_color("font_color", "ItemList", TEXT)
-	theme.set_color("font_selected_color", "ItemList", Color.WHITE)
-	theme.set_color("font_hovered_color", "ItemList", Color.WHITE)
+	theme.set_color("font_color", "ItemList", c.text)
+	theme.set_color("font_selected_color", "ItemList", c.text_strong)
+	theme.set_color("font_hovered_color", "ItemList", c.text_strong)
 	theme.set_constant("v_separation", "ItemList", 8)
 	# Barres de défilement fines.
-	theme.set_stylebox("scroll", "VScrollBar", _box(Color(FIELD, 0.6), 3, Color.TRANSPARENT, 0, Vector2(3, 3)))
-	theme.set_stylebox("grabber", "VScrollBar", _box(Color(ACCENT, 0.5), 3))
-	theme.set_stylebox("grabber_highlight", "VScrollBar", _box(ACCENT, 3))
-	theme.set_stylebox("grabber_pressed", "VScrollBar", _box(ACCENT, 3))
-	theme.set_stylebox("focus", "ScrollContainer", _box(Color.TRANSPARENT, 6, ACCENT_SOFT, 1))
-	theme.set_color("font_color", "TooltipLabel", TEXT)
-	theme.set_stylebox("panel", "TooltipPanel", _box(FIELD, 4, ACCENT_SOFT, 1))
+	theme.set_stylebox("scroll", "VScrollBar", _box(Color(c.field, 0.6), 3, Color.TRANSPARENT, 0, Vector2(3, 3)))
+	theme.set_stylebox("grabber", "VScrollBar", _box(Color(c.accent, 0.5), 3))
+	theme.set_stylebox("grabber_highlight", "VScrollBar", _box(c.accent, 3))
+	theme.set_stylebox("grabber_pressed", "VScrollBar", _box(c.accent, 3))
+	theme.set_stylebox("focus", "ScrollContainer", _box(Color.TRANSPARENT, 6, Color(c.accent, 0.35), 1))
+	theme.set_color("font_color", "TooltipLabel", c.text)
+	theme.set_stylebox("panel", "TooltipPanel", _box(c.field, 4, Color(c.accent, 0.35), 1))
 	return theme

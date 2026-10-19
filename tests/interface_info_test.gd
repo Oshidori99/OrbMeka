@@ -24,17 +24,19 @@ func _run() -> void:
 	var app: Control = load("res://scenes/main.tscn").instantiate()
 	# Réglages par défaut isolés : jamais ceux du joueur (user://settings.json).
 	app.settings = load("res://scripts/user_settings.gd").new("res://.godot/test-default-settings.json")
+	# Textes complets (Synthèse des textes : +) : ce test vérifie tout leur contenu.
+	app.settings.values.text_detail = "plus"
 	app.catalog = load("res://scripts/world_catalog.gd").new("res://.godot/home-info-unused.json")
 	app.catalog.worlds.append({"id": "test", "name": "Monde privé", "seed": 123456789})
 	root.add_child(app)
 	current_scene = app
-	var buttons: Array = app.pages.home.get_children().filter(func(child): return child is Button).map(func(button): return button.text)
+	var buttons: Array = app.pages.home.find_children("*", "Button", true, false).map(func(button): return button.text)
 	check(buttons == ["Jouer", "Paramètres", "Informations", "Historique des versions"], "home buttons appear in requested order")
 	check(app.home_version.text == "v" + str(ProjectSettings.get_setting("application/config/version")), "home shows current project version")
 	app.settings_button.pressed.emit()
 	check(app.page == "settings" and app.settings_tabs.general.has_focus(), "settings opens with keyboard focus on the first side tab")
 	check(app.pages.settings.get_child(0).text == "Paramètres" and app.setting_fields.size() == 12, "settings shows Paramètres with twelve fields (8 attributes, mouse, 3 video)")
-	check(app.settings_apply_button != null and app.pages.settings.get_children().filter(func(child): return child is Button) == [app.settings_apply_button, app.settings_back_button], "shared Apply then Return available")
+	check(app.settings_apply_button != null and app.pages.settings.find_children("*", "Button", true, false).slice(-2) == [app.settings_apply_button, app.settings_back_button], "shared Apply then Return available")
 	app.settings_back_button.pressed.emit()
 	check(app.page == "home", "settings return button restores home")
 	app.settings_button.pressed.emit()

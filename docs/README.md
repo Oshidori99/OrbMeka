@@ -1,11 +1,11 @@
-# OrbMeka™ — prototype 0.0.3.3
+# OrbMeka™ — prototype 0.0.3.4
 
 Godot 4.7 / GDScript. Formes et couleurs simples, sans assets externes.
 
 ## Lancer et choisir un monde
 1. Dans Godot, arrêtez l'ancienne partie si nécessaire, puis appuyez sur **F5**.
 2. L'accueil affiche **Jouer**, **Paramètres**, **Informations**, dans cet ordre.
-   Jouer ouvre Mes mondes. Paramètres : Paramètres généraux (souris), Vidéo (panneaux, texte), Attributs.
+   Jouer ouvre Mes mondes. Paramètres : Paramètres généraux (souris, synthèse), Vidéo (panneaux, texte, thème), Attributs.
    Informations explique la génération des mondes, sans désigner de monde particulier.
 3. Choisissez **Créer un monde**, saisissez son nom et, si souhaité, une graine, puis **Créer**.
    La création ouvre directement la partie.
@@ -659,3 +659,18 @@ réglages par défaut isolés, jamais ceux du joueur. Résultat : 19 tests, 0 é
 Test mis à jour : display_settings_test (bornes en px, 7 et 27 px dans les
 petites et grandes fenêtres). Résultat : 19 tests, 0 échec.
 À tester manuellement : lisibilité à 7 et 27 px, menu de gauche à 80 px.
+
+## Synthèse des textes et thèmes — 0.0.3.4
+- Paramètres généraux → Textes : **Synthèse des textes** −, Par défaut, +.
+  « + » garde les textes complets d'avant ; « Par défaut » les raccourcit ;
+  « − » ne garde que l'essentiel (certaines explications disparaissent).
+  Concerne Informations, Comment jouer, Informations du monde, Paramètres,
+  création, renommage, suppression, Paramètres du monde. La confirmation du
+  mode développeur dit toujours « irréversible ».
+- Vidéo → Apparence : **Thème** Sombre, Par défaut (couleurs d'avant) ou Clair.
+- Choix en boutons, avec ↻ par réglage et ↻ de catégorie ; Appliquer enregistre.
+
+Test ajouté : tests/appearance_test.gd (choix, thèmes, niveaux de texte,
+sauvegarde, pages dans la fenêtre). Tests de contenu passés en « + ».
+Résultat : 20 tests, 0 échec.
+À tester manuellement : rendu des thèmes sombre et clair, textes en « − ».

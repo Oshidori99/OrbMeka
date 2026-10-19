@@ -19,6 +19,8 @@ func _run() -> void:
 	var app: Control = load("res://scenes/main.tscn").instantiate()
 	# Réglages par défaut isolés : jamais ceux du joueur (user://settings.json).
 	app.settings = load("res://scripts/user_settings.gd").new("res://.godot/test-default-settings.json")
+	# Textes complets (Synthèse des textes : +) : ce test vérifie tout leur contenu.
+	app.settings.values.text_detail = "plus"
 	app.catalog = load("res://scripts/world_catalog.gd").new("res://.godot/info-active-unused.json")
 	var seeds: Dictionary = {}
 	for value in range(32):

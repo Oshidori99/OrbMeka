@@ -3,6 +3,10 @@ Du plus récent au plus ancien. Ce fichier est mis à jour à chaque version.
 
 === Thème « Contrôles et Paramètres » (0.0.3 et suivantes) ===
 
+0.0.3.4 — Synthèse des textes et thèmes
+Paramètres généraux : synthèse des textes (−, par défaut, +) ; + garde les textes complets d'avant.
+Vidéo : thème sombre, par défaut ou clair.
+
 0.0.3.3 — Texte en px et menu de gauche plus étroit
 Vidéo : taille du texte en px (7 à 27, 18 par défaut) ; menu de gauche de 80 à 250 px (120 par défaut).
 

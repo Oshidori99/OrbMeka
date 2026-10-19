@@ -19,6 +19,11 @@ const SPECS := {
 	# Taille du texte en px (0.0.3.3) ; 18 px = taille d'origine ; minimum environ 40 %.
 	"text_px": {"label": "Taille du texte", "unit": "px", "default": 18.0, "min": 7.0, "max": 27.0},
 }
+# Réglages à choix (0.0.3.4), affichés en boutons ; options dans l'ordre d'affichage.
+const CHOICES := {
+	"text_detail": {"label": "Synthèse des textes", "options": {"minus": "−", "default": "Par défaut", "plus": "+"}, "default": "default"},
+	"theme_mode": {"label": "Thème", "options": {"dark": "Sombre", "default": "Par défaut", "light": "Clair"}, "default": "default"},
+}
 # Attributs du joueur : par défaut dans un monde par défaut, réglables en mode développeur.
 const ATTRIBUTE_KEYS := ["jump_height", "jump_speed", "fall_gravity", "place_ms", "break_ms", "walk_forward", "walk_side", "walk_back"]
 var values: Dictionary = {}
@@ -28,8 +33,7 @@ var load_notice := ""
 
 func _init(path: String = "user://settings.json") -> void:
 	storage_path = path
-	for key in SPECS:
-		values[key] = SPECS[key].default
+	values = default_values()
 	if not FileAccess.file_exists(path):
 		return
 	var file := FileAccess.open(path, FileAccess.READ)
@@ -46,12 +50,21 @@ func _init(path: String = "user://settings.json") -> void:
 			values[key] = float(value)
 		else:
 			load_notice = "Certains réglages invalides ont repris leur valeur par défaut."
+	for key in CHOICES:
+		if not parser.data.has(key):
+			continue
+		if CHOICES[key].options.has(parser.data.get(key)):
+			values[key] = parser.data.get(key)
+		else:
+			load_notice = "Certains réglages invalides ont repris leur valeur par défaut."
 
 # Valeurs d'un monde en mode par défaut, quels que soient les réglages enregistrés.
 static func default_values() -> Dictionary:
 	var result := {}
 	for key in SPECS:
 		result[key] = SPECS[key].default
+	for key in CHOICES:
+		result[key] = CHOICES[key].default
 	return result
 
 # Valeurs pour une partie : monde développeur = tous les réglages ; monde par défaut =
@@ -81,6 +94,13 @@ func apply_texts(texts: Dictionary) -> bool:
 			last_error = "%s : valeur entre %s et %s %s." % [SPECS[key].label, number_text(SPECS[key].min), number_text(SPECS[key].max), SPECS[key].unit]
 			return false
 		candidate[key] = value
+	for key in CHOICES:
+		# Choix absent : défaut ; choix inconnu : refusé.
+		var choice: String = str(texts.get(key, CHOICES[key].default))
+		if not CHOICES[key].options.has(choice):
+			last_error = "%s : choix inconnu." % CHOICES[key].label
+			return false
+		candidate[key] = choice
 	var file := FileAccess.open(storage_path + ".tmp", FileAccess.WRITE)
 	if file == null:
 		last_error = "Impossible d'enregistrer les paramètres."
