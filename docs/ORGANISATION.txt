@@ -1,0 +1,44 @@
+ORBMEKA — ORGANISATION DU PROJET
+
+Ouvrez project.godot dans Godot, puis utilisez F5. Il n'est pas nécessaire
+d'ouvrir chaque fichier. La version 0.0.2.7 range les fichiers sans modifier
+le fonctionnement du jeu.
+
+LES DOSSIERS
+scenes/ contient main.tscn (accueil et menus) et world.tscn (partie).
+scripts/ contient le code GDScript : app pour les menus, world pour les blocs
+et le monde, player pour le joueur, terrain_generator pour les collines,
+world_catalog pour les noms/graines et action_timing pour les délais.
+tests/ contient les vérifications automatiques, lancées sans fenêtre.
+docs/ contient le guide détaillé README.md et cette note.
+L'icône icon.svg reste à la racine avec son fichier icon.svg.import :
+inutile de créer un dossier de ressources pour cette seule image.
+
+LES FICHIERS À CONSERVER
+project.godot décrit le projet, sa version, sa scène de départ et ses réglages.
+Les fichiers .gd sont les scripts ; les .tscn décrivent les scènes.
+Les fichiers .gd.uid identifient les scripts de façon stable pour Godot.
+Gardez-les avec les sources, notamment lors d'un déplacement.
+icon.svg.import conserve les options d'importation de l'icône : ce n'est pas
+l'image elle-même. Godot peut le régénérer, mais ses réglages sont à préserver.
+README.md, à la racine, renvoie vers docs/README.md et les explications.
+HISTORIQUE.txt reste à la racine pour retrouver rapidement les versions.
+project.godot.before-prototype est une copie de la toute première configuration,
+pas la configuration active : conservée comme référence, elle ne lance pas le jeu.
+
+LES FICHIERS TECHNIQUES
+.godot/ est le cache local de Godot : imports calculés, index, données d'éditeur
+et journaux/tests temporaires. Godot peut le recréer depuis les sources.
+Ce n'est ni votre code ni l'archive du projet ; laissez l'éditeur le gérer.
+.editorconfig indique l'encodage ; .gitattributes les conventions de texte ;
+.gitignore les fichiers à ignorer si Git est utilisé. Aucun dépôt Git n'est créé.
+Les dossiers existants export_templates/, feature_profiles/, script_templates/
+et text_editor_themes/ sont actuellement vides et restent en place.
+
+DONNÉES ET ARCHIVE
+Les noms et graines personnels sont dans user://worlds.json, hors des sources.
+Les constructions ne sont pas sauvegardées. La copie vérifiée 0.0.2.6 reste
+hors du projet, dans le dossier voisin Archives/OrbMeka/orb-meka 0.0.2.6.
+Depuis 0.0.2.8, addons/history_export/ contient un petit plugin d'éditeur
+qui inclut HISTORIQUE.txt lors des exports. Gardez ses fichiers sources.
+Le README à la racine et docs/README.md restent les points d'entrée du guide.
