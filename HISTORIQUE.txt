@@ -49,7 +49,7 @@ Renommage persistant sans changer la graine ; suppression du monde choisi avec c
 Jouer, liste des mondes, création par nom ; graine aléatoire et 3 ou 4 collines par monde.
 Noms et graines conservés, constructions non sauvegardées ; retour à la liste avec F1.
 
-0.0.1.3 — Construction et saut
+0.0.1.3 — Construction et amélioration du saut
 Casse maintenue toutes les 300 ms, pose maintenue toutes les 400 ms.
 Saut accéléré et tolérant ; arrêt des interactions au relâchement, à Échap ou à la perte de focus.
 
