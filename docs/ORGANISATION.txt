@@ -8,7 +8,9 @@ LES DOSSIERS
 scenes/ contient main.tscn (accueil et menus) et world.tscn (partie).
 scripts/ contient le code GDScript : app pour les menus, world pour les blocs
 et le monde, player pour le joueur, terrain_generator pour les collines,
-world_catalog pour les noms/graines et action_timing pour les délais.
+world_catalog pour les noms/graines, action_timing pour les délais,
+ui_theme pour le thème des menus et menu_showcase pour le fond 3D de l'accueil
+(vitrine de la nouveauté, à mettre à jour à chaque version).
 tests/ contient les vérifications automatiques, lancées sans fenêtre.
 docs/ contient le guide détaillé README.md et cette note.
 L'icône icon.svg reste à la racine avec son fichier icon.svg.import :

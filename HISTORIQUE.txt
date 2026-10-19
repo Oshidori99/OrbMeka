@@ -1,6 +1,10 @@
 ORBMEKA — HISTORIQUE DES VERSIONS
 Du plus récent au plus ancien. Ce fichier est mis à jour à chaque version.
 
+0.0.2.12 — Menus Orbe violet
+Accueil sur un petit monde 3D animé qui montre la nouveauté de la version ; pause semi-transparente et floutée.
+Thème commun violet et sable pour tous les menus, lisible à toutes les tailles de fenêtre.
+
 0.0.2.11.3 — Tests réparés
 Tous les tests passent : tests de relance autonomes, version lue dans le projet.
 Échap quitte aussi Paramètres et les formulaires quand un champ de saisie est actif.

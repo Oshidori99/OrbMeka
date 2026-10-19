@@ -1,4 +1,4 @@
-# OrbMeka™ — prototype 0.0.2.11.3
+# OrbMeka™ — prototype 0.0.2.12
 
 Godot 4.7 / GDScript. Formes et couleurs simples, sans assets externes.
 
@@ -482,3 +482,29 @@ Les 15 tests passent maintenant en une seule commande chacun.
 Résultat : 15 tests, 0 échec (dont 24 contrôles d'interface, 18 de gestion
 des mondes, 2 de relance). À tester manuellement : Échap dans Paramètres
 et dans un champ de nom, dans une vraie fenêtre.
+
+## Menus Orbe violet — 0.0.2.12
+Tous les menus partagent un thème commun « Orbe violet » (scripts/ui_theme.gd) :
+panneau violet légèrement transparent, boutons en pavés avec contour sable au
+survol et au clavier, titres sable, sous-titres turquoise, champs et liste
+assortis. Style propre à OrbMeka, couleurs reprises des blocs du jeu.
+- Accueil : derrière les menus, un petit monde en blocs généré en code
+  (scripts/menu_showcase.gd) : sol, collines, place en sable et pierre, ciel
+  de fin de journée, orbe lumineux ; la caméra tourne lentement autour.
+  Un bandeau « Nouveau » sous la version résume la dernière nouveauté.
+- Pause : le monde reste visible derrière, assombri et flouté
+  (scripts/menu_backdrop.gdshader). Le jeu reste bien en pause.
+
+**Changer la vitrine à chaque version** : ouvrir scripts/menu_showcase.gd,
+section « VITRINE DE LA VERSION » en haut du fichier. Modifier NEWS_VERSION
+et NEWS_TEXT (bandeau de l'accueil), puis _build_news() et _animate_news()
+(construction 3D de la nouveauté). Le reste du fichier ne change pas.
+Pour 0.0.2.12 : un cadre de fenêtre en blocs qui s'élargit et se resserre
+pas à pas (fenêtre redimensionnable), avec un panneau de menu violet.
+Le test menu_style_test.gd vérifie que NEWS_VERSION suit la version du projet.
+
+Test ajouté : tests/menu_style_test.gd (50 contrôles : thème commun, titres,
+fond 3D et sa caméra, cadre animé, pause floutée, retour du fond, 6 pages à
+800 × 450, 1920 × 1080, 2560 × 1080 et 800 × 900). Résultat : 16 tests,
+0 échec. À tester manuellement : aspect réel des menus et du fond 3D,
+fluidité de la caméra, flou de la pause, survol des boutons à la souris.

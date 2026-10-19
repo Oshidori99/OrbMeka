@@ -26,6 +26,7 @@ Lancer les tests liés au changement ; ce qui ne peut être vérifié qu'en joua
 
 ## Nouvelle version
 1. Numéro dans project.godot (config/version) et en tête de docs/README.md et README.md.
+   Mettre à jour la vitrine de l'accueil (section VITRINE de scripts/menu_showcase.gd).
 2. Entrée en haut de HISTORIQUE.txt : « X.Y.Z — Titre » + 1 à 2 lignes courtes.
 3. Section dans docs/README.md : ce qui change, tests réussis, ce qui reste à tester.
 4. Item dans le GitHub Project https://github.com/users/Oshidori99/projects/10 (Done une fois fini).

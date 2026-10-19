@@ -5,6 +5,9 @@ const WorldScene = preload("res://scenes/world.tscn")
 const WorldRules = preload("res://scripts/world.gd")
 const UserSettings = preload("res://scripts/user_settings.gd")
 const Terrain = preload("res://scripts/terrain_generator.gd")
+const UiTheme = preload("res://scripts/ui_theme.gd")
+const MenuShowcase = preload("res://scripts/menu_showcase.gd")
+const BackdropShader = preload("res://scripts/menu_backdrop.gdshader")
 const MIN_WINDOW_SIZE := Vector2i(800, 450)
 const MENU_BASE_SIZE := Vector2(1280, 720)
 const MENU_BASE_WIDTH := 560.0
@@ -63,6 +66,9 @@ var pause_version: Label
 var info_button: Button
 var info_back_button: Button
 var info_text: Label
+var showcase: Node3D
+var backdrop: ColorRect
+var news_label: Label
 
 func _ready() -> void:
 	process_mode = Node.PROCESS_MODE_ALWAYS
@@ -72,6 +78,9 @@ func _ready() -> void:
 		catalog = Catalog.new()
 	if settings == null:
 		settings = UserSettings.new()
+	showcase = MenuShowcase.new()
+	showcase.name = "MenuShowcase"
+	add_child(showcase)
 	_build_interface()
 	get_viewport().size_changed.connect(fit_menus_to_window)
 	fit_menus_to_window()
@@ -81,7 +90,6 @@ func _button(text: String, parent: Node, action: Callable) -> Button:
 	var button := Button.new()
 	button.text = text
 	button.custom_minimum_size.y = 46
-	button.add_theme_font_size_override("font_size", 20)
 	parent.add_child(button)
 	button.pressed.connect(action)
 	return button
@@ -100,7 +108,7 @@ func _add_setting_row(parent: Node, key: String) -> void:
 	var label := Label.new()
 	label.text = "%s (%s)
 Défaut : %s · %s à %s" % [spec.label, spec.unit, UserSettings.number_text(spec.default), UserSettings.number_text(spec.min), UserSettings.number_text(spec.max)]
-	label.add_theme_font_size_override("font_size", 15)
+	label.theme_type_variation = "OrbNote"
 	label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	row.add_child(label)
 	var field := LineEdit.new()
@@ -142,7 +150,7 @@ func _page(parent: Node, heading: String) -> VBoxContainer:
 	var title := Label.new()
 	title.text = heading
 	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	title.add_theme_font_size_override("font_size", 32)
+	title.theme_type_variation = "OrbTitle"
 	box.add_child(title)
 	return box
 
@@ -153,36 +161,35 @@ func _build_interface() -> void:
 	menu_root = Control.new()
 	layer.add_child(menu_root)
 	menu_root.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	var background := ColorRect.new()
-	background.color = Color("#142735")
-	menu_root.add_child(background)
-	background.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	menu_root.theme = UiTheme.build()
+	# Voile derrière le panneau : léger sur le fond 3D de l'accueil, sombre et flou en pause.
+	backdrop = ColorRect.new()
+	backdrop.material = ShaderMaterial.new()
+	backdrop.material.shader = BackdropShader
+	menu_root.add_child(backdrop)
+	backdrop.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	var center := CenterContainer.new()
 	menu_root.add_child(center)
 	center.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	var panel := PanelContainer.new()
 	menu_panel = panel
-	var style := StyleBoxFlat.new()
-	style.bg_color = Color("#243e4d")
-	style.content_margin_left = 28
-	style.content_margin_right = 28
-	style.content_margin_top = 28
-	style.content_margin_bottom = 28
-	style.corner_radius_top_left = 12
-	style.corner_radius_top_right = 12
-	style.corner_radius_bottom_left = 12
-	style.corner_radius_bottom_right = 12
-	panel.add_theme_stylebox_override("panel", style)
 	center.add_child(panel)
 	var stack := VBoxContainer.new()
 	panel.add_child(stack)
 	var home := _page(stack, "OrbMeka™")
 	pages.home = home
 	var version := Label.new()
-	version.text = "v" + str(ProjectSettings.get_setting("application/config/version", "0.0.2.11.3"))
+	version.text = "v" + str(ProjectSettings.get_setting("application/config/version", "0.0.2.12"))
 	version.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	version.theme_type_variation = "OrbNote"
 	home.add_child(version)
 	home_version = version
+	news_label = Label.new()
+	news_label.text = MenuShowcase.NEWS_TEXT
+	news_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	news_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	news_label.add_theme_color_override("font_color", UiTheme.TURQUOISE)
+	home.add_child(news_label)
 	play_button = _button("Jouer", home, func(): show_page("worlds"))
 	settings_button = _button("Paramètres", home, func(): show_page("settings"))
 	information_button = _button("Informations", home, func(): show_page("information"))
@@ -216,14 +223,14 @@ func _build_interface() -> void:
 	attributes.add_theme_constant_override("separation", 10)
 	settings_scroll.add_child(attributes)
 	_explanation(attributes, "Saut")
-	attributes.get_child(-1).add_theme_font_size_override("font_size", 22)
+	attributes.get_child(-1).theme_type_variation = "OrbSection"
 	_explanation(attributes, "Hauteur : sommet visé (1 m = 1 bloc).
 Vitesse : départ plus vif ou plus doux ; hauteur conservée.
 Gravité de descente : retombée plus ou moins rapide.")
 	for key in ["jump_height", "jump_speed", "fall_gravity"]:
 		_add_setting_row(attributes, key)
 	_explanation(attributes, "Blocs")
-	attributes.get_child(-1).add_theme_font_size_override("font_size", 22)
+	attributes.get_child(-1).theme_type_variation = "OrbSection"
 	_explanation(attributes, "Temps entre deux actions au maintien du clic.
 Première action immédiate ; un délai plus court accélère la répétition.")
 	for key in ["place_ms", "break_ms"]:
@@ -308,10 +315,10 @@ Nom et graine conservés ; constructions non sauvegardées." % Catalog.MAX_NAME_
 	seed_field.text_submitted.connect(func(_text: String): create_named_world())
 	world_options_title = Label.new()
 	world_options_title.text = "Options du monde"
-	world_options_title.add_theme_font_size_override("font_size", 22)
+	world_options_title.theme_type_variation = "OrbSection"
 	form.add_child(world_options_title)
 	form_error = Label.new()
-	form_error.add_theme_color_override("font_color", Color("#ffcfb4"))
+	form_error.add_theme_color_override("font_color", UiTheme.ERROR)
 	form_error.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	form.add_child(form_error)
 	create_button = _button("Créer", form, create_named_world)
@@ -348,6 +355,7 @@ La graine et le terrain initial sont conservés." % Catalog.MAX_NAME_LENGTH)
 	pause_version = Label.new()
 	pause_version.text = version.text
 	pause_version.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	pause_version.theme_type_variation = "OrbNote"
 	pause_page.add_child(pause_version)
 	resume_button = _button("Reprendre", pause_page, resume_game)
 	how_button = _button("Comment jouer", pause_page, open_help)
@@ -373,6 +381,7 @@ La graine et le terrain initial sont conservés." % Catalog.MAX_NAME_LENGTH)
 	info_page.add_child(info_text)
 	info_back_button = _button("Retour à la pause", info_page, func(): show_page("pause"))
 	return_button = _button("Retour aux mondes (F1)", layer, return_to_worlds)
+	return_button.theme = menu_root.theme
 	return_button.set_anchors_and_offsets_preset(Control.PRESET_TOP_RIGHT)
 	return_button.offset_left = -280
 	return_button.offset_right = -18
@@ -398,10 +407,17 @@ func fit_menus_to_window() -> void:
 	for control in menu_base_heights:
 		control.custom_minimum_size.y = menu_base_heights[control] * grow.y
 
+func _update_backdrop() -> void:
+	# En pause : monde visible derrière, assombri et flouté. À l'accueil : fond 3D à peine voilé.
+	var paused_world := is_instance_valid(active_world)
+	backdrop.material.set_shader_parameter("blur", 2.5 if paused_world else 0.0)
+	backdrop.material.set_shader_parameter("tint", Color(0.07, 0.04, 0.13, 0.5 if paused_world else 0.12))
+
 func show_page(next_page: String) -> void:
 	page = next_page
 	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
 	menu_root.visible = true
+	_update_backdrop()
 	return_button.visible = false
 	for key in pages:
 		pages[key].visible = key == page
@@ -552,6 +568,9 @@ func open_world(id: String) -> void:
 	menu_root.hide()
 	page = "playing"
 	current_world_id = id
+	# Le fond 3D de l'accueil laisse la place au monde (une seule caméra, un seul ciel).
+	if showcase.is_inside_tree():
+		remove_child(showcase)
 	active_world = WorldScene.instantiate()
 	active_world.process_mode = Node.PROCESS_MODE_PAUSABLE
 	active_world.terrain_seed = item.seed
@@ -570,6 +589,9 @@ func return_to_worlds() -> void:
 		active_world.queue_free()
 		active_world = null
 	current_world_id = ""
+	if not showcase.is_inside_tree():
+		add_child(showcase)
+		showcase.camera.make_current()
 	show_page("worlds")
 
 func pause_game() -> void:
@@ -655,3 +677,7 @@ func _cancel_page() -> void:
 		show_page("worlds")
 	elif page == "worlds":
 		show_page("home")
+func _notification(what: int) -> void:
+	# Le fond 3D peut être hors de l'arbre pendant une partie : le libérer avec l'application.
+	if what == NOTIFICATION_PREDELETE and is_instance_valid(showcase) and not showcase.is_inside_tree():
+		showcase.free()
