@@ -19,6 +19,8 @@ func _inside(rect: Rect2, view: Rect2) -> bool:
 func _run() -> void:
 	root.size = Vector2i(1280, 720)
 	var app: Control = load("res://scenes/main.tscn").instantiate()
+	# Réglages par défaut isolés : jamais ceux du joueur (user://settings.json).
+	app.settings = load("res://scripts/user_settings.gd").new("res://.godot/test-default-settings.json")
 	app.catalog = load("res://scripts/world_catalog.gd").new("res://.godot/resize-test-unused.json")
 	app.catalog.worlds.append({"id": "resize-test", "name": "Mon monde", "seed": 123})
 	root.add_child(app)
@@ -34,7 +36,7 @@ func _run() -> void:
 		var tag := " at %dx%d" % [window_size.x, window_size.y]
 		print("visible rect", tag, ": ", view)
 		check(app.menu_root.get_global_rect().is_equal_approx(view), "menu background fills window" + tag)
-		var panel: Control = app.pages.home.get_parent().get_parent()
+		var panel: Control = app.menu_panel
 		check(_inside(panel.get_global_rect(), view), "menu panel stays inside window" + tag)
 		check(panel.get_global_rect().get_center().distance_to(view.get_center()) < 2, "menu panel stays centred" + tag)
 		# Accueil compact ; pages de contenu larges (0.0.2.13).

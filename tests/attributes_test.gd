@@ -105,7 +105,7 @@ func _run() -> void:
 	check(FileAccess.get_file_as_bytes(fixture+".worlds") == world_file_before, "settings never modify worlds catalog or seeds")
 	await process_frame
 	await process_frame
-	var panel: Control = app.pages.settings.get_parent().get_parent()
+	var panel: Control = app.menu_panel
 	check(panel.get_global_rect().position.y >= 0 and panel.get_global_rect().end.y <= 720, "scrolling attribute screen fits 1280 by 720")
 	app.show_page("worlds")
 	app.open_world(item.id)

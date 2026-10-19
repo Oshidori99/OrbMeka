@@ -22,6 +22,8 @@ func key(code: int, echo := false) -> void:
 
 func _run() -> void:
 	var app: Control = load("res://scenes/main.tscn").instantiate()
+	# Réglages par défaut isolés : jamais ceux du joueur (user://settings.json).
+	app.settings = load("res://scripts/user_settings.gd").new("res://.godot/test-default-settings.json")
 	app.catalog = load("res://scripts/world_catalog.gd").new("res://.godot/shortcuts-unused.json")
 	app.catalog.worlds.append({"id": "test", "name": "Raccourcis", "seed": 456})
 	root.add_child(app)
@@ -76,7 +78,7 @@ func _run() -> void:
 	key(KEY_F2)
 	key(KEY_F3)
 	check(app.page == "worlds" and not paused, "shortcuts remain inactive after leaving world")
-	check(app.home_version.text == "v0.0.3.1" and app.pause_version.text == "v0.0.3.1", "home and pause show new version")
+	check(app.home_version.text == "v0.0.3.2" and app.pause_version.text == "v0.0.3.2", "home and pause show new version")
 	root.remove_child(app)
 	app.queue_free()
 	await process_frame

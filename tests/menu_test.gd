@@ -49,6 +49,8 @@ func _run() -> void:
 	check(valid_heights, "all sampled hills stay at most three blocks high")
 	# Verify actual page/button signals and worlds, without OS keyboard/mouse.
 	var app: Control = load("res://scenes/main.tscn").instantiate()
+	# Réglages par défaut isolés : jamais ceux du joueur (user://settings.json).
+	app.settings = load("res://scripts/user_settings.gd").new("res://.godot/test-default-settings.json")
 	app.catalog = reloaded
 	root.add_child(app)
 	current_scene = app

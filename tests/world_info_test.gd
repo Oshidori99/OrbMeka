@@ -17,6 +17,8 @@ func check(ok: bool, label: String) -> void:
 func _run() -> void:
 	root.size = Vector2i(1280, 720)
 	var app: Control = load("res://scenes/main.tscn").instantiate()
+	# Réglages par défaut isolés : jamais ceux du joueur (user://settings.json).
+	app.settings = load("res://scripts/user_settings.gd").new("res://.godot/test-default-settings.json")
 	app.catalog = load("res://scripts/world_catalog.gd").new("res://.godot/info-active-unused.json")
 	var seeds: Dictionary = {}
 	for value in range(32):

@@ -22,6 +22,8 @@ func _inside(rect: Rect2, view: Rect2) -> bool:
 func _run() -> void:
 	root.size = Vector2i(1280, 720)
 	var app: Control = load("res://scenes/main.tscn").instantiate()
+	# Réglages par défaut isolés : jamais ceux du joueur (user://settings.json).
+	app.settings = load("res://scripts/user_settings.gd").new("res://.godot/test-default-settings.json")
 	app.catalog = load("res://scripts/world_catalog.gd").new("res://.godot/style-test-unused.json")
 	app.catalog.worlds.append({"id": "style-test", "name": "Mon monde", "seed": 123})
 	root.add_child(app)
@@ -34,7 +36,7 @@ F3 : "), "menus share one theme; in-game shortcuts F1, F2, F3 are plain text")
 	var alpha: float = app.menu_panel.get_theme_stylebox("panel").bg_color.a
 	check(alpha > 0.4 and alpha < 0.75, "menu panel is see-through but readable")
 	for key in app.pages:
-		var title: Label = app.pages[key].get_child(0)
+		var title: RichTextLabel = app.pages[key].get_child(0)
 		check(title.theme_type_variation == "OrbTitle", "page title uses common style: " + key)
 	check(not app.play_button.has_theme_font_size_override("font_size"), "buttons take their size from the theme")
 	# Fond 3D de l'accueil.

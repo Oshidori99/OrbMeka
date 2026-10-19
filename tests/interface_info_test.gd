@@ -22,6 +22,8 @@ func escape() -> void:
 func _run() -> void:
 	root.size = Vector2i(1280, 720)
 	var app: Control = load("res://scenes/main.tscn").instantiate()
+	# Réglages par défaut isolés : jamais ceux du joueur (user://settings.json).
+	app.settings = load("res://scripts/user_settings.gd").new("res://.godot/test-default-settings.json")
 	app.catalog = load("res://scripts/world_catalog.gd").new("res://.godot/home-info-unused.json")
 	app.catalog.worlds.append({"id": "test", "name": "Monde privé", "seed": 123456789})
 	root.add_child(app)
@@ -31,7 +33,7 @@ func _run() -> void:
 	check(app.home_version.text == "v" + str(ProjectSettings.get_setting("application/config/version")), "home shows current project version")
 	app.settings_button.pressed.emit()
 	check(app.page == "settings" and app.settings_tabs.general.has_focus(), "settings opens with keyboard focus on the first side tab")
-	check(app.pages.settings.get_child(0).text == "Paramètres" and app.setting_fields.size() == 11, "settings shows Paramètres with eleven fields (8 attributes, mouse, 2 video)")
+	check(app.pages.settings.get_child(0).text == "Paramètres" and app.setting_fields.size() == 12, "settings shows Paramètres with twelve fields (8 attributes, mouse, 3 video)")
 	check(app.settings_apply_button != null and app.pages.settings.get_children().filter(func(child): return child is Button) == [app.settings_apply_button, app.settings_back_button], "shared Apply then Return available")
 	app.settings_back_button.pressed.emit()
 	check(app.page == "home", "settings return button restores home")
@@ -46,7 +48,7 @@ func _run() -> void:
 	check(not is_instance_valid(app.active_world) and not paused and Input.mouse_mode == Input.MOUSE_MODE_VISIBLE, "home screens do not start gameplay or capture pointer")
 	await process_frame
 	await process_frame
-	var panel: Control = app.pages.information.get_parent().get_parent()
+	var panel: Control = app.menu_panel
 	var rect := panel.get_global_rect()
 	check(rect.position.y >= 0 and rect.end.y <= 720, "information page fits 1280 by 720 viewport")
 	app.information_back_button.pressed.emit()

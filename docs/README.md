@@ -1,11 +1,11 @@
-# OrbMeka™ — prototype 0.0.3.1
+# OrbMeka™ — prototype 0.0.3.2
 
 Godot 4.7 / GDScript. Formes et couleurs simples, sans assets externes.
 
 ## Lancer et choisir un monde
 1. Dans Godot, arrêtez l'ancienne partie si nécessaire, puis appuyez sur **F5**.
 2. L'accueil affiche **Jouer**, **Paramètres**, **Informations**, dans cet ordre.
-   Jouer ouvre Mes mondes. Paramètres : Paramètres généraux (souris), Vidéo (panneaux), Attributs.
+   Jouer ouvre Mes mondes. Paramètres : Paramètres généraux (souris), Vidéo (panneaux, texte), Attributs.
    Informations explique la génération des mondes, sans désigner de monde particulier.
 3. Choisissez **Créer un monde**, saisissez son nom et, si souhaité, une graine, puis **Créer**.
    La création ouvre directement la partie.
@@ -631,3 +631,21 @@ Tests mis à jour : attributes, interface_info, settings_walk, window_resize,
 version. Résultat : 19 tests, 0 échec.
 À tester manuellement : sensation de la souris, aspect des panneaux aux
 tailles extrêmes et du menu de gauche élargi.
+
+## Taille du texte et textes copiables — 0.0.3.2
+- Vidéo → Texte : **Taille du texte**, de 75 à 150 % (100 % par défaut).
+  Tous les textes des menus suivent, ainsi que les textes affichés en jeu.
+- Vidéo → Largeur du menu de gauche : **150 px** par défaut (190 avant).
+- Textes des menus sélectionnables à la souris et copiables (Ctrl+C ou
+  clic droit → Copier) : explications, historique, Comment jouer, infos…
+- Paramètres allégés : plus de titre de section qui répète l'onglet, notes
+  raccourcies, noms des champs en blanc (plus lisibles).
+- Un panneau plus haut que la fenêtre (grand texte, petite fenêtre) défile
+  au lieu de sortir de l'écran.
+
+Test étendu : tests/display_settings_test.gd (34 contrôles : tailles du
+texte, panneaux dans la fenêtre en largeur et hauteur, textes
+sélectionnables, aucun titre répété). Les tests utilisent désormais des
+réglages par défaut isolés, jamais ceux du joueur. Résultat : 19 tests, 0 échec.
+À tester manuellement : sélection et copie des textes, lisibilité à 75 et
+150 %, défilement d'un panneau à 150 % dans une petite fenêtre.

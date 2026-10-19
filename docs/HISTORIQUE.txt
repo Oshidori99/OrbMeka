@@ -3,6 +3,10 @@ Du plus récent au plus ancien. Ce fichier est mis à jour à chaque version.
 
 === Thème « Contrôles et Paramètres » (0.0.3 et suivantes) ===
 
+0.0.3.2 — Taille du texte et textes copiables
+Vidéo : taille du texte ; menu de gauche à 150 px par défaut. Textes des menus sélectionnables et copiables.
+Paramètres allégés : plus de titre répété, noms des champs en blanc, panneaux défilants si trop hauts.
+
 0.0.3.1 — Vidéo et sensibilité de la souris
 Paramètres → Vidéo : taille des panneaux (% de la fenêtre) et largeur du menu de gauche.
 Paramètres généraux : sensibilité de la souris, valable dans tous les mondes.

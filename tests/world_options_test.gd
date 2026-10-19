@@ -29,6 +29,8 @@ func _run() -> void:
 		check(catalog.create_world("Invalide", invalid).is_empty(), "invalid seed rejected: " + invalid)
 	check(catalog.worlds.size() == count, "invalid seeds leave catalog unchanged")
 	var app: Control = load("res://scenes/main.tscn").instantiate()
+	# Réglages par défaut isolés : jamais ceux du joueur (user://settings.json).
+	app.settings = load("res://scripts/user_settings.gd").new("res://.godot/test-default-settings.json")
 	app.catalog = catalog
 	root.add_child(app)
 	current_scene = app
@@ -37,7 +39,7 @@ func _run() -> void:
 	check(app.pages.create.get_children().filter(func(child): return child is LineEdit).size() == 2, "creation contains name and optional seed")
 	await process_frame
 	await process_frame
-	var panel: Control = app.pages.create.get_parent().get_parent()
+	var panel: Control = app.menu_panel
 	print("FORM_BOUNDS: ", panel.get_global_rect())
 	check(panel.get_global_rect().position.y >= 0 and panel.get_global_rect().end.y <= 720, "creation form fits 1280 by 720")
 	app.name_field.text = "Mon monde"

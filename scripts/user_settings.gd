@@ -15,7 +15,8 @@ const SPECS := {
 	# Réglages généraux (0.0.3.1) : valables dans tous les mondes, quel que soit leur mode.
 	"mouse_sensitivity": {"label": "Sensibilité de la souris", "unit": "%", "default": 100.0, "min": 10.0, "max": 300.0},
 	"panel_size": {"label": "Taille des panneaux", "unit": "% de la fenêtre", "default": 72.0, "min": 50.0, "max": 95.0},
-	"nav_width": {"label": "Largeur du menu de gauche", "unit": "px", "default": 190.0, "min": 120.0, "max": 400.0},
+	"nav_width": {"label": "Largeur du menu de gauche", "unit": "px", "default": 150.0, "min": 120.0, "max": 400.0},
+	"text_size": {"label": "Taille du texte", "unit": "%", "default": 100.0, "min": 75.0, "max": 150.0},
 }
 # Attributs du joueur : par défaut dans un monde par défaut, réglables en mode développeur.
 const ATTRIBUTE_KEYS := ["jump_height", "jump_speed", "fall_gravity", "place_ms", "break_ms", "walk_forward", "walk_side", "walk_back"]

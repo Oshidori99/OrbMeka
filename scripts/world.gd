@@ -16,6 +16,8 @@ var world_name := "OrbMeka"
 # Mode du monde, affiché dans Informations du monde (F3).
 var world_mode_text := "Par défaut"
 var developer_mode := false
+# Réglage Vidéo → Taille du texte, pour les textes affichés en jeu.
+var text_scale := 1.0
 var blocks: Dictionary = {}
 var materials: Array[StandardMaterial3D] = []
 var player: CharacterBody3D
@@ -223,7 +225,7 @@ func _create_hud() -> void:
 	selected_block_label = Label.new()
 	selected_block_label.name = "SelectedBlock"
 	selected_block_label.position = Vector2(18, 18)
-	selected_block_label.add_theme_font_size_override("font_size", 18)
+	selected_block_label.add_theme_font_size_override("font_size", roundi(18 * text_scale))
 	selected_block_label.add_theme_color_override("font_shadow_color", Color.BLACK)
 	selected_block_label.add_theme_constant_override("shadow_outline_size", 3)
 	selected_block_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -249,7 +251,7 @@ func _create_hud() -> void:
 	hint.offset_top = -60
 	hint.offset_bottom = -20
 	hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	hint.add_theme_font_size_override("font_size", 19)
+	hint.add_theme_font_size_override("font_size", roundi(19 * text_scale))
 	hint.add_theme_color_override("font_shadow_color", Color.BLACK)
 	hint.add_theme_constant_override("shadow_outline_size", 4)
 	layer.add_child(hint)

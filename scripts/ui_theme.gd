@@ -1,7 +1,9 @@
 extends RefCounted
 # Thème commun des menus, ambiance « Orbe violet » (0.0.2.12) : violet profond et chaleureux,
 # accents sable doré (couleur du bloc Sable) et turquoise doux ; coins peu arrondis, esprit « blocs ».
-# Variations de Label : OrbTitle (titres de page), OrbSection (sous-titres), OrbNote (textes discrets).
+# Textes des menus : RichTextLabel sélectionnables (copie possible), variations OrbTitle
+# (titres de page), OrbSection (sous-titres), OrbNote (textes discrets).
+# text_scale : réglage Vidéo → Taille du texte (1.0 = tailles d'origine).
 
 const PANEL := Color(0.13, 0.08, 0.21, 0.62)
 const BUTTON := Color("#3a2858")
@@ -31,6 +33,9 @@ static func _box(color: Color, radius: int, border: Color = Color.TRANSPARENT, b
 	box.content_margin_bottom = margin.y
 	return box
 
+static func scaled(size: int, text_scale: float) -> int:
+	return maxi(8, roundi(size * text_scale))
+
 static func panel_style() -> StyleBoxFlat:
 	var box := _box(PANEL, 8, ACCENT_SOFT, 2, Vector2(30, 28))
 	box.shadow_color = Color(0.05, 0.02, 0.1, 0.45)
@@ -49,9 +54,9 @@ static func _tab_box(color: Color, mark: Color) -> StyleBoxFlat:
 	box.border_width_left = 4
 	return box
 
-static func build() -> Theme:
+static func build(text_scale: float = 1.0) -> Theme:
 	var theme := Theme.new()
-	theme.default_font_size = 18
+	theme.default_font_size = scaled(18, text_scale)
 	theme.set_stylebox("panel", "PanelContainer", panel_style())
 	# Boutons : pavés violets, contour sable au survol et au focus clavier.
 	theme.set_stylebox("normal", "Button", _button_box(BUTTON, Color("#251838"), 1))
@@ -71,7 +76,7 @@ static func build() -> Theme:
 	theme.set_color("font_focus_color", "Button", Color.WHITE)
 	theme.set_color("font_hover_pressed_color", "Button", ACCENT)
 	theme.set_color("font_disabled_color", "Button", Color(TEXT_DIM, 0.5))
-	theme.set_font_size("font_size", "Button", 20)
+	theme.set_font_size("font_size", "Button", scaled(20, text_scale))
 	# Onglets du menu latéral (OrbTab) : rectangles à angles droits, section active surlignée de sable.
 	theme.set_type_variation("OrbTab", "Button")
 	theme.set_stylebox("normal", "OrbTab", _tab_box(Color(BUTTON, 0.7), Color.TRANSPARENT))
@@ -80,7 +85,7 @@ static func build() -> Theme:
 	theme.set_stylebox("hover_pressed", "OrbTab", _tab_box(BUTTON_HOVER, ACCENT))
 	theme.set_color("font_pressed_color", "OrbTab", ACCENT)
 	theme.set_color("font_hover_pressed_color", "OrbTab", ACCENT)
-	theme.set_font_size("font_size", "OrbTab", 18)
+	theme.set_font_size("font_size", "OrbTab", scaled(18, text_scale))
 	theme.set_constant("h_separation", "OrbTab", 8)
 	# ↻ d'une catégorie d'attributs (OrbCategoryReset) : pavé orangé, bien visible.
 	theme.set_type_variation("OrbCategoryReset", "Button")
@@ -90,24 +95,33 @@ static func build() -> Theme:
 	theme.set_stylebox("hover_pressed", "OrbCategoryReset", _box(RESET_PRESSED, 6, Color.WHITE, 1))
 	for state in ["font_color", "font_hover_color", "font_pressed_color", "font_focus_color", "font_hover_pressed_color"]:
 		theme.set_color(state, "OrbCategoryReset", Color("#2a1440"))
-	theme.set_font_size("font_size", "OrbCategoryReset", 22)
+	theme.set_font_size("font_size", "OrbCategoryReset", scaled(22, text_scale))
 	# Textes.
 	theme.set_color("font_color", "Label", TEXT)
 	# Ombre légère : texte lisible sur le panneau transparent.
 	theme.set_color("font_shadow_color", "Label", Color(0.05, 0.02, 0.1, 0.6))
 	theme.set_constant("shadow_offset_x", "Label", 1)
 	theme.set_constant("shadow_offset_y", "Label", 1)
-	theme.set_type_variation("OrbTitle", "Label")
-	theme.set_font_size("font_size", "OrbTitle", 34)
-	theme.set_color("font_color", "OrbTitle", ACCENT)
+	theme.set_font_size("font_size", "Label", scaled(18, text_scale))
+	# Textes sélectionnables des menus : mêmes couleurs et ombre que les Label.
+	theme.set_color("default_color", "RichTextLabel", TEXT)
+	theme.set_color("font_shadow_color", "RichTextLabel", Color(0.05, 0.02, 0.1, 0.6))
+	theme.set_constant("shadow_offset_x", "RichTextLabel", 1)
+	theme.set_constant("shadow_offset_y", "RichTextLabel", 1)
+	theme.set_color("selection_color", "RichTextLabel", Color(ACCENT, 0.35))
+	theme.set_font_size("normal_font_size", "RichTextLabel", scaled(18, text_scale))
+	theme.set_stylebox("focus", "RichTextLabel", StyleBoxEmpty.new())
+	theme.set_type_variation("OrbTitle", "RichTextLabel")
+	theme.set_font_size("normal_font_size", "OrbTitle", scaled(34, text_scale))
+	theme.set_color("default_color", "OrbTitle", ACCENT)
 	theme.set_color("font_outline_color", "OrbTitle", Color("#2a1440"))
 	theme.set_constant("outline_size", "OrbTitle", 6)
-	theme.set_type_variation("OrbSection", "Label")
-	theme.set_font_size("font_size", "OrbSection", 22)
-	theme.set_color("font_color", "OrbSection", TURQUOISE)
-	theme.set_type_variation("OrbNote", "Label")
-	theme.set_font_size("font_size", "OrbNote", 16)
-	theme.set_color("font_color", "OrbNote", TEXT_DIM)
+	theme.set_type_variation("OrbSection", "RichTextLabel")
+	theme.set_font_size("normal_font_size", "OrbSection", scaled(22, text_scale))
+	theme.set_color("default_color", "OrbSection", TURQUOISE)
+	theme.set_type_variation("OrbNote", "RichTextLabel")
+	theme.set_font_size("normal_font_size", "OrbNote", scaled(16, text_scale))
+	theme.set_color("default_color", "OrbNote", TEXT_DIM)
 	# Champs de saisie et liste des mondes.
 	for state in ["normal", "read_only"]:
 		theme.set_stylebox(state, "LineEdit", _box(FIELD, 6, ACCENT_FAINT, 1))

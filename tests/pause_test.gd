@@ -16,11 +16,13 @@ func check(ok: bool, label: String) -> void:
 func _run() -> void:
 	root.size = Vector2i(1280, 720)
 	var app: Control = load("res://scenes/main.tscn").instantiate()
+	# Réglages par défaut isolés : jamais ceux du joueur (user://settings.json).
+	app.settings = load("res://scripts/user_settings.gd").new("res://.godot/test-default-settings.json")
 	app.catalog = load("res://scripts/world_catalog.gd").new("res://.godot/pause-test-unused.json")
 	app.catalog.worlds.append({"id": "pause-test", "name": "Mon monde", "seed": 123})
 	root.add_child(app)
 	current_scene = app
-	check(app.home_version.text == "v0.0.3.1", "version visible on home")
+	check(app.home_version.text == "v0.0.3.2", "version visible on home")
 	app.open_world("pause-test")
 	var world: Node3D = app.active_world
 	var player: CharacterBody3D = world.player
@@ -36,7 +38,7 @@ func _run() -> void:
 	escape.pressed = true
 	app._unhandled_key_input(escape)
 	check(app.page == "pause" and paused, "Escape opens real pause")
-	check(app.pause_version.text == "v0.0.3.1" and app.pause_version.is_visible_in_tree(), "version visible in pause")
+	check(app.pause_version.text == "v0.0.3.2" and app.pause_version.is_visible_in_tree(), "version visible in pause")
 	check(not world.can_process() and app.can_process(), "world stops processing while menus remain active")
 	check(not player.actions.placing and not player.actions.breaking, "pause cancels both repeat timers")
 	check(Input.mouse_mode == Input.MOUSE_MODE_VISIBLE, "pause releases pointer")
@@ -58,7 +60,7 @@ func _run() -> void:
 	check(app.page == "pause" and paused, "help Back button returns to pause")
 	await process_frame
 	await process_frame
-	var panel: Control = app.pages.pause.get_parent().get_parent()
+	var panel: Control = app.menu_panel
 	check(panel.get_global_rect().position.y >= 0 and panel.get_global_rect().end.y <= 720, "pause fits 1280 by 720 viewport")
 	app.resume_button.pressed.emit()
 	check(app.page == "playing" and not paused and world.can_process(), "Resume reactivates gameplay")

@@ -32,10 +32,11 @@ Première action immédiate ; un délai plus court accélère la répétition."}
 }
 # Réglages généraux (tous les mondes, quel que soit leur mode), par section du menu latéral.
 const GENERAL_CATEGORIES := {
-	"general": {"Souris": {"keys": ["mouse_sensitivity"], "help": "Vitesse de rotation de la vue. 100 % : sensibilité d'origine."}},
-	"video": {"Panneaux": {"keys": ["panel_size", "nav_width"], "help": "Taille : largeur des panneaux de menu, en % de la fenêtre ; tous suivent.
-Menu de gauche : largeur de la colonne d'onglets, quand le panneau en a une.
-Jamais plus large que la fenêtre ; le menu de gauche garde de la place au contenu."}},
+	"general": {"Souris": {"keys": ["mouse_sensitivity"], "help": "Vitesse de rotation de la vue."}},
+	"video": {
+		"Panneaux": {"keys": ["panel_size", "nav_width"], "help": "Largeur des menus ; le menu de gauche est la colonne d'onglets."},
+		"Texte": {"keys": ["text_size"], "help": "Taille de tous les textes des menus."},
+	},
 }
 # Menu latéral de Paramètres : sections dans l'ordre des boutons ; la première s'ouvre par défaut.
 const SETTINGS_SECTIONS := {"general": "Paramètres généraux", "video": "Vidéo", "attributes": "Attributs"}
@@ -52,7 +53,13 @@ var settings_tabs: Dictionary = {}
 var settings_sections: Dictionary = {}
 var settings_section := "general"
 var settings_nav: VBoxContainer
-var settings_message: Label
+var font_sizes: Dictionary = {}
+var menu_scroll: ScrollContainer
+var menu_stack: VBoxContainer
+var fit_queued := false
+# Marge entre le panneau et les bords haut et bas de la fenêtre.
+const WINDOW_MARGIN := 12.0
+var settings_message: RichTextLabel
 var settings_apply_button: Button
 var catalog: RefCounted
 var page := "home"
@@ -64,56 +71,56 @@ var menu_reserved_heights: Dictionary = {}
 var pages: Dictionary = {}
 var world_list: ItemList
 var open_button: Button
-var list_message: Label
+var list_message: RichTextLabel
 var name_field: LineEdit
 var seed_field: LineEdit
-var world_options_title: Label
+var world_options_title: RichTextLabel
 var duplicate_button: Button
 var world_settings_button: Button
-var world_settings_text: Label
+var world_settings_text: RichTextLabel
 var world_settings_back_button: Button
 # Mode du monde : choix à la création, passage définitif au mode développeur ensuite.
 var create_mode: String = Catalog.MODE_DEFAULT
 var create_default_button: Button
 var create_developer_button: Button
-var create_mode_note: Label
+var create_mode_note: RichTextLabel
 var world_developer_button: Button
-var developer_confirm_message: Label
+var developer_confirm_message: RichTextLabel
 var developer_confirm_button: Button
 var developer_cancel_button: Button
-var form_error: Label
+var form_error: RichTextLabel
 var shortcut_hints: Label
 var play_button: Button
 var settings_button: Button
 var information_button: Button
 var history_button: Button
 var history_back_button: Button
-var history_text: Label
+var history_text: RichTextLabel
 var history_scroll: ScrollContainer
 var settings_back_button: Button
 var information_back_button: Button
-var generation_info: Label
+var generation_info: RichTextLabel
 var create_button: Button
 var new_world_button: Button
 var rename_button: Button
 var delete_button: Button
 var rename_field: LineEdit
-var rename_error: Label
-var delete_message: Label
+var rename_error: RichTextLabel
+var delete_message: RichTextLabel
 var cancel_delete_button: Button
 var pending_world_id := ""
 var resume_button: Button
 var how_button: Button
 var help_back_button: Button
-var help_text: Label
-var home_version: Label
-var pause_version: Label
+var help_text: RichTextLabel
+var home_version: RichTextLabel
+var pause_version: RichTextLabel
 var info_button: Button
 var info_back_button: Button
-var info_text: Label
+var info_text: RichTextLabel
 var showcase: Node3D
 var backdrop: ColorRect
-var news_label: Label
+var news_label: RichTextLabel
 
 func _ready() -> void:
 	process_mode = Node.PROCESS_MODE_ALWAYS
@@ -145,11 +152,36 @@ func _icon_button(icon: String, label: String, parent: Node, action: Callable) -
 	button.custom_minimum_size.x = 58
 	button.tooltip_text = label
 	button.accessibility_name = label
-	button.add_theme_font_size_override("font_size", 22)
+	_font_size(button, 22)
 	return button
 
+# Textes des menus : sélectionnables à la souris, copiables (Ctrl+C ou clic droit → Copier).
+func _text_label() -> RichTextLabel:
+	var label := RichTextLabel.new()
+	label.fit_content = true
+	label.scroll_active = false
+	label.selection_enabled = true
+	label.context_menu_enabled = true
+	label.focus_mode = Control.FOCUS_CLICK
+	label.autowrap_mode = TextServer.AUTOWRAP_OFF
+	return label
+
+# Tailles particulières : suivent le réglage Vidéo → Taille du texte.
+func _font_size(control: Control, base: int) -> void:
+	var item := "normal_font_size" if control is RichTextLabel else "font_size"
+	font_sizes[control] = [item, base]
+	control.add_theme_font_size_override(item, UiTheme.scaled(base, _text_scale()))
+
+func _text_scale() -> float:
+	return settings.values.text_size / 100.0
+
+func apply_text_size() -> void:
+	menu_root.theme = UiTheme.build(_text_scale())
+	for control in font_sizes:
+		control.add_theme_font_size_override(font_sizes[control][0], UiTheme.scaled(font_sizes[control][1], _text_scale()))
+
 func _explanation(parent: Node, text: String) -> void:
-	var label := Label.new()
+	var label := _text_label()
 	label.text = text
 	label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	parent.add_child(label)
@@ -159,11 +191,11 @@ func _add_setting_row(parent: Node, key: String) -> void:
 	var row := HBoxContainer.new()
 	row.add_theme_constant_override("separation", 10)
 	parent.add_child(row)
-	var label := Label.new()
+	var label := _text_label()
 	label.text = "%s (%s)
 Défaut : %s · %s à %s" % [spec.label, spec.unit, UserSettings.number_text(spec.default), UserSettings.number_text(spec.min), UserSettings.number_text(spec.max)]
-	label.theme_type_variation = "OrbNote"
 	label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	row.add_child(label)
 	var field := LineEdit.new()
 	field.custom_minimum_size = Vector2(85,46)
@@ -240,6 +272,7 @@ func apply_user_settings() -> void:
 		settings_message.text = settings.last_error
 		return
 	_fill_settings()
+	apply_text_size()
 	fit_menus_to_window()
 	settings_message.text = "Paramètres enregistrés."
 
@@ -247,7 +280,7 @@ func _page(parent: Node, heading: String) -> VBoxContainer:
 	var box := VBoxContainer.new()
 	box.add_theme_constant_override("separation", 16)
 	parent.add_child(box)
-	var title := Label.new()
+	var title := _text_label()
 	title.text = heading
 	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	title.theme_type_variation = "OrbTitle"
@@ -261,7 +294,7 @@ func _build_interface() -> void:
 	menu_root = Control.new()
 	layer.add_child(menu_root)
 	menu_root.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	menu_root.theme = UiTheme.build()
+	menu_root.theme = UiTheme.build(_text_scale())
 	# Voile derrière le panneau : léger sur le fond 3D de l'accueil, sombre et flou en pause.
 	backdrop = ColorRect.new()
 	backdrop.material = ShaderMaterial.new()
@@ -275,20 +308,29 @@ func _build_interface() -> void:
 	menu_panel = panel
 	center.add_child(panel)
 	var stack := VBoxContainer.new()
-	panel.add_child(stack)
+	# Défilement de tout le panneau si son contenu dépasse la hauteur de la fenêtre
+	# (grand texte, petite fenêtre) : le panneau ne sort jamais de l'écran.
+	menu_scroll = ScrollContainer.new()
+	menu_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	menu_scroll.follow_focus = true
+	panel.add_child(menu_scroll)
+	stack.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	menu_scroll.add_child(stack)
+	menu_stack = stack
+	stack.minimum_size_changed.connect(_queue_fit)
 	var home := _page(stack, "OrbMeka™")
 	pages.home = home
-	var version := Label.new()
-	version.text = "v" + str(ProjectSettings.get_setting("application/config/version", "0.0.3.1"))
+	var version := _text_label()
+	version.text = "v" + str(ProjectSettings.get_setting("application/config/version", "0.0.3.2"))
 	version.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	version.theme_type_variation = "OrbNote"
 	home.add_child(version)
 	home_version = version
-	news_label = Label.new()
+	news_label = _text_label()
 	news_label.text = MenuShowcase.NEWS_TEXT
 	news_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	news_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	news_label.add_theme_color_override("font_color", UiTheme.TURQUOISE)
+	news_label.add_theme_color_override("default_color", UiTheme.TURQUOISE)
 	home.add_child(news_label)
 	play_button = _button("Jouer", home, func(): show_page("worlds"))
 	settings_button = _button("Paramètres", home, func(): show_page("settings"))
@@ -302,10 +344,10 @@ func _build_interface() -> void:
 	history_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
 	history_scroll.focus_mode = Control.FOCUS_ALL
 	history_page.add_child(history_scroll)
-	history_text = Label.new()
+	history_text = _text_label()
 	history_text.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	history_text.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	history_text.add_theme_font_size_override("font_size", 17)
+	_font_size(history_text, 17)
 	history_scroll.add_child(history_text)
 	history_back_button = _button("Retour", history_page, func(): show_page("home"))
 	var settings_page := _page(stack, "Paramètres")
@@ -333,12 +375,10 @@ func _build_interface() -> void:
 		box.add_theme_constant_override("separation", 10)
 		settings_body.add_child(box)
 		settings_sections[section] = box
-		_explanation(box, SETTINGS_SECTIONS[section])
-		box.get_child(-1).theme_type_variation = "OrbSection"
+		# Pas de titre de section : l'onglet de gauche le donne déjà.
 		for category in GENERAL_CATEGORIES[section]:
 			_add_setting_category(box, category, GENERAL_CATEGORIES[section][category])
-		_explanation(box, "↻ : défaut du champ ou de la catégorie. Champ vide : défaut.
-Réglage commun à tous les mondes. Retour annule les modifications.")
+		_explanation(box, "Commun à tous les mondes. Champ vide : défaut.")
 		box.get_child(-1).theme_type_variation = "OrbNote"
 	var attributes_box := VBoxContainer.new()
 	attributes_box.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -358,25 +398,23 @@ Réglage commun à tous les mondes. Retour annule les modifications.")
 	settings_scroll.add_child(attributes)
 	var all_row := HBoxContainer.new()
 	attributes.add_child(all_row)
-	_explanation(all_row, "Attributs")
-	all_row.get_child(-1).theme_type_variation = "OrbSection"
-	all_row.get_child(-1).size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	# Pas de titre « Attributs » (déjà sur l'onglet) : seul ↻ Tout réinitialiser, à droite.
+	all_row.alignment = BoxContainer.ALIGNMENT_END
 	settings_reset_all_button = _button("↻ Tout réinitialiser", all_row, reset_all_settings)
 	settings_reset_all_button.tooltip_text = "Rétablir les défauts de tous les attributs"
 	for category in ATTRIBUTE_CATEGORIES:
 		_add_setting_category(attributes, category, ATTRIBUTE_CATEGORIES[category])
-	_explanation(attributes, "↻ : défauts du champ, de la catégorie ou de tout. Champ vide : défaut.
-Appliquer enregistre pour les mondes en mode développeur ; les mondes par défaut gardent les défauts.
-Retour annule les modifications.")
+	_explanation(attributes, "Utilisés seulement par les mondes en mode développeur. Champ vide : défaut.")
+	attributes.get_child(-1).theme_type_variation = "OrbNote"
 	# Message et Appliquer communs aux trois sections : un seul enregistrement pour tout.
-	settings_message = Label.new()
+	settings_message = _text_label()
 	settings_message.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	settings_page.add_child(settings_message)
 	settings_apply_button = _button("Appliquer", settings_page, apply_user_settings)
 	settings_back_button = _button("Retour", settings_page, func(): show_page("home"))
 	var information_page := _page(stack, "Génération des mondes")
 	pages.information = information_page
-	generation_info = Label.new()
+	generation_info = _text_label()
 	generation_info.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	var span := Terrain.MAX_CELL - Terrain.MIN_CELL + 1
 	generation_info.text = "Base plate : largeur %d × longueur %d blocs
@@ -396,11 +434,11 @@ F1 : revenir à la liste des mondes depuis la partie." % [int(WorldRules.BASE_SI
 	world_list = ItemList.new()
 	world_list.custom_minimum_size = Vector2(0, 144)
 	menu_reserved_heights[world_list] = 380.0
-	world_list.add_theme_font_size_override("font_size", 21)
+	_font_size(world_list, 21)
 	list_page.add_child(world_list)
 	world_list.item_selected.connect(func(_index: int): _update_world_actions())
 	world_list.item_activated.connect(func(_index: int): open_selected_world())
-	list_message = Label.new()
+	list_message = _text_label()
 	list_message.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	list_page.add_child(list_message)
 	# Une seule rangée : Ouvrir en toutes lettres, les autres actions en icônes (nom au survol).
@@ -418,7 +456,7 @@ F1 : revenir à la liste des mondes depuis la partie." % [int(WorldRules.BASE_SI
 	var form := _page(stack, "Créer un monde")
 	pages.create = form
 	form.add_theme_constant_override("separation", 10)
-	var name_label := Label.new()
+	var name_label := _text_label()
 	name_label.text = "Nom du monde"
 	form.add_child(name_label)
 	_explanation(form, "Un nom de 1 à %d caractères suffit.
@@ -428,20 +466,20 @@ Nom, graine et mode conservés ; constructions non sauvegardées." % Catalog.MAX
 	name_field.placeholder_text = "Mon monde"
 	name_field.max_length = Catalog.MAX_NAME_LENGTH
 	name_field.custom_minimum_size.y = 46
-	name_field.add_theme_font_size_override("font_size", 22)
+	_font_size(name_field, 22)
 	form.add_child(name_field)
 	name_field.text_submitted.connect(func(_text: String): create_named_world())
-	var seed_label := Label.new()
+	var seed_label := _text_label()
 	seed_label.text = "Graine de génération (facultatif)"
 	form.add_child(seed_label)
 	seed_field = LineEdit.new()
 	seed_field.placeholder_text = "Vide : aléatoire · Entier de 0 à 4294967295"
 	seed_field.max_length = 32
 	seed_field.custom_minimum_size.y = 46
-	seed_field.add_theme_font_size_override("font_size", 18)
+	_font_size(seed_field, 18)
 	form.add_child(seed_field)
 	seed_field.text_submitted.connect(func(_text: String): create_named_world())
-	world_options_title = Label.new()
+	world_options_title = _text_label()
 	world_options_title.text = "Options du monde"
 	world_options_title.theme_type_variation = "OrbSection"
 	form.add_child(world_options_title)
@@ -457,26 +495,26 @@ Nom, graine et mode conservés ; constructions non sauvegardées." % Catalog.MAX
 		button.toggle_mode = true
 		button.button_group = mode_group
 		button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	create_mode_note = Label.new()
+	create_mode_note = _text_label()
 	create_mode_note.theme_type_variation = "OrbNote"
 	create_mode_note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	form.add_child(create_mode_note)
-	form_error = Label.new()
-	form_error.add_theme_color_override("font_color", UiTheme.ERROR)
+	form_error = _text_label()
+	form_error.add_theme_color_override("default_color", UiTheme.ERROR)
 	form_error.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	form.add_child(form_error)
 	create_button = _button("➕ Créer", form, create_named_world)
 	_button("Retour", form, func(): show_page("worlds"))
 	var world_settings_page := _page(stack, "Paramètres du monde")
 	pages.world_settings = world_settings_page
-	world_settings_text = Label.new()
+	world_settings_text = _text_label()
 	world_settings_text.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	world_settings_page.add_child(world_settings_text)
 	world_developer_button = _button("Passer en mode développeur…", world_settings_page, request_developer_mode)
 	world_settings_back_button = _button("Retour", world_settings_page, cancel_world_action)
 	var developer_page := _page(stack, "Passer en mode développeur ?")
 	pages.developer_confirm = developer_page
-	developer_confirm_message = Label.new()
+	developer_confirm_message = _text_label()
 	developer_confirm_message.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	developer_page.add_child(developer_confirm_message)
 	developer_confirm_button = _button("Confirmer : mode développeur définitif", developer_page, confirm_developer_mode)
@@ -490,21 +528,21 @@ La graine et le terrain initial sont conservés." % Catalog.MAX_NAME_LENGTH)
 	rename_field.custom_minimum_size.y = 46
 	rename_page.add_child(rename_field)
 	rename_field.text_submitted.connect(func(_text: String): confirm_rename())
-	rename_error = Label.new()
+	rename_error = _text_label()
 	rename_error.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	rename_page.add_child(rename_error)
 	_button("✏️ Renommer", rename_page, confirm_rename)
 	_button("Annuler", rename_page, cancel_world_action)
 	var delete_page := _page(stack, "Supprimer ce monde ?")
 	pages.delete = delete_page
-	delete_message = Label.new()
+	delete_message = _text_label()
 	delete_message.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	delete_page.add_child(delete_message)
 	_button("🗑️ Confirmer la suppression", delete_page, confirm_delete)
 	cancel_delete_button = _button("Annuler", delete_page, cancel_world_action)
 	var pause_page := _page(stack, "Pause")
 	pages.pause = pause_page
-	pause_version = Label.new()
+	pause_version = _text_label()
 	pause_version.text = version.text
 	pause_version.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	pause_version.theme_type_variation = "OrbNote"
@@ -520,15 +558,15 @@ La graine et le terrain initial sont conservés." % Catalog.MAX_NAME_LENGTH)
 	menu_reserved_heights[scroll] = 300.0
 	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
 	help_page.add_child(scroll)
-	help_text = Label.new()
+	help_text = _text_label()
 	help_text.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	help_text.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	help_text.add_theme_font_size_override("font_size", 17)
+	_font_size(help_text, 17)
 	scroll.add_child(help_text)
 	help_back_button = _button("Retour à la pause", help_page, func(): show_page("pause"))
 	var info_page := _page(stack, "Informations du monde")
 	pages.world_info = info_page
-	info_text = Label.new()
+	info_text = _text_label()
 	info_text.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	info_page.add_child(info_text)
 	info_back_button = _button("Retour à la pause", info_page, func(): show_page("pause"))
@@ -543,7 +581,7 @@ F3 : Informations du monde"
 	shortcut_hints.offset_left = -280
 	shortcut_hints.offset_right = -18
 	shortcut_hints.offset_top = 18
-	shortcut_hints.add_theme_font_size_override("font_size", 15)
+	_font_size(shortcut_hints, 15)
 	shortcut_hints.add_theme_color_override("font_shadow_color", Color.BLACK)
 	shortcut_hints.add_theme_constant_override("shadow_outline_size", 3)
 	shortcut_hints.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -565,6 +603,23 @@ func fit_menus_to_window() -> void:
 	settings_nav.custom_minimum_size.x = minf(settings.values.nav_width, menu_panel.custom_minimum_size.x * NAV_MAX_SHARE)
 	for control in menu_reserved_heights:
 		control.custom_minimum_size.y = maxf(SCROLL_MIN_HEIGHT, view.y - menu_reserved_heights[control])
+	_fit_height()
+
+func _fit_height() -> void:
+	# Hauteur du panneau : son contenu, sans dépasser la fenêtre ; au-delà, il défile.
+	var view := get_viewport().get_visible_rect().size
+	var frame: float = menu_panel.get_theme_stylebox("panel").get_minimum_size().y
+	var available := maxf(SCROLL_MIN_HEIGHT, view.y - frame - 2.0 * WINDOW_MARGIN)
+	menu_scroll.custom_minimum_size.y = minf(menu_stack.get_combined_minimum_size().y, available)
+
+func _queue_fit() -> void:
+	# Le contenu a changé de taille (texte replié, page changée) : réajuster une fois, plus tard.
+	if fit_queued:
+		return
+	fit_queued = true
+	(func():
+		fit_queued = false
+		_fit_height()).call_deferred()
 
 func _update_backdrop() -> void:
 	# En pause : monde visible derrière, assombri et flouté. À l'accueil : fond 3D à peine voilé.
@@ -581,6 +636,8 @@ func show_page(next_page: String) -> void:
 	shortcut_hints.visible = false
 	for key in pages:
 		pages[key].visible = key == page
+	_fit_height()
+	menu_scroll.scroll_vertical = 0
 	if page == "worlds":
 		refresh_world_list()
 		if world_list.item_count > 0:
@@ -775,6 +832,7 @@ func open_world(id: String) -> void:
 	active_world.process_mode = Node.PROCESS_MODE_PAUSABLE
 	active_world.terrain_seed = item.seed
 	active_world.world_name = item.name
+	active_world.text_scale = _text_scale()
 	var developer: bool = item.get("mode", Catalog.MODE_DEFAULT) == Catalog.MODE_DEVELOPER
 	active_world.developer_mode = developer
 	active_world.world_mode_text = Catalog.MODE_NAMES[Catalog.MODE_DEVELOPER if developer else Catalog.MODE_DEFAULT]

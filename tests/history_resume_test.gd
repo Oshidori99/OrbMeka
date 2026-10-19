@@ -22,6 +22,8 @@ func escape() -> void:
 func _run() -> void:
 	root.size = Vector2i(1280,720)
 	var app: Control = load("res://scenes/main.tscn").instantiate()
+	# Réglages par défaut isolés : jamais ceux du joueur (user://settings.json).
+	app.settings = load("res://scripts/user_settings.gd").new("res://.godot/test-default-settings.json")
 	app.catalog = load("res://scripts/world_catalog.gd").new("res://.godot/history-unused.json")
 	app.catalog.worlds.append({"id":"test", "name":"Historique", "seed":456})
 	root.add_child(app)
@@ -33,12 +35,12 @@ func _run() -> void:
 "):
 		if line.begins_with("0.0."):
 			titles.append(line)
-	check(titles.size() == 25 and titles[0].begins_with("0.0.3.1 ") and titles[-1].begins_with("0.0.1 "), "all twenty-five versions shown latest to earliest")
+	check(titles.size() == 26 and titles[0].begins_with("0.0.3.2 ") and titles[-1].begins_with("0.0.1 "), "all twenty-six versions shown latest to earliest")
 	check(titles.find("0.0.2.5.1 — Rappels de commandes") < titles.find("0.0.2.5 — Raccourcis et sélection"), "five-part patch number sorted correctly")
 	check(not is_instance_valid(app.active_world) and Input.mouse_mode == Input.MOUSE_MODE_VISIBLE, "history does not launch game or capture pointer")
 	await process_frame
 	await process_frame
-	var panel: Control = app.pages.history.get_parent().get_parent()
+	var panel: Control = app.menu_panel
 	check(panel.get_global_rect().position.y >= 0 and panel.get_global_rect().end.y <= 720, "history panel fits 1280 by 720")
 	check(app.history_scroll.get_v_scroll_bar().max_value > app.history_scroll.size.y, "long history scrolls")
 	app.history_back_button.pressed.emit()
