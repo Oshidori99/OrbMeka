@@ -28,7 +28,7 @@ func _run() -> void:
 	current_scene = app
 	var buttons: Array = app.pages.home.get_children().filter(func(child): return child is Button).map(func(button): return button.text)
 	check(buttons == ["Jouer", "Paramètres", "Informations", "Historique des versions"], "home buttons appear in requested order")
-	check(app.home_version.text == "v0.0.2.9", "home shows version 0.0.2.9")
+	check(app.home_version.text == "v" + str(ProjectSettings.get_setting("application/config/version")), "home shows current project version")
 	app.settings_button.pressed.emit()
 	check(app.page == "settings" and app.setting_fields.jump_height.has_focus(), "settings opens with keyboard-focused return")
 	var explanations: Array = app.pages.settings.get_children().filter(func(child): return child is Label).map(func(label): return label.text)

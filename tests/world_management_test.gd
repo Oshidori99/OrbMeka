@@ -23,10 +23,8 @@ func _run() -> void:
 		print("RESULT: %d restart checks, %d failures" % [checks, failures])
 		quit(failures)
 		return
-	if FileAccess.file_exists(PATH):
-		push_error("Fixture already exists; refusing to overwrite.")
-		quit(1)
-		return
+	# Fichier de test seulement (.godot/) : un reste d'une exécution interrompue est remplacé.
+	DirAccess.remove_absolute(ProjectSettings.globalize_path(PATH))
 	var catalog := Catalog.new(PATH)
 	var first: Dictionary = catalog.create_world("Mon monde")
 	var second: Dictionary = catalog.create_world("À supprimer")
@@ -76,5 +74,11 @@ func _run() -> void:
 	root.remove_child(app)
 	app.queue_free()
 	await process_frame
+	var output: Array = []
+	var code := OS.execute(OS.get_executable_path(), ["--headless", "--path", ProjectSettings.globalize_path("res://"), "--script", "res://tests/world_management_test.gd", "--", "--verify-restart"], output, true)
+	check(code == 0, "separate process restores rename and confirmed deletion")
+	if code != 0:
+		print("".join(output))
+	DirAccess.remove_absolute(ProjectSettings.globalize_path(PATH))
 	print("RESULT: %d management checks, %d failures" % [checks, failures])
 	quit(0 if failures == 0 else 1)

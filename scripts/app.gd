@@ -179,7 +179,7 @@ func _build_interface() -> void:
 	var home := _page(stack, "OrbMeka™")
 	pages.home = home
 	var version := Label.new()
-	version.text = "v" + str(ProjectSettings.get_setting("application/config/version", "0.0.2.11.2"))
+	version.text = "v" + str(ProjectSettings.get_setting("application/config/version", "0.0.2.11.3"))
 	version.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	home.add_child(version)
 	home_version = version
@@ -631,18 +631,27 @@ func _unhandled_key_input(event: InputEvent) -> void:
 			open_world_info()
 		get_viewport().set_input_as_handled()
 	elif event.is_action_pressed("ui_cancel"):
-		if page == "playing":
-			pause_game()
-		elif page in ["help", "world_info"]:
-			show_page("pause")
-		elif page == "pause":
-			resume_game()
-		elif page in ["rename", "delete", "world_settings"]:
-			cancel_world_action()
-		elif page in ["settings", "information", "history"]:
-			show_page("home")
-		elif page == "create":
-			show_page("worlds")
-		elif page == "worlds":
-			show_page("home")
+		_cancel_page()
 		get_viewport().set_input_as_handled()
+
+func _input(event: InputEvent) -> void:
+	# Un champ de saisie actif garde Échap pour lui : on le reprend pour quitter la page.
+	if event.is_action_pressed("ui_cancel") and not event.is_echo() and get_viewport().gui_get_focus_owner() is LineEdit:
+		_cancel_page()
+		get_viewport().set_input_as_handled()
+
+func _cancel_page() -> void:
+	if page == "playing":
+		pause_game()
+	elif page in ["help", "world_info"]:
+		show_page("pause")
+	elif page == "pause":
+		resume_game()
+	elif page in ["rename", "delete", "world_settings"]:
+		cancel_world_action()
+	elif page in ["settings", "information", "history"]:
+		show_page("home")
+	elif page == "create":
+		show_page("worlds")
+	elif page == "worlds":
+		show_page("home")

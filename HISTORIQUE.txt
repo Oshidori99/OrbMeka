@@ -1,6 +1,10 @@
 ORBMEKA — HISTORIQUE DES VERSIONS
 Du plus récent au plus ancien. Ce fichier est mis à jour à chaque version.
 
+0.0.2.11.3 — Tests réparés
+Tous les tests passent : tests de relance autonomes, version lue dans le projet.
+Échap quitte aussi Paramètres et les formulaires quand un champ de saisie est actif.
+
 0.0.2.11.2 — Menus élargis
 Le panneau des menus s'élargit avec la fenêtre (jusqu'à 70 % de sa largeur).
 Listes et textes défilants gagnent en hauteur dans une fenêtre plus haute.

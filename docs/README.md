@@ -1,4 +1,4 @@
-# OrbMeka™ — prototype 0.0.2.11.2
+# OrbMeka™ — prototype 0.0.2.11.3
 
 Godot 4.7 / GDScript. Formes et couleurs simples, sans assets externes.
 
@@ -467,3 +467,18 @@ Test complété : tests/window_resize_test.gd (59 contrôles : largeur du
 panneau, hauteur des zones défilantes, pages Historique, Paramètres et
 Mes mondes dans la fenêtre, à 5 tailles). À tester manuellement : aspect
 réel en élargissant la fenêtre, en dehors du mode intégré de l'éditeur.
+
+## Tests réparés — 0.0.2.11.3
+Les 15 tests passent maintenant en une seule commande chacun.
+- catalog_restart_test.gd et world_management_test.gd lancent eux-mêmes
+  le second processus qui vérifie la relance, puis effacent leur fichier
+  de test ; un reste d'exécution interrompue ne les bloque plus.
+- interface_info_test.gd lit la version dans project.godot au lieu
+  d'attendre 0.0.2.9.
+- Vrai défaut corrigé : quand un champ de saisie avait le focus (Paramètres,
+  création, renommage), Échap était gardé par le champ et ne quittait pas
+  la page. Échap revient maintenant à la page précédente.
+
+Résultat : 15 tests, 0 échec (dont 24 contrôles d'interface, 18 de gestion
+des mondes, 2 de relance). À tester manuellement : Échap dans Paramètres
+et dans un champ de nom, dans une vraie fenêtre.
