@@ -100,6 +100,17 @@ func _run() -> void:
 	for key in custom:
 		app.setting_fields[key].text = custom[key]
 	check(app.settings_reset_all_button.text.begins_with("↻"), "reset all uses the round arrow")
+	# 0.0.2.14.2 : ↻ de catégorie en orange, catégories espacées ; les autres ↻ gardent le violet.
+	check(app.category_resets.values().all(func(button): return button.theme_type_variation == "OrbCategoryReset"), "category resets are orange")
+	var orange: Color = app.category_resets.Saut.get_theme_stylebox("normal").bg_color
+	check(orange.r > 0.8 and orange.g > 0.5 and orange.b < 0.4, "category reset colour is orange-yellow")
+	check(app.settings_reset_all_button.theme_type_variation == "" and app.setting_resets.values().all(func(button): return button.theme_type_variation == ""), "reset all and field resets keep the normal style")
+	var gaps_ok := true
+	for category in app.category_resets:
+		var header: Node = app.category_resets[category].get_parent()
+		var gap: Control = header.get_parent().get_child(header.get_index() - 1)
+		gaps_ok = gaps_ok and gap.custom_minimum_size.y >= 20
+	check(gaps_ok, "extra space before each category")
 	app.settings_reset_all_button.pressed.emit()
 	var all_default := true
 	for key in Settings.SPECS:

@@ -1,4 +1,4 @@
-# OrbMeka™ — prototype 0.0.2.14
+# OrbMeka™ — prototype 0.0.2.14.2
 
 Godot 4.7 / GDScript. Formes et couleurs simples, sans assets externes.
 
@@ -559,3 +559,17 @@ réelles du joueur, mise en page de 800 × 450 à 2560 × 1080). Tests mis à jo
 pour la nouvelle page et la vitrine. Résultat : 17 tests, 0 échec.
 À tester manuellement : aspect du menu latéral et des onglets, sensation de
 marche aux différentes vitesses, vitrine animée, écran Historique dans le jeu.
+
+## Raccourcis en texte et ↻ orange — 0.0.2.14.2
+- En jeu, le bouton violet « Retour aux mondes (F1) » est retiré. En haut à
+  droite, F1 (Retour aux mondes), F2 et F3 sont rappelés en simple texte,
+  tous dans le même style. La touche F1 fonctionne comme avant.
+- Attributs : un espace plus grand avant chaque catégorie (Saut, Blocs,
+  Marche). Les boutons ↻ de catégorie sont orange-jaune, plus grands ;
+  ↻ Tout réinitialiser et les ↻ de chaque champ gardent le style violet.
+
+Tests mis à jour : menu_style_test, menu_test, window_resize_test (rappels
+en texte en haut à droite) ; settings_walk_test (48 contrôles : couleur
+orange, espacement). Résultat : 17 tests, 0 échec.
+À tester manuellement : lisibilité des rappels F1-F3 sur le monde, rendu de
+l'orange et de l'espacement dans Attributs.

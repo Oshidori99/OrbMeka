@@ -76,9 +76,9 @@ func _run() -> void:
 	app.active_world.add_block(Vector3i(40, 0, 40), 0)
 	app.active_world.player.actions.set_place_pressed(true, true)
 	app.active_world.player.actions.set_break_pressed(true, true)
-	app.return_button.pressed.emit()
+	app.return_to_worlds()
 	await process_frame
-	check(app.page == "worlds" and not is_instance_valid(app.active_world), "return button unloads gameplay and restores list")
+	check(app.page == "worlds" and not is_instance_valid(app.active_world), "F1 return unloads gameplay and restores list")
 	check(Input.mouse_mode == Input.MOUSE_MODE_VISIBLE, "return to list frees the mouse")
 	app.open_world(id)
 	await physics_frame

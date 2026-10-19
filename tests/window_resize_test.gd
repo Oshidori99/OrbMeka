@@ -60,6 +60,6 @@ func _run() -> void:
 		check(crosshair != null and crosshair.get_global_rect().get_center().distance_to(view.get_center()) < 4, "crosshair centred" + tag)
 		check(_inside(world.hint.get_global_rect(), view) and world.hint.get_global_rect().end.y > view.end.y - 80, "hint stays at bottom" + tag)
 		check(_inside(world.selected_block_label.get_global_rect(), view), "selected block label visible" + tag)
-		check(_inside(app.return_button.get_global_rect(), view) and app.return_button.get_global_rect().end.x > view.end.x - 40, "return button stays top right" + tag)
+		check(app.shortcut_hints.visible and _inside(app.shortcut_hints.get_global_rect(), view) and app.shortcut_hints.get_global_rect().end.x > view.end.x - 40, "shortcut hints stay top right" + tag)
 	print("%d checks, %d failures" % [checks, failures])
 	quit(1 if failures else 0)

@@ -31,6 +31,7 @@ Première action immédiate ; un délai plus court accélère la répétition."}
 # Menu latéral de Paramètres : sections dans l'ordre des boutons ; la première s'ouvre par défaut.
 const SETTINGS_SECTIONS := {"general": "Paramètres généraux", "attributes": "Attributs"}
 const SETTINGS_NAV_WIDTH := 190.0
+const CATEGORY_GAP := 22.0
 
 var settings: RefCounted
 var setting_fields: Dictionary = {}
@@ -61,7 +62,7 @@ var world_settings_button: Button
 var world_settings_text: Label
 var world_settings_back_button: Button
 var form_error: Label
-var return_button: Button
+var shortcut_hints: Label
 var play_button: Button
 var settings_button: Button
 var information_button: Button
@@ -229,7 +230,7 @@ func _build_interface() -> void:
 	var home := _page(stack, "OrbMeka™")
 	pages.home = home
 	var version := Label.new()
-	version.text = "v" + str(ProjectSettings.get_setting("application/config/version", "0.0.2.14"))
+	version.text = "v" + str(ProjectSettings.get_setting("application/config/version", "0.0.2.14.2"))
 	version.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	version.theme_type_variation = "OrbNote"
 	home.add_child(version)
@@ -311,6 +312,10 @@ func _build_interface() -> void:
 	settings_reset_all_button = _button("↻ Tout réinitialiser", all_row, reset_all_settings)
 	settings_reset_all_button.tooltip_text = "Rétablir les défauts de tous les attributs"
 	for category in ATTRIBUTE_CATEGORIES:
+		# Espace avant chaque catégorie : titres et ↻ de catégorie bien détachés des champs.
+		var gap := Control.new()
+		gap.custom_minimum_size.y = CATEGORY_GAP
+		attributes.add_child(gap)
 		var header := HBoxContainer.new()
 		attributes.add_child(header)
 		_explanation(header, category)
@@ -318,7 +323,8 @@ func _build_interface() -> void:
 		header.get_child(-1).size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		var keys: Array = ATTRIBUTE_CATEGORIES[category].keys
 		var reset := _button("↻", header, func(): reset_category(category))
-		reset.custom_minimum_size.x = 42
+		reset.custom_minimum_size.x = 48
+		reset.theme_type_variation = "OrbCategoryReset"
 		reset.tooltip_text = "Rétablir les défauts de la catégorie " + category
 		category_resets[category] = reset
 		_explanation(attributes, ATTRIBUTE_CATEGORIES[category].help)
@@ -464,24 +470,22 @@ La graine et le terrain initial sont conservés." % Catalog.MAX_NAME_LENGTH)
 	info_text.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	info_page.add_child(info_text)
 	info_back_button = _button("Retour à la pause", info_page, func(): show_page("pause"))
-	return_button = _button("Retour aux mondes (F1)", layer, return_to_worlds)
-	return_button.theme = menu_root.theme
-	return_button.set_anchors_and_offsets_preset(Control.PRESET_TOP_RIGHT)
-	return_button.offset_left = -280
-	return_button.offset_right = -18
-	return_button.offset_top = 18
-	return_button.offset_bottom = 64
-	var shortcut_hints := Label.new()
+	# Rappels des raccourcis en jeu, en haut à droite : simple texte, sans bouton.
+	shortcut_hints = Label.new()
 	shortcut_hints.name = "ShortcutHints"
-	shortcut_hints.text = "F2 : Comment jouer
+	shortcut_hints.text = "F1 : Retour aux mondes
+F2 : Comment jouer
 F3 : Informations du monde"
-	shortcut_hints.position = Vector2(0, 50)
+	layer.add_child(shortcut_hints)
+	shortcut_hints.set_anchors_and_offsets_preset(Control.PRESET_TOP_RIGHT)
+	shortcut_hints.offset_left = -280
+	shortcut_hints.offset_right = -18
+	shortcut_hints.offset_top = 18
 	shortcut_hints.add_theme_font_size_override("font_size", 15)
 	shortcut_hints.add_theme_color_override("font_shadow_color", Color.BLACK)
 	shortcut_hints.add_theme_constant_override("shadow_outline_size", 3)
 	shortcut_hints.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	return_button.add_child(shortcut_hints)
-	return_button.visible = false
+	shortcut_hints.visible = false
 
 func fit_menus_to_window() -> void:
 	# Taille de base : 1280 × 720. Accueil et pause restent compacts ; les pages de contenu
@@ -508,7 +512,7 @@ func show_page(next_page: String) -> void:
 	menu_root.visible = true
 	fit_menus_to_window()
 	_update_backdrop()
-	return_button.visible = false
+	shortcut_hints.visible = false
 	for key in pages:
 		pages[key].visible = key == page
 	if page == "worlds":
@@ -667,7 +671,7 @@ func open_world(id: String) -> void:
 	active_world.terrain_seed = item.seed
 	active_world.world_name = item.name
 	add_child(active_world)
-	return_button.show()
+	shortcut_hints.show()
 	active_world.player.apply_settings(settings.values)
 	# Opening from a menu is an explicit request to play immediately.
 	active_world.player.resume_controls()
@@ -724,7 +728,7 @@ func resume_game() -> void:
 	menu_root.hide()
 	page = "playing"
 	get_tree().paused = false
-	return_button.show()
+	shortcut_hints.show()
 	active_world.player.resume_controls()
 
 func _unhandled_key_input(event: InputEvent) -> void:

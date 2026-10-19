@@ -1,6 +1,10 @@
 ORBMEKA — HISTORIQUE DES VERSIONS
 Du plus récent au plus ancien. Ce fichier est mis à jour à chaque version.
 
+0.0.2.14.2 — Raccourcis en texte et ↻ orange
+En jeu, F1 n'est plus un bouton violet : F1, F2 et F3 sont rappelés en simple texte.
+Attributs : catégories plus espacées, boutons ↻ de catégorie en orange.
+
 0.0.2.14 — Paramètres en onglets et marche réglable
 Historique réparé (fichier déplacé dans docs/) ; Paramètres : menu latéral Paramètres généraux / Attributs.
 Attributs : nouvelle catégorie Marche (avancer, de côté, reculer), ↻ par catégorie et ↻ Tout réinitialiser.

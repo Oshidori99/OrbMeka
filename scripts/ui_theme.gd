@@ -15,6 +15,9 @@ const TURQUOISE := Color("#7fd6c8")
 const TEXT := Color("#efe8f7")
 const TEXT_DIM := Color("#b3a6c9")
 const ERROR := Color("#ffb7a8")
+const RESET := Color("#f0a640")
+const RESET_HOVER := Color("#ffc25e")
+const RESET_PRESSED := Color("#d88a2a")
 
 static func _box(color: Color, radius: int, border: Color = Color.TRANSPARENT, border_width: int = 0, margin: Vector2 = Vector2(14, 8)) -> StyleBoxFlat:
 	var box := StyleBoxFlat.new()
@@ -79,6 +82,15 @@ static func build() -> Theme:
 	theme.set_color("font_hover_pressed_color", "OrbTab", ACCENT)
 	theme.set_font_size("font_size", "OrbTab", 18)
 	theme.set_constant("h_separation", "OrbTab", 8)
+	# ↻ d'une catégorie d'attributs (OrbCategoryReset) : pavé orangé, bien visible.
+	theme.set_type_variation("OrbCategoryReset", "Button")
+	theme.set_stylebox("normal", "OrbCategoryReset", _button_box(RESET, Color("#8a4a12"), 1))
+	theme.set_stylebox("hover", "OrbCategoryReset", _button_box(RESET_HOVER, Color.WHITE, 1))
+	theme.set_stylebox("pressed", "OrbCategoryReset", _box(RESET_PRESSED, 6, Color.WHITE, 1))
+	theme.set_stylebox("hover_pressed", "OrbCategoryReset", _box(RESET_PRESSED, 6, Color.WHITE, 1))
+	for state in ["font_color", "font_hover_color", "font_pressed_color", "font_focus_color", "font_hover_pressed_color"]:
+		theme.set_color(state, "OrbCategoryReset", Color("#2a1440"))
+	theme.set_font_size("font_size", "OrbCategoryReset", 22)
 	# Textes.
 	theme.set_color("font_color", "Label", TEXT)
 	# Ombre légère : texte lisible sur le panneau transparent.

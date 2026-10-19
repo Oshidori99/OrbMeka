@@ -8,8 +8,8 @@ extends Node3D
 # 2. _build_news() : la construction 3D qui met en scène la nouveauté, au centre du petit monde.
 #    _animate_news(delta) l'anime (vide si rien ne bouge).
 # Le reste du fichier (sol, collines, ciel, caméra) ne change pas d'une version à l'autre.
-const NEWS_VERSION := "0.0.2.14"
-const NEWS_TEXT := "Nouveau : Paramètres avec menu latéral et vitesses de marche réglables,\nhistorique des versions réparé."
+const NEWS_VERSION := "0.0.2.14.2"
+const NEWS_TEXT := "Nouveau : raccourcis F1, F2, F3 en simple texte en jeu,\nboutons ↻ de catégorie en orange dans les Attributs."
 
 # 0.0.2.14 : une piste de sable sur laquelle un marcheur (deux blocs de pierre, taille du joueur)
 # avance vite puis recule plus lentement : trois vitesses de marche réglables.

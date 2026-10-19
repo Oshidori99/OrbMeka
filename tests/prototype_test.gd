@@ -67,7 +67,7 @@ func _run() -> void:
 			spawn_clear = false
 	check(spawn_clear, "spawn capsule does not intersect any block")
 	check(Input.mouse_mode == Input.MOUSE_MODE_VISIBLE, "startup leaves mouse free")
-	check(ProjectSettings.get_setting("application/config/version") == "0.0.2.14", "project version is 0.0.2.14")
+	check(ProjectSettings.get_setting("application/config/version") == "0.0.2.14.2", "project version is 0.0.2.14.2")
 	for action in ["move_forward", "move_back", "move_left", "move_right", "jump"]:
 		check(InputMap.has_action(action), "input binding: " + action)
 	var start := player.position

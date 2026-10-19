@@ -28,7 +28,9 @@ func _run() -> void:
 	current_scene = app
 	await process_frame
 	# Thème commun.
-	check(app.menu_root.theme != null and app.return_button.theme == app.menu_root.theme, "menus and return button share one theme")
+	check(app.menu_root.theme != null and app.shortcut_hints is Label and app.shortcut_hints.text.begins_with("F1 : Retour aux mondes
+F2 : Comment jouer
+F3 : "), "menus share one theme; in-game shortcuts F1, F2, F3 are plain text")
 	var alpha: float = app.menu_panel.get_theme_stylebox("panel").bg_color.a
 	check(alpha > 0.4 and alpha < 0.75, "menu panel is see-through but readable")
 	for key in app.pages:
