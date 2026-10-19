@@ -39,6 +39,13 @@ func _init(path: String = "user://settings.json") -> void:
 		else:
 			load_notice = "Certains réglages invalides ont repris leur valeur par défaut."
 
+# Valeurs d'un monde en mode par défaut, quels que soient les réglages enregistrés.
+static func default_values() -> Dictionary:
+	var result := {}
+	for key in SPECS:
+		result[key] = SPECS[key].default
+	return result
+
 static func number_text(value: float) -> String:
 	return str(snappedf(value, 0.001)).replace(".", ",")
 

@@ -64,7 +64,7 @@ func _run() -> void:
 	check(panel.get_global_rect().position.y >= 0 and panel.get_global_rect().end.y <= 720, "world list with additional actions fits 1280 by 720")
 	app.world_settings_button.pressed.emit()
 	check(app.page == "world_settings" and app.world_settings_text.text.contains(copy.name), "world settings refers to selected world")
-	check(app.world_settings_text.text.contains("Aucun paramètre disponible") and app.pages.world_settings.get_children().filter(func(child): return child is LineEdit).is_empty(), "world settings remains a placeholder without invented controls")
+	check(app.world_settings_text.text.contains("Mode : Par défaut") and app.pages.world_settings.get_children().filter(func(child): return child is LineEdit).is_empty(), "world settings shows the world mode without text fields")
 	app.world_settings_back_button.pressed.emit()
 	check(app.page == "worlds" and str(app.world_list.get_item_metadata(app.world_list.get_selected_items()[0])) == copy_id, "settings Return preserves world selection")
 	app.open_world_settings()

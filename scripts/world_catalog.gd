@@ -1,7 +1,12 @@
 extends RefCounted
-# Only identity, name and seed are stored. Never block edits or player state.
+# Only identity, name, seed and mode are stored. Never block edits or player state.
 const MAX_NAME_LENGTH := 48
 const MAX_SEED := 4294967295
+# Mode du monde : « default » garde les attributs par défaut ; « developer » utilise les
+# réglages globaux (Paramètres → Attributs). Passage default → developer seulement, définitif.
+const MODE_DEFAULT := "default"
+const MODE_DEVELOPER := "developer"
+const MODE_NAMES := {MODE_DEFAULT: "Par défaut", MODE_DEVELOPER: "Mode développeur"}
 var worlds: Array[Dictionary] = []
 var last_error := ""
 var load_error := ""
@@ -39,13 +44,18 @@ func _load_worlds() -> void:
 		if not (seed_value is int or seed_value is float):
 			load_error = "Une graine est invalide ; le fichier est conservé."
 			return
+		# Monde d'avant 0.0.3 (sans mode) : par défaut.
+		var mode: Variant = item.get("mode", MODE_DEFAULT)
+		if not MODE_NAMES.has(mode):
+			load_error = "Le mode d'un monde est invalide ; le fichier est conservé."
+			return
 		var clean_name: String = item.name.strip_edges()
 		if item.id.is_empty() or clean_name.is_empty() or clean_name.length() > MAX_NAME_LENGTH or ids.has(item.id) or names.has(clean_name.to_lower()) or float(seed_value) != float(int(seed_value)) or seed_value < 0 or seed_value > 4294967295:
 			load_error = "La liste contient un monde invalide ; le fichier est conservé."
 			return
 		ids.append(item.id)
 		names.append(clean_name.to_lower())
-		loaded.append({"id": item.id, "name": clean_name, "seed": int(seed_value)})
+		loaded.append({"id": item.id, "name": clean_name, "seed": int(seed_value), "mode": mode})
 	worlds = loaded
 
 func _save_worlds() -> bool:
@@ -67,8 +77,11 @@ func _save_worlds() -> bool:
 		return false
 	return true
 
-func create_world(raw_name: String, raw_seed: String = "") -> Dictionary:
+func create_world(raw_name: String, raw_seed: String = "", mode: String = MODE_DEFAULT) -> Dictionary:
 	last_error = ""
+	if not MODE_NAMES.has(mode):
+		last_error = "Mode de monde inconnu."
+		return {}
 	if not load_error.is_empty():
 		last_error = load_error
 		return {}
@@ -98,7 +111,7 @@ func create_world(raw_name: String, raw_seed: String = "") -> Dictionary:
 	var world_id := str(rng.randi())
 	while used_ids.has(world_id):
 		world_id = str(rng.randi())
-	var item := {"id": world_id, "name": world_name, "seed": terrain_seed}
+	var item := {"id": world_id, "name": world_name, "seed": terrain_seed, "mode": mode}
 	worlds.append(item)
 	if not _save_worlds():
 		worlds.pop_back()
@@ -129,6 +142,24 @@ func rename_world(id: String, raw_name: String) -> bool:
 			worlds[index].name = clean_name
 			if not _save_worlds():
 				worlds[index].name = old_name
+				return false
+			return true
+	last_error = "Ce monde n'existe plus."
+	return false
+
+# Aucune fonction inverse : le retour au mode par défaut est impossible.
+func enable_developer_mode(id: String) -> bool:
+	last_error = ""
+	if not load_error.is_empty():
+		last_error = load_error
+		return false
+	for index in range(worlds.size()):
+		if worlds[index].id == id:
+			if worlds[index].get("mode", MODE_DEFAULT) == MODE_DEVELOPER:
+				return true
+			worlds[index]["mode"] = MODE_DEVELOPER
+			if not _save_worlds():
+				worlds[index]["mode"] = MODE_DEFAULT
 				return false
 			return true
 	last_error = "Ce monde n'existe plus."
@@ -165,6 +196,6 @@ func duplicate_world(id: String) -> Dictionary:
 				exists = true
 				break
 		if not exists:
-			return create_world(copy_name, str(original.seed))
+			return create_world(copy_name, str(original.seed), original.get("mode", MODE_DEFAULT))
 		number += 1
 	return {}

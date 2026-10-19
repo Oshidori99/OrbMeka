@@ -1,4 +1,4 @@
-# OrbMeka™ — prototype 0.0.2.14.2
+# OrbMeka™ — prototype 0.0.3
 
 Godot 4.7 / GDScript. Formes et couleurs simples, sans assets externes.
 
@@ -25,9 +25,21 @@ Le clic qui capture la souris ne casse ni ne pose de bloc.
 
 ## Mondes conservés, constructions réinitialisées
 Chaque nouveau monde reçoit la graine saisie à la création, ou une graine aléatoire si le champ est vide.
-**Seuls son identifiant, son nom et sa graine sont conservés après fermeture.**
+**Seuls son identifiant, son nom, sa graine et son mode sont conservés après fermeture.**
 La liste est enregistrée localement dans le dossier de données Godot du jeu,
-fichier **user://worlds.json**. La graine est facultative à la création ; aucun autre réglage n'est proposé.
+fichier **user://worlds.json**. La graine est facultative à la création.
+
+## Mode du monde (depuis 0.0.3)
+Dans Créer un monde, section **Options du monde** : **Par défaut** (à gauche,
+choisi d'office) ou **Mode développeur** (à droite).
+- Par défaut : Saut, Blocs et Marche gardent leurs valeurs par défaut dans ce
+  monde ; les réglages de Paramètres → Attributs y sont ignorés.
+- Mode développeur : le monde utilise les réglages de Paramètres → Attributs.
+Mes mondes → ⚙️ Paramètres du monde permet seulement de **passer** en mode
+développeur, après une confirmation (Annuler sélectionné). Ce choix est
+**définitif** : aucun retour au mode par défaut. Le mode s'affiche dans
+Informations du monde (F3). Une copie garde le mode de l'original.
+Les mondes créés avant 0.0.3 sont en mode Par défaut.
 
 Réouvrir un monde utilise sa graine enregistrée et recrée son terrain initial.
 **Les blocs posés ou cassés et la position du joueur ne sont pas sauvegardés**,
@@ -573,3 +585,25 @@ en texte en haut à droite) ; settings_walk_test (48 contrôles : couleur
 orange, espacement). Résultat : 17 tests, 0 échec.
 À tester manuellement : lisibilité des rappels F1-F3 sur le monde, rendu de
 l'orange et de l'espacement dans Attributs.
+
+## Mode par défaut et mode développeur — 0.0.3
+Première version du thème « Contrôles et Paramètres » ; la série 0.0.2 est terminée.
+- Créer un monde, Options du monde : bouton **Par défaut** à gauche (choisi
+  d'office) et **Mode développeur** à droite.
+- Monde par défaut : attributs (Saut, Blocs, Marche) à leurs valeurs par
+  défaut, réglages de Paramètres → Attributs ignorés. Monde développeur :
+  réglages de Paramètres → Attributs.
+- Paramètres du monde : affiche le mode ; bouton « Passer en mode
+  développeur… » seulement pour un monde par défaut, avec confirmation
+  claire (choix irréversible, Annuler sélectionné). Aucun retour possible.
+- Mode enregistré dans user://worlds.json, conservé par la copie, affiché
+  dans Informations du monde (F3). Anciens mondes : Par défaut. Un mode
+  inconnu dans le fichier est signalé et le fichier n'est jamais écrasé.
+- Vitrine de l'accueil : deux sauteurs, le développeur saute plus haut.
+
+Test ajouté : tests/world_mode_test.gd (création, valeurs appliquées,
+confirmation, irréversibilité, copie, rechargement, F3, fichier invalide).
+Tests mis à jour : world_options_test, attributes_test, settings_walk_test,
+menu_style_test, version. Résultat : 18 tests, 0 échec.
+À tester manuellement : aspect des boutons de mode et de la page de
+confirmation, vitrine animée.

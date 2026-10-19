@@ -1,6 +1,14 @@
 ORBMEKA — HISTORIQUE DES VERSIONS
 Du plus récent au plus ancien. Ce fichier est mis à jour à chaque version.
 
+=== Thème « Contrôles et Paramètres » (0.0.3 et suivantes) ===
+
+0.0.3 — Mode par défaut et mode développeur
+Créer un monde : Par défaut (attributs par défaut) ou Mode développeur (attributs de Paramètres).
+Paramètres du monde : passage définitif au mode développeur, avec confirmation ; mode affiché dans F3.
+
+=== Fin de la série 0.0.2 ===
+
 0.0.2.14.2 — Raccourcis en texte et ↻ orange
 En jeu, F1 n'est plus un bouton violet : F1, F2 et F3 sont rappelés en simple texte.
 Attributs : catégories plus espacées, boutons ↻ de catégorie en orange.

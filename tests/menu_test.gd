@@ -30,7 +30,7 @@ func _run() -> void:
 	check(not second.is_empty() and first.seed != second.seed, "new worlds receive different automatic seeds")
 	check(FileAccess.file_exists(test_path), "creating a world persists the metadata")
 	var saved: Variant = JSON.parse_string(FileAccess.get_file_as_string(test_path))
-	check(saved.worlds[0].keys().size() == 3 and not saved.worlds[0].has("blocks"), "saved world contains only id name seed")
+	check(saved.worlds[0].keys().size() == 4 and saved.worlds[0].mode == "default" and not saved.worlds[0].has("blocks"), "saved world contains only id name seed mode")
 	var reloaded := Catalog.new(test_path)
 	check(reloaded.worlds.size() == 2 and reloaded.find_world(first.id).seed == first.seed, "new catalog reloads the world and exact seed")
 	check(reloaded.find_world(second.id).name == "Collines été", "Unicode world name survives reload")

@@ -81,7 +81,7 @@ func _run() -> void:
 	var app: Control = load("res://scenes/main.tscn").instantiate()
 	app.settings = settings
 	app.catalog = load("res://scripts/world_catalog.gd").new(fixture+".worlds")
-	var item: Dictionary = app.catalog.create_world("Réglages isolés","123")
+	var item: Dictionary = app.catalog.create_world("Réglages isolés","123","developer")
 	var world_file_before := FileAccess.get_file_as_bytes(fixture+".worlds")
 	root.add_child(app)
 	current_scene = app

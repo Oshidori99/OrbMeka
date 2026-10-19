@@ -8,51 +8,48 @@ extends Node3D
 # 2. _build_news() : la construction 3D qui met en scène la nouveauté, au centre du petit monde.
 #    _animate_news(delta) l'anime (vide si rien ne bouge).
 # Le reste du fichier (sol, collines, ciel, caméra) ne change pas d'une version à l'autre.
-const NEWS_VERSION := "0.0.2.14.2"
-const NEWS_TEXT := "Nouveau : raccourcis F1, F2, F3 en simple texte en jeu,\nboutons ↻ de catégorie en orange dans les Attributs."
+const NEWS_VERSION := "0.0.3"
+const NEWS_TEXT := "Nouveau : mondes Par défaut ou Mode développeur,\nattributs modifiables seulement en mode développeur."
 
-# 0.0.2.14 : une piste de sable sur laquelle un marcheur (deux blocs de pierre, taille du joueur)
-# avance vite puis recule plus lentement : trois vitesses de marche réglables.
+# 0.0.3 : deux sauteurs (deux blocs de pierre, taille du joueur) côte à côte.
+# À gauche, sur la pierre, le monde par défaut : saut normal. À droite, sur le sable,
+# le monde développeur : attributs réglés, saut plus haut.
 const NEWS_HEIGHT := 3
-const TRACK_START := -4
-const TRACK_LENGTH := 8
-const WALK_FORWARD_SPEED := 4.0
-const WALK_BACK_SPEED := 2.0
-const WALK_PAUSE := 0.8
-var track: MultiMeshInstance3D
-var walker: MultiMeshInstance3D
-var walker_offset := 0.0
+const PAD_X := [-3, 2]
+const PAD_KINDS := [STONE, SAND]
+const JUMP_HEIGHTS := [1.2, 3.0]
+const JUMP_PERIOD := 1.6
+var pads: Array[MultiMeshInstance3D] = []
+var jumpers: Array[MultiMeshInstance3D] = []
+var jumper_heights: Array[float] = [0.0, 0.0]
 
 func _build_news() -> void:
-	track = _multimesh(SAND)
-	add_child(track)
-	var cells: Array[Vector3i] = []
-	for x in range(TRACK_START, TRACK_START + TRACK_LENGTH + 1):
-		cells.append(Vector3i(x, 0, -1))
-	_fill_multimesh(track, cells)
-	walker = _multimesh(STONE)
-	add_child(walker)
-	walker.multimesh.instance_count = 2
-	_place_walker()
+	for index in range(2):
+		var pad := _multimesh(PAD_KINDS[index])
+		add_child(pad)
+		var cells: Array[Vector3i] = []
+		for x in range(PAD_X[index], PAD_X[index] + 2):
+			for z in range(-2, 0):
+				cells.append(Vector3i(x, 0, z))
+		_fill_multimesh(pad, cells)
+		pads.append(pad)
+		var jumper := _multimesh(STONE)
+		add_child(jumper)
+		jumper.multimesh.instance_count = 2
+		jumpers.append(jumper)
+	_place_jumpers()
 
 func _animate_news(_delta: float) -> void:
-	# Aller rapide, pause, retour lent, pause : le cycle se répète.
-	var forward_time := TRACK_LENGTH / WALK_FORWARD_SPEED
-	var back_time := TRACK_LENGTH / WALK_BACK_SPEED
-	var t := fmod(elapsed, forward_time + back_time + 2.0 * WALK_PAUSE)
-	if t < forward_time:
-		walker_offset = t * WALK_FORWARD_SPEED
-	elif t < forward_time + WALK_PAUSE:
-		walker_offset = TRACK_LENGTH
-	elif t < forward_time + WALK_PAUSE + back_time:
-		walker_offset = TRACK_LENGTH - (t - forward_time - WALK_PAUSE) * WALK_BACK_SPEED
-	else:
-		walker_offset = 0.0
-	_place_walker()
+	# Même rythme pour les deux ; seule la hauteur du saut change.
+	var phase := fmod(elapsed, JUMP_PERIOD) / JUMP_PERIOD
+	for index in range(2):
+		jumper_heights[index] = JUMP_HEIGHTS[index] * 4.0 * phase * (1.0 - phase)
+	_place_jumpers()
 
-func _place_walker() -> void:
-	for y in range(2):
-		walker.multimesh.set_instance_transform(y, Transform3D(Basis(), Vector3(TRACK_START + walker_offset + 0.5, y + 1.5, -0.5)))
+func _place_jumpers() -> void:
+	for index in range(2):
+		for y in range(2):
+			jumpers[index].multimesh.set_instance_transform(y, Transform3D(Basis(), Vector3(PAD_X[index] + 1.0, y + 1.5 + jumper_heights[index], -1.0)))
 # ===== FIN DE LA VITRINE =====
 
 const Terrain = preload("res://scripts/terrain_generator.gd")

@@ -13,6 +13,9 @@ var generated_hill_count := 0
 var generated_max_height := 0
 var terrain_seed: int = TerrainGenerator.SEED
 var world_name := "OrbMeka"
+# Mode du monde, affiché dans Informations du monde (F3).
+var world_mode_text := "Par défaut"
+var developer_mode := false
 var blocks: Dictionary = {}
 var materials: Array[StandardMaterial3D] = []
 var player: CharacterBody3D
@@ -287,11 +290,13 @@ F2 : Comment jouer. F3 : Informations du monde (jeu en pause).
 Portée : %d blocs. Base protégée. Maximum : %d blocs présents.
 Hauteur maximale : %d blocs au-dessus du sol plat, collines comprises.
 
-Nom et graine conservés ; constructions réinitialisées en quittant le monde." % [int(PlayerScript.REACH), MAX_BLOCKS, MAX_BUILD_HEIGHT]
+Nom, graine et mode conservés ; constructions réinitialisées en quittant le monde." % [int(PlayerScript.REACH), MAX_BLOCKS, MAX_BUILD_HEIGHT]
 func get_world_info_text() -> String:
 	var span := TerrainGenerator.MAX_CELL - TerrainGenerator.MIN_CELL + 1
+	var mode_line := "Mode : %s — %s" % [world_mode_text, "attributs de Paramètres → Attributs" if developer_mode else "attributs par défaut, non modifiables"]
 	return "Monde : %s
 Graine : %d
+%s
 
 Collines générées : %d
 Hauteur maximale initiale des collines : %d blocs
@@ -300,4 +305,4 @@ Zone de génération : largeur %d × longueur %d blocs
 Base plate : largeur %d × longueur %d blocs
 Construction : hauteur maximale %d blocs au-dessus du sol plat.
 
-Nom et graine conservés ; constructions non sauvegardées." % [world_name, terrain_seed, generated_hill_count, generated_max_height, span, span, int(BASE_SIZE.x), int(BASE_SIZE.z), MAX_BUILD_HEIGHT]
+Nom, graine et mode conservés ; constructions non sauvegardées." % [world_name, terrain_seed, mode_line, generated_hill_count, generated_max_height, span, span, int(BASE_SIZE.x), int(BASE_SIZE.z), MAX_BUILD_HEIGHT]

@@ -13,7 +13,7 @@ const MENU_BASE_SIZE := Vector2(1280, 720)
 const MENU_BASE_WIDTH := 560.0
 const MENU_MAX_WIDTH_RATIO := 0.7
 # Pages de contenu (paramètres, listes, textes) : plus larges, pour moins de lignes et de défilement.
-const COMPACT_PAGES := ["home", "pause", "delete"]
+const COMPACT_PAGES := ["home", "pause", "delete", "developer_confirm"]
 const WIDE_WIDTH_RATIO := 0.72
 const WIDE_MAX_RATIO := 0.92
 const SCROLL_MIN_HEIGHT := 140.0
@@ -61,6 +61,15 @@ var duplicate_button: Button
 var world_settings_button: Button
 var world_settings_text: Label
 var world_settings_back_button: Button
+# Mode du monde : choix à la création, passage définitif au mode développeur ensuite.
+var create_mode: String = Catalog.MODE_DEFAULT
+var create_default_button: Button
+var create_developer_button: Button
+var create_mode_note: Label
+var world_developer_button: Button
+var developer_confirm_message: Label
+var developer_confirm_button: Button
+var developer_cancel_button: Button
 var form_error: Label
 var shortcut_hints: Label
 var play_button: Button
@@ -230,7 +239,7 @@ func _build_interface() -> void:
 	var home := _page(stack, "OrbMeka™")
 	pages.home = home
 	var version := Label.new()
-	version.text = "v" + str(ProjectSettings.get_setting("application/config/version", "0.0.2.14.2"))
+	version.text = "v" + str(ProjectSettings.get_setting("application/config/version", "0.0.3"))
 	version.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	version.theme_type_variation = "OrbNote"
 	home.add_child(version)
@@ -331,7 +340,8 @@ func _build_interface() -> void:
 		for key in keys:
 			_add_setting_row(attributes, key)
 	_explanation(attributes, "↻ : défauts du champ, de la catégorie ou de tout. Champ vide : défaut.
-Appliquer enregistre pour tous les mondes. Retour annule les modifications.")
+Appliquer enregistre pour les mondes en mode développeur ; les mondes par défaut gardent les défauts.
+Retour annule les modifications.")
 	settings_message = Label.new()
 	settings_message.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	attributes_box.add_child(settings_message)
@@ -348,7 +358,7 @@ Construction : hauteur maximale %d blocs au-dessus du sol plat, collines compris
 Collines : 3 ou 4, hauteur maximale %d blocs
 
 Graine choisie à la création, ou aléatoire si le champ est vide.
-Nom et graine conservés ; constructions non sauvegardées.
+Nom, graine et mode conservés ; constructions non sauvegardées.
 Réouvrir un monde régénère son terrain initial.
 F1 : revenir à la liste des mondes depuis la partie." % [int(WorldRules.BASE_SIZE.x), int(WorldRules.BASE_SIZE.z), span, span, WorldRules.MAX_BUILD_HEIGHT, Terrain.MAX_HEIGHT]
 	information_page.add_child(generation_info)
@@ -380,12 +390,13 @@ F1 : revenir à la liste des mondes depuis la partie." % [int(WorldRules.BASE_SI
 	_button("Retour", list_page, func(): show_page("home"))
 	var form := _page(stack, "Créer un monde")
 	pages.create = form
+	form.add_theme_constant_override("separation", 10)
 	var name_label := Label.new()
 	name_label.text = "Nom du monde"
 	form.add_child(name_label)
 	_explanation(form, "Un nom de 1 à %d caractères suffit.
 Graine facultative : vide pour un terrain aléatoire.
-Nom et graine conservés ; constructions non sauvegardées." % Catalog.MAX_NAME_LENGTH)
+Nom, graine et mode conservés ; constructions non sauvegardées." % Catalog.MAX_NAME_LENGTH)
 	name_field = LineEdit.new()
 	name_field.placeholder_text = "Mon monde"
 	name_field.max_length = Catalog.MAX_NAME_LENGTH
@@ -407,6 +418,22 @@ Nom et graine conservés ; constructions non sauvegardées." % Catalog.MAX_NAME_
 	world_options_title.text = "Options du monde"
 	world_options_title.theme_type_variation = "OrbSection"
 	form.add_child(world_options_title)
+	# Deux boutons exclusifs : Par défaut à gauche, Mode développeur à droite.
+	var mode_row := HBoxContainer.new()
+	mode_row.add_theme_constant_override("separation", 10)
+	form.add_child(mode_row)
+	var mode_group := ButtonGroup.new()
+	create_default_button = _button(Catalog.MODE_NAMES[Catalog.MODE_DEFAULT], mode_row, func(): set_create_mode(Catalog.MODE_DEFAULT))
+	create_developer_button = _button(Catalog.MODE_NAMES[Catalog.MODE_DEVELOPER], mode_row, func(): set_create_mode(Catalog.MODE_DEVELOPER))
+	for button in [create_default_button, create_developer_button]:
+		button.theme_type_variation = "OrbTab"
+		button.toggle_mode = true
+		button.button_group = mode_group
+		button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	create_mode_note = Label.new()
+	create_mode_note.theme_type_variation = "OrbNote"
+	create_mode_note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	form.add_child(create_mode_note)
 	form_error = Label.new()
 	form_error.add_theme_color_override("font_color", UiTheme.ERROR)
 	form_error.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
@@ -418,7 +445,15 @@ Nom et graine conservés ; constructions non sauvegardées." % Catalog.MAX_NAME_
 	world_settings_text = Label.new()
 	world_settings_text.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	world_settings_page.add_child(world_settings_text)
+	world_developer_button = _button("Passer en mode développeur…", world_settings_page, request_developer_mode)
 	world_settings_back_button = _button("Retour", world_settings_page, cancel_world_action)
+	var developer_page := _page(stack, "Passer en mode développeur ?")
+	pages.developer_confirm = developer_page
+	developer_confirm_message = Label.new()
+	developer_confirm_message.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	developer_page.add_child(developer_confirm_message)
+	developer_confirm_button = _button("Confirmer : mode développeur définitif", developer_page, confirm_developer_mode)
+	developer_cancel_button = _button("Annuler", developer_page, open_world_settings_for_pending)
 	var rename_page := _page(stack, "Renommer le monde")
 	pages.rename = rename_page
 	_explanation(rename_page, "Seul le nom change (1 à %d caractères).
@@ -535,9 +570,12 @@ func show_page(next_page: String) -> void:
 		seed_field.clear()
 		form_error.text = ""
 		create_button.disabled = not catalog.load_error.is_empty()
+		set_create_mode(Catalog.MODE_DEFAULT)
 		name_field.grab_focus()
 	elif page == "world_settings":
 		world_settings_back_button.grab_focus()
+	elif page == "developer_confirm":
+		developer_cancel_button.grab_focus()
 	elif page == "rename":
 		rename_field.grab_focus()
 	elif page == "pause":
@@ -591,14 +629,50 @@ func duplicate_selected_world() -> void:
 	list_message.text = "Copie créée : %s" % item.name
 	world_list.grab_focus()
 
+func set_create_mode(mode: String) -> void:
+	create_mode = mode
+	create_default_button.set_pressed_no_signal(mode == Catalog.MODE_DEFAULT)
+	create_developer_button.set_pressed_no_signal(mode == Catalog.MODE_DEVELOPER)
+	if mode == Catalog.MODE_DEVELOPER:
+		create_mode_note.text = "Attributs modifiables (Paramètres → Attributs). Définitif pour ce monde."
+	else:
+		create_mode_note.text = "Attributs par défaut, non modifiables. Passage au mode développeur possible plus tard."
+
 func open_world_settings() -> void:
 	var item: Dictionary = catalog.find_world(_selected_world_id())
 	if item.is_empty():
 		return
 	pending_world_id = item.id
+	_show_world_settings(item)
+
+func open_world_settings_for_pending() -> void:
+	var item: Dictionary = catalog.find_world(pending_world_id)
+	if item.is_empty():
+		cancel_world_action()
+		return
+	_show_world_settings(item)
+
+func _show_world_settings(item: Dictionary) -> void:
+	var developer: bool = item.get("mode", Catalog.MODE_DEFAULT) == Catalog.MODE_DEVELOPER
 	world_settings_text.text = "Monde : %s
-Aucun paramètre disponible pour le moment." % item.name
+Mode : %s
+%s" % [item.name, Catalog.MODE_NAMES[Catalog.MODE_DEVELOPER if developer else Catalog.MODE_DEFAULT], "Attributs modifiables dans Paramètres → Attributs. Ce choix est définitif." if developer else "Attributs par défaut, non modifiables."]
+	world_developer_button.visible = not developer
 	show_page("world_settings")
+
+func request_developer_mode() -> void:
+	var item: Dictionary = catalog.find_world(pending_world_id)
+	if item.is_empty() or item.get("mode", Catalog.MODE_DEFAULT) == Catalog.MODE_DEVELOPER:
+		return
+	developer_confirm_message.text = "Le monde « %s » utilisera les attributs de Paramètres → Attributs.
+Attention : ce choix est irréversible. Le retour au mode par défaut sera impossible." % item.name
+	show_page("developer_confirm")
+
+func confirm_developer_mode() -> void:
+	if not catalog.enable_developer_mode(pending_world_id):
+		developer_confirm_message.text = catalog.last_error
+		return
+	open_world_settings_for_pending()
 
 func request_rename() -> void:
 	var item: Dictionary = catalog.find_world(_selected_world_id())
@@ -638,7 +712,7 @@ func cancel_world_action() -> void:
 	refresh_world_list(previous_id)
 
 func create_named_world() -> void:
-	var item: Dictionary = catalog.create_world(name_field.text, seed_field.text)
+	var item: Dictionary = catalog.create_world(name_field.text, seed_field.text, create_mode)
 	if item.is_empty():
 		form_error.text = catalog.last_error
 		if catalog.last_error.begins_with("La graine"):
@@ -670,9 +744,13 @@ func open_world(id: String) -> void:
 	active_world.process_mode = Node.PROCESS_MODE_PAUSABLE
 	active_world.terrain_seed = item.seed
 	active_world.world_name = item.name
+	var developer: bool = item.get("mode", Catalog.MODE_DEFAULT) == Catalog.MODE_DEVELOPER
+	active_world.developer_mode = developer
+	active_world.world_mode_text = Catalog.MODE_NAMES[Catalog.MODE_DEVELOPER if developer else Catalog.MODE_DEFAULT]
 	add_child(active_world)
 	shortcut_hints.show()
-	active_world.player.apply_settings(settings.values)
+	# Monde par défaut : réglages ignorés ; monde développeur : réglages globaux.
+	active_world.player.apply_settings(settings.values if developer else UserSettings.default_values())
 	# Opening from a menu is an explicit request to play immediately.
 	active_world.player.resume_controls()
 
@@ -766,6 +844,8 @@ func _cancel_page() -> void:
 		resume_game()
 	elif page in ["rename", "delete", "world_settings"]:
 		cancel_world_action()
+	elif page == "developer_confirm":
+		open_world_settings_for_pending()
 	elif page in ["settings", "information", "history"]:
 		show_page("home")
 	elif page == "create":

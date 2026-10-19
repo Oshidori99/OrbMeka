@@ -51,7 +51,7 @@ func _run() -> void:
 	var app: Control = load("res://scenes/main.tscn").instantiate()
 	app.settings = settings
 	app.catalog = load("res://scripts/world_catalog.gd").new(fixture + ".worlds")
-	var item: Dictionary = app.catalog.create_world("Marche", "77")
+	var item: Dictionary = app.catalog.create_world("Marche", "77", "developer")
 	root.add_child(app)
 	current_scene = app
 	app.history_button.pressed.emit()

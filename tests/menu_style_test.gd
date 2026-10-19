@@ -55,14 +55,11 @@ F3 : "), "menus share one theme; in-game shortcuts F1, F2, F3 are plain text")
 	for button in [app.new_world_button, app.rename_button, app.duplicate_button, app.world_settings_button, app.delete_button]:
 		check(button.text.length() <= 2 and not button.tooltip_text.is_empty(), "icon button with tooltip: " + button.tooltip_text)
 	check(app.delete_button.tooltip_text == "Supprimer" and app.rename_button.tooltip_text == "Renommer", "icons keep their action names")
-	# Vitrine 0.0.2.14 : le marcheur avance vite puis recule lentement sur sa piste.
-	showcase.elapsed = 0.0
+	# Vitrine 0.0.3 : le sauteur développeur (droite) saute plus haut que le sauteur par défaut.
+	showcase.elapsed = showcase.JUMP_PERIOD * 0.5 - 1.0
 	showcase._process(1.0)
-	var forward_step: float = showcase.walker_offset
-	showcase.elapsed = showcase.TRACK_LENGTH / showcase.WALK_FORWARD_SPEED + showcase.WALK_PAUSE
-	showcase._process(1.0)
-	var back_step: float = showcase.TRACK_LENGTH - showcase.walker_offset
-	check(forward_step > back_step and back_step > 0.0, "showcase walker goes forward faster than back")
+	var heights: Array = showcase.jumper_heights
+	check(heights[1] > heights[0] and heights[0] > 0.0, "showcase developer jumper jumps higher than default jumper")
 	check(app.backdrop.material.get_shader_parameter("blur") == 0.0, "home backdrop keeps the 3D scene sharp")
 	# Pause semi-transparente.
 	app.open_world("style-test")

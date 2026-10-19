@@ -39,7 +39,7 @@ Les dossiers existants export_templates/, feature_profiles/, script_templates/
 et text_editor_themes/ sont actuellement vides et restent en place.
 
 DONNÉES ET ARCHIVE
-Les noms et graines personnels sont dans user://worlds.json, hors des sources.
+Les noms, graines et modes personnels sont dans user://worlds.json, hors des sources.
 Les constructions ne sont pas sauvegardées. La copie vérifiée 0.0.2.6 reste
 hors du projet, dans le dossier voisin Archives/OrbMeka/orb-meka 0.0.2.6.
 Depuis 0.0.2.8, addons/history_export/ contient un petit plugin d'éditeur
