@@ -80,6 +80,7 @@ var control_resets: Dictionary = {}
 var controls_reset_all_button: Button
 var capturing_action := ""
 var character_previews: Dictionary = {}
+var control_option_buttons: Dictionary = {}
 # Réglages à choix : boutons par option, et choix en cours (enregistré aussitôt).
 var choice_buttons: Dictionary = {}
 var choice_values: Dictionary = {}
@@ -421,9 +422,53 @@ func _build_controls_section(parent: Node) -> void:
 		control_buttons[action] = key_button
 		var reset := _button("↻", row, func(): reset_control(action))
 		_min_size(reset, Vector2(42, 0))
-		reset.tooltip_text = "Rétablir : " + Controls.label(Controls.ACTIONS[action].default)
+		reset.tooltip_text = "Rétablir : " + Controls.label(Controls.default_for(action))
 		control_resets[action] = reset
+	# Catégorie « Se baisser » (0.0.3.18) : maintenir la touche, ou appuyer pour basculer.
+	var gap := Control.new()
+	_min_size(gap, Vector2(0, CATEGORY_GAP))
+	box.add_child(gap)
+	var options_inset := PanelContainer.new()
+	options_inset.theme_type_variation = "OrbInsetDeep"
+	box.add_child(options_inset)
+	var options := VBoxContainer.new()
+	_sep(options, 10)
+	options_inset.add_child(options)
+	_explanation(options, "Se baisser")
+	options.get_child(-1).theme_type_variation = "OrbSection"
+	_explanation(options, ["", "Maintenir la touche ou appuyer pour basculer.", "Maintenir : rester appuyé pour rester baissé. Basculer : un appui pour se baisser, un autre pour se relever."])
+	for option in Controls.OPTIONS:
+		var spec: Dictionary = Controls.OPTIONS[option]
+		var row := HBoxContainer.new()
+		_sep(row, 10)
+		options.add_child(row)
+		var label := _text_label()
+		label.text = spec.label
+		label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		row.add_child(label)
+		var group := ButtonGroup.new()
+		control_option_buttons[option] = {}
+		for choice in spec.options:
+			var button := _button(spec.options[choice], row, func(): set_control_option(option, choice))
+			button.theme_type_variation = "OrbTab"
+			button.toggle_mode = true
+			button.button_group = group
+			_min_size(button, Vector2(52, 0))
+			control_option_buttons[option][choice] = button
+		var reset := _button("↻", row, func(): set_control_option(option, spec.default))
+		_min_size(reset, Vector2(42, 0))
+		reset.tooltip_text = "Rétablir le défaut : " + spec.options[spec.default]
+		control_resets[option] = reset
 	_refresh_controls()
+
+func set_control_option(option: String, choice: String) -> void:
+	if not settings.set_control_option(option, choice):
+		settings_message.text = settings.last_error
+		return
+	settings_message.text = "%s : %s." % [Controls.OPTIONS[option].label, Controls.OPTIONS[option].options[choice]]
+	_refresh_controls()
+	_apply_to_game()
 
 # Onglet Personnage (0.0.3.16), entre Contrôles et Attributs : quatre personnages simples,
 # un aperçu et un bouton chacun. Le choix est enregistré aussitôt et vaut pour la partie.
@@ -471,6 +516,9 @@ func _build_character_section(parent: Node) -> void:
 func _refresh_controls() -> void:
 	for action in control_buttons:
 		control_buttons[action].text = Controls.label(settings.controls[action])
+	for option in control_option_buttons:
+		for choice in control_option_buttons[option]:
+			control_option_buttons[option][choice].set_pressed_no_signal(settings.control_options[option] == choice)
 
 func start_control_capture(action: String) -> void:
 	_refresh_controls()
@@ -506,11 +554,13 @@ func set_control(action: String, binding: Dictionary) -> void:
 	_refresh_controls()
 
 func reset_control(action: String) -> void:
-	set_control(action, Controls.ACTIONS[action].default.duplicate())
+	set_control(action, Controls.default_for(action))
 
 func reset_all_controls() -> void:
 	for action in Controls.ACTIONS:
-		set_control(action, Controls.ACTIONS[action].default.duplicate())
+		set_control(action, Controls.default_for(action))
+	for option in Controls.OPTIONS:
+		set_control_option(option, Controls.OPTIONS[option].default)
 	settings_message.text = "Toutes les touches par défaut."
 
 func _add_setting_category(parent: Node, category: String, data: Dictionary) -> void:
@@ -614,6 +664,7 @@ func _apply_to_game() -> void:
 	active_world.player.apply_settings(settings.world_values(active_world.developer_mode))
 	active_world.apply_text_scale(_text_scale())
 	active_world.set_coordinates_visible(settings.values.show_coords == "on")
+	active_world.player.crouch_toggle = settings.control_options.crouch_mode == "toggle"
 
 func open_pause_settings() -> void:
 	if page != "pause" or not is_instance_valid(active_world):
@@ -740,7 +791,7 @@ func _build_interface() -> void:
 	var home := _page(stack, "OrbMeka™")
 	pages.home = _page_root(home)
 	var version := _text_label()
-	version.text = "v" + str(ProjectSettings.get_setting("application/config/version", "0.0.3.17"))
+	version.text = "v" + str(ProjectSettings.get_setting("application/config/version", "0.0.3.18"))
 	version.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	version.theme_type_variation = "OrbNote"
 	home.add_child(version)
@@ -1299,6 +1350,7 @@ func open_world(id: String) -> void:
 	# Monde par défaut : réglages ignorés ; monde développeur : réglages globaux.
 	active_world.player.apply_settings(settings.world_values(developer))
 	active_world.set_coordinates_visible(settings.values.show_coords == "on")
+	active_world.player.crouch_toggle = settings.control_options.crouch_mode == "toggle"
 	# Opening from a menu is an explicit request to play immediately.
 	active_world.player.resume_controls()
 

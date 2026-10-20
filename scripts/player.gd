@@ -32,6 +32,8 @@ const CROUCH_DROP := 0.32
 # Hauteur des yeux réglable (Attributs → Vue, 0.0.3.17) ; baissé : un peu plus bas.
 var eye_height := EYE_HEIGHT
 var crouching := false
+var crouch_toggle := false
+var crouch_latched := false
 # Personnage choisi (Paramètres → Personnage, 0.0.3.16) : pas encore visible à l'écran.
 var character := "boy"
 var crouch_forward := CROUCH_SPEED
@@ -178,10 +180,24 @@ func _physics_process(delta: float) -> void:
 		direction = Input.get_vector("move_left", "move_right", "move_forward", "move_back")
 		jump_requested = Input.is_action_just_pressed("jump") and not wait_jump_release
 	var active := Input.mouse_mode == Input.MOUSE_MODE_CAPTURED
-	crouching = active and Input.is_action_pressed("crouch")
+	update_crouch(active, Input.is_action_pressed("crouch"), Input.is_action_just_pressed("crouch"))
 	step_breaking(delta, active, Input.is_action_pressed("break_block"))
 	step_placement(delta, active, Input.is_action_pressed("place_block"))
 	step_movement(delta, direction, jump_requested)
+
+# Se baisser (0.0.3.18) : Maintenir = tant que la touche est enfoncée ;
+# Basculer = chaque appui change l'état, gardé même touche relâchée.
+func update_crouch(active: bool, held: bool, just_pressed: bool) -> void:
+	if not active:
+		crouching = crouch_latched if crouch_toggle else false
+		return
+	if crouch_toggle:
+		if just_pressed:
+			crouch_latched = not crouch_latched
+		crouching = crouch_latched
+	else:
+		crouch_latched = false
+		crouching = held
 
 # The same movement step is used by gameplay and windowless physics tests.
 func step_movement(delta: float, direction: Vector2, jump_requested: bool) -> void:

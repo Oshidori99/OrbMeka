@@ -1,4 +1,4 @@
-# OrbMeka™ — prototype 0.0.3.17
+# OrbMeka™ — prototype 0.0.3.18
 
 Godot 4.7 / GDScript. Formes et couleurs simples, sans assets externes.
 
@@ -859,3 +859,16 @@ fichier, en partie et en pause, fichier invalide). Résultat : 28 tests, 0 éche
 Test ajouté : tests/eye_height_test.gd (catégorie, décimales, arrondi à
 0,01, bornes, monde développeur et par défaut, se baisser). Résultat : 29 tests, 0 échec.
 À tester manuellement : sensation de la vue à 1 et à 2,5 blocs.
+
+## Mode pour se baisser — 0.0.3.18
+- Contrôles → catégorie **Se baisser** : **Maintenir** (par défaut : rester
+  appuyé) ou **Basculer** (un appui pour se baisser, un autre pour se
+  relever). Enregistré dans controles.json ; ↻ et ↻ Tout réinitialiser.
+- Correction : la touche par défaut est maintenant la touche **marquée Y**
+  sur le clavier du joueur. Sur un clavier suisse ou allemand (QWERTZ), Y et
+  Z sont inversés : avant, il fallait appuyer sur Z pour se baisser.
+- Rappel : la vue descend un peu quand on est baissé.
+
+Test ajouté : tests/crouch_mode_test.gd (choix, fichier, Maintenir et
+Basculer en partie, ↻). Résultat : 30 tests, 0 échec.
+À tester manuellement : se baisser avec Y (QWERTZ) dans les deux modes.

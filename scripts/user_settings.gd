@@ -59,6 +59,7 @@ const GENERAL_KEYS := ["mouse_sensitivity", "text_detail"]
 const CONTROLS_FILE := "controles.json"
 var values: Dictionary = {}
 var controls: Dictionary = {}
+var control_options: Dictionary = {}
 var storage_path: String
 var last_error := ""
 var load_notice := ""
@@ -74,6 +75,7 @@ func _init(path: String = DEFAULT_PATH) -> void:
 	if not found and FileAccess.file_exists(path):
 		_read(path)
 	controls = Controls.defaults()
+	control_options = Controls.default_options()
 	_read_controls()
 
 # Contrôles (0.0.3.12) : leur propre fichier, controles.json, écrit seulement par set_control.
@@ -96,6 +98,18 @@ func _read_controls() -> void:
 			controls[action] = Controls.clean(data[action])
 		else:
 			load_notice = "Certains contrôles invalides ont repris leur touche par défaut."
+	for option in Controls.OPTIONS:
+		if not data.has(option):
+			continue
+		if Controls.OPTIONS[option].options.has(data[option]):
+			control_options[option] = data[option]
+		else:
+			load_notice = "Certains contrôles invalides ont repris leur touche par défaut."
+
+func _write_controls(bindings: Dictionary, options: Dictionary) -> bool:
+	var data := bindings.duplicate(true)
+	data.merge(options, true)
+	return _write(controls_path(), data)
 
 # Nouvelle liaison d'une action ; la même touche est retirée de l'action qui l'avait
 # (renvoie le nom de cette action, ou "" s'il n'y en avait pas).
@@ -109,10 +123,23 @@ func set_control(action: String, binding: Dictionary) -> String:
 				candidate[other] = {}
 				freed = Controls.ACTIONS[other].label
 	candidate[action] = binding
-	if not _write(controls_path(), candidate):
+	if not _write_controls(candidate, control_options):
 		return ""
 	controls = candidate
 	return freed
+
+# Choix des Contrôles (0.0.3.18), ex. mode pour se baisser ; même fichier controles.json.
+func set_control_option(option: String, choice: String) -> bool:
+	last_error = ""
+	if not Controls.OPTIONS.has(option) or not Controls.OPTIONS[option].options.has(choice):
+		last_error = "Choix inconnu."
+		return false
+	var candidate := control_options.duplicate()
+	candidate[option] = choice
+	if not _write_controls(controls, candidate):
+		return false
+	control_options = candidate
+	return true
 
 # Fichier d'un menu. Chemin par défaut : user://video.json… ; autre chemin (tests) :
 # même dossier, préfixé du nom de ce chemin, pour ne jamais toucher aux fichiers du joueur.

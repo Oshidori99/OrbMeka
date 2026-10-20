@@ -3,6 +3,9 @@ Du plus récent au plus ancien. Ce fichier est mis à jour à chaque version.
 
 === Thème « Contrôles et Paramètres » (0.0.3 et suivantes) ===
 
+0.0.3.18 — Mode pour se baisser
+Contrôles → Se baisser : maintenir ou basculer. Correction : la touche par défaut suit la lettre Y du clavier (QWERTZ).
+
 0.0.3.17 — Hauteur de la vue
 Attributs → Vue : hauteur des yeux en blocs, avec deux décimales (1,62 par défaut).
 

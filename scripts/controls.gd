@@ -12,20 +12,50 @@ const ACTIONS := {
 	"move_right": {"label": "Aller à droite", "default": {"key": KEY_D}, "fixed": [KEY_RIGHT]},
 	"jump": {"label": "Sauter", "default": {"key": KEY_SPACE}, "fixed": []},
 	# 0.0.3.15 : maintenir pour se baisser (plus lent, chute plus lourde).
-	"crouch": {"label": "Se baisser", "default": {"key": KEY_Y}, "fixed": []},
+	# Défaut par lettre (0.0.3.18) : la touche marquée Y sur le clavier du joueur
+	# (QWERTZ suisse ou allemand : Y et Z sont inversés par rapport au QWERTY).
+	"crouch": {"label": "Se baisser", "default": {"key": KEY_Y}, "by_letter": true, "fixed": []},
 	"break_block": {"label": "Casser", "default": {"mouse": MOUSE_BUTTON_LEFT}, "fixed": []},
 	"place_block": {"label": "Poser", "default": {"mouse": MOUSE_BUTTON_RIGHT}, "fixed": []},
 	"block_previous": {"label": "Bloc précédent", "default": {"mouse": MOUSE_BUTTON_WHEEL_UP}, "fixed": []},
 	"block_next": {"label": "Bloc suivant", "default": {"mouse": MOUSE_BUTTON_WHEEL_DOWN}, "fixed": []},
 }
-const RESERVED_KEYS := [KEY_ESCAPE, KEY_F1, KEY_F2, KEY_F3]
+# Choix des Contrôles (0.0.3.18), enregistrés dans controles.json avec les touches.
+# Se baisser : Maintenir = rester appuyé ; Basculer = un appui pour se baisser, un autre pour se relever.
+const OPTIONS := {
+	"crouch_mode": {"label": "Mode pour se baisser", "options": {"hold": "Maintenir", "toggle": "Basculer"}, "default": "hold"},
+}
+
+static func default_options() -> Dictionary:
+	var result := {}
+	for option in OPTIONS:
+		result[option] = OPTIONS[option].default
+	return result
+
+const RESERVED_KEYS :=[KEY_ESCAPE, KEY_F1, KEY_F2, KEY_F3]
 const MOUSE_NAMES := {MOUSE_BUTTON_LEFT: "Clic gauche", MOUSE_BUTTON_RIGHT: "Clic droit", MOUSE_BUTTON_MIDDLE: "Clic molette", MOUSE_BUTTON_XBUTTON1: "Bouton souris 4", MOUSE_BUTTON_XBUTTON2: "Bouton souris 5", MOUSE_BUTTON_WHEEL_UP: "Molette haut", MOUSE_BUTTON_WHEEL_DOWN: "Molette bas"}
 
 static func defaults() -> Dictionary:
 	var result := {}
 	for action in ACTIONS:
-		result[action] = ACTIONS[action].default.duplicate()
+		result[action] = default_for(action)
 	return result
+
+# Liaison par défaut d'une action ; « by_letter » : la touche qui porte cette lettre
+# sur le clavier du joueur, quelle que soit sa disposition.
+static func default_for(action: String) -> Dictionary:
+	var binding: Dictionary = ACTIONS[action].default.duplicate()
+	if ACTIONS[action].get("by_letter", false) and binding.has("key"):
+		binding.key = physical_for_letter(binding.key)
+	return binding
+
+static func physical_for_letter(letter: int) -> int:
+	if DisplayServer.get_name() == "headless":
+		return letter
+	for code in range(KEY_A, KEY_Z + 1):
+		if DisplayServer.keyboard_get_keycode_from_physical(code) == letter:
+			return code
+	return letter
 
 # Liaison valide : vide, touche non réservée, ou bouton de souris connu (molette comprise).
 static func is_valid(binding: Variant) -> bool:
@@ -82,7 +112,7 @@ static func apply(bindings: Dictionary) -> void:
 		if not InputMap.has_action(action):
 			InputMap.add_action(action)
 		InputMap.action_erase_events(action)
-		var binding: Dictionary = bindings.get(action, ACTIONS[action].default)
+		var binding: Dictionary = bindings.get(action, default_for(action))
 		if not binding.is_empty():
 			InputMap.action_add_event(action, _event(binding))
 		for code in ACTIONS[action].fixed:
@@ -94,6 +124,6 @@ static func ensure_defaults() -> void:
 	for action in ACTIONS:
 		if not InputMap.has_action(action):
 			InputMap.add_action(action)
-			InputMap.action_add_event(action, _event(ACTIONS[action].default))
+			InputMap.action_add_event(action, _event(default_for(action)))
 			for code in ACTIONS[action].fixed:
 				InputMap.action_add_event(action, _event({"key": code}))
