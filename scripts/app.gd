@@ -65,6 +65,11 @@ var font_sizes: Dictionary = {}
 # Tailles et espaces de base des menus, mis à l'échelle par Taille des zones et boutons.
 var scaled_sizes: Dictionary = {}
 var scaled_separations: Dictionary = {}
+# Réglages de taille des menus réellement affichés (0.0.3.11) : enregistrés aussitôt dans
+# settings, mais appliqués seulement en quittant Paramètres ou avec le bouton Appliquer.
+const LAYOUT_KEYS := ["panel_size", "nav_percent", "element_scale", "text_px"]
+var layout_values: Dictionary = {}
+var layout_apply_button: Button
 # Réglages à choix : boutons par option, et choix en cours (enregistré aussitôt).
 var choice_buttons: Dictionary = {}
 var choice_values: Dictionary = {}
@@ -156,6 +161,8 @@ func _ready() -> void:
 		catalog = Catalog.new()
 	if settings == null:
 		settings = UserSettings.new()
+	for key in LAYOUT_KEYS:
+		layout_values[key] = settings.values[key]
 	showcase = MenuShowcase.new()
 	showcase.name = "MenuShowcase"
 	add_child(showcase)
@@ -199,7 +206,7 @@ func _font_size(control: Control, base: int) -> void:
 	control.add_theme_font_size_override(item, UiTheme.scaled(base, _text_scale()))
 
 func _text_scale() -> float:
-	return settings.values.text_px / UserSettings.BASE_TEXT_PX
+	return layout_values.text_px / UserSettings.BASE_TEXT_PX
 
 func _build_theme() -> Theme:
 	return UiTheme.build(_text_scale(), settings.values.theme_mode, settings.values.menu_depth == "on", _element_scale())
@@ -207,7 +214,7 @@ func _build_theme() -> Theme:
 # Taille des zones et boutons (0.0.3.10) : marges, espaces, hauteurs et largeurs minimales,
 # sans changer le texte. Les zones ne descendent jamais sous la taille de leur texte.
 func _element_scale() -> float:
-	return settings.values.element_scale / 100.0
+	return layout_values.element_scale / 100.0
 
 func _min_size(control: Control, base: Vector2) -> void:
 	# Une seule dimension donnée (0 pour l'autre) : l'autre déjà enregistrée est gardée.
@@ -494,21 +501,42 @@ func _autosave() -> bool:
 		return false
 	apply_appearance()
 	_apply_to_game()
+	if layout_pending():
+		layout_apply_button.disabled = false
+		settings_message.text = "Enregistré. Taille des menus appliquée en quittant Paramètres ou avec « Appliquer la taille des menus »."
+	else:
+		settings_message.text = "Enregistré."
+	return true
+
+func layout_pending() -> bool:
+	for key in LAYOUT_KEYS:
+		if layout_values.get(key) != settings.values[key]:
+			return true
+	return false
+
+# Applique les réglages de taille des menus enregistrés (bouton, Entrée, sortie de Paramètres).
+func apply_layout() -> void:
+	for key in LAYOUT_KEYS:
+		layout_values[key] = settings.values[key]
+	if not is_instance_valid(menu_root):
+		return
+	apply_appearance()
+	_apply_to_game()
 	fit_menus_to_window()
-	# Mise en page refaite tout de suite, puis encore une fois une fois les textes repliés,
-	# pour que colonnes et panneau suivent le réglage sans quitter Paramètres.
+	# Mise en page refaite tout de suite, puis encore une fois une fois les textes repliés.
 	menu_panel.reset_size()
 	fit_menus_to_window.call_deferred()
-	settings_message.text = "Enregistré."
-	return true
+	layout_apply_button.disabled = true
 
 func _choose(key: String, option: String) -> void:
 	_set_choice(key, option)
 	_autosave()
 
-# Entrée dans un champ : enregistre et affiche les valeurs telles qu'enregistrées.
+# Entrée dans un champ : enregistre, applique tout (taille des menus comprise) et affiche
+# les valeurs telles qu'enregistrées.
 func apply_user_settings() -> void:
 	if _autosave():
+		apply_layout()
 		_fill_settings()
 		settings_message.text = "Enregistré."
 
@@ -569,7 +597,7 @@ func _build_interface() -> void:
 	var home := _page(stack, "OrbMeka™")
 	pages.home = _page_root(home)
 	var version := _text_label()
-	version.text = "v" + str(ProjectSettings.get_setting("application/config/version", "0.0.3.10"))
+	version.text = "v" + str(ProjectSettings.get_setting("application/config/version", "0.0.3.11"))
 	version.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	version.theme_type_variation = "OrbNote"
 	home.add_child(version)
@@ -625,6 +653,12 @@ func _build_interface() -> void:
 		# Pas de titre de section : l'onglet de gauche le donne déjà.
 		for category in GENERAL_CATEGORIES[section]:
 			_add_setting_category(box, category, GENERAL_CATEGORIES[section][category])
+			if category == "Texte":
+				# 0.0.3.11 : juste sous les réglages de taille (Panneaux, Zones, Texte). La taille des
+				# menus ne change pas pendant qu'on règle (la barre resterait sous la souris) :
+				# elle s'applique en quittant Paramètres ou avec ce bouton.
+				layout_apply_button = _button("Appliquer la taille des menus", box, apply_layout)
+				layout_apply_button.disabled = true
 		_explanation(box, ["", "Commun à tous les mondes.", "Commun à tous les mondes. Champ vide : défaut."])
 		box.get_child(-1).theme_type_variation = "OrbNote"
 	var attributes_box := VBoxContainer.new()
@@ -861,14 +895,14 @@ func fit_menus_to_window() -> void:
 	# (hauteur de la fenêtre moins la place réservée au reste de la page).
 	var view := get_viewport().get_visible_rect().size
 	var grow := maxf(1.0, view.x / MENU_BASE_SIZE.x)
-	var ratio: float = settings.values.panel_size / 100.0
+	var ratio: float = layout_values.panel_size / 100.0
 	var limit := view.x * WIDE_MAX_RATIO
 	if page in COMPACT_PAGES:
-		var scale: float = settings.values.panel_size / UserSettings.SPECS.panel_size.default
+		var scale: float = layout_values.panel_size / UserSettings.SPECS.panel_size.default
 		menu_panel.custom_minimum_size.x = minf(maxf(COMPACT_MIN_WIDTH, minf(MENU_BASE_WIDTH * grow, view.x * MENU_MAX_WIDTH_RATIO) * scale), limit)
 	else:
 		menu_panel.custom_minimum_size.x = minf(maxf(view.x * ratio, MENU_BASE_WIDTH), limit)
-	settings_nav.custom_minimum_size.x = menu_panel.custom_minimum_size.x * settings.values.nav_percent / 100.0
+	settings_nav.custom_minimum_size.x = menu_panel.custom_minimum_size.x * layout_values.nav_percent / 100.0
 	for control in menu_reserved_heights:
 		control.custom_minimum_size.y = maxf(SCROLL_MIN_HEIGHT, view.y - menu_reserved_heights[control])
 	_fit_height()
@@ -896,6 +930,9 @@ func _update_backdrop() -> void:
 	backdrop.material.set_shader_parameter("tint", Color(0.07, 0.04, 0.13, 0.5 if paused_world else 0.12))
 
 func show_page(next_page: String) -> void:
+	# En quittant Paramètres, la taille des menus réglée s'applique.
+	if page == "settings" and next_page != "settings" and layout_pending():
+		apply_layout()
 	page = next_page
 	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
 	menu_root.visible = true

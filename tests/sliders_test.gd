@@ -56,6 +56,23 @@ func _run() -> void:
 	check(app.setting_sliders.walk_forward.value == Settings.SPECS.walk_forward.default, "reset all moves attribute sliders back")
 	app.category_resets.Panneaux.pressed.emit()
 	check(app.setting_sliders.panel_size.value == 72 and app.setting_sliders.nav_percent.value == 15, "category reset moves its sliders back")
+	# 0.0.3.11 : la taille des menus ne bouge pas pendant qu'on règle la barre.
+	app.apply_layout()
+	await process_frame
+	var width_before: float = app.menu_panel.custom_minimum_size.x
+	var nav_before: float = app.settings_nav.custom_minimum_size.x
+	app.setting_sliders.panel_size.value = 90
+	app.setting_sliders.nav_percent.value = 30
+	await process_frame
+	check(settings.values.panel_size == 90 and settings.values.nav_percent == 30, "menu size sliders save at once")
+	check(app.menu_panel.custom_minimum_size.x == width_before and app.settings_nav.custom_minimum_size.x == nav_before and not app.layout_apply_button.disabled, "menu and tab column keep their size while dragging")
+	app.layout_apply_button.pressed.emit()
+	check(app.menu_panel.custom_minimum_size.x > width_before and app.layout_apply_button.disabled, "Appliquer la taille des menus applies it")
+	app.setting_sliders.panel_size.value = 72
+	var wide: float = app.menu_panel.custom_minimum_size.x
+	app.settings_back_button.pressed.emit()
+	app.show_page("settings")
+	check(app.menu_panel.custom_minimum_size.x < wide, "leaving Paramètres applies the menu size")
 	# Interrupteur Oui / Non.
 	var switch: CheckButton = app.choice_switches.menu_depth
 	check(switch.button_pressed and app.choice_buttons.menu_depth.is_empty(), "depth uses one on/off switch, on by default")

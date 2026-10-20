@@ -1,4 +1,4 @@
-# OrbMeka™ — prototype 0.0.3.10
+# OrbMeka™ — prototype 0.0.3.11
 
 Godot 4.7 / GDScript. Formes et couleurs simples, sans assets externes.
 
@@ -763,3 +763,15 @@ texte inchangé et toujours dans sa zone, largeur des menus inchangée,
 textes élargis avec le menu). Résultat : 23 tests, 0 échec.
 À tester manuellement : rendu à 50 et 150 %, lisibilité à 13 px, mise à
 jour immédiate de la colonne de gauche dans Paramètres.
+
+## Taille des menus appliquée après réglage — 0.0.3.11
+- Largeur des menus, menu de gauche, taille des zones et taille du texte :
+  enregistrées tout de suite, mais le menu ne change pas pendant qu'on
+  glisse la barre (elle ne bouge plus sous la souris). La nouvelle taille
+  s'applique en quittant Paramètres, avec le bouton **Appliquer la taille
+  des menus** (Vidéo, sous Texte) ou avec Entrée dans un champ.
+- Les autres réglages restent appliqués aussitôt.
+
+Tests mis à jour : sliders_test (taille inchangée pendant le réglage, bouton,
+sortie de Paramètres), pause_settings_test. Résultat : 23 tests, 0 échec.
+À tester manuellement : glisser les barres de Vidéo puis Appliquer.

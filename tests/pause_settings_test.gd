@@ -64,7 +64,10 @@ func _run() -> void:
 	check(player.jump_height == Settings.SPECS.jump_height.default, "default world still ignores attributes")
 	app.setting_fields.text_px.text = "24"
 	app.setting_fields.text_px.text_changed.emit("24")
-	check(app.active_world.selected_block_label.get_theme_font_size("font_size") == 24, "text size applies to game texts at once")
+	# 0.0.3.11 : taille enregistrée tout de suite, appliquée avec le bouton (ou en quittant).
+	check(settings.values.text_px == 24 and app.active_world.selected_block_label.get_theme_font_size("font_size") != 24 and not app.layout_apply_button.disabled, "text size saved, applied later")
+	app.layout_apply_button.pressed.emit()
+	check(app.active_world.selected_block_label.get_theme_font_size("font_size") == 24 and app.layout_apply_button.disabled, "Appliquer la taille des menus applies to game texts")
 	# Passage au mode développeur depuis la pause.
 	app.attributes_gate_button.pressed.emit()
 	app.attributes_gate_confirm.pressed.emit()
