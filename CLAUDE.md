@@ -31,6 +31,15 @@ Lancer les tests liés au changement ; ce qui ne peut être vérifié qu'en joua
   BUTLER_API_KEY et ITCH_TARGET existent. Reconstruire un ancien tag : Actions > Build > Run workflow.
 - Ne jamais lire, afficher ni demander la clé itch.io : l'utilisateur la met lui-même dans les Secrets.
 
+## Travail depuis le cloud (téléphone)
+L'utilisateur peut lancer Claude Code dans le cloud depuis son téléphone, sur le dépôt GitHub Oshidori99/OrbMeka.
+- Dans le cloud : travailler **uniquement sur `dev`** (commit + push sur dev). Ne jamais toucher à `main`, ni créer de tag, ni lancer de Release.
+- Godot, gh CLI, Archives/ et les chemins C:\… n'existent pas dans le cloud : pas de tests Godot, pas d'archive, pas de modification du Project.
+  Le dire à l'utilisateur et lister ce qui reste à faire sur le PC.
+- Ajouter en bas de docs/README.md une note « À vérifier sur PC » avec les changements faits depuis le cloud.
+- De retour sur le PC (« récupère dev et teste ») : `git pull` sur dev, lancer les tests, faire tester en jeu,
+  puis, si l'utilisateur valide, suivre « Nouvelle version » (fusion dans main, tag, Project, archive).
+
 ## Nouvelle version
 0. Travailler et committer sur `dev`.
 1. Numéro dans project.godot (config/version) et en tête de docs/README.md et README.md.
