@@ -1,4 +1,4 @@
-# OrbMeka™ — prototype 0.0.3.16
+# OrbMeka™ — prototype 0.0.3.17
 
 Godot 4.7 / GDScript. Formes et couleurs simples, sans assets externes.
 
@@ -846,3 +846,16 @@ touche Y, catégorie). Résultat : 27 tests, 0 échec.
 Test ajouté : tests/character_test.gd (onglet, quatre personnages, choix,
 fichier, en partie et en pause, fichier invalide). Résultat : 28 tests, 0 échec.
 À tester manuellement : aspect des quatre aperçus dans les trois thèmes.
+
+## Hauteur de la vue — 0.0.3.17
+- Attributs → **Vue** (sous Se baisser) : **Hauteur des yeux**, en blocs,
+  de 0,3 à 3 (1,62 par défaut, comme avant). 1 = vue à un bloc du sol,
+  2 = à deux blocs. Deux décimales possibles (1,9 ; 2,15) ; barre au pas de 0,01.
+- Baissé, la vue descend un peu sous cette hauteur. Mode développeur seulement,
+  comme les autres attributs ; un monde par défaut garde 1,62.
+- Au-delà de 1,8 bloc, la vue passe au-dessus du corps du joueur (taille
+  inchangée) : elle peut entrer dans un plafond bas.
+
+Test ajouté : tests/eye_height_test.gd (catégorie, décimales, arrondi à
+0,01, bornes, monde développeur et par défaut, se baisser). Résultat : 29 tests, 0 échec.
+À tester manuellement : sensation de la vue à 1 et à 2,5 blocs.

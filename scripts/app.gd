@@ -35,6 +35,7 @@ Gravité de descente : retombée plus ou moins rapide."]},
 Première action immédiate ; un délai plus court accélère la répétition."]},
 	"Marche": {"keys": ["walk_forward", "walk_side", "walk_back"], "help": ["", "Vitesse au sol par direction.", "Vitesse au sol dans chaque direction (1 bloc = 1 m)."]},
 	"Se baisser": {"keys": ["crouch_forward", "crouch_side", "crouch_back", "crouch_gravity"], "help": ["", "Vitesses et chute quand on se baisse.", "En se baissant (touche de Contrôles) : vitesse dans chaque direction, et gravité de chute, plus forte pour tomber plus vite."]},
+	"Vue": {"keys": ["eye_height"], "help": ["", "Hauteur de la vue, en blocs.", "Hauteur des yeux au-dessus des pieds, en blocs : 1 = vue à un bloc du sol, 2 = à deux blocs. Deux décimales possibles (ex. 1,9 ou 2,15)."]},
 }
 # Réglages généraux (tous les mondes, quel que soit leur mode), par section du menu latéral.
 const GENERAL_CATEGORIES := {
@@ -368,6 +369,8 @@ func _set_default(key: String) -> void:
 
 # Pas de la barre : fin pour les petites plages (mètres), plus large pour les millisecondes.
 static func _slider_step(spec: Dictionary) -> float:
+	if spec.has("step"):
+		return spec.step
 	var span: float = spec.max - spec.min
 	if span <= 50.0:
 		return 0.1
@@ -737,7 +740,7 @@ func _build_interface() -> void:
 	var home := _page(stack, "OrbMeka™")
 	pages.home = _page_root(home)
 	var version := _text_label()
-	version.text = "v" + str(ProjectSettings.get_setting("application/config/version", "0.0.3.16"))
+	version.text = "v" + str(ProjectSettings.get_setting("application/config/version", "0.0.3.17"))
 	version.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	version.theme_type_variation = "OrbNote"
 	home.add_child(version)

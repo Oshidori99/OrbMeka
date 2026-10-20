@@ -80,7 +80,7 @@ func _run() -> void:
 	app.setting_resets.walk_forward.pressed.emit()
 	check(settings.values.walk_forward == Settings.SPECS.walk_forward.default, "field reset saves the default at once")
 	# Catégorie Marche.
-	check(App.ATTRIBUTE_CATEGORIES.keys() == ["Saut", "Blocs", "Marche", "Se baisser"] and App.ATTRIBUTE_CATEGORIES.Marche.keys == WALK_KEYS, "Marche with three speeds, then Se baisser")
+	check(App.ATTRIBUTE_CATEGORIES.keys() == ["Saut", "Blocs", "Marche", "Se baisser", "Vue"] and App.ATTRIBUTE_CATEGORIES.Marche.keys == WALK_KEYS, "Marche with three speeds, then Se baisser")
 	for key in WALK_KEYS:
 		check(Settings.SPECS[key].default == Player.SPEED, "walking default is the former player speed: " + key)
 	check(["Avancer", "Avancer de côté", "Reculer"] == WALK_KEYS.map(func(key): return Settings.SPECS[key].label), "walking labels")

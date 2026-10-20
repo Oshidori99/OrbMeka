@@ -21,6 +21,8 @@ const SPECS := {
 	"crouch_side": {"label": "De côté baissé", "unit": "m/s", "default": 1.5, "min": 0.5, "max": 12.0},
 	"crouch_back": {"label": "Reculer baissé", "unit": "m/s", "default": 1.5, "min": 0.5, "max": 12.0},
 	"crouch_gravity": {"label": "Gravité baissé", "unit": "m/s²", "default": 28.0, "min": 4.0, "max": 80.0},
+	# 0.0.3.17 : hauteur de la vue en blocs (1 = vue à un bloc du sol), deux décimales (pas de 0,01).
+	"eye_height": {"label": "Hauteur des yeux", "unit": "blocs", "default": 1.62, "min": 0.3, "max": 3.0, "step": 0.01},
 	# Réglages généraux (0.0.3.1) : valables dans tous les mondes, quel que soit leur mode.
 	"mouse_sensitivity": {"label": "Sensibilité de la souris", "unit": "%", "default": 100.0, "min": 10.0, "max": 300.0},
 	"panel_size": {"label": "Taille des panneaux", "unit": "% de la fenêtre", "default": 72.0, "min": 50.0, "max": 95.0},
@@ -45,7 +47,7 @@ const CHOICES := {
 	"character": {"label": "Personnage", "options": {"boy": "Garçon", "girl": "Fille", "man": "Homme", "woman": "Femme"}, "default": "boy"},
 }
 # Attributs du joueur : par défaut dans un monde par défaut, réglables en mode développeur.
-const ATTRIBUTE_KEYS := ["jump_height", "jump_speed", "fall_gravity", "place_ms", "break_ms", "break_reach", "place_reach", "walk_forward", "walk_side", "walk_back", "crouch_forward", "crouch_side", "crouch_back", "crouch_gravity"]
+const ATTRIBUTE_KEYS := ["jump_height", "jump_speed", "fall_gravity", "place_ms", "break_ms", "break_reach", "place_reach", "walk_forward", "walk_side", "walk_back", "crouch_forward", "crouch_side", "crouch_back", "crouch_gravity", "eye_height"]
 # Un fichier par menu de Paramètres (0.0.3.6), nommé d'après le menu, dans user://
 # (Windows : %APPDATA%\Godot\app_userdata\OrbMeka\). L'ancien settings.json (avant 0.0.3.6)
 # n'est que lu, pour reprendre les réglages, si aucun de ces fichiers n'existe encore.
@@ -184,7 +186,8 @@ func apply_texts(texts: Dictionary) -> bool:
 		if not is_finite(value) or value < SPECS[key].min or value > SPECS[key].max:
 			last_error = "%s : valeur entre %s et %s %s." % [SPECS[key].label, number_text(SPECS[key].min), number_text(SPECS[key].max), SPECS[key].unit]
 			return false
-		candidate[key] = value
+		# Pas fixé (ex. 0,01 pour la hauteur des yeux) : valeur arrondie à ce pas.
+		candidate[key] = snappedf(value, SPECS[key].step) if SPECS[key].has("step") else value
 	for key in CHOICES:
 		# Choix absent : défaut ; choix inconnu : refusé.
 		var choice: String = str(texts.get(key, CHOICES[key].default))

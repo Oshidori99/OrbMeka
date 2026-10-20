@@ -28,7 +28,9 @@ var walk_back := SPEED
 const CROUCH_SPEED := 1.5
 const CROUCH_GRAVITY := 28.0
 const EYE_HEIGHT := 1.62
-const CROUCH_EYE := 1.3
+const CROUCH_DROP := 0.32
+# Hauteur des yeux réglable (Attributs → Vue, 0.0.3.17) ; baissé : un peu plus bas.
+var eye_height := EYE_HEIGHT
 var crouching := false
 # Personnage choisi (Paramètres → Personnage, 0.0.3.16) : pas encore visible à l'écran.
 var character := "boy"
@@ -55,7 +57,7 @@ func _ready() -> void:
 	collision.position.y = 0.9
 	add_child(collision)
 	camera = Camera3D.new()
-	camera.position.y = 1.62
+	camera.position.y = EYE_HEIGHT
 	camera.fov = 75.0
 	camera.rotation.x = -0.12
 	camera.current = true
@@ -146,6 +148,8 @@ func apply_settings(values: Dictionary) -> void:
 	crouch_back = float(values.get("crouch_back", CROUCH_SPEED))
 	crouch_gravity = float(values.get("crouch_gravity", CROUCH_GRAVITY))
 	character = str(values.get("character", "boy"))
+	eye_height = float(values.get("eye_height", EYE_HEIGHT))
+	camera.position.y = eye_height
 	break_reach = float(values.get("break_reach", REACH))
 	place_reach = float(values.get("place_reach", REACH))
 	sensitivity = SENSITIVITY * float(values.get("mouse_sensitivity", 100.0)) / 100.0
@@ -205,7 +209,8 @@ func step_movement(delta: float, direction: Vector2, jump_requested: bool) -> vo
 	var back := crouch_back if crouching else walk_back
 	var local := Vector3(step.x * side, 0.0, step.y * (forward if step.y < 0.0 else back))
 	# Caméra un peu plus basse quand on est baissé.
-	camera.position.y = move_toward(camera.position.y, CROUCH_EYE if crouching else EYE_HEIGHT, 4.0 * delta)
+	var eye := maxf(0.2, eye_height - CROUCH_DROP) if crouching else eye_height
+	camera.position.y = move_toward(camera.position.y, eye, 4.0 * delta)
 	var movement := global_transform.basis * local
 	velocity.x = movement.x
 	velocity.z = movement.z
