@@ -11,6 +11,8 @@ const ACTIONS := {
 	"move_left": {"label": "Aller à gauche", "default": {"key": KEY_A}, "fixed": [KEY_LEFT]},
 	"move_right": {"label": "Aller à droite", "default": {"key": KEY_D}, "fixed": [KEY_RIGHT]},
 	"jump": {"label": "Sauter", "default": {"key": KEY_SPACE}, "fixed": []},
+	# 0.0.3.15 : maintenir pour se baisser (plus lent, chute plus lourde).
+	"crouch": {"label": "Se baisser", "default": {"key": KEY_Y}, "fixed": []},
 	"break_block": {"label": "Casser", "default": {"mouse": MOUSE_BUTTON_LEFT}, "fixed": []},
 	"place_block": {"label": "Poser", "default": {"mouse": MOUSE_BUTTON_RIGHT}, "fixed": []},
 	"block_previous": {"label": "Bloc précédent", "default": {"mouse": MOUSE_BUTTON_WHEEL_UP}, "fixed": []},

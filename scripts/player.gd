@@ -24,6 +24,16 @@ var rise_gravity := JUMP_GRAVITY
 var walk_forward := SPEED
 var walk_side := SPEED
 var walk_back := SPEED
+# Se baisser (0.0.3.15) : touche de Contrôles maintenue ; vitesses et gravité dans Attributs.
+const CROUCH_SPEED := 1.5
+const CROUCH_GRAVITY := 28.0
+const EYE_HEIGHT := 1.62
+const CROUCH_EYE := 1.3
+var crouching := false
+var crouch_forward := CROUCH_SPEED
+var crouch_side := CROUCH_SPEED
+var crouch_back := CROUCH_SPEED
+var crouch_gravity := CROUCH_GRAVITY
 var input_ready_frame := -1
 var selected_type := 0:
 	set(value):
@@ -129,6 +139,10 @@ func apply_settings(values: Dictionary) -> void:
 	walk_forward = values.walk_forward
 	walk_side = values.walk_side
 	walk_back = values.walk_back
+	crouch_forward = float(values.get("crouch_forward", CROUCH_SPEED))
+	crouch_side = float(values.get("crouch_side", CROUCH_SPEED))
+	crouch_back = float(values.get("crouch_back", CROUCH_SPEED))
+	crouch_gravity = float(values.get("crouch_gravity", CROUCH_GRAVITY))
 	break_reach = float(values.get("break_reach", REACH))
 	place_reach = float(values.get("place_reach", REACH))
 	sensitivity = SENSITIVITY * float(values.get("mouse_sensitivity", 100.0)) / 100.0
@@ -157,6 +171,7 @@ func _physics_process(delta: float) -> void:
 		direction = Input.get_vector("move_left", "move_right", "move_forward", "move_back")
 		jump_requested = Input.is_action_just_pressed("jump") and not wait_jump_release
 	var active := Input.mouse_mode == Input.MOUSE_MODE_CAPTURED
+	crouching = active and Input.is_action_pressed("crouch")
 	step_breaking(delta, active, Input.is_action_pressed("break_block"))
 	step_placement(delta, active, Input.is_action_pressed("place_block"))
 	step_movement(delta, direction, jump_requested)
@@ -174,13 +189,20 @@ func step_movement(delta: float, direction: Vector2, jump_requested: bool) -> vo
 		vertical_distance = end_speed * up_time - 0.5 * rise_gravity * up_time * up_time
 		end_speed -= rise_gravity * up_time
 		remaining -= up_time
+	# Baissé : plus lourd, la chute est tirée par la gravité « baissé ».
+	var fall_gravity := crouch_gravity if crouching else gravity
 	if remaining > 0.0:
-		vertical_distance += end_speed * remaining - 0.5 * gravity * remaining * remaining
-		end_speed -= gravity * remaining
+		vertical_distance += end_speed * remaining - 0.5 * fall_gravity * remaining * remaining
+		end_speed -= fall_gravity * remaining
 	velocity.y = vertical_distance / delta if delta > 0.0 else 0.0
 	# direction.y < 0 : avancer ; > 0 : reculer ; direction.x : de côté.
 	var step := direction.limit_length(1.0)
-	var local := Vector3(step.x * walk_side, 0.0, step.y * (walk_forward if step.y < 0.0 else walk_back))
+	var side := crouch_side if crouching else walk_side
+	var forward := crouch_forward if crouching else walk_forward
+	var back := crouch_back if crouching else walk_back
+	var local := Vector3(step.x * side, 0.0, step.y * (forward if step.y < 0.0 else back))
+	# Caméra un peu plus basse quand on est baissé.
+	camera.position.y = move_toward(camera.position.y, CROUCH_EYE if crouching else EYE_HEIGHT, 4.0 * delta)
 	var movement := global_transform.basis * local
 	velocity.x = movement.x
 	velocity.z = movement.z

@@ -33,6 +33,7 @@ Gravité de descente : retombée plus ou moins rapide."]},
 	"Blocs": {"keys": ["place_ms", "break_ms", "break_reach", "place_reach"], "help": ["", "Rythme et portée de la casse et de la pose.", "Temps entre deux actions au maintien du clic, et distance maximale (en blocs) pour casser et pour poser.
 Première action immédiate ; un délai plus court accélère la répétition."]},
 	"Marche": {"keys": ["walk_forward", "walk_side", "walk_back"], "help": ["", "Vitesse au sol par direction.", "Vitesse au sol dans chaque direction (1 bloc = 1 m)."]},
+	"Se baisser": {"keys": ["crouch_forward", "crouch_side", "crouch_back", "crouch_gravity"], "help": ["", "Vitesses et chute quand on se baisse.", "En se baissant (touche de Contrôles) : vitesse dans chaque direction, et gravité de chute, plus forte pour tomber plus vite."]},
 }
 # Réglages généraux (tous les mondes, quel que soit leur mode), par section du menu latéral.
 const GENERAL_CATEGORIES := {
@@ -691,7 +692,7 @@ func _build_interface() -> void:
 	var home := _page(stack, "OrbMeka™")
 	pages.home = _page_root(home)
 	var version := _text_label()
-	version.text = "v" + str(ProjectSettings.get_setting("application/config/version", "0.0.3.14"))
+	version.text = "v" + str(ProjectSettings.get_setting("application/config/version", "0.0.3.15"))
 	version.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	version.theme_type_variation = "OrbNote"
 	home.add_child(version)

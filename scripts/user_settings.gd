@@ -16,6 +16,11 @@ const SPECS := {
 	"walk_forward": {"label": "Avancer", "unit": "m/s", "default": ORIGINAL_WALK_SPEED, "min": 1.0, "max": 12.0},
 	"walk_side": {"label": "Avancer de côté", "unit": "m/s", "default": ORIGINAL_WALK_SPEED, "min": 1.0, "max": 12.0},
 	"walk_back": {"label": "Reculer", "unit": "m/s", "default": ORIGINAL_WALK_SPEED, "min": 1.0, "max": 12.0},
+	# 0.0.3.15 : se baisser, plus lent dans chaque direction et plus lourd à la chute.
+	"crouch_forward": {"label": "Avancer baissé", "unit": "m/s", "default": 1.5, "min": 0.5, "max": 12.0},
+	"crouch_side": {"label": "De côté baissé", "unit": "m/s", "default": 1.5, "min": 0.5, "max": 12.0},
+	"crouch_back": {"label": "Reculer baissé", "unit": "m/s", "default": 1.5, "min": 0.5, "max": 12.0},
+	"crouch_gravity": {"label": "Gravité baissé", "unit": "m/s²", "default": 28.0, "min": 4.0, "max": 80.0},
 	# Réglages généraux (0.0.3.1) : valables dans tous les mondes, quel que soit leur mode.
 	"mouse_sensitivity": {"label": "Sensibilité de la souris", "unit": "%", "default": 100.0, "min": 10.0, "max": 300.0},
 	"panel_size": {"label": "Taille des panneaux", "unit": "% de la fenêtre", "default": 72.0, "min": 50.0, "max": 95.0},
@@ -38,7 +43,7 @@ const CHOICES := {
 	"show_coords": {"label": "Afficher les coordonnées", "options": {"on": "Oui", "off": "Non"}, "default": "off"},
 }
 # Attributs du joueur : par défaut dans un monde par défaut, réglables en mode développeur.
-const ATTRIBUTE_KEYS := ["jump_height", "jump_speed", "fall_gravity", "place_ms", "break_ms", "break_reach", "place_reach", "walk_forward", "walk_side", "walk_back"]
+const ATTRIBUTE_KEYS := ["jump_height", "jump_speed", "fall_gravity", "place_ms", "break_ms", "break_reach", "place_reach", "walk_forward", "walk_side", "walk_back", "crouch_forward", "crouch_side", "crouch_back", "crouch_gravity"]
 # Un fichier par menu de Paramètres (0.0.3.6), nommé d'après le menu, dans user://
 # (Windows : %APPDATA%\Godot\app_userdata\OrbMeka\). L'ancien settings.json (avant 0.0.3.6)
 # n'est que lu, pour reprendre les réglages, si aucun de ces fichiers n'existe encore.

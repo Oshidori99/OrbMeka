@@ -1,4 +1,4 @@
-# OrbMeka™ — prototype 0.0.3.14
+# OrbMeka™ — prototype 0.0.3.15
 
 Godot 4.7 / GDScript. Formes et couleurs simples, sans assets externes.
 
@@ -821,3 +821,15 @@ Test ajouté : tests/coordinates_test.gd (apparition, interrupteur, position
 en haut à droite, suivi du joueur, réapparition, F3). prototype_test adapté.
 Résultat : 26 tests, 0 échec.
 À tester manuellement : lecture des coordonnées en marchant et en sautant.
+
+## Se baisser — 0.0.3.15
+- Contrôles : **Se baisser**, touche **Y** par défaut (modifiable), à maintenir.
+- Baissé : on avance, recule et va de côté bien plus lentement (1,5 m/s par
+  défaut), la vue descend un peu, et on est plus lourd : la chute est plus
+  rapide (gravité 28 m/s² au lieu de 14).
+- Attributs → **Se baisser** (sous Marche) : Avancer baissé, De côté baissé,
+  Reculer baissé, Gravité baissé. Mode développeur, comme les autres attributs.
+
+Test ajouté : tests/crouch_test.gd (vitesses, chute plus rapide, réglages,
+touche Y, catégorie). Résultat : 27 tests, 0 échec.
+À tester manuellement : se baisser en marchant et en tombant.
