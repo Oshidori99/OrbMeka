@@ -33,12 +33,16 @@ Lancer les tests liés au changement ; ce qui ne peut être vérifié qu'en joua
 
 ## Travail depuis le cloud (téléphone)
 L'utilisateur peut lancer Claude Code dans le cloud depuis son téléphone, sur le dépôt GitHub Oshidori99/OrbMeka.
-- Dans le cloud : travailler **uniquement sur `dev`** (commit + push sur dev). Ne jamais toucher à `main`, ni créer de tag, ni lancer de Release.
-- Godot, gh CLI, Archives/ et les chemins C:\… n'existent pas dans le cloud : pas de tests Godot, pas d'archive, pas de modification du Project.
-  Le dire à l'utilisateur et lister ce qui reste à faire sur le PC.
-- Ajouter en bas de docs/README.md une note « À vérifier sur PC » avec les changements faits depuis le cloud.
-- De retour sur le PC (« récupère dev et teste ») : `git pull` sur dev, lancer les tests, faire tester en jeu,
-  puis, si l'utilisateur valide, suivre « Nouvelle version » (fusion dans main, tag, Project, archive).
+- Travailler **sur `dev`** (commit + push). Chaque push sur dev lance .github/workflows/dev.yml :
+  tous les tests Godot sans fenêtre, puis, s'ils passent, la version Web sur la page itch.io de test (secret ITCH_TARGET_DEV).
+- Après chaque push : attendre le résultat de l'Action « Dev » (onglet Actions, ou `gh run list --branch dev` si gh existe).
+  Si les tests échouent, corriger avant toute autre chose. Dire à l'utilisateur quand la page de test est à jour.
+- Sur téléphone, l'utilisateur ne peut tester que menus et affichage (pas de commandes tactiles) : le rappeler pour le gameplay.
+- **« Envoie dans main »** (dit explicitement par l'utilisateur, Action Dev verte) : suivre « Nouvelle version » étapes 1 à 5
+  (version, historique, README, fusion dans main, tag, push). Le Project et l'archive (étapes 4 et 6) se font si possible,
+  sinon les noter dans docs/README.md « À faire sur PC ».
+- Godot local, Archives/ et les chemins C:\… n'existent pas dans le cloud. De retour sur le PC : `git pull`,
+  rattraper l'archive et le Project notés « À faire sur PC », puis supprimer la note.
 
 ## Nouvelle version
 0. Travailler et committer sur `dev`.

@@ -1,0 +1,91 @@
+# À chaque push sur dev : lance tous les tests Godot sans fenêtre,
+# puis publie la version Web sur la page itch.io de test (secret ITCH_TARGET_DEV),
+# seulement si les tests passent. Aucune Release, aucun tag.
+name: Dev
+
+on:
+  push:
+    branches: [dev]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: dev
+  cancel-in-progress: true
+
+env:
+  GODOT_VERSION: "4.7.2"
+  # Mêmes sommes et même cache que build.yml.
+  GODOT_SHA512: "9aa00f7a605200940bce3027a567b782f49bd8e940dd06ae9e987bd65aee1b1467edd56ed84fcdcbdd44354bf613bdbb4e5d2913e925850368e150c59ed54c65"
+  TEMPLATES_SHA512: "ca4d71c4d7b81dfc15d1a98baa07534aa95b03fdda78a0075b06672e1648d2e5f40980c9adc28d23e1b92e732ee7bf3461997aa804af74ec2fcd7a93ccb84079"
+  BUTLER_VERSION: "15.32.0"
+  BUTLER_SHA256: "2335971394ef6596f95ded0833e85ee28755e13761716ef4c91d6b11f69162f5"
+
+jobs:
+  dev:
+    runs-on: ubuntu-24.04
+    env:
+      BUTLER_API_KEY: ${{ secrets.BUTLER_API_KEY }}
+      ITCH_TARGET_DEV: ${{ secrets.ITCH_TARGET_DEV }}
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Cache Godot
+        id: cache
+        uses: actions/cache@v6
+        with:
+          path: |
+            ~/godot
+            ~/.local/share/godot/export_templates
+          key: godot-${{ env.GODOT_VERSION }}-${{ env.TEMPLATES_SHA512 }}
+
+      - name: Installer Godot et les templates officiels
+        if: steps.cache.outputs.cache-hit != 'true'
+        run: |
+          BASE="https://github.com/godotengine/godot/releases/download/${GODOT_VERSION}-stable"
+          curl -fsSL -o godot.zip "$BASE/Godot_v${GODOT_VERSION}-stable_linux.x86_64.zip"
+          curl -fsSL -o templates.tpz "$BASE/Godot_v${GODOT_VERSION}-stable_export_templates.tpz"
+          echo "$GODOT_SHA512  godot.zip" | sha512sum -c -
+          echo "$TEMPLATES_SHA512  templates.tpz" | sha512sum -c -
+          mkdir -p ~/godot
+          unzip -q godot.zip -d ~/godot
+          mv ~/godot/Godot_v${GODOT_VERSION}-stable_linux.x86_64 ~/godot/godot
+          DEST=~/.local/share/godot/export_templates/${GODOT_VERSION}.stable
+          mkdir -p "$DEST"
+          unzip -q -j templates.tpz \
+            templates/version.txt \
+            templates/windows_release_x86_64.exe \
+            templates/web_nothreads_release.zip \
+            -d "$DEST"
+          rm godot.zip templates.tpz
+
+      - name: Tests Godot (sans fenêtre)
+        run: |
+          GODOT=~/godot/godot
+          $GODOT --headless --path . --import || true
+          FAILED=""
+          for t in tests/*_test.gd; do
+            echo "::group::$t"
+            if ! timeout 300 $GODOT --headless --path . --script "res://$t"; then FAILED="$FAILED $t"; fi
+            echo "::endgroup::"
+          done
+          if [ -n "$FAILED" ]; then echo "::error::Tests en échec :$FAILED"; exit 1; fi
+          echo "Tous les tests passent."
+
+      - name: Publier sur itch.io (page de test)
+        if: env.BUTLER_API_KEY != '' && env.ITCH_TARGET_DEV != ''
+        run: |
+          GODOT=~/godot/godot
+          mkdir -p out/web
+          $GODOT --headless --path . --export-release "Web" "$PWD/out/web/index.html"
+          test -s out/web/index.html
+          curl -fsSL -o butler.zip "https://broth.itch.zone/butler/linux-amd64/${BUTLER_VERSION}/archive/default"
+          echo "$BUTLER_SHA256  butler.zip" | sha256sum -c -
+          mkdir -p ~/butler && unzip -q butler.zip -d ~/butler && chmod +x ~/butler/butler
+          ~/butler/butler push out/web "$ITCH_TARGET_DEV" --userversion "dev-${GITHUB_SHA::7}"
+
+      - name: itch.io test sauté
+        if: env.BUTLER_API_KEY == '' || env.ITCH_TARGET_DEV == ''
+        run: echo "Secret ITCH_TARGET_DEV absent, publication sur la page de test sautée."
