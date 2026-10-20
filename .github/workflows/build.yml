@@ -123,4 +123,4 @@ jobs:
 
       - name: itch.io sauté
         if: env.BUTLER_API_KEY == '' || env.ITCH_TARGET == ''
-        run: echo "Secrets BUTLER_API_KEY / ITCH_TARGET absents : publication itch.io sautée."
+        run: echo "Secrets BUTLER_API_KEY / ITCH_TARGET absents, publication itch.io sautée."
