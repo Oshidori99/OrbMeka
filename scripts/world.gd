@@ -25,6 +25,7 @@ var player: CharacterBody3D
 var selection: MeshInstance3D
 var selected_block_label: Label
 var hint: Label
+var coordinates_label: Label
 var notice := ""
 var notice_time := 0.0
 
@@ -103,22 +104,29 @@ func _create_terrain() -> void:
 		add_block(cell, DIRT)
 
 func spawn_position() -> Vector3:
-	# Check current blocks too, so respawning stays safe after construction.
+	# Apparition en X 0, Y 1, Z 0 (0.0.3.14) : pieds posés sur le sol plat, au centre de la case 0, 0.
+	# Les blocs posés depuis comptent aussi : on réapparaît dessus, sans chevauchement.
 	var top := 0
 	for cell: Vector3i in blocks:
-		if cell.x == 0 and cell.z == 8:
+		if cell.x == 0 and cell.z == 0:
 			top = maxi(top, cell.y + 1)
-	return Vector3(0.5, top + 2.0, 8.5)
+	return Vector3(0.5, top + 0.01, 0.5)
 
+# Coordonnées affichées : case des pieds ; Y = 1 debout sur le sol plat (0.0.3.14).
+func player_coordinates() -> Vector3i:
+	var feet: Vector3 = player.position
+	return Vector3i(floori(feet.x), floori(feet.y + 0.001) + 1, floori(feet.z))
+
+# Blocs de démonstration, décalés d'une case vers -Z en 0.0.3.14 pour libérer l'apparition en 0, 0.
 func _create_blocks() -> void:
 	for x in range(-4, 5):
-		for z in range(-5, 1):
+		for z in range(-6, 0):
 			add_block(Vector3i(x, 0, z), 0 if (x + z) % 2 == 0 else 1)
 	for x in range(-4, 0):
 		for y in range(1, 3):
-			add_block(Vector3i(x, y, -5), 0)
+			add_block(Vector3i(x, y, -6), 0)
 	for y in range(1, 4):
-		add_block(Vector3i(4, y, -4), 1)
+		add_block(Vector3i(4, y, -5), 1)
 	for x in range(1, 4):
 		for y in range(x):
 			add_block(Vector3i(x, y, 2), 1)
@@ -245,6 +253,32 @@ func _create_hud() -> void:
 	hint.add_theme_color_override("font_shadow_color", Color.BLACK)
 	hint.add_theme_constant_override("shadow_outline_size", 4)
 	layer.add_child(hint)
+	# Coordonnées (0.0.3.14) : en haut à droite, sous les rappels F1 à F3, si activées dans Vidéo.
+	coordinates_label = Label.new()
+	coordinates_label.name = "Coordinates"
+	coordinates_label.set_anchors_and_offsets_preset(Control.PRESET_TOP_RIGHT)
+	coordinates_label.offset_left = -280
+	coordinates_label.offset_right = -18
+	coordinates_label.offset_top = 18 + roundi(80 * text_scale)
+	coordinates_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	coordinates_label.add_theme_font_size_override("font_size", roundi(16 * text_scale))
+	coordinates_label.add_theme_color_override("font_shadow_color", Color.BLACK)
+	coordinates_label.add_theme_constant_override("shadow_outline_size", 3)
+	coordinates_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	coordinates_label.visible = false
+	layer.add_child(coordinates_label)
+
+func set_coordinates_visible(on: bool) -> void:
+	coordinates_label.visible = on
+	_update_coordinates()
+
+func coordinates_text() -> String:
+	var at := player_coordinates()
+	return "X %d · Y %d · Z %d" % [at.x, at.y, at.z]
+
+func _update_coordinates() -> void:
+	if is_instance_valid(coordinates_label) and coordinates_label.visible and is_instance_valid(player):
+		coordinates_label.text = coordinates_text()
 
 # Taille du texte changée en pause (Paramètres, 0.0.3.9) : textes du jeu mis à jour aussitôt.
 func apply_text_scale(scale: float) -> void:
@@ -252,6 +286,8 @@ func apply_text_scale(scale: float) -> void:
 	if is_instance_valid(selected_block_label):
 		selected_block_label.add_theme_font_size_override("font_size", roundi(18 * text_scale))
 		hint.add_theme_font_size_override("font_size", roundi(19 * text_scale))
+		coordinates_label.add_theme_font_size_override("font_size", roundi(16 * text_scale))
+		coordinates_label.offset_top = 18 + roundi(80 * text_scale)
 
 func update_selected_block() -> void:
 	if is_instance_valid(selected_block_label) and is_instance_valid(player):
@@ -271,6 +307,7 @@ func _process(delta: float) -> void:
 	if selection.visible:
 		selection.global_position = hit.collider.global_position
 	hint.text = notice if notice_time > 0.0 else ""
+	_update_coordinates()
 
 # level : 0 = −, 1 = Par défaut, 2 = + (textes complets d'avant 0.0.3.3), selon Synthèse des textes.
 static func get_help_text(level: int = 2) -> String:
@@ -304,6 +341,11 @@ Nom, graine et mode conservés ; constructions réinitialisées en quittant le m
 Touches modifiables (clavier, clics, molette) : Paramètres → Contrôles, aussi depuis la pause." % [int(PlayerScript.REACH), MAX_BLOCKS, MAX_BUILD_HEIGHT]
 
 func get_world_info_text(level: int = 2) -> String:
+	# Position du joueur (0.0.3.14), en tête, à tous les niveaux de détail.
+	return "Votre position actuelle : %s
+%s" % [coordinates_text(), _world_info_body(level)]
+
+func _world_info_body(level: int) -> String:
 	var span := TerrainGenerator.MAX_CELL - TerrainGenerator.MIN_CELL + 1
 	if level == 0:
 		return "Monde : %s · Graine : %d

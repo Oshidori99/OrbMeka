@@ -3,6 +3,10 @@ Du plus récent au plus ancien. Ce fichier est mis à jour à chaque version.
 
 === Thème « Contrôles et Paramètres » (0.0.3 et suivantes) ===
 
+0.0.3.14 — Coordonnées
+Apparition en X 0, Y 1, Z 0 ; Vidéo : afficher les coordonnées en haut à droite.
+Informations du monde : votre position actuelle.
+
 0.0.3.13 — Portées de casse et de pose
 Attributs → Blocs : portée de casse et portée de pose réglables (1 à 20 blocs, 5 par défaut).
 

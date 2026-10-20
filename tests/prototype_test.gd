@@ -67,9 +67,13 @@ func _run() -> void:
 			spawn_clear = false
 	check(spawn_clear, "spawn capsule does not intersect any block")
 	check(Input.mouse_mode == Input.MOUSE_MODE_VISIBLE, "startup leaves mouse free")
-	check(ProjectSettings.get_setting("application/config/version") == "0.0.3.13", "project version is 0.0.3.13")
+	check(ProjectSettings.get_setting("application/config/version") == "0.0.3.14", "project version is 0.0.3.14")
 	for action in ["move_forward", "move_back", "move_left", "move_right", "jump"]:
 		check(InputMap.has_action(action), "input binding: " + action)
+	# Marche testée dans l'aire dégagée (l'apparition en 0, 0 fait face aux blocs de démonstration).
+	player.position = Vector3(0.5, 0.02, 8.5)
+	player.velocity = Vector3.ZERO
+	await frames(10)
 	var start := player.position
 	await move_steps(player, 30, Vector2(0, -1))
 	check(player.position.z < start.z - 2.0, "shared movement step walks forward")
@@ -186,10 +190,10 @@ func _run() -> void:
 	player.position = Vector3(30.5, 0.02, 30.5)
 	player.velocity = Vector3.ZERO
 	player.set_physics_process(true)
-	world.add_block(Vector3i(0, 0, 8), world.DIRT)
+	world.add_block(Vector3i(0, 0, 0), world.DIRT)
 	player.position.y = -11
 	await frames(3)
-	check(player.position.y > 2.5, "fall recovery respawns above newly built blocks")
+	check(player.position.y > 0.99 and absf(player.position.x - 0.5) < 0.01 and absf(player.position.z - 0.5) < 0.01, "fall recovery respawns at 0, 0 on top of newly built blocks")
 	await frames(90)
 	check(player.is_on_floor() and absf(player.position.y - 1.0) < 0.05, "safe respawn lands on construction without overlap")
 	print("RESULT: %d checks, %d failures" % [checks, failures])

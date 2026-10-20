@@ -1,4 +1,4 @@
-# OrbMeka™ — prototype 0.0.3.13
+# OrbMeka™ — prototype 0.0.3.14
 
 Godot 4.7 / GDScript. Formes et couleurs simples, sans assets externes.
 
@@ -806,3 +806,18 @@ Test ajouté : tests/reach_test.gd (casse et pose refusées au-delà de leur
 portée, acceptées en deçà, mondes développeur et par défaut).
 Résultat : 25 tests, 0 échec.
 À tester manuellement : casser et poser loin avec de grandes portées.
+
+## Coordonnées — 0.0.3.14
+- Axes : **X** largeur (est-ouest), **Y** hauteur, **Z** longueur (nord-sud).
+  Coordonnées de la case des pieds ; Y = 1 debout sur le sol plat.
+- Apparition en **X 0, Y 1, Z 0**, au centre de la base. Les blocs de
+  démonstration sont décalés d'une case vers -Z pour libérer ce point.
+  Après une chute, on réapparaît au même endroit, sur les blocs posés s'il y en a.
+- Vidéo → Jeu : **Afficher les coordonnées** (interrupteur, désactivé par
+  défaut) : X · Y · Z en haut à droite, sous les rappels F1 à F3, en direct.
+- Informations du monde (F3) : **Votre position actuelle** en tête.
+
+Test ajouté : tests/coordinates_test.gd (apparition, interrupteur, position
+en haut à droite, suivi du joueur, réapparition, F3). prototype_test adapté.
+Résultat : 26 tests, 0 échec.
+À tester manuellement : lecture des coordonnées en marchant et en sautant.

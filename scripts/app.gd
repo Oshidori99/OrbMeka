@@ -45,7 +45,7 @@ const GENERAL_CATEGORIES := {
 		"Zones": {"keys": ["element_scale"], "help": ["", "Boutons, champs, marges et espaces.", "Taille des boutons, des zones de saisie, des marges et des espaces des menus, sans changer le texte, qui reste toujours dans sa zone."]},
 		"Texte": {"keys": ["text_px"], "help": ["", "Taille des textes.", "Taille de tous les textes, menus et jeu (13 px par défaut ; 18 px : taille d'avant 0.0.3.10)."]},
 		"Apparence": {"keys": ["theme_mode", "menu_depth"], "help": ["", "Couleurs et encadrés des menus.", "Thème de couleurs des menus. Profondeur : contenu dans des encadrés creusés sous le titre."]},
-		"Jeu": {"keys": ["fov"], "help": ["", "Champ de vision en partie.", "Champ de vision de la caméra en partie, en degrés (75° : vue d'origine)."]},
+		"Jeu": {"keys": ["fov", "show_coords"], "help": ["", "Champ de vision et coordonnées en partie.", "Champ de vision de la caméra en partie, en degrés (75° : vue d'origine). Coordonnées : X largeur, Y hauteur (1 sur le sol plat), Z longueur, en haut à droite."]},
 	},
 }
 # Menu latéral de Paramètres : sections dans l'ordre des boutons ; la première s'ouvre par défaut.
@@ -564,6 +564,7 @@ func _apply_to_game() -> void:
 		return
 	active_world.player.apply_settings(settings.world_values(active_world.developer_mode))
 	active_world.apply_text_scale(_text_scale())
+	active_world.set_coordinates_visible(settings.values.show_coords == "on")
 
 func open_pause_settings() -> void:
 	if page != "pause" or not is_instance_valid(active_world):
@@ -690,7 +691,7 @@ func _build_interface() -> void:
 	var home := _page(stack, "OrbMeka™")
 	pages.home = _page_root(home)
 	var version := _text_label()
-	version.text = "v" + str(ProjectSettings.get_setting("application/config/version", "0.0.3.13"))
+	version.text = "v" + str(ProjectSettings.get_setting("application/config/version", "0.0.3.14"))
 	version.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	version.theme_type_variation = "OrbNote"
 	home.add_child(version)
@@ -1247,6 +1248,7 @@ func open_world(id: String) -> void:
 	shortcut_hints.show()
 	# Monde par défaut : réglages ignorés ; monde développeur : réglages globaux.
 	active_world.player.apply_settings(settings.world_values(developer))
+	active_world.set_coordinates_visible(settings.values.show_coords == "on")
 	# Opening from a menu is an explicit request to play immediately.
 	active_world.player.resume_controls()
 
