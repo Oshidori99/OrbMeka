@@ -24,13 +24,23 @@ Depuis PowerShell, à la racine du projet :
 
 Lancer les tests liés au changement ; ce qui ne peut être vérifié qu'en jouant (aspect, souris) est signalé comme « à tester manuellement ».
 
+## Branches et builds
+- `dev` : travail en cours. `main` : seulement les versions validées.
+- Un tag `vX.Y.Z` lance .github/workflows/build.yml : exports Windows et Web (export_presets.cfg),
+  Release GitHub (OrbMeka-X.Y.Z-windows.zip, OrbMeka-X.Y.Z-web.zip), puis itch.io si les secrets
+  BUTLER_API_KEY et ITCH_TARGET existent. Reconstruire un ancien tag : Actions > Build > Run workflow.
+- Ne jamais lire, afficher ni demander la clé itch.io : l'utilisateur la met lui-même dans les Secrets.
+
 ## Nouvelle version
+0. Travailler et committer sur `dev`.
 1. Numéro dans project.godot (config/version) et en tête de docs/README.md et README.md.
    Mettre à jour la vitrine de l'accueil (section VITRINE de scripts/menu_showcase.gd).
 2. Entrée en haut de docs/HISTORIQUE.txt : « X.Y.Z — Titre » + 1 à 2 lignes courtes.
 3. Section dans docs/README.md : ce qui change, tests réussis, ce qui reste à tester.
 4. Item dans le GitHub Project https://github.com/users/Oshidori99/projects/10 (Done une fois fini).
-5. Commit puis push sur Oshidori99/OrbMeka (main).
+5. Commit sur `dev`, puis fusionner dans `main` (`git checkout main`, `git merge dev`),
+   créer le tag (`git tag vX.Y.Z`), pousser (`git push origin main dev vX.Y.Z`), revenir sur `dev`.
+   Vérifier que l'Action Build est verte et que la Release existe.
 6. Archive : copie du dossier du jeu (sans .git/ ni Archives/) dans « Archives/orb-meka X.Y.Z ». Ne jamais écraser une archive existante.
 
 gh CLI : "C:\Program Files\GitHub CLI\gh.exe" (connecté en Oshidori99).

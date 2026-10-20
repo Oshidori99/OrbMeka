@@ -1,0 +1,126 @@
+# Construit OrbMeka pour Windows et le Web à chaque tag vX.Y.Z,
+# crée la Release GitHub puis publie le Web sur itch.io (si les secrets existent).
+# Lancement manuel (onglet Actions) : reconstruit un ancien tag.
+name: Build
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Tag à construire (ex. v0.0.3)"
+        required: true
+      itch:
+        description: "Publier aussi sur itch.io"
+        type: boolean
+        default: false
+
+permissions:
+  contents: write
+
+concurrency:
+  group: build-${{ inputs.tag || github.ref_name }}
+
+env:
+  GODOT_VERSION: "4.7.2"
+  # Sommes officielles : SHA512-SUMS.txt de godotengine/godot 4.7.2-stable.
+  GODOT_SHA512: "9aa00f7a605200940bce3027a567b782f49bd8e940dd06ae9e987bd65aee1b1467edd56ed84fcdcbdd44354bf613bdbb4e5d2913e925850368e150c59ed54c65"
+  TEMPLATES_SHA512: "ca4d71c4d7b81dfc15d1a98baa07534aa95b03fdda78a0075b06672e1648d2e5f40980c9adc28d23e1b92e732ee7bf3461997aa804af74ec2fcd7a93ccb84079"
+  BUTLER_VERSION: "15.32.0"
+  BUTLER_SHA256: "2335971394ef6596f95ded0833e85ee28755e13761716ef4c91d6b11f69162f5"
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    env:
+      TAG: ${{ inputs.tag || github.ref_name }}
+      GH_TOKEN: ${{ github.token }}
+      BUTLER_API_KEY: ${{ secrets.BUTLER_API_KEY }}
+      ITCH_TARGET: ${{ secrets.ITCH_TARGET }}
+    steps:
+      - name: Outils CI (presets d'export par défaut)
+        uses: actions/checkout@v7
+        with:
+          path: ci
+
+      - name: Code du jeu au tag
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ env.TAG }}
+          path: game
+
+      - name: Version
+        run: |
+          VERSION="${TAG#v}"
+          echo "VERSION=$VERSION" >> "$GITHUB_ENV"
+          # Les anciennes versions n'ont pas de presets : on prend ceux de la CI.
+          if [ ! -f game/export_presets.cfg ]; then cp ci/export_presets.cfg game/; fi
+
+      - name: Cache Godot
+        id: cache
+        uses: actions/cache@v6
+        with:
+          path: |
+            ~/godot
+            ~/.local/share/godot/export_templates
+          key: godot-${{ env.GODOT_VERSION }}-${{ env.TEMPLATES_SHA512 }}
+
+      - name: Installer Godot et les templates officiels
+        if: steps.cache.outputs.cache-hit != 'true'
+        run: |
+          BASE="https://github.com/godotengine/godot/releases/download/${GODOT_VERSION}-stable"
+          curl -fsSL -o godot.zip "$BASE/Godot_v${GODOT_VERSION}-stable_linux.x86_64.zip"
+          curl -fsSL -o templates.tpz "$BASE/Godot_v${GODOT_VERSION}-stable_export_templates.tpz"
+          echo "$GODOT_SHA512  godot.zip" | sha512sum -c -
+          echo "$TEMPLATES_SHA512  templates.tpz" | sha512sum -c -
+          mkdir -p ~/godot
+          unzip -q godot.zip -d ~/godot
+          mv ~/godot/Godot_v${GODOT_VERSION}-stable_linux.x86_64 ~/godot/godot
+          DEST=~/.local/share/godot/export_templates/${GODOT_VERSION}.stable
+          mkdir -p "$DEST"
+          unzip -q -j templates.tpz \
+            templates/version.txt \
+            templates/windows_release_x86_64.exe \
+            templates/web_nothreads_release.zip \
+            -d "$DEST"
+          rm godot.zip templates.tpz
+
+      - name: Exporter Windows et Web
+        run: |
+          GODOT=~/godot/godot
+          mkdir -p out/windows out/web
+          $GODOT --headless --path game --import || true
+          $GODOT --headless --path game --export-release "Windows Desktop" "$PWD/out/windows/OrbMeka.exe"
+          $GODOT --headless --path game --export-release "Web" "$PWD/out/web/index.html"
+          test -s out/windows/OrbMeka.exe
+          test -s out/web/index.html
+          (cd out/windows && zip -q "../OrbMeka-$VERSION-windows.zip" OrbMeka.exe)
+          (cd out/web && zip -q -r "../OrbMeka-$VERSION-web.zip" .)
+          ls -l out
+
+      - name: Release GitHub
+        run: |
+          # « Latest » seulement pour la version la plus récente.
+          NEWEST=$(git -C ci ls-remote --tags origin 'v*' | sed 's#.*refs/tags/##; s#\^{}##' | sort -uV | tail -n1)
+          LATEST=false; [ "$NEWEST" = "$TAG" ] && LATEST=true
+          if ! gh release view "$TAG" -R "$GITHUB_REPOSITORY" > /dev/null 2>&1; then
+            gh release create "$TAG" -R "$GITHUB_REPOSITORY" --verify-tag \
+              --title "OrbMeka $VERSION" \
+              --notes "$(git -C game log -1 --format=%s)" \
+              --latest=$LATEST
+          fi
+          gh release upload "$TAG" -R "$GITHUB_REPOSITORY" --clobber \
+            "out/OrbMeka-$VERSION-windows.zip" "out/OrbMeka-$VERSION-web.zip"
+
+      - name: Publier sur itch.io
+        if: env.BUTLER_API_KEY != '' && env.ITCH_TARGET != '' && (github.event_name == 'push' || inputs.itch)
+        run: |
+          curl -fsSL -o butler.zip "https://broth.itch.zone/butler/linux-amd64/${BUTLER_VERSION}/archive/default"
+          echo "$BUTLER_SHA256  butler.zip" | sha256sum -c -
+          mkdir -p ~/butler && unzip -q butler.zip -d ~/butler && chmod +x ~/butler/butler
+          ~/butler/butler push out/web "$ITCH_TARGET" --userversion "$VERSION"
+
+      - name: itch.io sauté
+        if: env.BUTLER_API_KEY == '' || env.ITCH_TARGET == ''
+        run: echo "Secrets BUTLER_API_KEY / ITCH_TARGET absents : publication itch.io sautée."

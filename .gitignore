@@ -4,3 +4,6 @@
 
 # Archives locales des versions précédentes
 Archives/
+
+# Exports locaux
+build/
