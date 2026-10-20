@@ -14,7 +14,7 @@ const CHARACTERS := {
 	# 0.0.3.20 : Brioche, chat « mochi » blanc couché, création originale d'OrbMeka :
 	# yeux noirs brillants, joues pêche sous les yeux, bouche en « ㅅ », oreilles lavande,
 	# couronne dorée à trois pointes surmontées d'orbes turquoise.
-	"brioche": {"name": "Brioche", "age": "peluche", "height": 0.5, "fur": Color("#fbf8f2"), "shade": Color("#e7e1ee"), "inner": Color("#c9b3e6"), "cheeks": Color("#ffc9a8"), "eyes": Color("#241a2c"), "crown": Color("#f1c75b"), "crown_dark": Color("#c99a2e"), "orbs": Color("#7fd6c8"), "lying": true},
+	"brioche": {"name": "Brioche", "age": "peluche", "height": 0.5, "fur": Color("#fbf8f2"), "shade": Color("#e7e1ee"), "inner": Color("#c9b3e6"), "cheeks": Color("#ffc9a8"), "eyes": Color("#241a2c"), "crown": Color("#f1c75b"), "crown_dark": Color("#c99a2e"), "orbs": Color("#7fd6c8"), "back": Color("#ebe7f0"), "outline": Color("#c9c1d6"), "lying": true},
 }
 
 var character := "boy":
@@ -94,6 +94,19 @@ func _draw_cat(data: Dictionary) -> void:
 	draw_arc(nose + Vector2(-head_radius * 0.06, head_radius * 0.07), head_radius * 0.06, 0.0, PI, 10, data.eyes, width, true)
 	draw_arc(nose + Vector2(head_radius * 0.06, head_radius * 0.07), head_radius * 0.06, 0.0, PI, 10, data.eyes, width, true)
 
+# Oreille arrondie : courbe de la base intérieure à la base extérieure en passant près du sommet ;
+# grow > 1 l'agrandit autour de son centre (contour).
+func _round_ear(inner_base: Vector2, top: Vector2, outer_base: Vector2, grow: float) -> PackedVector2Array:
+	var centre := (inner_base + top + outer_base) / 3.0
+	var a := centre + (inner_base - centre) * grow
+	var b := centre + (top - centre) * grow
+	var c := centre + (outer_base - centre) * grow
+	var points := PackedVector2Array()
+	for index in range(17):
+		var t := index / 16.0
+		points.append(a * (1.0 - t) * (1.0 - t) + b * 2.0 * (1.0 - t) * t + c * t * t)
+	return points
+
 # Brioche (0.0.3.20) : chat blanc couché vu de face, corps qui part vers l'arrière, couronne.
 func _draw_brioche(data: Dictionary) -> void:
 	var u: float = minf(size.x * 1.15, size.y * 1.6) * 0.95
@@ -101,33 +114,38 @@ func _draw_brioche(data: Dictionary) -> void:
 	var ground := size.y * 0.95
 	var head := Vector2(cx, ground - u * 0.21)
 	var radii := Vector2(u * 0.38, u * 0.21)
-	# Dos rond juste derrière la tête et petite queue en boucle.
-	var back := head + Vector2(u * 0.04, -radii.y * 0.95)
-	_ellipse(back, Vector2(u * 0.2, u * 0.1), data.shade)
-	_ellipse(back + Vector2(0, u * 0.01), Vector2(u * 0.19, u * 0.09), data.fur)
-	# Petite queue qui dépasse sur le côté droit, bout arrondi.
+	# Contour gris clair : la forme de Brioche se lit bien, même sur fond clair (0.0.3.21).
+	var outline: Color = data.outline
+	# Dos rond derrière la tête, un peu plus gris pour bien voir sa forme.
+	var back := head + Vector2(u * 0.06, -radii.y * 1.0)
+	var back_radii := Vector2(u * 0.27, u * 0.15)
+	_ellipse(back, back_radii + Vector2(u * 0.012, u * 0.012), outline)
+	_ellipse(back, back_radii, data.back)
+	_ellipse(back + Vector2(-u * 0.06, -u * 0.05), Vector2(u * 0.1, u * 0.03), Color(1, 1, 1, 0.7))
+	# Petite queue qui dépasse sur le côté droit, bout arrondi, contour gris.
 	var tail := PackedVector2Array()
 	for index in range(12):
 		var t := index / 11.0
 		tail.append(head + Vector2(radii.x * 0.8 + u * 0.16 * t, -radii.y * 0.1 - u * 0.11 * sin(t * PI * 0.6)))
-	draw_polyline(tail, data.shade, u * 0.062, true)
-	draw_polyline(tail, data.fur, u * 0.05, true)
-	draw_circle(tail[tail.size() - 1], u * 0.025, data.fur)
-	# Oreilles de chat : larges, intérieur lavande.
+	draw_polyline(tail, outline, u * 0.074, true)
+	draw_circle(tail[tail.size() - 1], u * 0.031, outline)
+	draw_polyline(tail, data.back, u * 0.05, true)
+	draw_circle(tail[tail.size() - 1], u * 0.025, data.back)
+	# Oreilles de chat arrondies (courbe douce, plus de pointe), intérieur lavande.
 	var ears: Array = []
 	for side in [-1.0, 1.0]:
-		var inner_base := head + Vector2(side * radii.x * 0.28, -radii.y * 0.9)
-		var outer_base := head + Vector2(side * radii.x * 0.92, -radii.y * 0.45)
-		var tip := head + Vector2(side * radii.x * 0.78, -radii.y * 1.55)
-		var ear := PackedVector2Array([inner_base, tip, outer_base])
-		ears.append(ear)
-		draw_colored_polygon(ear, data.fur)
-	# Tête « mochi » : large, douce, ombre lavande dessous, reflet clair dessus.
-	_ellipse(head + Vector2(0, u * 0.022), radii, data.shade)
+		var inner_base := head + Vector2(side * radii.x * 0.25, -radii.y * 0.88)
+		var outer_base := head + Vector2(side * radii.x * 0.95, -radii.y * 0.4)
+		var top := head + Vector2(side * radii.x * 0.78, -radii.y * 1.75)
+		ears.append([inner_base, top, outer_base])
+		draw_colored_polygon(_round_ear(inner_base, top, outer_base, 1.12), outline)
+		draw_colored_polygon(_round_ear(inner_base, top, outer_base, 1.0), data.fur)
+	# Tête « mochi » : large, douce, contour gris clair, reflet clair dessus.
+	_ellipse(head + Vector2(0, u * 0.022), radii + Vector2(u * 0.012, u * 0.012), outline)
 	_ellipse(head, radii, data.fur)
 	for ear in ears:
 		var centre: Vector2 = (ear[0] + ear[1] + ear[2]) / 3.0
-		draw_colored_polygon(PackedVector2Array([ear[0].lerp(centre, 0.55), ear[1].lerp(centre, 0.42), ear[2].lerp(centre, 0.55)]), data.inner)
+		draw_colored_polygon(_round_ear(ear[0].lerp(centre, 0.45), ear[1].lerp(centre, 0.4), ear[2].lerp(centre, 0.45), 1.0), data.inner)
 	_ellipse(head + Vector2(-radii.x * 0.35, -radii.y * 0.55), Vector2(u * 0.09, u * 0.03), Color(1, 1, 1, 0.9))
 	# Petites pattes avant.
 	for side in [-1.0, 1.0]:

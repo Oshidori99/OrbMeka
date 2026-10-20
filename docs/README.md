@@ -1,4 +1,4 @@
-# OrbMeka™ — prototype 0.0.3.20
+# OrbMeka™ — prototype 0.0.3.21
 
 Godot 4.7 / GDScript. Formes et couleurs simples, sans assets externes.
 
@@ -897,4 +897,14 @@ Résultat : 30 tests, 0 échec.
 
 Test mis à jour : character_test (six personnages, choix de Brioche).
 Résultat : 30 tests, 0 échec.
+À tester manuellement : aspect de Brioche dans les trois thèmes.
+
+## Brioche retouché — 0.0.3.21
+- Oreilles **arrondies** (plus de pointe), intérieur lavande.
+- Dos et queue **bien visibles** : gris très clair et fin contour gris
+  autour du chat, lisible sur fond sombre comme sur fond clair.
+- La version précédente reste archivée : Archives/orb-meka 0.0.3.20 et
+  docs/idees/brioche-0.0.3.20.png. Nouvel aperçu : docs/idees/brioche-0.0.3.21.png.
+
+Tests : 30 tests, 0 échec (dessin seulement).
 À tester manuellement : aspect de Brioche dans les trois thèmes.

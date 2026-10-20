@@ -3,6 +3,9 @@ Du plus récent au plus ancien. Ce fichier est mis à jour à chaque version.
 
 === Thème « Contrôles et Paramètres » (0.0.3 et suivantes) ===
 
+0.0.3.21 — Brioche retouché
+Oreilles arrondies, dos et queue plus visibles grâce au gris clair et à un fin contour.
+
 0.0.3.20 — Brioche, chat mochi
 Paramètres → Personnage : Brioche, chat mochi blanc couché et couronné, création originale.
 
