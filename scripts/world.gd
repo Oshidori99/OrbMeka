@@ -147,15 +147,16 @@ func add_block(cell: Vector3i, kind: int) -> bool:
 	blocks[cell] = block
 	return true
 
-func _valid_hit(hit: Dictionary) -> bool:
+# reach : portée de l'action (casse ou pose), réglable dans Attributs → Blocs.
+func _valid_hit(hit: Dictionary, reach: float) -> bool:
 	if hit.is_empty() or not is_instance_valid(hit.get("collider")):
 		return false
-	if player.camera.global_position.distance_to(hit.position) > player.REACH + 0.01:
+	if player.camera.global_position.distance_to(hit.position) > reach + 0.01:
 		return false
 	return hit.collider.is_in_group("blocks") or hit.collider.is_in_group("ground")
 
 func break_target(hit: Dictionary) -> bool:
-	if not _valid_hit(hit):
+	if not _valid_hit(hit, player.break_reach):
 		return false
 	var collider: Node = hit.collider
 	if not collider.is_in_group("blocks"):
@@ -168,7 +169,7 @@ func break_target(hit: Dictionary) -> bool:
 	return true
 
 func place_target(hit: Dictionary, kind: int) -> bool:
-	if not _valid_hit(hit):
+	if not _valid_hit(hit, player.place_reach):
 		return false
 	var point: Vector3 = hit.position + hit.normal * 0.02
 	var cell := Vector3i(floori(point.x), floori(point.y), floori(point.z))

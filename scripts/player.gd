@@ -9,6 +9,9 @@ const SENSITIVITY := 0.0025
 # Sensibilité réglée (Paramètres généraux → Souris), 100 % = SENSITIVITY.
 var sensitivity := SENSITIVITY
 const REACH := 5.0
+# Portées réglables (Attributs → Blocs, 0.0.3.13) ; REACH reste la portée par défaut.
+var break_reach := REACH
+var place_reach := REACH
 
 var actions := ActionTiming.new()
 var camera: Camera3D
@@ -126,6 +129,8 @@ func apply_settings(values: Dictionary) -> void:
 	walk_forward = values.walk_forward
 	walk_side = values.walk_side
 	walk_back = values.walk_back
+	break_reach = float(values.get("break_reach", REACH))
+	place_reach = float(values.get("place_reach", REACH))
 	sensitivity = SENSITIVITY * float(values.get("mouse_sensitivity", 100.0)) / 100.0
 	# Champ de vision réglé (Vidéo → Jeu), valable dans tous les mondes.
 	camera.fov = float(values.get("fov", 75.0))
@@ -190,7 +195,8 @@ func step_movement(delta: float, direction: Vector2, jump_requested: bool) -> vo
 
 func get_target() -> Dictionary:
 	var origin := camera.global_position
-	var query := PhysicsRayQueryParameters3D.create(origin, origin - camera.global_transform.basis.z * REACH)
+	# Rayon jusqu'à la plus grande portée ; chaque action vérifie ensuite la sienne.
+	var query := PhysicsRayQueryParameters3D.create(origin, origin - camera.global_transform.basis.z * maxf(break_reach, place_reach))
 	query.exclude = [get_rid()]
 	return get_world_3d().direct_space_state.intersect_ray(query)
 

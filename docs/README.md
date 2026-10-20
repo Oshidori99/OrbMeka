@@ -1,4 +1,4 @@
-# OrbMeka™ — prototype 0.0.3.12
+# OrbMeka™ — prototype 0.0.3.13
 
 Godot 4.7 / GDScript. Formes et couleurs simples, sans assets externes.
 
@@ -794,3 +794,15 @@ sortie de Paramètres), pause_settings_test. Résultat : 23 tests, 0 échec.
 Test ajouté : tests/controls_test.gd (onglet, choix clavier et souris, Échap,
 touches réservées, ↻, fichier, en pause). Résultat : 24 tests, 0 échec.
 À tester manuellement : jouer avec des touches changées (clavier et souris).
+
+## Portées de casse et de pose — 0.0.3.13
+- Attributs → Blocs : **Portée de casse** et **Portée de pose**, de 1 à
+  20 blocs (5 par défaut, comme avant). Distance maximale à laquelle on peut
+  casser, et à laquelle on peut poser. La visée va jusqu'à la plus grande.
+- Comme les autres attributs : réglables en mode développeur ; un monde par
+  défaut garde 5 blocs.
+
+Test ajouté : tests/reach_test.gd (casse et pose refusées au-delà de leur
+portée, acceptées en deçà, mondes développeur et par défaut).
+Résultat : 25 tests, 0 échec.
+À tester manuellement : casser et poser loin avec de grandes portées.

@@ -30,7 +30,7 @@ const ATTRIBUTE_CATEGORIES := {
 	"Saut": {"keys": ["jump_height", "jump_speed", "fall_gravity"], "help": ["", "Hauteur, vitesse de montée et retombée du saut.", "Hauteur : sommet visé (1 m = 1 bloc).
 Vitesse : départ plus vif ou plus doux ; hauteur conservée.
 Gravité de descente : retombée plus ou moins rapide."]},
-	"Blocs": {"keys": ["place_ms", "break_ms"], "help": ["", "Temps entre deux actions au maintien du clic.", "Temps entre deux actions au maintien du clic.
+	"Blocs": {"keys": ["place_ms", "break_ms", "break_reach", "place_reach"], "help": ["", "Rythme et portée de la casse et de la pose.", "Temps entre deux actions au maintien du clic, et distance maximale (en blocs) pour casser et pour poser.
 Première action immédiate ; un délai plus court accélère la répétition."]},
 	"Marche": {"keys": ["walk_forward", "walk_side", "walk_back"], "help": ["", "Vitesse au sol par direction.", "Vitesse au sol dans chaque direction (1 bloc = 1 m)."]},
 }
@@ -690,7 +690,7 @@ func _build_interface() -> void:
 	var home := _page(stack, "OrbMeka™")
 	pages.home = _page_root(home)
 	var version := _text_label()
-	version.text = "v" + str(ProjectSettings.get_setting("application/config/version", "0.0.3.12"))
+	version.text = "v" + str(ProjectSettings.get_setting("application/config/version", "0.0.3.13"))
 	version.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	version.theme_type_variation = "OrbNote"
 	home.add_child(version)
