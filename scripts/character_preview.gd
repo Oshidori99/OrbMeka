@@ -11,6 +11,10 @@ const CHARACTERS := {
 	# 0.0.3.19 : chat original façon peluche (création OrbMeka, ne copie aucune peluche existante) :
 	# grosse tête ronde, petit corps assis, joues roses, foulard violet de l'Orbe.
 	"cat": {"name": "Chat", "age": "peluche", "height": 0.62, "fur": Color("#f3d9b1"), "belly": Color("#fbeedb"), "stripes": Color("#d9a46a"), "pink": Color("#f4a6b8"), "eyes": Color("#2b1d2e"), "scarf": Color("#9b6fd1"), "plush": true},
+	# 0.0.3.20 : Brioche, chat « mochi » blanc couché, création originale d'OrbMeka :
+	# yeux noirs brillants, joues pêche sous les yeux, bouche en « ㅅ », oreilles lavande,
+	# couronne dorée à trois pointes surmontées d'orbes turquoise.
+	"brioche": {"name": "Brioche", "age": "peluche", "height": 0.5, "fur": Color("#fbf8f2"), "shade": Color("#e7e1ee"), "inner": Color("#c9b3e6"), "cheeks": Color("#ffc9a8"), "eyes": Color("#241a2c"), "crown": Color("#f1c75b"), "crown_dark": Color("#c99a2e"), "orbs": Color("#7fd6c8"), "lying": true},
 }
 
 var character := "boy":
@@ -90,8 +94,97 @@ func _draw_cat(data: Dictionary) -> void:
 	draw_arc(nose + Vector2(-head_radius * 0.06, head_radius * 0.07), head_radius * 0.06, 0.0, PI, 10, data.eyes, width, true)
 	draw_arc(nose + Vector2(head_radius * 0.06, head_radius * 0.07), head_radius * 0.06, 0.0, PI, 10, data.eyes, width, true)
 
+# Brioche (0.0.3.20) : chat blanc couché vu de face, corps qui part vers l'arrière, couronne.
+func _draw_brioche(data: Dictionary) -> void:
+	var u: float = minf(size.x * 1.15, size.y * 1.6) * 0.95
+	var cx := size.x * 0.5
+	var ground := size.y * 0.95
+	var head := Vector2(cx, ground - u * 0.21)
+	var radii := Vector2(u * 0.38, u * 0.21)
+	# Dos rond juste derrière la tête et petite queue en boucle.
+	var back := head + Vector2(u * 0.04, -radii.y * 0.95)
+	_ellipse(back, Vector2(u * 0.2, u * 0.1), data.shade)
+	_ellipse(back + Vector2(0, u * 0.01), Vector2(u * 0.19, u * 0.09), data.fur)
+	# Petite queue qui dépasse sur le côté droit, bout arrondi.
+	var tail := PackedVector2Array()
+	for index in range(12):
+		var t := index / 11.0
+		tail.append(head + Vector2(radii.x * 0.8 + u * 0.16 * t, -radii.y * 0.1 - u * 0.11 * sin(t * PI * 0.6)))
+	draw_polyline(tail, data.shade, u * 0.062, true)
+	draw_polyline(tail, data.fur, u * 0.05, true)
+	draw_circle(tail[tail.size() - 1], u * 0.025, data.fur)
+	# Oreilles de chat : larges, intérieur lavande.
+	var ears: Array = []
+	for side in [-1.0, 1.0]:
+		var inner_base := head + Vector2(side * radii.x * 0.28, -radii.y * 0.9)
+		var outer_base := head + Vector2(side * radii.x * 0.92, -radii.y * 0.45)
+		var tip := head + Vector2(side * radii.x * 0.78, -radii.y * 1.55)
+		var ear := PackedVector2Array([inner_base, tip, outer_base])
+		ears.append(ear)
+		draw_colored_polygon(ear, data.fur)
+	# Tête « mochi » : large, douce, ombre lavande dessous, reflet clair dessus.
+	_ellipse(head + Vector2(0, u * 0.022), radii, data.shade)
+	_ellipse(head, radii, data.fur)
+	for ear in ears:
+		var centre: Vector2 = (ear[0] + ear[1] + ear[2]) / 3.0
+		draw_colored_polygon(PackedVector2Array([ear[0].lerp(centre, 0.55), ear[1].lerp(centre, 0.42), ear[2].lerp(centre, 0.55)]), data.inner)
+	_ellipse(head + Vector2(-radii.x * 0.35, -radii.y * 0.55), Vector2(u * 0.09, u * 0.03), Color(1, 1, 1, 0.9))
+	# Petites pattes avant.
+	for side in [-1.0, 1.0]:
+		var paw := head + Vector2(side * radii.x * 0.42, radii.y * 0.9)
+		_ellipse(paw, Vector2(u * 0.065, u * 0.035), data.fur)
+		draw_line(paw + Vector2(-u * 0.012, -u * 0.01), paw + Vector2(-u * 0.012, u * 0.015), data.shade, maxf(1.0, u * 0.006))
+		draw_line(paw + Vector2(u * 0.012, -u * 0.01), paw + Vector2(u * 0.012, u * 0.015), data.shade, maxf(1.0, u * 0.006))
+	# Visage bas et rapproché (proportions de bébé) : grands yeux brillants.
+	var face := head + Vector2(0, radii.y * 0.18)
+	for side in [-1.0, 1.0]:
+		var eye := face + Vector2(side * u * 0.1, 0)
+		_ellipse(eye, Vector2(u * 0.042, u * 0.055), data.eyes)
+		draw_circle(eye + Vector2(-u * 0.013, -u * 0.02), u * 0.017, Color.WHITE)
+		draw_circle(eye + Vector2(u * 0.014, u * 0.02), u * 0.008, Color(1, 1, 1, 0.9))
+		# Joues pêche avec trois petits traits.
+		var cheek := eye + Vector2(side * u * 0.075, u * 0.06)
+		_ellipse(cheek, Vector2(u * 0.045, u * 0.024), Color(data.cheeks, 0.9))
+		for stroke in [-1.0, 0.0, 1.0]:
+			var start := cheek + Vector2(stroke * u * 0.016 - u * 0.004, -u * 0.009)
+			draw_line(start, start + Vector2(u * 0.008, u * 0.016), Color("#f08f78"), maxf(1.0, u * 0.005), true)
+	# Petit nez rose en cœur et sourire avec langue.
+	var nose := face + Vector2(0, u * 0.045)
+	draw_circle(nose + Vector2(-u * 0.008, 0), u * 0.009, Color("#f4a3b5"))
+	draw_circle(nose + Vector2(u * 0.008, 0), u * 0.009, Color("#f4a3b5"))
+	draw_colored_polygon(PackedVector2Array([nose + Vector2(-u * 0.016, u * 0.002), nose + Vector2(u * 0.016, u * 0.002), nose + Vector2(0, u * 0.018)]), Color("#f4a3b5"))
+	var smile := nose + Vector2(0, u * 0.03)
+	_ellipse(smile + Vector2(0, u * 0.006), Vector2(u * 0.012, u * 0.01), Color("#f27d8f"))
+	draw_arc(smile, u * 0.018, PI * 0.1, PI * 0.9, 12, data.eyes, maxf(1.0, u * 0.007), true)
+	# Couronne dorée inclinée sur le haut de la tête : pointes, orbes turquoise, bandeau.
+	var crown := head + Vector2(-radii.x * 0.18, -radii.y * 0.78)
+	var w := u * 0.17
+	var h := u * 0.085
+	var tilt := -0.22
+	var shape := [Vector2(-0.5, 0), Vector2(-0.5, -1), Vector2(-0.25, -0.55), Vector2(0, -1.2), Vector2(0.25, -0.55), Vector2(0.5, -1), Vector2(0.5, 0)]
+	var points := PackedVector2Array()
+	for p in shape:
+		points.append(crown + Vector2(p.x * w, p.y * h).rotated(tilt))
+	draw_colored_polygon(points, data.crown)
+	var band := PackedVector2Array()
+	for p in [Vector2(-0.56, 0.12), Vector2(-0.56, -0.25), Vector2(0.56, -0.25), Vector2(0.56, 0.12)]:
+		band.append(crown + Vector2(p.x * w, p.y * h).rotated(tilt))
+	draw_colored_polygon(band, data.crown_dark)
+	for index in [1, 3, 5]:
+		draw_circle(points[index], u * 0.016, data.orbs)
+	draw_circle(crown + Vector2(0, -h * 0.07).rotated(tilt), u * 0.014, data.orbs)
+	# Petites étincelles autour.
+	for spark in [Vector2(-0.48, -0.55), Vector2(0.5, -0.35), Vector2(0.44, 0.45)]:
+		var at := head + Vector2(spark.x * u, spark.y * u * 0.5)
+		var r := u * 0.022
+		draw_line(at + Vector2(-r, 0), at + Vector2(r, 0), data.orbs, maxf(1.0, u * 0.006), true)
+		draw_line(at + Vector2(0, -r), at + Vector2(0, r), data.orbs, maxf(1.0, u * 0.006), true)
+
 func _draw() -> void:
 	var data: Dictionary = CHARACTERS[character]
+	if data.get("lying", false):
+		_draw_brioche(data)
+		return
 	if data.get("plush", false):
 		_draw_cat(data)
 		return

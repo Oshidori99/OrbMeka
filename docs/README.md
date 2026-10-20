@@ -1,4 +1,4 @@
-# OrbMeka™ — prototype 0.0.3.19
+# OrbMeka™ — prototype 0.0.3.20
 
 Godot 4.7 / GDScript. Formes et couleurs simples, sans assets externes.
 
@@ -885,3 +885,16 @@ Basculer en partie, ↻). Résultat : 30 tests, 0 échec.
 Test mis à jour : character_test (cinq personnages, choix du chat, en partie).
 Résultat : 30 tests, 0 échec.
 À tester manuellement : aspect du chat dans les trois thèmes.
+
+## Brioche, chat mochi — 0.0.3.20
+- Paramètres → Personnage : 6e choix, **Brioche**, chat « mochi » blanc
+  couché, tout mignon : grosse tête douce, grands yeux noirs brillants,
+  joues pêche avec petits traits, nez en cœur, sourire, oreilles lavande,
+  petite queue, et une **couronne dorée** à orbes turquoise, inclinée.
+- Création originale d'OrbMeka, dans l'esprit des peluches mochi, sans
+  reprendre de personnage existant (ni visage, ni couleurs, ni nom).
+- Aperçu de référence : docs/idees/brioche-0.0.3.20.png.
+
+Test mis à jour : character_test (six personnages, choix de Brioche).
+Résultat : 30 tests, 0 échec.
+À tester manuellement : aspect de Brioche dans les trois thèmes.
