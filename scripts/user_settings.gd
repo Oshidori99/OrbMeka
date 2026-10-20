@@ -17,10 +17,12 @@ const SPECS := {
 	"panel_size": {"label": "Taille des panneaux", "unit": "% de la fenêtre", "default": 72.0, "min": 50.0, "max": 95.0},
 	# 0.0.3.8 : largeur du menu de gauche en % de la largeur du panneau (avant : en px, ignorée).
 	"nav_percent": {"label": "Largeur du menu de gauche", "unit": "% du panneau", "default": 15.0, "min": 5.0, "max": 40.0},
-	# Taille du texte en px (0.0.3.3) ; 18 px = taille d'origine ; minimum environ 40 %.
-	"text_px": {"label": "Taille du texte", "unit": "px", "default": 18.0, "min": 7.0, "max": 27.0},
-	# 0.0.3.6 : échelle de tout l'affichage des menus (zoom) et champ de vision en jeu.
-	"ui_scale": {"label": "Échelle des menus", "unit": "%", "default": 100.0, "min": 50.0, "max": 150.0},
+	# Taille du texte en px (0.0.3.3) : taille réelle du texte courant ; 13 px par défaut depuis 0.0.3.10
+	# (18 px avant). Titres, boutons et notes suivent dans la même proportion.
+	"text_px": {"label": "Taille du texte", "unit": "px", "default": 13.0, "min": 7.0, "max": 27.0},
+	# 0.0.3.10 : taille des zones et boutons (marges, espaces, boutons), sans le texte ;
+	# remplace l'échelle totale de 0.0.3.6 (ancien réglage ui_scale ignoré). 0.0.3.6 : FOV en jeu.
+	"element_scale": {"label": "Taille des zones et boutons", "unit": "%", "default": 100.0, "min": 50.0, "max": 150.0},
 	"fov": {"label": "Champ de vision (FOV)", "unit": "°", "default": 75.0, "min": 50.0, "max": 110.0},
 }
 # Réglages à choix (0.0.3.4 ; profondeur 0.0.3.5), affichés en boutons ; options dans l'ordre d'affichage.
@@ -35,6 +37,8 @@ const ATTRIBUTE_KEYS := ["jump_height", "jump_speed", "fall_gravity", "place_ms"
 # (Windows : %APPDATA%\Godot\app_userdata\OrbMeka\). L'ancien settings.json (avant 0.0.3.6)
 # n'est que lu, pour reprendre les réglages, si aucun de ces fichiers n'existe encore.
 const DEFAULT_PATH := "user://settings.json"
+# Taille de référence du texte courant dans le thème : Taille du texte / 18 = facteur des polices.
+const BASE_TEXT_PX := 18.0
 const FILES := {"general": "parametres-generaux.json", "video": "video.json", "attributes": "attributs.json"}
 const GENERAL_KEYS := ["mouse_sensitivity", "text_detail"]
 var values: Dictionary = {}

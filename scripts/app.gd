@@ -41,8 +41,8 @@ const GENERAL_CATEGORIES := {
 	},
 	"video": {
 		"Panneaux": {"keys": ["panel_size", "nav_percent"], "help": ["", "Largeur des menus et de la colonne d'onglets.", "Largeur des menus ; le menu de gauche est la colonne d'onglets."]},
-		"Échelle": {"keys": ["ui_scale"], "help": ["", "Taille de tout le menu.", "Zoom de tout l'affichage des menus : panneaux, textes et boutons ensemble (100 % : taille d'origine)."]},
-		"Texte": {"keys": ["text_px"], "help": ["", "Taille des textes.", "Taille de tous les textes, menus et jeu (18 px : taille d'origine)."]},
+		"Zones": {"keys": ["element_scale"], "help": ["", "Boutons, champs, marges et espaces.", "Taille des boutons, des zones de saisie, des marges et des espaces des menus, sans changer le texte, qui reste toujours dans sa zone."]},
+		"Texte": {"keys": ["text_px"], "help": ["", "Taille des textes.", "Taille de tous les textes, menus et jeu (13 px par défaut ; 18 px : taille d'avant 0.0.3.10)."]},
 		"Apparence": {"keys": ["theme_mode", "menu_depth"], "help": ["", "Couleurs et encadrés des menus.", "Thème de couleurs des menus. Profondeur : contenu dans des encadrés creusés sous le titre."]},
 		"Jeu": {"keys": ["fov"], "help": ["", "Champ de vision en partie.", "Champ de vision de la caméra en partie, en degrés (75° : vue d'origine)."]},
 	},
@@ -62,6 +62,9 @@ var settings_sections: Dictionary = {}
 var settings_section := "general"
 var settings_nav: VBoxContainer
 var font_sizes: Dictionary = {}
+# Tailles et espaces de base des menus, mis à l'échelle par Taille des zones et boutons.
+var scaled_sizes: Dictionary = {}
+var scaled_separations: Dictionary = {}
 # Réglages à choix : boutons par option, et choix en cours (enregistré aussitôt).
 var choice_buttons: Dictionary = {}
 var choice_values: Dictionary = {}
@@ -164,7 +167,7 @@ func _ready() -> void:
 func _button(text: String, parent: Node, action: Callable) -> Button:
 	var button := Button.new()
 	button.text = text
-	button.custom_minimum_size.y = 40
+	_min_size(button, Vector2(0, 40))
 	parent.add_child(button)
 	button.pressed.connect(action)
 	return button
@@ -172,7 +175,7 @@ func _button(text: String, parent: Node, action: Callable) -> Button:
 func _icon_button(icon: String, label: String, parent: Node, action: Callable) -> Button:
 	# Bouton compact à icône ; le nom de l'action reste dans l'infobulle et pour l'accessibilité.
 	var button := _button(icon, parent, action)
-	button.custom_minimum_size.x = 58
+	_min_size(button, Vector2(58, 0))
 	button.tooltip_text = label
 	button.accessibility_name = label
 	_font_size(button, 22)
@@ -196,16 +199,33 @@ func _font_size(control: Control, base: int) -> void:
 	control.add_theme_font_size_override(item, UiTheme.scaled(base, _text_scale()))
 
 func _text_scale() -> float:
-	return settings.values.text_px / UserSettings.SPECS.text_px.default
+	return settings.values.text_px / UserSettings.BASE_TEXT_PX
 
 func _build_theme() -> Theme:
-	return UiTheme.build(_text_scale(), settings.values.theme_mode, settings.values.menu_depth == "on")
+	return UiTheme.build(_text_scale(), settings.values.theme_mode, settings.values.menu_depth == "on", _element_scale())
 
-# Taille du texte, thème et profondeur : appliqués à tous les menus, immédiatement.
+# Taille des zones et boutons (0.0.3.10) : marges, espaces, hauteurs et largeurs minimales,
+# sans changer le texte. Les zones ne descendent jamais sous la taille de leur texte.
+func _element_scale() -> float:
+	return settings.values.element_scale / 100.0
+
+func _min_size(control: Control, base: Vector2) -> void:
+	# Une seule dimension donnée (0 pour l'autre) : l'autre déjà enregistrée est gardée.
+	var previous: Vector2 = scaled_sizes.get(control, Vector2.ZERO)
+	scaled_sizes[control] = Vector2(base.x if base.x > 0.0 else previous.x, base.y if base.y > 0.0 else previous.y)
+	control.custom_minimum_size = scaled_sizes[control] * _element_scale()
+
+func _sep(container: Control, base: int) -> void:
+	scaled_separations[container] = base
+	container.add_theme_constant_override("separation", roundi(base * _element_scale()))
+
+# Taille du texte, thème, profondeur et taille des zones : appliqués à tous les menus, immédiatement.
 func apply_appearance() -> void:
 	menu_root.theme = _build_theme()
-	# Échelle des menus : zoom de tout l'affichage 2D (menus et textes en jeu).
-	get_window().content_scale_factor = settings.values.ui_scale / 100.0
+	for control in scaled_sizes:
+		control.custom_minimum_size = scaled_sizes[control] * _element_scale()
+	for container in scaled_separations:
+		container.add_theme_constant_override("separation", roundi(scaled_separations[container] * _element_scale()))
 	for control in font_sizes:
 		control.add_theme_font_size_override(font_sizes[control][0], UiTheme.scaled(font_sizes[control][1], _text_scale()))
 	var colors := UiTheme.palette(settings.values.theme_mode)
@@ -240,7 +260,7 @@ func _add_setting_row(parent: Node, key: String) -> void:
 		return
 	var spec: Dictionary = UserSettings.SPECS[key]
 	var row := HBoxContainer.new()
-	row.add_theme_constant_override("separation", 10)
+	_sep(row, 10)
 	parent.add_child(row)
 	var label := _text_label()
 	var default_text := UserSettings.number_text(spec.default)
@@ -255,13 +275,13 @@ Défaut : %s · %s à %s" % [spec.label, spec.unit, default_text, UserSettings.n
 	slider.min_value = spec.min
 	slider.max_value = spec.max
 	slider.step = _slider_step(spec)
-	slider.custom_minimum_size.x = SLIDER_WIDTH
+	_min_size(slider, Vector2(SLIDER_WIDTH, 0))
 	slider.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	slider.tooltip_text = "%s — %s à %s %s" % [spec.label, UserSettings.number_text(spec.min), UserSettings.number_text(spec.max), spec.unit]
 	row.add_child(slider)
 	setting_sliders[key] = slider
 	var field := LineEdit.new()
-	field.custom_minimum_size = Vector2(85,46)
+	_min_size(field, Vector2(85, 46))
 	field.max_length = 24
 	field.placeholder_text = UserSettings.number_text(spec.default)
 	field.tooltip_text = slider.tooltip_text
@@ -275,7 +295,7 @@ Défaut : %s · %s à %s" % [spec.label, spec.unit, default_text, UserSettings.n
 		_autosave())
 	setting_fields[key] = field
 	var reset := _button("↻", row, func(): reset_setting(key))
-	reset.custom_minimum_size.x = 42
+	_min_size(reset, Vector2(42, 0))
 	reset.tooltip_text = "Rétablir le défaut de ce champ : " + UserSettings.number_text(spec.default)
 	setting_resets[key] = reset
 
@@ -283,7 +303,7 @@ Défaut : %s · %s à %s" % [spec.label, spec.unit, default_text, UserSettings.n
 func _add_choice_row(parent: Node, key: String) -> void:
 	var spec: Dictionary = UserSettings.CHOICES[key]
 	var row := HBoxContainer.new()
-	row.add_theme_constant_override("separation", 10)
+	_sep(row, 10)
 	parent.add_child(row)
 	var label := _text_label()
 	label.text = spec.label
@@ -306,10 +326,10 @@ func _add_choice_row(parent: Node, key: String) -> void:
 		button.theme_type_variation = "OrbTab"
 		button.toggle_mode = true
 		button.button_group = group
-		button.custom_minimum_size.x = 52
+		_min_size(button, Vector2(52, 0))
 		choice_buttons[key][option] = button
 	var reset := _button("↻", row, func(): reset_setting(key))
-	reset.custom_minimum_size.x = 42
+	_min_size(reset, Vector2(42, 0))
 	reset.tooltip_text = "Rétablir le défaut : " + spec.options[spec.default]
 	setting_resets[key] = reset
 
@@ -347,14 +367,14 @@ func _sync_slider(key: String) -> void:
 func _add_setting_category(parent: Node, category: String, data: Dictionary) -> void:
 	# Espace avant chaque catégorie : titres et ↻ de catégorie bien détachés des champs.
 	var gap := Control.new()
-	gap.custom_minimum_size.y = CATEGORY_GAP
+	_min_size(gap, Vector2(0, CATEGORY_GAP))
 	parent.add_child(gap)
 	# Profondeur : chaque catégorie dans un encadré plus creusé que la page.
 	var inset := PanelContainer.new()
 	inset.theme_type_variation = "OrbInsetDeep"
 	parent.add_child(inset)
 	parent = VBoxContainer.new()
-	parent.add_theme_constant_override("separation", 10)
+	_sep(parent, 10)
 	inset.add_child(parent)
 	var header := HBoxContainer.new()
 	parent.add_child(header)
@@ -362,7 +382,7 @@ func _add_setting_category(parent: Node, category: String, data: Dictionary) -> 
 	header.get_child(-1).theme_type_variation = "OrbSection"
 	header.get_child(-1).size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	var reset := _button("↻", header, func(): reset_category(category))
-	reset.custom_minimum_size.x = 48
+	_min_size(reset, Vector2(48, 0))
 	reset.theme_type_variation = "OrbCategoryReset"
 	reset.tooltip_text = "Rétablir les défauts de la catégorie " + category
 	category_resets[category] = reset
@@ -475,6 +495,10 @@ func _autosave() -> bool:
 	apply_appearance()
 	_apply_to_game()
 	fit_menus_to_window()
+	# Mise en page refaite tout de suite, puis encore une fois une fois les textes repliés,
+	# pour que colonnes et panneau suivent le réglage sans quitter Paramètres.
+	menu_panel.reset_size()
+	fit_menus_to_window.call_deferred()
 	settings_message.text = "Enregistré."
 	return true
 
@@ -492,7 +516,7 @@ func apply_user_settings() -> void:
 # Renvoie le contenu ; la page entière (titre compris) est _page_root(contenu).
 func _page(parent: Node, heading: String) -> VBoxContainer:
 	var root := VBoxContainer.new()
-	root.add_theme_constant_override("separation", 12)
+	_sep(root, 12)
 	parent.add_child(root)
 	var title := _text_label()
 	title.text = heading
@@ -503,7 +527,7 @@ func _page(parent: Node, heading: String) -> VBoxContainer:
 	inset.theme_type_variation = "OrbInset"
 	root.add_child(inset)
 	var box := VBoxContainer.new()
-	box.add_theme_constant_override("separation", 16)
+	_sep(box, 16)
 	inset.add_child(box)
 	box.set_meta("page_root", root)
 	return box
@@ -545,7 +569,7 @@ func _build_interface() -> void:
 	var home := _page(stack, "OrbMeka™")
 	pages.home = _page_root(home)
 	var version := _text_label()
-	version.text = "v" + str(ProjectSettings.get_setting("application/config/version", "0.0.3.9"))
+	version.text = "v" + str(ProjectSettings.get_setting("application/config/version", "0.0.3.10"))
 	version.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	version.theme_type_variation = "OrbNote"
 	home.add_child(version)
@@ -574,14 +598,14 @@ func _build_interface() -> void:
 	history_scroll.add_child(history_text)
 	history_back_button = _button("Retour", history_page, func(): show_page("home"))
 	var settings_page := _page(stack, "Paramètres")
-	settings_page.add_theme_constant_override("separation", 10)
+	_sep(settings_page, 10)
 	pages.settings = _page_root(settings_page)
 	# Menu latéral à gauche (onglets rectangulaires), contenu de la section à droite.
 	var settings_body := HBoxContainer.new()
-	settings_body.add_theme_constant_override("separation", 16)
+	_sep(settings_body, 16)
 	settings_page.add_child(settings_body)
 	settings_nav = VBoxContainer.new()
-	settings_nav.add_theme_constant_override("separation", 6)
+	_sep(settings_nav, 6)
 	settings_body.add_child(settings_nav)
 	var nav_group := ButtonGroup.new()
 	for section in SETTINGS_SECTIONS:
@@ -595,7 +619,7 @@ func _build_interface() -> void:
 	for section in GENERAL_CATEGORIES:
 		var box := VBoxContainer.new()
 		box.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		box.add_theme_constant_override("separation", 10)
+		_sep(box, 10)
 		settings_body.add_child(box)
 		settings_sections[section] = box
 		# Pas de titre de section : l'onglet de gauche le donne déjà.
@@ -605,13 +629,13 @@ func _build_interface() -> void:
 		box.get_child(-1).theme_type_variation = "OrbNote"
 	var attributes_box := VBoxContainer.new()
 	attributes_box.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	attributes_box.add_theme_constant_override("separation", 10)
+	_sep(attributes_box, 10)
 	settings_body.add_child(attributes_box)
 	settings_sections.attributes = attributes_box
 	# En pause dans un monde par défaut (0.0.3.9) : les attributs sont remplacés par une
 	# proposition de passer le monde en mode développeur, avec avertissement « sans retour ».
 	attributes_gate = VBoxContainer.new()
-	attributes_gate.add_theme_constant_override("separation", 10)
+	_sep(attributes_gate, 10)
 	attributes_box.add_child(attributes_gate)
 	attributes_gate_text = _text_label()
 	attributes_gate_text.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
@@ -629,7 +653,7 @@ func _build_interface() -> void:
 	attributes_box.add_child(settings_scroll)
 	var attributes := VBoxContainer.new()
 	attributes.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	attributes.add_theme_constant_override("separation", 10)
+	_sep(attributes, 10)
 	settings_scroll.add_child(attributes)
 	var all_row := HBoxContainer.new()
 	attributes.add_child(all_row)
@@ -669,7 +693,7 @@ F1 : revenir à la liste des mondes depuis la partie." % sizes,
 	information_back_button = _button("Retour", information_page, func(): show_page("home"))
 	var list_page := _page(stack, "Mes mondes")
 	pages.worlds = _page_root(list_page)
-	list_page.add_theme_constant_override("separation", 10)
+	_sep(list_page, 10)
 	world_list = ItemList.new()
 	world_list.custom_minimum_size = Vector2(0, 144)
 	menu_reserved_heights[world_list] = 380.0
@@ -682,7 +706,7 @@ F1 : revenir à la liste des mondes depuis la partie." % sizes,
 	list_page.add_child(list_message)
 	# Une seule rangée : Ouvrir en toutes lettres, les autres actions en icônes (nom au survol).
 	var actions_row := HBoxContainer.new()
-	actions_row.add_theme_constant_override("separation", 8)
+	_sep(actions_row, 8)
 	list_page.add_child(actions_row)
 	open_button = _button("▶ Ouvrir", actions_row, open_selected_world)
 	open_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -694,7 +718,7 @@ F1 : revenir à la liste des mondes depuis la partie." % sizes,
 	_button("Retour", list_page, func(): show_page("home"))
 	var form := _page(stack, "Créer un monde")
 	pages.create = _page_root(form)
-	form.add_theme_constant_override("separation", 10)
+	_sep(form, 10)
 	var name_label := _text_label()
 	name_label.text = "Nom du monde"
 	form.add_child(name_label)
@@ -704,7 +728,7 @@ Nom, graine et mode conservés ; constructions non sauvegardées." % Catalog.MAX
 	name_field = LineEdit.new()
 	name_field.placeholder_text = "Mon monde"
 	name_field.max_length = Catalog.MAX_NAME_LENGTH
-	name_field.custom_minimum_size.y = 46
+	_min_size(name_field, Vector2(0, 46))
 	_font_size(name_field, 22)
 	form.add_child(name_field)
 	name_field.text_submitted.connect(func(_text: String): create_named_world())
@@ -714,7 +738,7 @@ Nom, graine et mode conservés ; constructions non sauvegardées." % Catalog.MAX
 	seed_field = LineEdit.new()
 	seed_field.placeholder_text = "Vide : aléatoire · Entier de 0 à 4294967295"
 	seed_field.max_length = 32
-	seed_field.custom_minimum_size.y = 46
+	_min_size(seed_field, Vector2(0, 46))
 	_font_size(seed_field, 18)
 	form.add_child(seed_field)
 	seed_field.text_submitted.connect(func(_text: String): create_named_world())
@@ -724,7 +748,7 @@ Nom, graine et mode conservés ; constructions non sauvegardées." % Catalog.MAX
 	form.add_child(world_options_title)
 	# Deux boutons exclusifs : Par défaut à gauche, Mode développeur à droite.
 	var mode_row := HBoxContainer.new()
-	mode_row.add_theme_constant_override("separation", 10)
+	_sep(mode_row, 10)
 	form.add_child(mode_row)
 	var mode_group := ButtonGroup.new()
 	create_default_button = _button(Catalog.MODE_NAMES[Catalog.MODE_DEFAULT], mode_row, func(): set_create_mode(Catalog.MODE_DEFAULT))
@@ -763,7 +787,7 @@ Nom, graine et mode conservés ; constructions non sauvegardées." % Catalog.MAX
 La graine et le terrain initial sont conservés." % Catalog.MAX_NAME_LENGTH])
 	rename_field = LineEdit.new()
 	rename_field.max_length = Catalog.MAX_NAME_LENGTH
-	rename_field.custom_minimum_size.y = 46
+	_min_size(rename_field, Vector2(0, 46))
 	rename_page.add_child(rename_field)
 	rename_field.text_submitted.connect(func(_text: String): confirm_rename())
 	rename_error = _text_label()
@@ -830,6 +854,8 @@ F3 : Informations du monde"
 	apply_appearance()
 
 func fit_menus_to_window() -> void:
+	if not is_inside_tree():
+		return
 	# Taille de base : 1280 × 720. Accueil et pause restent compacts ; les pages de contenu
 	# prennent la plupart de la largeur, et leurs zones défilantes toute la hauteur libre
 	# (hauteur de la fenêtre moins la place réservée au reste de la page).

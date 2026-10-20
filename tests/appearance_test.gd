@@ -32,7 +32,7 @@ func _run() -> void:
 	var settings := Settings.new(fixture)
 	check(settings.values.text_detail == "default" and settings.values.theme_mode == "default" and settings.values.menu_depth == "on", "choice defaults: default detail, default theme, depth on")
 	check(Settings.SPECS.nav_percent.default == 15 and Settings.SPECS.nav_percent.min == 5 and Settings.SPECS.nav_percent.max == 40, "left menu width in % of the panel, 15 by default")
-	check(Settings.SPECS.text_px.unit == "px" and Settings.SPECS.text_px.default == 18 and Settings.SPECS.text_px.min <= 18 * 0.4 + 0.5, "text size in px, minimum about 40 %")
+	check(Settings.SPECS.text_px.unit == "px" and Settings.SPECS.text_px.default == 13 and Settings.SPECS.text_px.min <= 18 * 0.4 + 0.5, "text size in px, 13 by default, minimum about 40 %")
 	var app: Control = load("res://scenes/main.tscn").instantiate()
 	app.settings = settings
 	app.catalog = load("res://scripts/world_catalog.gd").new(fixture + ".worlds")
@@ -116,7 +116,7 @@ func _run() -> void:
 	file.store_string('{"theme_mode": "violet", "text_detail": 3, "text_size": 120}')
 	file.close()
 	var loaded := Settings.new(bad)
-	check(not loaded.load_notice.is_empty() and loaded.values.theme_mode == "default" and loaded.values.text_detail == "default" and loaded.values.text_px == 18, "invalid choices fall back to defaults; old % text size ignored")
+	check(not loaded.load_notice.is_empty() and loaded.values.theme_mode == "default" and loaded.values.text_detail == "default" and loaded.values.text_px == 13, "invalid choices fall back to defaults; old % text size ignored")
 	# Toutes les pages restent dans la fenêtre, thème clair sans profondeur, petit écran, grand texte.
 	choose(app, {"menu_depth": "off"})
 	for size in [Vector2i(800, 450), Vector2i(1280, 720)]:

@@ -25,6 +25,8 @@ const RESET := Color("#f0a640")
 const RESET_HOVER := Color("#ffc25e")
 const RESET_PRESSED := Color("#d88a2a")
 const MODES := ["dark", "default", "light"]
+# Facteur des marges intérieures pendant la construction du thème (Taille des zones et boutons).
+static var spacing := 1.0
 
 static func palette(mode: String = "default") -> Dictionary:
 	var colors := {
@@ -60,10 +62,10 @@ static func _box(color: Color, radius: int, border: Color = Color.TRANSPARENT, b
 	box.set_corner_radius_all(radius)
 	box.border_color = border
 	box.set_border_width_all(border_width)
-	box.content_margin_left = margin.x
-	box.content_margin_right = margin.x
-	box.content_margin_top = margin.y
-	box.content_margin_bottom = margin.y
+	box.content_margin_left = margin.x * spacing
+	box.content_margin_right = margin.x * spacing
+	box.content_margin_top = margin.y * spacing
+	box.content_margin_bottom = margin.y * spacing
 	return box
 
 static func scaled(size: int, text_scale: float) -> int:
@@ -94,7 +96,9 @@ static func _tab_box(color: Color, mark: Color) -> StyleBoxFlat:
 	box.border_width_left = 4
 	return box
 
-static func build(text_scale: float = 1.0, mode: String = "default", depth: bool = true) -> Theme:
+static func build(text_scale: float = 1.0, mode: String = "default", depth: bool = true, element_scale: float = 1.0) -> Theme:
+	# Taille des zones et boutons (0.0.3.10) : marges intérieures des cadres, boutons et champs.
+	spacing = element_scale
 	var c := palette(mode)
 	var theme := Theme.new()
 	theme.default_font_size = scaled(18, text_scale)

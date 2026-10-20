@@ -3,6 +3,10 @@ Du plus récent au plus ancien. Ce fichier est mis à jour à chaque version.
 
 === Thème « Contrôles et Paramètres » (0.0.3 et suivantes) ===
 
+0.0.3.10 — Taille des zones et boutons, texte à 13 px
+Vidéo : taille des zones, boutons, marges et espaces, sans changer le texte ni la largeur des menus.
+Texte à 13 px par défaut ; Paramètres mis à jour aussitôt à chaque réglage.
+
 0.0.3.9 — Paramètres dans la pause
 Pause : bouton Paramètres sous Reprendre ; réglages appliqués en direct dans la partie.
 Monde par défaut : Attributs propose le mode développeur, avec avertissement « sans retour ».

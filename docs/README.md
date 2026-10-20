@@ -1,11 +1,11 @@
-# OrbMeka™ — prototype 0.0.3.9
+# OrbMeka™ — prototype 0.0.3.10
 
 Godot 4.7 / GDScript. Formes et couleurs simples, sans assets externes.
 
 ## Lancer et choisir un monde
 1. Dans Godot, arrêtez l'ancienne partie si nécessaire, puis appuyez sur **F5**.
 2. L'accueil affiche **Jouer**, **Paramètres**, **Informations**, dans cet ordre.
-   Jouer ouvre Mes mondes. Paramètres : Paramètres généraux (souris, synthèse), Vidéo (panneaux, échelle, texte, thème, profondeur, FOV), Attributs.
+   Jouer ouvre Mes mondes. Paramètres : Paramètres généraux (souris, synthèse), Vidéo (panneaux, zones et boutons, texte, thème, profondeur, FOV), Attributs.
    Informations explique la génération des mondes, sans désigner de monde particulier.
 3. Choisissez **Créer un monde**, saisissez son nom et, si souhaité, une graine, puis **Créer**.
    La création ouvre directement la partie.
@@ -746,3 +746,20 @@ Test ajouté : tests/pause_settings_test.gd (bouton, retour, Échap, F1,
 réglages en direct, passage au mode développeur avec confirmation).
 Résultat : 23 tests, 0 échec.
 À tester manuellement : régler en pause puis reprendre (souris, FOV).
+
+## Taille des zones et boutons, texte à 13 px — 0.0.3.10
+- Vidéo → Zones : **Taille des zones et boutons**, 50 à 150 % (100 % par
+  défaut). Change la hauteur et la largeur minimales des boutons et des
+  zones de saisie, les marges (dont celle entre le bord du menu et le texte)
+  et les espaces entre éléments. Ne change ni le texte ni la largeur des
+  menus ; le texte reste toujours dans sa zone et occupe toute la largeur
+  disponible. Remplace l'« échelle des menus » de 0.0.3.6 (réglage ignoré).
+- Taille du texte : **13 px par défaut** (texte courant réellement à 13 px ;
+  titres, boutons et notes en proportion). 18 px redonne la taille d'avant.
+- Paramètres : la mise en page est refaite aussitôt après chaque réglage.
+
+Test mis à jour : settings_files_test (zones et boutons à 50, 100 et 150 %,
+texte inchangé et toujours dans sa zone, largeur des menus inchangée,
+textes élargis avec le menu). Résultat : 23 tests, 0 échec.
+À tester manuellement : rendu à 50 et 150 %, lisibilité à 13 px, mise à
+jour immédiate de la colonne de gauche dans Paramètres.

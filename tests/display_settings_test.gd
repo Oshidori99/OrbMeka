@@ -39,7 +39,7 @@ func panels_fit(app: Control, tag: String) -> void:
 func _run() -> void:
 	var fixture := "res://.godot/display-test-%d.json" % Time.get_ticks_usec()
 	var settings := Settings.new(fixture)
-	check(settings.values.mouse_sensitivity == 100 and settings.values.panel_size == 72 and settings.values.nav_percent == 15 and settings.values.text_px == 18, "defaults keep previous look and feel")
+	check(settings.values.mouse_sensitivity == 100 and settings.values.panel_size == 72 and settings.values.nav_percent == 15 and settings.values.text_px == 13, "defaults keep previous look and feel")
 	var app: Control = load("res://scenes/main.tscn").instantiate()
 	app.settings = settings
 	app.catalog = load("res://scripts/world_catalog.gd").new(fixture + ".worlds")
@@ -139,7 +139,7 @@ func _run() -> void:
 	file.store_string('{"jump_height":3,"walk_side":4}')
 	file.close()
 	var upgraded := Settings.new(old)
-	check(upgraded.load_notice.is_empty() and upgraded.values.mouse_sensitivity == 100 and upgraded.values.panel_size == 72 and upgraded.values.nav_percent == 15 and settings.values.text_px == 18, "older settings file loads silently with new defaults")
+	check(upgraded.load_notice.is_empty() and upgraded.values.mouse_sensitivity == 100 and upgraded.values.panel_size == 72 and upgraded.values.nav_percent == 15 and upgraded.values.text_px == 13, "older settings file loads silently with new defaults")
 	check(Input.mouse_mode == Input.MOUSE_MODE_VISIBLE, "verification never captures pointer")
 	root.remove_child(app)
 	app.queue_free()

@@ -1,5 +1,6 @@
 extends SceneTree
-# 0.0.3.6 : un fichier par menu de Paramètres, échelle des menus et champ de vision (FOV).
+# 0.0.3.6 : un fichier par menu de Paramètres et champ de vision (FOV).
+# 0.0.3.10 : taille des zones et boutons (marges, espaces), sans le texte ni la largeur des menus.
 const Settings = preload("res://scripts/user_settings.gd")
 var checks := 0
 var failures := 0
@@ -73,12 +74,22 @@ func _run() -> void:
 	root.add_child(app)
 	current_scene = app
 	await process_frame
-	check(is_equal_approx(root.content_scale_factor, 1.0), "default menu scale is 100 %")
+	check(app.play_button.custom_minimum_size.y == 40 and Settings.SPECS.element_scale.default == 100, "default zones and buttons size is 100 %")
 	for scale in ["150", "50", "100"]:
 		for size in [Vector2i(800, 450), Vector2i(1280, 720)]:
 			root.size = size
-			apply(app, {"ui_scale": scale})
-			check(is_equal_approx(root.content_scale_factor, scale.to_float() / 100.0), "menu scale applied: %s %%" % scale)
+			app.show_page("home")
+			var width_before: float = app.menu_panel.custom_minimum_size.x
+			apply(app, {"element_scale": scale})
+			var factor: float = scale.to_float() / 100.0
+			check(is_equal_approx(root.content_scale_factor, 1.0) and is_equal_approx(app.play_button.custom_minimum_size.y, 40 * factor) and app.pages.home.get_theme_constant("separation") == roundi(12 * factor), "zones, buttons and spaces follow %s %%" % scale)
+			check(app.menu_root.theme.get_font_size("font_size", "Button") == roundi(20 * 13.0 / 18.0) and is_equal_approx(app.menu_root.theme.get_stylebox("normal", "Button").content_margin_left, 14 * factor), "text size unchanged, button padding scaled: %s %%" % scale)
+			check(is_equal_approx(app.menu_root.theme.get_stylebox("panel", "PanelContainer").content_margin_left, 26 * factor), "margin between menu edge and text follows %s %%" % scale)
+			await process_frame
+			check(app.play_button.size.y >= app.play_button.get_theme_font("font").get_height(app.play_button.get_theme_font_size("font_size")), "text always fits its button: %s %%" % scale)
+			apply(app, {"panel_size": "72"})
+			app.show_page("home")
+			check(is_equal_approx(app.menu_panel.custom_minimum_size.x, width_before), "menu width unchanged by zones size: %s %%" % scale)
 			var ok := true
 			for page_name in ["home", "settings", "worlds", "create", "information"]:
 				app.show_page(page_name)
@@ -92,6 +103,16 @@ func _run() -> void:
 				ok = ok and inside
 			check(ok, "pages inside %dx%d at %s %%" % [size.x, size.y, scale])
 	root.size = Vector2i(1280, 720)
+	# Les textes prennent toute la largeur du menu : menu plus large, lignes plus longues.
+	var widths := []
+	for panel in ["50", "90"]:
+		apply(app, {"panel_size": panel})
+		app.show_page("information")
+		await process_frame
+		await process_frame
+		widths.append(app.generation_info.size.x)
+	check(widths[1] > widths[0] + 200, "texts widen with the menu")
+	apply(app, {"panel_size": "72"})
 	apply(app, {"fov": "100"})
 	app.show_page("worlds")
 	app.open_world(item.id)
