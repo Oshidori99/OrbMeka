@@ -3,6 +3,7 @@ extends Node3D
 const PlayerScript = preload("res://scripts/player.gd")
 const TerrainGenerator = preload("res://scripts/terrain_generator.gd")
 const Controls = preload("res://scripts/controls.gd")
+const CharacterPreview = preload("res://scripts/character_preview.gd")
 const DIRT := 2
 const BLOCK_COLORS := [Color("#d8c291"), Color("#888b90"), Color("#855332")]
 const BLOCK_NAMES := ["Sable", "Pierre", "Terre"]
@@ -342,8 +343,10 @@ Touches modifiables (clavier, clics, molette) : Paramètres → Contrôles, auss
 
 func get_world_info_text(level: int = 2) -> String:
 	# Position du joueur (0.0.3.14), en tête, à tous les niveaux de détail.
+	var who: String = CharacterPreview.CHARACTERS.get(player.character, CharacterPreview.CHARACTERS.boy).name
 	return "Votre position actuelle : %s
-%s" % [coordinates_text(), _world_info_body(level)]
+Personnage : %s
+%s" % [coordinates_text(), who, _world_info_body(level)]
 
 func _world_info_body(level: int) -> String:
 	var span := TerrainGenerator.MAX_CELL - TerrainGenerator.MIN_CELL + 1

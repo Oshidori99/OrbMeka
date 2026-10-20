@@ -1,11 +1,11 @@
-# OrbMeka™ — prototype 0.0.3.15
+# OrbMeka™ — prototype 0.0.3.16
 
 Godot 4.7 / GDScript. Formes et couleurs simples, sans assets externes.
 
 ## Lancer et choisir un monde
 1. Dans Godot, arrêtez l'ancienne partie si nécessaire, puis appuyez sur **F5**.
 2. L'accueil affiche **Jouer**, **Paramètres**, **Informations**, dans cet ordre.
-   Jouer ouvre Mes mondes. Paramètres : Paramètres généraux (souris, synthèse), Vidéo (panneaux, zones et boutons, texte, thème, profondeur, FOV), Contrôles, Attributs.
+   Jouer ouvre Mes mondes. Paramètres : Paramètres généraux (souris, synthèse), Vidéo (panneaux, zones et boutons, texte, thème, profondeur, FOV), Contrôles, Personnage, Attributs.
    Informations explique la génération des mondes, sans désigner de monde particulier.
 3. Choisissez **Créer un monde**, saisissez son nom et, si souhaité, une graine, puis **Créer**.
    La création ouvre directement la partie.
@@ -833,3 +833,16 @@ Résultat : 26 tests, 0 échec.
 Test ajouté : tests/crouch_test.gd (vitesses, chute plus rapide, réglages,
 touche Y, catégorie). Résultat : 27 tests, 0 échec.
 À tester manuellement : se baisser en marchant et en tombant.
+
+## Personnage — 0.0.3.16
+- Paramètres → **Personnage**, entre Contrôles et Attributs (aussi en pause) :
+  **Garçon** et **Fille** (environ 14 ans), **Homme** et **Femme**. Chacun a un
+  petit aperçu dessiné en code : tête ronde (une « orbe »), couleurs propres
+  à OrbMeka, sans rien reprendre d'autres jeux.
+- Le choix est enregistré aussitôt (user://personnage.json) ; on est ce
+  personnage en partie (indiqué dans Informations du monde), même si on ne
+  peut pas encore se voir. Garçon par défaut.
+
+Test ajouté : tests/character_test.gd (onglet, quatre personnages, choix,
+fichier, en partie et en pause, fichier invalide). Résultat : 28 tests, 0 échec.
+À tester manuellement : aspect des quatre aperçus dans les trois thèmes.

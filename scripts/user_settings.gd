@@ -41,6 +41,8 @@ const CHOICES := {
 	"menu_depth": {"label": "Profondeur des menus", "options": {"on": "Oui", "off": "Non"}, "default": "on"},
 	# 0.0.3.14 : coordonnées du joueur affichées en jeu, en haut à droite.
 	"show_coords": {"label": "Afficher les coordonnées", "options": {"on": "Oui", "off": "Non"}, "default": "off"},
+	# 0.0.3.16 : personnage choisi (Paramètres → Personnage), enregistré dans personnage.json.
+	"character": {"label": "Personnage", "options": {"boy": "Garçon", "girl": "Fille", "man": "Homme", "woman": "Femme"}, "default": "boy"},
 }
 # Attributs du joueur : par défaut dans un monde par défaut, réglables en mode développeur.
 const ATTRIBUTE_KEYS := ["jump_height", "jump_speed", "fall_gravity", "place_ms", "break_ms", "break_reach", "place_reach", "walk_forward", "walk_side", "walk_back", "crouch_forward", "crouch_side", "crouch_back", "crouch_gravity"]
@@ -50,7 +52,7 @@ const ATTRIBUTE_KEYS := ["jump_height", "jump_speed", "fall_gravity", "place_ms"
 const DEFAULT_PATH := "user://settings.json"
 # Taille de référence du texte courant dans le thème : Taille du texte / 18 = facteur des polices.
 const BASE_TEXT_PX := 18.0
-const FILES := {"general": "parametres-generaux.json", "video": "video.json", "attributes": "attributs.json"}
+const FILES := {"general": "parametres-generaux.json", "video": "video.json", "character": "personnage.json", "attributes": "attributs.json"}
 const GENERAL_KEYS := ["mouse_sensitivity", "text_detail"]
 const CONTROLS_FILE := "controles.json"
 var values: Dictionary = {}
@@ -120,6 +122,8 @@ func file_path(menu: String) -> String:
 static func menu_of(key: String) -> String:
 	if key in ATTRIBUTE_KEYS:
 		return "attributes"
+	if key == "character":
+		return "character"
 	return "general" if key in GENERAL_KEYS else "video"
 
 func _read(path: String) -> void:

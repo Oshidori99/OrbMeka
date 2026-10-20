@@ -7,6 +7,7 @@ const UserSettings = preload("res://scripts/user_settings.gd")
 const Terrain = preload("res://scripts/terrain_generator.gd")
 const UiTheme = preload("res://scripts/ui_theme.gd")
 const Controls = preload("res://scripts/controls.gd")
+const CharacterPreview = preload("res://scripts/character_preview.gd")
 const MenuShowcase = preload("res://scripts/menu_showcase.gd")
 const BackdropShader = preload("res://scripts/menu_backdrop.gdshader")
 const MIN_WINDOW_SIZE := Vector2i(800, 450)
@@ -50,7 +51,7 @@ const GENERAL_CATEGORIES := {
 	},
 }
 # Menu latéral de Paramètres : sections dans l'ordre des boutons ; la première s'ouvre par défaut.
-const SETTINGS_SECTIONS := {"general": "Paramètres généraux", "video": "Vidéo", "controls": "Contrôles", "attributes": "Attributs"}
+const SETTINGS_SECTIONS := {"general": "Paramètres généraux", "video": "Vidéo", "controls": "Contrôles", "character": "Personnage", "attributes": "Attributs"}
 const CATEGORY_GAP := 22.0
 const SLIDER_WIDTH := 150.0
 
@@ -77,6 +78,7 @@ var control_buttons: Dictionary = {}
 var control_resets: Dictionary = {}
 var controls_reset_all_button: Button
 var capturing_action := ""
+var character_previews: Dictionary = {}
 # Réglages à choix : boutons par option, et choix en cours (enregistré aussitôt).
 var choice_buttons: Dictionary = {}
 var choice_values: Dictionary = {}
@@ -420,6 +422,49 @@ func _build_controls_section(parent: Node) -> void:
 		control_resets[action] = reset
 	_refresh_controls()
 
+# Onglet Personnage (0.0.3.16), entre Contrôles et Attributs : quatre personnages simples,
+# un aperçu et un bouton chacun. Le choix est enregistré aussitôt et vaut pour la partie.
+func _build_character_section(parent: Node) -> void:
+	var box := VBoxContainer.new()
+	box.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_sep(box, 10)
+	parent.add_child(box)
+	settings_sections.character = box
+	var top := HBoxContainer.new()
+	_sep(top, 10)
+	box.add_child(top)
+	_explanation(top, ["", "Choisissez votre personnage.", "Choisissez votre personnage : vous le serez dans la partie, même si on ne peut pas encore se voir."])
+	top.get_child(-1).size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	var reset := _button("↻", top, func(): reset_setting("character"))
+	_min_size(reset, Vector2(42, 0))
+	reset.tooltip_text = "Rétablir le défaut : " + UserSettings.CHOICES.character.options[UserSettings.CHOICES.character.default]
+	setting_resets["character"] = reset
+	var cards := HBoxContainer.new()
+	_sep(cards, 10)
+	box.add_child(cards)
+	var group := ButtonGroup.new()
+	choice_buttons["character"] = {}
+	for id in CharacterPreview.CHARACTERS:
+		var data: Dictionary = CharacterPreview.CHARACTERS[id]
+		var card := PanelContainer.new()
+		card.theme_type_variation = "OrbInsetDeep"
+		card.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		cards.add_child(card)
+		var column := VBoxContainer.new()
+		_sep(column, 6)
+		card.add_child(column)
+		var preview := CharacterPreview.new()
+		preview.character = id
+		_min_size(preview, Vector2(70, 140))
+		column.add_child(preview)
+		character_previews[id] = preview
+		var button := _button(data.name, column, func(): _choose("character", id))
+		button.theme_type_variation = "OrbTab"
+		button.toggle_mode = true
+		button.button_group = group
+		button.tooltip_text = "%s (%s)" % [data.name, data.age]
+		choice_buttons["character"][id] = button
+
 func _refresh_controls() -> void:
 	for action in control_buttons:
 		control_buttons[action].text = Controls.label(settings.controls[action])
@@ -692,7 +737,7 @@ func _build_interface() -> void:
 	var home := _page(stack, "OrbMeka™")
 	pages.home = _page_root(home)
 	var version := _text_label()
-	version.text = "v" + str(ProjectSettings.get_setting("application/config/version", "0.0.3.15"))
+	version.text = "v" + str(ProjectSettings.get_setting("application/config/version", "0.0.3.16"))
 	version.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	version.theme_type_variation = "OrbNote"
 	home.add_child(version)
@@ -757,6 +802,7 @@ func _build_interface() -> void:
 		_explanation(box, ["", "Commun à tous les mondes.", "Commun à tous les mondes. Champ vide : défaut."])
 		box.get_child(-1).theme_type_variation = "OrbNote"
 	_build_controls_section(settings_body)
+	_build_character_section(settings_body)
 	var attributes_box := VBoxContainer.new()
 	attributes_box.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_sep(attributes_box, 10)

@@ -30,6 +30,8 @@ const CROUCH_GRAVITY := 28.0
 const EYE_HEIGHT := 1.62
 const CROUCH_EYE := 1.3
 var crouching := false
+# Personnage choisi (Paramètres → Personnage, 0.0.3.16) : pas encore visible à l'écran.
+var character := "boy"
 var crouch_forward := CROUCH_SPEED
 var crouch_side := CROUCH_SPEED
 var crouch_back := CROUCH_SPEED
@@ -143,6 +145,7 @@ func apply_settings(values: Dictionary) -> void:
 	crouch_side = float(values.get("crouch_side", CROUCH_SPEED))
 	crouch_back = float(values.get("crouch_back", CROUCH_SPEED))
 	crouch_gravity = float(values.get("crouch_gravity", CROUCH_GRAVITY))
+	character = str(values.get("character", "boy"))
 	break_reach = float(values.get("break_reach", REACH))
 	place_reach = float(values.get("place_reach", REACH))
 	sensitivity = SENSITIVITY * float(values.get("mouse_sensitivity", 100.0)) / 100.0

@@ -3,6 +3,9 @@ Du plus récent au plus ancien. Ce fichier est mis à jour à chaque version.
 
 === Thème « Contrôles et Paramètres » (0.0.3 et suivantes) ===
 
+0.0.3.16 — Personnage
+Paramètres → Personnage : garçon, fille, homme ou femme, avec aperçu ; on est ce personnage en partie.
+
 0.0.3.15 — Se baisser
 Contrôles : se baisser (Y par défaut) ; plus lent dans chaque direction et chute plus lourde.
 Attributs → Se baisser : vitesses avant, côté, arrière et gravité.
