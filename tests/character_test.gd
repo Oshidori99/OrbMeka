@@ -19,7 +19,7 @@ func check(ok: bool, label: String) -> void:
 
 func _run() -> void:
 	root.size = Vector2i(1280, 720)
-	check(CharacterPreview.CHARACTERS.keys() == ["boy", "girl", "man", "woman"], "four characters: boy, girl, man, woman")
+	check(CharacterPreview.CHARACTERS.keys() == ["boy", "girl", "man", "woman", "cat"], "five characters: boy, girl, man, woman, cat")
 	check(CharacterPreview.CHARACTERS.boy.height < CharacterPreview.CHARACTERS.man.height and CharacterPreview.CHARACTERS.girl.height < CharacterPreview.CHARACTERS.woman.height, "teenagers drawn a bit smaller")
 	check(Settings.new().file_path("character") == "user://personnage.json", "player file named after the menu")
 	var fixture := "res://.godot/character-test-%d.json" % Time.get_ticks_usec()
@@ -38,8 +38,8 @@ func _run() -> void:
 	app.settings_tabs.character.pressed.emit()
 	await process_frame
 	await process_frame
-	check(app.settings_sections.character.visible and app.choice_buttons.character.size() == 4 and app.character_previews.size() == 4, "four cards with a preview and a button")
-	check(app.choice_buttons.character.values().map(func(button): return button.text) == ["Garçon", "Fille", "Homme", "Femme"], "character names")
+	check(app.settings_sections.character.visible and app.choice_buttons.character.size() == 5 and app.character_previews.size() == 5, "five cards with a preview and a button")
+	check(app.choice_buttons.character.values().map(func(button): return button.text) == ["Garçon", "Fille", "Homme", "Femme", "Chat"], "character names")
 	check(app.character_previews.values().all(func(preview): return preview.size.y >= 100 and preview.size.x > 0), "previews have room to draw")
 	check(app.choice_buttons.character.boy.button_pressed, "saved character shown selected")
 	app.choice_buttons.character.woman.pressed.emit()
@@ -58,6 +58,11 @@ func _run() -> void:
 	app.settings_tabs.character.pressed.emit()
 	app.choice_buttons.character.girl.pressed.emit()
 	check(app.active_world.player.character == "girl", "changing in pause applies at once")
+	app.choice_buttons.character.cat.pressed.emit()
+	check(app.active_world.player.character == "cat" and settings.values.character == "cat", "the plush cat can be chosen")
+	app.show_page("pause")
+	app.open_world_info()
+	check(app.info_text.text.contains("Personnage : Chat"), "world info names the cat")
 	app.return_to_worlds()
 	# Fichier invalide : défaut, sans plantage.
 	var bad := fixture + ".bad.json"

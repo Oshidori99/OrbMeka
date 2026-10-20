@@ -44,7 +44,7 @@ const CHOICES := {
 	# 0.0.3.14 : coordonnées du joueur affichées en jeu, en haut à droite.
 	"show_coords": {"label": "Afficher les coordonnées", "options": {"on": "Oui", "off": "Non"}, "default": "off"},
 	# 0.0.3.16 : personnage choisi (Paramètres → Personnage), enregistré dans personnage.json.
-	"character": {"label": "Personnage", "options": {"boy": "Garçon", "girl": "Fille", "man": "Homme", "woman": "Femme"}, "default": "boy"},
+	"character": {"label": "Personnage", "options": {"boy": "Garçon", "girl": "Fille", "man": "Homme", "woman": "Femme", "cat": "Chat"}, "default": "boy"},
 }
 # Attributs du joueur : par défaut dans un monde par défaut, réglables en mode développeur.
 const ATTRIBUTE_KEYS := ["jump_height", "jump_speed", "fall_gravity", "place_ms", "break_ms", "break_reach", "place_reach", "walk_forward", "walk_side", "walk_back", "crouch_forward", "crouch_side", "crouch_back", "crouch_gravity", "eye_height"]

@@ -1,4 +1,4 @@
-# OrbMeka™ — prototype 0.0.3.18
+# OrbMeka™ — prototype 0.0.3.19
 
 Godot 4.7 / GDScript. Formes et couleurs simples, sans assets externes.
 
@@ -872,3 +872,16 @@ Test ajouté : tests/eye_height_test.gd (catégorie, décimales, arrondi à
 Test ajouté : tests/crouch_mode_test.gd (choix, fichier, Maintenir et
 Basculer en partie, ↻). Résultat : 30 tests, 0 échec.
 À tester manuellement : se baisser avec Y (QWERTZ) dans les deux modes.
+
+## Chat peluche — 0.0.3.19
+- Paramètres → Personnage : 5e choix, **Chat**, façon peluche toute mignonne :
+  grosse tête ronde, grands yeux brillants, joues roses, oreilles roses,
+  rayures douces, petit corps assis, queue relevée et foulard violet.
+- Création originale d'OrbMeka, dessinée en code : elle ne copie aucune
+  peluche ni aucun personnage existant.
+- Comme les autres personnages : on est ce chat en partie (Informations du
+  monde), sans pouvoir encore se voir.
+
+Test mis à jour : character_test (cinq personnages, choix du chat, en partie).
+Résultat : 30 tests, 0 échec.
+À tester manuellement : aspect du chat dans les trois thèmes.
