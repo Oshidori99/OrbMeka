@@ -2,6 +2,7 @@ extends Node3D
 
 const PlayerScript = preload("res://scripts/player.gd")
 const TerrainGenerator = preload("res://scripts/terrain_generator.gd")
+const Controls = preload("res://scripts/controls.gd")
 const DIRT := 2
 const BLOCK_COLORS := [Color("#d8c291"), Color("#888b90"), Color("#855332")]
 const BLOCK_NAMES := ["Sable", "Pierre", "Terre"]
@@ -46,21 +47,9 @@ func _ready() -> void:
 	_create_hud()
 
 func _setup_inputs() -> void:
-	var bindings := {
-		"move_forward": [KEY_W, KEY_Z, KEY_UP],
-		"move_back": [KEY_S, KEY_DOWN],
-		"move_left": [KEY_A, KEY_Q, KEY_LEFT],
-		"move_right": [KEY_D, KEY_RIGHT],
-		"jump": [KEY_SPACE],
-	}
-	for action in bindings:
-		if not InputMap.has_action(action):
-			InputMap.add_action(action)
-		for key in bindings[action]:
-			var event := InputEventKey.new()
-			event.physical_keycode = key
-			if not InputMap.action_has_event(action, event):
-				InputMap.action_add_event(action, event)
+	# Touches choisies dans Paramètres → Contrôles (0.0.3.12), appliquées par le menu ;
+	# monde lancé seul (tests) : touches par défaut.
+	Controls.ensure_defaults()
 
 func _setup_environment() -> void:
 	var environment := Environment.new()
@@ -292,7 +281,8 @@ Molette : bloc. Échap : pause. F1 : mondes."
 Maintenir clic gauche : casser ; clic droit : poser. Molette : changer de bloc.
 Échap : pause. F1 : liste des mondes. F2 : Comment jouer. F3 : Informations.
 Portée : %d blocs. Maximum : %d blocs, hauteur %d.
-Constructions réinitialisées en quittant le monde." % [int(PlayerScript.REACH), MAX_BLOCKS, MAX_BUILD_HEIGHT]
+Constructions réinitialisées en quittant le monde.
+Touches modifiables : Paramètres → Contrôles." % [int(PlayerScript.REACH), MAX_BLOCKS, MAX_BUILD_HEIGHT]
 	return "ZQSD / WASD / flèches : marcher. Souris : regarder. Espace : sauter.
 
 Maintenir clic gauche : casser ; clic droit : poser.
@@ -309,7 +299,8 @@ F2 : Comment jouer. F3 : Informations du monde (jeu en pause).
 Portée : %d blocs. Base protégée. Maximum : %d blocs présents.
 Hauteur maximale : %d blocs au-dessus du sol plat, collines comprises.
 
-Nom, graine et mode conservés ; constructions réinitialisées en quittant le monde." % [int(PlayerScript.REACH), MAX_BLOCKS, MAX_BUILD_HEIGHT]
+Nom, graine et mode conservés ; constructions réinitialisées en quittant le monde.
+Touches modifiables (clavier, clics, molette) : Paramètres → Contrôles, aussi depuis la pause." % [int(PlayerScript.REACH), MAX_BLOCKS, MAX_BUILD_HEIGHT]
 
 func get_world_info_text(level: int = 2) -> String:
 	var span := TerrainGenerator.MAX_CELL - TerrainGenerator.MIN_CELL + 1

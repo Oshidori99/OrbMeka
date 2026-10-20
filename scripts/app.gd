@@ -6,6 +6,7 @@ const WorldRules = preload("res://scripts/world.gd")
 const UserSettings = preload("res://scripts/user_settings.gd")
 const Terrain = preload("res://scripts/terrain_generator.gd")
 const UiTheme = preload("res://scripts/ui_theme.gd")
+const Controls = preload("res://scripts/controls.gd")
 const MenuShowcase = preload("res://scripts/menu_showcase.gd")
 const BackdropShader = preload("res://scripts/menu_backdrop.gdshader")
 const MIN_WINDOW_SIZE := Vector2i(800, 450)
@@ -48,7 +49,7 @@ const GENERAL_CATEGORIES := {
 	},
 }
 # Menu latéral de Paramètres : sections dans l'ordre des boutons ; la première s'ouvre par défaut.
-const SETTINGS_SECTIONS := {"general": "Paramètres généraux", "video": "Vidéo", "attributes": "Attributs"}
+const SETTINGS_SECTIONS := {"general": "Paramètres généraux", "video": "Vidéo", "controls": "Contrôles", "attributes": "Attributs"}
 const CATEGORY_GAP := 22.0
 const SLIDER_WIDTH := 150.0
 
@@ -70,6 +71,11 @@ var scaled_separations: Dictionary = {}
 const LAYOUT_KEYS := ["panel_size", "nav_percent", "element_scale", "text_px"]
 var layout_values: Dictionary = {}
 var layout_apply_button: Button
+# Contrôles (0.0.3.12) : bouton de touche et ↻ par action ; action en attente d'une touche.
+var control_buttons: Dictionary = {}
+var control_resets: Dictionary = {}
+var controls_reset_all_button: Button
+var capturing_action := ""
 # Réglages à choix : boutons par option, et choix en cours (enregistré aussitôt).
 var choice_buttons: Dictionary = {}
 var choice_values: Dictionary = {}
@@ -163,6 +169,8 @@ func _ready() -> void:
 		settings = UserSettings.new()
 	for key in LAYOUT_KEYS:
 		layout_values[key] = settings.values[key]
+	# Touches choisies dans Paramètres → Contrôles, pour tout le jeu.
+	Controls.apply(settings.controls)
 	showcase = MenuShowcase.new()
 	showcase.name = "MenuShowcase"
 	add_child(showcase)
@@ -271,7 +279,8 @@ func _add_setting_row(parent: Node, key: String) -> void:
 	parent.add_child(row)
 	var label := _text_label()
 	var default_text := UserSettings.number_text(spec.default)
-	detail_labels[label] = [spec.label, "%s (%s) · défaut %s" % [spec.label, spec.unit, default_text], "%s (%s)
+	# Minimum et maximum toujours affichés, quel que soit le niveau de détail (0.0.3.12).
+	detail_labels[label] = ["%s · %s à %s %s" % [spec.label, UserSettings.number_text(spec.min), UserSettings.number_text(spec.max), spec.unit], "%s (%s) · défaut %s · %s à %s" % [spec.label, spec.unit, default_text, UserSettings.number_text(spec.min), UserSettings.number_text(spec.max)], "%s (%s)
 Défaut : %s · %s à %s" % [spec.label, spec.unit, default_text, UserSettings.number_text(spec.min), UserSettings.number_text(spec.max)]]
 	label.text = _detail(detail_labels[label])
 	label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -370,6 +379,90 @@ func _sync_slider(key: String) -> void:
 			return
 		value = text.to_float()
 	setting_sliders[key].set_value_no_signal(value)
+
+# Onglet Contrôles (0.0.3.12), entre Vidéo et Attributs : une touche par action,
+# Échap pendant le choix = aucune touche, ↻ par action et pour tout.
+func _build_controls_section(parent: Node) -> void:
+	var box := VBoxContainer.new()
+	box.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_sep(box, 10)
+	parent.add_child(box)
+	settings_sections.controls = box
+	var top := HBoxContainer.new()
+	top.alignment = BoxContainer.ALIGNMENT_END
+	box.add_child(top)
+	controls_reset_all_button = _button("↻ Tout réinitialiser", top, reset_all_controls)
+	controls_reset_all_button.tooltip_text = "Rétablir toutes les touches par défaut"
+	var inset := PanelContainer.new()
+	inset.theme_type_variation = "OrbInsetDeep"
+	box.add_child(inset)
+	var list := VBoxContainer.new()
+	_sep(list, 10)
+	inset.add_child(list)
+	_explanation(list, ["", "Cliquez une touche puis appuyez sur la nouvelle. Échap : aucune.", "Cliquez le bouton d'une action, puis appuyez sur la touche ou le bouton de souris voulu (molette comprise). Échap : aucune touche. Les flèches restent toujours actives pour marcher. F1, F2, F3 et Échap sont réservées."])
+	for action in Controls.ACTIONS:
+		var row := HBoxContainer.new()
+		_sep(row, 10)
+		list.add_child(row)
+		var label := _text_label()
+		label.text = Controls.ACTIONS[action].label
+		label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		row.add_child(label)
+		var key_button := _button("", row, func(): start_control_capture(action))
+		_min_size(key_button, Vector2(170, 0))
+		key_button.tooltip_text = "Changer la touche : " + Controls.ACTIONS[action].label
+		control_buttons[action] = key_button
+		var reset := _button("↻", row, func(): reset_control(action))
+		_min_size(reset, Vector2(42, 0))
+		reset.tooltip_text = "Rétablir : " + Controls.label(Controls.ACTIONS[action].default)
+		control_resets[action] = reset
+	_refresh_controls()
+
+func _refresh_controls() -> void:
+	for action in control_buttons:
+		control_buttons[action].text = Controls.label(settings.controls[action])
+
+func start_control_capture(action: String) -> void:
+	_refresh_controls()
+	capturing_action = action
+	control_buttons[action].text = "Appuyez sur une touche…"
+	settings_message.text = "%s : appuyez sur une touche ou un bouton de souris. Échap : aucune." % Controls.ACTIONS[action].label
+
+func _capture_control(event: InputEvent) -> void:
+	var pressed: bool = (event is InputEventKey and event.pressed and not event.echo) or (event is InputEventMouseButton and event.pressed)
+	if not pressed:
+		return
+	get_viewport().set_input_as_handled()
+	var binding := {}
+	if event is InputEventKey and event.keycode == KEY_ESCAPE:
+		binding = {}
+	else:
+		binding = Controls.from_event(event)
+		if binding.is_empty():
+			settings_message.text = "Touche réservée (Échap, F1, F2, F3) : choisissez-en une autre."
+			return
+	set_control(capturing_action, binding)
+
+func set_control(action: String, binding: Dictionary) -> void:
+	capturing_action = ""
+	var freed: String = settings.set_control(action, binding)
+	if not settings.last_error.is_empty():
+		settings_message.text = settings.last_error
+	elif not freed.is_empty():
+		settings_message.text = "%s : %s (retirée de %s)." % [Controls.ACTIONS[action].label, Controls.label(binding), freed]
+	else:
+		settings_message.text = "%s : %s." % [Controls.ACTIONS[action].label, Controls.label(binding)]
+	Controls.apply(settings.controls)
+	_refresh_controls()
+
+func reset_control(action: String) -> void:
+	set_control(action, Controls.ACTIONS[action].default.duplicate())
+
+func reset_all_controls() -> void:
+	for action in Controls.ACTIONS:
+		set_control(action, Controls.ACTIONS[action].default.duplicate())
+	settings_message.text = "Toutes les touches par défaut."
 
 func _add_setting_category(parent: Node, category: String, data: Dictionary) -> void:
 	# Espace avant chaque catégorie : titres et ↻ de catégorie bien détachés des champs.
@@ -597,7 +690,7 @@ func _build_interface() -> void:
 	var home := _page(stack, "OrbMeka™")
 	pages.home = _page_root(home)
 	var version := _text_label()
-	version.text = "v" + str(ProjectSettings.get_setting("application/config/version", "0.0.3.11"))
+	version.text = "v" + str(ProjectSettings.get_setting("application/config/version", "0.0.3.12"))
 	version.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	version.theme_type_variation = "OrbNote"
 	home.add_child(version)
@@ -661,6 +754,7 @@ func _build_interface() -> void:
 				layout_apply_button.disabled = true
 		_explanation(box, ["", "Commun à tous les mondes.", "Commun à tous les mondes. Champ vide : défaut."])
 		box.get_child(-1).theme_type_variation = "OrbNote"
+	_build_controls_section(settings_body)
 	var attributes_box := VBoxContainer.new()
 	attributes_box.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_sep(attributes_box, 10)
@@ -1234,6 +1328,10 @@ func _unhandled_key_input(event: InputEvent) -> void:
 		get_viewport().set_input_as_handled()
 
 func _input(event: InputEvent) -> void:
+	# Choix d'une touche (Contrôles) : le prochain appui, clavier ou souris, est pris en entier.
+	if not capturing_action.is_empty():
+		_capture_control(event)
+		return
 	# Un champ de saisie actif garde Échap pour lui : on le reprend pour quitter la page.
 	if event.is_action_pressed("ui_cancel") and not event.is_echo() and get_viewport().gui_get_focus_owner() is LineEdit:
 		_cancel_page()

@@ -49,5 +49,6 @@ Le README à la racine et docs/README.md restent les points d'entrée du guide.
 Depuis 0.0.2.10, scripts/user_settings.gd valide et conserve les attributs
 globaux, séparément des noms/graines des mondes. Depuis 0.0.3.6, un fichier par
 menu de Paramètres, nommé d'après lui : user://parametres-generaux.json,
-user://video.json et user://attributs.json (l'ancien settings.json n'est plus que lu).
+user://video.json et user://attributs.json (l'ancien settings.json n'est plus que lu) ;
+depuis 0.0.3.12, user://controles.json (touches, scripts/controls.gd).
 Sous Windows, user:// est %APPDATA%\Godot\app_userdata\OrbMeka\.

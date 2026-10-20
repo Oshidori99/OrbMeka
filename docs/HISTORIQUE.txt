@@ -3,6 +3,10 @@ Du plus récent au plus ancien. Ce fichier est mis à jour à chaque version.
 
 === Thème « Contrôles et Paramètres » (0.0.3 et suivantes) ===
 
+0.0.3.12 — Contrôles
+Paramètres → Contrôles : touches, clics et molette modifiables, Échap = aucune, ↻ ; aussi en pause.
+Minimum et maximum toujours affichés dans les réglages.
+
 0.0.3.11 — Taille des menus appliquée après réglage
 Vidéo : la taille des menus change en quittant Paramètres ou avec « Appliquer la taille des menus »,
 plus pendant qu'on glisse la barre.

@@ -1,4 +1,5 @@
 extends RefCounted
+const Controls = preload("res://scripts/controls.gd")
 const ORIGINAL_JUMP_SPEED := 8.4
 const ORIGINAL_GRAVITY := 14.0
 # Vitesse de marche unique avant 0.0.2.14 : défaut des trois directions.
@@ -41,7 +42,9 @@ const DEFAULT_PATH := "user://settings.json"
 const BASE_TEXT_PX := 18.0
 const FILES := {"general": "parametres-generaux.json", "video": "video.json", "attributes": "attributs.json"}
 const GENERAL_KEYS := ["mouse_sensitivity", "text_detail"]
+const CONTROLS_FILE := "controles.json"
 var values: Dictionary = {}
+var controls: Dictionary = {}
 var storage_path: String
 var last_error := ""
 var load_notice := ""
@@ -56,6 +59,46 @@ func _init(path: String = DEFAULT_PATH) -> void:
 			_read(file_path(menu))
 	if not found and FileAccess.file_exists(path):
 		_read(path)
+	controls = Controls.defaults()
+	_read_controls()
+
+# Contrôles (0.0.3.12) : leur propre fichier, controles.json, écrit seulement par set_control.
+func controls_path() -> String:
+	if storage_path == DEFAULT_PATH:
+		return storage_path.get_base_dir().path_join(CONTROLS_FILE)
+	return storage_path.get_basename() + "-" + CONTROLS_FILE
+
+func _read_controls() -> void:
+	if not FileAccess.file_exists(controls_path()):
+		return
+	var data: Variant = JSON.parse_string(FileAccess.get_file_as_string(controls_path()))
+	if not data is Dictionary:
+		load_notice = "Contrôles illisibles : touches par défaut chargées."
+		return
+	for action in Controls.ACTIONS:
+		if not data.has(action):
+			continue
+		if Controls.is_valid(data[action]):
+			controls[action] = Controls.clean(data[action])
+		else:
+			load_notice = "Certains contrôles invalides ont repris leur touche par défaut."
+
+# Nouvelle liaison d'une action ; la même touche est retirée de l'action qui l'avait
+# (renvoie le nom de cette action, ou "" s'il n'y en avait pas).
+func set_control(action: String, binding: Dictionary) -> String:
+	last_error = ""
+	var candidate := controls.duplicate(true)
+	var freed := ""
+	if not binding.is_empty():
+		for other in candidate:
+			if other != action and candidate[other] == binding:
+				candidate[other] = {}
+				freed = Controls.ACTIONS[other].label
+	candidate[action] = binding
+	if not _write(controls_path(), candidate):
+		return ""
+	controls = candidate
+	return freed
 
 # Fichier d'un menu. Chemin par défaut : user://video.json… ; autre chemin (tests) :
 # même dossier, préfixé du nom de ce chemin, pour ne jamais toucher aux fichiers du joueur.

@@ -50,9 +50,10 @@ func _ready() -> void:
 
 func _input(event: InputEvent) -> void:
 	# Release must be observed even if a Control consumes the event.
-	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_RIGHT and not event.pressed:
+	# Casser / Poser : touche ou bouton choisi dans Paramètres → Contrôles (0.0.3.12).
+	if event.is_action_released("place_block"):
 		actions.stop_placing()
-	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT and not event.pressed:
+	if event.is_action_released("break_block"):
 		actions.stop_breaking()
 
 func _unhandled_input(event: InputEvent) -> void:
@@ -76,14 +77,17 @@ func _unhandled_input(event: InputEvent) -> void:
 			if event.button_index == MOUSE_BUTTON_LEFT and DisplayServer.get_name() != "headless":
 				Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
 			return
-		if event.button_index == MOUSE_BUTTON_WHEEL_UP:
-			cycle_block(-1)
-		elif event.button_index == MOUSE_BUTTON_WHEEL_DOWN:
-			cycle_block(1)
-		elif event.button_index == MOUSE_BUTTON_LEFT:
-			begin_breaking()
-		elif event.button_index == MOUSE_BUTTON_RIGHT:
-			begin_placement()
+	if Input.mouse_mode != Input.MOUSE_MODE_CAPTURED:
+		return
+	# Casser, poser, changer de bloc : touches ou boutons de Paramètres → Contrôles.
+	if event.is_action_pressed("break_block"):
+		begin_breaking()
+	elif event.is_action_pressed("place_block"):
+		begin_placement()
+	elif event.is_action_pressed("block_previous"):
+		cycle_block(-1)
+	elif event.is_action_pressed("block_next"):
+		cycle_block(1)
 
 func cycle_block(direction: int) -> void:
 	selected_type = wrapi(selected_type + direction, 0, world.BLOCK_NAMES.size())
@@ -148,8 +152,8 @@ func _physics_process(delta: float) -> void:
 		direction = Input.get_vector("move_left", "move_right", "move_forward", "move_back")
 		jump_requested = Input.is_action_just_pressed("jump") and not wait_jump_release
 	var active := Input.mouse_mode == Input.MOUSE_MODE_CAPTURED
-	step_breaking(delta, active, Input.is_mouse_button_pressed(MOUSE_BUTTON_LEFT))
-	step_placement(delta, active, Input.is_mouse_button_pressed(MOUSE_BUTTON_RIGHT))
+	step_breaking(delta, active, Input.is_action_pressed("break_block"))
+	step_placement(delta, active, Input.is_action_pressed("place_block"))
 	step_movement(delta, direction, jump_requested)
 
 # The same movement step is used by gameplay and windowless physics tests.

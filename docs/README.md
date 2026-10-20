@@ -1,11 +1,11 @@
-# OrbMeka™ — prototype 0.0.3.11
+# OrbMeka™ — prototype 0.0.3.12
 
 Godot 4.7 / GDScript. Formes et couleurs simples, sans assets externes.
 
 ## Lancer et choisir un monde
 1. Dans Godot, arrêtez l'ancienne partie si nécessaire, puis appuyez sur **F5**.
 2. L'accueil affiche **Jouer**, **Paramètres**, **Informations**, dans cet ordre.
-   Jouer ouvre Mes mondes. Paramètres : Paramètres généraux (souris, synthèse), Vidéo (panneaux, zones et boutons, texte, thème, profondeur, FOV), Attributs.
+   Jouer ouvre Mes mondes. Paramètres : Paramètres généraux (souris, synthèse), Vidéo (panneaux, zones et boutons, texte, thème, profondeur, FOV), Contrôles, Attributs.
    Informations explique la génération des mondes, sans désigner de monde particulier.
 3. Choisissez **Créer un monde**, saisissez son nom et, si souhaité, une graine, puis **Créer**.
    La création ouvre directement la partie.
@@ -775,3 +775,22 @@ jour immédiate de la colonne de gauche dans Paramètres.
 Tests mis à jour : sliders_test (taille inchangée pendant le réglage, bouton,
 sortie de Paramètres), pause_settings_test. Résultat : 23 tests, 0 échec.
 À tester manuellement : glisser les barres de Vidéo puis Appliquer.
+
+## Contrôles — 0.0.3.12
+- Paramètres → **Contrôles**, entre Vidéo et Attributs, depuis l'accueil et
+  depuis la pause : Avancer, Reculer, Aller à gauche, Aller à droite, Sauter,
+  Casser, Poser, Bloc précédent, Bloc suivant.
+- Cliquer le bouton d'une action, puis appuyer sur la touche ou le bouton de
+  souris voulu : clic gauche, clic droit, clic molette, molette haut / bas,
+  boutons 4 et 5. **Échap : aucune touche.** F1, F2, F3 et Échap sont réservées.
+  Une touche déjà prise est retirée de l'autre action (message).
+- ↻ par action et ↻ Tout réinitialiser. Appliqué aussitôt, en partie aussi.
+- Par défaut : une touche par direction, à la place de W A S D (Z Q S D sur
+  un clavier AZERTY, affichées ainsi), Espace, clic gauche / droit, molette.
+  Les flèches restent toujours actives pour marcher.
+- Enregistré dans user://controles.json.
+- Paramètres : minimum et maximum toujours affichés, même en synthèse « − ».
+
+Test ajouté : tests/controls_test.gd (onglet, choix clavier et souris, Échap,
+touches réservées, ↻, fichier, en pause). Résultat : 24 tests, 0 échec.
+À tester manuellement : jouer avec des touches changées (clavier et souris).

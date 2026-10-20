@@ -15,7 +15,7 @@ Guide complet : docs/README.md. Fichiers techniques : docs/ORGANISATION.txt.
 ## Structure
 - scenes/ : main.tscn (menus), world.tscn (partie). scripts/ : code. tests/ : tests sans fenêtre.
 - Garder les .gd.uid avec leurs scripts. Ne pas toucher à .godot/ (cache) ni au contenu existant d'Archives/ (local, ignoré par Git) ; on y ajoute seulement l'archive de chaque version.
-- Données joueur dans user:// (worlds.json, parametres-generaux.json, video.json, attributs.json), jamais dans les sources.
+- Données joueur dans user:// (worlds.json, parametres-generaux.json, video.json, controles.json, attributs.json), jamais dans les sources.
 
 ## Tests
 Depuis PowerShell, à la racine du projet :
