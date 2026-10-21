@@ -1,58 +1,213 @@
 extends Node3D
 # Fond 3D de l'accueil : un petit monde en blocs, généré en code, avec une caméra qui tourne lentement.
-# Règle : n'y montrer que ce qui existe déjà dans le jeu (blocs Sable, Pierre, Terre, sol, collines, ciel).
-# Les idées pas encore dans le jeu sont gardées en image dans docs/idees/.
+# Règle : n'y montrer que ce qui existe déjà dans le jeu (blocs Sable, Pierre, Terre, sol, collines, ciel,
+# personnages du menu Personnage). Les idées pas encore dans le jeu sont gardées en image dans docs/idees/.
 #
 # ===== VITRINE DE LA VERSION (à modifier à chaque mise à jour) =====
 # 1. NEWS_VERSION et NEWS_TEXT : le bandeau « Nouveau » affiché sous la version, à l'accueil.
 # 2. _build_news() : la construction 3D qui met en scène la nouveauté, au centre du petit monde.
 #    _animate_news(delta) l'anime (vide si rien ne bouge).
+# Règle (0.0.3.22, demandée par l'utilisateur) : la vitrine fait TOUJOURS sauter TOUS les personnages
+# du menu Personnage, chaque humain dans chaque couleur de peau, et tous les chats. La liste vient
+# de character_preview.gd (CHARACTERS et SKINS) : un nouveau personnage y apparaît tout seul,
+# mais il lui faut un modèle 3D dans _character_model() (sinon il prend la forme d'un humain).
 # Le reste du fichier (sol, collines, ciel, caméra) ne change pas d'une version à l'autre.
-const NEWS_VERSION := "0.0.3.21"
-const NEWS_TEXT := "Nouveau : Brioche plus doux, oreilles arrondies
-et dos bien visible (Paramètres → Personnage)."
+const NEWS_VERSION := "0.0.3.22"
+const NEWS_TEXT := "Nouveau : trois couleurs de peau (Paramètres → Personnage)
+et coordonnées justes : Y 0 sur le sol plat."
 
-# 0.0.3.1 à 0.0.3.21 : réglages de menus, sans scène 3D propre : les sauteurs de la 0.0.3 restent en vitrine.
-# 0.0.3 : deux sauteurs (deux blocs de pierre, taille du joueur) côte à côte.
-# À gauche, sur la pierre, le monde par défaut : saut normal. À droite, sur le sable,
-# le monde développeur : attributs réglés, saut plus haut.
+# 0.0.3.22 : à la place des blocs sauteurs de la 0.0.3, tous les personnages sautent, chacun sur
+# son bloc : une rangée par peau (claire devant, puis brune, puis foncée), les chats derrière.
+# Mêmes formes et couleurs que les aperçus du menu, en volumes simples.
 const NEWS_HEIGHT := 3
-const PAD_X := [-3, 2]
-const PAD_KINDS := [STONE, SAND]
-const JUMP_HEIGHTS := [1.2, 3.0]
-const JUMP_PERIOD := 1.6
+const GRID_X := [-5, -3, -1, 1]
+const GRID_Z := [0, -2, -4, -6]
+const HUMAN_JUMP := 1.2
+const HUMAN_PERIOD := 1.6
+const CAT_JUMP := 0.7
+const CAT_PERIOD := 1.0
+const CAT_SCALE := 1.4
 var pads: Array[MultiMeshInstance3D] = []
-var jumpers: Array[MultiMeshInstance3D] = []
-var jumper_heights: Array[float] = [0.0, 0.0]
+var jumpers: Array[Node3D] = []
+var jumper_ids: Array[String] = []
+
+# Tous les personnages, dans l'ordre du menu : [id, peau] (peau vide pour les chats).
+static func all_jumpers() -> Array:
+	var rows: Array = []
+	for skin in CharacterPreview.SKINS:
+		var row: Array = []
+		for id in CharacterPreview.CHARACTERS:
+			if CharacterPreview.is_human(id):
+				row.append([id, skin])
+		rows.append(row)
+	var cats: Array = []
+	for id in CharacterPreview.CHARACTERS:
+		if not CharacterPreview.is_human(id):
+			cats.append([id, ""])
+	rows.append(cats)
+	return rows
 
 func _build_news() -> void:
-	for index in range(2):
-		var pad := _multimesh(PAD_KINDS[index])
+	var eye := Vector3(TOWER_CELL.x + 1.5, 0, TOWER_CELL.y + 1.5)
+	var stone_cells: Array[Vector3i] = []
+	var sand_cells: Array[Vector3i] = []
+	var rows := all_jumpers()
+	for row_index in range(rows.size()):
+		for column in range(rows[row_index].size()):
+			var id: String = rows[row_index][column][0]
+			var skin: String = rows[row_index][column][1]
+			# Rangées ou colonnes en surplus (nouveaux personnages) : à la suite, vers -X.
+			var x: int = GRID_X[column] if column < GRID_X.size() else GRID_X[0] - 2 * (column - GRID_X.size() + 1)
+			var z: int = GRID_Z[row_index] if row_index < GRID_Z.size() else GRID_Z[-1] - 2 * (row_index - GRID_Z.size() + 1)
+			(sand_cells if skin.is_empty() else stone_cells).append(Vector3i(x, 0, z))
+			var jumper := _character_model(id, skin)
+			jumper.name = "Jumper_%s_%s" % [id, skin] if not skin.is_empty() else "Jumper_" + id
+			jumper.position = Vector3(x + 0.5, 1.0, z + 0.5)
+			# Face vers le point de vue (la tour).
+			jumper.rotation.y = atan2(eye.x - jumper.position.x, eye.z - jumper.position.z)
+			add_child(jumper)
+			jumpers.append(jumper)
+			jumper_ids.append(id)
+	for kind_cells in [[STONE, stone_cells], [SAND, sand_cells]]:
+		var pad := _multimesh(kind_cells[0])
 		add_child(pad)
-		var cells: Array[Vector3i] = []
-		for x in range(PAD_X[index], PAD_X[index] + 2):
-			for z in range(-2, 0):
-				cells.append(Vector3i(x, 0, z))
-		_fill_multimesh(pad, cells)
+		_fill_multimesh(pad, kind_cells[1])
 		pads.append(pad)
-		var jumper := _multimesh(STONE)
-		add_child(jumper)
-		jumper.multimesh.instance_count = 2
-		jumpers.append(jumper)
-	_place_jumpers()
 
 func _animate_news(_delta: float) -> void:
-	# Même rythme pour les deux ; seule la hauteur du saut change.
-	var phase := fmod(elapsed, JUMP_PERIOD) / JUMP_PERIOD
-	for index in range(2):
-		jumper_heights[index] = JUMP_HEIGHTS[index] * 4.0 * phase * (1.0 - phase)
-	_place_jumpers()
+	# Sauts décalés ; les chats font de petits bonds plus rapides et s'écrasent un peu en retombant.
+	for index in range(jumpers.size()):
+		var cat := not CharacterPreview.is_human(jumper_ids[index])
+		var period := CAT_PERIOD if cat else HUMAN_PERIOD
+		var phase: float = fmod(elapsed + index * 0.37, period) / period
+		jumpers[index].position.y = 1.0 + (CAT_JUMP if cat else HUMAN_JUMP) * 4.0 * phase * (1.0 - phase)
+		if cat:
+			var squash := 1.0 - 0.12 * maxf(0.0, 1.0 - phase * 8.0)
+			jumpers[index].scale = Vector3(2.0 - squash, squash, 2.0 - squash) * CAT_SCALE
 
-func _place_jumpers() -> void:
-	for index in range(2):
-		for y in range(2):
-			jumpers[index].multimesh.set_instance_transform(y, Transform3D(Basis(), Vector3(PAD_X[index] + 1.0, y + 1.5 + jumper_heights[index], -1.0)))
+func _character_model(id: String, skin: String) -> Node3D:
+	var data: Dictionary = CharacterPreview.CHARACTERS[id]
+	if data.get("lying", false):
+		return _brioche_model()
+	if data.get("plush", false):
+		return _cat_model()
+	return _human_model(id, skin if not skin.is_empty() else "light")
+
+# Volume simple : boîte ou ellipsoïde (sphère étirée), couleur unie.
+func _part(parent: Node3D, mesh: Mesh, color: Color, at: Vector3, stretch: Vector3 = Vector3.ONE) -> MeshInstance3D:
+	var part := MeshInstance3D.new()
+	part.mesh = mesh
+	part.material_override = _material(color, 0.8)
+	part.position = at
+	part.scale = stretch
+	parent.add_child(part)
+	return part
+
+func _box(size: Vector3) -> BoxMesh:
+	var box := BoxMesh.new()
+	box.size = size
+	return box
+
+func _ball(radius: float) -> SphereMesh:
+	var sphere := SphereMesh.new()
+	sphere.radius = radius
+	sphere.height = radius * 2.0
+	return sphere
+
+# Humain du menu Personnage (character_preview.gd) : tête ronde, corps, bras couleur de peau, jambes.
+func _human_model(id: String, skin: String) -> Node3D:
+	var data: Dictionary = CharacterPreview.CHARACTERS[id]
+	var skin_color := CharacterPreview.tone_color(skin)
+	var u: float = 1.9 * data.height
+	var model := Node3D.new()
+	var legs := u * 0.37
+	for side in [-1.0, 1.0]:
+		_part(model, _box(Vector3(u * 0.13, legs, u * 0.14)), data.bottom, Vector3(side * u * 0.08, legs * 0.5, 0))
+	var body_y := legs + u * 0.18
+	_part(model, _box(Vector3(u * 0.32, u * 0.36, u * 0.18)), data.top, Vector3(0, body_y, 0))
+	for side in [-1.0, 1.0]:
+		_part(model, _box(Vector3(u * 0.07, u * 0.31, u * 0.08)), skin_color, Vector3(side * u * 0.2, body_y + u * 0.01, 0))
+	var head_y := legs + u * 0.36 + u * 0.14
+	var head := u * 0.13
+	_part(model, _ball(head), skin_color, Vector3(0, head_y, 0))
+	# Cheveux : calotte un peu plus grande, en arrière et au-dessus ; cheveux longs jusqu'aux épaules.
+	_part(model, _ball(head * 1.05), data.hair, Vector3(0, head_y + head * 0.25, -head * 0.22))
+	if data.long_hair:
+		_part(model, _box(Vector3(head * 2.1, head * 2.0, head * 0.7)), data.hair, Vector3(0, head_y - head * 0.5, -head * 0.6))
+	for side in [-1.0, 1.0]:
+		_part(model, _ball(head * 0.13), Color("#1d1430"), Vector3(side * head * 0.35, head_y, head * 0.95))
+	return model
+
+# Brioche (character_preview.gd) : chat blanc couché, grosse tête « mochi », dos rond, oreilles
+# lavande, joues pêche, couronne dorée avec orbes turquoise.
+func _brioche_model() -> Node3D:
+	var data: Dictionary = CharacterPreview.CHARACTERS.brioche
+	var model := Node3D.new()
+	model.scale = Vector3.ONE * CAT_SCALE
+	_part(model, _ball(1.0), data.back, Vector3(0.04, 0.2, -0.28), Vector3(0.3, 0.2, 0.32))
+	_part(model, _ball(1.0), data.fur, Vector3(0, 0.25, 0.04), Vector3(0.4, 0.25, 0.32))
+	for side in [-1.0, 1.0]:
+		var ear := CylinderMesh.new()
+		ear.top_radius = 0.0
+		ear.bottom_radius = 0.1
+		ear.height = 0.2
+		var outer := _part(model, ear, data.fur, Vector3(side * 0.24, 0.5, 0.02))
+		outer.rotation.z = -side * 0.35
+		var inner := _part(model, ear, data.inner, Vector3(side * 0.235, 0.49, 0.06), Vector3(0.6, 0.7, 0.6))
+		inner.rotation.z = -side * 0.35
+		_part(model, _ball(1.0), data.eyes, Vector3(side * 0.1, 0.27, 0.34), Vector3(0.04, 0.055, 0.03))
+		_part(model, _ball(1.0), data.cheeks, Vector3(side * 0.19, 0.2, 0.3), Vector3(0.05, 0.028, 0.03))
+		_part(model, _ball(1.0), data.fur, Vector3(side * 0.16, 0.04, 0.3), Vector3(0.07, 0.04, 0.06))
+	_part(model, _ball(0.018), Color("#f4a3b5"), Vector3(0, 0.22, 0.36))
+	# Couronne inclinée : anneau doré, trois orbes turquoise.
+	var ring := CylinderMesh.new()
+	ring.top_radius = 0.09
+	ring.bottom_radius = 0.08
+	ring.height = 0.08
+	var crown := _part(model, ring, data.crown, Vector3(-0.08, 0.51, 0.02))
+	crown.rotation.z = 0.22
+	for index in range(3):
+		var angle := TAU * index / 3.0 + 0.5
+		_part(model, _ball(0.022), data.orbs, Vector3(-0.08 + cos(angle) * 0.07, 0.57 - cos(angle) * 0.015, 0.02 + sin(angle) * 0.07))
+	return model
+
+# Chat peluche (character_preview.gd) : assis, grosse tête ronde, ventre clair, rayures sur le front,
+# oreilles à intérieur rose, foulard violet, queue qui remonte.
+func _cat_model() -> Node3D:
+	var data: Dictionary = CharacterPreview.CHARACTERS.cat
+	var model := Node3D.new()
+	model.scale = Vector3.ONE * CAT_SCALE
+	_part(model, _ball(1.0), data.fur, Vector3(0, 0.15, 0), Vector3(0.22, 0.17, 0.2))
+	_part(model, _ball(1.0), data.belly, Vector3(0, 0.15, 0.1), Vector3(0.13, 0.12, 0.12))
+	var tail := _part(model, _box(Vector3(0.07, 0.28, 0.07)), data.fur, Vector3(0.2, 0.2, -0.12))
+	tail.rotation.z = -0.4
+	_part(model, _ball(0.045), data.stripes, Vector3(0.26, 0.34, -0.12))
+	var scarf := CylinderMesh.new()
+	scarf.top_radius = 0.17
+	scarf.bottom_radius = 0.18
+	scarf.height = 0.06
+	_part(model, scarf, data.scarf, Vector3(0, 0.31, 0))
+	var head_y := 0.52
+	_part(model, _ball(1.0), data.fur, Vector3(0, head_y, 0), Vector3(0.27, 0.24, 0.24))
+	for side in [-1.0, 1.0]:
+		var ear := CylinderMesh.new()
+		ear.top_radius = 0.0
+		ear.bottom_radius = 0.09
+		ear.height = 0.17
+		var outer := _part(model, ear, data.fur, Vector3(side * 0.17, head_y + 0.22, 0))
+		outer.rotation.z = -side * 0.3
+		var inner := _part(model, ear, data.pink, Vector3(side * 0.165, head_y + 0.21, 0.04), Vector3(0.55, 0.7, 0.55))
+		inner.rotation.z = -side * 0.3
+		_part(model, _ball(1.0), data.eyes, Vector3(side * 0.1, head_y + 0.01, 0.21), Vector3(0.04, 0.055, 0.03))
+		_part(model, _ball(1.0), data.pink, Vector3(side * 0.17, head_y - 0.08, 0.18), Vector3(0.04, 0.025, 0.03))
+		_part(model, _ball(1.0), data.fur, Vector3(side * 0.09, 0.03, 0.15), Vector3(0.07, 0.04, 0.06))
+	for offset in [-0.06, 0.0, 0.06]:
+		_part(model, _box(Vector3(0.025, 0.07, 0.02)), data.stripes, Vector3(offset, head_y + 0.19, 0.12))
+	_part(model, _ball(0.02), data.pink, Vector3(0, head_y - 0.05, 0.235))
+	return model
 # ===== FIN DE LA VITRINE =====
+
+const CharacterPreview = preload("res://scripts/character_preview.gd")
 
 const Terrain = preload("res://scripts/terrain_generator.gd")
 const WorldRules = preload("res://scripts/world.gd")

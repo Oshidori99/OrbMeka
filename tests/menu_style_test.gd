@@ -43,6 +43,11 @@ F3 : "), "menus share one theme; in-game shortcuts F1, F2, F3 are plain text")
 	var showcase: Node3D = app.showcase
 	check(showcase.is_inside_tree() and showcase.camera.is_current(), "home shows the 3D showcase with its own camera")
 	check(showcase.find_children("*", "MultiMeshInstance3D", true, false).size() >= 3, "showcase is built from block meshes in code")
+	# 0.0.3.22 : tous les personnages sautent (4 humains × 3 peaux + 2 chats).
+	check(showcase.jumpers.size() == 14 and showcase.jumper_ids.count("brioche") == 1 and showcase.jumper_ids.count("cat") == 1 and showcase.jumper_ids.count("boy") == 3, "showcase shows every character, every skin")
+	var start_y: float = showcase.jumpers[0].position.y
+	showcase._process(0.4)
+	check(not is_equal_approx(showcase.jumpers[0].position.y, start_y), "characters jump")
 	check(app.news_label.text == MenuShowcase.NEWS_TEXT and app.news_label.is_visible_in_tree(), "home shows the version news")
 	check(MenuShowcase.NEWS_VERSION == ProjectSettings.get_setting("application/config/version"), "showcase news matches project version")
 	var start_basis: Basis = showcase.camera.basis
@@ -57,11 +62,17 @@ F3 : "), "menus share one theme; in-game shortcuts F1, F2, F3 are plain text")
 	for button in [app.new_world_button, app.rename_button, app.duplicate_button, app.world_settings_button, app.delete_button]:
 		check(button.text.length() <= 2 and not button.tooltip_text.is_empty(), "icon button with tooltip: " + button.tooltip_text)
 	check(app.delete_button.tooltip_text == "Supprimer" and app.rename_button.tooltip_text == "Renommer", "icons keep their action names")
-	# Vitrine 0.0.3 : le sauteur développeur (droite) saute plus haut que le sauteur par défaut.
-	showcase.elapsed = showcase.JUMP_PERIOD * 0.5 - 1.0
-	showcase._process(1.0)
-	var heights: Array = showcase.jumper_heights
-	check(heights[1] > heights[0] and heights[0] > 0.0, "showcase developer jumper jumps higher than default jumper")
+	# Vitrine 0.0.3.22 : sauts au-dessus de leur bloc, jamais dessous ; humains plus haut que les chats.
+	var top := {"human": 0.0, "cat": 0.0}
+	var lowest := 0.0
+	for step in range(40):
+		showcase._process(0.05)
+		for index in range(showcase.jumpers.size()):
+			var lift: float = showcase.jumpers[index].position.y - 1.0
+			lowest = minf(lowest, lift)
+			var kind := "cat" if showcase.jumper_ids[index] in ["cat", "brioche"] else "human"
+			top[kind] = maxf(top[kind], lift)
+	check(lowest > -0.001 and top.human > top.cat and top.cat > 0.0, "everyone jumps above its block, humans higher than the cats")
 	check(app.backdrop.material.get_shader_parameter("blur") == 0.0, "home backdrop keeps the 3D scene sharp")
 	# Pause semi-transparente.
 	app.open_world("style-test")

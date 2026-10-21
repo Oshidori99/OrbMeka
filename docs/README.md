@@ -1,4 +1,4 @@
-# OrbMeka™ — prototype 0.0.3.21
+# OrbMeka™ — prototype 0.0.3.22
 
 Godot 4.7 / GDScript. Formes et couleurs simples, sans assets externes.
 
@@ -52,11 +52,11 @@ illisible est conservé sans être remplacé par une liste vide.
 
 ## Terrain
 Chaque graine produit **3 ou 4 petites collines de terre brune**,
-jusqu'à **3 blocs de hauteur**, dans une zone finie de 41 × 41 cellules.
+jusqu'à **3 blocs de hauteur** (sommet à Y 3), dans une zone finie de 41 × 41 cellules (X et Z de -20 à 20).
 Deux mondes aux graines différentes varient par le nombre et le profil des collines.
 Le terrain reste reproductible pour une même graine dans cette version.
 
-La base plate de 128 × 128 mètres est protégée. Les collines sont cassables.
+La base plate de 128 × 128 blocs (1 bloc = 1 m ; X et Z de -64 à 63) est protégée. Les collines sont cassables.
 L'aire de départ reste dégagée et les 74 blocs de démonstration en sable et pierre
 sont conservés. L'apparition tient compte des blocs présents.
 
@@ -908,3 +908,28 @@ Résultat : 30 tests, 0 échec.
 
 Tests : 30 tests, 0 échec (dessin seulement).
 À tester manuellement : aspect de Brioche dans les trois thèmes.
+
+## Peaux, coordonnées justes et vitrine — 0.0.3.22
+- **Coordonnées** : Y = hauteur des pieds au-dessus du sol plat, en blocs
+  (1 bloc = 1 m). **Y 0** debout sur le sol plat (avant : Y 1), Y 3 au
+  sommet d'une colline de 3 blocs, Y 25 sur le plus haut bloc permis.
+  L'écart venait de là : le jeu comptait le sol comme Y 1, alors que les
+  écrans d'information comptent les hauteurs à partir du sol.
+- Accueil → Informations, F3 et Comment jouer donnent les mêmes repères :
+  base X et Z de -64 à 63, génération de -20 à 20, construction de -57 à 57
+  (cette limite n'était pas annoncée), sommets en Y.
+- **Personnage** : trois couleurs de peau pour Garçon, Fille, Homme, Femme :
+  peau claire en haut, brune au milieu, foncée en bas, chats tout en bas.
+  Enregistré dans personnage.json (« skin ») ; un ancien fichier reste
+  lisible et garde le ton d'avant du personnage.
+- **Accueil** : tous les personnages sautent sur la vitrine (12 humains et
+  les 2 chats), à la place des blocs sauteurs. Règle : la vitrine fera
+  toujours sauter tous les personnages existants.
+
+Test ajouté : tests/world_consistency_test.gd (textes et valeurs réelles :
+base, zone générée, collines, hauteur et zone de construction, Y 0).
+Tests mis à jour : coordinates, character, menu_style, attributes, history_resume,
+pause, prototype, shortcuts_selection (numéro de version).
+Résultat : 31 tests, 0 échec.
+À tester manuellement : aspect des personnages 3D de la vitrine et des
+aperçus de peau (trois thèmes), lecture des coordonnées en grimpant.

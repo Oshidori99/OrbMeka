@@ -10,6 +10,8 @@ const BLOCK_NAMES := ["Sable", "Pierre", "Terre"]
 const MAX_BLOCKS := 1200
 const BASE_SIZE := Vector3(128, 1, 128)
 const MAX_BUILD_HEIGHT := 25
+# Construction permise de X et Z −57 à 57 (115 × 115 blocs), à l'intérieur de la base.
+const BUILD_LIMIT := 57
 
 var generated_hill_count := 0
 var generated_max_height := 0
@@ -105,7 +107,7 @@ func _create_terrain() -> void:
 		add_block(cell, DIRT)
 
 func spawn_position() -> Vector3:
-	# Apparition en X 0, Y 1, Z 0 (0.0.3.14) : pieds posés sur le sol plat, au centre de la case 0, 0.
+	# Apparition en X 0, Y 0, Z 0 (Y 1 avant 0.0.3.22) : pieds posés sur le sol plat, au centre de la case 0, 0.
 	# Les blocs posés depuis comptent aussi : on réapparaît dessus, sans chevauchement.
 	var top := 0
 	for cell: Vector3i in blocks:
@@ -113,10 +115,30 @@ func spawn_position() -> Vector3:
 			top = maxi(top, cell.y + 1)
 	return Vector3(0.5, top + 0.01, 0.5)
 
-# Coordonnées affichées : case des pieds ; Y = 1 debout sur le sol plat (0.0.3.14).
+# Coordonnées affichées : case des pieds, en blocs. Y = hauteur des pieds au-dessus du sol plat
+# (0.0.3.22 ; Y 1 au sol avant) : Y 0 au sol, Y 3 au sommet d'une colline de 3 blocs.
 func player_coordinates() -> Vector3i:
 	var feet: Vector3 = player.position
-	return Vector3i(floori(feet.x), floori(feet.y + 0.001) + 1, floori(feet.z))
+	return Vector3i(floori(feet.x), floori(feet.y + 0.001), floori(feet.z))
+
+# Bornes des cases (min, max) d'une étendue centrée sur 0, ex. base de 128 : −64 à 63.
+static func cell_range(size: int) -> Vector2i:
+	var low := -floori(size / 2.0)
+	return Vector2i(low, low + size - 1)
+
+# Textes communs (0.0.3.22) : mêmes repères que les coordonnées affichées, pour Comment jouer,
+# Informations du monde (F3) et Accueil → Informations.
+const COORDINATES_NOTE := "Coordonnées en blocs (1 bloc = 1 m) : X largeur, Y hauteur des pieds (Y 0 sur le sol plat), Z longueur."
+
+static func base_range_text() -> String:
+	var base := cell_range(int(BASE_SIZE.x))
+	return "X et Z de %d à %d" % [base.x, base.y]
+
+static func generation_range_text() -> String:
+	return "X et Z de %d à %d" % [TerrainGenerator.MIN_CELL, TerrainGenerator.MAX_CELL]
+
+static func build_range_text() -> String:
+	return "X et Z de %d à %d" % [-BUILD_LIMIT, BUILD_LIMIT]
 
 # Blocs de démonstration, décalés d'une case vers -Z en 0.0.3.14 pour libérer l'apparition en 0, 0.
 func _create_blocks() -> void:
@@ -182,7 +204,7 @@ func place_target(hit: Dictionary, kind: int) -> bool:
 		return false
 	var point: Vector3 = hit.position + hit.normal * 0.02
 	var cell := Vector3i(floori(point.x), floori(point.y), floori(point.z))
-	if cell.y < 0 or cell.y >= MAX_BUILD_HEIGHT or absi(cell.x) > 57 or absi(cell.z) > 57:
+	if cell.y < 0 or cell.y >= MAX_BUILD_HEIGHT or absi(cell.x) > BUILD_LIMIT or absi(cell.z) > BUILD_LIMIT:
 		_notify("Limite de construction atteinte.")
 		return false
 	if player.overlaps_cell(cell):
@@ -319,7 +341,7 @@ Molette : bloc. Échap : pause. F1 : mondes."
 		return "ZQSD / WASD / flèches : marcher. Souris : regarder. Espace : sauter.
 Maintenir clic gauche : casser ; clic droit : poser. Molette : changer de bloc.
 Échap : pause. F1 : liste des mondes. F2 : Comment jouer. F3 : Informations.
-Portée : %d blocs. Maximum : %d blocs, hauteur %d.
+Portée : %d blocs. Maximum : %d blocs, hauteur %d (Y 0 sur le sol plat).
 Constructions réinitialisées en quittant le monde.
 Touches modifiables : Paramètres → Contrôles." % [int(PlayerScript.REACH), MAX_BLOCKS, MAX_BUILD_HEIGHT]
 	return "ZQSD / WASD / flèches : marcher. Souris : regarder. Espace : sauter.
@@ -336,14 +358,18 @@ Le clic de capture ne casse ni ne pose. F1 : liste des mondes.
 F2 : Comment jouer. F3 : Informations du monde (jeu en pause).
 
 Portée : %d blocs. Base protégée. Maximum : %d blocs présents.
-Hauteur maximale : %d blocs au-dessus du sol plat, collines comprises.
+Hauteur maximale : %d blocs au-dessus du sol plat, collines comprises (sommet à Y %d).
+Construction : %s.
+%s
 
 Nom, graine et mode conservés ; constructions réinitialisées en quittant le monde.
-Touches modifiables (clavier, clics, molette) : Paramètres → Contrôles, aussi depuis la pause." % [int(PlayerScript.REACH), MAX_BLOCKS, MAX_BUILD_HEIGHT]
+Touches modifiables (clavier, clics, molette) : Paramètres → Contrôles, aussi depuis la pause." % [int(PlayerScript.REACH), MAX_BLOCKS, MAX_BUILD_HEIGHT, MAX_BUILD_HEIGHT, build_range_text(), COORDINATES_NOTE]
 
 func get_world_info_text(level: int = 2) -> String:
 	# Position du joueur (0.0.3.14), en tête, à tous les niveaux de détail.
 	var who: String = CharacterPreview.CHARACTERS.get(player.character, CharacterPreview.CHARACTERS.boy).name
+	if CharacterPreview.is_human(player.character):
+		who += ", " + CharacterPreview.SKINS.get(player.skin, CharacterPreview.SKINS.light).name.to_lower()
 	return "Votre position actuelle : %s
 Personnage : %s
 %s" % [coordinates_text(), who, _world_info_body(level)]
@@ -365,10 +391,11 @@ Graine : %d
 %s
 
 Collines générées : %d
-Hauteur maximale initiale des collines : %d blocs
-Zone de génération : largeur %d × longueur %d blocs
+Hauteur maximale initiale des collines : %d blocs (sommet à Y %d)
+Zone de génération : largeur %d × longueur %d blocs (%s)
 
-Base plate : largeur %d × longueur %d blocs
-Construction : hauteur maximale %d blocs au-dessus du sol plat.
+Base plate : largeur %d × longueur %d blocs (%s), sol à Y 0
+Construction : hauteur maximale %d blocs au-dessus du sol plat (sommet à Y %d), %s.
+%s
 
-Nom, graine et mode conservés ; constructions non sauvegardées." % [world_name, terrain_seed, mode_line, generated_hill_count, generated_max_height, span, span, int(BASE_SIZE.x), int(BASE_SIZE.z), MAX_BUILD_HEIGHT]
+Nom, graine et mode conservés ; constructions non sauvegardées." % [world_name, terrain_seed, mode_line, generated_hill_count, generated_max_height, generated_max_height, span, span, generation_range_text(), int(BASE_SIZE.x), int(BASE_SIZE.z), base_range_text(), MAX_BUILD_HEIGHT, MAX_BUILD_HEIGHT, build_range_text(), COORDINATES_NOTE]

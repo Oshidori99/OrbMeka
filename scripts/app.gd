@@ -48,7 +48,7 @@ const GENERAL_CATEGORIES := {
 		"Zones": {"keys": ["element_scale"], "help": ["", "Boutons, champs, marges et espaces.", "Taille des boutons, des zones de saisie, des marges et des espaces des menus, sans changer le texte, qui reste toujours dans sa zone."]},
 		"Texte": {"keys": ["text_px"], "help": ["", "Taille des textes.", "Taille de tous les textes, menus et jeu (13 px par défaut ; 18 px : taille d'avant 0.0.3.10)."]},
 		"Apparence": {"keys": ["theme_mode", "menu_depth"], "help": ["", "Couleurs et encadrés des menus.", "Thème de couleurs des menus. Profondeur : contenu dans des encadrés creusés sous le titre."]},
-		"Jeu": {"keys": ["fov", "show_coords"], "help": ["", "Champ de vision et coordonnées en partie.", "Champ de vision de la caméra en partie, en degrés (75° : vue d'origine). Coordonnées : X largeur, Y hauteur (1 sur le sol plat), Z longueur, en haut à droite."]},
+		"Jeu": {"keys": ["fov", "show_coords"], "help": ["", "Champ de vision et coordonnées en partie.", "Champ de vision de la caméra en partie, en degrés (75° : vue d'origine). Coordonnées en blocs, en haut à droite : X largeur, Y hauteur des pieds (0 sur le sol plat), Z longueur."]},
 	},
 }
 # Menu latéral de Paramètres : sections dans l'ordre des boutons ; la première s'ouvre par défaut.
@@ -80,6 +80,8 @@ var control_resets: Dictionary = {}
 var controls_reset_all_button: Button
 var capturing_action := ""
 var character_previews: Dictionary = {}
+# Cartes du menu Personnage (0.0.3.22) : « boy:light »… pour les humains, « cat », « brioche ».
+var character_buttons: Dictionary = {}
 var control_option_buttons: Dictionary = {}
 # Réglages à choix : boutons par option, et choix en cours (enregistré aussitôt).
 var choice_buttons: Dictionary = {}
@@ -360,6 +362,8 @@ func _set_choice(key: String, option: String) -> void:
 		choice_switches[key].set_pressed_no_signal(option == "on")
 	for each in choice_buttons[key]:
 		choice_buttons[key][each].set_pressed_no_signal(each == option)
+	if key in ["character", "skin"]:
+		_refresh_character_cards()
 
 func _set_default(key: String) -> void:
 	if UserSettings.CHOICES.has(key):
@@ -481,37 +485,79 @@ func _build_character_section(parent: Node) -> void:
 	var top := HBoxContainer.new()
 	_sep(top, 10)
 	box.add_child(top)
-	_explanation(top, ["", "Choisissez votre personnage.", "Choisissez votre personnage : vous le serez dans la partie, même si on ne peut pas encore se voir."])
+	_explanation(top, ["", "Choisissez votre personnage et sa peau.", "Choisissez votre personnage : peau claire en haut, brune au milieu, foncée en bas, chats tout en bas. Vous le serez dans la partie, même si on ne peut pas encore se voir."])
 	top.get_child(-1).size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	var reset := _button("↻", top, func(): reset_setting("character"))
+	var reset := _button("↻", top, reset_character)
 	_min_size(reset, Vector2(42, 0))
-	reset.tooltip_text = "Rétablir le défaut : " + UserSettings.CHOICES.character.options[UserSettings.CHOICES.character.default]
+	reset.tooltip_text = "Rétablir le défaut : " + UserSettings.CHOICES.character.options[UserSettings.CHOICES.character.default] + ", " + UserSettings.CHOICES.skin.options[UserSettings.CHOICES.skin.default].to_lower()
 	setting_resets["character"] = reset
-	var cards := HBoxContainer.new()
-	_sep(cards, 10)
+	setting_resets["skin"] = reset
+	# 0.0.3.22 : une rangée par ton de peau (claire, brune, foncée), puis les chats tout en bas.
+	# Carte « boy:light » : personnage et ton choisis ensemble ; un chat garde le ton enregistré.
+	var cards := GridContainer.new()
+	cards.columns = 5
+	cards.add_theme_constant_override("h_separation", 10)
+	cards.add_theme_constant_override("v_separation", 8)
 	box.add_child(cards)
 	var group := ButtonGroup.new()
 	choice_buttons["character"] = {}
-	for id in CharacterPreview.CHARACTERS:
-		var data: Dictionary = CharacterPreview.CHARACTERS[id]
-		var card := PanelContainer.new()
-		card.theme_type_variation = "OrbInsetDeep"
-		card.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		cards.add_child(card)
-		var column := VBoxContainer.new()
-		_sep(column, 6)
-		card.add_child(column)
-		var preview := CharacterPreview.new()
-		preview.character = id
-		_min_size(preview, Vector2(70, 140))
-		column.add_child(preview)
-		character_previews[id] = preview
-		var button := _button(data.name, column, func(): _choose("character", id))
-		button.theme_type_variation = "OrbTab"
-		button.toggle_mode = true
-		button.button_group = group
-		button.tooltip_text = "%s (%s)" % [data.name, data.age]
-		choice_buttons["character"][id] = button
+	choice_buttons["skin"] = {}
+	var rows: Array = []
+	for skin in CharacterPreview.SKINS:
+		rows.append([CharacterPreview.SKINS[skin].name, skin, CharacterPreview.CHARACTERS.keys().filter(func(id): return CharacterPreview.is_human(id))])
+	rows.append(["Chats", "", CharacterPreview.CHARACTERS.keys().filter(func(id): return not CharacterPreview.is_human(id))])
+	for row in rows:
+		var heading := _text_label()
+		heading.text = row[0]
+		heading.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+		cards.add_child(heading)
+		for column_index in range(4):
+			if column_index >= row[2].size():
+				cards.add_child(Control.new())
+				continue
+			var id: String = row[2][column_index]
+			var skin: String = row[1]
+			var card_id := id + (":" + skin if not skin.is_empty() else "")
+			var data: Dictionary = CharacterPreview.CHARACTERS[id]
+			var card := PanelContainer.new()
+			card.theme_type_variation = "OrbInsetDeep"
+			card.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+			cards.add_child(card)
+			var column := VBoxContainer.new()
+			_sep(column, 4)
+			card.add_child(column)
+			var preview := CharacterPreview.new()
+			preview.character = id
+			if not skin.is_empty():
+				preview.skin = skin
+			_min_size(preview, Vector2(60, 96))
+			column.add_child(preview)
+			character_previews[card_id] = preview
+			var button := _button(data.name, column, func(): _choose_character(id, skin))
+			button.theme_type_variation = "OrbTab"
+			button.toggle_mode = true
+			button.button_group = group
+			button.tooltip_text = "%s (%s)" % [data.name, data.age] if skin.is_empty() else "%s, %s (%s)" % [data.name, CharacterPreview.SKINS[skin].name.to_lower(), data.age]
+			character_buttons[card_id] = button
+
+# ↻ du menu Personnage : Garçon, peau claire.
+func reset_character() -> void:
+	_set_default("skin")
+	reset_setting("character")
+
+func _choose_character(id: String, skin: String) -> void:
+	choice_values["character"] = id
+	if not skin.is_empty():
+		choice_values["skin"] = skin
+	_refresh_character_cards()
+	_autosave()
+
+func _refresh_character_cards() -> void:
+	var id: String = choice_values.get("character", UserSettings.CHOICES.character.default)
+	var skin: String = choice_values.get("skin", UserSettings.CHOICES.skin.default)
+	var selected := id + ":" + skin if CharacterPreview.is_human(id) else id
+	for card_id in character_buttons:
+		character_buttons[card_id].set_pressed_no_signal(card_id == selected)
 
 func _refresh_controls() -> void:
 	for action in control_buttons:
@@ -909,15 +955,16 @@ func _build_interface() -> void:
 		"Base plate : %d × %d blocs ; génération : %d × %d.
 Hauteur maximale : %d blocs ; 3 ou 4 collines de %d blocs au plus.
 Graine aléatoire si vide. Constructions non sauvegardées." % sizes,
-		"Base plate : largeur %d × longueur %d blocs
-Zone de génération : largeur %d × longueur %d blocs
-Construction : hauteur maximale %d blocs au-dessus du sol plat, collines comprises.
-Collines : 3 ou 4, hauteur maximale %d blocs
+		"Base plate : largeur %d × longueur %d blocs (%s), sol à Y 0
+Zone de génération : largeur %d × longueur %d blocs (%s)
+Construction : hauteur maximale %d blocs au-dessus du sol plat, collines comprises (sommet à Y %d), %s.
+Collines : 3 ou 4, hauteur maximale %d blocs (sommet à Y %d)
+%s
 
 Graine choisie à la création, ou aléatoire si le champ est vide.
 Nom, graine et mode conservés ; constructions non sauvegardées.
 Réouvrir un monde régénère son terrain initial.
-F1 : revenir à la liste des mondes depuis la partie." % sizes,
+F1 : revenir à la liste des mondes depuis la partie." % [sizes[0], sizes[1], WorldRules.base_range_text(), span, span, WorldRules.generation_range_text(), sizes[4], sizes[4], WorldRules.build_range_text(), sizes[5], sizes[5], WorldRules.COORDINATES_NOTE],
 	])
 	generation_info = information_page.get_child(-1)
 	information_back_button = _button("Retour", information_page, func(): show_page("home"))

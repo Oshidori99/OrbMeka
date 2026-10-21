@@ -4,10 +4,10 @@ extends Control
 # Couleurs volontairement éloignées des personnages d'autres jeux de blocs.
 
 const CHARACTERS := {
-	"boy": {"name": "Garçon", "age": "≈ 14 ans", "height": 0.86, "skin": Color("#e8b98f"), "hair": Color("#3b2a1e"), "long_hair": false, "top": Color("#e0644b"), "bottom": Color("#4a4f5c"), "dress": false},
-	"girl": {"name": "Fille", "age": "≈ 14 ans", "height": 0.84, "skin": Color("#c98e63"), "hair": Color("#1e1a1a"), "long_hair": true, "top": Color("#9b6fd1"), "bottom": Color("#2f3e57"), "dress": false},
-	"man": {"name": "Homme", "age": "adulte", "height": 1.0, "skin": Color("#8d5a3b"), "hair": Color("#151212"), "long_hair": false, "top": Color("#d9a441"), "bottom": Color("#3a3a3a"), "dress": false},
-	"woman": {"name": "Femme", "age": "adulte", "height": 0.97, "skin": Color("#f1c9a5"), "hair": Color("#a8572c"), "long_hair": true, "top": Color("#3f9e8a"), "bottom": Color("#5b3a63"), "dress": true},
+	"boy": {"name": "Garçon", "age": "≈ 14 ans", "height": 0.86, "former_skin": "light", "hair": Color("#3b2a1e"), "long_hair": false, "top": Color("#e0644b"), "bottom": Color("#4a4f5c"), "dress": false},
+	"girl": {"name": "Fille", "age": "≈ 14 ans", "height": 0.84, "former_skin": "brown", "hair": Color("#1e1a1a"), "long_hair": true, "top": Color("#9b6fd1"), "bottom": Color("#2f3e57"), "dress": false},
+	"man": {"name": "Homme", "age": "adulte", "height": 1.0, "former_skin": "dark", "hair": Color("#151212"), "long_hair": false, "top": Color("#d9a441"), "bottom": Color("#3a3a3a"), "dress": false},
+	"woman": {"name": "Femme", "age": "adulte", "height": 0.97, "former_skin": "light", "hair": Color("#a8572c"), "long_hair": true, "top": Color("#3f9e8a"), "bottom": Color("#5b3a63"), "dress": true},
 	# 0.0.3.19 : chat original façon peluche (création OrbMeka, ne copie aucune peluche existante) :
 	# grosse tête ronde, petit corps assis, joues roses, foulard violet de l'Orbe.
 	"cat": {"name": "Chat", "age": "peluche", "height": 0.62, "fur": Color("#f3d9b1"), "belly": Color("#fbeedb"), "stripes": Color("#d9a46a"), "pink": Color("#f4a6b8"), "eyes": Color("#2b1d2e"), "scarf": Color("#9b6fd1"), "plush": true},
@@ -16,10 +16,27 @@ const CHARACTERS := {
 	# couronne dorée à trois pointes surmontées d'orbes turquoise.
 	"brioche": {"name": "Brioche", "age": "peluche", "height": 0.5, "fur": Color("#fbf8f2"), "shade": Color("#e7e1ee"), "inner": Color("#c9b3e6"), "cheeks": Color("#ffc9a8"), "eyes": Color("#241a2c"), "crown": Color("#f1c75b"), "crown_dark": Color("#c99a2e"), "orbs": Color("#7fd6c8"), "back": Color("#ebe7f0"), "outline": Color("#c9c1d6"), "lying": true},
 }
+# 0.0.3.22 : trois tons de peau pour les quatre humains (pas pour les chats), dans l'ordre du menu.
+# former_skin : ton de chaque personnage avant 0.0.3.22, repris pour un ancien personnage.json.
+const SKINS := {
+	"light": {"name": "Peau claire", "color": Color("#efc6a0")},
+	"brown": {"name": "Peau brune", "color": Color("#bf8659")},
+	"dark": {"name": "Peau foncée", "color": Color("#6f452e")},
+}
+
+static func is_human(id: String) -> bool:
+	return CHARACTERS.has(id) and CHARACTERS[id].has("former_skin")
+
+static func tone_color(skin_id: String) -> Color:
+	return SKINS.get(skin_id, SKINS.light).color
 
 var character := "boy":
 	set(value):
 		character = value
+		queue_redraw()
+var skin := "light":
+	set(value):
+		skin = value
 		queue_redraw()
 
 func _rounded(rect: Rect2, color: Color, radius: float) -> void:
@@ -208,6 +225,7 @@ func _draw() -> void:
 		return
 	# Hauteur relative : les enfants sont un peu plus petits ; pieds en bas de la zone.
 	var unit: float = size.y * 0.9 * data.height
+	var skin_color := tone_color(skin)
 	var center_x := size.x * 0.5
 	var feet := size.y * 0.97
 	var head_radius := unit * 0.13
@@ -220,20 +238,20 @@ func _draw() -> void:
 	if data.long_hair:
 		_rounded(Rect2(center_x - head_radius * 1.1, head_y - head_radius * 0.2, head_radius * 2.2, head_radius * 2.6), data.hair, head_radius)
 	# Bras.
-	_rounded(Rect2(center_x - body_width * 0.5 - unit * 0.07, body_top + unit * 0.02, unit * 0.07, body_height * 0.85), data.skin, unit * 0.03)
-	_rounded(Rect2(center_x + body_width * 0.5, body_top + unit * 0.02, unit * 0.07, body_height * 0.85), data.skin, unit * 0.03)
+	_rounded(Rect2(center_x - body_width * 0.5 - unit * 0.07, body_top + unit * 0.02, unit * 0.07, body_height * 0.85), skin_color, unit * 0.03)
+	_rounded(Rect2(center_x + body_width * 0.5, body_top + unit * 0.02, unit * 0.07, body_height * 0.85), skin_color, unit * 0.03)
 	# Jambes (ou robe).
 	if data.dress:
 		_rounded(Rect2(center_x - body_width * 0.62, legs_top - unit * 0.02, body_width * 1.24, unit * 0.22), data.bottom, unit * 0.04)
-		_rounded(Rect2(center_x - body_width * 0.3, legs_top + unit * 0.2, unit * 0.07, feet - legs_top - unit * 0.2), data.skin, unit * 0.03)
-		_rounded(Rect2(center_x + body_width * 0.3 - unit * 0.07, legs_top + unit * 0.2, unit * 0.07, feet - legs_top - unit * 0.2), data.skin, unit * 0.03)
+		_rounded(Rect2(center_x - body_width * 0.3, legs_top + unit * 0.2, unit * 0.07, feet - legs_top - unit * 0.2), skin_color, unit * 0.03)
+		_rounded(Rect2(center_x + body_width * 0.3 - unit * 0.07, legs_top + unit * 0.2, unit * 0.07, feet - legs_top - unit * 0.2), skin_color, unit * 0.03)
 	else:
 		_rounded(Rect2(center_x - body_width * 0.45, legs_top, body_width * 0.42, feet - legs_top), data.bottom, unit * 0.03)
 		_rounded(Rect2(center_x + body_width * 0.03, legs_top, body_width * 0.42, feet - legs_top), data.bottom, unit * 0.03)
 	# Corps.
 	_rounded(Rect2(center_x - body_width * 0.5, body_top, body_width, body_height), data.top, unit * 0.06)
 	# Tête ronde, cheveux courts sur le dessus, yeux.
-	draw_circle(Vector2(center_x, head_y), head_radius, data.skin)
+	draw_circle(Vector2(center_x, head_y), head_radius, skin_color)
 	if not data.long_hair:
 		draw_arc(Vector2(center_x, head_y), head_radius * 0.92, PI * 1.08, PI * 1.92, 16, data.hair, head_radius * 0.45)
 	else:

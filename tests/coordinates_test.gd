@@ -1,5 +1,5 @@
 extends SceneTree
-# 0.0.3.14 : apparition en X 0, Y 1, Z 0 ; coordonnées en jeu (Vidéo → Afficher les
+# 0.0.3.14 : apparition en X 0, Z 0 (Y 0 au sol depuis 0.0.3.22, Y 1 avant) ; coordonnées en jeu (Vidéo → Afficher les
 # coordonnées) et « Votre position actuelle » dans Informations du monde.
 const Settings = preload("res://scripts/user_settings.gd")
 var checks := 0
@@ -33,18 +33,18 @@ func _run() -> void:
 	for index in range(30):
 		await physics_frame
 	check(not world.blocks.has(Vector3i(0, 0, 0)) and world.blocks.has(Vector3i(0, 0, -1)), "demo blocks shifted, cell 0, 0 left free")
-	check(world.player_coordinates() == Vector3i(0, 1, 0), "player appears at X 0, Y 1, Z 0")
+	check(world.player_coordinates() == Vector3i(0, 0, 0), "player appears at X 0, Y 0, Z 0")
 	check(not world.coordinates_label.visible, "no coordinates in game while the option is off")
 	app.pause_game()
 	app.open_world_info()
-	check(app.info_text.text.begins_with("Votre position actuelle : X 0 · Y 1 · Z 0"), "world info shows the current position")
+	check(app.info_text.text.begins_with("Votre position actuelle : X 0 · Y 0 · Z 0"), "world info shows the current position")
 	# Option dans Vidéo, interrupteur, effet immédiat.
 	app.show_page("pause")
 	app.pause_settings_button.pressed.emit()
 	app.settings_tabs.video.pressed.emit()
 	check(app.choice_switches.has("show_coords") and app.settings_sections.video.is_ancestor_of(app.choice_switches.show_coords) and not app.choice_switches.show_coords.button_pressed, "Afficher les coordonnées switch in Vidéo")
 	app.choice_switches.show_coords.button_pressed = true
-	check(settings.values.show_coords == "on" and world.coordinates_label.visible and world.coordinates_label.text == "X 0 · Y 1 · Z 0", "switch shows coordinates at once")
+	check(settings.values.show_coords == "on" and world.coordinates_label.visible and world.coordinates_label.text == "X 0 · Y 0 · Z 0", "switch shows coordinates at once")
 	var label_rect: Rect2 = world.coordinates_label.get_global_rect()
 	check(label_rect.position.x > 640 and label_rect.position.y < 200, "coordinates shown top right")
 	app.settings_back_button.pressed.emit()
@@ -54,12 +54,12 @@ func _run() -> void:
 	world.player.position = Vector3(12.3, 2.0, -7.6)
 	await process_frame
 	await process_frame
-	check(world.coordinates_label.text == "X 12 · Y 3 · Z -8", "coordinates follow the player")
+	check(world.coordinates_label.text == "X 12 · Y 2 · Z -8", "coordinates follow the player")
 	# Réapparition sur un bloc posé en 0, 0.
 	world.add_block(Vector3i(0, 0, 0), world.DIRT)
 	world.player.position = world.spawn_position()
 	await process_frame
-	check(world.player_coordinates() == Vector3i(0, 2, 0), "respawn on a block built at 0, 0 gives Y 2")
+	check(world.player_coordinates() == Vector3i(0, 1, 0), "respawn on a block built at 0, 0 gives Y 1")
 	app.return_to_worlds()
 	# Option gardée et appliquée à l'ouverture d'un monde.
 	app.open_world(item.id)

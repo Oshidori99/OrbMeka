@@ -3,6 +3,10 @@ Du plus récent au plus ancien. Ce fichier est mis à jour à chaque version.
 
 === Thème « Contrôles et Paramètres » (0.0.3 et suivantes) ===
 
+0.0.3.22 — Peaux, coordonnées et vitrine
+Trois couleurs de peau (claire, brune, foncée) ; Y 0 sur le sol plat, textes alignés ;
+tous les personnages sautent sur la vitrine de l'accueil.
+
 0.0.3.21 — Brioche retouché
 Oreilles arrondies, dos et queue plus visibles grâce au gris clair et à un fin contour.
 
