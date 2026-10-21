@@ -87,11 +87,37 @@ func _animate_news(_delta: float) -> void:
 
 func _character_model(id: String, skin: String) -> Node3D:
 	var data: Dictionary = CharacterPreview.CHARACTERS[id]
+	if MODELS.has(id):
+		return _blender_model(id, skin if not skin.is_empty() else "light")
 	if data.get("lying", false):
 		return _brioche_model()
 	if data.get("plush", false):
 		return _cat_model()
 	return _human_model(id, skin if not skin.is_empty() else "light")
+
+# Modèles détaillés faits dans Blender (sources_blender/personnages.blend), exportés en .glb.
+# Les autres personnages gardent leurs volumes simples ci-dessous.
+const MODELS := {
+	"brioche": preload("res://assets/characters/brioche.glb"),
+	"cat": preload("res://assets/characters/cat.glb"),
+	"boy": preload("res://assets/characters/boy.glb"),
+}
+
+# La matière « Skin » du modèle prend la couleur de peau choisie ; les chats sont agrandis.
+func _blender_model(id: String, skin: String) -> Node3D:
+	var model := Node3D.new()
+	var scene: Node3D = MODELS[id].instantiate()
+	model.add_child(scene)
+	if not CharacterPreview.is_human(id):
+		model.scale = Vector3.ONE * CAT_SCALE
+	var skin_material := _material(CharacterPreview.tone_color(skin), 0.6)
+	for node in scene.find_children("*", "MeshInstance3D", true, false):
+		var mesh_instance := node as MeshInstance3D
+		for surface in range(mesh_instance.mesh.get_surface_count()):
+			var material := mesh_instance.mesh.surface_get_material(surface)
+			if material and material.resource_name == "Skin":
+				mesh_instance.set_surface_override_material(surface, skin_material)
+	return model
 
 # Volume simple : boîte ou ellipsoïde (sphère étirée), couleur unie.
 func _part(parent: Node3D, mesh: Mesh, color: Color, at: Vector3, stretch: Vector3 = Vector3.ONE) -> MeshInstance3D:
