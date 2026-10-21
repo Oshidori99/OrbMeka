@@ -34,9 +34,10 @@ Lancer les tests liés au changement ; ce qui ne peut être vérifié qu'en joua
 ## Travail depuis le cloud (téléphone)
 L'utilisateur peut lancer Claude Code dans le cloud depuis son téléphone, sur le dépôt GitHub Oshidori99/OrbMeka.
 - Travailler **sur `dev`** (commit + push). Chaque push sur dev lance .github/workflows/dev.yml :
-  tous les tests Godot sans fenêtre, puis, s'ils passent, la version Web sur la page itch.io de test (secret ITCH_TARGET_DEV).
+  tous les tests Godot sans fenêtre, puis, s'ils passent, la version Web sur la page itch.io unique et privée (secret ITCH_TARGET).
+  Cette page montre donc toujours la dernière version, même non validée. Pas de deuxième page itch.io.
 - Après chaque push : attendre le résultat de l'Action « Dev » (onglet Actions, ou `gh run list --branch dev` si gh existe).
-  Si les tests échouent, corriger avant toute autre chose. Dire à l'utilisateur quand la page de test est à jour.
+  Si les tests échouent, corriger avant toute autre chose. Dire à l'utilisateur quand la page itch.io est à jour.
 - Sur téléphone, l'utilisateur ne peut tester que menus et affichage (pas de commandes tactiles) : le rappeler pour le gameplay.
 - **« Envoie dans main »** (dit explicitement par l'utilisateur, Action Dev verte) : suivre « Nouvelle version » étapes 1 à 5
   (version, historique, README, fusion dans main, tag, push). Le Project et l'archive (étapes 4 et 6) se font si possible,

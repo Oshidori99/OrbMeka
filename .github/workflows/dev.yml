@@ -1,6 +1,6 @@
 # À chaque push sur dev : lance tous les tests Godot sans fenêtre,
-# puis publie la version Web sur la page itch.io de test (secret ITCH_TARGET_DEV),
-# seulement si les tests passent. Aucune Release, aucun tag.
+# puis publie la version Web sur la page itch.io (ITCH_TARGET_DEV s'il existe, sinon ITCH_TARGET),
+# seulement si les tests passent. La page privée montre donc toujours la dernière version, même non validée. Aucune Release, aucun tag.
 name: Dev
 
 on:
@@ -28,7 +28,7 @@ jobs:
     runs-on: ubuntu-24.04
     env:
       BUTLER_API_KEY: ${{ secrets.BUTLER_API_KEY }}
-      ITCH_TARGET_DEV: ${{ secrets.ITCH_TARGET_DEV }}
+      ITCH_TARGET_DEV: ${{ secrets.ITCH_TARGET_DEV || secrets.ITCH_TARGET }}
     steps:
       - uses: actions/checkout@v7
 
@@ -74,7 +74,7 @@ jobs:
           if [ -n "$FAILED" ]; then echo "::error::Tests en échec :$FAILED"; exit 1; fi
           echo "Tous les tests passent."
 
-      - name: Publier sur itch.io (page de test)
+      - name: Publier sur itch.io
         if: env.BUTLER_API_KEY != '' && env.ITCH_TARGET_DEV != ''
         run: |
           GODOT=~/godot/godot
@@ -86,6 +86,6 @@ jobs:
           mkdir -p ~/butler && unzip -q butler.zip -d ~/butler && chmod +x ~/butler/butler
           ~/butler/butler push out/web "$ITCH_TARGET_DEV" --userversion "dev-${GITHUB_SHA::7}"
 
-      - name: itch.io test sauté
+      - name: itch.io sauté
         if: env.BUTLER_API_KEY == '' || env.ITCH_TARGET_DEV == ''
-        run: echo "Secret ITCH_TARGET_DEV absent, publication sur la page de test sautée."
+        run: echo "Secrets itch.io absents, publication sautée."
