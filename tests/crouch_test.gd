@@ -82,7 +82,7 @@ func _run() -> void:
 	root.add_child(app)
 	await process_frame
 	var categories: Array = app.ATTRIBUTE_CATEGORIES.keys()
-	check(categories.find("Se baisser") == categories.find("Marche") + 1, "Se baisser category just under Marche")
+	check(categories.find("Se baisser") == categories.find("Courir") + 1 and categories.find("Courir") == categories.find("Marche") + 1, "Se baisser category under Marche and Courir (0.0.3.24)")
 	check(app.setting_fields.has("crouch_gravity") and app.setting_sliders.has("crouch_forward"), "crouch fields with sliders")
 	check(app.control_buttons.has("crouch") and app.control_buttons.crouch.text == "Y", "Se baisser key shown as Y")
 	root.remove_child(app)

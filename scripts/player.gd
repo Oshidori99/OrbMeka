@@ -41,6 +41,12 @@ var crouch_forward := CROUCH_SPEED
 var crouch_side := CROUCH_SPEED
 var crouch_back := CROUCH_SPEED
 var crouch_gravity := CROUCH_GRAVITY
+# Courir (0.0.3.24) : touche de Contrôles maintenue ; vitesses dans Attributs → Courir.
+const RUN_SPEED := 8.5
+var running := false
+var run_forward := RUN_SPEED
+var run_side := RUN_SPEED
+var run_back := RUN_SPEED
 var input_ready_frame := -1
 var selected_type := 0:
 	set(value):
@@ -150,6 +156,9 @@ func apply_settings(values: Dictionary) -> void:
 	crouch_side = float(values.get("crouch_side", CROUCH_SPEED))
 	crouch_back = float(values.get("crouch_back", CROUCH_SPEED))
 	crouch_gravity = float(values.get("crouch_gravity", CROUCH_GRAVITY))
+	run_forward = float(values.get("run_forward", RUN_SPEED))
+	run_side = float(values.get("run_side", RUN_SPEED))
+	run_back = float(values.get("run_back", RUN_SPEED))
 	character = str(values.get("character", "boy14"))
 	skin = str(values.get("skin", "light"))
 	eye_height = float(values.get("eye_height", EYE_HEIGHT))
@@ -183,6 +192,7 @@ func _physics_process(delta: float) -> void:
 		jump_requested = Input.is_action_just_pressed("jump") and not wait_jump_release
 	var active := Input.mouse_mode == Input.MOUSE_MODE_CAPTURED
 	update_crouch(active, Input.is_action_pressed("crouch"), Input.is_action_just_pressed("crouch"))
+	running = active and Input.is_action_pressed("sprint")
 	step_breaking(delta, active, Input.is_action_pressed("break_block"))
 	step_placement(delta, active, Input.is_action_pressed("place_block"))
 	step_movement(delta, direction, jump_requested)
@@ -222,9 +232,10 @@ func step_movement(delta: float, direction: Vector2, jump_requested: bool) -> vo
 	velocity.y = vertical_distance / delta if delta > 0.0 else 0.0
 	# direction.y < 0 : avancer ; > 0 : reculer ; direction.x : de côté.
 	var step := direction.limit_length(1.0)
-	var side := crouch_side if crouching else walk_side
-	var forward := crouch_forward if crouching else walk_forward
-	var back := crouch_back if crouching else walk_back
+	# Baissé l'emporte sur courir.
+	var side := crouch_side if crouching else (run_side if running else walk_side)
+	var forward := crouch_forward if crouching else (run_forward if running else walk_forward)
+	var back := crouch_back if crouching else (run_back if running else walk_back)
 	var local := Vector3(step.x * side, 0.0, step.y * (forward if step.y < 0.0 else back))
 	# Caméra un peu plus basse quand on est baissé.
 	var eye := maxf(0.2, eye_height - CROUCH_DROP) if crouching else eye_height

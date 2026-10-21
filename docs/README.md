@@ -1,4 +1,4 @@
-# OrbMeka™ — prototype 0.0.3.23
+# OrbMeka™ — prototype 0.0.3.24
 
 Godot 4.7 / GDScript. Formes et couleurs simples, sans assets externes.
 
@@ -960,3 +960,20 @@ shortcuts_selection, history_resume (numéro de version).
 Résultat : 31 tests, 0 échec.
 À tester manuellement : aspect des aperçus 3D dans les trois thèmes et dans
 la version Web, vitrine de l'accueil.
+
+## Courir — 0.0.3.24
+- **Contrôles** : nouvelle action **Courir**, touche **R** par défaut
+  (la touche R du clavier du joueur, en QWERTZ comme ailleurs). Maintenir
+  pour courir, relâcher pour marcher.
+- **Attributs → Courir** (sous Marche) : Avancer, De côté, Reculer en
+  courant, **8,5 m/s** par défaut (marche : 5,5 m/s). Comme les autres
+  attributs : utilisés dans un monde en mode développeur.
+- Se baisser l'emporte sur courir : baissé, on reste lent.
+- Vitrine : mêmes sauteurs qu'en 0.0.3.23, nouveau bandeau.
+
+Test ajouté : tests/run_test.gd (touche R, vitesses, se baisser prioritaire,
+réglages). Tests mis à jour : crouch, settings_walk (ordre des catégories),
+interface_info (24 champs), pause, prototype,
+shortcuts_selection, history_resume (numéro de version).
+Résultat : 32 tests, 0 échec.
+À tester manuellement : courir en jeu avec R, et changer la touche.

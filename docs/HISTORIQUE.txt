@@ -3,6 +3,9 @@ Du plus récent au plus ancien. Ce fichier est mis à jour à chaque version.
 
 === Thème « Contrôles et Paramètres » (0.0.3 et suivantes) ===
 
+0.0.3.24 — Courir
+Maintenir R pour courir (Paramètres → Contrôles) ; vitesses dans Attributs → Courir.
+
 0.0.3.23 — Enfants et animaux en 3D
 Garçon et Fille de 9 et 14 ans, écureuil, renard, tortue et lapin bleu,
 modélisés dans Blender et montrés en 3D dans Paramètres → Personnage.

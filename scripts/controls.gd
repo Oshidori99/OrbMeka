@@ -15,6 +15,8 @@ const ACTIONS := {
 	# Défaut par lettre (0.0.3.18) : la touche marquée Y sur le clavier du joueur
 	# (QWERTZ suisse ou allemand : Y et Z sont inversés par rapport au QWERTY).
 	"crouch": {"label": "Se baisser", "default": {"key": KEY_Y}, "by_letter": true, "fixed": []},
+	# 0.0.3.24 : maintenir pour courir (plus rapide) ; défaut par lettre : R.
+	"sprint": {"label": "Courir", "default": {"key": KEY_R}, "by_letter": true, "fixed": []},
 	"break_block": {"label": "Casser", "default": {"mouse": MOUSE_BUTTON_LEFT}, "fixed": []},
 	"place_block": {"label": "Poser", "default": {"mouse": MOUSE_BUTTON_RIGHT}, "fixed": []},
 	"block_previous": {"label": "Bloc précédent", "default": {"mouse": MOUSE_BUTTON_WHEEL_UP}, "fixed": []},
