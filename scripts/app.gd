@@ -80,7 +80,7 @@ var control_resets: Dictionary = {}
 var controls_reset_all_button: Button
 var capturing_action := ""
 var character_previews: Dictionary = {}
-# Cartes du menu Personnage (0.0.3.22) : « boy:light »… pour les humains, « cat », « brioche ».
+# Cartes du menu Personnage (0.0.3.22) : « boy9:light »… pour les humains, « cat », « fox »… pour les animaux.
 var character_buttons: Dictionary = {}
 var control_option_buttons: Dictionary = {}
 # Réglages à choix : boutons par option, et choix en cours (enregistré aussitôt).
@@ -485,17 +485,16 @@ func _build_character_section(parent: Node) -> void:
 	var top := HBoxContainer.new()
 	_sep(top, 10)
 	box.add_child(top)
-	_explanation(top, ["", "Choisissez votre personnage et sa peau.", "Choisissez votre personnage : peau claire en haut, brune au milieu, foncée en bas, chats tout en bas. Vous le serez dans la partie, même si on ne peut pas encore se voir."])
+	_explanation(top, ["", "Choisissez votre personnage et sa peau.", "Choisissez votre personnage : peau claire en haut, brune au milieu, foncée en bas, animaux tout en bas. Vous le serez dans la partie, même si on ne peut pas encore se voir."])
 	top.get_child(-1).size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	var reset := _button("↻", top, reset_character)
 	_min_size(reset, Vector2(42, 0))
 	reset.tooltip_text = "Rétablir le défaut : " + UserSettings.CHOICES.character.options[UserSettings.CHOICES.character.default] + ", " + UserSettings.CHOICES.skin.options[UserSettings.CHOICES.skin.default].to_lower()
 	setting_resets["character"] = reset
 	setting_resets["skin"] = reset
-	# 0.0.3.22 : une rangée par ton de peau (claire, brune, foncée), puis les chats tout en bas.
-	# Carte « boy:light » : personnage et ton choisis ensemble ; un chat garde le ton enregistré.
+	# 0.0.3.22 : une rangée par ton de peau (claire, brune, foncée), puis les animaux tout en bas (0.0.3.23 : six par rangée).
+	# Carte « boy9:light » : personnage et ton choisis ensemble ; un animal garde le ton enregistré.
 	var cards := GridContainer.new()
-	cards.columns = 5
 	cards.add_theme_constant_override("h_separation", 10)
 	cards.add_theme_constant_override("v_separation", 8)
 	box.add_child(cards)
@@ -505,13 +504,17 @@ func _build_character_section(parent: Node) -> void:
 	var rows: Array = []
 	for skin in CharacterPreview.SKINS:
 		rows.append([CharacterPreview.SKINS[skin].name, skin, CharacterPreview.CHARACTERS.keys().filter(func(id): return CharacterPreview.is_human(id))])
-	rows.append(["Chats", "", CharacterPreview.CHARACTERS.keys().filter(func(id): return not CharacterPreview.is_human(id))])
+	rows.append(["Animaux", "", CharacterPreview.CHARACTERS.keys().filter(func(id): return not CharacterPreview.is_human(id))])
+	var per_row := 0
+	for row in rows:
+		per_row = maxi(per_row, row[2].size())
+	cards.columns = per_row + 1
 	for row in rows:
 		var heading := _text_label()
 		heading.text = row[0]
 		heading.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 		cards.add_child(heading)
-		for column_index in range(4):
+		for column_index in range(per_row):
 			if column_index >= row[2].size():
 				cards.add_child(Control.new())
 				continue
@@ -540,7 +543,7 @@ func _build_character_section(parent: Node) -> void:
 			button.tooltip_text = "%s (%s)" % [data.name, data.age] if skin.is_empty() else "%s, %s (%s)" % [data.name, CharacterPreview.SKINS[skin].name.to_lower(), data.age]
 			character_buttons[card_id] = button
 
-# ↻ du menu Personnage : Garçon, peau claire.
+# ↻ du menu Personnage : Garçon 14 ans, peau claire.
 func reset_character() -> void:
 	_set_default("skin")
 	reset_setting("character")

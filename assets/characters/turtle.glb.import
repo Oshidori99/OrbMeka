@@ -3,13 +3,13 @@
 importer="scene"
 importer_version=1
 type="PackedScene"
-uid="uid://bayxh37yhn02t"
-path="res://.godot/imported/boy.glb-38f52bb2299c0b798f4e19dcaf7bea8d.scn"
+uid="uid://dvguvrajbjvoy"
+path="res://.godot/imported/turtle.glb-1494dc8a5c986528cde88c4bb1e82f96.scn"
 
 [deps]
 
-source_file="res://assets/characters/boy.glb"
-dest_files=["res://.godot/imported/boy.glb-38f52bb2299c0b798f4e19dcaf7bea8d.scn"]
+source_file="res://assets/characters/turtle.glb"
+dest_files=["res://.godot/imported/turtle.glb-1494dc8a5c986528cde88c4bb1e82f96.scn"]
 
 [params]
 

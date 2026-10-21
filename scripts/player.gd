@@ -35,7 +35,7 @@ var crouching := false
 var crouch_toggle := false
 var crouch_latched := false
 # Personnage choisi (Paramètres → Personnage, 0.0.3.16) : pas encore visible à l'écran.
-var character := "boy"
+var character := "boy14"
 var skin := "light"
 var crouch_forward := CROUCH_SPEED
 var crouch_side := CROUCH_SPEED
@@ -150,7 +150,7 @@ func apply_settings(values: Dictionary) -> void:
 	crouch_side = float(values.get("crouch_side", CROUCH_SPEED))
 	crouch_back = float(values.get("crouch_back", CROUCH_SPEED))
 	crouch_gravity = float(values.get("crouch_gravity", CROUCH_GRAVITY))
-	character = str(values.get("character", "boy"))
+	character = str(values.get("character", "boy14"))
 	skin = str(values.get("skin", "light"))
 	eye_height = float(values.get("eye_height", EYE_HEIGHT))
 	camera.position.y = eye_height

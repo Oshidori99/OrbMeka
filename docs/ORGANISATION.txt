@@ -14,6 +14,11 @@ ui_theme pour le thème des menus et menu_showcase pour le fond 3D de l'accueil
 tests/ contient les vérifications automatiques, lancées sans fenêtre.
 docs/ contient le guide détaillé README.md et cette note.
 docs/idees/ garde des images d'idées pas encore dans le jeu (pour plus tard).
+idee/ garde les prototypes de chaque nouveau personnage (nom-1.png à nom-3.png,
+rendus dans Blender), pour comparer ; Godot l'ignore (fichier .gdignore).
+sources_blender/personnages.blend contient les modèles des personnages et les
+scripts qui les construisent (textes orbmeka_*.py dans Blender) ; ils sont
+exportés en .glb dans assets/characters/, lus par le jeu.
 L'icône icon.svg reste à la racine avec son fichier icon.svg.import :
 inutile de créer un dossier de ressources pour cette seule image.
 

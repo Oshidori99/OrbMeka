@@ -44,12 +44,15 @@ const CHOICES := {
 	# 0.0.3.14 : coordonnées du joueur affichées en jeu, en haut à droite.
 	"show_coords": {"label": "Afficher les coordonnées", "options": {"on": "Oui", "off": "Non"}, "default": "off"},
 	# 0.0.3.16 : personnage choisi (Paramètres → Personnage), enregistré dans personnage.json.
-	"character": {"label": "Personnage", "options": {"boy": "Garçon", "girl": "Fille", "man": "Homme", "woman": "Femme", "cat": "Chat", "brioche": "Brioche"}, "default": "boy"},
+	# 0.0.3.23 : enfants de 9 et 14 ans (à la place de « boy » et « girl »), quatre nouveaux animaux.
+	"character": {"label": "Personnage", "options": {"boy9": "Garçon 9 ans", "girl9": "Fille 9 ans", "boy14": "Garçon 14 ans", "girl14": "Fille 14 ans", "man": "Homme", "woman": "Femme", "cat": "Chat", "brioche": "Brioche", "squirrel": "Écureuil", "fox": "Renard", "turtle": "Tortue", "rabbit": "Lapin bleu"}, "default": "boy14"},
 	# 0.0.3.22 : ton de peau des humains, même fichier ; absent (ancien fichier) : ton d'avant du personnage.
 	"skin": {"label": "Couleur de peau", "options": {"light": "Peau claire", "brown": "Peau brune", "dark": "Peau foncée"}, "default": "light"},
 }
 # Ton de chaque humain avant 0.0.3.22 (mêmes valeurs que former_skin dans character_preview.gd).
 const FORMER_SKINS := {"boy": "light", "girl": "brown", "man": "dark", "woman": "light"}
+# Personnages d'avant 0.0.3.23 remplacés : l'ancien Garçon et l'ancienne Fille (≈ 14 ans) deviennent ceux de 14 ans.
+const FORMER_CHARACTERS := {"boy": "boy14", "girl": "girl14"}
 # Attributs du joueur : par défaut dans un monde par défaut, réglables en mode développeur.
 const ATTRIBUTE_KEYS := ["jump_height", "jump_speed", "fall_gravity", "place_ms", "break_ms", "break_reach", "place_reach", "walk_forward", "walk_side", "walk_back", "crouch_forward", "crouch_side", "crouch_back", "crouch_gravity", "eye_height"]
 # Un fichier par menu de Paramètres (0.0.3.6), nommé d'après le menu, dans user://
@@ -179,11 +182,13 @@ func _read(path: String) -> void:
 			continue
 		if CHOICES[key].options.has(parser.data.get(key)):
 			values[key] = parser.data.get(key)
+		elif key == "character" and FORMER_CHARACTERS.has(parser.data.get(key)):
+			values[key] = FORMER_CHARACTERS[parser.data.get(key)]
 		else:
 			load_notice = "Certains réglages invalides ont repris leur valeur par défaut."
 	# personnage.json d'avant 0.0.3.22 (sans « skin ») : le personnage garde son ton d'avant.
 	if parser.data.has("character") and not parser.data.has("skin"):
-		values.skin = FORMER_SKINS.get(values.character, CHOICES.skin.default)
+		values.skin = FORMER_SKINS.get(str(parser.data.get("character")), CHOICES.skin.default)
 
 # Valeurs d'un monde en mode par défaut, quels que soient les réglages enregistrés.
 static func default_values() -> Dictionary:

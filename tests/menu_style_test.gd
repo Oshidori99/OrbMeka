@@ -2,6 +2,7 @@ extends SceneTree
 # 0.0.2.12-0.0.2.13 : thème commun, fond 3D « vitrine » de l'accueil, pause semi-transparente,
 # point de vue posé sur une tour, boutons-icônes, menus larges.
 const MenuShowcase = preload("res://scripts/menu_showcase.gd")
+const CharacterPreview = preload("res://scripts/character_preview.gd")
 var checks := 0
 var failures := 0
 
@@ -43,8 +44,9 @@ F3 : "), "menus share one theme; in-game shortcuts F1, F2, F3 are plain text")
 	var showcase: Node3D = app.showcase
 	check(showcase.is_inside_tree() and showcase.camera.is_current(), "home shows the 3D showcase with its own camera")
 	check(showcase.find_children("*", "MultiMeshInstance3D", true, false).size() >= 3, "showcase is built from block meshes in code")
-	# 0.0.3.22 : tous les personnages sautent (4 humains × 3 peaux + 2 chats).
-	check(showcase.jumpers.size() == 14 and showcase.jumper_ids.count("brioche") == 1 and showcase.jumper_ids.count("cat") == 1 and showcase.jumper_ids.count("boy") == 3, "showcase shows every character, every skin")
+	# 0.0.3.23 : trois nouveautés sautent (trop de personnages pour les montrer tous).
+	check(showcase.jumpers.size() >= 2 and showcase.jumpers.size() <= 3 and showcase.jumper_ids.all(func(id): return CharacterPreview.CHARACTERS.has(id)), "showcase shows 2 or 3 characters of the menu")
+	check(showcase.jumper_ids == ["girl9", "fox", "rabbit"] and showcase.jumpers.all(func(jumper): return not jumper.find_children("*", "MeshInstance3D", true, false).is_empty()), "new characters jump with their Blender models")
 	var start_y: float = showcase.jumpers[0].position.y
 	showcase._process(0.4)
 	check(not is_equal_approx(showcase.jumpers[0].position.y, start_y), "characters jump")
@@ -62,7 +64,7 @@ F3 : "), "menus share one theme; in-game shortcuts F1, F2, F3 are plain text")
 	for button in [app.new_world_button, app.rename_button, app.duplicate_button, app.world_settings_button, app.delete_button]:
 		check(button.text.length() <= 2 and not button.tooltip_text.is_empty(), "icon button with tooltip: " + button.tooltip_text)
 	check(app.delete_button.tooltip_text == "Supprimer" and app.rename_button.tooltip_text == "Renommer", "icons keep their action names")
-	# Vitrine 0.0.3.22 : sauts au-dessus de leur bloc, jamais dessous ; humains plus haut que les chats.
+	# Vitrine : sauts au-dessus de leur bloc, jamais dessous ; humains plus haut que les animaux.
 	var top := {"human": 0.0, "cat": 0.0}
 	var lowest := 0.0
 	for step in range(40):
@@ -70,9 +72,9 @@ F3 : "), "menus share one theme; in-game shortcuts F1, F2, F3 are plain text")
 		for index in range(showcase.jumpers.size()):
 			var lift: float = showcase.jumpers[index].position.y - 1.0
 			lowest = minf(lowest, lift)
-			var kind := "cat" if showcase.jumper_ids[index] in ["cat", "brioche"] else "human"
+			var kind := "human" if CharacterPreview.is_human(showcase.jumper_ids[index]) else "cat"
 			top[kind] = maxf(top[kind], lift)
-	check(lowest > -0.001 and top.human > top.cat and top.cat > 0.0, "everyone jumps above its block, humans higher than the cats")
+	check(lowest > -0.001 and top.human > top.cat and top.cat > 0.0, "everyone jumps above its block, humans higher than the animals")
 	check(app.backdrop.material.get_shader_parameter("blur") == 0.0, "home backdrop keeps the 3D scene sharp")
 	# Pause semi-transparente.
 	app.open_world("style-test")

@@ -367,7 +367,7 @@ Touches modifiables (clavier, clics, molette) : Paramètres → Contrôles, auss
 
 func get_world_info_text(level: int = 2) -> String:
 	# Position du joueur (0.0.3.14), en tête, à tous les niveaux de détail.
-	var who: String = CharacterPreview.CHARACTERS.get(player.character, CharacterPreview.CHARACTERS.boy).name
+	var who: String = CharacterPreview.CHARACTERS.get(player.character, CharacterPreview.CHARACTERS.boy14).name
 	if CharacterPreview.is_human(player.character):
 		who += ", " + CharacterPreview.SKINS.get(player.skin, CharacterPreview.SKINS.light).name.to_lower()
 	return "Votre position actuelle : %s

@@ -7,21 +7,19 @@ extends Node3D
 # 1. NEWS_VERSION et NEWS_TEXT : le bandeau « Nouveau » affiché sous la version, à l'accueil.
 # 2. _build_news() : la construction 3D qui met en scène la nouveauté, au centre du petit monde.
 #    _animate_news(delta) l'anime (vide si rien ne bouge).
-# Règle (0.0.3.22, demandée par l'utilisateur) : la vitrine fait TOUJOURS sauter TOUS les personnages
-# du menu Personnage, chaque humain dans chaque couleur de peau, et tous les chats. La liste vient
-# de character_preview.gd (CHARACTERS et SKINS) : un nouveau personnage y apparaît tout seul,
-# mais il lui faut un modèle 3D dans _character_model() (sinon il prend la forme d'un humain).
+# Règle (0.0.3.22, demandée par l'utilisateur) : les personnages du menu Personnage sautent, chacun sur
+# son bloc. Depuis 0.0.3.23 (30 personnages avec les peaux, trop pour la vitrine), on n'en montre que
+# 2 ou 3, choisis parmi les nouveautés : liste NEWS_JUMPERS ([id, peau], peau vide pour un animal).
+# Chacun prend son modèle Blender (CharacterPreview.MODELS, ou MODELS ci-dessous), sinon une forme simple.
 # Le reste du fichier (sol, collines, ciel, caméra) ne change pas d'une version à l'autre.
-const NEWS_VERSION := "0.0.3.22"
-const NEWS_TEXT := "Nouveau : trois couleurs de peau (Paramètres → Personnage)
-et coordonnées justes : Y 0 sur le sol plat."
+const NEWS_VERSION := "0.0.3.23"
+const NEWS_TEXT := "Nouveau : enfants de 9 et 14 ans, écureuil, renard, tortue
+et lapin bleu, en 3D (Paramètres → Personnage)."
 
-# 0.0.3.22 : à la place des blocs sauteurs de la 0.0.3, tous les personnages sautent, chacun sur
-# son bloc : une rangée par peau (claire devant, puis brune, puis foncée), les chats derrière.
-# Mêmes formes et couleurs que les aperçus du menu, en volumes simples.
+# 0.0.3.23 : trois nouveautés sautent sur leur bloc, devant l'orbe.
+const NEWS_JUMPERS := [["girl9", "brown"], ["fox", ""], ["rabbit", ""]]
+const NEWS_X := [1, 3, 5]
 const NEWS_HEIGHT := 3
-const GRID_X := [-5, -3, -1, 1]
-const GRID_Z := [0, -2, -4, -6]
 const HUMAN_JUMP := 1.2
 const HUMAN_PERIOD := 1.6
 const CAT_JUMP := 0.7
@@ -31,43 +29,23 @@ var pads: Array[MultiMeshInstance3D] = []
 var jumpers: Array[Node3D] = []
 var jumper_ids: Array[String] = []
 
-# Tous les personnages, dans l'ordre du menu : [id, peau] (peau vide pour les chats).
-static func all_jumpers() -> Array:
-	var rows: Array = []
-	for skin in CharacterPreview.SKINS:
-		var row: Array = []
-		for id in CharacterPreview.CHARACTERS:
-			if CharacterPreview.is_human(id):
-				row.append([id, skin])
-		rows.append(row)
-	var cats: Array = []
-	for id in CharacterPreview.CHARACTERS:
-		if not CharacterPreview.is_human(id):
-			cats.append([id, ""])
-	rows.append(cats)
-	return rows
-
 func _build_news() -> void:
 	var eye := Vector3(TOWER_CELL.x + 1.5, 0, TOWER_CELL.y + 1.5)
 	var stone_cells: Array[Vector3i] = []
 	var sand_cells: Array[Vector3i] = []
-	var rows := all_jumpers()
-	for row_index in range(rows.size()):
-		for column in range(rows[row_index].size()):
-			var id: String = rows[row_index][column][0]
-			var skin: String = rows[row_index][column][1]
-			# Rangées ou colonnes en surplus (nouveaux personnages) : à la suite, vers -X.
-			var x: int = GRID_X[column] if column < GRID_X.size() else GRID_X[0] - 2 * (column - GRID_X.size() + 1)
-			var z: int = GRID_Z[row_index] if row_index < GRID_Z.size() else GRID_Z[-1] - 2 * (row_index - GRID_Z.size() + 1)
-			(sand_cells if skin.is_empty() else stone_cells).append(Vector3i(x, 0, z))
-			var jumper := _character_model(id, skin)
-			jumper.name = "Jumper_%s_%s" % [id, skin] if not skin.is_empty() else "Jumper_" + id
-			jumper.position = Vector3(x + 0.5, 1.0, z + 0.5)
-			# Face vers le point de vue (la tour).
-			jumper.rotation.y = atan2(eye.x - jumper.position.x, eye.z - jumper.position.z)
-			add_child(jumper)
-			jumpers.append(jumper)
-			jumper_ids.append(id)
+	for index in range(NEWS_JUMPERS.size()):
+		var id: String = NEWS_JUMPERS[index][0]
+		var skin: String = NEWS_JUMPERS[index][1]
+		var x: int = NEWS_X[index]
+		(sand_cells if skin.is_empty() else stone_cells).append(Vector3i(x, 0, 0))
+		var jumper := _character_model(id, skin)
+		jumper.name = "Jumper_%s_%s" % [id, skin] if not skin.is_empty() else "Jumper_" + id
+		jumper.position = Vector3(x + 0.5, 1.0, 0.5)
+		# Face vers le point de vue (la tour).
+		jumper.rotation.y = atan2(eye.x - jumper.position.x, eye.z - jumper.position.z)
+		add_child(jumper)
+		jumpers.append(jumper)
+		jumper_ids.append(id)
 	for kind_cells in [[STONE, stone_cells], [SAND, sand_cells]]:
 		var pad := _multimesh(kind_cells[0])
 		add_child(pad)
@@ -75,7 +53,7 @@ func _build_news() -> void:
 		pads.append(pad)
 
 func _animate_news(_delta: float) -> void:
-	# Sauts décalés ; les chats font de petits bonds plus rapides et s'écrasent un peu en retombant.
+	# Sauts décalés ; les animaux font de petits bonds plus rapides et s'écrasent un peu en retombant.
 	for index in range(jumpers.size()):
 		var cat := not CharacterPreview.is_human(jumper_ids[index])
 		var period := CAT_PERIOD if cat else HUMAN_PERIOD
@@ -87,7 +65,7 @@ func _animate_news(_delta: float) -> void:
 
 func _character_model(id: String, skin: String) -> Node3D:
 	var data: Dictionary = CharacterPreview.CHARACTERS[id]
-	if MODELS.has(id):
+	if CharacterPreview.MODELS.has(id) or MODELS.has(id):
 		return _blender_model(id, skin if not skin.is_empty() else "light")
 	if data.get("lying", false):
 		return _brioche_model()
@@ -100,13 +78,12 @@ func _character_model(id: String, skin: String) -> Node3D:
 const MODELS := {
 	"brioche": preload("res://assets/characters/brioche.glb"),
 	"cat": preload("res://assets/characters/cat.glb"),
-	"boy": preload("res://assets/characters/boy.glb"),
 }
 
-# La matière « Skin » du modèle prend la couleur de peau choisie ; les chats sont agrandis.
+# La matière « Skin » du modèle prend la couleur de peau choisie ; les animaux sont agrandis.
 func _blender_model(id: String, skin: String) -> Node3D:
 	var model := Node3D.new()
-	var scene: Node3D = MODELS[id].instantiate()
+	var scene: Node3D = CharacterPreview.MODELS.get(id, MODELS.get(id)).instantiate()
 	model.add_child(scene)
 	if not CharacterPreview.is_human(id):
 		model.scale = Vector3.ONE * CAT_SCALE

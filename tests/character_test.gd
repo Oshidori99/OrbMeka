@@ -1,6 +1,7 @@
 extends SceneTree
 # 0.0.3.16 : Paramètres → Personnage (entre Contrôles et Attributs) ; 0.0.3.22 : trois peaux
-# (claire, brune, foncée) pour les humains, chats en bas ; choix dans personnage.json, repris en partie.
+# (claire, brune, foncée) pour les humains, animaux en bas ; choix dans personnage.json, repris en partie.
+# 0.0.3.23 : enfants de 9 et 14 ans (à la place de « boy » et « girl ») et quatre animaux, en 3D.
 const Settings = preload("res://scripts/user_settings.gd")
 const CharacterPreview = preload("res://scripts/character_preview.gd")
 var checks := 0
@@ -19,12 +20,15 @@ func check(ok: bool, label: String) -> void:
 
 func _run() -> void:
 	root.size = Vector2i(1280, 720)
-	check(CharacterPreview.CHARACTERS.keys() == ["boy", "girl", "man", "woman", "cat", "brioche"], "six characters, with the two plush cats")
-	check(CharacterPreview.CHARACTERS.boy.height < CharacterPreview.CHARACTERS.man.height and CharacterPreview.CHARACTERS.girl.height < CharacterPreview.CHARACTERS.woman.height, "teenagers drawn a bit smaller")
+	check(CharacterPreview.CHARACTERS.keys() == ["boy9", "girl9", "boy14", "girl14", "man", "woman", "cat", "brioche", "squirrel", "fox", "turtle", "rabbit"], "twelve characters: four children, two adults, six animals")
+	check(CharacterPreview.CHARACTERS.keys().all(func(id): return Settings.CHOICES.character.options[id] == CharacterPreview.CHARACTERS[id].name), "same names in the menu and the save file")
+	check(CharacterPreview.MODELS.keys() == ["boy9", "girl9", "boy14", "girl14", "squirrel", "fox", "turtle", "rabbit"], "new characters modelled in Blender")
+	var tall := func(id: String) -> float: return CharacterPreview.CHARACTERS[id].height
+	check(tall.call("boy9") < tall.call("boy14") and tall.call("boy14") < tall.call("man") and tall.call("girl9") < tall.call("girl14") and tall.call("girl14") < tall.call("woman"), "9-year-olds smaller than 14-year-olds, smaller than adults")
 	check(Settings.new().file_path("character") == "user://personnage.json", "player file named after the menu")
 	var fixture := "res://.godot/character-test-%d.json" % Time.get_ticks_usec()
 	var settings := Settings.new(fixture)
-	check(settings.values.character == "boy", "Garçon by default")
+	check(settings.values.character == "boy14", "Garçon 14 ans by default")
 	var app: Control = load("res://scenes/main.tscn").instantiate()
 	app.settings = settings
 	app.catalog = load("res://scripts/world_catalog.gd").new(fixture + ".worlds")
@@ -38,22 +42,31 @@ func _run() -> void:
 	app.settings_tabs.character.pressed.emit()
 	await process_frame
 	await process_frame
-	# 0.0.3.22 : quatre humains × trois peaux (claire, brune, foncée, de haut en bas), puis les deux chats.
+	# Six humains × trois peaux (claire, brune, foncée, de haut en bas), puis les six animaux.
 	var cards: Dictionary = app.character_buttons
 	var expected := []
 	for skin in ["light", "brown", "dark"]:
-		for id in ["boy", "girl", "man", "woman"]:
+		for id in ["boy9", "girl9", "boy14", "girl14", "man", "woman"]:
 			expected.append(id + ":" + skin)
-	expected.append_array(["cat", "brioche"])
-	check(app.settings_sections.character.visible and cards.keys() == expected and app.character_previews.size() == 14, "fourteen cards: three skins, then the cats")
-	check(cards.values().map(func(button): return button.text) == ["Garçon", "Fille", "Homme", "Femme", "Garçon", "Fille", "Homme", "Femme", "Garçon", "Fille", "Homme", "Femme", "Chat", "Brioche"], "character names")
+	expected.append_array(["cat", "brioche", "squirrel", "fox", "turtle", "rabbit"])
+	check(app.settings_sections.character.visible and cards.keys() == expected and app.character_previews.size() == 24, "24 cards: three skins, then the animals")
+	var humans := ["Garçon 9 ans", "Fille 9 ans", "Garçon 14 ans", "Fille 14 ans", "Homme", "Femme"]
+	check(cards.values().map(func(button): return button.text) == humans + humans + humans + ["Chat", "Brioche", "Écureuil", "Renard", "Tortue", "Lapin bleu"], "character names")
 	var row_y := func(card_id: String) -> float: return cards[card_id].get_global_rect().position.y
-	check(row_y.call("boy:light") < row_y.call("boy:brown") and row_y.call("boy:brown") < row_y.call("boy:dark") and row_y.call("boy:dark") < row_y.call("cat") and is_equal_approx(row_y.call("cat"), row_y.call("brioche")), "light skin on top, brown in the middle, dark below, cats at the bottom")
-	check(app.character_previews["girl:dark"].skin == "dark" and app.character_previews["girl:light"].skin == "light", "previews drawn with their skin")
+	check(row_y.call("boy9:light") < row_y.call("boy9:brown") and row_y.call("boy9:brown") < row_y.call("woman:dark") and row_y.call("woman:dark") < row_y.call("cat") and is_equal_approx(row_y.call("cat"), row_y.call("rabbit")), "light skin on top, brown in the middle, dark below, animals at the bottom")
+	check(app.character_previews["girl9:dark"].skin == "dark" and app.character_previews["girl9:light"].skin == "light", "previews drawn with their skin")
+	check(app.character_previews["girl9:dark"].viewport != null and app.character_previews["rabbit"].viewport != null and app.character_previews["man:light"].viewport == null and app.character_previews["cat"].viewport == null, "Blender characters shown in 3D, others still drawn")
+	var skin_of := func(preview: Control) -> Color:
+		for node in preview.model.find_children("*", "MeshInstance3D", true, false):
+			for surface in range(node.mesh.get_surface_count()):
+				if node.get_surface_override_material(surface):
+					return node.get_surface_override_material(surface).albedo_color
+		return Color.TRANSPARENT
+	check(skin_of.call(app.character_previews["boy14:dark"]) == CharacterPreview.tone_color("dark") and skin_of.call(app.character_previews["boy14:light"]) == CharacterPreview.tone_color("light") and skin_of.call(app.character_previews["fox"]) == Color.TRANSPARENT, "3D children take the chosen skin, animals keep their fur")
 	check(app.character_previews.values().all(func(preview): return preview.size.y >= 90 and preview.size.x > 0), "previews have room to draw")
-	check(cards["boy:light"].button_pressed and cards.values().filter(func(button): return button.button_pressed).size() == 1, "saved character shown selected")
+	check(cards["boy14:light"].button_pressed and cards.values().filter(func(button): return button.button_pressed).size() == 1, "saved character shown selected")
 	cards["woman:brown"].pressed.emit()
-	check(settings.values.character == "woman" and settings.values.skin == "brown" and cards["woman:brown"].button_pressed and not cards["boy:light"].button_pressed and not cards["woman:light"].button_pressed, "choosing saves character and skin at once")
+	check(settings.values.character == "woman" and settings.values.skin == "brown" and cards["woman:brown"].button_pressed and not cards["boy14:light"].button_pressed and not cards["woman:light"].button_pressed, "choosing saves character and skin at once")
 	var saved: Variant = JSON.parse_string(FileAccess.get_file_as_string(settings.file_path("character")))
 	check(saved is Dictionary and saved.character == "woman" and saved.skin == "brown" and saved.size() == 2, "personnage.json holds the character and the skin")
 	check(Settings.new(fixture).values.character == "woman" and Settings.new(fixture).values.skin == "brown", "character and skin reload")
@@ -66,11 +79,11 @@ func _run() -> void:
 	app.show_page("pause")
 	app.pause_settings_button.pressed.emit()
 	app.settings_tabs.character.pressed.emit()
-	cards["girl:dark"].pressed.emit()
-	check(app.active_world.player.character == "girl" and app.active_world.player.skin == "dark", "changing in pause applies at once")
+	cards["girl14:dark"].pressed.emit()
+	check(app.active_world.player.character == "girl14" and app.active_world.player.skin == "dark", "changing in pause applies at once")
 	cards["cat"].pressed.emit()
 	check(app.active_world.player.character == "cat" and settings.values.character == "cat" and settings.values.skin == "dark", "the plush cat can be chosen, skin kept")
-	check(cards["cat"].button_pressed and not cards["girl:dark"].button_pressed, "only the cat card selected")
+	check(cards["cat"].button_pressed and not cards["girl14:dark"].button_pressed, "only the cat card selected")
 	app.show_page("pause")
 	app.open_world_info()
 	check(app.info_text.text.contains("Personnage : Chat\n"), "world info names the cat, without skin")
@@ -86,18 +99,24 @@ func _run() -> void:
 	file.store_string('{"character": "dragon"}')
 	file.close()
 	var loaded := Settings.new(bad)
-	check(loaded.values.character == "boy" and loaded.values.skin == "light" and not loaded.load_notice.is_empty(), "unknown character falls back to Garçon")
+	check(loaded.values.character == "boy14" and loaded.values.skin == "light" and not loaded.load_notice.is_empty(), "unknown character falls back to Garçon 14 ans")
 	# Ancien personnage.json (avant 0.0.3.22, sans peau) : lisible, ton d'avant gardé.
 	var old := fixture + ".old.json"
-	for case in [["girl", "brown"], ["man", "dark"], ["woman", "light"], ["cat", "light"]]:
+	# Avant 0.0.3.23 : « boy » et « girl » (≈ 14 ans) deviennent les enfants de 14 ans.
+	for case in [["boy", "light", "boy14"], ["girl", "brown", "girl14"], ["man", "dark", "man"], ["woman", "light", "woman"], ["cat", "light", "cat"]]:
 		file = FileAccess.open(Settings.new(old).file_path("character"), FileAccess.WRITE)
 		file.store_string(JSON.stringify({"character": case[0]}))
 		file.close()
 		loaded = Settings.new(old)
-		check(loaded.values.character == case[0] and loaded.values.skin == case[1] and loaded.load_notice.is_empty(), "old file with %s reads, skin %s" % case)
+		check(loaded.values.character == case[2] and loaded.values.skin == case[1] and loaded.load_notice.is_empty(), "old file with %s reads, skin %s, now %s" % case)
+	file = FileAccess.open(Settings.new(old).file_path("character"), FileAccess.WRITE)
+	file.store_string(JSON.stringify({"character": "girl", "skin": "dark"}))
+	file.close()
+	loaded = Settings.new(old)
+	check(loaded.values.character == "girl14" and loaded.values.skin == "dark" and loaded.load_notice.is_empty(), "0.0.3.22 file with girl and a skin reads as Fille 14 ans, same skin")
 	app.show_page("settings")
 	app.setting_resets.character.pressed.emit()
-	check(settings.values.character == "boy" and settings.values.skin == "light" and cards["boy:light"].button_pressed, "↻ restores Garçon, peau claire")
+	check(settings.values.character == "boy14" and settings.values.skin == "light" and cards["boy14:light"].button_pressed, "↻ restores Garçon 14 ans, peau claire")
 	check(Input.mouse_mode == Input.MOUSE_MODE_VISIBLE, "verification never captures pointer")
 	root.remove_child(app)
 	app.queue_free()

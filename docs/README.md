@@ -1,4 +1,4 @@
-# OrbMeka™ — prototype 0.0.3.22
+# OrbMeka™ — prototype 0.0.3.23
 
 Godot 4.7 / GDScript. Formes et couleurs simples, sans assets externes.
 
@@ -933,3 +933,30 @@ pause, prototype, shortcuts_selection (numéro de version).
 Résultat : 31 tests, 0 échec.
 À tester manuellement : aspect des personnages 3D de la vitrine et des
 aperçus de peau (trois thèmes), lecture des coordonnées en grimpant.
+
+## Enfants et nouveaux animaux, en 3D — 0.0.3.23
+- **Personnage** : l'ancien Garçon et l'ancienne Fille (≈ 14 ans) sont
+  remplacés par quatre enfants : **Garçon 9 ans**, **Fille 9 ans**,
+  **Garçon 14 ans**, **Fille 14 ans**, chacun dans les trois couleurs de peau.
+  Style OrbMeka : grosse tête ronde, grands yeux brillants, joues roses,
+  petite orbe brodée sur le haut. Homme et Femme ne changent pas.
+- **Animaux** (rangée du bas) : Chat, Brioche, puis **Écureuil** (gland-orbe
+  turquoise), **Renard** (foulard turquoise), **Tortue** (carapace lavande,
+  orbe dorée) et **Lapin bleu** (oreilles tombantes, médaillon doré).
+  Créations originales : aucune copie d'un personnage connu.
+- Les huit nouveaux sont modélisés dans **Blender** (sources_blender/personnages.blend),
+  exportés en .glb (assets/characters/) et montrés **en 3D** dans le menu.
+  Prototypes de chacun (3 au plus) dans **idee/** ; le meilleur est gardé
+  (renard : le 2 ; les autres : le 3).
+- Ancien personnage.json : « boy » devient Garçon 14 ans, « girl » Fille 14 ans,
+  avec la même peau. Défaut : Garçon 14 ans, peau claire.
+- **Accueil** : 30 personnages avec les peaux, c'est trop pour la vitrine.
+  Elle n'en fait plus sauter que trois nouveautés : Fille 9 ans, Renard,
+  Lapin bleu.
+
+Tests mis à jour : character (12 personnages, 24 cartes, aperçus 3D et
+peaux, anciens fichiers), menu_style (vitrine à 3), pause, prototype,
+shortcuts_selection, history_resume (numéro de version).
+Résultat : 31 tests, 0 échec.
+À tester manuellement : aspect des aperçus 3D dans les trois thèmes et dans
+la version Web, vitrine de l'accueil.

@@ -4,8 +4,12 @@ extends Control
 # Couleurs volontairement éloignées des personnages d'autres jeux de blocs.
 
 const CHARACTERS := {
-	"boy": {"name": "Garçon", "age": "≈ 14 ans", "height": 0.86, "former_skin": "light", "hair": Color("#3b2a1e"), "long_hair": false, "top": Color("#e0644b"), "bottom": Color("#4a4f5c"), "dress": false},
-	"girl": {"name": "Fille", "age": "≈ 14 ans", "height": 0.84, "former_skin": "brown", "hair": Color("#1e1a1a"), "long_hair": true, "top": Color("#9b6fd1"), "bottom": Color("#2f3e57"), "dress": false},
+	# 0.0.3.23 : enfants de 9 et 14 ans, modélisés dans Blender (assets/characters, voir MODELS) ;
+	# ils remplacent « boy » et « girl » (≈ 14 ans). Couleurs reprises par la vitrine.
+	"boy9": {"name": "Garçon 9 ans", "age": "9 ans", "height": 0.68, "former_skin": "light", "hair": Color("#5a3a24"), "long_hair": false, "top": Color("#f08a5d"), "bottom": Color("#4d6fb3"), "dress": false},
+	"girl9": {"name": "Fille 9 ans", "age": "9 ans", "height": 0.66, "former_skin": "brown", "hair": Color("#2a1d1d"), "long_hair": false, "top": Color("#b48cff"), "bottom": Color("#b48cff"), "dress": true},
+	"boy14": {"name": "Garçon 14 ans", "age": "14 ans", "height": 0.86, "former_skin": "light", "hair": Color("#3b2a1e"), "long_hair": false, "top": Color("#e0644b"), "bottom": Color("#4a5a78"), "dress": false},
+	"girl14": {"name": "Fille 14 ans", "age": "14 ans", "height": 0.84, "former_skin": "brown", "hair": Color("#1e1a1a"), "long_hair": true, "top": Color("#9b6fd1"), "bottom": Color("#2f3e57"), "dress": false},
 	"man": {"name": "Homme", "age": "adulte", "height": 1.0, "former_skin": "dark", "hair": Color("#151212"), "long_hair": false, "top": Color("#d9a441"), "bottom": Color("#3a3a3a"), "dress": false},
 	"woman": {"name": "Femme", "age": "adulte", "height": 0.97, "former_skin": "light", "hair": Color("#a8572c"), "long_hair": true, "top": Color("#3f9e8a"), "bottom": Color("#5b3a63"), "dress": true},
 	# 0.0.3.19 : chat original façon peluche (création OrbMeka, ne copie aucune peluche existante) :
@@ -15,7 +19,28 @@ const CHARACTERS := {
 	# yeux noirs brillants, joues pêche sous les yeux, bouche en « ㅅ », oreilles lavande,
 	# couronne dorée à trois pointes surmontées d'orbes turquoise.
 	"brioche": {"name": "Brioche", "age": "peluche", "height": 0.5, "fur": Color("#fbf8f2"), "shade": Color("#e7e1ee"), "inner": Color("#c9b3e6"), "cheeks": Color("#ffc9a8"), "eyes": Color("#241a2c"), "crown": Color("#f1c75b"), "crown_dark": Color("#c99a2e"), "orbs": Color("#7fd6c8"), "back": Color("#ebe7f0"), "outline": Color("#c9c1d6"), "lying": true},
+	# 0.0.3.23 : animaux originaux d'OrbMeka, modélisés dans Blender, chacun avec sa touche de l'Orbe :
+	# écureuil au gland-orbe turquoise, renard au foulard turquoise, tortue à carapace lavande et orbe dorée,
+	# lapin bleu aux oreilles tombantes et médaillon doré. « height » : taille dans la vitrine.
+	"squirrel": {"name": "Écureuil", "age": "peluche", "height": 0.82},
+	"fox": {"name": "Renard", "age": "peluche", "height": 0.82},
+	"turtle": {"name": "Tortue", "age": "peluche", "height": 0.51},
+	"rabbit": {"name": "Lapin bleu", "age": "peluche", "height": 0.73},
 }
+# Personnages modélisés dans Blender (sources_blender/personnages.blend) : aperçu en 3D.
+# La matière « Skin » prend la couleur de peau choisie.
+const MODELS := {
+	"boy9": preload("res://assets/characters/boy9.glb"),
+	"girl9": preload("res://assets/characters/girl9.glb"),
+	"boy14": preload("res://assets/characters/boy14.glb"),
+	"girl14": preload("res://assets/characters/girl14.glb"),
+	"squirrel": preload("res://assets/characters/squirrel.glb"),
+	"fox": preload("res://assets/characters/fox.glb"),
+	"turtle": preload("res://assets/characters/turtle.glb"),
+	"rabbit": preload("res://assets/characters/rabbit.glb"),
+}
+# Hauteur vue par l'aperçu 3D d'un humain, en mètres : enfants et adultes à la même échelle.
+const HUMAN_VIEW := 1.85
 # 0.0.3.22 : trois tons de peau pour les quatre humains (pas pour les chats), dans l'ordre du menu.
 # former_skin : ton de chaque personnage avant 0.0.3.22, repris pour un ancien personnage.json.
 const SKINS := {
@@ -30,14 +55,104 @@ static func is_human(id: String) -> bool:
 static func tone_color(skin_id: String) -> Color:
 	return SKINS.get(skin_id, SKINS.light).color
 
-var character := "boy":
+var character := "boy14":
 	set(value):
 		character = value
+		_sync_model()
 		queue_redraw()
 var skin := "light":
 	set(value):
 		skin = value
+		skin_material.albedo_color = tone_color(skin)
+		_frame_model()
 		queue_redraw()
+var viewport: SubViewport
+var camera: Camera3D
+var model: Node3D
+# Une seule matière de peau par aperçu : changer de peau ne recrée pas le modèle.
+var skin_material := StandardMaterial3D.new()
+
+# Modèle 3D (0.0.3.23) : petite scène à part (own_world_3d), rendue une fois puis à chaque changement.
+func _sync_model() -> void:
+	if model:
+		model.get_parent().remove_child(model)
+		model.queue_free()
+		model = null
+	if not MODELS.has(character):
+		if viewport:
+			viewport.get_parent().queue_free()
+			viewport = null
+		return
+	if viewport == null:
+		var holder := SubViewportContainer.new()
+		holder.stretch = true
+		holder.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		holder.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+		add_child(holder)
+		viewport = SubViewport.new()
+		viewport.own_world_3d = true
+		viewport.transparent_bg = true
+		viewport.msaa_3d = Viewport.MSAA_4X
+		holder.add_child(viewport)
+		var environment := Environment.new()
+		environment.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
+		environment.ambient_light_color = Color("#e6dcff")
+		environment.ambient_light_energy = 1.0
+		var world_environment := WorldEnvironment.new()
+		world_environment.environment = environment
+		viewport.add_child(world_environment)
+		var sun := DirectionalLight3D.new()
+		sun.rotation_degrees = Vector3(-35, -30, 0)
+		sun.light_energy = 1.35
+		viewport.add_child(sun)
+		camera = Camera3D.new()
+		camera.projection = Camera3D.PROJECTION_ORTHOGONAL
+		viewport.add_child(camera)
+	model = MODELS[character].instantiate()
+	# Légèrement de trois quarts, comme les prototypes.
+	model.rotation.y = -0.4
+	viewport.add_child(model)
+	if is_human(character):
+		skin_material.albedo_color = tone_color(skin)
+		skin_material.roughness = 0.6
+		for node in model.find_children("*", "MeshInstance3D", true, false):
+			var mesh_instance := node as MeshInstance3D
+			for surface in range(mesh_instance.mesh.get_surface_count()):
+				var material := mesh_instance.mesh.surface_get_material(surface)
+				if material and material.resource_name == "Skin":
+					mesh_instance.set_surface_override_material(surface, skin_material)
+	_frame_model()
+
+# Cadrage : humains pieds en bas à échelle commune ; animaux agrandis pour remplir la carte.
+func _frame_model() -> void:
+	if viewport == null or model == null:
+		return
+	# Boîte du modèle tourné, vue de face (la caméra regarde vers -Z).
+	var low := Vector2(INF, INF)
+	var high := Vector2(-INF, -INF)
+	for node in model.find_children("*", "MeshInstance3D", true, false):
+		var box: AABB = (node as MeshInstance3D).get_aabb()
+		# Transformations cumulées jusqu'au modèle (sans dépendre de l'arbre de scène).
+		var placed := Transform3D()
+		var step: Node = node
+		while step != model:
+			placed = (step as Node3D).transform * placed
+			step = step.get_parent()
+		placed = model.transform * placed
+		for corner in range(8):
+			var point: Vector3 = placed * box.get_endpoint(corner)
+			low = Vector2(minf(low.x, point.x), minf(low.y, point.y))
+			high = Vector2(maxf(high.x, point.x), maxf(high.y, point.y))
+	var aspect := size.x / maxf(size.y, 1.0)
+	var view := HUMAN_VIEW if is_human(character) else maxf(high.y - low.y, (high.x - low.x) / maxf(aspect, 0.1)) * 1.12
+	camera.size = view
+	var bottom := low.y - (0.03 if is_human(character) else (view - (high.y - low.y)) * 0.5)
+	camera.position = Vector3((low.x + high.x) * 0.5, bottom + view * 0.5, 5)
+	viewport.render_target_update_mode = SubViewport.UPDATE_ONCE
+
+func _notification(what: int) -> void:
+	if what == NOTIFICATION_RESIZED or what == NOTIFICATION_VISIBILITY_CHANGED:
+		_frame_model()
 
 func _rounded(rect: Rect2, color: Color, radius: float) -> void:
 	var box := StyleBoxFlat.new()
@@ -216,6 +331,8 @@ func _draw_brioche(data: Dictionary) -> void:
 		draw_line(at + Vector2(0, -r), at + Vector2(0, r), data.orbs, maxf(1.0, u * 0.006), true)
 
 func _draw() -> void:
+	if MODELS.has(character):
+		return
 	var data: Dictionary = CHARACTERS[character]
 	if data.get("lying", false):
 		_draw_brioche(data)
