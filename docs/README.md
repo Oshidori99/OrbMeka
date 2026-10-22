@@ -1,4 +1,4 @@
-# OrbMeka™ — prototype 0.0.3.24
+# OrbMeka™ — prototype 0.0.3.25
 
 Godot 4.7 / GDScript. Formes et couleurs simples, sans assets externes.
 
@@ -63,6 +63,8 @@ sont conservés. L'apparition tient compte des blocs présents.
 ## Commandes en partie
 - ZQSD / WASD / flèches : marcher ; souris : regarder.
 - Espace : sauter, un appui par saut.
+- Y : se baisser ; R : courir. Mode de chaque touche dans Contrôles :
+  Maintenir ou Basculer, et pour courir **Maintenir conditionnel** (0.0.3.25).
 - Clic gauche : casse immédiate ; maintenir pour répéter selon les paramètres (**300 ms par défaut**).
 - Clic droit : pose immédiate ; maintenir pour répéter selon les paramètres (**300 ms par défaut**).
 - 1 : sable beige ; 2 : pierre grise ; 3 : terre brune ; molette : parcourir les blocs.
@@ -977,3 +979,23 @@ interface_info (24 champs), pause, prototype,
 shortcuts_selection, history_resume (numéro de version).
 Résultat : 32 tests, 0 échec.
 À tester manuellement : courir en jeu avec R, et changer la touche.
+
+## Modes pour courir — 0.0.3.25
+- **Contrôles → Courir** : nouvelle catégorie, sous Se baisser, avec trois
+  modes dans cet ordre :
+  - **Maintenir** (défaut, comme en 0.0.3.24) : courir tant que R est enfoncé.
+  - **Maintenir conditionnel** : un appui sur R lance la course, qui continue
+    touche relâchée. Elle s'arrête si l'on s'arrête de marcher, saute, se
+    baisse, met en pause (Échap), ouvre un menu ou perd le focus ; il faut
+    ensuite réappuyer sur R.
+  - **Basculer** : un appui pour courir, un autre pour marcher.
+- Enregistré dans controles.json (run_mode) ; les anciens fichiers restent
+  lisibles (Maintenir).
+- Comment jouer : touches Y (se baisser) et R (courir) et leurs modes.
+
+Test ajouté : tests/run_mode_test.gd (trois modes, chaque interruption,
+réappui nécessaire, anciens fichiers). Tests mis à jour : pause, prototype,
+shortcuts_selection, history_resume (numéro de version).
+Résultat : 33 tests, 0 échec.
+À tester manuellement : ressenti des trois modes en jeu, affichage de la
+catégorie Courir dans Contrôles (bouton « Maintenir conditionnel »).

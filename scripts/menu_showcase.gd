@@ -12,12 +12,12 @@ extends Node3D
 # 2 ou 3, choisis parmi les nouveautés : liste NEWS_JUMPERS ([id, peau], peau vide pour un animal).
 # Chacun prend son modèle Blender (CharacterPreview.MODELS, ou MODELS ci-dessous), sinon une forme simple.
 # Le reste du fichier (sol, collines, ciel, caméra) ne change pas d'une version à l'autre.
-const NEWS_VERSION := "0.0.3.24"
-const NEWS_TEXT := "Nouveau : courir ! Maintenez R (Paramètres → Contrôles),
-vitesses dans Attributs → Courir."
+const NEWS_VERSION := "0.0.3.25"
+const NEWS_TEXT := "Nouveau : modes pour courir ! Maintenir, Maintenir conditionnel
+ou Basculer (Paramètres → Contrôles)."
 
-# 0.0.3.23 : trois nouveautés sautent sur leur bloc, devant l'orbe (gardées en 0.0.3.24 : courir
-# ne se montre pas en sautant).
+# 0.0.3.23 : trois nouveautés sautent sur leur bloc, devant l'orbe (gardées en 0.0.3.24 et 0.0.3.25 :
+# courir ne se montre pas en sautant).
 const NEWS_JUMPERS := [["girl9", "brown"], ["fox", ""], ["rabbit", ""]]
 const NEWS_X := [1, 3, 5]
 const NEWS_HEIGHT := 3

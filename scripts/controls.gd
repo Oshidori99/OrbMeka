@@ -24,8 +24,13 @@ const ACTIONS := {
 }
 # Choix des Contrôles (0.0.3.18), enregistrés dans controles.json avec les touches.
 # Se baisser : Maintenir = rester appuyé ; Basculer = un appui pour se baisser, un autre pour se relever.
+# Courir (0.0.3.25) : en plus, Maintenir conditionnel = un appui lance la course jusqu'à une interruption.
+# Chaque choix a sa catégorie dans Contrôles, avec son explication [−, Par défaut, +].
 const OPTIONS := {
-	"crouch_mode": {"label": "Mode pour se baisser", "options": {"hold": "Maintenir", "toggle": "Basculer"}, "default": "hold"},
+	"crouch_mode": {"label": "Mode pour se baisser", "options": {"hold": "Maintenir", "toggle": "Basculer"}, "default": "hold",
+		"category": "Se baisser", "help": ["", "Maintenir la touche ou appuyer pour basculer.", "Maintenir : rester appuyé pour rester baissé. Basculer : un appui pour se baisser, un autre pour se relever."]},
+	"run_mode": {"label": "Mode pour courir", "options": {"hold": "Maintenir", "latch": "Maintenir conditionnel", "toggle": "Basculer"}, "default": "hold",
+		"category": "Courir", "help": ["", "Maintenir, lancer d'un appui, ou basculer.", "Maintenir : rester appuyé pour courir. Maintenir conditionnel : un appui lance la course ; elle s'arrête si l'on s'arrête, saute, se baisse ou met en pause, puis il faut réappuyer. Basculer : un appui pour courir, un autre pour marcher."]},
 }
 
 static func default_options() -> Dictionary:

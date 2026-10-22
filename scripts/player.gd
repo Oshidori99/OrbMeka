@@ -41,9 +41,12 @@ var crouch_forward := CROUCH_SPEED
 var crouch_side := CROUCH_SPEED
 var crouch_back := CROUCH_SPEED
 var crouch_gravity := CROUCH_GRAVITY
-# Courir (0.0.3.24) : touche de Contrôles maintenue ; vitesses dans Attributs → Courir.
+# Courir (0.0.3.24) : touche de Contrôles (mode dans Contrôles, 0.0.3.25) ; vitesses dans Attributs → Courir.
 const RUN_SPEED := 8.5
 var running := false
+# Mode pour courir (0.0.3.25) : "hold" (Maintenir), "latch" (Maintenir conditionnel), "toggle" (Basculer).
+var run_mode := "hold"
+var run_latched := false
 var run_forward := RUN_SPEED
 var run_side := RUN_SPEED
 var run_back := RUN_SPEED
@@ -140,6 +143,7 @@ func step_placement(delta: float, active: bool, button_held: bool) -> bool:
 
 func release_controls() -> void:
 	actions.cancel()
+	update_run(false, false, false, false, false)
 	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
 
 func apply_settings(values: Dictionary) -> void:
@@ -192,7 +196,7 @@ func _physics_process(delta: float) -> void:
 		jump_requested = Input.is_action_just_pressed("jump") and not wait_jump_release
 	var active := Input.mouse_mode == Input.MOUSE_MODE_CAPTURED
 	update_crouch(active, Input.is_action_pressed("crouch"), Input.is_action_just_pressed("crouch"))
-	running = active and Input.is_action_pressed("sprint")
+	update_run(active, Input.is_action_pressed("sprint"), Input.is_action_just_pressed("sprint"), direction != Vector2.ZERO, jump_requested)
 	step_breaking(delta, active, Input.is_action_pressed("break_block"))
 	step_placement(delta, active, Input.is_action_pressed("place_block"))
 	step_movement(delta, direction, jump_requested)
@@ -210,6 +214,32 @@ func update_crouch(active: bool, held: bool, just_pressed: bool) -> void:
 	else:
 		crouch_latched = false
 		crouching = held
+
+# Courir (0.0.3.25) : Maintenir = tant que la touche est enfoncée ; Basculer = chaque appui
+# change l'état ; Maintenir conditionnel = un appui lance la course, arrêtée dès qu'on
+# s'arrête (touche relâchée), saute, se baisse ou perd le jeu (pause, menu, focus) ;
+# il faut alors réappuyer, même si la touche est restée enfoncée.
+func update_run(active: bool, held: bool, just_pressed: bool, moving: bool, jumped: bool) -> void:
+	if not active:
+		if run_mode != "toggle":
+			run_latched = false
+		running = run_latched
+		return
+	match run_mode:
+		"toggle":
+			if just_pressed:
+				run_latched = not run_latched
+			running = run_latched
+		"latch":
+			if just_pressed:
+				run_latched = true
+			# Touche encore enfoncée à l'arrêt : la course démarre au premier pas.
+			if jumped or crouching or (not moving and not held):
+				run_latched = false
+			running = run_latched
+		_:
+			run_latched = false
+			running = held
 
 # The same movement step is used by gameplay and windowless physics tests.
 func step_movement(delta: float, direction: Vector2, jump_requested: bool) -> void:

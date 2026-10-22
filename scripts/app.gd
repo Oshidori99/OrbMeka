@@ -429,21 +429,21 @@ func _build_controls_section(parent: Node) -> void:
 		_min_size(reset, Vector2(42, 0))
 		reset.tooltip_text = "Rétablir : " + Controls.label(Controls.default_for(action))
 		control_resets[action] = reset
-	# Catégorie « Se baisser » (0.0.3.18) : maintenir la touche, ou appuyer pour basculer.
-	var gap := Control.new()
-	_min_size(gap, Vector2(0, CATEGORY_GAP))
-	box.add_child(gap)
-	var options_inset := PanelContainer.new()
-	options_inset.theme_type_variation = "OrbInsetDeep"
-	box.add_child(options_inset)
-	var options := VBoxContainer.new()
-	_sep(options, 10)
-	options_inset.add_child(options)
-	_explanation(options, "Se baisser")
-	options.get_child(-1).theme_type_variation = "OrbSection"
-	_explanation(options, ["", "Maintenir la touche ou appuyer pour basculer.", "Maintenir : rester appuyé pour rester baissé. Basculer : un appui pour se baisser, un autre pour se relever."])
+	# Catégories « Se baisser » (0.0.3.18) et « Courir » (0.0.3.25) : mode de la touche.
 	for option in Controls.OPTIONS:
 		var spec: Dictionary = Controls.OPTIONS[option]
+		var gap := Control.new()
+		_min_size(gap, Vector2(0, CATEGORY_GAP))
+		box.add_child(gap)
+		var options_inset := PanelContainer.new()
+		options_inset.theme_type_variation = "OrbInsetDeep"
+		box.add_child(options_inset)
+		var options := VBoxContainer.new()
+		_sep(options, 10)
+		options_inset.add_child(options)
+		_explanation(options, spec.category)
+		options.get_child(-1).theme_type_variation = "OrbSection"
+		_explanation(options, spec.help)
 		var row := HBoxContainer.new()
 		_sep(row, 10)
 		options.add_child(row)
@@ -715,6 +715,7 @@ func _apply_to_game() -> void:
 	active_world.apply_text_scale(_text_scale())
 	active_world.set_coordinates_visible(settings.values.show_coords == "on")
 	active_world.player.crouch_toggle = settings.control_options.crouch_mode == "toggle"
+	active_world.player.run_mode = settings.control_options.run_mode
 
 func open_pause_settings() -> void:
 	if page != "pause" or not is_instance_valid(active_world):
@@ -1402,6 +1403,7 @@ func open_world(id: String) -> void:
 	active_world.player.apply_settings(settings.world_values(developer))
 	active_world.set_coordinates_visible(settings.values.show_coords == "on")
 	active_world.player.crouch_toggle = settings.control_options.crouch_mode == "toggle"
+	active_world.player.run_mode = settings.control_options.run_mode
 	# Opening from a menu is an explicit request to play immediately.
 	active_world.player.resume_controls()
 

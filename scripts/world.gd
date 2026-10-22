@@ -339,12 +339,16 @@ static func get_help_text(level: int = 2) -> String:
 Molette : bloc. Échap : pause. F1 : mondes."
 	if level == 1:
 		return "ZQSD / WASD / flèches : marcher. Souris : regarder. Espace : sauter.
+Y : se baisser. R : courir (mode dans Contrôles).
 Maintenir clic gauche : casser ; clic droit : poser. Molette : changer de bloc.
 Échap : pause. F1 : liste des mondes. F2 : Comment jouer. F3 : Informations.
 Portée : %d blocs. Maximum : %d blocs, hauteur %d (Y 0 sur le sol plat).
 Constructions réinitialisées en quittant le monde.
 Touches modifiables : Paramètres → Contrôles." % [int(PlayerScript.REACH), MAX_BLOCKS, MAX_BUILD_HEIGHT]
 	return "ZQSD / WASD / flèches : marcher. Souris : regarder. Espace : sauter.
+Y : se baisser. R : courir. Modes dans Contrôles : Maintenir, Basculer,
+et pour courir Maintenir conditionnel (un appui lance la course ; s'arrêter,
+sauter, se baisser ou la pause l'arrêtent, puis il faut réappuyer sur R).
 
 Maintenir clic gauche : casser ; clic droit : poser.
 Première action immédiate, puis répétition selon les paramètres des blocs.
