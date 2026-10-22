@@ -122,7 +122,7 @@ func _write_controls(bindings: Dictionary, options: Dictionary) -> bool:
 	data.merge(options, true)
 	return _write(controls_path(), data)
 
-# Nouvelle liaison d'une action ; la même touche est retirée de l'action qui l'avait
+# Nouvelle liaison d'une action ; la même touche (ou combinaison, 0.0.3.27) est retirée de l'action qui l'avait
 # (renvoie le nom de cette action, ou "" s'il n'y en avait pas).
 func set_control(action: String, binding: Dictionary) -> String:
 	last_error = ""
@@ -130,7 +130,7 @@ func set_control(action: String, binding: Dictionary) -> String:
 	var freed := ""
 	if not binding.is_empty():
 		for other in candidate:
-			if other != action and candidate[other] == binding:
+			if other != action and Controls.same(candidate[other], binding):
 				candidate[other] = {}
 				freed = Controls.ACTIONS[other].label
 	candidate[action] = binding

@@ -2,6 +2,9 @@ extends RefCounted
 # Contrôles modifiables (0.0.3.12) : une touche ou un bouton de souris par action, ou aucun.
 # Les flèches restent toujours actives pour marcher, en plus de la touche choisie.
 # Une liaison : {"key": code physique} ou {"mouse": bouton} ; {} = aucune touche.
+# 0.0.3.27 : deuxième touche facultative, {"key": …, "second": {"key" ou "mouse": …}} :
+# la même touche = double appui (DOUBLE_PRESS_MS), une autre = les deux en même temps.
+# Les anciens fichiers (une seule touche) restent valides tels quels.
 # Touches gardées pour le jeu, jamais attribuables : Échap (pause, « aucune » pendant
 # le choix d'une touche), F1, F2, F3 (raccourcis des menus).
 
@@ -64,26 +67,93 @@ static func physical_for_letter(letter: int) -> int:
 			return code
 	return letter
 
-# Liaison valide : vide, touche non réservée, ou bouton de souris connu (molette comprise).
+# Deux appuis de la même touche au plus à cet intervalle : un double appui.
+const DOUBLE_PRESS_MS := 300
+
+# Liaison valide : vide, touche non réservée, ou bouton de souris connu (molette comprise),
+# avec au plus une deuxième touche du même genre.
 static func is_valid(binding: Variant) -> bool:
 	if not binding is Dictionary:
 		return false
 	if binding.is_empty():
 		return true
-	if binding.size() != 1:
+	if binding.has("second"):
+		var rest: Dictionary = binding.duplicate()
+		rest.erase("second")
+		return _is_valid_part(rest) and _is_valid_part(binding.second)
+	return _is_valid_part(binding)
+
+static func _is_valid_part(part: Variant) -> bool:
+	if not part is Dictionary or part.size() != 1:
 		return false
-	if binding.has("key"):
-		return (binding.key is int or binding.key is float) and int(binding.key) > 0 and not int(binding.key) in RESERVED_KEYS
-	if binding.has("mouse"):
-		return (binding.mouse is int or binding.mouse is float) and MOUSE_NAMES.has(int(binding.mouse))
+	if part.has("key"):
+		return (part.key is int or part.key is float) and int(part.key) > 0 and not int(part.key) in RESERVED_KEYS
+	if part.has("mouse"):
+		return (part.mouse is int or part.mouse is float) and MOUSE_NAMES.has(int(part.mouse))
 	return false
 
 static func clean(binding: Dictionary) -> Dictionary:
-	if binding.has("key"):
-		return {"key": int(binding.key)}
-	if binding.has("mouse"):
-		return {"mouse": int(binding.mouse)}
+	var result := _clean_part(binding)
+	if not result.is_empty() and binding.get("second") is Dictionary and not _clean_part(binding.second).is_empty():
+		result.second = _clean_part(binding.second)
+	return result
+
+static func _clean_part(part: Dictionary) -> Dictionary:
+	if part.has("key"):
+		return {"key": int(part.key)}
+	if part.has("mouse"):
+		return {"mouse": int(part.mouse)}
 	return {}
+
+# Première et deuxième touche d'une liaison ({} si absente).
+static func first(binding: Dictionary) -> Dictionary:
+	return _clean_part(binding)
+
+static func second(binding: Dictionary) -> Dictionary:
+	return _clean_part(binding.get("second", {}))
+
+# "single", "double" (même touche deux fois), "together" (deux touches en même temps) ou "none".
+static func kind(binding: Dictionary) -> String:
+	if first(binding).is_empty():
+		return "none"
+	if second(binding).is_empty():
+		return "single"
+	return "double" if second(binding) == first(binding) else "together"
+
+# Liaison faite d'une première touche et d'une deuxième facultative.
+static func combine(first_part: Dictionary, second_part: Dictionary) -> Dictionary:
+	var result := _clean_part(first_part)
+	if not result.is_empty() and not second_part.is_empty():
+		result.second = _clean_part(second_part)
+	return result
+
+# Même combinaison : « Maj + Z » vaut « Z + Maj ».
+static func same(a: Dictionary, b: Dictionary) -> bool:
+	if kind(a) != kind(b):
+		return false
+	if kind(a) == "together":
+		return (first(a) == first(b) and second(a) == second(b)) or (first(a) == second(b) and second(a) == first(b))
+	return first(a) == first(b)
+
+# Actions dont la touche seule fait aussi partie de cette combinaison (ou l'inverse) :
+# les deux se déclenchent ensemble. Noms des actions, pour avertir le joueur.
+static func overlaps(bindings: Dictionary, action: String) -> Array:
+	var result := []
+	var binding: Dictionary = bindings.get(action, {})
+	for other in ACTIONS:
+		var other_binding: Dictionary = bindings.get(other, {})
+		if other == action or kind(binding) == "none" or kind(other_binding) == "none":
+			continue
+		var mine := [first(binding), second(binding)]
+		var theirs := [first(other_binding), second(other_binding)]
+		if (kind(other_binding) == "single" and kind(binding) != "single" and mine.has(first(other_binding))) \
+				or (kind(binding) == "single" and kind(other_binding) != "single" and theirs.has(first(binding))):
+			result.append(ACTIONS[other].label)
+	return result
+
+# Code unique d'une touche ou d'un bouton, pour suivre les appuis.
+static func part_id(part: Dictionary) -> String:
+	return "key:%d" % part.key if part.has("key") else "mouse:%d" % part.get("mouse", 0)
 
 # Liaison tirée d'un appui (touche ou bouton de souris) ; {} si l'appui ne convient pas.
 static func from_event(event: InputEvent) -> Dictionary:
@@ -94,8 +164,17 @@ static func from_event(event: InputEvent) -> Dictionary:
 		return {"mouse": event.button_index}
 	return {}
 
-# Nom affiché : la lettre du clavier du joueur (Z sur AZERTY pour la place de W).
+# Nom complet : « Z », « Z deux fois » ou « Maj + Z ».
 static func label(binding: Dictionary) -> String:
+	match kind(binding):
+		"double":
+			return part_label(first(binding)) + " deux fois"
+		"together":
+			return part_label(first(binding)) + " + " + part_label(second(binding))
+	return part_label(first(binding))
+
+# Nom d'une touche : la lettre du clavier du joueur (Z sur AZERTY pour la place de W).
+static func part_label(binding: Dictionary) -> String:
 	if binding.has("mouse"):
 		return MOUSE_NAMES.get(binding.mouse, "Souris")
 	if binding.has("key"):
@@ -114,14 +193,15 @@ static func _event(binding: Dictionary) -> InputEvent:
 	return key
 
 # Remplace les liaisons du jeu (InputMap) par celles choisies, flèches toujours gardées.
+# Une liaison à deux touches n'y figure pas : KeyCombos la déclenche (voir key_combos.gd).
 static func apply(bindings: Dictionary) -> void:
 	for action in ACTIONS:
 		if not InputMap.has_action(action):
 			InputMap.add_action(action)
 		InputMap.action_erase_events(action)
 		var binding: Dictionary = bindings.get(action, default_for(action))
-		if not binding.is_empty():
-			InputMap.action_add_event(action, _event(binding))
+		if kind(binding) == "single":
+			InputMap.action_add_event(action, _event(first(binding)))
 		for code in ACTIONS[action].fixed:
 			InputMap.action_add_event(action, _event({"key": code}))
 

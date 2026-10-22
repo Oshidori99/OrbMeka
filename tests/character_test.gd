@@ -67,6 +67,46 @@ func _run() -> void:
 	check(cards["boy14:light"].button_pressed and cards.values().filter(func(button): return button.button_pressed).size() == 1, "saved character shown selected")
 	cards["woman:brown"].pressed.emit()
 	check(settings.values.character == "woman" and settings.values.skin == "brown" and cards["woman:brown"].button_pressed and not cards["boy14:light"].button_pressed and not cards["woman:light"].button_pressed, "choosing saves character and skin at once")
+	# 0.0.3.27 : un clic sur l'aperçu choisit aussi le personnage ; le clavier suit.
+	var preview: Control = app.character_previews["girl9:dark"]
+	var scroll := preview.get_parent()
+	while scroll != null and not scroll is ScrollContainer:
+		scroll = scroll.get_parent()
+	if scroll != null:
+		scroll.ensure_control_visible(preview)
+	await process_frame
+	await process_frame
+	var click := InputEventMouseButton.new()
+	click.button_index = MOUSE_BUTTON_LEFT
+	click.pressed = true
+	click.position = preview.get_global_rect().get_center()
+	click.global_position = click.position
+	root.push_input(click)
+	var release := click.duplicate()
+	release.pressed = false
+	root.push_input(release)
+	await process_frame
+	check(settings.values.character == "girl9" and settings.values.skin == "dark" and cards["girl9:dark"].button_pressed and not cards["woman:brown"].button_pressed, "clicking the preview selects the character")
+	check(app.get_viewport().gui_get_focus_owner() == cards["girl9:dark"], "the clicked card takes the keyboard focus")
+	var key := InputEventKey.new()
+	key.keycode = KEY_RIGHT
+	key.physical_keycode = KEY_RIGHT
+	key.pressed = true
+	root.push_input(key)
+	await process_frame
+	var next: Control = app.get_viewport().gui_get_focus_owner()
+	check(next is Button and cards.values().has(next) and next != cards["girl9:dark"], "arrow keys move between cards")
+	var enter := InputEventKey.new()
+	enter.keycode = KEY_ENTER
+	enter.physical_keycode = KEY_ENTER
+	enter.pressed = true
+	root.push_input(enter)
+	enter = enter.duplicate()
+	enter.pressed = false
+	root.push_input(enter)
+	await process_frame
+	check(next.button_pressed and not cards["girl9:dark"].button_pressed, "Enter selects the focused card")
+	cards["woman:brown"].pressed.emit()
 	var saved: Variant = JSON.parse_string(FileAccess.get_file_as_string(settings.file_path("character")))
 	check(saved is Dictionary and saved.character == "woman" and saved.skin == "brown" and saved.size() == 2, "personnage.json holds the character and the skin")
 	check(Settings.new(fixture).values.character == "woman" and Settings.new(fixture).values.skin == "brown", "character and skin reload")

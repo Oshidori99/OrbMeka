@@ -3,6 +3,10 @@ Du plus récent au plus ancien. Ce fichier est mis à jour à chaque version.
 
 === Thème « Contrôles et Paramètres » (0.0.3 et suivantes) ===
 
+0.0.3.27 — Deux touches et clic sur le personnage
+Contrôles : deuxième touche facultative (même touche = double appui, autre = en même temps) ;
+Personnage : un clic sur l'aperçu choisit le personnage.
+
 0.0.3.26 — Voir son corps
 En première personne, le personnage choisi se voit en regardant en bas, avec son ombre ;
 hauteur des yeux inchangée, même pour les petits personnages et les animaux.

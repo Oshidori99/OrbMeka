@@ -1,4 +1,4 @@
-# OrbMeka™ — prototype 0.0.3.26
+# OrbMeka™ — prototype 0.0.3.27
 
 Godot 4.7 / GDScript. Formes et couleurs simples, sans assets externes.
 
@@ -65,6 +65,8 @@ sont conservés. L'apparition tient compte des blocs présents.
 - Espace : sauter, un appui par saut.
 - Y : se baisser ; R : courir. Mode de chaque touche dans Contrôles :
   Maintenir ou Basculer, et pour courir **Maintenir conditionnel** (0.0.3.25).
+- Contrôles : deuxième touche facultative par action, double appui ou
+  en même temps (0.0.3.27).
 - Clic gauche : casse immédiate ; maintenir pour répéter selon les paramètres (**300 ms par défaut**).
 - Clic droit : pose immédiate ; maintenir pour répéter selon les paramètres (**300 ms par défaut**).
 - 1 : sable beige ; 2 : pierre grise ; 3 : terre brune ; molette : parcourir les blocs.
@@ -1023,3 +1025,30 @@ Tests mis à jour : pause, prototype, shortcuts_selection, history_resume
 (numéro de version). Résultat : 34 tests, 0 échec.
 À tester manuellement : aspect du corps en jeu (regard en bas, en marchant,
 en se baissant, pour chaque personnage), ombre, vitrine de l'accueil.
+
+## Deux touches et clic sur le personnage — 0.0.3.27
+- Paramètres → Personnage : un clic sur l'aperçu (image ou modèle 3D) ou
+  sur le cadre choisit le personnage, comme son nom. La carte prend le
+  focus : Tab, flèches et Entrée continuent de marcher.
+- Paramètres → Contrôles : chaque action a un bouton **2e touche…** et ✕.
+  - Une seule touche : comme avant.
+  - La même touche deux fois : **double appui** (deux appuis à 300 ms au
+    plus) ; l'action dure tant que le second appui est tenu.
+  - Deux touches différentes : **en même temps** (par exemple Maj + Z),
+    dans n'importe quel ordre.
+  - Le nom de l'action indique « double appui » ou « en même temps ».
+    ✕ ou Échap pendant le choix de la 2e touche la retire.
+  - Même combinaison sur deux actions : retirée de l'autre, avec message.
+    Touche seule d'une action incluse dans la combinaison d'une autre :
+    avertissement (les deux se déclenchent).
+- Enregistré dans user://controles.json (« second » en plus de la touche) ;
+  les anciens fichiers à une touche restent lus tels quels.
+
+Tests ajoutés : tests/key_combos_test.gd (double appui, délai, en même
+temps dans les deux ordres, pause, interface, conflits, ancien
+controles.json) ; tests/character_test.gd (clic sur l'aperçu, flèches,
+Entrée). Tests mis à jour : pause, prototype, shortcuts_selection,
+history_resume (numéro de version). Résultat : 35 tests, 0 échec.
+À tester manuellement : ressenti du double appui et de Maj + Z en jeu,
+place des boutons 2e touche et ✕ dans Contrôles, clic sur les cartes
+du menu Personnage (curseur main), vitrine de l'accueil.

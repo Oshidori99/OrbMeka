@@ -7,6 +7,7 @@ const UserSettings = preload("res://scripts/user_settings.gd")
 const Terrain = preload("res://scripts/terrain_generator.gd")
 const UiTheme = preload("res://scripts/ui_theme.gd")
 const Controls = preload("res://scripts/controls.gd")
+const KeyCombos = preload("res://scripts/key_combos.gd")
 const CharacterPreview = preload("res://scripts/character_preview.gd")
 const MenuShowcase = preload("res://scripts/menu_showcase.gd")
 const BackdropShader = preload("res://scripts/menu_backdrop.gdshader")
@@ -80,6 +81,13 @@ var control_buttons: Dictionary = {}
 var control_resets: Dictionary = {}
 var controls_reset_all_button: Button
 var capturing_action := ""
+# 0.0.3.27 : deuxième touche (bouton et ✕ par action), choix de la deuxième touche en cours,
+# nom de l'action avec « double appui » ou « en même temps », suivi des appuis à deux touches.
+var control_second_buttons: Dictionary = {}
+var control_second_clears: Dictionary = {}
+var control_labels: Dictionary = {}
+var capturing_second := false
+var key_combos := KeyCombos.new()
 var character_previews: Dictionary = {}
 # Cartes du menu Personnage (0.0.3.22) : « boy9:light »… pour les humains, « cat », « fox »… pour les animaux.
 var character_buttons: Dictionary = {}
@@ -178,7 +186,7 @@ func _ready() -> void:
 	for key in LAYOUT_KEYS:
 		layout_values[key] = settings.values[key]
 	# Touches choisies dans Paramètres → Contrôles, pour tout le jeu.
-	Controls.apply(settings.controls)
+	_apply_controls()
 	showcase = MenuShowcase.new()
 	showcase.name = "MenuShowcase"
 	add_child(showcase)
@@ -411,7 +419,7 @@ func _build_controls_section(parent: Node) -> void:
 	var list := VBoxContainer.new()
 	_sep(list, 10)
 	inset.add_child(list)
-	_explanation(list, ["", "Cliquez une touche puis appuyez sur la nouvelle. Échap : aucune.", "Cliquez le bouton d'une action, puis appuyez sur la touche ou le bouton de souris voulu (molette comprise). Échap : aucune touche. Les flèches restent toujours actives pour marcher. F1, F2, F3 et Échap sont réservées."])
+	_explanation(list, ["", "Cliquez une touche puis appuyez sur la nouvelle. Échap : aucune. 2e touche facultative.", "Cliquez le bouton d'une action, puis appuyez sur la touche ou le bouton de souris voulu (molette comprise). Échap : aucune touche. Deuxième touche facultative : la même touche = double appui (deux appuis rapprochés) ; une autre touche = les deux en même temps (par exemple Maj + Z). ✕ la retire. Les flèches restent toujours actives pour marcher. F1, F2, F3 et Échap sont réservées."])
 	for action in Controls.ACTIONS:
 		var row := HBoxContainer.new()
 		_sep(row, 10)
@@ -421,10 +429,19 @@ func _build_controls_section(parent: Node) -> void:
 		label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		row.add_child(label)
+		control_labels[action] = label
 		var key_button := _button("", row, func(): start_control_capture(action))
 		_min_size(key_button, Vector2(170, 0))
 		key_button.tooltip_text = "Changer la touche : " + Controls.ACTIONS[action].label
 		control_buttons[action] = key_button
+		var second_button := _button("", row, func(): start_control_capture(action, true))
+		_min_size(second_button, Vector2(130, 0))
+		second_button.tooltip_text = "Deuxième touche (même touche : double appui ; autre touche : en même temps) : " + Controls.ACTIONS[action].label
+		control_second_buttons[action] = second_button
+		var clear := _button("✕", row, func(): clear_second_key(action))
+		_min_size(clear, Vector2(42, 0))
+		clear.tooltip_text = "Retirer la deuxième touche : " + Controls.ACTIONS[action].label
+		control_second_clears[action] = clear
 		var reset := _button("↻", row, func(): reset_control(action))
 		_min_size(reset, Vector2(42, 0))
 		reset.tooltip_text = "Rétablir : " + Controls.label(Controls.default_for(action))
@@ -543,6 +560,19 @@ func _build_character_section(parent: Node) -> void:
 			button.button_group = group
 			button.tooltip_text = "%s (%s)" % [data.name, data.age] if skin.is_empty() else "%s, %s (%s)" % [data.name, CharacterPreview.SKINS[skin].name.to_lower(), data.age]
 			character_buttons[card_id] = button
+			# 0.0.3.27 : un clic sur l'aperçu (ou le cadre) choisit aussi le personnage.
+			preview.mouse_filter = Control.MOUSE_FILTER_PASS
+			column.mouse_filter = Control.MOUSE_FILTER_PASS
+			card.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
+			card.tooltip_text = button.tooltip_text
+			card.gui_input.connect(func(event: InputEvent): _click_character_card(event, button, id, skin))
+
+# Clic gauche sur une carte : comme son bouton, qui prend aussi le focus (clavier).
+func _click_character_card(event: InputEvent, button: Button, id: String, skin: String) -> void:
+	if event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT:
+		button.grab_focus()
+		_choose_character(id, skin)
+		get_viewport().set_input_as_handled()
 
 # ↻ du menu Personnage : Garçon 14 ans, peau claire.
 func reset_character() -> void:
@@ -565,34 +595,55 @@ func _refresh_character_cards() -> void:
 
 func _refresh_controls() -> void:
 	for action in control_buttons:
-		control_buttons[action].text = Controls.label(settings.controls[action])
+		var binding: Dictionary = settings.controls[action]
+		control_buttons[action].text = Controls.part_label(Controls.first(binding))
+		var second: Dictionary = Controls.second(binding)
+		control_second_buttons[action].text = "2e touche…" if second.is_empty() else Controls.part_label(second)
+		control_second_buttons[action].disabled = Controls.kind(binding) == "none"
+		control_second_clears[action].disabled = second.is_empty()
+		var how: String = {"double": " — double appui", "together": " — en même temps"}.get(Controls.kind(binding), "")
+		control_labels[action].text = Controls.ACTIONS[action].label + how
 	for option in control_option_buttons:
 		for choice in control_option_buttons[option]:
 			control_option_buttons[option][choice].set_pressed_no_signal(settings.control_options[option] == choice)
 
-func start_control_capture(action: String) -> void:
+func start_control_capture(action: String, second := false) -> void:
 	_refresh_controls()
 	capturing_action = action
-	control_buttons[action].text = "Appuyez sur une touche…"
-	settings_message.text = "%s : appuyez sur une touche ou un bouton de souris. Échap : aucune." % Controls.ACTIONS[action].label
+	capturing_second = second
+	if second:
+		control_second_buttons[action].text = "Appuyez…"
+		settings_message.text = "%s : deuxième touche. La même = double appui, une autre = en même temps. Échap : la retirer." % Controls.ACTIONS[action].label
+	else:
+		control_buttons[action].text = "Appuyez sur une touche…"
+		settings_message.text = "%s : appuyez sur une touche ou un bouton de souris. Échap : aucune." % Controls.ACTIONS[action].label
+
+func clear_second_key(action: String) -> void:
+	set_control(action, Controls.first(settings.controls[action]))
 
 func _capture_control(event: InputEvent) -> void:
 	var pressed: bool = (event is InputEventKey and event.pressed and not event.echo) or (event is InputEventMouseButton and event.pressed)
 	if not pressed:
 		return
 	get_viewport().set_input_as_handled()
-	var binding := {}
+	var part := {}
 	if event is InputEventKey and event.keycode == KEY_ESCAPE:
-		binding = {}
+		part = {}
 	else:
-		binding = Controls.from_event(event)
-		if binding.is_empty():
+		part = Controls.from_event(event)
+		if part.is_empty():
 			settings_message.text = "Touche réservée (Échap, F1, F2, F3) : choisissez-en une autre."
 			return
-	set_control(capturing_action, binding)
+	# Nouvelle première touche : la deuxième reste ; Échap sur la première retire tout.
+	var current: Dictionary = settings.controls[capturing_action]
+	if capturing_second:
+		set_control(capturing_action, Controls.combine(Controls.first(current), part))
+	else:
+		set_control(capturing_action, Controls.combine(part, Controls.second(current)))
 
 func set_control(action: String, binding: Dictionary) -> void:
 	capturing_action = ""
+	capturing_second = false
 	var freed: String = settings.set_control(action, binding)
 	if not settings.last_error.is_empty():
 		settings_message.text = settings.last_error
@@ -600,8 +651,26 @@ func set_control(action: String, binding: Dictionary) -> void:
 		settings_message.text = "%s : %s (retirée de %s)." % [Controls.ACTIONS[action].label, Controls.label(binding), freed]
 	else:
 		settings_message.text = "%s : %s." % [Controls.ACTIONS[action].label, Controls.label(binding)]
-	Controls.apply(settings.controls)
+	# Une touche seule qui fait partie d'une combinaison déclenche les deux actions : avertir.
+	var overlaps: Array = Controls.overlaps(settings.controls, action)
+	if settings.last_error.is_empty() and not overlaps.is_empty():
+		settings_message.text += " Attention : déclenche aussi %s." % ", ".join(overlaps)
+	_apply_controls()
 	_refresh_controls()
+
+# Touches dans le jeu (InputMap) et suivi des actions à deux touches.
+func _apply_controls() -> void:
+	Controls.apply(settings.controls)
+	_send_combos(key_combos.set_bindings(settings.controls))
+
+# Changements des actions à deux touches, lus par le jeu comme les autres touches.
+func _send_combos(changes: Array) -> void:
+	for change in changes:
+		var event := InputEventAction.new()
+		event.action = change[0]
+		event.pressed = change[1]
+		event.strength = 1.0 if change[1] else 0.0
+		Input.parse_input_event(event)
 
 func reset_control(action: String) -> void:
 	set_control(action, Controls.default_for(action))
@@ -1424,6 +1493,7 @@ func pause_game() -> void:
 	if page != "playing" or not is_instance_valid(active_world):
 		return
 	active_world.player.release_controls()
+	_send_combos(key_combos.release_all())
 	get_tree().paused = true
 	show_page("pause")
 
@@ -1489,6 +1559,8 @@ func _input(event: InputEvent) -> void:
 	if not capturing_action.is_empty():
 		_capture_control(event)
 		return
+	if event is InputEventKey or event is InputEventMouseButton:
+		_send_combos(key_combos.feed(event, Time.get_ticks_msec()))
 	# Un champ de saisie actif garde Échap pour lui : on le reprend pour quitter la page.
 	if event.is_action_pressed("ui_cancel") and not event.is_echo() and get_viewport().gui_get_focus_owner() is LineEdit:
 		_cancel_page()
@@ -1514,6 +1586,9 @@ func _cancel_page() -> void:
 	elif page == "worlds":
 		show_page("home")
 func _notification(what: int) -> void:
+	# Fenêtre quittée : les touches tenues ne seront pas relâchées ici.
+	if what == NOTIFICATION_APPLICATION_FOCUS_OUT:
+		_send_combos(key_combos.release_all())
 	# Le fond 3D peut être hors de l'arbre pendant une partie : le libérer avec l'application.
 	if what == NOTIFICATION_PREDELETE and is_instance_valid(showcase) and not showcase.is_inside_tree():
 		showcase.free()
