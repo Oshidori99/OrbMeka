@@ -3,6 +3,10 @@ Du plus récent au plus ancien. Ce fichier est mis à jour à chaque version.
 
 === Thème « Contrôles et Paramètres » (0.0.3 et suivantes) ===
 
+0.0.3.28 — Launcher et Quitter
+Accueil : « Aller au launcher » et « Quitter le jeu » tout en bas ; le launcher télécharge
+dans AppData et lance n'importe quelle version (Windows, GitHub CLI connecté), puis y revient.
+
 0.0.3.27 — Deux touches et clic sur le personnage
 Contrôles : deuxième touche facultative (même touche = double appui, autre = en même temps) ;
 Personnage : un clic sur l'aperçu choisit le personnage.

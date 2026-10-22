@@ -56,7 +56,7 @@ func _run() -> void:
 	current_scene = app
 	await process_frame
 	check(app.page == "home" and app.play_button.visible, "startup opens home with Play")
-	check(app.pages.home.find_children("*", "Button", true, false).size() == 4, "home has four main buttons")
+	check(app.pages.home.find_children("*", "Button", true, false).size() == 6, "home has six main buttons (launcher and Quitter since 0.0.3.28)")
 	app.play_button.pressed.emit()
 	await process_frame
 	check(app.page == "worlds" and app.world_list.item_count == 2, "Play opens the world list")

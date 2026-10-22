@@ -1,4 +1,4 @@
-# OrbMeka™ — prototype 0.0.3.27
+# OrbMeka™ — prototype 0.0.3.28
 
 Godot 4.7 / GDScript. Formes et couleurs simples, sans assets externes.
 
@@ -1052,3 +1052,29 @@ history_resume (numéro de version). Résultat : 35 tests, 0 échec.
 À tester manuellement : ressenti du double appui et de Maj + Z en jeu,
 place des boutons 2e touche et ✕ dans Contrôles, clic sur les cartes
 du menu Personnage (curseur main), vitrine de l'accueil.
+
+## Launcher et Quitter — 0.0.3.28
+- Accueil : **Aller au launcher**, puis **Quitter le jeu** tout en bas
+  (Quitter est caché dans un navigateur).
+- Launcher (version Windows seulement, pour le propriétaire tant que le
+  dépôt est privé) : passe par GitHub CLI déjà connecté sur le PC, sans
+  jeton gardé par le jeu.
+  - **Dernière version** en haut, puis toutes les versions des Releases,
+    groupées par 0.0.x et espacées, avec leur nom (docs/HISTORIQUE.txt).
+  - « Installer et jouer » télécharge le zip Windows dans
+    user://launcher/<version>/ (AppData), puis lance la version ;
+    « Jouer » si elle est déjà installée ; « Ouverte » = celle-ci (retour
+    à l'accueil).
+  - Pendant qu'une autre version tourne, cette fenêtre se réduit ; elle
+    revient au launcher dès que l'autre version est fermée. Les anciennes
+    versions n'ont donc pas besoin du bouton.
+  - Releases disponibles depuis 0.0.2.6 (les plus anciennes n'en ont pas).
+
+Test ajouté : tests/launcher_test.gd (groupes, noms, dossier installé,
+boutons de l'accueil, page, Échap). Tests mis à jour : interface_info et
+menu (boutons de l'accueil), pause, prototype, shortcuts_selection,
+history_resume (numéro de version). Résultat : 36 tests, 0 échec.
+Essai réel sur le PC : liste de 40 versions avec noms, téléchargement de
+0.0.3.26 dans AppData, lancement, retour au launcher à sa fermeture.
+À tester manuellement : boutons en bas de l'accueil (petite fenêtre),
+lisibilité de la liste, lancer une ancienne version puis la fermer.

@@ -10,6 +10,7 @@ const Controls = preload("res://scripts/controls.gd")
 const KeyCombos = preload("res://scripts/key_combos.gd")
 const CharacterPreview = preload("res://scripts/character_preview.gd")
 const MenuShowcase = preload("res://scripts/menu_showcase.gd")
+const Launcher = preload("res://scripts/launcher.gd")
 const BackdropShader = preload("res://scripts/menu_backdrop.gdshader")
 const MIN_WINDOW_SIZE := Vector2i(800, 450)
 const MENU_BASE_SIZE := Vector2(1280, 720)
@@ -140,6 +141,21 @@ var play_button: Button
 var settings_button: Button
 var information_button: Button
 var history_button: Button
+# Launcher (0.0.3.28) : bouton de l'accueil, page des versions, travail en fond (gh), version ouverte.
+var launcher_button: Button
+var quit_button: Button
+var launcher := Launcher.new()
+var launcher_status: RichTextLabel
+var launcher_latest_button: Button
+var launcher_list: VBoxContainer
+var launcher_scroll: ScrollContainer
+var launcher_back_button: Button
+var launcher_play_buttons: Dictionary = {}
+var launcher_thread: Thread
+var launcher_child := -1
+# Faux : ne pas interroger GitHub (tests).
+var launcher_online := true
+var launcher_window_mode := Window.MODE_WINDOWED
 var history_back_button: Button
 var history_text: RichTextLabel
 var history_scroll: ScrollContainer
@@ -925,6 +941,27 @@ func _build_interface() -> void:
 	settings_button = _button("Paramètres", home, func(): show_page("settings"))
 	information_button = _button("Informations", home, func(): show_page("information"))
 	history_button = _button("Historique des versions", home, open_history)
+	# 0.0.3.28 : launcher puis Quitter, tout en bas (pas de Quitter dans un navigateur).
+	launcher_button = _button("Aller au launcher", home, open_launcher)
+	quit_button = _button("Quitter le jeu", home, func(): get_tree().quit())
+	quit_button.visible = not OS.has_feature("web")
+	var launcher_page := _page(stack, "Launcher")
+	pages.launcher = _page_root(launcher_page)
+	launcher_status = _text_label()
+	launcher_status.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	launcher_status.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	launcher_page.add_child(launcher_status)
+	launcher_latest_button = _button("Dernière version", launcher_page, play_latest_version)
+	launcher_scroll = ScrollContainer.new()
+	launcher_scroll.custom_minimum_size = Vector2(0, 350)
+	menu_reserved_heights[launcher_scroll] = 300.0
+	launcher_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	launcher_page.add_child(launcher_scroll)
+	launcher_list = VBoxContainer.new()
+	launcher_list.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_sep(launcher_list, 6)
+	launcher_scroll.add_child(launcher_list)
+	launcher_back_button = _button("Retour", launcher_page, func(): show_page("home"))
 	var history_page := _page(stack, "Historique des versions")
 	pages.history = _page_root(history_page)
 	history_scroll = ScrollContainer.new()
@@ -1270,6 +1307,8 @@ func show_page(next_page: String) -> void:
 			new_world_button.grab_focus()
 	elif page == "history":
 		history_back_button.grab_focus()
+	elif page == "launcher":
+		launcher_latest_button.grab_focus()
 	elif page == "settings":
 		_fill_settings()
 		_show_attributes_gate(false)
@@ -1505,6 +1544,114 @@ func open_history() -> void:
 	history_scroll.scroll_vertical = 0
 	show_page("history")
 
+# Launcher (0.0.3.28) : versions des Releases GitHub, groupées par 0.0.x, avec leur nom.
+# refresh = false : garder la liste déjà connue (tests, sans GitHub).
+func open_launcher(refresh := true) -> void:
+	if is_instance_valid(active_world):
+		return
+	show_page("launcher")
+	if not Launcher.supported():
+		launcher_status.text = "Le launcher fonctionne seulement dans la version Windows."
+	elif refresh and launcher_online and launcher_thread == null:
+		launcher_status.text = "Recherche des versions…"
+		_launcher_work(func(): return launcher.refresh(), func(_ok): fill_launcher())
+		return
+	fill_launcher()
+
+func fill_launcher() -> void:
+	for child in launcher_list.get_children():
+		for node in [child] + child.find_children("*", "Control", true, false):
+			scaled_sizes.erase(node)
+			scaled_separations.erase(node)
+			font_sizes.erase(node)
+		launcher_list.remove_child(child)
+		child.queue_free()
+	launcher_play_buttons.clear()
+	var current := Launcher.current_version()
+	var busy := launcher_thread != null or launcher_child != -1
+	if not launcher.error.is_empty():
+		launcher_status.text = launcher.error
+	elif Launcher.supported() and not busy:
+		launcher_status.text = "Version ouverte : %s. Les versions sont installées dans les données du jeu (AppData)." % current
+	launcher_latest_button.disabled = launcher.versions.is_empty() or busy
+	var group := ""
+	for item in launcher.versions:
+		var version: String = item.version
+		if Launcher.group_of(version) != group:
+			group = Launcher.group_of(version)
+			if launcher_list.get_child_count() > 0:
+				var gap := Control.new()
+				_min_size(gap, Vector2(0, CATEGORY_GAP))
+				launcher_list.add_child(gap)
+			var heading := _text_label()
+			heading.text = group
+			heading.theme_type_variation = "OrbSection"
+			launcher_list.add_child(heading)
+		var row := HBoxContainer.new()
+		_sep(row, 10)
+		launcher_list.add_child(row)
+		var label := _text_label()
+		label.text = version + (" — " + item.name if not item.name.is_empty() else "")
+		label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		row.add_child(label)
+		var text := "Ouverte" if version == current else ("Jouer" if not Launcher.executable(version).is_empty() else "Installer et jouer")
+		var button := _button(text, row, func(): play_version(version))
+		_min_size(button, Vector2(170, 0))
+		button.disabled = busy or not Launcher.supported()
+		launcher_play_buttons[version] = button
+
+func play_latest_version() -> void:
+	if not launcher.versions.is_empty():
+		play_version(launcher.versions[0].version)
+
+# La version ouverte : retour à l'accueil. Une autre : installée au besoin, puis lancée ;
+# cette fenêtre se réduit et revient quand l'autre version est fermée.
+func play_version(version: String) -> void:
+	if version == Launcher.current_version():
+		show_page("home")
+		return
+	if launcher_thread != null or launcher_child != -1 or not Launcher.supported():
+		return
+	if Launcher.executable(version).is_empty():
+		launcher_status.text = "Téléchargement de %s…" % version
+		_launcher_work(func(): return launcher.install(version), func(ok): _start_version(version) if ok else fill_launcher())
+		fill_launcher()
+		return
+	_start_version(version)
+
+func _start_version(version: String) -> void:
+	var pid := Launcher.launch(version)
+	if pid == -1:
+		launcher_status.text = "Impossible de lancer la version %s." % version
+		fill_launcher()
+		return
+	launcher_child = pid
+	launcher_status.text = "Version %s ouverte : fermez-la pour revenir ici." % version
+	fill_launcher()
+	launcher_window_mode = get_window().mode
+	get_window().mode = Window.MODE_MINIMIZED
+
+# Travail long (gh, décompression) dans un fil à part ; done(résultat) ensuite, ici.
+func _launcher_work(work: Callable, done: Callable) -> void:
+	launcher_thread = Thread.new()
+	launcher_thread.start(func():
+		var ok: bool = work.call()
+		call_deferred("_launcher_finished", done, ok))
+
+func _launcher_finished(done: Callable, ok: bool) -> void:
+	launcher_thread.wait_to_finish()
+	launcher_thread = null
+	done.call(ok)
+
+func _process(_delta: float) -> void:
+	if launcher_child != -1 and not OS.is_process_running(launcher_child):
+		launcher_child = -1
+		get_window().mode = launcher_window_mode
+		get_window().grab_focus()
+		launcher_status.text = ""
+		fill_launcher()
+
 func open_help() -> void:
 	if page != "pause" or not is_instance_valid(active_world):
 		return
@@ -1579,7 +1726,7 @@ func _cancel_page() -> void:
 		open_world_settings_for_pending()
 	elif page == "settings" and is_instance_valid(active_world):
 		leave_settings()
-	elif page in ["settings", "information", "history"]:
+	elif page in ["settings", "information", "history", "launcher"]:
 		show_page("home")
 	elif page == "create":
 		show_page("worlds")

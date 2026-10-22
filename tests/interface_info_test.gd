@@ -31,7 +31,7 @@ func _run() -> void:
 	root.add_child(app)
 	current_scene = app
 	var buttons: Array = app.pages.home.find_children("*", "Button", true, false).map(func(button): return button.text)
-	check(buttons == ["Jouer", "Paramètres", "Informations", "Historique des versions"], "home buttons appear in requested order")
+	check(buttons == ["Jouer", "Paramètres", "Informations", "Historique des versions", "Aller au launcher", "Quitter le jeu"], "home buttons appear in requested order (launcher and Quitter since 0.0.3.28)")
 	check(app.home_version.text == "v" + str(ProjectSettings.get_setting("application/config/version")), "home shows current project version")
 	app.settings_button.pressed.emit()
 	check(app.page == "settings" and app.settings_tabs.general.has_focus(), "settings opens with keyboard focus on the first side tab")
