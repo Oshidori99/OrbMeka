@@ -5,7 +5,7 @@ Du plus récent au plus ancien. Ce fichier est mis à jour à chaque version.
 
 0.0.3.25 — Modes pour courir
 Contrôles → Courir : Maintenir, Maintenir conditionnel (un appui, s'arrête à l'arrêt,
-au saut, en se baissant ou à la pause) ou Basculer.
+au saut, en se baissant ou à la pause) ou Basculer. Vitrine : trois personnages courent.
 
 0.0.3.24 — Courir
 Maintenir R pour courir (Paramètres → Contrôles) ; vitesses dans Attributs → Courir.

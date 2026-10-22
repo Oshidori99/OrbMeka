@@ -44,12 +44,12 @@ F3 : "), "menus share one theme; in-game shortcuts F1, F2, F3 are plain text")
 	var showcase: Node3D = app.showcase
 	check(showcase.is_inside_tree() and showcase.camera.is_current(), "home shows the 3D showcase with its own camera")
 	check(showcase.find_children("*", "MultiMeshInstance3D", true, false).size() >= 3, "showcase is built from block meshes in code")
-	# 0.0.3.23 : trois nouveautés sautent (trop de personnages pour les montrer tous).
-	check(showcase.jumpers.size() >= 2 and showcase.jumpers.size() <= 3 and showcase.jumper_ids.all(func(id): return CharacterPreview.CHARACTERS.has(id)), "showcase shows 2 or 3 characters of the menu")
-	check(showcase.jumper_ids == ["girl9", "fox", "rabbit"] and showcase.jumpers.all(func(jumper): return not jumper.find_children("*", "MeshInstance3D", true, false).is_empty()), "new characters jump with their Blender models")
-	var start_y: float = showcase.jumpers[0].position.y
+	# 0.0.3.23 : trois nouveautés (trop de personnages pour les montrer tous) ; 0.0.3.25 : elles courent.
+	check(showcase.runners.size() >= 2 and showcase.runners.size() <= 3 and showcase.runner_ids.all(func(id): return CharacterPreview.CHARACTERS.has(id)), "showcase shows 2 or 3 characters of the menu")
+	check(showcase.runner_ids == ["girl9", "fox", "rabbit"] and showcase.runners.all(func(runner): return not runner.find_children("*", "MeshInstance3D", true, false).is_empty()), "new characters run with their Blender models")
+	var start_x: float = showcase.runners[0].position.x
 	showcase._process(0.4)
-	check(not is_equal_approx(showcase.jumpers[0].position.y, start_y), "characters jump")
+	check(not is_equal_approx(showcase.runners[0].position.x, start_x), "characters run")
 	check(app.news_label.text == MenuShowcase.NEWS_TEXT and app.news_label.is_visible_in_tree(), "home shows the version news")
 	check(MenuShowcase.NEWS_VERSION == ProjectSettings.get_setting("application/config/version"), "showcase news matches project version")
 	var start_basis: Basis = showcase.camera.basis
@@ -64,17 +64,23 @@ F3 : "), "menus share one theme; in-game shortcuts F1, F2, F3 are plain text")
 	for button in [app.new_world_button, app.rename_button, app.duplicate_button, app.world_settings_button, app.delete_button]:
 		check(button.text.length() <= 2 and not button.tooltip_text.is_empty(), "icon button with tooltip: " + button.tooltip_text)
 	check(app.delete_button.tooltip_text == "Supprimer" and app.rename_button.tooltip_text == "Renommer", "icons keep their action names")
-	# Vitrine : sauts au-dessus de leur bloc, jamais dessous ; humains plus haut que les animaux.
-	var top := {"human": 0.0, "cat": 0.0}
-	var lowest := 0.0
-	for step in range(40):
+	# Vitrine : courses dans l'herbe libre devant la place, sans toucher place, colline ni tour, tournées vers où elles vont.
+	var in_lane := true
+	var turned := {}
+	for step in range(80):
+		var before: Array = showcase.runners.map(func(runner): return runner.position.x)
 		showcase._process(0.05)
-		for index in range(showcase.jumpers.size()):
-			var lift: float = showcase.jumpers[index].position.y - 1.0
-			lowest = minf(lowest, lift)
-			var kind := "human" if CharacterPreview.is_human(showcase.jumper_ids[index]) else "cat"
-			top[kind] = maxf(top[kind], lift)
-	check(lowest > -0.001 and top.human > top.cat and top.cat > 0.0, "everyone jumps above its block, humans higher than the animals")
+		for index in range(showcase.runners.size()):
+			var runner: Node3D = showcase.runners[index]
+			in_lane = in_lane and is_equal_approx(runner.position.y, 0.0) and runner.position.x >= 5.0 and runner.position.x <= 11.0 and runner.position.z > 5.0 and runner.position.z < 8.0
+			var moved: float = runner.position.x - before[index]
+			# Hors des demi-tours (une image peut aller au bout puis revenir).
+			var far_from_ends: bool = minf(runner.position.x, before[index]) > showcase.RUN_FROM + 0.25 and maxf(runner.position.x, before[index]) < showcase.RUN_TO - 0.25
+			if far_from_ends and absf(moved) > 0.01:
+				# Le modèle regarde vers +Z : rotation de +90° = vers +X.
+				turned[signf(moved) == signf(sin(runner.rotation.y))] = true
+	check(in_lane, "runners stay in the free grass lane, feet on the ground")
+	check(turned.has(true) and not turned.has(false), "runners face where they run")
 	check(app.backdrop.material.get_shader_parameter("blur") == 0.0, "home backdrop keeps the 3D scene sharp")
 	# Pause semi-transparente.
 	app.open_world("style-test")

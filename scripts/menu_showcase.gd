@@ -7,62 +7,49 @@ extends Node3D
 # 1. NEWS_VERSION et NEWS_TEXT : le bandeau « Nouveau » affiché sous la version, à l'accueil.
 # 2. _build_news() : la construction 3D qui met en scène la nouveauté, au centre du petit monde.
 #    _animate_news(delta) l'anime (vide si rien ne bouge).
-# Règle (0.0.3.22, demandée par l'utilisateur) : les personnages du menu Personnage sautent, chacun sur
-# son bloc. Depuis 0.0.3.23 (30 personnages avec les peaux, trop pour la vitrine), on n'en montre que
-# 2 ou 3, choisis parmi les nouveautés : liste NEWS_JUMPERS ([id, peau], peau vide pour un animal).
+# Règle (0.0.3.22, demandée par l'utilisateur) : les personnages du menu Personnage sont mis en scène.
+# Depuis 0.0.3.23 (30 personnages avec les peaux, trop pour la vitrine), on n'en montre que
+# 2 ou 3, choisis parmi les nouveautés : liste NEWS_RUNNERS ([id, peau], peau vide pour un animal).
 # Chacun prend son modèle Blender (CharacterPreview.MODELS, ou MODELS ci-dessous), sinon une forme simple.
 # Le reste du fichier (sol, collines, ciel, caméra) ne change pas d'une version à l'autre.
 const NEWS_VERSION := "0.0.3.25"
 const NEWS_TEXT := "Nouveau : modes pour courir ! Maintenir, Maintenir conditionnel
 ou Basculer (Paramètres → Contrôles)."
 
-# 0.0.3.23 : trois nouveautés sautent sur leur bloc, devant l'orbe (gardées en 0.0.3.24 et 0.0.3.25 :
-# courir ne se montre pas en sautant).
-const NEWS_JUMPERS := [["girl9", "brown"], ["fox", ""], ["rabbit", ""]]
-const NEWS_X := [1, 3, 5]
+# 0.0.3.25 : les trois nouveautés de 0.0.3.23 courent en aller-retour dans l'herbe libre, devant la place
+# de sable et pierre (sous le panneau des menus, vers la droite),
+# chacune sur sa rangée. Pas encore d'animation des jambes : le modèle glisse, tourné vers où il va.
+const NEWS_RUNNERS := [["girl9", "brown"], ["fox", ""], ["rabbit", ""]]
+const NEWS_Z := [5.5, 6.3, 7.1]
+const RUN_FROM := 5.4
+const RUN_TO := 9.2
+const RUN_SPEEDS := [2.6, 3.0, 2.8]
+const GROUND_TOP := 0.0
 const NEWS_HEIGHT := 3
-const HUMAN_JUMP := 1.2
-const HUMAN_PERIOD := 1.6
-const CAT_JUMP := 0.7
-const CAT_PERIOD := 1.0
 const CAT_SCALE := 1.4
-var pads: Array[MultiMeshInstance3D] = []
-var jumpers: Array[Node3D] = []
-var jumper_ids: Array[String] = []
+var runners: Array[Node3D] = []
+var runner_ids: Array[String] = []
 
 func _build_news() -> void:
-	var eye := Vector3(TOWER_CELL.x + 1.5, 0, TOWER_CELL.y + 1.5)
-	var stone_cells: Array[Vector3i] = []
-	var sand_cells: Array[Vector3i] = []
-	for index in range(NEWS_JUMPERS.size()):
-		var id: String = NEWS_JUMPERS[index][0]
-		var skin: String = NEWS_JUMPERS[index][1]
-		var x: int = NEWS_X[index]
-		(sand_cells if skin.is_empty() else stone_cells).append(Vector3i(x, 0, 0))
-		var jumper := _character_model(id, skin)
-		jumper.name = "Jumper_%s_%s" % [id, skin] if not skin.is_empty() else "Jumper_" + id
-		jumper.position = Vector3(x + 0.5, 1.0, 0.5)
-		# Face vers le point de vue (la tour).
-		jumper.rotation.y = atan2(eye.x - jumper.position.x, eye.z - jumper.position.z)
-		add_child(jumper)
-		jumpers.append(jumper)
-		jumper_ids.append(id)
-	for kind_cells in [[STONE, stone_cells], [SAND, sand_cells]]:
-		var pad := _multimesh(kind_cells[0])
-		add_child(pad)
-		_fill_multimesh(pad, kind_cells[1])
-		pads.append(pad)
+	for index in range(NEWS_RUNNERS.size()):
+		var id: String = NEWS_RUNNERS[index][0]
+		var skin: String = NEWS_RUNNERS[index][1]
+		var runner := _character_model(id, skin)
+		runner.name = "Runner_%s_%s" % [id, skin] if not skin.is_empty() else "Runner_" + id
+		add_child(runner)
+		runners.append(runner)
+		runner_ids.append(id)
+	_animate_news(0.0)
 
 func _animate_news(_delta: float) -> void:
-	# Sauts décalés ; les animaux font de petits bonds plus rapides et s'écrasent un peu en retombant.
-	for index in range(jumpers.size()):
-		var cat := not CharacterPreview.is_human(jumper_ids[index])
-		var period := CAT_PERIOD if cat else HUMAN_PERIOD
-		var phase: float = fmod(elapsed + index * 0.37, period) / period
-		jumpers[index].position.y = 1.0 + (CAT_JUMP if cat else HUMAN_JUMP) * 4.0 * phase * (1.0 - phase)
-		if cat:
-			var squash := 1.0 - 0.12 * maxf(0.0, 1.0 - phase * 8.0)
-			jumpers[index].scale = Vector3(2.0 - squash, squash, 2.0 - squash) * CAT_SCALE
+	# Aller-retour décalé ; demi-tour net au bout de la place.
+	var length := RUN_TO - RUN_FROM
+	for index in range(runners.size()):
+		var travelled: float = elapsed * RUN_SPEEDS[index] + index * 3.1
+		var x := RUN_FROM + pingpong(travelled, length)
+		var forward := fmod(travelled, 2.0 * length) < length
+		runners[index].position = Vector3(x, GROUND_TOP, NEWS_Z[index])
+		runners[index].rotation.y = PI / 2.0 if forward else -PI / 2.0
 
 func _character_model(id: String, skin: String) -> Node3D:
 	var data: Dictionary = CharacterPreview.CHARACTERS[id]

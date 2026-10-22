@@ -992,10 +992,14 @@ Résultat : 32 tests, 0 échec.
 - Enregistré dans controles.json (run_mode) ; les anciens fichiers restent
   lisibles (Maintenir).
 - Comment jouer : touches Y (se baisser) et R (courir) et leurs modes.
+- Vitrine de l'accueil : Fille de 9 ans, renard et lapin bleu courent en
+  aller-retour dans l'herbe, devant la place (sans animation des jambes).
 
 Test ajouté : tests/run_mode_test.gd (trois modes, chaque interruption,
-réappui nécessaire, anciens fichiers). Tests mis à jour : pause, prototype,
+réappui nécessaire, anciens fichiers). Tests mis à jour : menu_style
+(vitrine qui court), pause, prototype,
 shortcuts_selection, history_resume (numéro de version).
 Résultat : 33 tests, 0 échec.
 À tester manuellement : ressenti des trois modes en jeu, affichage de la
-catégorie Courir dans Contrôles (bouton « Maintenir conditionnel »).
+catégorie Courir dans Contrôles (bouton « Maintenir conditionnel »), vitrine
+de l'accueil (coureurs visibles selon la taille de la fenêtre).
