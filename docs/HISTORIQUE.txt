@@ -3,6 +3,10 @@ Du plus récent au plus ancien. Ce fichier est mis à jour à chaque version.
 
 === Thème « Contrôles et Paramètres » (0.0.3 et suivantes) ===
 
+0.0.3.26 — Voir son corps
+En première personne, le personnage choisi se voit en regardant en bas, avec son ombre ;
+hauteur des yeux inchangée, même pour les petits personnages et les animaux.
+
 0.0.3.25 — Modes pour courir
 Contrôles → Courir : Maintenir, Maintenir conditionnel (un appui, s'arrête à l'arrêt,
 au saut, en se baissant ou à la pause) ou Basculer. Vitrine : trois personnages courent.

@@ -34,9 +34,38 @@ var eye_height := EYE_HEIGHT
 var crouching := false
 var crouch_toggle := false
 var crouch_latched := false
-# Personnage choisi (Paramètres → Personnage, 0.0.3.16) : pas encore visible à l'écran.
+# Personnage choisi (Paramètres → Personnage, 0.0.3.16) ; corps visible en regardant en bas (0.0.3.26).
 var character := "boy14"
 var skin := "light"
+const CharacterPreview = preload("res://scripts/character_preview.gd")
+const CharacterModel = preload("res://scripts/character_model.gd")
+# Part de la hauteur d'un humain gardée sous le cou ; recul du corps derrière la caméra (m).
+const BODY_NECK := 0.52
+const BODY_BACK := 0.3
+const BODY_SHADER := "shader_type spatial;
+render_mode cull_disabled;
+uniform vec4 albedo : source_color = vec4(1.0);
+uniform sampler2D albedo_texture : source_color, hint_default_white;
+uniform float roughness = 0.8;
+uniform vec3 emission = vec3(0.0);
+uniform mat4 to_body;
+uniform float neck = 100.0;
+varying float body_y;
+void vertex() {
+	body_y = (to_body * vec4(VERTEX, 1.0)).y;
+}
+void fragment() {
+	if (body_y > neck) {
+		discard;
+	}
+	ALBEDO = albedo.rgb * texture(albedo_texture, UV).rgb;
+	ROUGHNESS = roughness;
+	EMISSION = emission;
+}"
+var body: Node3D
+var body_shadow: Node3D
+var body_key := ""
+var body_shader: Shader
 var crouch_forward := CROUCH_SPEED
 var crouch_side := CROUCH_SPEED
 var crouch_back := CROUCH_SPEED
@@ -165,6 +194,7 @@ func apply_settings(values: Dictionary) -> void:
 	run_back = float(values.get("run_back", RUN_SPEED))
 	character = str(values.get("character", "boy14"))
 	skin = str(values.get("skin", "light"))
+	sync_body()
 	eye_height = float(values.get("eye_height", EYE_HEIGHT))
 	camera.position.y = eye_height
 	break_reach = float(values.get("break_reach", REACH))
@@ -200,6 +230,86 @@ func _physics_process(delta: float) -> void:
 	step_breaking(delta, active, Input.is_action_pressed("break_block"))
 	step_placement(delta, active, Input.is_action_pressed("place_block"))
 	step_movement(delta, direction, jump_requested)
+
+# Corps en première personne (0.0.3.26) : le modèle du personnage, aux pieds du joueur, tourné avec lui.
+# La caméra garde la hauteur des yeux réglée, même pour un petit personnage ou un animal.
+# Humain : la tête, juste sous la caméra, cacherait la vue vers le bas ; elle est coupée au cou
+# pour l'œil, mais une copie entière garde l'ombre au sol (ombre seule).
+func sync_body() -> void:
+	var key := character + ":" + skin
+	if key == body_key or not CharacterPreview.CHARACTERS.has(character):
+		return
+	body_key = key
+	for old in [body, body_shadow]:
+		if is_instance_valid(old):
+			remove_child(old)
+			old.queue_free()
+	body = _place_body(CharacterModel.build(character, skin), "Body")
+	body_shadow = null
+	if not CharacterPreview.is_human(character):
+		return
+	var bounds := _body_bounds(body)
+	var neck := bounds.position.y + bounds.size.y * BODY_NECK
+	for node in body.find_children("*", "MeshInstance3D", true, false):
+		var mesh_instance := node as MeshInstance3D
+		mesh_instance.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		var to_body := _to_body(mesh_instance, body)
+		var whole: Material = mesh_instance.material_override
+		mesh_instance.material_override = null
+		for surface in range(mesh_instance.mesh.get_surface_count()):
+			var base: Material = mesh_instance.get_surface_override_material(surface)
+			if base == null:
+				base = whole if whole else mesh_instance.mesh.surface_get_material(surface)
+			mesh_instance.set_surface_override_material(surface, _cut_material(base, to_body, neck))
+	body_shadow = _place_body(CharacterModel.build(character, skin), "BodyShadow")
+	for node in body_shadow.find_children("*", "GeometryInstance3D", true, false):
+		(node as GeometryInstance3D).cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_SHADOWS_ONLY
+
+# Tourné vers l'avant du joueur (-Z), semelles posées au sol, centré un peu en arrière de la caméra.
+func _place_body(model: Node3D, node_name: String) -> Node3D:
+	model.name = node_name
+	model.rotation.y = PI
+	add_child(model)
+	var bounds := _body_bounds(model)
+	var center := bounds.get_center() * model.scale
+	model.position = Vector3(center.x, -bounds.position.y * model.scale.y, center.z + BODY_BACK)
+	return model
+
+# Boîte du modèle dans son propre repère (sans sa position ni sa rotation).
+func _body_bounds(model: Node3D) -> AABB:
+	var bounds := AABB()
+	var first := true
+	for node in model.find_children("*", "MeshInstance3D", true, false):
+		var box: AABB = _to_body(node, model) * (node as MeshInstance3D).get_aabb()
+		bounds = box if first else bounds.merge(box)
+		first = false
+	return bounds
+
+func _to_body(node: Node3D, model: Node3D) -> Transform3D:
+	var placed := Transform3D()
+	var step: Node = node
+	while step != model:
+		placed = (step as Node3D).transform * placed
+		step = step.get_parent()
+	return placed
+
+func _cut_material(base: Material, to_body: Transform3D, neck: float) -> ShaderMaterial:
+	if body_shader == null:
+		body_shader = Shader.new()
+		body_shader.code = BODY_SHADER
+	var material := ShaderMaterial.new()
+	material.shader = body_shader
+	material.set_shader_parameter("to_body", Projection(to_body))
+	material.set_shader_parameter("neck", neck)
+	if base is StandardMaterial3D:
+		var standard := base as StandardMaterial3D
+		material.set_shader_parameter("albedo", standard.albedo_color)
+		material.set_shader_parameter("roughness", standard.roughness)
+		if standard.albedo_texture:
+			material.set_shader_parameter("albedo_texture", standard.albedo_texture)
+		if standard.emission_enabled:
+			material.set_shader_parameter("emission", standard.emission * standard.emission_energy_multiplier)
+	return material
 
 # Se baisser (0.0.3.18) : Maintenir = tant que la touche est enfoncée ;
 # Basculer = chaque appui change l'état, gardé même touche relâchée.

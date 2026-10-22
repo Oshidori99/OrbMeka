@@ -1,4 +1,4 @@
-# OrbMeka™ — prototype 0.0.3.25
+# OrbMeka™ — prototype 0.0.3.26
 
 Godot 4.7 / GDScript. Formes et couleurs simples, sans assets externes.
 
@@ -1003,3 +1003,23 @@ Résultat : 33 tests, 0 échec.
 À tester manuellement : ressenti des trois modes en jeu, affichage de la
 catégorie Courir dans Contrôles (bouton « Maintenir conditionnel »), vitrine
 de l'accueil (coureurs visibles selon la taille de la fenêtre).
+
+## Voir son corps — 0.0.3.26
+- En jeu (toujours en première personne), le personnage choisi dans
+  Paramètres → Personnage est visible, surtout en regardant en bas :
+  torse, bras et jambes pour les humains, l'animal entier pour les animaux
+  et Brioche. Il tourne avec le joueur et projette son ombre au sol.
+- La caméra garde la hauteur des yeux réglée (Attributs → Vue), même pour
+  un petit personnage ou un animal : on voit alors l'animal sous soi.
+- Humains : la tête, juste sous la caméra, cacherait la vue ; elle est
+  cachée à l'œil (coupe au cou), mais l'ombre reste entière.
+- Le corps ne gêne ni la visée, ni casser, ni poser (aucune collision).
+- Les modèles de la vitrine et du jeu sont fabriqués au même endroit
+  (scripts/character_model.gd). Pas encore d'animation des jambes.
+
+Test ajouté : tests/body_test.gd (tous les personnages : corps visible,
+hauteur des yeux, pieds au sol, tête cachée, ombre, peau, pas de cible).
+Tests mis à jour : pause, prototype, shortcuts_selection, history_resume
+(numéro de version). Résultat : 34 tests, 0 échec.
+À tester manuellement : aspect du corps en jeu (regard en bas, en marchant,
+en se baissant, pour chaque personnage), ombre, vitrine de l'accueil.
