@@ -86,6 +86,20 @@ var speed_max := 2.0
 var speed_min := 0.5
 var speed_up_rate := 0.4
 var speed_down_rate := 0.4
+# 0.0.4.6 (#105) : réglages à part, ↑ ↓ + une touche : marche (walk_scale), course (run_scale),
+# casse et pose (break_scale, place_scale : plus haut = plus rapide, mode développeur seulement).
+# Limites : Attributs → Changer de vitesse en mode développeur, sinon DEFAULT_MIN à DEFAULT_MAX.
+const DEFAULT_MIN := 0.75
+const DEFAULT_MAX := 1.5
+const SCALES := ["speed", "walk", "run", "break", "place"]
+var walk_scale := 1.0
+var run_scale := 1.0
+var break_scale := 1.0
+var place_scale := 1.0
+var break_base := 0.3
+var place_base := 0.3
+# Touches qui font d'un clic un réglage de vitesse (Controls.click_modifiers, donné par l'application).
+var click_modifiers := [KEY_UP, KEY_DOWN, KEY_BACKSPACE]
 # Voler (0.0.4.5) : touche Voler (Espace deux fois) pour commencer ou arrêter ; sans gravité, Sauter monte,
 # Se baisser descend. Vitesses dans Attributs → Voler ; ↑ ↓ les changent aussi.
 const FLY_SPEED := 10.0
@@ -157,10 +171,13 @@ func _unhandled_input(event: InputEvent) -> void:
 	if Input.mouse_mode != Input.MOUSE_MODE_CAPTURED:
 		return
 	# Casser, poser, changer de bloc : touches ou boutons de Paramètres → Contrôles.
+	# Un clic avec ↑, ↓ ou ⌫ (0.0.4.6) règle la casse ou la pose : il ne casse ni ne pose.
 	if event.is_action_pressed("break_block"):
-		begin_breaking()
+		if not click_modified():
+			begin_breaking()
 	elif event.is_action_pressed("place_block"):
-		begin_placement()
+		if not click_modified():
+			begin_placement()
 	elif event.is_action_pressed("block_previous"):
 		cycle_block(-1)
 	elif event.is_action_pressed("block_next"):
@@ -199,8 +216,8 @@ func apply_settings(values: Dictionary) -> void:
 	jump_speed = values.jump_speed
 	rise_gravity = jump_speed * jump_speed / (2.0 * jump_height)
 	gravity = values.fall_gravity
-	actions.place_interval = values.place_ms / 1000.0
-	actions.break_interval = values.break_ms / 1000.0
+	place_base = values.place_ms / 1000.0
+	break_base = values.break_ms / 1000.0
 	walk_forward = values.walk_forward
 	walk_side = values.walk_side
 	walk_back = values.walk_back
@@ -220,7 +237,9 @@ func apply_settings(values: Dictionary) -> void:
 	speed_min = float(values.get("speed_min", 50.0)) / 100.0
 	speed_up_rate = float(values.get("speed_up_rate", 40.0)) / 100.0
 	speed_down_rate = float(values.get("speed_down_rate", 40.0)) / 100.0
-	speed_scale = clampf(speed_scale, speed_min, speed_max)
+	for scale in SCALES:
+		set(scale + "_scale", clampf(get(scale + "_scale"), scale_min(), scale_max()))
+	_apply_intervals()
 	character = str(values.get("character", "boy14"))
 	skin = str(values.get("skin", "light"))
 	sync_body()
@@ -261,9 +280,18 @@ func _physics_process(delta: float) -> void:
 	else:
 		update_crouch(active, Input.is_action_pressed("crouch"), Input.is_action_just_pressed("crouch"))
 	update_run(active, Input.is_action_pressed("sprint"), Input.is_action_just_pressed("sprint"), direction != Vector2.ZERO, jump_requested)
-	update_speed(delta, active, Input.is_action_pressed("speed_up"), Input.is_action_pressed("speed_down"), Input.is_action_pressed("speed_reset"))
-	step_breaking(delta, active, Input.is_action_pressed("break_block"))
-	step_placement(delta, active, Input.is_action_pressed("place_block"))
+	var changes := {}
+	var resets := []
+	for target in ["walk", "run", "break", "place"]:
+		var faster := Input.is_action_pressed(target + "_up")
+		if faster != Input.is_action_pressed(target + "_down"):
+			changes[target] = 1.0 if faster else -1.0
+		if Input.is_action_pressed(target + "_reset"):
+			resets.append(target)
+	update_speed(delta, active, Input.is_action_pressed("speed_up"), Input.is_action_pressed("speed_down"), Input.is_action_pressed("speed_reset_all"), changes, resets)
+	var modified := click_modified()
+	step_breaking(delta, active, Input.is_action_pressed("break_block") and not modified)
+	step_placement(delta, active, Input.is_action_pressed("place_block") and not modified)
 	if flying:
 		var vertical := 0.0
 		if active:
@@ -393,20 +421,45 @@ func update_run(active: bool, held: bool, just_pressed: bool, moving: bool, jump
 			running = held
 
 # Plus vite / Moins vite (0.0.4.3), maintenus : la vitesse change peu à peu, en marchant comme
-# en courant ou baissé, même à l'arrêt ; les deux ensemble s'annulent. Rien en pause ou souris libre.
-# Vitesse par défaut (0.0.4.4, R + ↓) : retour à 100 %, même si ↓ est tenue avec.
-func update_speed(delta: float, active: bool, up: bool, down: bool, reset: bool = false) -> void:
+# en courant, baissé ou en vol, même à l'arrêt ; les deux ensemble s'annulent. Rien en pause ou souris libre.
+# 0.0.4.6 : changes = {cible: +1 ou -1} pour ↑ ↓ + une touche (la flèche seule ne compte alors pas) ;
+# resets = cibles remises à 100 % (⌫ + touche) ; reset_all (⌫ deux fois) : tout à 100 %.
+# Casse et pose ne changent que dans un monde en mode développeur.
+func update_speed(delta: float, active: bool, up: bool, down: bool, reset_all: bool = false, changes: Dictionary = {}, resets: Array = []) -> void:
 	if not active:
 		return
-	if reset:
-		speed_scale = 1.0
+	if reset_all:
+		for scale in SCALES:
+			set(scale + "_scale", 1.0)
+		_apply_intervals()
 		return
-	if up == down:
-		return
-	if up:
-		speed_scale = minf(speed_scale + speed_up_rate * delta, speed_max)
-	else:
-		speed_scale = maxf(speed_scale - speed_down_rate * delta, speed_min)
+	for target in resets:
+		set(target + "_scale", 1.0)
+	if changes.is_empty() and up != down:
+		changes = {"speed": 1.0 if up else -1.0}
+	for target in changes:
+		if target in ["break", "place"] and not developer():
+			continue
+		var rate := speed_up_rate if changes[target] > 0.0 else speed_down_rate
+		set(target + "_scale", clampf(get(target + "_scale") + changes[target] * rate * delta, scale_min(), scale_max()))
+	_apply_intervals()
+
+func developer() -> bool:
+	return is_instance_valid(world) and world.get("developer_mode") == true
+
+func scale_min() -> float:
+	return speed_min if developer() else DEFAULT_MIN
+
+func scale_max() -> float:
+	return speed_max if developer() else DEFAULT_MAX
+
+# Intervalles de casse et de pose : plus la rapidité est haute, plus ils sont courts.
+func _apply_intervals() -> void:
+	actions.break_interval = break_base / break_scale
+	actions.place_interval = place_base / place_scale
+
+func click_modified() -> bool:
+	return click_modifiers.any(func(code): return Input.is_physical_key_pressed(code))
 
 # Voler (0.0.4.5) : chaque appui sur la touche Voler commence ou arrête le vol (rien en pause).
 func update_fly(active: bool, just_pressed: bool) -> void:
@@ -450,9 +503,11 @@ func step_movement(delta: float, direction: Vector2, jump_requested: bool) -> vo
 	var step := direction.limit_length(1.0)
 	# Baissé l'emporte sur courir.
 	# Plus vite / Moins vite : marche, course et baissé (0.0.4.4) ensemble ; leurs écarts restent.
-	var side := (crouch_side if crouching else (run_side if running else walk_side)) * speed_scale
-	var forward := (crouch_forward if crouching else (run_forward if running else walk_forward)) * speed_scale
-	var back := (crouch_back if crouching else (run_back if running else walk_back)) * speed_scale
+	# 0.0.4.6 : la course suit aussi run_scale, la marche (et la marche baissée) walk_scale.
+	var own := run_scale if running and not crouching else walk_scale
+	var side := (crouch_side if crouching else (run_side if running else walk_side)) * speed_scale * own
+	var forward := (crouch_forward if crouching else (run_forward if running else walk_forward)) * speed_scale * own
+	var back := (crouch_back if crouching else (run_back if running else walk_back)) * speed_scale * own
 	var local := Vector3(step.x * side, 0.0, step.y * (forward if step.y < 0.0 else back))
 	# Caméra un peu plus basse quand on est baissé.
 	var eye := maxf(0.2, eye_height - CROUCH_DROP) if crouching else eye_height

@@ -39,7 +39,7 @@ Première action immédiate ; un délai plus court accélère la répétition."]
 	"Courir": {"keys": ["run_forward", "run_side", "run_back"], "help": ["", "Vitesse quand on court.", "En courant (touche de Contrôles maintenue, R par défaut) : vitesse au sol dans chaque direction (1 bloc = 1 m). Se baisser l'emporte sur courir."]},
 	"Se baisser": {"keys": ["crouch_forward", "crouch_side", "crouch_back", "crouch_gravity"], "help": ["", "Vitesses et chute quand on se baisse.", "En se baissant (touche de Contrôles) : vitesse dans chaque direction, et gravité de chute, plus forte pour tomber plus vite."]},
 	"Voler": {"keys": ["fly_forward", "fly_side", "fly_back", "fly_up", "fly_down"], "help": ["", "Vitesses en vol.", "En vol (touche de Contrôles, Espace deux fois par défaut) : vitesse dans chaque direction, et pour monter (touche Sauter) ou descendre (touche Se baisser). Pas de gravité en vol."]},
-	"Changer de vitesse": {"keys": ["speed_max", "speed_min", "speed_up_rate", "speed_down_rate"], "help": ["", "Plus vite (↑), moins vite (↓), R + ↓ : défaut.", "Plus vite (↑) et Moins vite (↓), maintenus : la marche, la course et la marche baissée changent ensemble, peu à peu, en % de leur vitesse normale (la course reste plus rapide que la marche). La vitesse choisie reste jusqu'au prochain changement ; R + ↓ : retour à 100 %. Rapidités : % gagnés ou perdus par seconde."]},
+	"Changer de vitesse": {"keys": ["speed_max", "speed_min", "speed_up_rate", "speed_down_rate"], "help": ["", "↑ ↓ : vitesses ; ⌫ : par défaut. Limites et rapidité.", "↑ et ↓ maintenues : tout le déplacement (marche, course, baissé, vol) plus ou moins vite, peu à peu, en % de la vitesse normale ; avec W : la marche seule ; avec R : la course seule ; avec clic gauche ou droit : la casse ou la pose (mode développeur seulement). ⌫ + la même touche : cette valeur par défaut ; ⌫ deux fois : tout par défaut. Vitesse maximale et minimale : limites en mode développeur (monde par défaut : 75 à 150 %). Rapidités : % gagnés ou perdus par seconde."]},
 	"Vue": {"keys": ["eye_height"], "help": ["", "Hauteur de la vue, en blocs.", "Hauteur des yeux au-dessus des pieds, en blocs : 1 = vue à un bloc du sol, 2 = à deux blocs. Deux décimales possibles (ex. 1,9 ou 2,15)."]},
 }
 # Réglages généraux (tous les mondes, quel que soit leur mode), par section du menu latéral.
@@ -685,6 +685,8 @@ func set_control(action: String, binding: Dictionary) -> void:
 func _apply_controls() -> void:
 	Controls.apply(settings.controls)
 	_send_combos(key_combos.set_bindings(settings.controls))
+	if is_instance_valid(active_world):
+		active_world.player.click_modifiers = Controls.click_modifiers(settings.controls)
 
 # Changements des actions à deux touches, lus par le jeu comme les autres touches.
 func _send_combos(changes: Array) -> void:
@@ -1561,6 +1563,7 @@ func open_world(id: String) -> void:
 	active_world.set_coordinates_visible(settings.values.show_coords == "on")
 	active_world.player.crouch_toggle = settings.control_options.crouch_mode == "toggle"
 	active_world.player.run_mode = settings.control_options.run_mode
+	active_world.player.click_modifiers = Controls.click_modifiers(settings.controls)
 	# Opening from a menu is an explicit request to play immediately.
 	active_world.player.resume_controls()
 

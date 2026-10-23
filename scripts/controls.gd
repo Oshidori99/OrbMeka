@@ -24,8 +24,22 @@ const ACTIONS := {
 	# 0.0.4.3 : changer la vitesse de marche et de course (← → seules restent pour se déplacer).
 	"speed_up": {"label": "Plus vite", "default": {"key": KEY_UP}, "fixed": []},
 	"speed_down": {"label": "Moins vite", "default": {"key": KEY_DOWN}, "fixed": []},
-	# 0.0.4.4 : R + ↓ ensemble, retour à la vitesse par défaut (100 %).
-	"speed_reset": {"label": "Vitesse par défaut", "default": {"key": KEY_R, "second": {"key": KEY_DOWN}}, "by_letter": true, "fixed": []},
+	# 0.0.4.6 (#105) : ↑ ou ↓ avec une autre touche : seulement la marche, la course, la casse ou
+	# la pose (casse et pose : monde en mode développeur). ⌫ + la même touche : cette valeur par
+	# défaut ; ⌫ deux fois : tout par défaut (remplace R + ↓ de 0.0.4.4, ancien « speed_reset » ignoré).
+	"walk_up": {"label": "Marche plus vite", "default": {"key": KEY_UP, "second": {"key": KEY_W}}, "fixed": []},
+	"walk_down": {"label": "Marche moins vite", "default": {"key": KEY_DOWN, "second": {"key": KEY_W}}, "fixed": []},
+	"run_up": {"label": "Course plus vite", "default": {"key": KEY_UP, "second": {"key": KEY_R}}, "by_letter": true, "fixed": []},
+	"run_down": {"label": "Course moins vite", "default": {"key": KEY_DOWN, "second": {"key": KEY_R}}, "by_letter": true, "fixed": []},
+	"break_up": {"label": "Casse plus rapide", "default": {"key": KEY_UP, "second": {"mouse": MOUSE_BUTTON_LEFT}}, "fixed": []},
+	"break_down": {"label": "Casse moins rapide", "default": {"key": KEY_DOWN, "second": {"mouse": MOUSE_BUTTON_LEFT}}, "fixed": []},
+	"place_up": {"label": "Pose plus rapide", "default": {"key": KEY_UP, "second": {"mouse": MOUSE_BUTTON_RIGHT}}, "fixed": []},
+	"place_down": {"label": "Pose moins rapide", "default": {"key": KEY_DOWN, "second": {"mouse": MOUSE_BUTTON_RIGHT}}, "fixed": []},
+	"walk_reset": {"label": "Marche par défaut", "default": {"key": KEY_BACKSPACE, "second": {"key": KEY_W}}, "fixed": []},
+	"run_reset": {"label": "Course par défaut", "default": {"key": KEY_BACKSPACE, "second": {"key": KEY_R}}, "by_letter": true, "fixed": []},
+	"break_reset": {"label": "Casse par défaut", "default": {"key": KEY_BACKSPACE, "second": {"mouse": MOUSE_BUTTON_LEFT}}, "fixed": []},
+	"place_reset": {"label": "Pose par défaut", "default": {"key": KEY_BACKSPACE, "second": {"mouse": MOUSE_BUTTON_RIGHT}}, "fixed": []},
+	"speed_reset_all": {"label": "Tout par défaut", "default": {"key": KEY_BACKSPACE, "second": {"key": KEY_BACKSPACE}}, "fixed": []},
 	# 0.0.4.5 : Espace deux fois (choix de l'utilisateur) pour voler, encore deux fois pour arrêter ;
 	# le premier appui fait sauter. En vol, Sauter monte et Se baisser descend.
 	"fly": {"label": "Voler", "default": {"key": KEY_SPACE, "second": {"key": KEY_SPACE}}, "fixed": []},
@@ -66,7 +80,7 @@ static func default_for(action: String) -> Dictionary:
 	var binding: Dictionary = ACTIONS[action].default.duplicate(true)
 	if ACTIONS[action].get("by_letter", false) and binding.has("key"):
 		binding.key = physical_for_letter(binding.key)
-		if binding.has("second"):
+		if binding.has("second") and binding.second.has("key"):
 			binding.second.key = physical_for_letter(binding.second.key)
 	return binding
 
@@ -192,7 +206,7 @@ static func part_label(binding: Dictionary) -> String:
 		var local: int = DisplayServer.keyboard_get_keycode_from_physical(binding.key) if DisplayServer.get_name() != "headless" else binding.key
 		var name := OS.get_keycode_string(local if local != 0 else binding.key)
 		# Flèches en symboles (0.0.4.3 : ↑ ↓ par défaut pour la vitesse).
-		return {"Space": "Espace", "Up": "↑", "Down": "↓", "Left": "←", "Right": "→"}.get(name, name)
+		return {"Space": "Espace", "Up": "↑", "Down": "↓", "Left": "←", "Right": "→", "Backspace": "⌫"}.get(name, name)
 	return "Aucune"
 
 static func _event(binding: Dictionary) -> InputEvent:
@@ -228,3 +242,18 @@ static func ensure_defaults() -> void:
 				InputMap.action_add_event(action, _event(default_for(action)))
 			for code in ACTIONS[action].fixed:
 				InputMap.action_add_event(action, _event({"key": code}))
+
+# 0.0.4.6 : actions qui changent ou remettent une vitesse ; avec un clic, ce clic ne casse ni ne pose.
+const SPEED_ACTIONS := ["speed_up", "speed_down", "walk_up", "walk_down", "run_up", "run_down", "break_up", "break_down", "place_up", "place_down", "walk_reset", "run_reset", "break_reset", "place_reset", "speed_reset_all"]
+
+# Touches qui, tenues avec un clic, en font un réglage de vitesse (ex. ↑ et ⌫ par défaut).
+static func click_modifiers(bindings: Dictionary) -> Array:
+	var result := []
+	for action in SPEED_ACTIONS:
+		var binding: Dictionary = bindings.get(action, default_for(action))
+		if kind(binding) != "together":
+			continue
+		for pair in [[first(binding), second(binding)], [second(binding), first(binding)]]:
+			if pair[0].has("key") and pair[1].has("mouse") and not pair[0].key in result:
+				result.append(pair[0].key)
+	return result

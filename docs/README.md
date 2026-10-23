@@ -1,4 +1,4 @@
-# OrbMeka™ — prototype 0.0.4.5
+# OrbMeka™ — prototype 0.0.4.6
 
 Godot 4.7 / GDScript. Formes et couleurs simples, sans assets externes.
 
@@ -66,7 +66,8 @@ sont conservés. L'apparition tient compte des blocs présents.
 - Y : se baisser ; R : courir. Mode de chaque touche dans Contrôles :
   Maintenir ou Basculer, et pour courir **Maintenir conditionnel** (0.0.3.25).
 - ↑ ↓ maintenues : marcher, courir, se baisser plus ou moins vite (0.0.4.3) ;
-  R + ↓ : vitesse par défaut (0.0.4.4).
+  ↑ ↓ + W : marche, + R : course, + clic : casse ou pose ; ⌫ + touche :
+  par défaut ; ⌫ deux fois : tout (0.0.4.6).
 - Espace deux fois : voler ; en vol, Espace monte, Y descend (0.0.4.5).
 - Contrôles : deuxième touche facultative par action, double appui ou
   en même temps (0.0.3.27).
@@ -1190,3 +1191,29 @@ jour : menu_style (vitrine en vol), key_combos (« Aucune »), interface_info
 version. Résultat : 38 tests, 0 échec.
 À tester manuellement : ressenti du vol, double appui sur Espace (saut puis
 vol), montée et descente, vitrine.
+
+## Chaque vitesse à part — 0.0.4.6
+Issue #105. Remplace R + ↓ (0.0.4.4) ; un ancien controles.json garde ses
+autres touches, R + ↓ y est ignoré.
+- **↑ ou ↓ seule** : tout le déplacement (marche, course, baissé, vol),
+  comme avant.
+- **↑ / ↓ + W** : la marche seule (et la marche baissée) ; **+ R** : la
+  course seule ; **+ clic gauche** : la casse plus ou moins rapide ; **+ clic
+  droit** : la pose. Avec une autre touche, la flèche seule ne compte pas ; un
+  clic avec ↑, ↓ ou ⌫ ne casse ni ne pose.
+- **⌫ + W, R, clic gauche ou clic droit** : cette valeur par défaut ;
+  **⌫ deux fois** : tout par défaut.
+- **Monde par défaut** : 75 à 150 %, casse et pose fixes. **Mode
+  développeur** : limites de Attributs → Changer de vitesse (50 à 200 % par
+  défaut, réglables de 10 à 500 %), casse et pose réglables.
+- 13 nouvelles actions dans Contrôles, modifiables (⌫ affiché « ⌫ »).
+- Comment jouer, aide des Attributs et vitrine mis à jour.
+
+Test ajouté : tests/speed_targets_test.gd (touches, combinaisons, marche,
+course, casse, pose, limites des deux modes, ⌫, clic sans casser, ancien
+controles.json, menus, Comment jouer). Tests mis à jour : speed_change (⌫
+deux fois, monde développeur), numéro de version. Résultat : 39 tests, 0 échec.
+Corrigé en passant : « 150 % » dans Comment jouer cassait la mise en forme du
+texte.
+À tester manuellement : ↑ + W, ↑ + R, ↑ + clic en jeu (sans casser), ⌫,
+mode Basculer (↑ + R bascule aussi la course).

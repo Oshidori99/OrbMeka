@@ -3,6 +3,10 @@ Du plus récent au plus ancien. Ce fichier est mis à jour à chaque version.
 
 === Thème « Menus et Paramètres 2 » (0.0.4 et suivantes) ===
 
+0.0.4.6 — Chaque vitesse à part
+↑ ↓ + W : marche, + R : course, + clic : casse ou pose (mode développeur) ; ⌫ + touche : par défaut,
+⌫ deux fois : tout ; hors mode développeur, 75 à 150 %.
+
 0.0.4.5 — Voler
 Espace deux fois : voler (Espace monte, Y descend), sans gravité ; vitesses dans Attributs → Voler ;
 la vitrine vole. Contrôles : « Aucune » quand il n'y a pas de deuxième touche.

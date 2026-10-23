@@ -12,13 +12,13 @@ extends Node3D
 # 2 ou 3, choisis parmi les nouveautés : liste NEWS_RUNNERS ([id, peau], peau vide pour un animal).
 # Chacun prend son modèle Blender, sinon une forme simple (character_model.gd, partagé avec le jeu).
 # Le reste du fichier (sol, collines, ciel, caméra) ne change pas d'une version à l'autre.
-const NEWS_VERSION := "0.0.4.5"
-const NEWS_TEXT := "Nouveau : on peut voler !
-Espace deux fois ; Espace monte, Y descend ; vitesses dans Attributs → Voler."
+const NEWS_VERSION := "0.0.4.6"
+const NEWS_TEXT := "Nouveau : chaque vitesse à part !
+↑ ↓ + W, R ou un clic : marche, course, casse, pose ; ⌫ pour revenir au défaut."
 
 # 0.0.3.25 : les trois nouveautés de 0.0.3.23 en aller-retour au-dessus de l'herbe libre, devant la place
 # de sable et pierre (sous le panneau des menus, vers la droite), chacune sur sa rangée.
-# 0.0.4.5 : elles volent, montent et descendent en avançant (FLY_LOW à FLY_HIGH, cycle FLY_CYCLE s,
+# 0.0.4.5 (gardé en 0.0.4.6) : elles volent, montent et descendent en avançant (FLY_LOW à FLY_HIGH, cycle FLY_CYCLE s,
 # décalé par rangée). Pas encore d'animation de vol : le modèle glisse, tourné vers où il va.
 const NEWS_RUNNERS := [["girl9", "brown"], ["fox", ""], ["rabbit", ""]]
 const NEWS_Z := [5.5, 6.3, 7.1]
