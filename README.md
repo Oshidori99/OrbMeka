@@ -1,4 +1,4 @@
-# OrbMeka™ 0.0.4.7
+# OrbMeka™ 0.0.4.8
 
 Dans Godot, ouvrez **project.godot**, puis **F5** pour lancer le jeu.
 

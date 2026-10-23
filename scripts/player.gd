@@ -113,6 +113,11 @@ var flying := false
 var fly_forward := FLY_SPEED
 var fly_side := FLY_SPEED
 var fly_back := FLY_SPEED
+# Voler vite (0.0.4.8) : touche Courir en vol ; ↑ + R (run_scale) compte aussi.
+const FLY_RUN_SPEED := 15.0
+var fly_run_forward := FLY_RUN_SPEED
+var fly_run_side := FLY_RUN_SPEED
+var fly_run_back := FLY_RUN_SPEED
 var fly_up := FLY_VERTICAL
 var fly_down := FLY_VERTICAL
 var input_ready_frame := -1
@@ -234,6 +239,9 @@ func apply_settings(values: Dictionary) -> void:
 	fly_forward = float(values.get("fly_forward", FLY_SPEED))
 	fly_side = float(values.get("fly_side", FLY_SPEED))
 	fly_back = float(values.get("fly_back", FLY_SPEED))
+	fly_run_forward = float(values.get("fly_run_forward", FLY_RUN_SPEED))
+	fly_run_side = float(values.get("fly_run_side", FLY_RUN_SPEED))
+	fly_run_back = float(values.get("fly_run_back", FLY_RUN_SPEED))
 	fly_up = float(values.get("fly_up", FLY_VERTICAL))
 	fly_down = float(values.get("fly_down", FLY_VERTICAL))
 	speed_max = float(values.get("speed_max", 200.0)) / 100.0
@@ -282,7 +290,8 @@ func _physics_process(delta: float) -> void:
 		crouching = false
 	else:
 		update_crouch(active, Input.is_action_pressed("crouch"), Input.is_action_just_pressed("crouch"))
-	update_run(active, Input.is_action_pressed("sprint"), Input.is_action_just_pressed("sprint"), direction != Vector2.ZERO, jump_requested)
+	# En vol, Espace monte : ce n'est pas un saut qui arrête la course (Maintenir conditionnel).
+	update_run(active, Input.is_action_pressed("sprint"), Input.is_action_just_pressed("sprint"), direction != Vector2.ZERO, jump_requested and not flying)
 	var changes := {}
 	var resets := []
 	for target in ["walk", "run", "break", "place"]:
@@ -481,7 +490,10 @@ func update_fly(active: bool, just_pressed: bool) -> void:
 # Un pas de vol : sans gravité ; vertical > 0 monte, < 0 descend. ↑ ↓ (speed_scale) comptent aussi.
 func step_flight(delta: float, direction: Vector2, vertical: float) -> void:
 	var step := direction.limit_length(1.0)
-	var local := Vector3(step.x * fly_side, 0.0, step.y * (fly_forward if step.y < 0.0 else fly_back)) * speed_scale
+	var side := fly_run_side if running else fly_side
+	var forward := fly_run_forward if running else fly_forward
+	var back := fly_run_back if running else fly_back
+	var local := Vector3(step.x * side, 0.0, step.y * (forward if step.y < 0.0 else back)) * speed_scale * (run_scale if running else 1.0)
 	camera.position.y = move_toward(camera.position.y, eye_height, 4.0 * delta)
 	var movement := global_transform.basis * local
 	velocity = Vector3(movement.x, (fly_up if vertical > 0.0 else fly_down) * vertical * speed_scale, movement.z)

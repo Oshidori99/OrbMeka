@@ -361,7 +361,7 @@ La vitesse choisie reste. A ou W tenus avec ↑, ↓ ou ⌫ ne font pas bouger.
 ⌫ deux fois : tout par défaut.
 Voler : Espace deux fois (rapidement) ; en vol, pas de gravité, Espace maintenu monte,
 Y maintenu descend ; Espace deux fois à nouveau : on retombe. Vitesses dans Attributs → Voler,
-↑ ↓ comptent aussi en vol.
+↑ ↓ comptent aussi en vol. R en vol : voler vite.
 
 Maintenir clic gauche : casser ; clic droit : poser.
 Première action immédiate, puis répétition selon les paramètres des blocs.

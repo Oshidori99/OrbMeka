@@ -283,3 +283,12 @@ static func blocked_moves(bindings: Dictionary) -> Dictionary:
 
 # Défauts de 0.0.4.3 à 0.0.4.6 (↑, ↓ seules) remplacés : un ancien controles.json les relit comme le nouveau défaut.
 const FORMER_DEFAULTS := {"speed_up": {"key": KEY_UP}, "speed_down": {"key": KEY_DOWN}}
+
+# 0.0.4.8 : parties du menu Contrôles, dans l'ordre d'affichage ; chaque action dans une seule.
+const GROUPS := {
+	"Mouvements": ["move_forward", "move_back", "move_left", "move_right", "jump", "crouch", "sprint", "fly"],
+	"Blocs": ["break_block", "place_block", "block_previous", "block_next"],
+	"Vitesses": ["speed_up", "speed_down", "walk_up", "walk_down", "run_up", "run_down", "break_up", "break_down", "place_up", "place_down", "move_reset", "walk_reset", "run_reset", "break_reset", "place_reset", "speed_reset_all"],
+}
+# Dernière partie, Menus : touches réservées, montrées sans pouvoir les changer.
+const MENU_KEYS := [["Pause", "Échap"], ["Retour aux mondes", "F1"], ["Comment jouer", "F2"], ["Informations du monde", "F3"]]

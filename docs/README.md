@@ -1,4 +1,4 @@
-# OrbMeka™ — prototype 0.0.4.7
+# OrbMeka™ — prototype 0.0.4.8
 
 Godot 4.7 / GDScript. Formes et couleurs simples, sans assets externes.
 
@@ -68,7 +68,8 @@ sont conservés. L'apparition tient compte des blocs présents.
 - ↑ ↓ maintenues : marcher, courir, se baisser plus ou moins vite (0.0.4.3) ;
   ↑ ↓ + A : tout le déplacement (0.0.4.7) ; + W : marche, + R : course,
   + clic : casse ou pose ; ⌫ + touche : par défaut ; ⌫ deux fois : tout.
-- Espace deux fois : voler ; en vol, Espace monte, Y descend (0.0.4.5).
+- Espace deux fois : voler ; en vol, Espace monte, Y descend (0.0.4.5) ;
+  R en vol : voler vite (0.0.4.8).
 - Contrôles : deuxième touche facultative par action, double appui ou
   en même temps (0.0.3.27).
 - Clic gauche : casse immédiate ; maintenir pour répéter selon les paramètres (**300 ms par défaut**).
@@ -1233,3 +1234,21 @@ Tests mis à jour : speed_targets (↑ + A, ⌫ + A, A sans aller à gauche,
 ancien défaut relu), speed_change (touches par défaut), numéro de version.
 Résultat : 39 tests, 0 échec.
 À tester manuellement : ↑ + A et ↓ + A en jeu, ↑ + W (sans avancer), ⌫ + A.
+
+## Voler vite et Contrôles rangés — 0.0.4.8
+- **Courir en volant** : la touche Courir (R, avec son mode) fait voler
+  vite. Attributs → Voler : Avancer, De côté, Reculer en volant vite
+  (15 m/s ; 10 m/s sans courir). ↑ + R compte aussi. Monter et descendre ne
+  changent pas. En vol, Espace (monter) n'arrête pas la course en Maintenir
+  conditionnel.
+- **Contrôles rangés en 4 parties**, chacune avec son titre : Mouvements
+  (marcher, sauter, se baisser, courir, voler), Blocs (casser, poser,
+  changer de bloc), Vitesses (toutes les combinaisons ↑ ↓ ⌫), Menus (Échap,
+  F1, F2, F3 : affichées, réservées, non modifiables). Blocs à part plutôt
+  que 3 parties : casser et poser ne sont ni des mouvements ni des vitesses.
+
+Test ajouté : tests/controls_groups_test.gd (parties, chaque action une
+fois, ordre, Menus non modifiables, voler vite, attributs, ancien
+attributs.json). Tests mis à jour : interface_info (36 champs), numéro de
+version. Résultat : 40 tests, 0 échec.
+À tester manuellement : R en vol, lisibilité des parties de Contrôles.

@@ -38,7 +38,7 @@ Première action immédiate ; un délai plus court accélère la répétition."]
 	"Marche": {"keys": ["walk_forward", "walk_side", "walk_back"], "help": ["", "Vitesse au sol par direction.", "Vitesse au sol dans chaque direction (1 bloc = 1 m)."]},
 	"Courir": {"keys": ["run_forward", "run_side", "run_back"], "help": ["", "Vitesse quand on court.", "En courant (touche de Contrôles maintenue, R par défaut) : vitesse au sol dans chaque direction (1 bloc = 1 m). Se baisser l'emporte sur courir."]},
 	"Se baisser": {"keys": ["crouch_forward", "crouch_side", "crouch_back", "crouch_gravity"], "help": ["", "Vitesses et chute quand on se baisse.", "En se baissant (touche de Contrôles) : vitesse dans chaque direction, et gravité de chute, plus forte pour tomber plus vite."]},
-	"Voler": {"keys": ["fly_forward", "fly_side", "fly_back", "fly_up", "fly_down"], "help": ["", "Vitesses en vol.", "En vol (touche de Contrôles, Espace deux fois par défaut) : vitesse dans chaque direction, et pour monter (touche Sauter) ou descendre (touche Se baisser). Pas de gravité en vol."]},
+	"Voler": {"keys": ["fly_forward", "fly_side", "fly_back", "fly_run_forward", "fly_run_side", "fly_run_back", "fly_up", "fly_down"], "help": ["", "Vitesses en vol, et en volant vite.", "En vol (touche de Contrôles, Espace deux fois par défaut) : vitesse dans chaque direction, en volant vite (touche Courir, R par défaut, avec son mode), et pour monter (touche Sauter) ou descendre (touche Se baisser). Pas de gravité en vol."]},
 	"Changer de vitesse": {"keys": ["speed_max", "speed_min", "speed_up_rate", "speed_down_rate"], "help": ["", "↑ ↓ + touche : vitesses ; ⌫ : par défaut. Limites et rapidité.", "↑ ou ↓ maintenue avec A : tout le déplacement (marche, course, baissé, vol) plus ou moins vite, peu à peu, en % de la vitesse normale ; avec W : la marche seule ; avec R : la course seule ; avec clic gauche ou droit : la casse ou la pose (mode développeur seulement). ⌫ + la même touche : cette valeur par défaut ; ⌫ deux fois : tout par défaut. Vitesse maximale et minimale : limites en mode développeur (monde par défaut : 75 à 150 %). Rapidités : % gagnés ou perdus par seconde."]},
 	"Vue": {"keys": ["eye_height"], "help": ["", "Hauteur de la vue, en blocs.", "Hauteur des yeux au-dessus des pieds, en blocs : 1 = vue à un bloc du sol, 2 = à deux blocs. Deux décimales possibles (ex. 1,9 ou 2,15)."]},
 }
@@ -88,6 +88,9 @@ var capturing_action := ""
 # nom de l'action avec « double appui » ou « en même temps », suivi des appuis à deux touches.
 var control_second_buttons: Dictionary = {}
 var control_second_clears: Dictionary = {}
+# Parties de Contrôles (0.0.4.8) : titres, et touches réservées de la partie Menus.
+var control_group_labels: Dictionary = {}
+var control_menu_buttons: Dictionary = {}
 var control_labels: Dictionary = {}
 var capturing_second := false
 var key_combos := KeyCombos.new()
@@ -442,33 +445,62 @@ func _build_controls_section(parent: Node) -> void:
 	var list := VBoxContainer.new()
 	_sep(list, 10)
 	inset.add_child(list)
-	_explanation(list, ["", "Cliquez une touche puis appuyez sur la nouvelle. Échap : aucune. 2e touche facultative.", "Cliquez le bouton d'une action, puis appuyez sur la touche ou le bouton de souris voulu (molette comprise). Échap : aucune touche. Deuxième touche facultative : la même touche = double appui (deux appuis rapprochés) ; une autre touche = les deux en même temps (par exemple Maj + Z). ✕ la retire. Les flèches ← → restent toujours actives pour aller de côté ; ↑ ↓ changent la vitesse. F1, F2, F3 et Échap sont réservées."])
-	for action in Controls.ACTIONS:
-		var row := HBoxContainer.new()
-		_sep(row, 10)
-		list.add_child(row)
-		var label := _text_label()
-		label.text = Controls.ACTIONS[action].label
-		label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-		label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		row.add_child(label)
-		control_labels[action] = label
-		var key_button := _button("", row, func(): start_control_capture(action))
-		_min_size(key_button, Vector2(170, 0))
-		key_button.tooltip_text = "Changer la touche : " + Controls.ACTIONS[action].label
-		control_buttons[action] = key_button
-		var second_button := _button("", row, func(): start_control_capture(action, true))
-		_min_size(second_button, Vector2(130, 0))
-		second_button.tooltip_text = "Deuxième touche (même touche : double appui ; autre touche : en même temps) : " + Controls.ACTIONS[action].label
-		control_second_buttons[action] = second_button
-		var clear := _button("✕", row, func(): clear_second_key(action))
-		_min_size(clear, Vector2(42, 0))
-		clear.tooltip_text = "Retirer la deuxième touche : " + Controls.ACTIONS[action].label
-		control_second_clears[action] = clear
-		var reset := _button("↻", row, func(): reset_control(action))
-		_min_size(reset, Vector2(42, 0))
-		reset.tooltip_text = "Rétablir : " + Controls.label(Controls.default_for(action))
-		control_resets[action] = reset
+	_explanation(list, ["", "Cliquez une touche puis appuyez sur la nouvelle. Échap : aucune. 2e touche facultative.", "Cliquez le bouton d'une action, puis appuyez sur la touche ou le bouton de souris voulu (molette comprise). Échap : aucune touche. Deuxième touche facultative : la même touche = double appui (deux appuis rapprochés) ; une autre touche = les deux en même temps (par exemple Maj + Z). ✕ la retire. Les flèches ← → restent toujours actives pour aller de côté. Touches rangées en Mouvements, Blocs, Vitesses et Menus ; celles des Menus (Échap, F1, F2, F3) sont réservées."])
+	# Parties (0.0.4.8) : Mouvements, Blocs, Vitesses, puis Menus (touches réservées).
+	for group in Controls.GROUPS:
+		_explanation(list, group)
+		list.get_child(-1).theme_type_variation = "OrbSection"
+		control_group_labels[group] = list.get_child(-1)
+		for action in Controls.GROUPS[group]:
+			_add_control_row(list, action)
+	_explanation(list, "Menus")
+	list.get_child(-1).theme_type_variation = "OrbSection"
+	control_group_labels.Menus = list.get_child(-1)
+	for entry in Controls.MENU_KEYS:
+		var menu_row := HBoxContainer.new()
+		_sep(menu_row, 10)
+		list.add_child(menu_row)
+		var menu_label := _text_label()
+		menu_label.text = entry[0]
+		menu_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		menu_row.add_child(menu_label)
+		var fixed := _button(entry[1], menu_row, func(): pass)
+		_min_size(fixed, Vector2(170, 0))
+		fixed.disabled = true
+		fixed.tooltip_text = "Touche réservée, non modifiable"
+		control_menu_buttons[entry[0]] = fixed
+	_build_control_options(box)
+
+# Une ligne de Contrôles : action, touche, deuxième touche, ✕, ↻.
+func _add_control_row(list: Node, action: String) -> void:
+	var row := HBoxContainer.new()
+	_sep(row, 10)
+	list.add_child(row)
+	var label := _text_label()
+	label.text = Controls.ACTIONS[action].label
+	label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	row.add_child(label)
+	control_labels[action] = label
+	var key_button := _button("", row, func(): start_control_capture(action))
+	_min_size(key_button, Vector2(170, 0))
+	key_button.tooltip_text = "Changer la touche : " + Controls.ACTIONS[action].label
+	control_buttons[action] = key_button
+	var second_button := _button("", row, func(): start_control_capture(action, true))
+	_min_size(second_button, Vector2(130, 0))
+	second_button.tooltip_text = "Deuxième touche (même touche : double appui ; autre touche : en même temps) : " + Controls.ACTIONS[action].label
+	control_second_buttons[action] = second_button
+	var clear := _button("✕", row, func(): clear_second_key(action))
+	_min_size(clear, Vector2(42, 0))
+	clear.tooltip_text = "Retirer la deuxième touche : " + Controls.ACTIONS[action].label
+	control_second_clears[action] = clear
+	var reset := _button("↻", row, func(): reset_control(action))
+	_min_size(reset, Vector2(42, 0))
+	reset.tooltip_text = "Rétablir : " + Controls.label(Controls.default_for(action))
+	control_resets[action] = reset
+
+# Choix des Contrôles, sous la liste des touches.
+func _build_control_options(box: Node) -> void:
 	# Catégories « Se baisser » (0.0.3.18) et « Courir » (0.0.3.25) : mode de la touche.
 	for option in Controls.OPTIONS:
 		var spec: Dictionary = Controls.OPTIONS[option]

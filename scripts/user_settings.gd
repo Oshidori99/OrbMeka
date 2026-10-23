@@ -32,6 +32,10 @@ const SPECS := {
 	"fly_forward": {"label": "Avancer en volant", "unit": "m/s", "default": 10.0, "min": 1.0, "max": 30.0},
 	"fly_side": {"label": "De côté en volant", "unit": "m/s", "default": 10.0, "min": 1.0, "max": 30.0},
 	"fly_back": {"label": "Reculer en volant", "unit": "m/s", "default": 10.0, "min": 1.0, "max": 30.0},
+	# 0.0.4.8 : courir en volant (touche Courir en vol), plus rapide encore.
+	"fly_run_forward": {"label": "Avancer en volant vite", "unit": "m/s", "default": 15.0, "min": 1.0, "max": 40.0},
+	"fly_run_side": {"label": "De côté en volant vite", "unit": "m/s", "default": 15.0, "min": 1.0, "max": 40.0},
+	"fly_run_back": {"label": "Reculer en volant vite", "unit": "m/s", "default": 15.0, "min": 1.0, "max": 40.0},
 	"fly_up": {"label": "Monter en volant", "unit": "m/s", "default": 7.0, "min": 1.0, "max": 30.0},
 	"fly_down": {"label": "Descendre en volant", "unit": "m/s", "default": 7.0, "min": 1.0, "max": 30.0},
 	"speed_max": {"label": "Vitesse maximale", "unit": "%", "default": 200.0, "min": 100.0, "max": 500.0},
@@ -71,7 +75,7 @@ const FORMER_SKINS := {"boy": "light", "girl": "brown", "man": "dark", "woman": 
 # Personnages d'avant 0.0.3.23 remplacés : l'ancien Garçon et l'ancienne Fille (≈ 14 ans) deviennent ceux de 14 ans.
 const FORMER_CHARACTERS := {"boy": "boy14", "girl": "girl14"}
 # Attributs du joueur : par défaut dans un monde par défaut, réglables en mode développeur.
-const ATTRIBUTE_KEYS := ["jump_height", "jump_speed", "fall_gravity", "place_ms", "break_ms", "break_reach", "place_reach", "walk_forward", "walk_side", "walk_back", "crouch_forward", "crouch_side", "crouch_back", "crouch_gravity", "run_forward", "run_side", "run_back", "fly_forward", "fly_side", "fly_back", "fly_up", "fly_down", "speed_max", "speed_min", "speed_up_rate", "speed_down_rate", "eye_height"]
+const ATTRIBUTE_KEYS := ["jump_height", "jump_speed", "fall_gravity", "place_ms", "break_ms", "break_reach", "place_reach", "walk_forward", "walk_side", "walk_back", "crouch_forward", "crouch_side", "crouch_back", "crouch_gravity", "run_forward", "run_side", "run_back", "fly_forward", "fly_side", "fly_back", "fly_run_forward", "fly_run_side", "fly_run_back", "fly_up", "fly_down", "speed_max", "speed_min", "speed_up_rate", "speed_down_rate", "eye_height"]
 # Un fichier par menu de Paramètres (0.0.3.6), nommé d'après le menu, dans user://
 # (Windows : %APPDATA%\Godot\app_userdata\OrbMeka\). L'ancien settings.json (avant 0.0.3.6)
 # n'est que lu, pour reprendre les réglages, si aucun de ces fichiers n'existe encore.
