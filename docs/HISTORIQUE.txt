@@ -3,6 +3,10 @@ Du plus récent au plus ancien. Ce fichier est mis à jour à chaque version.
 
 === Thème « Menus et Paramètres 2 » (0.0.4 et suivantes) ===
 
+0.0.4.3 — Vitesse aux flèches
+↑ ↓ maintenues : marche et course plus ou moins rapides, entre un minimum et un maximum
+(Attributs → Changer de vitesse) ; ↑ ↓ ne font plus avancer ; R + T, R + F, R + G retirés.
+
 0.0.4.2 — Courir plus vite
 R + T accélère peu à peu jusqu'au maximum (gardé même après un saut), R + F ralentit,
 R + G : vitesse normale ; vitesse maximale et rapidités dans Attributs → Courir.

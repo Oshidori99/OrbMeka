@@ -25,11 +25,13 @@ const SPECS := {
 	"run_forward": {"label": "Avancer en courant", "unit": "m/s", "default": 8.5, "min": 1.0, "max": 20.0},
 	"run_side": {"label": "De côté en courant", "unit": "m/s", "default": 8.5, "min": 1.0, "max": 20.0},
 	"run_back": {"label": "Reculer en courant", "unit": "m/s", "default": 8.5, "min": 1.0, "max": 20.0},
-	# 0.0.4.2 : courir plus vite (Accélérer / Ralentir) : vitesse maximale en avançant, et
-	# rapidité de l'accélération et du ralentissement (les autres directions suivent en proportion).
-	"run_max": {"label": "Vitesse maximale", "unit": "m/s", "default": 14.0, "min": 1.0, "max": 40.0},
-	"run_accel": {"label": "Accélération", "unit": "m/s²", "default": 3.0, "min": 0.1, "max": 50.0},
-	"run_decel": {"label": "Ralentissement", "unit": "m/s²", "default": 6.0, "min": 0.1, "max": 50.0},
+	# 0.0.4.3 : Plus vite / Moins vite (↑ ↓) : marche et course multipliées ensemble, en % de la
+	# vitesse normale, entre un minimum et un maximum ; rapidité du changement en % par seconde.
+	# (Les attributs run_max, run_accel, run_decel de 0.0.4.2 sont ignorés à la lecture.)
+	"speed_max": {"label": "Vitesse maximale", "unit": "%", "default": 200.0, "min": 100.0, "max": 500.0},
+	"speed_min": {"label": "Vitesse minimale", "unit": "%", "default": 50.0, "min": 10.0, "max": 100.0},
+	"speed_up_rate": {"label": "Rapidité pour accélérer", "unit": "%/s", "default": 40.0, "min": 1.0, "max": 300.0},
+	"speed_down_rate": {"label": "Rapidité pour ralentir", "unit": "%/s", "default": 40.0, "min": 1.0, "max": 300.0},
 	# 0.0.3.17 : hauteur de la vue en blocs (1 = vue à un bloc du sol), deux décimales (pas de 0,01).
 	"eye_height": {"label": "Hauteur des yeux", "unit": "blocs", "default": 1.62, "min": 0.3, "max": 3.0, "step": 0.01},
 	# Réglages généraux (0.0.3.1) : valables dans tous les mondes, quel que soit leur mode.
@@ -63,7 +65,7 @@ const FORMER_SKINS := {"boy": "light", "girl": "brown", "man": "dark", "woman": 
 # Personnages d'avant 0.0.3.23 remplacés : l'ancien Garçon et l'ancienne Fille (≈ 14 ans) deviennent ceux de 14 ans.
 const FORMER_CHARACTERS := {"boy": "boy14", "girl": "girl14"}
 # Attributs du joueur : par défaut dans un monde par défaut, réglables en mode développeur.
-const ATTRIBUTE_KEYS := ["jump_height", "jump_speed", "fall_gravity", "place_ms", "break_ms", "break_reach", "place_reach", "walk_forward", "walk_side", "walk_back", "crouch_forward", "crouch_side", "crouch_back", "crouch_gravity", "run_forward", "run_side", "run_back", "run_max", "run_accel", "run_decel", "eye_height"]
+const ATTRIBUTE_KEYS := ["jump_height", "jump_speed", "fall_gravity", "place_ms", "break_ms", "break_reach", "place_reach", "walk_forward", "walk_side", "walk_back", "crouch_forward", "crouch_side", "crouch_back", "crouch_gravity", "run_forward", "run_side", "run_back", "speed_max", "speed_min", "speed_up_rate", "speed_down_rate", "eye_height"]
 # Un fichier par menu de Paramètres (0.0.3.6), nommé d'après le menu, dans user://
 # (Windows : %APPDATA%\Godot\app_userdata\OrbMeka\). L'ancien settings.json (avant 0.0.3.6)
 # n'est que lu, pour reprendre les réglages, si aucun de ces fichiers n'existe encore.

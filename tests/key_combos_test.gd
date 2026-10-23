@@ -83,11 +83,11 @@ func _run() -> void:
 	push_key(KEY_R)
 	check(settings.controls.sprint == {"key": KEY_R, "second": {"key": KEY_R}} and app.control_labels.sprint.text.contains("double appui") and not app.control_second_clears.sprint.disabled, "same key twice: double press shown")
 	check(not InputMap.action_get_events("sprint").any(func(event): return event is InputEventKey and event.physical_keycode == KEY_R), "a single R no longer runs")
-	# En même temps : Maj + Z sur Avancer (la flèche reste).
+	# En même temps : Maj + Z sur Avancer (plus de flèche depuis 0.0.4.3).
 	app.control_second_buttons.move_forward.pressed.emit()
 	push_key(KEY_SHIFT)
 	check(Controls.kind(settings.controls.move_forward) == "together" and app.control_labels.move_forward.text.contains("en même temps") and app.settings_message.text.contains("W + Shift"), "different key: together")
-	check(InputMap.action_get_events("move_forward").size() == 1, "only the arrow stays in the game input")
+	check(InputMap.action_get_events("move_forward").is_empty(), "nothing left in the game input")
 	var reloaded := Settings.new(fixture)
 	check(reloaded.controls.move_forward == {"key": KEY_W, "second": {"key": KEY_SHIFT}} and reloaded.controls.sprint == settings.controls.sprint and reloaded.load_notice.is_empty(), "two keys saved in controles.json and reloaded")
 	# Changer la première touche garde la deuxième.

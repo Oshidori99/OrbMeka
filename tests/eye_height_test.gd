@@ -30,7 +30,7 @@ func _run() -> void:
 	current_scene = app
 	await process_frame
 	var categories: Array = app.ATTRIBUTE_CATEGORIES.keys()
-	check(categories.find("Vue") == categories.find("Se baisser") + 1 and app.ATTRIBUTE_CATEGORIES.Vue.keys == ["eye_height"], "Vue category in Attributs")
+	check(categories.find("Vue") == categories.find("Changer de vitesse") + 1 and app.ATTRIBUTE_CATEGORIES.Vue.keys == ["eye_height"], "Vue category in Attributs")
 	check(app.setting_sliders.eye_height.step == 0.01, "slider moves by 0,01")
 	app.show_page("settings")
 	for pair in [["1,9", 1.9], ["2,15", 2.15], ["1", 1.0], ["1,999", 2.0]]:

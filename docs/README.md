@@ -1,4 +1,4 @@
-# OrbMeka™ — prototype 0.0.4.2
+# OrbMeka™ — prototype 0.0.4.3
 
 Godot 4.7 / GDScript. Formes et couleurs simples, sans assets externes.
 
@@ -61,11 +61,11 @@ L'aire de départ reste dégagée et les 74 blocs de démonstration en sable et 
 sont conservés. L'apparition tient compte des blocs présents.
 
 ## Commandes en partie
-- ZQSD / WASD / flèches : marcher ; souris : regarder.
+- ZQSD / WASD : marcher ; ← → : aller de côté ; souris : regarder.
 - Espace : sauter, un appui par saut.
 - Y : se baisser ; R : courir. Mode de chaque touche dans Contrôles :
   Maintenir ou Basculer, et pour courir **Maintenir conditionnel** (0.0.3.25).
-- R + T : accélérer peu à peu ; R + F : ralentir ; R + G : vitesse normale (0.0.4.2).
+- ↑ ↓ maintenues : marcher et courir plus ou moins vite (0.0.4.3).
 - Contrôles : deuxième touche facultative par action, double appui ou
   en même temps (0.0.3.27).
 - Clic gauche : casse immédiate ; maintenir pour répéter selon les paramètres (**300 ms par défaut**).
@@ -1124,3 +1124,26 @@ interface_info (27 champs), pause, prototype, shortcuts_selection,
 history_resume (numéro de version). Résultat : 37 tests, 0 échec.
 À tester manuellement : ressenti de l'accélération, R + T / R + F / R + G
 en jeu dans les trois modes, vitrine du renard.
+
+## Vitesse aux flèches — 0.0.4.3
+Remplace les touches de la 0.0.4.2 (R + T, R + F, R + G retirés, avec leurs
+attributs ; les anciens fichiers restent lisibles, sans avertissement).
+- **Contrôles** : **Plus vite** (↑) et **Moins vite** (↓), sous Courir,
+  modifiables avec deuxième touche facultative. ↑ ↓ ne font plus avancer ni
+  reculer ; ← → restent pour aller de côté. Les flèches s'affichent ← ↑ → ↓.
+- ↑ maintenue : la marche **et** la course accélèrent peu à peu, ensemble (la
+  course reste plus rapide que la marche) ; ↓ maintenue : elles ralentissent.
+  Se baisser n'est pas touché. La vitesse choisie reste jusqu'au prochain
+  changement (arrêt, saut et pause ne la changent pas).
+- **Attributs** : vitesses normales de marche et de course dans Marche et
+  Courir (inchangées) ; nouvelle catégorie **Changer de vitesse**, sous Se baisser : vitesse
+  maximale (200 %, jusqu'à 500 %), vitesse minimale (50 %, de 10 à 100 %),
+  rapidité pour accélérer et pour ralentir (40 %/s chacune, jusqu'à 300 %/s).
+- Comment jouer et vitrine de l'accueil (le renard accélère puis ralentit).
+
+Test ajouté : tests/speed_change_test.gd (remplace run_faster_test : touches,
+accélération progressive, maximum, minimum, marche et course, baissé, vitesse
+gardée, attributs, anciens controles.json et attributs.json, menus). Tests
+mis à jour : controls et key_combos (plus de flèche ↑ pour avancer),
+interface_info (28 champs), eye_height et settings_walk (ordre des catégories), numéro de version. Résultat : 37 tests, 0 échec.
+À tester manuellement : ressenti de ↑ ↓ en marchant et en courant, limites.

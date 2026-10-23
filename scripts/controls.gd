@@ -1,6 +1,7 @@
 extends RefCounted
 # Contrôles modifiables (0.0.3.12) : une touche ou un bouton de souris par action, ou aucun.
-# Les flèches restent toujours actives pour marcher, en plus de la touche choisie.
+# Les flèches ← → restent toujours actives pour aller de côté, en plus de la touche choisie
+# (0.0.4.3 : ↑ ↓ ne font plus marcher, elles changent la vitesse).
 # Une liaison : {"key": code physique} ou {"mouse": bouton} ; {} = aucune touche.
 # 0.0.3.27 : deuxième touche facultative, {"key": …, "second": {"key" ou "mouse": …}} :
 # la même touche = double appui (DOUBLE_PRESS_MS), une autre = les deux en même temps.
@@ -9,8 +10,8 @@ extends RefCounted
 # le choix d'une touche), F1, F2, F3 (raccourcis des menus).
 
 const ACTIONS := {
-	"move_forward": {"label": "Avancer", "default": {"key": KEY_W}, "fixed": [KEY_UP]},
-	"move_back": {"label": "Reculer", "default": {"key": KEY_S}, "fixed": [KEY_DOWN]},
+	"move_forward": {"label": "Avancer", "default": {"key": KEY_W}, "fixed": []},
+	"move_back": {"label": "Reculer", "default": {"key": KEY_S}, "fixed": []},
 	"move_left": {"label": "Aller à gauche", "default": {"key": KEY_A}, "fixed": [KEY_LEFT]},
 	"move_right": {"label": "Aller à droite", "default": {"key": KEY_D}, "fixed": [KEY_RIGHT]},
 	"jump": {"label": "Sauter", "default": {"key": KEY_SPACE}, "fixed": []},
@@ -20,11 +21,9 @@ const ACTIONS := {
 	"crouch": {"label": "Se baisser", "default": {"key": KEY_Y}, "by_letter": true, "fixed": []},
 	# 0.0.3.24 : maintenir pour courir (plus rapide) ; défaut par lettre : R.
 	"sprint": {"label": "Courir", "default": {"key": KEY_R}, "by_letter": true, "fixed": []},
-	# 0.0.4.2 : courir plus vite. Par défaut R + une touche voisine (par lettre) ; pas R + D,
-	# car D (Aller à droite) remettrait la vitesse normale en courant de côté.
-	"run_faster": {"label": "Accélérer", "default": {"key": KEY_R, "second": {"key": KEY_T}}, "by_letter": true, "fixed": []},
-	"run_slower": {"label": "Ralentir", "default": {"key": KEY_R, "second": {"key": KEY_F}}, "by_letter": true, "fixed": []},
-	"run_normal": {"label": "Vitesse normale", "default": {"key": KEY_R, "second": {"key": KEY_G}}, "by_letter": true, "fixed": []},
+	# 0.0.4.3 : changer la vitesse de marche et de course (← → seules restent pour se déplacer).
+	"speed_up": {"label": "Plus vite", "default": {"key": KEY_UP}, "fixed": []},
+	"speed_down": {"label": "Moins vite", "default": {"key": KEY_DOWN}, "fixed": []},
 	"break_block": {"label": "Casser", "default": {"mouse": MOUSE_BUTTON_LEFT}, "fixed": []},
 	"place_block": {"label": "Poser", "default": {"mouse": MOUSE_BUTTON_RIGHT}, "fixed": []},
 	"block_previous": {"label": "Bloc précédent", "default": {"mouse": MOUSE_BUTTON_WHEEL_UP}, "fixed": []},
@@ -187,7 +186,8 @@ static func part_label(binding: Dictionary) -> String:
 	if binding.has("key"):
 		var local: int = DisplayServer.keyboard_get_keycode_from_physical(binding.key) if DisplayServer.get_name() != "headless" else binding.key
 		var name := OS.get_keycode_string(local if local != 0 else binding.key)
-		return "Espace" if name == "Space" else name
+		# Flèches en symboles (0.0.4.3 : ↑ ↓ par défaut pour la vitesse).
+		return {"Space": "Espace", "Up": "↑", "Down": "↓", "Left": "←", "Right": "→"}.get(name, name)
 	return "Aucune"
 
 static func _event(binding: Dictionary) -> InputEvent:
@@ -199,7 +199,7 @@ static func _event(binding: Dictionary) -> InputEvent:
 	key.physical_keycode = binding.key
 	return key
 
-# Remplace les liaisons du jeu (InputMap) par celles choisies, flèches toujours gardées.
+# Remplace les liaisons du jeu (InputMap) par celles choisies, flèches ← → toujours gardées.
 # Une liaison à deux touches n'y figure pas : KeyCombos la déclenche (voir key_combos.gd).
 static func apply(bindings: Dictionary) -> void:
 	for action in ACTIONS:

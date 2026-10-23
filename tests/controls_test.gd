@@ -51,7 +51,7 @@ func _run() -> void:
 	current_scene = app
 	await process_frame
 	check(app.settings_tabs.keys() == ["general", "video", "controls", "character", "attributes"], "Contrôles tab after Vidéo")
-	check(has_key("move_forward", KEY_W) and has_key("move_forward", KEY_UP) and has_mouse("break_block", MOUSE_BUTTON_LEFT) and has_mouse("place_block", MOUSE_BUTTON_RIGHT), "defaults applied to the game")
+	check(has_key("move_forward", KEY_W) and not has_key("move_forward", KEY_UP) and has_key("move_left", KEY_LEFT) and has_mouse("break_block", MOUSE_BUTTON_LEFT) and has_mouse("place_block", MOUSE_BUTTON_RIGHT), "defaults applied to the game")
 	check(has_mouse("block_previous", MOUSE_BUTTON_WHEEL_UP) and has_mouse("block_next", MOUSE_BUTTON_WHEEL_DOWN), "mouse wheel changes the block by default")
 	app.show_page("settings")
 	app.settings_tabs.controls.pressed.emit()
@@ -61,7 +61,7 @@ func _run() -> void:
 	app.control_buttons.move_forward.pressed.emit()
 	check(app.capturing_action == "move_forward" and app.control_buttons.move_forward.text.begins_with("Appuyez"), "button waits for a key")
 	press_key(KEY_K)
-	check(app.capturing_action == "" and settings.controls.move_forward == {"key": KEY_K} and has_key("move_forward", KEY_K) and not has_key("move_forward", KEY_W) and has_key("move_forward", KEY_UP), "new key applied at once, arrow kept")
+	check(app.capturing_action == "" and settings.controls.move_forward == {"key": KEY_K} and has_key("move_forward", KEY_K) and not has_key("move_forward", KEY_W) and not has_key("move_forward", KEY_UP), "new key applied at once, no arrow (0.0.4.3)")
 	check(app.page == "settings", "the pressed key does nothing else")
 	# Échap : aucune touche ; le menu reste ouvert.
 	app.control_buttons.jump.pressed.emit()

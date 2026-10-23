@@ -335,25 +335,24 @@ func _process(delta: float) -> void:
 # level : 0 = −, 1 = Par défaut, 2 = + (textes complets d'avant 0.0.3.3), selon Synthèse des textes.
 static func get_help_text(level: int = 2) -> String:
 	if level == 0:
-		return "ZQSD : marcher. Espace : sauter. Clic gauche : casser ; clic droit : poser.
+		return "ZQSD : marcher. ↑ ↓ : vitesse. Espace : sauter. Clic gauche : casser ; clic droit : poser.
 Molette : bloc. Échap : pause. F1 : mondes."
 	if level == 1:
-		return "ZQSD / WASD / flèches : marcher. Souris : regarder. Espace : sauter.
+		return "ZQSD / WASD : marcher (← → : de côté). Souris : regarder. Espace : sauter.
 Y : se baisser. R : courir (mode dans Contrôles).
-R + T : accélérer. R + F : ralentir. R + G : vitesse normale.
+↑ ↓ : marcher et courir plus ou moins vite.
 Maintenir clic gauche : casser ; clic droit : poser. Molette : changer de bloc.
 Échap : pause. F1 : liste des mondes. F2 : Comment jouer. F3 : Informations.
 Portée : %d blocs. Maximum : %d blocs, hauteur %d (Y 0 sur le sol plat).
 Constructions réinitialisées en quittant le monde.
 Touches modifiables : Paramètres → Contrôles." % [int(PlayerScript.REACH), MAX_BLOCKS, MAX_BUILD_HEIGHT]
-	return "ZQSD / WASD / flèches : marcher. Souris : regarder. Espace : sauter.
+	return "ZQSD / WASD : marcher ; ← → : aller de côté. Souris : regarder. Espace : sauter.
 Y : se baisser. R : courir. Modes dans Contrôles : Maintenir, Basculer,
 et pour courir Maintenir conditionnel (un appui lance la course ; s'arrêter,
 sauter, se baisser ou la pause l'arrêtent, puis il faut réappuyer sur R).
-Courir plus vite : R + T maintenus accélèrent peu à peu jusqu'au maximum ;
-R + F ralentissent (jamais sous la course normale) ; R + G : vitesse normale.
-Une fois accélérée, la course continue, même après un saut, à la vitesse atteinte ;
-s'arrêter (aucune touche de déplacement) ou la pause remettent la vitesse normale.
+↑ maintenu : marche et course de plus en plus rapides, jusqu'au maximum ;
+↓ maintenu : de plus en plus lentes, jusqu'au minimum. La course reste plus rapide
+que la marche ; la vitesse choisie reste jusqu'au prochain changement (Attributs).
 
 Maintenir clic gauche : casser ; clic droit : poser.
 Première action immédiate, puis répétition selon les paramètres des blocs.
