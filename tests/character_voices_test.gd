@@ -32,9 +32,16 @@ func _run() -> void:
 		for index in range(0, stream.data.size(), 2):
 			loudest = maxi(loudest, absi(stream.data.decode_s16(index)))
 		check(stream.data.size() > 2000 and loudest > 3000, "generated call: " + id)
-	var cat: AudioStreamWAV = Voices.make_call(Voices.ANIMAL_CALLS.cat)
+	var fox: AudioStreamWAV = Voices.make_call(Voices.ANIMAL_CALLS.fox)
 	var turtle: AudioStreamWAV = Voices.make_call(Voices.ANIMAL_CALLS.turtle)
-	check(cat.data != turtle.data, "each animal sounds different")
+	check(fox.data != turtle.data, "each animal sounds different")
+	# 0.0.4.13 : vrais sons CC0 pour le chat, Brioche et le lapin, crédités.
+	check(Voices.ANIMAL_FILES.keys() == ["cat", "brioche", "rabbit"] and not Voices.ANIMAL_CALLS.has("cat"), "recorded sounds for cat, Brioche, rabbit")
+	for id in Voices.ANIMAL_FILES:
+		var recorded: AudioStream = Voices.ANIMAL_FILES[id]
+		check(recorded != null and recorded.get_length() > 0.2 and recorded.get_length() < 3.0, "%s: short recorded sound (%.2f s)" % [id, recorded.get_length()])
+	var credits := FileAccess.get_file_as_string("res://assets/sounds/CREDITS.txt")
+	check(credits.contains("CC0") and credits.contains("IgnasD") and credits.contains("AntumDeluge") and credits.contains("Joseph Sardin"), "CREDITS.txt names the CC0 sources")
 	# Réglage.
 	check(Settings.SPECS.character_volume.default == 80.0 and "character_volume" in Settings.GENERAL_KEYS and Settings.menu_of("character_volume") == "general", "Volume des personnages: 80 %, general settings")
 	check(ProjectSettings.get_setting("audio/general/text_to_speech") == true, "system text to speech enabled")
@@ -61,7 +68,9 @@ func _run() -> void:
 	check(Voices.LINES.adulte.has(voices.last.text) and voices.last.pitch < 1.0, "man: adult line, low voice")
 	app._choose_character("fox", "")
 	check(voices.last == {"character": "fox", "call": "fox"} and voices.animal_player.stream == voices.animal_stream("fox"), "fox: its call")
-	check(settings.values.character == "fox", "the choice is still saved")
+	app._choose_character("cat", "")
+	check(voices.animal_player.stream == Voices.ANIMAL_FILES.cat, "cat: recorded meow")
+	check(settings.values.character == "cat", "the choice is still saved")
 	# Muet.
 	app.setting_fields.character_volume.text = "0"
 	app._autosave()

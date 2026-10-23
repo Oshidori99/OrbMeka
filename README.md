@@ -1,4 +1,4 @@
-# OrbMeka™ 0.0.4.12
+# OrbMeka™ 0.0.4.13
 
 Dans Godot, ouvrez **project.godot**, puis **F5** pour lancer le jeu.
 
@@ -14,4 +14,7 @@ Objectif : aucun risque juridique, ni en droit suisse ou européen, ni vis-à-vi
 - Rien copié de Minecraft : ni code, textures, sons, noms, logos, blocs/créatures emblématiques ni interface identique.
 - Pas de « Minecraft » dans le nom, la description ou la promotion, et pas de comparaison commerciale.
 - Assets externes uniquement avec une licence vérifiée et notée ici.
+  - Sons d'animaux (0.0.4.13), CC0 1.0 : « Meow » (IgnasD, OpenGameArt), « Kitten Mew »
+    (AntumDeluge, OpenGameArt), « Bunny hutch » n° 1376 (Joseph Sardin, BigSoundBank).
+    Détails : assets/sounds/CREDITS.txt.
 - Données personnelles : aucune collecte sans nécessité (protection des données suisse / RGPD).

@@ -1,6 +1,6 @@
-# OrbMeka™ — prototype 0.0.4.12
+# OrbMeka™ — prototype 0.0.4.13
 
-Godot 4.7 / GDScript. Formes et couleurs simples, sans assets externes.
+Godot 4.7 / GDScript. Formes et couleurs simples ; assets externes seulement sous licence vérifiée (sons CC0, assets/sounds/CREDITS.txt).
 
 ## Lancer et choisir un monde
 1. Dans Godot, arrêtez l'ancienne partie si nécessaire, puis appuyez sur **F5**.
@@ -1338,3 +1338,20 @@ choix dans Personnage, muet, réglage). Tests mis à jour : interface_info
 (38 champs), numéro de version. Résultat : 44 tests, 0 échec.
 À tester manuellement : écouter les voix (Windows : voix française
 installée ?) et les cris, volume.
+
+## Vrais sons d'animaux — 0.0.4.13
+- Le **chat**, **Brioche** et le **lapin** ont de vrais sons enregistrés,
+  sous licence **CC0 1.0** (domaine public, libre même pour un usage
+  commercial) : « Meow » (IgnasD, OpenGameArt), « Kitten Mew »
+  (AntumDeluge, OpenGameArt), et un bruit de patte extrait de « Bunny
+  hutch » n° 1376 (Joseph Sardin, BigSoundBank : 0,45 s vers 32,7 s, mono,
+  fondus). Fichiers dans assets/sounds/, origine et licences dans
+  assets/sounds/CREDITS.txt et dans le cadre juridique de README.md.
+- Renard, écureuil et tortue : pas de son CC0 trouvé sans compte ; ils
+  gardent leur cri fabriqué par le jeu.
+- Règle du projet assouplie (avec accord) : assets externes seulement sous
+  licence vérifiée et notée (CLAUDE.md).
+
+Test mis à jour : tests/character_voices_test.gd (sons enregistrés du chat,
+de Brioche et du lapin, durées, crédits). Résultat : 44 tests, 0 échec.
+À tester manuellement : écouter les trois sons (volume, propreté).

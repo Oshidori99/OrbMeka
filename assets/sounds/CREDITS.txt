@@ -1,0 +1,11 @@
+SONS D'ANIMAUX — origine et licences (0.0.4.13)
+Tous en CC0 1.0 (domaine public, https://creativecommons.org/publicdomain/zero/1.0/) :
+utilisation libre, même commerciale, sans obligation de citer. Les auteurs sont cités par politesse.
+
+cat_meow.ogg      Chat      « Meow », IgnasD, OpenGameArt : https://opengameart.org/content/meow (fichier inchangé)
+brioche_mew.ogg   Brioche   « Kitten Mew », AntumDeluge, OpenGameArt : https://opengameart.org/content/kitten-mew (fichier inchangé)
+rabbit_stamp.wav  Lapin     « Bunny hutch » (son n° 1376), Joseph Sardin, BigSoundBank :
+                            https://bigsoundbank.com/bunny-hutch-s1376.html
+                            extrait de 0,45 s (vers 32,7 s : bruit de patte), mono, fondus, volume normalisé.
+
+Renard, écureuil et tortue : cris fabriqués par le jeu (scripts/character_voices.gd).

@@ -1,6 +1,6 @@
 # OrbMeka — règles pour Claude
 
-Jeu de construction en blocs, Godot 4.7.2 / GDScript, formes simples sans assets externes.
+Jeu de construction en blocs, Godot 4.7.2 / GDScript, formes simples ; assets externes seulement sous licence vérifiée (sons CC0 : assets/sounds/CREDITS.txt).
 Guide complet : docs/README.md. Fichiers techniques : docs/ORGANISATION.txt.
 
 ## Communication

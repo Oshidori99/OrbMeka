@@ -2,7 +2,8 @@ extends Node
 # Voix des personnages (0.0.4.12) : jouée quand on choisit un personnage (Paramètres → Personnage).
 # Humains : synthèse vocale de l'ordinateur (voix française du système, rien d'enregistré), plus
 # aiguë pour les plus jeunes ; chaque âge a ses phrases (les 9 ans plus enfantines).
-# Animaux : cris fabriqués par le jeu (ondes simples, aucun fichier ni son d'un autre jeu).
+# Animaux : vrais sons CC0 (0.0.4.13, assets/sounds/CREDITS.txt) pour le chat, Brioche et le lapin ;
+# cris fabriqués par le jeu (ondes simples) pour les autres.
 # Volume : Paramètres généraux → Son → Volume des personnages (0 = muet).
 const RATE := 22050
 const LINES := {
@@ -15,15 +16,18 @@ const PITCHES := {
 	"boy9": [1.6, 1.1], "girl9": [1.8, 1.1], "boy14": [1.15, 1.05], "girl14": [1.45, 1.05],
 	"man": [0.8, 1.0], "woman": [1.2, 1.0],
 }
-# Cri de chaque animal : parties [de (Hz), à (Hz), durée (s), force, harmoniques (0 à 1), vibrato (Hz)] ;
+# 0.0.4.13 : sons enregistrés, sous licence CC0 (voir assets/sounds/CREDITS.txt).
+const ANIMAL_FILES := {
+	"cat": preload("res://assets/sounds/cat_meow.ogg"),
+	"brioche": preload("res://assets/sounds/brioche_mew.ogg"),
+	"rabbit": preload("res://assets/sounds/rabbit_stamp.wav"),
+}
+# Cri fabriqué des autres animaux : parties [de (Hz), à (Hz), durée (s), force, harmoniques (0 à 1), vibrato (Hz)] ;
 # une force de 0 est un silence.
 const ANIMAL_CALLS := {
-	"cat": [[480.0, 820.0, 0.18, 0.5, 0.35, 6.0], [820.0, 430.0, 0.32, 0.5, 0.35, 6.0]],
-	"brioche": [[700.0, 980.0, 0.12, 0.4, 0.2, 8.0], [980.0, 760.0, 0.2, 0.4, 0.2, 8.0]],
 	"squirrel": [[2400.0, 2900.0, 0.05, 0.35, 0.1, 0.0], [0.0, 0.0, 0.04, 0.0, 0.0, 0.0], [2500.0, 3000.0, 0.05, 0.35, 0.1, 0.0], [0.0, 0.0, 0.04, 0.0, 0.0, 0.0], [2600.0, 3100.0, 0.06, 0.35, 0.1, 0.0]],
 	"fox": [[850.0, 1350.0, 0.09, 0.45, 0.6, 0.0], [0.0, 0.0, 0.08, 0.0, 0.0, 0.0], [900.0, 1400.0, 0.11, 0.45, 0.6, 0.0]],
 	"turtle": [[170.0, 140.0, 0.4, 0.55, 0.3, 3.0]],
-	"rabbit": [[1700.0, 2100.0, 0.07, 0.3, 0.1, 0.0], [0.0, 0.0, 0.05, 0.0, 0.0, 0.0], [90.0, 60.0, 0.08, 0.6, 0.0, 0.0]],
 }
 var volume := 80.0
 var animal_player: AudioStreamPlayer
@@ -39,10 +43,12 @@ func _ready() -> void:
 	set_volume(volume)
 
 static func is_animal(id: String) -> bool:
-	return ANIMAL_CALLS.has(id)
+	return ANIMAL_FILES.has(id) or ANIMAL_CALLS.has(id)
 
-# Cri d'un animal, fabriqué une fois puis gardé.
-func animal_stream(id: String) -> AudioStreamWAV:
+# Cri d'un animal : son enregistré, sinon fabriqué une fois puis gardé.
+func animal_stream(id: String) -> AudioStream:
+	if ANIMAL_FILES.has(id):
+		return ANIMAL_FILES[id]
 	if not animal_streams.has(id):
 		animal_streams[id] = make_call(ANIMAL_CALLS[id])
 	return animal_streams[id]
