@@ -141,7 +141,7 @@ var play_button: Button
 var settings_button: Button
 var information_button: Button
 var history_button: Button
-# Launcher (0.0.3.28) : bouton de l'accueil, page des versions, travail en fond (gh), version ouverte.
+# Launcher (0.0.4) : bouton de l'accueil, page des versions, travail en fond (gh), version ouverte.
 var launcher_button: Button
 var quit_button: Button
 var launcher := Launcher.new()
@@ -941,7 +941,7 @@ func _build_interface() -> void:
 	settings_button = _button("Paramètres", home, func(): show_page("settings"))
 	information_button = _button("Informations", home, func(): show_page("information"))
 	history_button = _button("Historique des versions", home, open_history)
-	# 0.0.3.28 : launcher puis Quitter, tout en bas (pas de Quitter dans un navigateur).
+	# 0.0.4 : launcher puis Quitter, tout en bas (pas de Quitter dans un navigateur).
 	launcher_button = _button("Aller au launcher", home, open_launcher)
 	quit_button = _button("Quitter le jeu", home, func(): get_tree().quit())
 	quit_button.visible = not OS.has_feature("web")
@@ -1544,7 +1544,7 @@ func open_history() -> void:
 	history_scroll.scroll_vertical = 0
 	show_page("history")
 
-# Launcher (0.0.3.28) : versions des Releases GitHub, groupées par 0.0.x, avec leur nom.
+# Launcher (0.0.4) : versions des Releases GitHub, groupées par 0.0.x, avec leur nom.
 # refresh = false : garder la liste déjà connue (tests, sans GitHub).
 func open_launcher(refresh := true) -> void:
 	if is_instance_valid(active_world):

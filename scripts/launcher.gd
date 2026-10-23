@@ -1,5 +1,5 @@
 extends RefCounted
-# Launcher (0.0.3.28), pour le propriétaire seul tant que le dépôt est privé :
+# Launcher (0.0.4), pour le propriétaire seul tant que le dépôt est privé :
 # liste les Releases GitHub, télécharge la version choisie (zip Windows) dans
 # user://launcher/<version>/, puis la lance. Passe par GitHub CLI (gh), déjà connecté
 # sur le PC : aucun jeton n'est gardé par le jeu. Windows seulement.

@@ -24,7 +24,7 @@ func _run() -> void:
 	app.catalog.worlds.append({"id": "pause-test", "name": "Mon monde", "seed": 123})
 	root.add_child(app)
 	current_scene = app
-	check(app.home_version.text == "v0.0.3.28", "version visible on home")
+	check(app.home_version.text == "v0.0.4", "version visible on home")
 	app.open_world("pause-test")
 	var world: Node3D = app.active_world
 	var player: CharacterBody3D = world.player
@@ -40,7 +40,7 @@ func _run() -> void:
 	escape.pressed = true
 	app._unhandled_key_input(escape)
 	check(app.page == "pause" and paused, "Escape opens real pause")
-	check(app.pause_version.text == "v0.0.3.28" and app.pause_version.is_visible_in_tree(), "version visible in pause")
+	check(app.pause_version.text == "v0.0.4" and app.pause_version.is_visible_in_tree(), "version visible in pause")
 	check(not world.can_process() and app.can_process(), "world stops processing while menus remain active")
 	check(not player.actions.placing and not player.actions.breaking, "pause cancels both repeat timers")
 	check(Input.mouse_mode == Input.MOUSE_MODE_VISIBLE, "pause releases pointer")

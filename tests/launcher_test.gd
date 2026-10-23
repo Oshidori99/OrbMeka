@@ -1,5 +1,5 @@
 extends SceneTree
-# 0.0.3.28 : « Aller au launcher » puis « Quitter le jeu » tout en bas de l'accueil ;
+# 0.0.4 : « Aller au launcher » puis « Quitter le jeu » tout en bas de l'accueil ;
 # page Launcher : Dernière version, versions groupées par 0.0.x avec leur nom.
 # Sans GitHub ni téléchargement : la liste est donnée par le test.
 const Launcher = preload("res://scripts/launcher.gd")
@@ -52,7 +52,7 @@ func _run() -> void:
 	app.open_launcher(false)
 	check(app.page == "launcher" and app.get_viewport().gui_get_focus_owner() == app.launcher_latest_button and not app.launcher_latest_button.disabled, "launcher page opens on Dernière version")
 	var headings: Array = app.launcher_list.get_children().filter(func(node): return node is RichTextLabel).map(func(node): return node.text)
-	check(headings == ["9.9.9", "0.0.3", "0.0.2"], "one heading per 0.0.x group")
+	check(headings == ["9.9.9", Launcher.group_of(current), "0.0.2"], "one heading per 0.0.x group")
 	check(app.launcher_list.get_children().filter(func(node): return node is HBoxContainer).size() == 3 and app.launcher_list.get_children().any(func(node): return not node is HBoxContainer and not node is RichTextLabel), "rows spaced between groups")
 	var row_text: String = app.launcher_play_buttons[current].get_parent().get_child(0).text
 	check(row_text == current + " — " + local[current], "each row shows the version and its name")
