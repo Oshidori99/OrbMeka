@@ -3,6 +3,10 @@ Du plus récent au plus ancien. Ce fichier est mis à jour à chaque version.
 
 === Thème « Menus et Paramètres 2 » (0.0.4 et suivantes) ===
 
+0.0.4.10 — Retour au mode par défaut
+Un monde en mode développeur peut repasser en mode par défaut (Paramètres du monde ou Attributs) ;
+les Informations du monde disent alors « Mode développeur utilisé au moins une fois ».
+
 0.0.4.9 — Trois vues
 F4 : première personne, vue de derrière, vue de devant (corps entier visible, caméra rapprochée
 devant un bloc) ; F4 dans Contrôles → Menus.

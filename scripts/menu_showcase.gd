@@ -12,9 +12,9 @@ extends Node3D
 # 2 ou 3, choisis parmi les nouveautés : liste NEWS_RUNNERS ([id, peau], peau vide pour un animal).
 # Chacun prend son modèle Blender, sinon une forme simple (character_model.gd, partagé avec le jeu).
 # Le reste du fichier (sol, collines, ciel, caméra) ne change pas d'une version à l'autre.
-const NEWS_VERSION := "0.0.4.9"
-const NEWS_TEXT := "Nouveau : trois vues !
-F4 : première personne, de derrière, puis de devant."
+const NEWS_VERSION := "0.0.4.10"
+const NEWS_TEXT := "Nouveau : retour au mode par défaut !
+Les Informations du monde gardent la mention du mode développeur."
 
 # 0.0.3.25 : les trois nouveautés de 0.0.3.23 en aller-retour au-dessus de l'herbe libre, devant la place
 # de sable et pierre (sous le panneau des menus, vers la droite), chacune sur sa rangée.

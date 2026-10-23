@@ -1,4 +1,4 @@
-# OrbMeka™ — prototype 0.0.4.9
+# OrbMeka™ — prototype 0.0.4.10
 
 Godot 4.7 / GDScript. Formes et couleurs simples, sans assets externes.
 
@@ -35,10 +35,10 @@ choisi d'office) ou **Mode développeur** (à droite).
 - Par défaut : Saut, Blocs et Marche gardent leurs valeurs par défaut dans ce
   monde ; les réglages de Paramètres → Attributs y sont ignorés.
 - Mode développeur : le monde utilise les réglages de Paramètres → Attributs.
-Mes mondes → ⚙️ Paramètres du monde permet seulement de **passer** en mode
-développeur, après une confirmation (Annuler sélectionné). Ce choix est
-**définitif** : aucun retour au mode par défaut. Le mode s'affiche dans
-Informations du monde (F3). Une copie garde le mode de l'original.
+Mes mondes → ⚙️ Paramètres du monde permet de **passer** en mode développeur,
+après une confirmation (Annuler sélectionné), puis d'y **revenir** (0.0.4.10).
+La mention « Mode développeur utilisé au moins une fois » reste alors,
+**définitive**, dans Informations du monde (F3), où s'affiche aussi le mode. Une copie garde le mode de l'original.
 Les mondes créés avant 0.0.3 sont en mode Par défaut.
 
 Réouvrir un monde utilise sa graine enregistrée et recrée son terrain initial.
@@ -1272,3 +1272,24 @@ jouer). Tests mis à jour : controls_groups (F4 dans Menus), numéro de
 version. Résultat : 41 tests, 0 échec.
 À tester manuellement : F4 en jeu (aspect des vues, corps, ombre), caméra
 près des murs, viser et casser en vue de derrière.
+
+## Retour au mode par défaut — 0.0.4.10
+- Un monde en mode développeur peut **repasser en mode par défaut** :
+  Mes mondes → ⚙️ Paramètres du monde → « Repasser en mode par défaut », ou
+  en partie, Paramètres → Attributs → « Repasser ce monde en mode par
+  défaut » (attributs par défaut appliqués tout de suite).
+- Le monde garde alors la mention définitive **« Mode développeur utilisé au
+  moins une fois »**, dans Informations du monde (F3, à chaque niveau de
+  détail) et dans Paramètres du monde. Enregistrée dans worlds.json
+  (developer_used) ; une copie la garde.
+- La confirmation du mode développeur ne dit plus « sans retour » : seule la
+  mention est irréversible.
+- Ancien worlds.json : les mondes déjà en mode développeur ont la mention,
+  les autres non.
+
+Test ajouté : tests/developer_return_test.gd (catalogue, mention gardée et
+enregistrée, copie, ancien worlds.json, Paramètres du monde, Informations du
+monde, retour en partie). Tests mis à jour : world_mode (retour possible),
+menu (developer_used enregistré), numéro de version. Résultat : 42 tests, 0 échec.
+À tester manuellement : repasser en mode par défaut depuis Mes mondes et en
+pause, lecture des Informations du monde (F3).

@@ -131,12 +131,14 @@ var duplicate_button: Button
 var world_settings_button: Button
 var world_settings_text: RichTextLabel
 var world_settings_back_button: Button
-# Mode du monde : choix à la création, passage définitif au mode développeur ensuite.
+# Mode du monde : choix à la création, puis mode développeur ou retour au mode par défaut (0.0.4.10).
 var create_mode: String = Catalog.MODE_DEFAULT
 var create_default_button: Button
 var create_developer_button: Button
 var create_mode_note: RichTextLabel
 var world_developer_button: Button
+var world_default_button: Button
+var attributes_default_button: Button
 var developer_confirm_message: RichTextLabel
 var developer_confirm_button: Button
 var developer_cancel_button: Button
@@ -811,9 +813,10 @@ func _show_attributes_gate(confirming: bool) -> void:
 	attributes_gate_button.visible = locked and not confirming
 	attributes_gate_confirm.visible = confirming
 	attributes_gate_cancel.visible = confirming
+	attributes_default_button.visible = is_instance_valid(active_world) and active_world.developer_mode
 	if confirming:
-		attributes_gate_text.text = "Attention : ce choix est irréversible.
-Ce monde passera en mode développeur, sans retour possible au mode par défaut."
+		attributes_gate_text.text = "Ce monde passera en mode développeur. Le retour au mode par défaut reste possible,
+mais la mention « mode développeur utilisé » est irréversible (Informations du monde)."
 		attributes_gate_cancel.grab_focus()
 	else:
 		attributes_gate_text.text = "Ce monde est en mode par défaut : ses attributs ne sont pas modifiables.
@@ -828,11 +831,25 @@ func confirm_game_developer_mode() -> void:
 	if not catalog.enable_developer_mode(current_world_id):
 		attributes_gate_text.text = catalog.last_error
 		return
+	active_world.developer_used = true
 	active_world.developer_mode = true
 	active_world.world_mode_text = Catalog.MODE_NAMES[Catalog.MODE_DEVELOPER]
 	_apply_to_game()
 	_show_attributes_gate(false)
 	settings_message.text = "Monde passé en mode développeur : attributs modifiables."
+
+# 0.0.4.10 : en partie, retour au mode par défaut (la mention « utilisé » reste).
+func return_game_default_mode() -> void:
+	if not is_instance_valid(active_world) or not active_world.developer_mode:
+		return
+	if not catalog.disable_developer_mode(current_world_id):
+		settings_message.text = catalog.last_error
+		return
+	active_world.developer_mode = false
+	active_world.world_mode_text = Catalog.MODE_NAMES[Catalog.MODE_DEFAULT]
+	_apply_to_game()
+	_show_attributes_gate(false)
+	settings_message.text = "Monde repassé en mode par défaut : attributs par défaut."
 
 # En partie, les réglages s'appliquent tout de suite au joueur et aux textes du jeu.
 func _apply_to_game() -> void:
@@ -1092,7 +1109,7 @@ func _build_interface() -> void:
 	settings_body.add_child(attributes_box)
 	settings_sections.attributes = attributes_box
 	# En pause dans un monde par défaut (0.0.3.9) : les attributs sont remplacés par une
-	# proposition de passer le monde en mode développeur, avec avertissement « sans retour ».
+	# proposition de passer le monde en mode développeur, avec avertissement (mention « utilisé » irréversible, 0.0.4.10).
 	attributes_gate = VBoxContainer.new()
 	_sep(attributes_gate, 10)
 	attributes_box.add_child(attributes_gate)
@@ -1100,8 +1117,11 @@ func _build_interface() -> void:
 	attributes_gate_text.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	attributes_gate.add_child(attributes_gate_text)
 	attributes_gate_button = _button("Passer ce monde en mode développeur…", attributes_gate, request_game_developer_mode)
-	attributes_gate_confirm = _button("Confirmer : mode développeur définitif", attributes_gate, confirm_game_developer_mode)
+	attributes_gate_confirm = _button("Confirmer : mode développeur", attributes_gate, confirm_game_developer_mode)
 	attributes_gate_cancel = _button("Annuler", attributes_gate, func(): _show_attributes_gate(false))
+	# 0.0.4.10 : monde en mode développeur, en partie : bouton pour repasser en mode par défaut.
+	attributes_default_button = _button("Repasser ce monde en mode par défaut", attributes_box, return_game_default_mode)
+	attributes_default_button.visible = false
 	var settings_scroll := ScrollContainer.new()
 	attributes_scroll = settings_scroll
 	settings_scroll.custom_minimum_size = Vector2(0, 320)
@@ -1233,13 +1253,14 @@ Nom, graine et mode conservés ; constructions non sauvegardées." % Catalog.MAX
 	world_settings_text.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	world_settings_page.add_child(world_settings_text)
 	world_developer_button = _button("Passer en mode développeur…", world_settings_page, request_developer_mode)
+	world_default_button = _button("Repasser en mode par défaut", world_settings_page, return_world_default_mode)
 	world_settings_back_button = _button("Retour", world_settings_page, cancel_world_action)
 	var developer_page := _page(stack, "Passer en mode développeur ?")
 	pages.developer_confirm = _page_root(developer_page)
 	developer_confirm_message = _text_label()
 	developer_confirm_message.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	developer_page.add_child(developer_confirm_message)
-	developer_confirm_button = _button("Confirmer : mode développeur définitif", developer_page, confirm_developer_mode)
+	developer_confirm_button = _button("Confirmer : mode développeur", developer_page, confirm_developer_mode)
 	developer_cancel_button = _button("Annuler", developer_page, open_world_settings_for_pending)
 	var rename_page := _page(stack, "Renommer le monde")
 	pages.rename = _page_root(rename_page)
@@ -1492,12 +1513,16 @@ func open_world_settings_for_pending() -> void:
 func _show_world_settings(item: Dictionary) -> void:
 	var developer: bool = item.get("mode", Catalog.MODE_DEFAULT) == Catalog.MODE_DEVELOPER
 	var mode_name: String = Catalog.MODE_NAMES[Catalog.MODE_DEVELOPER if developer else Catalog.MODE_DEFAULT]
-	var plus := "Attributs modifiables dans Paramètres → Attributs. Ce choix est définitif." if developer else "Attributs par défaut, non modifiables."
+	var plus := "Attributs modifiables dans Paramètres → Attributs. Retour au mode par défaut possible." if developer else "Attributs par défaut, non modifiables."
+	# 0.0.4.10 : mention définitive quand le mode développeur a déjà servi.
+	if item.get("developer_used", false):
+		mode_name += " (mode développeur déjà utilisé)"
 	world_settings_text.text = _detail(["« %s » · Mode : %s" % [item.name, mode_name], "Monde : %s
 Mode : %s" % [item.name, mode_name], "Monde : %s
 Mode : %s
 %s" % [item.name, mode_name, plus]])
 	world_developer_button.visible = not developer
+	world_default_button.visible = developer
 	show_page("world_settings")
 
 func request_developer_mode() -> void:
@@ -1505,10 +1530,18 @@ func request_developer_mode() -> void:
 	if item.is_empty() or item.get("mode", Catalog.MODE_DEFAULT) == Catalog.MODE_DEVELOPER:
 		return
 	# Toujours « irréversible », quel que soit le niveau de détail.
-	developer_confirm_message.text = _detail(["« %s » : irréversible." % item.name, "« %s » passera en mode développeur.
-Choix irréversible : aucun retour au mode par défaut." % item.name, "Le monde « %s » utilisera les attributs de Paramètres → Attributs.
-Attention : ce choix est irréversible. Le retour au mode par défaut sera impossible." % item.name])
+	developer_confirm_message.text = _detail(["« %s » : mention irréversible." % item.name, "« %s » passera en mode développeur.
+Retour possible, mais la mention « mode développeur utilisé » est irréversible." % item.name, "Le monde « %s » utilisera les attributs de Paramètres → Attributs.
+Le retour au mode par défaut reste possible, mais la mention « mode développeur utilisé
+au moins une fois » est irréversible (Informations du monde)." % item.name])
 	show_page("developer_confirm")
+
+# 0.0.4.10 : depuis Paramètres du monde, retour au mode par défaut.
+func return_world_default_mode() -> void:
+	if not catalog.disable_developer_mode(pending_world_id):
+		world_settings_text.text = catalog.last_error
+		return
+	open_world_settings_for_pending()
 
 func confirm_developer_mode() -> void:
 	if not catalog.enable_developer_mode(pending_world_id):
@@ -1589,6 +1622,7 @@ func open_world(id: String) -> void:
 	active_world.text_scale = _text_scale()
 	var developer: bool = item.get("mode", Catalog.MODE_DEFAULT) == Catalog.MODE_DEVELOPER
 	active_world.developer_mode = developer
+	active_world.developer_used = item.get("developer_used", developer)
 	active_world.world_mode_text = Catalog.MODE_NAMES[Catalog.MODE_DEVELOPER if developer else Catalog.MODE_DEFAULT]
 	add_child(active_world)
 	shortcut_hints.show()

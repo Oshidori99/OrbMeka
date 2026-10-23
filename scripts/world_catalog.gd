@@ -1,9 +1,10 @@
 extends RefCounted
-# Only identity, name, seed and mode are stored. Never block edits or player state.
+# Only identity, name, seed, mode and developer_used are stored. Never block edits or player state.
 const MAX_NAME_LENGTH := 48
 const MAX_SEED := 4294967295
 # Mode du monde : « default » garde les attributs par défaut ; « developer » utilise les
-# réglages globaux (Paramètres → Attributs). Passage default → developer seulement, définitif.
+# réglages globaux (Paramètres → Attributs). 0.0.4.10 : retour au mode par défaut possible ; « developer_used »
+# (mode développeur utilisé au moins une fois) reste alors vrai, définitivement (Informations du monde).
 const MODE_DEFAULT := "default"
 const MODE_DEVELOPER := "developer"
 const MODE_NAMES := {MODE_DEFAULT: "Par défaut", MODE_DEVELOPER: "Mode développeur"}
@@ -55,7 +56,9 @@ func _load_worlds() -> void:
 			return
 		ids.append(item.id)
 		names.append(clean_name.to_lower())
-		loaded.append({"id": item.id, "name": clean_name, "seed": int(seed_value), "mode": mode})
+		# Avant 0.0.4.10 (sans developer_used) : utilisé si le monde est en mode développeur.
+		var used: bool = item.get("developer_used", mode == MODE_DEVELOPER) == true or mode == MODE_DEVELOPER
+		loaded.append({"id": item.id, "name": clean_name, "seed": int(seed_value), "mode": mode, "developer_used": used})
 	worlds = loaded
 
 func _save_worlds() -> bool:
@@ -77,7 +80,7 @@ func _save_worlds() -> bool:
 		return false
 	return true
 
-func create_world(raw_name: String, raw_seed: String = "", mode: String = MODE_DEFAULT) -> Dictionary:
+func create_world(raw_name: String, raw_seed: String = "", mode: String = MODE_DEFAULT, developer_used: bool = false) -> Dictionary:
 	last_error = ""
 	if not MODE_NAMES.has(mode):
 		last_error = "Mode de monde inconnu."
@@ -111,7 +114,7 @@ func create_world(raw_name: String, raw_seed: String = "", mode: String = MODE_D
 	var world_id := str(rng.randi())
 	while used_ids.has(world_id):
 		world_id = str(rng.randi())
-	var item := {"id": world_id, "name": world_name, "seed": terrain_seed, "mode": mode}
+	var item := {"id": world_id, "name": world_name, "seed": terrain_seed, "mode": mode, "developer_used": developer_used or mode == MODE_DEVELOPER}
 	worlds.append(item)
 	if not _save_worlds():
 		worlds.pop_back()
@@ -147,7 +150,7 @@ func rename_world(id: String, raw_name: String) -> bool:
 	last_error = "Ce monde n'existe plus."
 	return false
 
-# Aucune fonction inverse : le retour au mode par défaut est impossible.
+# Mode développeur ; la mention « utilisé au moins une fois » est définitive.
 func enable_developer_mode(id: String) -> bool:
 	last_error = ""
 	if not load_error.is_empty():
@@ -157,9 +160,29 @@ func enable_developer_mode(id: String) -> bool:
 		if worlds[index].id == id:
 			if worlds[index].get("mode", MODE_DEFAULT) == MODE_DEVELOPER:
 				return true
+			var before: Dictionary = worlds[index].duplicate()
 			worlds[index]["mode"] = MODE_DEVELOPER
+			worlds[index]["developer_used"] = true
 			if not _save_worlds():
-				worlds[index]["mode"] = MODE_DEFAULT
+				worlds[index] = before
+				return false
+			return true
+	last_error = "Ce monde n'existe plus."
+	return false
+
+# 0.0.4.10 : retour au mode par défaut ; developer_used reste vrai.
+func disable_developer_mode(id: String) -> bool:
+	last_error = ""
+	if not load_error.is_empty():
+		last_error = load_error
+		return false
+	for index in range(worlds.size()):
+		if worlds[index].id == id:
+			if worlds[index].get("mode", MODE_DEFAULT) == MODE_DEFAULT:
+				return true
+			worlds[index]["mode"] = MODE_DEFAULT
+			if not _save_worlds():
+				worlds[index]["mode"] = MODE_DEVELOPER
 				return false
 			return true
 	last_error = "Ce monde n'existe plus."
@@ -196,6 +219,6 @@ func duplicate_world(id: String) -> Dictionary:
 				exists = true
 				break
 		if not exists:
-			return create_world(copy_name, str(original.seed), original.get("mode", MODE_DEFAULT))
+			return create_world(copy_name, str(original.seed), original.get("mode", MODE_DEFAULT), original.get("developer_used", false))
 		number += 1
 	return {}

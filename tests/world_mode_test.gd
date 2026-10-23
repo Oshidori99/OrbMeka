@@ -1,5 +1,6 @@
 extends SceneTree
-# Mode du monde (0.0.3) : Par défaut / Mode développeur, passage définitif, F3.
+# Mode du monde (0.0.3) : Par défaut / Mode développeur, F3. 0.0.4.10 : retour au mode par défaut possible
+# (voir developer_return_test.gd) ; la mention « utilisé » reste.
 const Catalog = preload("res://scripts/world_catalog.gd")
 const Settings = preload("res://scripts/user_settings.gd")
 var checks := 0
@@ -97,15 +98,14 @@ func _run() -> void:
 	app.world_developer_button.pressed.emit()
 	app.developer_confirm_button.pressed.emit()
 	check(app.page == "world_settings" and catalog.find_world(normal_id).mode == Catalog.MODE_DEVELOPER, "confirmation switches to developer mode")
-	check(app.world_settings_text.text.contains("Mode : Mode développeur") and not app.world_developer_button.visible, "developer world offers no way back")
+	check(app.world_settings_text.text.contains("Mode : Mode développeur") and not app.world_developer_button.visible and app.world_default_button.visible, "developer world offers the way back (0.0.4.10)")
 	app.world_settings_back_button.pressed.emit()
 	app.refresh_world_list(dev_id)
 	app.world_settings_button.pressed.emit()
-	check(not app.world_developer_button.visible, "world created in developer mode has no way back")
+	check(not app.world_developer_button.visible and app.world_default_button.visible, "world created in developer mode can go back")
 	app.world_settings_back_button.pressed.emit()
 
-	# Irréversibilité : aucune fonction de retour, duplication et rechargement conservent le mode.
-	check(not catalog.has_method("disable_developer_mode") and not catalog.has_method("set_world_mode"), "catalog has no API to return to default")
+	# Duplication et rechargement conservent le mode.
 	check(catalog.enable_developer_mode(normal_id) and catalog.find_world(normal_id).mode == Catalog.MODE_DEVELOPER, "enabling again keeps developer mode")
 	check(not catalog.enable_developer_mode("absent"), "unknown world cannot change mode")
 	var copy: Dictionary = catalog.duplicate_world(dev_id)

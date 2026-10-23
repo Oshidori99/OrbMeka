@@ -20,6 +20,9 @@ var world_name := "OrbMeka"
 # Mode du monde, affiché dans Informations du monde (F3).
 var world_mode_text := "Par défaut"
 var developer_mode := false
+# 0.0.4.10 : mode développeur utilisé au moins une fois (mention définitive des Informations du monde).
+var developer_used := false
+const DEVELOPER_USED_NOTE := "Mode développeur utilisé au moins une fois."
 # Réglage Vidéo → Taille du texte, pour les textes affichés en jeu.
 var text_scale := 1.0
 var blocks: Dictionary = {}
@@ -393,18 +396,24 @@ func get_world_info_text(level: int = 2) -> String:
 Personnage : %s
 %s" % [coordinates_text(), who, _world_info_body(level)]
 
+# Ligne ajoutée au mode quand le mode développeur a déjà servi (vide sinon).
+func _used_note() -> String:
+	return "
+" + DEVELOPER_USED_NOTE if developer_used else ""
+
 func _world_info_body(level: int) -> String:
 	var span := TerrainGenerator.MAX_CELL - TerrainGenerator.MIN_CELL + 1
 	if level == 0:
 		return "Monde : %s · Graine : %d
-Mode : %s" % [world_name, terrain_seed, world_mode_text]
+Mode : %s" % [world_name, terrain_seed, world_mode_text] + _used_note()
 	if level == 1:
 		return "Monde : %s
 Graine : %d
 Mode : %s
 Collines : %d, jusqu'à %d blocs. Base %d × %d.
-Constructions non sauvegardées." % [world_name, terrain_seed, world_mode_text, generated_hill_count, generated_max_height, int(BASE_SIZE.x), int(BASE_SIZE.z)]
+Constructions non sauvegardées." % [world_name, terrain_seed, world_mode_text, generated_hill_count, generated_max_height, int(BASE_SIZE.x), int(BASE_SIZE.z)] + _used_note()
 	var mode_line := "Mode : %s — %s" % [world_mode_text, "attributs de Paramètres → Attributs" if developer_mode else "attributs par défaut, non modifiables"]
+	mode_line += _used_note()
 	return "Monde : %s
 Graine : %d
 %s
