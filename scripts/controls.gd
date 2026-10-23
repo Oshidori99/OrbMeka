@@ -22,8 +22,10 @@ const ACTIONS := {
 	# 0.0.3.24 : maintenir pour courir (plus rapide) ; défaut par lettre : R.
 	"sprint": {"label": "Courir", "default": {"key": KEY_R}, "by_letter": true, "fixed": []},
 	# 0.0.4.3 : changer la vitesse de marche et de course (← → seules restent pour se déplacer).
-	"speed_up": {"label": "Plus vite", "default": {"key": KEY_UP}, "fixed": []},
-	"speed_down": {"label": "Moins vite", "default": {"key": KEY_DOWN}, "fixed": []},
+	# 0.0.4.7 : tout le déplacement avec ↑ / ↓ + A (avant : la flèche seule) ; ⌫ + A le remet par défaut.
+	# Une touche de déplacement tenue avec ↑, ↓ ou ⌫ ne fait pas bouger (A ne va pas à gauche).
+	"speed_up": {"label": "Tout plus vite", "default": {"key": KEY_UP, "second": {"key": KEY_A}}, "fixed": []},
+	"speed_down": {"label": "Tout moins vite", "default": {"key": KEY_DOWN, "second": {"key": KEY_A}}, "fixed": []},
 	# 0.0.4.6 (#105) : ↑ ou ↓ avec une autre touche : seulement la marche, la course, la casse ou
 	# la pose (casse et pose : monde en mode développeur). ⌫ + la même touche : cette valeur par
 	# défaut ; ⌫ deux fois : tout par défaut (remplace R + ↓ de 0.0.4.4, ancien « speed_reset » ignoré).
@@ -35,6 +37,7 @@ const ACTIONS := {
 	"break_down": {"label": "Casse moins rapide", "default": {"key": KEY_DOWN, "second": {"mouse": MOUSE_BUTTON_LEFT}}, "fixed": []},
 	"place_up": {"label": "Pose plus rapide", "default": {"key": KEY_UP, "second": {"mouse": MOUSE_BUTTON_RIGHT}}, "fixed": []},
 	"place_down": {"label": "Pose moins rapide", "default": {"key": KEY_DOWN, "second": {"mouse": MOUSE_BUTTON_RIGHT}}, "fixed": []},
+	"move_reset": {"label": "Déplacement par défaut", "default": {"key": KEY_BACKSPACE, "second": {"key": KEY_A}}, "fixed": []},
 	"walk_reset": {"label": "Marche par défaut", "default": {"key": KEY_BACKSPACE, "second": {"key": KEY_W}}, "fixed": []},
 	"run_reset": {"label": "Course par défaut", "default": {"key": KEY_BACKSPACE, "second": {"key": KEY_R}}, "by_letter": true, "fixed": []},
 	"break_reset": {"label": "Casse par défaut", "default": {"key": KEY_BACKSPACE, "second": {"mouse": MOUSE_BUTTON_LEFT}}, "fixed": []},
@@ -244,7 +247,7 @@ static func ensure_defaults() -> void:
 				InputMap.action_add_event(action, _event({"key": code}))
 
 # 0.0.4.6 : actions qui changent ou remettent une vitesse ; avec un clic, ce clic ne casse ni ne pose.
-const SPEED_ACTIONS := ["speed_up", "speed_down", "walk_up", "walk_down", "run_up", "run_down", "break_up", "break_down", "place_up", "place_down", "walk_reset", "run_reset", "break_reset", "place_reset", "speed_reset_all"]
+const SPEED_ACTIONS := ["speed_up", "speed_down", "move_reset", "walk_up", "walk_down", "run_up", "run_down", "break_up", "break_down", "place_up", "place_down", "walk_reset", "run_reset", "break_reset", "place_reset", "speed_reset_all"]
 
 # Touches qui, tenues avec un clic, en font un réglage de vitesse (ex. ↑ et ⌫ par défaut).
 static func click_modifiers(bindings: Dictionary) -> Array:
@@ -257,3 +260,26 @@ static func click_modifiers(bindings: Dictionary) -> Array:
 			if pair[0].has("key") and pair[1].has("mouse") and not pair[0].key in result:
 				result.append(pair[0].key)
 	return result
+
+# 0.0.4.7 : déplacements à ne pas faire pendant un réglage de vitesse : {action de déplacement:
+# touches qui, tenues, la bloquent} (ex. A avec ↑ : réglage, pas un pas à gauche).
+static func blocked_moves(bindings: Dictionary) -> Dictionary:
+	var result := {}
+	for move in ["move_forward", "move_back", "move_left", "move_right"]:
+		var own: Dictionary = first(bindings.get(move, default_for(move)))
+		if own.is_empty():
+			continue
+		for action in SPEED_ACTIONS:
+			var binding: Dictionary = bindings.get(action, default_for(action))
+			if kind(binding) != "together":
+				continue
+			for pair in [[first(binding), second(binding)], [second(binding), first(binding)]]:
+				if pair[1] == own and pair[0].has("key"):
+					if not result.has(move):
+						result[move] = []
+					if not pair[0].key in result[move]:
+						result[move].append(pair[0].key)
+	return result
+
+# Défauts de 0.0.4.3 à 0.0.4.6 (↑, ↓ seules) remplacés : un ancien controles.json les relit comme le nouveau défaut.
+const FORMER_DEFAULTS := {"speed_up": {"key": KEY_UP}, "speed_down": {"key": KEY_DOWN}}

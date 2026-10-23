@@ -1,4 +1,4 @@
-# OrbMeka™ — prototype 0.0.4.6
+# OrbMeka™ — prototype 0.0.4.7
 
 Godot 4.7 / GDScript. Formes et couleurs simples, sans assets externes.
 
@@ -66,8 +66,8 @@ sont conservés. L'apparition tient compte des blocs présents.
 - Y : se baisser ; R : courir. Mode de chaque touche dans Contrôles :
   Maintenir ou Basculer, et pour courir **Maintenir conditionnel** (0.0.3.25).
 - ↑ ↓ maintenues : marcher, courir, se baisser plus ou moins vite (0.0.4.3) ;
-  ↑ ↓ + W : marche, + R : course, + clic : casse ou pose ; ⌫ + touche :
-  par défaut ; ⌫ deux fois : tout (0.0.4.6).
+  ↑ ↓ + A : tout le déplacement (0.0.4.7) ; + W : marche, + R : course,
+  + clic : casse ou pose ; ⌫ + touche : par défaut ; ⌫ deux fois : tout.
 - Espace deux fois : voler ; en vol, Espace monte, Y descend (0.0.4.5).
 - Contrôles : deuxième touche facultative par action, double appui ou
   en même temps (0.0.3.27).
@@ -1217,3 +1217,19 @@ Corrigé en passant : « 150 % » dans Comment jouer cassait la mise en forme du
 texte.
 À tester manuellement : ↑ + W, ↑ + R, ↑ + clic en jeu (sans casser), ⌫,
 mode Basculer (↑ + R bascule aussi la course).
+
+## Tout avec ↑ ↓ + A — 0.0.4.7
+- **↑ + A / ↓ + A** (Tout plus vite / Tout moins vite) : tout le déplacement
+  (marche, course, baissé, vol), à la place de la flèche seule, qui ne fait
+  plus rien. **⌫ + A** (Déplacement par défaut) : cette vitesse à 100 %.
+- Une touche de déplacement qui sert à un réglage ne fait pas bouger tant
+  que ↑, ↓ ou ⌫ est tenue : **A ne va pas à gauche**, et W n'avance pas non
+  plus (même règle).
+- Ancien controles.json avec ↑ ou ↓ seules (ancien défaut) : relu comme
+  ↑ + A / ↓ + A.
+- Comment jouer, aide des Attributs et vitrine mis à jour.
+
+Tests mis à jour : speed_targets (↑ + A, ⌫ + A, A sans aller à gauche,
+ancien défaut relu), speed_change (touches par défaut), numéro de version.
+Résultat : 39 tests, 0 échec.
+À tester manuellement : ↑ + A et ↓ + A en jeu, ↑ + W (sans avancer), ⌫ + A.

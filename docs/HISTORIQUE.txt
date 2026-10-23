@@ -3,6 +3,10 @@ Du plus récent au plus ancien. Ce fichier est mis à jour à chaque version.
 
 === Thème « Menus et Paramètres 2 » (0.0.4 et suivantes) ===
 
+0.0.4.7 — Tout avec ↑ ↓ + A
+↑ ↓ + A : tout le déplacement (la flèche seule ne fait plus rien) ; ⌫ + A : par défaut ;
+A ou W tenus avec ↑, ↓ ou ⌫ ne font plus bouger.
+
 0.0.4.6 — Chaque vitesse à part
 ↑ ↓ + W : marche, + R : course, + clic : casse ou pose (mode développeur) ; ⌫ + touche : par défaut,
 ⌫ deux fois : tout ; hors mode développeur, 75 à 150 %.

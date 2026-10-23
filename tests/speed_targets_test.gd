@@ -2,6 +2,8 @@ extends SceneTree
 # 0.0.4.6 (#105) : ↑ ↓ + W (marche), + R (course), + clic gauche (casse), + clic droit (pose) ;
 # ⌫ + la même touche : cette valeur par défaut ; ⌫ deux fois : tout. ↑ ↓ seules : tout le déplacement.
 # Monde par défaut : 75 à 150 %, casse et pose fixes ; mode développeur : limites des Attributs.
+# 0.0.4.7 : tout le déplacement avec ↑ / ↓ + A ; ⌫ + A le remet par défaut ; A ou W tenus avec ↑, ↓ ou ⌫
+# ne font pas bouger.
 const Settings = preload("res://scripts/user_settings.gd")
 const Controls = preload("res://scripts/controls.gd")
 const KeyCombos = preload("res://scripts/key_combos.gd")
@@ -50,12 +52,15 @@ func _run() -> void:
 		"walk_up": "↑ + W", "walk_down": "↓ + W", "run_up": "↑ + R", "run_down": "↓ + R",
 		"break_up": "↑ + Clic gauche", "break_down": "↓ + Clic gauche", "place_up": "↑ + Clic droit", "place_down": "↓ + Clic droit",
 		"walk_reset": "⌫ + W", "run_reset": "⌫ + R", "break_reset": "⌫ + Clic gauche", "place_reset": "⌫ + Clic droit", "speed_reset_all": "⌫ deux fois",
+		"speed_up": "↑ + A", "speed_down": "↓ + A", "move_reset": "⌫ + A",
 	}
 	for action in expected:
 		check(Controls.ACTIONS.has(action) and Controls.label(Controls.default_for(action)) == expected[action], "%s: %s" % [action, expected[action]])
 	check(Controls.ACTIONS.walk_up.label == "Marche plus vite" and Controls.ACTIONS.break_reset.label == "Casse par défaut" and Controls.ACTIONS.speed_reset_all.label == "Tout par défaut", "labels")
 	var modifiers: Array = Controls.click_modifiers(Controls.defaults())
 	check(modifiers.has(KEY_UP) and modifiers.has(KEY_DOWN) and modifiers.has(KEY_BACKSPACE) and modifiers.size() == 3, "↑, ↓ and ⌫ turn a click into a setting")
+	var blocks: Dictionary = Controls.blocked_moves(Controls.defaults())
+	check(blocks.keys().size() == 2 and blocks.move_left.size() == 3 and blocks.move_left.has(KEY_UP) and blocks.move_left.has(KEY_BACKSPACE) and blocks.move_forward.has(KEY_DOWN), "A (left) and W (forward) blocked while ↑, ↓ or ⌫ is held")
 	var combos := KeyCombos.new()
 	combos.set_bindings(Controls.defaults())
 	combos.feed(key(KEY_UP, true), 0)
@@ -119,6 +124,25 @@ func _run() -> void:
 	Input.parse_input_event(key(KEY_UP, false))
 	Input.flush_buffered_events()
 	check(not player.click_modified(), "nothing held: a click breaks or places")
+	# A tenu avec ↑ : réglage de vitesse, pas un pas à gauche.
+	Controls.apply(Controls.defaults())
+	Input.parse_input_event(key(KEY_A, true))
+	Input.flush_buffered_events()
+	check(player.move_strength("move_left") == 1.0, "A alone: goes left")
+	Input.parse_input_event(key(KEY_UP, true))
+	Input.flush_buffered_events()
+	check(player.move_strength("move_left") == 0.0 and player.move_strength("move_right") == 0.0, "↑ + A: does not go left")
+	Input.parse_input_event(key(KEY_UP, false))
+	Input.parse_input_event(key(KEY_A, false))
+	Input.flush_buffered_events()
+	# ⌫ + A : tout le déplacement par défaut, le reste gardé.
+	world.developer_mode = true
+	player.apply_settings(Settings.default_values())
+	player.update_speed(DELTA * 60, true, true, false)
+	player.walk_scale = 1.3
+	hold(player, 1, {}, ["speed"])
+	check(player.speed_scale == 1.0 and player.walk_scale == 1.3, "⌫ + A: all-movement speed back to 100 %, walk kept")
+	world.developer_mode = false
 	root.remove_child(world)
 	world.queue_free()
 	# Ancien controles.json (0.0.4.5) : R + ↓ (speed_reset) ignoré.
@@ -128,6 +152,7 @@ func _run() -> void:
 	file.store_string('{"speed_reset": {"key": %d, "second": {"key": %d}}, "speed_up": {"key": %d}}' % [KEY_R, KEY_DOWN, KEY_UP])
 	file.close()
 	var legacy := Settings.new(fixture)
+	check(legacy.controls.speed_up == Controls.default_for("speed_up"), "old controles.json: ↑ alone (former default) becomes ↑ + A")
 	check(not legacy.controls.has("speed_reset") and legacy.controls.speed_reset_all == Controls.default_for("speed_reset_all") and legacy.controls.run_down == Controls.default_for("run_down") and legacy.load_notice.is_empty(), "old controles.json: R + ↓ ignored, new keys by default")
 	# Menus.
 	var settings := Settings.new(fixture + ".app")

@@ -335,12 +335,12 @@ func _process(delta: float) -> void:
 # level : 0 = −, 1 = Par défaut, 2 = + (textes complets d'avant 0.0.3.3), selon Synthèse des textes.
 static func get_help_text(level: int = 2) -> String:
 	if level == 0:
-		return "ZQSD : marcher. ↑ ↓ : vitesse (⌫ ⌫ : défaut). Espace : sauter ; deux fois : voler. Clic gauche : casser ; clic droit : poser.
+		return "ZQSD : marcher. ↑ ↓ + A : vitesse (⌫ ⌫ : défaut). Espace : sauter ; deux fois : voler. Clic gauche : casser ; clic droit : poser.
 Molette : bloc. Échap : pause. F1 : mondes."
 	if level == 1:
 		return "ZQSD / WASD : marcher (← → : de côté). Souris : regarder. Espace : sauter.
 Y : se baisser. R : courir (mode dans Contrôles).
-↑ ↓ : tout le déplacement plus ou moins vite ; + W : marche, + R : course,
+↑ ↓ + A : tout le déplacement plus ou moins vite ; + W : marche, + R : course,
 + clic : casse ou pose (mode développeur). ⌫ + touche : par défaut ; ⌫ deux fois : tout.
 Espace deux fois : voler (Espace monte, Y descend) ; encore deux fois : arrêter.
 Maintenir clic gauche : casser ; clic droit : poser. Molette : changer de bloc.
@@ -352,11 +352,12 @@ Touches modifiables : Paramètres → Contrôles." % [int(PlayerScript.REACH), M
 Y : se baisser. R : courir. Modes dans Contrôles : Maintenir, Basculer,
 et pour courir Maintenir conditionnel (un appui lance la course ; s'arrêter,
 sauter, se baisser ou la pause l'arrêtent, puis il faut réappuyer sur R).
-↑ maintenu : tout le déplacement (marche, course, baissé, vol) de plus en plus rapide ;
-↓ maintenu : de plus en plus lent. ↑ ou ↓ avec W : la marche seule ; avec R : la course seule ;
+↑ + A maintenus : tout le déplacement (marche, course, baissé, vol) de plus en plus rapide ;
+↓ + A : de plus en plus lent. ↑ ou ↓ avec W : la marche seule ; avec R : la course seule ;
 avec clic gauche ou droit : la casse ou la pose plus ou moins rapide (mode développeur).
 Limites : 75 à 150 %% dans un monde par défaut, Attributs en mode développeur.
-La vitesse choisie reste. ⌫ + la même touche (W, R, clic) : cette valeur par défaut ;
+La vitesse choisie reste. A ou W tenus avec ↑, ↓ ou ⌫ ne font pas bouger.
+⌫ + la même touche (A, W, R, clic) : cette valeur par défaut ;
 ⌫ deux fois : tout par défaut.
 Voler : Espace deux fois (rapidement) ; en vol, pas de gravité, Espace maintenu monte,
 Y maintenu descend ; Espace deux fois à nouveau : on retombe. Vitesses dans Attributs → Voler,

@@ -98,8 +98,11 @@ var break_scale := 1.0
 var place_scale := 1.0
 var break_base := 0.3
 var place_base := 0.3
-# Touches qui font d'un clic un réglage de vitesse (Controls.click_modifiers, donné par l'application).
-var click_modifiers := [KEY_UP, KEY_DOWN, KEY_BACKSPACE]
+# Touches qui font d'un clic un réglage de vitesse (Controls.click_modifiers, donné par l'application) ;
+# 0.0.4.7 : déplacements bloqués pendant un réglage (Controls.blocked_moves, ex. A avec ↑).
+const Controls = preload("res://scripts/controls.gd")
+var click_modifiers: Array = Controls.click_modifiers(Controls.defaults())
+var move_blocks: Dictionary = Controls.blocked_moves(Controls.defaults())
 # Voler (0.0.4.5) : touche Voler (Espace deux fois) pour commencer ou arrêter ; sans gravité, Sauter monte,
 # Se baisser descend. Vitesses dans Attributs → Voler ; ↑ ↓ les changent aussi.
 const FLY_SPEED := 10.0
@@ -270,7 +273,7 @@ func _physics_process(delta: float) -> void:
 	var direction := Vector2.ZERO
 	var jump_requested := false
 	if Input.mouse_mode == Input.MOUSE_MODE_CAPTURED:
-		direction = Input.get_vector("move_left", "move_right", "move_forward", "move_back")
+		direction = (Vector2(move_strength("move_right") - move_strength("move_left"), move_strength("move_back") - move_strength("move_forward"))).limit_length(1.0)
 		jump_requested = Input.is_action_just_pressed("jump") and not wait_jump_release
 	var active := Input.mouse_mode == Input.MOUSE_MODE_CAPTURED
 	update_fly(active, Input.is_action_just_pressed("fly"))
@@ -288,6 +291,8 @@ func _physics_process(delta: float) -> void:
 			changes[target] = 1.0 if faster else -1.0
 		if Input.is_action_pressed(target + "_reset"):
 			resets.append(target)
+	if Input.is_action_pressed("move_reset"):
+		resets.append("speed")
 	update_speed(delta, active, Input.is_action_pressed("speed_up"), Input.is_action_pressed("speed_down"), Input.is_action_pressed("speed_reset_all"), changes, resets)
 	var modified := click_modified()
 	step_breaking(delta, active, Input.is_action_pressed("break_block") and not modified)
@@ -460,6 +465,12 @@ func _apply_intervals() -> void:
 
 func click_modified() -> bool:
 	return click_modifiers.any(func(code): return Input.is_physical_key_pressed(code))
+
+# Force d'une touche de déplacement, 0 si elle sert à un réglage de vitesse (↑ + A : pas à gauche).
+func move_strength(action: String) -> float:
+	if move_blocks.get(action, []).any(func(code): return Input.is_physical_key_pressed(code)):
+		return 0.0
+	return Input.get_action_strength(action)
 
 # Voler (0.0.4.5) : chaque appui sur la touche Voler commence ou arrête le vol (rien en pause).
 func update_fly(active: bool, just_pressed: bool) -> void:

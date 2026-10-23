@@ -120,6 +120,8 @@ func _read_controls() -> void:
 			continue
 		if Controls.is_valid(data[action]):
 			controls[action] = Controls.clean(data[action])
+			if Controls.FORMER_DEFAULTS.get(action) == controls[action]:
+				controls[action] = Controls.default_for(action)
 		else:
 			load_notice = "Certains contrôles invalides ont repris leur touche par défaut."
 	for option in Controls.OPTIONS:

@@ -1,4 +1,5 @@
 extends SceneTree
+# 0.0.4.7 : ↑ / ↓ + A (Tout plus vite / moins vite) à la place de la flèche seule.
 # 0.0.4.3 : Plus vite (↑) et Moins vite (↓), maintenus : marche et course changent ensemble,
 # peu à peu, entre une vitesse minimale et une maximale (Attributs → Changer de vitesse).
 # ↑ ↓ ne font plus avancer ni reculer ; les touches R + T, R + F, R + G de 0.0.4.2 sont retirées.
@@ -45,10 +46,10 @@ func _run() -> void:
 	root.size = Vector2i(1280, 720)
 	# Contrôles : ↑ ↓ pour la vitesse, plus pour marcher ; anciennes actions retirées.
 	var names: Array = Controls.ACTIONS.keys()
-	check(names.slice(names.find("sprint") + 1, names.find("sprint") + 3) == ["speed_up", "speed_down"], "Plus vite, Moins vite just after Courir")
+	check(names.slice(names.find("sprint") + 1, names.find("sprint") + 3) == ["speed_up", "speed_down"], "Tout plus vite, Tout moins vite just after Courir")
 	check(not names.has("speed_reset") and Controls.default_for("speed_reset_all") == {"key": KEY_BACKSPACE, "second": {"key": KEY_BACKSPACE}} and Controls.label(Controls.default_for("speed_reset_all")) == "⌫ deux fois", "Tout par défaut: ⌫ deux fois (R + ↓ removed)")
-	check(Controls.ACTIONS.speed_up.label == "Plus vite" and Controls.ACTIONS.speed_down.label == "Moins vite", "labels")
-	check(Controls.default_for("speed_up") == {"key": KEY_UP} and Controls.default_for("speed_down") == {"key": KEY_DOWN}, "↑ and ↓ by default")
+	check(Controls.ACTIONS.speed_up.label == "Tout plus vite" and Controls.ACTIONS.speed_down.label == "Tout moins vite", "labels")
+	check(Controls.default_for("speed_up") == {"key": KEY_UP, "second": {"key": KEY_A}} and Controls.default_for("speed_down") == {"key": KEY_DOWN, "second": {"key": KEY_A}}, "↑ + A and ↓ + A by default (0.0.4.7)")
 	check(not names.has("run_faster") and not names.has("run_slower") and not names.has("run_normal"), "R + T, R + F, R + G removed")
 	check(Controls.ACTIONS.move_forward.fixed.is_empty() and Controls.ACTIONS.move_back.fixed.is_empty() and Controls.ACTIONS.move_left.fixed == [KEY_LEFT] and Controls.ACTIONS.move_right.fixed == [KEY_RIGHT], "↑ ↓ no longer walk, ← → still do")
 	Controls.apply(Controls.defaults())
@@ -62,7 +63,7 @@ func _run() -> void:
 	combos.feed(erase, 60)
 	erase.pressed = true
 	check(combos.feed(erase, 150) == [["speed_reset_all", true]], "⌫ twice triggers Tout par défaut")
-	check(has_key("speed_up", KEY_UP) and has_key("speed_down", KEY_DOWN) and not has_key("move_forward", KEY_UP) and not has_key("move_back", KEY_DOWN), "game input: arrows change the speed only")
+	check(not has_key("speed_up", KEY_UP) and not has_key("speed_down", KEY_DOWN) and not has_key("move_forward", KEY_UP) and not has_key("move_back", KEY_DOWN), "game input: arrows alone do nothing (0.0.4.7)")
 	# Attributs.
 	for key in ["speed_max", "speed_min", "speed_up_rate", "speed_down_rate"]:
 		check(key in Settings.ATTRIBUTE_KEYS, "attribute: " + key)
@@ -145,7 +146,7 @@ func _run() -> void:
 	file.close()
 	var legacy := Settings.new(fixture)
 	check(legacy.values.run_forward == 9.0 and legacy.values.speed_max == 200.0 and not legacy.values.has("run_max") and legacy.load_notice.is_empty(), "old attributs.json: new attributes by default, old ones ignored, no warning")
-	check(legacy.controls.sprint == {"key": KEY_E} and legacy.controls.speed_up == {"key": KEY_UP} and not legacy.controls.has("run_faster") and legacy.control_options.run_mode == "toggle" and legacy.load_notice.is_empty(), "old controles.json: ↑ ↓ by default, R + T ignored, no warning")
+	check(legacy.controls.sprint == {"key": KEY_E} and legacy.controls.speed_up == Controls.default_for("speed_up") and not legacy.controls.has("run_faster") and legacy.control_options.run_mode == "toggle" and legacy.load_notice.is_empty(), "old controles.json: ↑ ↓ by default, R + T ignored, no warning")
 	# Menus : Contrôles, Attributs, Comment jouer.
 	var settings := Settings.new(fixture + ".app")
 	var app: Control = load("res://scenes/main.tscn").instantiate()
@@ -153,11 +154,11 @@ func _run() -> void:
 	app.catalog = load("res://scripts/world_catalog.gd").new(fixture + ".worlds")
 	root.add_child(app)
 	await process_frame
-	check(app.control_buttons.has("speed_up") and app.control_buttons.speed_up.text == "↑" and app.control_second_buttons.has("speed_down"), "Plus vite in Contrôles (↑), with a second key")
+	check(app.control_buttons.has("speed_up") and app.control_buttons.speed_up.text == "↑" and app.control_second_buttons.speed_up.text == "A", "Tout plus vite in Contrôles (↑ + A)")
 	var categories: Array = app.ATTRIBUTE_CATEGORIES.keys()
 	check(categories.find("Changer de vitesse") == categories.find("Voler") + 1 and app.setting_fields.has("speed_max") and app.setting_sliders.has("speed_down_rate"), "Changer de vitesse under Voler, with fields and sliders")
 	var help: String = load("res://scripts/world.gd").get_help_text(2)
-	check(help.contains("↑ maintenu") and help.contains("⌫ deux fois") and not help.contains("R + T") and not help.contains("flèches : marcher"), "Comment jouer explains ↑ ↓")
+	check(help.contains("↑ + A maintenus") and help.contains("⌫ deux fois") and not help.contains("R + T") and not help.contains("flèches : marcher"), "Comment jouer explains ↑ ↓")
 	root.remove_child(app)
 	app.queue_free()
 	await process_frame
