@@ -1,5 +1,5 @@
 extends RefCounted
-# Launcher (0.0.3.28), pour le propriétaire seul tant que le dépôt est privé :
+# Launcher (0.0.4), pour le propriétaire seul tant que le dépôt est privé :
 # liste les Releases GitHub, télécharge la version choisie (zip Windows) dans
 # user://launcher/<version>/, puis la lance. Passe par GitHub CLI (gh), déjà connecté
 # sur le PC : aucun jeton n'est gardé par le jeu. Windows seulement.
@@ -42,7 +42,7 @@ static func build_list(tags: Array, names: Dictionary) -> Array:
 		result.append({"version": version, "name": names.get(version, "")})
 	return result
 
-# Dernières versions jouées (0.0.3.29), la plus récente en dernier : <root>/versions-jouees.json.
+# Dernières versions jouées (0.0.4.1), la plus récente en dernier : <root>/versions-jouees.json.
 const PLAYED_MAX := 6
 
 static func played_path() -> String:

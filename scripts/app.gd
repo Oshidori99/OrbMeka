@@ -141,7 +141,7 @@ var play_button: Button
 var settings_button: Button
 var information_button: Button
 var history_button: Button
-# Launcher (0.0.3.28) : bouton de l'accueil, page des versions, travail en fond (gh), version ouverte.
+# Launcher (0.0.4) : bouton de l'accueil, page des versions, travail en fond (gh), version ouverte.
 var launcher_button: Button
 var quit_button: Button
 var launcher := Launcher.new()
@@ -912,7 +912,7 @@ func _build_interface() -> void:
 	backdrop.material.shader = BackdropShader
 	menu_root.add_child(backdrop)
 	backdrop.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	# Launcher (0.0.3.29) : fond opaque qui cache le monde de l'accueil.
+	# Launcher (0.0.4.1) : fond opaque qui cache le monde de l'accueil.
 	launcher_screen = ColorRect.new()
 	launcher_screen.color = UiTheme.LAUNCHER_SCREEN
 	launcher_screen.visible = false
@@ -952,11 +952,11 @@ func _build_interface() -> void:
 	settings_button = _button("Paramètres", home, func(): show_page("settings"))
 	information_button = _button("Informations", home, func(): show_page("information"))
 	history_button = _button("Historique des versions", home, open_history)
-	# 0.0.3.28 : launcher puis Quitter, tout en bas (pas de Quitter dans un navigateur).
+	# 0.0.4 : launcher puis Quitter, tout en bas (pas de Quitter dans un navigateur).
 	launcher_button = _button("Aller au launcher", home, open_launcher)
 	quit_button = _button("Quitter le jeu", home, func(): get_tree().quit())
 	quit_button.visible = not OS.has_feature("web")
-	# 0.0.3.29 : écran à part (gris, sans le monde derrière). De haut en bas : Retour au jeu,
+	# 0.0.4.1 : écran à part (gris, sans le monde derrière). De haut en bas : Retour au jeu,
 	# dernières versions jouées (la plus récente en bas), gros bouton vert Jouer (dernière
 	# version) avec ▼ qui déplie toutes les versions en dessous, la dernière tout en bas.
 	var launcher_page := _page(stack, "OrbMeka — Launcher")
@@ -1317,7 +1317,7 @@ func _update_backdrop() -> void:
 	var paused_world := is_instance_valid(active_world)
 	backdrop.material.set_shader_parameter("blur", 2.5 if paused_world else 0.0)
 	backdrop.material.set_shader_parameter("tint", Color(0.07, 0.04, 0.13, 0.5 if paused_world else 0.12))
-	# Launcher (0.0.3.29) : on sort du jeu (fond gris uni, panneau sobre, titre de fenêtre).
+	# Launcher (0.0.4.1) : on sort du jeu (fond gris uni, panneau sobre, titre de fenêtre).
 	var outside := page == "launcher"
 	launcher_screen.visible = outside
 	if outside:
@@ -1591,7 +1591,7 @@ func open_history() -> void:
 	history_scroll.scroll_vertical = 0
 	show_page("history")
 
-# Launcher (0.0.3.28) : versions des Releases GitHub, groupées par 0.0.x, avec leur nom.
+# Launcher (0.0.4) : versions des Releases GitHub, groupées par 0.0.x, avec leur nom.
 # refresh = false : garder la liste déjà connue (tests, sans GitHub).
 func open_launcher(refresh := true) -> void:
 	if is_instance_valid(active_world):

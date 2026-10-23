@@ -1,5 +1,5 @@
 extends SceneTree
-# 0.0.3.28 : « Aller au launcher » puis « Quitter le jeu » tout en bas de l'accueil ;
+# 0.0.4 : « Aller au launcher » puis « Quitter le jeu » tout en bas de l'accueil ;
 # page Launcher : Dernière version, versions groupées par 0.0.x avec leur nom.
 # Sans GitHub ni téléchargement : la liste est donnée par le test.
 const Launcher = preload("res://scripts/launcher.gd")
@@ -47,7 +47,7 @@ func _run() -> void:
 	var buttons: Array = app.play_button.get_parent().get_children().filter(func(node): return node is Button)
 	check(buttons.slice(-3) == [app.history_button, app.launcher_button, app.quit_button] and app.launcher_button.text == "Aller au launcher" and app.quit_button.text == "Quitter le jeu", "launcher just above Quitter, at the bottom of home")
 	check(app.quit_button.visible, "Quitter shown outside a browser")
-	# Page Launcher (0.0.3.29) : écran à part, versions jouées, gros Jouer vert et ▼.
+	# Page Launcher (0.0.4.1) : écran à part, versions jouées, gros Jouer vert et ▼.
 	Launcher.note_played("0.0.2.6")
 	for version in ["0.0.3.1", "0.0.3.2", "0.0.3.3", "0.0.3.4", "0.0.3.5", "0.0.2.6"]:
 		Launcher.note_played(version)
@@ -69,7 +69,7 @@ func _run() -> void:
 	app.launcher_arrow_button.pressed.emit()
 	check(app.launcher_scroll.visible and app.launcher_arrow_button.button_pressed, "▼ unfolds every version")
 	var headings: Array = app.launcher_list.get_children().filter(func(node): return node is RichTextLabel).map(func(node): return node.text)
-	check(headings == ["0.0.2", "0.0.3", "9.9.9"], "one heading per 0.0.x group, latest at the bottom")
+	check(headings == ["0.0.2", Launcher.group_of(current), "9.9.9"], "one heading per 0.0.x group, latest at the bottom")
 	var rows: Array = app.launcher_list.get_children().filter(func(node): return node is HBoxContainer)
 	check(rows.size() == 3 and rows[-1].get_child(1) == app.launcher_play_buttons["9.9.9.1"] and app.launcher_list.get_children().any(func(node): return not node is HBoxContainer and not node is RichTextLabel), "rows spaced between groups, latest version last")
 	app.launcher_arrow_button.pressed.emit()

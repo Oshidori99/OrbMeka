@@ -27,7 +27,7 @@ const RESET_PRESSED := Color("#d88a2a")
 const LAUNCH := Color("#2f9e58")
 const LAUNCH_HOVER := Color("#3bbd6b")
 const LAUNCH_PRESSED := Color("#237a43")
-# Écran du launcher (0.0.3.29) : gris neutre et opaque, pour sortir de l'ambiance du jeu.
+# Écran du launcher (0.0.4.1) : gris neutre et opaque, pour sortir de l'ambiance du jeu.
 const LAUNCHER_SCREEN := Color("#16181d")
 const LAUNCHER_PANEL := Color("#22252c")
 const MODES := ["dark", "default", "light"]
@@ -152,7 +152,7 @@ static func build(text_scale: float = 1.0, mode: String = "default", depth: bool
 	for state in ["font_color", "font_hover_color", "font_pressed_color", "font_focus_color", "font_hover_pressed_color"]:
 		theme.set_color(state, "OrbCategoryReset", Color("#2a1440"))
 	theme.set_font_size("font_size", "OrbCategoryReset", scaled(22, text_scale))
-	# Jouer et ▼ du launcher (OrbLaunch, 0.0.3.29) : gros boutons verts, dans tous les thèmes.
+	# Jouer et ▼ du launcher (OrbLaunch, 0.0.4.1) : gros boutons verts, dans tous les thèmes.
 	theme.set_type_variation("OrbLaunch", "Button")
 	theme.set_stylebox("normal", "OrbLaunch", _button_box(LAUNCH, Color("#145c32"), 1))
 	theme.set_stylebox("hover", "OrbLaunch", _button_box(LAUNCH_HOVER, Color.WHITE, 1))

@@ -20,7 +20,7 @@ Guide complet : docs/README.md. Fichiers techniques : docs/ORGANISATION.txt.
 ## Tests
 Depuis PowerShell, à la racine du projet :
 
-    & 'C:\Users\Dev\Downloads\Godot_v4.7.2-stable_win64.exe\Godot_v4.7.2-stable_win64_console.exe' --headless --path . --script res://tests/<nom>_test.gd
+    & 'C:\Users\Dev\Desktop\Godot_v4.7.2-stable_win64.exe\Godot_v4.7.2-stable_win64_console.exe' --headless --path . --script res://tests/<nom>_test.gd
 
 Lancer les tests liés au changement ; ce qui ne peut être vérifié qu'en jouant (aspect, souris) est signalé comme « à tester manuellement ».
 

@@ -1,4 +1,4 @@
-# OrbMeka™ — prototype 0.0.3.29
+# OrbMeka™ — prototype 0.0.4.1
 
 Godot 4.7 / GDScript. Formes et couleurs simples, sans assets externes.
 
@@ -1053,7 +1053,7 @@ history_resume (numéro de version). Résultat : 35 tests, 0 échec.
 place des boutons 2e touche et ✕ dans Contrôles, clic sur les cartes
 du menu Personnage (curseur main), vitrine de l'accueil.
 
-## Launcher et Quitter — 0.0.3.28
+## Launcher et Quitter — 0.0.4
 - Accueil : **Aller au launcher**, puis **Quitter le jeu** tout en bas
   (Quitter est caché dans un navigateur).
 - Launcher (version Windows seulement, pour le propriétaire tant que le
@@ -1079,7 +1079,7 @@ Essai réel sur le PC : liste de 40 versions avec noms, téléchargement de
 À tester manuellement : boutons en bas de l'accueil (petite fenêtre),
 lisibilité de la liste, lancer une ancienne version puis la fermer.
 
-## Launcher à part — 0.0.3.29
+## Launcher à part — 0.0.4.1
 - Le launcher ressemble à une application séparée : fond gris uni (le
   monde de l'accueil disparaît), panneau et boutons gris, titre de
   fenêtre « OrbMeka — Launcher ». « Retour au jeu » en haut à gauche.
