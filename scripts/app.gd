@@ -12,6 +12,7 @@ const CharacterPreview = preload("res://scripts/character_preview.gd")
 const MenuShowcase = preload("res://scripts/menu_showcase.gd")
 const Launcher = preload("res://scripts/launcher.gd")
 const BackdropShader = preload("res://scripts/menu_backdrop.gdshader")
+const MenuSounds = preload("res://scripts/menu_sounds.gd")
 const MIN_WINDOW_SIZE := Vector2i(800, 450)
 const MENU_BASE_SIZE := Vector2(1280, 720)
 const MENU_BASE_WIDTH := 560.0
@@ -46,6 +47,7 @@ Première action immédiate ; un délai plus court accélère la répétition."]
 const GENERAL_CATEGORIES := {
 	"general": {
 		"Souris": {"keys": ["mouse_sensitivity"], "help": ["", "Rotation de la vue.", "Vitesse de rotation de la vue."]},
+		"Son": {"keys": ["menu_volume"], "help": ["", "Volume des sons des menus.", "Volume des petits sons des menus (survol, clic, retour) ; 0 = muet. Les autres sons viendront avec ce qu'ils accompagnent."]},
 		"Textes": {"keys": ["text_detail"], "help": ["", "Détail des explications.", "Quantité de détails dans les explications : − l'essentiel, + tout."]},
 	},
 	"video": {
@@ -94,6 +96,7 @@ var control_menu_buttons: Dictionary = {}
 var control_labels: Dictionary = {}
 var capturing_second := false
 var key_combos := KeyCombos.new()
+var menu_sounds: Node
 var character_previews: Dictionary = {}
 # Cartes du menu Personnage (0.0.3.22) : « boy9:light »… pour les humains, « cat », « fox »… pour les animaux.
 var character_buttons: Dictionary = {}
@@ -229,7 +232,16 @@ func _button(text: String, parent: Node, action: Callable) -> Button:
 	_min_size(button, Vector2(0, 40))
 	parent.add_child(button)
 	button.pressed.connect(action)
+	_sounds().attach(button)
 	return button
+
+# Sons des menus (0.0.4.11), créés au premier bouton.
+func _sounds() -> Node:
+	if menu_sounds == null:
+		menu_sounds = MenuSounds.new()
+		menu_sounds.name = "MenuSounds"
+		add_child(menu_sounds)
+	return menu_sounds
 
 func _icon_button(icon: String, label: String, parent: Node, action: Callable) -> Button:
 	# Bouton compact à icône ; le nom de l'action reste dans l'infobulle et pour l'accessibilité.
@@ -280,6 +292,7 @@ func _sep(container: Control, base: int) -> void:
 
 # Taille du texte, thème, profondeur et taille des zones : appliqués à tous les menus, immédiatement.
 func apply_appearance() -> void:
+	_sounds().set_volume(settings.values.get("menu_volume", 60.0))
 	menu_root.theme = _build_theme()
 	for control in scaled_sizes:
 		control.custom_minimum_size = scaled_sizes[control] * _element_scale()
@@ -375,6 +388,7 @@ func _add_choice_row(parent: Node, key: String) -> void:
 		var switch := CheckButton.new()
 		switch.tooltip_text = spec.label
 		switch.toggled.connect(func(on: bool): _choose(key, "on" if on else "off"))
+		_sounds().attach(switch)
 		row.add_child(switch)
 		choice_switches[key] = switch
 	var group := ButtonGroup.new()

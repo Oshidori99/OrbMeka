@@ -63,6 +63,9 @@ func _run() -> void:
 	check(Settings.new(fixture).values == settings.values, "all settings persist independently in local file")
 	var committed: Dictionary = settings.values.duplicate()
 	for field in Settings.SPECS:
+		# 0 accepté pour le volume des menus (muet, 0.0.4.11).
+		if Settings.SPECS[field].min <= 0.0:
+			continue
 		var invalid := texts(committed)
 		invalid[field] = "0"
 		check(not settings.apply_texts(invalid) and settings.values == committed, "zero rejected without changing active " + field)

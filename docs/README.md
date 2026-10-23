@@ -1,4 +1,4 @@
-# OrbMeka™ — prototype 0.0.4.10
+# OrbMeka™ — prototype 0.0.4.11
 
 Godot 4.7 / GDScript. Formes et couleurs simples, sans assets externes.
 
@@ -1293,3 +1293,23 @@ monde, retour en partie). Tests mis à jour : world_mode (retour possible),
 menu (developer_used enregistré), numéro de version. Résultat : 42 tests, 0 échec.
 À tester manuellement : repasser en mode par défaut depuis Mes mondes et en
 pause, lecture des Informations du monde (F3).
+
+## Sons des menus — 0.0.4.11
+Issue #96 (milestone Sons).
+- Trois petits sons, **fabriqués par le jeu** (ondes simples, aucun fichier
+  ni son d'un autre jeu) : un tic au **survol** d'un bouton actif, un bip
+  montant au **clic**, un bip descendant pour **Retour** et **Annuler**.
+  Interrupteurs Oui / Non compris. Ils jouent aussi en pause.
+- **Paramètres généraux → Son** : Volume des menus (60 % par défaut, 0 =
+  muet), enregistré dans parametres-generaux.json.
+- Les autres sons viendront avec ce qu'ils accompagnent (personnages,
+  animaux, monde).
+
+Test ajouté : tests/menu_sounds_test.gd (sons générés, fin sans clic,
+survol, clic, retour, volume, muet, ancien fichier). Tests mis à jour :
+attributes (0 accepté pour le volume), settings_files (ordre des clés),
+interface_info (37 champs), numéro de version. Résultat : 43 tests, 0 échec.
+Corrigé avant publication : erreur de type dans menu_sounds.gd (vue dans
+l'éditeur).
+À tester manuellement : écouter les sons (agréables ? trop forts ?),
+volume, muet.

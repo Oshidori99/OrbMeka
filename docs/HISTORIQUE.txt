@@ -3,6 +3,10 @@ Du plus récent au plus ancien. Ce fichier est mis à jour à chaque version.
 
 === Thème « Menus et Paramètres 2 » (0.0.4 et suivantes) ===
 
+0.0.4.11 — Sons des menus
+Petits sons fabriqués par le jeu au survol, au clic et pour Retour ; volume dans
+Paramètres généraux → Son (0 = muet).
+
 0.0.4.10 — Retour au mode par défaut
 Un monde en mode développeur peut repasser en mode par défaut (Paramètres du monde ou Attributs) ;
 les Informations du monde disent alors « Mode développeur utilisé au moins une fois ».
