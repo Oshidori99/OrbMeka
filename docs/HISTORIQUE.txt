@@ -3,6 +3,10 @@ Du plus récent au plus ancien. Ce fichier est mis à jour à chaque version.
 
 === Thème « Menus et Paramètres 2 » (0.0.4 et suivantes) ===
 
+0.0.4.12 — Voix des personnages
+Choisir un personnage le fait parler (voix de l'ordinateur, selon l'âge, « Jouons ensemble ! »)
+ou crier (animaux, cris fabriqués par le jeu) ; Volume des personnages dans Son.
+
 0.0.4.11 — Sons des menus
 Petits sons fabriqués par le jeu au survol, au clic et pour Retour ; volume dans
 Paramètres généraux → Son (0 = muet).

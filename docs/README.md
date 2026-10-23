@@ -1,4 +1,4 @@
-# OrbMeka™ — prototype 0.0.4.11
+# OrbMeka™ — prototype 0.0.4.12
 
 Godot 4.7 / GDScript. Formes et couleurs simples, sans assets externes.
 
@@ -1313,3 +1313,28 @@ Corrigé avant publication : erreur de type dans menu_sounds.gd (vue dans
 l'éditeur).
 À tester manuellement : écouter les sons (agréables ? trop forts ?),
 volume, muet.
+
+## Voix des personnages — 0.0.4.12
+- **Choisir un personnage** (Paramètres → Personnage) le fait parler ou
+  crier.
+- **Humains** : synthèse vocale de l'ordinateur (voix française du système,
+  rien d'enregistré ni de téléchargé), plus aiguë pour les plus jeunes. Des
+  phrases propres à chaque âge, qui tournent : 9 ans plus enfantines
+  (« Jouons ensemble ! », « On construit une cabane ? »), 14 ans (« Salut !
+  On part explorer ? »…), adultes (« Bonjour ! Prêt à construire ? »…). Sans
+  voix française sur l'ordinateur : pas de voix.
+- **Animaux** : cris fabriqués par le jeu (ondes simples, aucun fichier ni
+  son d'un autre jeu) : miaulements des deux chats, petits cris de
+  l'écureuil, jappements du renard, grognement doux de la tortue, couinement
+  et petit bond du lapin.
+- **Paramètres généraux → Son** : Volume des personnages (80 %, 0 = muet).
+- Note : sur la version Web, le navigateur choisit la voix ; certaines voix
+  de navigateur passent par Internet (seule la phrase du jeu est envoyée,
+  aucune donnée du joueur).
+
+Test ajouté : tests/character_voices_test.gd (voix ou cri pour chaque
+personnage, phrases par âge, hauteur de voix, cris générés et différents,
+choix dans Personnage, muet, réglage). Tests mis à jour : interface_info
+(38 champs), numéro de version. Résultat : 44 tests, 0 échec.
+À tester manuellement : écouter les voix (Windows : voix française
+installée ?) et les cris, volume.

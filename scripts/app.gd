@@ -13,6 +13,7 @@ const MenuShowcase = preload("res://scripts/menu_showcase.gd")
 const Launcher = preload("res://scripts/launcher.gd")
 const BackdropShader = preload("res://scripts/menu_backdrop.gdshader")
 const MenuSounds = preload("res://scripts/menu_sounds.gd")
+const CharacterVoices = preload("res://scripts/character_voices.gd")
 const MIN_WINDOW_SIZE := Vector2i(800, 450)
 const MENU_BASE_SIZE := Vector2(1280, 720)
 const MENU_BASE_WIDTH := 560.0
@@ -47,7 +48,7 @@ Première action immédiate ; un délai plus court accélère la répétition."]
 const GENERAL_CATEGORIES := {
 	"general": {
 		"Souris": {"keys": ["mouse_sensitivity"], "help": ["", "Rotation de la vue.", "Vitesse de rotation de la vue."]},
-		"Son": {"keys": ["menu_volume"], "help": ["", "Volume des sons des menus.", "Volume des petits sons des menus (survol, clic, retour) ; 0 = muet. Les autres sons viendront avec ce qu'ils accompagnent."]},
+		"Son": {"keys": ["menu_volume", "character_volume"], "help": ["", "Volume des menus et des personnages.", "Volume des petits sons des menus (survol, clic, retour), et des voix et cris des personnages quand on les choisit ; 0 = muet. Voix : synthèse vocale de l'ordinateur (rien n'est enregistré)."]},
 		"Textes": {"keys": ["text_detail"], "help": ["", "Détail des explications.", "Quantité de détails dans les explications : − l'essentiel, + tout."]},
 	},
 	"video": {
@@ -97,6 +98,7 @@ var control_labels: Dictionary = {}
 var capturing_second := false
 var key_combos := KeyCombos.new()
 var menu_sounds: Node
+var character_voices: Node
 var character_previews: Dictionary = {}
 # Cartes du menu Personnage (0.0.3.22) : « boy9:light »… pour les humains, « cat », « fox »… pour les animaux.
 var character_buttons: Dictionary = {}
@@ -235,6 +237,14 @@ func _button(text: String, parent: Node, action: Callable) -> Button:
 	_sounds().attach(button)
 	return button
 
+# Voix des personnages (0.0.4.12), créées à la première utilisation.
+func _voices() -> Node:
+	if character_voices == null:
+		character_voices = CharacterVoices.new()
+		character_voices.name = "CharacterVoices"
+		add_child(character_voices)
+	return character_voices
+
 # Sons des menus (0.0.4.11), créés au premier bouton.
 func _sounds() -> Node:
 	if menu_sounds == null:
@@ -293,6 +303,7 @@ func _sep(container: Control, base: int) -> void:
 # Taille du texte, thème, profondeur et taille des zones : appliqués à tous les menus, immédiatement.
 func apply_appearance() -> void:
 	_sounds().set_volume(settings.values.get("menu_volume", 60.0))
+	_voices().set_volume(settings.values.get("character_volume", 80.0))
 	menu_root.theme = _build_theme()
 	for control in scaled_sizes:
 		control.custom_minimum_size = scaled_sizes[control] * _element_scale()
@@ -656,6 +667,8 @@ func _choose_character(id: String, skin: String) -> void:
 		choice_values["skin"] = skin
 	_refresh_character_cards()
 	_autosave()
+	# 0.0.4.12 : le personnage choisi parle (humain) ou pousse son cri (animal).
+	_voices().speak(id, CharacterPreview.CHARACTERS.get(id, {}).get("age", "adulte"))
 
 func _refresh_character_cards() -> void:
 	var id: String = choice_values.get("character", UserSettings.CHOICES.character.default)

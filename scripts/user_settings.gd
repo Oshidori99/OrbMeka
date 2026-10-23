@@ -48,6 +48,8 @@ const SPECS := {
 	"mouse_sensitivity": {"label": "Sensibilité de la souris", "unit": "%", "default": 100.0, "min": 10.0, "max": 300.0},
 	# 0.0.4.11 : volume des sons des menus (0 = muet), réglage général.
 	"menu_volume": {"label": "Volume des menus", "unit": "%", "default": 60.0, "min": 0.0, "max": 100.0},
+	# 0.0.4.12 : volume des voix et cris des personnages (0 = muet).
+	"character_volume": {"label": "Volume des personnages", "unit": "%", "default": 80.0, "min": 0.0, "max": 100.0},
 	"panel_size": {"label": "Taille des panneaux", "unit": "% de la fenêtre", "default": 72.0, "min": 50.0, "max": 95.0},
 	# 0.0.3.8 : largeur du menu de gauche en % de la largeur du panneau (avant : en px, ignorée).
 	"nav_percent": {"label": "Largeur du menu de gauche", "unit": "% du panneau", "default": 15.0, "min": 5.0, "max": 40.0},
@@ -85,7 +87,7 @@ const DEFAULT_PATH := "user://settings.json"
 # Taille de référence du texte courant dans le thème : Taille du texte / 18 = facteur des polices.
 const BASE_TEXT_PX := 18.0
 const FILES := {"general": "parametres-generaux.json", "video": "video.json", "character": "personnage.json", "attributes": "attributs.json"}
-const GENERAL_KEYS := ["menu_volume", "mouse_sensitivity", "text_detail"]
+const GENERAL_KEYS := ["character_volume", "menu_volume", "mouse_sensitivity", "text_detail"]
 const CONTROLS_FILE := "controles.json"
 var values: Dictionary = {}
 var controls: Dictionary = {}
