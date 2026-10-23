@@ -335,12 +335,12 @@ func _process(delta: float) -> void:
 # level : 0 = −, 1 = Par défaut, 2 = + (textes complets d'avant 0.0.3.3), selon Synthèse des textes.
 static func get_help_text(level: int = 2) -> String:
 	if level == 0:
-		return "ZQSD : marcher. ↑ ↓ : vitesse. Espace : sauter. Clic gauche : casser ; clic droit : poser.
+		return "ZQSD : marcher. ↑ ↓ : vitesse (R + ↓ : défaut). Espace : sauter. Clic gauche : casser ; clic droit : poser.
 Molette : bloc. Échap : pause. F1 : mondes."
 	if level == 1:
 		return "ZQSD / WASD : marcher (← → : de côté). Souris : regarder. Espace : sauter.
 Y : se baisser. R : courir (mode dans Contrôles).
-↑ ↓ : marcher et courir plus ou moins vite.
+↑ ↓ : marcher, courir, se baisser plus ou moins vite. R + ↓ : vitesse par défaut.
 Maintenir clic gauche : casser ; clic droit : poser. Molette : changer de bloc.
 Échap : pause. F1 : liste des mondes. F2 : Comment jouer. F3 : Informations.
 Portée : %d blocs. Maximum : %d blocs, hauteur %d (Y 0 sur le sol plat).
@@ -350,9 +350,10 @@ Touches modifiables : Paramètres → Contrôles." % [int(PlayerScript.REACH), M
 Y : se baisser. R : courir. Modes dans Contrôles : Maintenir, Basculer,
 et pour courir Maintenir conditionnel (un appui lance la course ; s'arrêter,
 sauter, se baisser ou la pause l'arrêtent, puis il faut réappuyer sur R).
-↑ maintenu : marche et course de plus en plus rapides, jusqu'au maximum ;
+↑ maintenu : marche, course et marche baissée de plus en plus rapides, jusqu'au maximum ;
 ↓ maintenu : de plus en plus lentes, jusqu'au minimum. La course reste plus rapide
 que la marche ; la vitesse choisie reste jusqu'au prochain changement (Attributs).
+R + ↓ ensemble : retour à la vitesse par défaut.
 
 Maintenir clic gauche : casser ; clic droit : poser.
 Première action immédiate, puis répétition selon les paramètres des blocs.

@@ -79,7 +79,7 @@ var run_latched := false
 var run_forward := RUN_SPEED
 var run_side := RUN_SPEED
 var run_back := RUN_SPEED
-# Plus vite / Moins vite (0.0.4.3, ↑ ↓) : marche et course multipliées par speed_scale
+# Plus vite / Moins vite (0.0.4.3, ↑ ↓) : marche, course et, depuis 0.0.4.4, baissé multipliés par speed_scale
 # (1 = vitesse normale), entre speed_min et speed_max ; gardé jusqu'au prochain changement.
 var speed_scale := 1.0
 var speed_max := 2.0
@@ -239,7 +239,7 @@ func _physics_process(delta: float) -> void:
 	var active := Input.mouse_mode == Input.MOUSE_MODE_CAPTURED
 	update_crouch(active, Input.is_action_pressed("crouch"), Input.is_action_just_pressed("crouch"))
 	update_run(active, Input.is_action_pressed("sprint"), Input.is_action_just_pressed("sprint"), direction != Vector2.ZERO, jump_requested)
-	update_speed(delta, active, Input.is_action_pressed("speed_up"), Input.is_action_pressed("speed_down"))
+	update_speed(delta, active, Input.is_action_pressed("speed_up"), Input.is_action_pressed("speed_down"), Input.is_action_pressed("speed_reset"))
 	step_breaking(delta, active, Input.is_action_pressed("break_block"))
 	step_placement(delta, active, Input.is_action_pressed("place_block"))
 	step_movement(delta, direction, jump_requested)
@@ -365,9 +365,15 @@ func update_run(active: bool, held: bool, just_pressed: bool, moving: bool, jump
 			running = held
 
 # Plus vite / Moins vite (0.0.4.3), maintenus : la vitesse change peu à peu, en marchant comme
-# en courant, même à l'arrêt ; les deux ensemble s'annulent. Rien en pause ou souris libre.
-func update_speed(delta: float, active: bool, up: bool, down: bool) -> void:
-	if not active or up == down:
+# en courant ou baissé, même à l'arrêt ; les deux ensemble s'annulent. Rien en pause ou souris libre.
+# Vitesse par défaut (0.0.4.4, R + ↓) : retour à 100 %, même si ↓ est tenue avec.
+func update_speed(delta: float, active: bool, up: bool, down: bool, reset: bool = false) -> void:
+	if not active:
+		return
+	if reset:
+		speed_scale = 1.0
+		return
+	if up == down:
 		return
 	if up:
 		speed_scale = minf(speed_scale + speed_up_rate * delta, speed_max)
@@ -396,10 +402,10 @@ func step_movement(delta: float, direction: Vector2, jump_requested: bool) -> vo
 	# direction.y < 0 : avancer ; > 0 : reculer ; direction.x : de côté.
 	var step := direction.limit_length(1.0)
 	# Baissé l'emporte sur courir.
-	# Plus vite / Moins vite : marche et course ensemble, la course reste plus rapide.
-	var side := crouch_side if crouching else (run_side if running else walk_side) * speed_scale
-	var forward := crouch_forward if crouching else (run_forward if running else walk_forward) * speed_scale
-	var back := crouch_back if crouching else (run_back if running else walk_back) * speed_scale
+	# Plus vite / Moins vite : marche, course et baissé (0.0.4.4) ensemble ; leurs écarts restent.
+	var side := (crouch_side if crouching else (run_side if running else walk_side)) * speed_scale
+	var forward := (crouch_forward if crouching else (run_forward if running else walk_forward)) * speed_scale
+	var back := (crouch_back if crouching else (run_back if running else walk_back)) * speed_scale
 	var local := Vector3(step.x * side, 0.0, step.y * (forward if step.y < 0.0 else back))
 	# Caméra un peu plus basse quand on est baissé.
 	var eye := maxf(0.2, eye_height - CROUCH_DROP) if crouching else eye_height

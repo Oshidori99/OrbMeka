@@ -1,4 +1,4 @@
-# OrbMeka™ — prototype 0.0.4.3
+# OrbMeka™ — prototype 0.0.4.4
 
 Godot 4.7 / GDScript. Formes et couleurs simples, sans assets externes.
 
@@ -65,7 +65,8 @@ sont conservés. L'apparition tient compte des blocs présents.
 - Espace : sauter, un appui par saut.
 - Y : se baisser ; R : courir. Mode de chaque touche dans Contrôles :
   Maintenir ou Basculer, et pour courir **Maintenir conditionnel** (0.0.3.25).
-- ↑ ↓ maintenues : marcher et courir plus ou moins vite (0.0.4.3).
+- ↑ ↓ maintenues : marcher, courir, se baisser plus ou moins vite (0.0.4.3) ;
+  R + ↓ : vitesse par défaut (0.0.4.4).
 - Contrôles : deuxième touche facultative par action, double appui ou
   en même temps (0.0.3.27).
 - Clic gauche : casse immédiate ; maintenir pour répéter selon les paramètres (**300 ms par défaut**).
@@ -1147,3 +1148,18 @@ gardée, attributs, anciens controles.json et attributs.json, menus). Tests
 mis à jour : controls et key_combos (plus de flèche ↑ pour avancer),
 interface_info (28 champs), eye_height et settings_walk (ordre des catégories), numéro de version. Résultat : 37 tests, 0 échec.
 À tester manuellement : ressenti de ↑ ↓ en marchant et en courant, limites.
+
+## Vitesse par défaut — 0.0.4.4
+- **Contrôles** : nouvelle action **Vitesse par défaut**, **R + ↓** ensemble
+  par défaut (sous Moins vite) : retour immédiat à 100 %, même si ↓ reste
+  tenue. Modifiable comme les autres. En mode Basculer, R + ↓ bascule aussi
+  la course (R est dedans).
+- ↑ ↓ changent maintenant aussi la vitesse quand on se baisse (même %
+  que la marche et la course).
+- Comment jouer, aide de Attributs → Changer de vitesse et vitrine mis à jour.
+
+Test mis à jour : tests/speed_change_test.gd (R + ↓ dans Contrôles et par
+deux touches, retour à 100 %, rien en pause, baissé suit ↑ ↓) ; numéro de
+version (pause, prototype, shortcuts_selection, history_resume).
+Résultat : 37 tests, 0 échec.
+À tester manuellement : R + ↓ en jeu, ↑ ↓ en étant baissé.

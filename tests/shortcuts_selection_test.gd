@@ -78,7 +78,7 @@ func _run() -> void:
 	key(KEY_F2)
 	key(KEY_F3)
 	check(app.page == "worlds" and not paused, "shortcuts remain inactive after leaving world")
-	check(app.home_version.text == "v0.0.4.3" and app.pause_version.text == "v0.0.4.3", "home and pause show new version")
+	check(app.home_version.text == "v0.0.4.4" and app.pause_version.text == "v0.0.4.4", "home and pause show new version")
 	root.remove_child(app)
 	app.queue_free()
 	await process_frame

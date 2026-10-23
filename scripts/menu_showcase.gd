@@ -12,11 +12,11 @@ extends Node3D
 # 2 ou 3, choisis parmi les nouveautés : liste NEWS_RUNNERS ([id, peau], peau vide pour un animal).
 # Chacun prend son modèle Blender, sinon une forme simple (character_model.gd, partagé avec le jeu).
 # Le reste du fichier (sol, collines, ciel, caméra) ne change pas d'une version à l'autre.
-const NEWS_VERSION := "0.0.4.3"
-const NEWS_TEXT := "Nouveau : ↑ et ↓ changent la vitesse !
-Marche et course de plus en plus rapides, ou plus lentes."
+const NEWS_VERSION := "0.0.4.4"
+const NEWS_TEXT := "Nouveau : R + ↓ remet la vitesse par défaut !
+↑ ↓ changent aussi la vitesse quand on se baisse."
 
-# 0.0.3.25 (gardé jusqu'à 0.0.4.3) : les trois nouveautés de 0.0.3.23 courent en aller-retour dans l'herbe libre, devant la place
+# 0.0.3.25 (gardé jusqu'à 0.0.4.4) : les trois nouveautés de 0.0.3.23 courent en aller-retour dans l'herbe libre, devant la place
 # de sable et pierre (sous le panneau des menus, vers la droite),
 # chacune sur sa rangée. Pas encore d'animation des jambes : le modèle glisse, tourné vers où il va.
 const NEWS_RUNNERS := [["girl9", "brown"], ["fox", ""], ["rabbit", ""]]
@@ -24,7 +24,7 @@ const NEWS_Z := [5.5, 6.3, 7.1]
 const RUN_FROM := 5.4
 const RUN_TO := 9.2
 const RUN_SPEEDS := [2.6, 3.0, 2.8]
-# 0.0.4.2, 0.0.4.3 : le renard (rangée du milieu) accélère peu à peu jusqu'à FOX_TOP puis ralentit,
+# 0.0.4.2 à 0.0.4.4 : le renard (rangée du milieu) accélère peu à peu jusqu'à FOX_TOP puis ralentit,
 # comme ↑ puis ↓ maintenus ; cycle de FOX_CYCLE secondes.
 const FOX_TOP := 7.5
 const FOX_CYCLE := 6.0

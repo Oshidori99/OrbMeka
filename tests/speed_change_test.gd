@@ -2,6 +2,7 @@ extends SceneTree
 # 0.0.4.3 : Plus vite (↑) et Moins vite (↓), maintenus : marche et course changent ensemble,
 # peu à peu, entre une vitesse minimale et une maximale (Attributs → Changer de vitesse).
 # ↑ ↓ ne font plus avancer ni reculer ; les touches R + T, R + F, R + G de 0.0.4.2 sont retirées.
+# 0.0.4.4 : R + ↓ remet la vitesse par défaut ; la marche baissée suit aussi ↑ ↓.
 const Settings = preload("res://scripts/user_settings.gd")
 const Controls = preload("res://scripts/controls.gd")
 const DELTA := 1.0 / 60.0
@@ -43,12 +44,23 @@ func _run() -> void:
 	root.size = Vector2i(1280, 720)
 	# Contrôles : ↑ ↓ pour la vitesse, plus pour marcher ; anciennes actions retirées.
 	var names: Array = Controls.ACTIONS.keys()
-	check(names.slice(names.find("sprint") + 1, names.find("sprint") + 3) == ["speed_up", "speed_down"], "Plus vite, Moins vite just after Courir")
+	check(names.slice(names.find("sprint") + 1, names.find("sprint") + 4) == ["speed_up", "speed_down", "speed_reset"], "Plus vite, Moins vite, Vitesse par défaut just after Courir")
+	check(Controls.default_for("speed_reset") == {"key": KEY_R, "second": {"key": KEY_DOWN}} and Controls.label(Controls.default_for("speed_reset")) == "R + ↓" and Controls.ACTIONS.speed_reset.label == "Vitesse par défaut", "Vitesse par défaut: R + ↓")
 	check(Controls.ACTIONS.speed_up.label == "Plus vite" and Controls.ACTIONS.speed_down.label == "Moins vite", "labels")
 	check(Controls.default_for("speed_up") == {"key": KEY_UP} and Controls.default_for("speed_down") == {"key": KEY_DOWN}, "↑ and ↓ by default")
 	check(not names.has("run_faster") and not names.has("run_slower") and not names.has("run_normal"), "R + T, R + F, R + G removed")
 	check(Controls.ACTIONS.move_forward.fixed.is_empty() and Controls.ACTIONS.move_back.fixed.is_empty() and Controls.ACTIONS.move_left.fixed == [KEY_LEFT] and Controls.ACTIONS.move_right.fixed == [KEY_RIGHT], "↑ ↓ no longer walk, ← → still do")
 	Controls.apply(Controls.defaults())
+	var combos: RefCounted = load("res://scripts/key_combos.gd").new()
+	combos.set_bindings(Controls.defaults())
+	var down := InputEventKey.new()
+	down.physical_keycode = KEY_R
+	down.pressed = true
+	combos.feed(down, 0)
+	var arrow := InputEventKey.new()
+	arrow.physical_keycode = KEY_DOWN
+	arrow.pressed = true
+	check(combos.feed(arrow, 40) == [["speed_reset", true]], "R then ↓ triggers Vitesse par défaut")
 	check(has_key("speed_up", KEY_UP) and has_key("speed_down", KEY_DOWN) and not has_key("move_forward", KEY_UP) and not has_key("move_back", KEY_DOWN), "game input: arrows change the speed only")
 	# Attributs.
 	for key in ["speed_max", "speed_min", "speed_up_rate", "speed_down_rate"]:
@@ -90,10 +102,22 @@ func _run() -> void:
 	check(absf(slow - 2.75) < 0.2, "walking at 50 %%: 2,75 m/s (%.2f)" % slow)
 	player.crouching = true
 	var crouched: float = await walk(player, 30)
-	check(absf(crouched - 1.5) < 0.15, "crouching is not changed (%.2f)" % crouched)
+	check(absf(crouched - 0.75) < 0.1, "crouching follows too: 0,75 m/s at 50 %% (%.2f)" % crouched)
 	player.crouching = false
 	hold(player, 60, true, true)
 	check(player.speed_scale == 0.5, "↑ and ↓ together cancel out")
+	# R + ↓ : vitesse par défaut, même avec ↓ tenue ; rien en pause.
+	player.update_speed(DELTA, false, false, true, true)
+	check(player.speed_scale == 0.5, "R + ↓ does nothing while paused")
+	player.update_speed(DELTA, true, false, true, true)
+	check(player.speed_scale == 1.0, "R + ↓ goes back to 100 %, even with ↓ held")
+	hold(player, 60, true, false)
+	player.update_speed(DELTA, true, true, false, true)
+	check(player.speed_scale == 1.0, "R + ↓ also cancels a faster speed")
+	player.crouching = true
+	var crouch_normal: float = await walk(player, 30)
+	check(absf(crouch_normal - 1.5) < 0.15, "crouching back to 1,5 m/s (%.2f)" % crouch_normal)
+	player.crouching = false
 	# Attributs appliqués.
 	var values := Settings.default_values()
 	values.speed_max = 150.0
@@ -131,7 +155,7 @@ func _run() -> void:
 	var categories: Array = app.ATTRIBUTE_CATEGORIES.keys()
 	check(categories.find("Changer de vitesse") == categories.find("Se baisser") + 1 and app.setting_fields.has("speed_max") and app.setting_sliders.has("speed_down_rate"), "Changer de vitesse under Se baisser, with fields and sliders")
 	var help: String = load("res://scripts/world.gd").get_help_text(2)
-	check(help.contains("↑ maintenu") and not help.contains("R + T") and not help.contains("flèches : marcher"), "Comment jouer explains ↑ ↓")
+	check(help.contains("↑ maintenu") and help.contains("R + ↓") and not help.contains("R + T") and not help.contains("flèches : marcher"), "Comment jouer explains ↑ ↓")
 	root.remove_child(app)
 	app.queue_free()
 	await process_frame

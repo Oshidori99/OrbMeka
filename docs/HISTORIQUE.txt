@@ -3,6 +3,9 @@ Du plus récent au plus ancien. Ce fichier est mis à jour à chaque version.
 
 === Thème « Menus et Paramètres 2 » (0.0.4 et suivantes) ===
 
+0.0.4.4 — Vitesse par défaut
+R + ↓ ensemble : retour à la vitesse par défaut ; ↑ ↓ changent aussi la vitesse baissé.
+
 0.0.4.3 — Vitesse aux flèches
 ↑ ↓ maintenues : marche et course plus ou moins rapides, entre un minimum et un maximum
 (Attributs → Changer de vitesse) ; ↑ ↓ ne font plus avancer ; R + T, R + F, R + G retirés.

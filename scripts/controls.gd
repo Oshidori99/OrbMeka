@@ -24,6 +24,8 @@ const ACTIONS := {
 	# 0.0.4.3 : changer la vitesse de marche et de course (← → seules restent pour se déplacer).
 	"speed_up": {"label": "Plus vite", "default": {"key": KEY_UP}, "fixed": []},
 	"speed_down": {"label": "Moins vite", "default": {"key": KEY_DOWN}, "fixed": []},
+	# 0.0.4.4 : R + ↓ ensemble, retour à la vitesse par défaut (100 %).
+	"speed_reset": {"label": "Vitesse par défaut", "default": {"key": KEY_R, "second": {"key": KEY_DOWN}}, "by_letter": true, "fixed": []},
 	"break_block": {"label": "Casser", "default": {"mouse": MOUSE_BUTTON_LEFT}, "fixed": []},
 	"place_block": {"label": "Poser", "default": {"mouse": MOUSE_BUTTON_RIGHT}, "fixed": []},
 	"block_previous": {"label": "Bloc précédent", "default": {"mouse": MOUSE_BUTTON_WHEEL_UP}, "fixed": []},
