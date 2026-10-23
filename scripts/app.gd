@@ -36,7 +36,8 @@ Gravité de descente : retombée plus ou moins rapide."]},
 	"Blocs": {"keys": ["place_ms", "break_ms", "break_reach", "place_reach"], "help": ["", "Rythme et portée de la casse et de la pose.", "Temps entre deux actions au maintien du clic, et distance maximale (en blocs) pour casser et pour poser.
 Première action immédiate ; un délai plus court accélère la répétition."]},
 	"Marche": {"keys": ["walk_forward", "walk_side", "walk_back"], "help": ["", "Vitesse au sol par direction.", "Vitesse au sol dans chaque direction (1 bloc = 1 m)."]},
-	"Courir": {"keys": ["run_forward", "run_side", "run_back"], "help": ["", "Vitesse quand on court.", "En courant (touche de Contrôles maintenue, R par défaut) : vitesse au sol dans chaque direction (1 bloc = 1 m). Se baisser l'emporte sur courir."]},
+	"Courir": {"keys": ["run_forward", "run_side", "run_back", "run_max", "run_accel", "run_decel"], "help": ["", "Vitesse de course, et pour courir plus vite.", "En courant (touche de Contrôles, R par défaut) : vitesse au sol dans chaque direction (1 bloc = 1 m). Se baisser l'emporte sur courir.
+Accélérer (R + T) monte peu à peu jusqu'à la vitesse maximale (en avançant ; les autres directions suivent en proportion). Ralentir (R + F) redescend, jamais sous la course normale. Rapidités : m/s gagnés ou perdus par seconde."]},
 	"Se baisser": {"keys": ["crouch_forward", "crouch_side", "crouch_back", "crouch_gravity"], "help": ["", "Vitesses et chute quand on se baisse.", "En se baissant (touche de Contrôles) : vitesse dans chaque direction, et gravité de chute, plus forte pour tomber plus vite."]},
 	"Vue": {"keys": ["eye_height"], "help": ["", "Hauteur de la vue, en blocs.", "Hauteur des yeux au-dessus des pieds, en blocs : 1 = vue à un bloc du sol, 2 = à deux blocs. Deux décimales possibles (ex. 1,9 ou 2,15)."]},
 }

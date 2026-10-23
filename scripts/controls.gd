@@ -20,6 +20,11 @@ const ACTIONS := {
 	"crouch": {"label": "Se baisser", "default": {"key": KEY_Y}, "by_letter": true, "fixed": []},
 	# 0.0.3.24 : maintenir pour courir (plus rapide) ; défaut par lettre : R.
 	"sprint": {"label": "Courir", "default": {"key": KEY_R}, "by_letter": true, "fixed": []},
+	# 0.0.4.2 : courir plus vite. Par défaut R + une touche voisine (par lettre) ; pas R + D,
+	# car D (Aller à droite) remettrait la vitesse normale en courant de côté.
+	"run_faster": {"label": "Accélérer", "default": {"key": KEY_R, "second": {"key": KEY_T}}, "by_letter": true, "fixed": []},
+	"run_slower": {"label": "Ralentir", "default": {"key": KEY_R, "second": {"key": KEY_F}}, "by_letter": true, "fixed": []},
+	"run_normal": {"label": "Vitesse normale", "default": {"key": KEY_R, "second": {"key": KEY_G}}, "by_letter": true, "fixed": []},
 	"break_block": {"label": "Casser", "default": {"mouse": MOUSE_BUTTON_LEFT}, "fixed": []},
 	"place_block": {"label": "Poser", "default": {"mouse": MOUSE_BUTTON_RIGHT}, "fixed": []},
 	"block_previous": {"label": "Bloc précédent", "default": {"mouse": MOUSE_BUTTON_WHEEL_UP}, "fixed": []},
@@ -54,9 +59,11 @@ static func defaults() -> Dictionary:
 # Liaison par défaut d'une action ; « by_letter » : la touche qui porte cette lettre
 # sur le clavier du joueur, quelle que soit sa disposition.
 static func default_for(action: String) -> Dictionary:
-	var binding: Dictionary = ACTIONS[action].default.duplicate()
+	var binding: Dictionary = ACTIONS[action].default.duplicate(true)
 	if ACTIONS[action].get("by_letter", false) and binding.has("key"):
 		binding.key = physical_for_letter(binding.key)
+		if binding.has("second"):
+			binding.second.key = physical_for_letter(binding.second.key)
 	return binding
 
 static func physical_for_letter(letter: int) -> int:
@@ -211,6 +218,8 @@ static func ensure_defaults() -> void:
 	for action in ACTIONS:
 		if not InputMap.has_action(action):
 			InputMap.add_action(action)
-			InputMap.action_add_event(action, _event(default_for(action)))
+			# Défaut à deux touches : déclenché par KeyCombos, pas par l'InputMap.
+			if kind(default_for(action)) == "single":
+				InputMap.action_add_event(action, _event(default_for(action)))
 			for code in ACTIONS[action].fixed:
 				InputMap.action_add_event(action, _event({"key": code}))

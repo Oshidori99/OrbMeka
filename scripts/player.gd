@@ -79,6 +79,17 @@ var run_latched := false
 var run_forward := RUN_SPEED
 var run_side := RUN_SPEED
 var run_back := RUN_SPEED
+# Courir plus vite (0.0.4.2) : bonus en m/s sur la course en avançant (autres directions en proportion),
+# entre 0 et run_max - run_forward. « boosted » : course accélérée, gardée même après un saut ou
+# une interruption, jusqu'à Vitesse normale, un vrai arrêt, la pause ou la perte du focus.
+const RUN_MAX := 14.0
+const RUN_ACCEL := 3.0
+const RUN_DECEL := 6.0
+var run_max := RUN_MAX
+var run_accel := RUN_ACCEL
+var run_decel := RUN_DECEL
+var run_boost := 0.0
+var boosted := false
 var input_ready_frame := -1
 var selected_type := 0:
 	set(value):
@@ -173,6 +184,7 @@ func step_placement(delta: float, active: bool, button_held: bool) -> bool:
 func release_controls() -> void:
 	actions.cancel()
 	update_run(false, false, false, false, false)
+	update_boost(0.0, false, false, false, false, false)
 	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
 
 func apply_settings(values: Dictionary) -> void:
@@ -192,6 +204,10 @@ func apply_settings(values: Dictionary) -> void:
 	run_forward = float(values.get("run_forward", RUN_SPEED))
 	run_side = float(values.get("run_side", RUN_SPEED))
 	run_back = float(values.get("run_back", RUN_SPEED))
+	run_max = float(values.get("run_max", RUN_MAX))
+	run_accel = float(values.get("run_accel", RUN_ACCEL))
+	run_decel = float(values.get("run_decel", RUN_DECEL))
+	run_boost = minf(run_boost, max_boost())
 	character = str(values.get("character", "boy14"))
 	skin = str(values.get("skin", "light"))
 	sync_body()
@@ -227,6 +243,7 @@ func _physics_process(delta: float) -> void:
 	var active := Input.mouse_mode == Input.MOUSE_MODE_CAPTURED
 	update_crouch(active, Input.is_action_pressed("crouch"), Input.is_action_just_pressed("crouch"))
 	update_run(active, Input.is_action_pressed("sprint"), Input.is_action_just_pressed("sprint"), direction != Vector2.ZERO, jump_requested)
+	update_boost(delta, active, Input.is_action_pressed("run_faster"), Input.is_action_pressed("run_slower"), Input.is_action_pressed("run_normal"), direction != Vector2.ZERO)
 	step_breaking(delta, active, Input.is_action_pressed("break_block"))
 	step_placement(delta, active, Input.is_action_pressed("place_block"))
 	step_movement(delta, direction, jump_requested)
@@ -351,6 +368,38 @@ func update_run(active: bool, held: bool, just_pressed: bool, moving: bool, jump
 			run_latched = false
 			running = held
 
+# Courir plus vite (0.0.4.2), après update_run : Accélérer (maintenu) monte peu à peu jusqu'au
+# maximum, Ralentir (maintenu) redescend jusqu'à la course normale, Vitesse normale y revient
+# d'un coup. La vitesse atteinte reste tant qu'on court. Ces trois touches font aussi courir
+# (R + T en mode Basculer ne coupe donc pas la course). Arrêt réel, pause ou focus perdu :
+# retour à la vitesse normale.
+func update_boost(delta: float, active: bool, faster: bool, slower: bool, normal: bool, moving: bool) -> void:
+	if not active or not moving:
+		run_boost = 0.0
+		boosted = false
+		return
+	if faster or slower or normal:
+		if run_mode != "hold":
+			run_latched = true
+		running = true
+	if normal:
+		run_boost = 0.0
+		boosted = false
+	elif faster:
+		boosted = true
+		run_boost = minf(run_boost + run_accel * delta, max_boost())
+	elif slower:
+		run_boost = maxf(run_boost - run_decel * delta, 0.0)
+	if boosted:
+		running = true
+
+func max_boost() -> float:
+	return maxf(0.0, run_max - run_forward)
+
+# Vitesse de course multipliée par ce rapport quand on court plus vite.
+func boost_ratio() -> float:
+	return (run_forward + run_boost) / run_forward if running and run_forward > 0.0 else 1.0
+
 # The same movement step is used by gameplay and windowless physics tests.
 func step_movement(delta: float, direction: Vector2, jump_requested: bool) -> void:
 	if actions.tick_jump(delta, is_on_floor(), jump_requested):
@@ -373,9 +422,10 @@ func step_movement(delta: float, direction: Vector2, jump_requested: bool) -> vo
 	# direction.y < 0 : avancer ; > 0 : reculer ; direction.x : de côté.
 	var step := direction.limit_length(1.0)
 	# Baissé l'emporte sur courir.
-	var side := crouch_side if crouching else (run_side if running else walk_side)
-	var forward := crouch_forward if crouching else (run_forward if running else walk_forward)
-	var back := crouch_back if crouching else (run_back if running else walk_back)
+	var boost := boost_ratio()
+	var side := crouch_side if crouching else (run_side * boost if running else walk_side)
+	var forward := crouch_forward if crouching else (run_forward * boost if running else walk_forward)
+	var back := crouch_back if crouching else (run_back * boost if running else walk_back)
 	var local := Vector3(step.x * side, 0.0, step.y * (forward if step.y < 0.0 else back))
 	# Caméra un peu plus basse quand on est baissé.
 	var eye := maxf(0.2, eye_height - CROUCH_DROP) if crouching else eye_height

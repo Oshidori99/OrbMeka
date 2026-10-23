@@ -340,6 +340,7 @@ Molette : bloc. Échap : pause. F1 : mondes."
 	if level == 1:
 		return "ZQSD / WASD / flèches : marcher. Souris : regarder. Espace : sauter.
 Y : se baisser. R : courir (mode dans Contrôles).
+R + T : accélérer. R + F : ralentir. R + G : vitesse normale.
 Maintenir clic gauche : casser ; clic droit : poser. Molette : changer de bloc.
 Échap : pause. F1 : liste des mondes. F2 : Comment jouer. F3 : Informations.
 Portée : %d blocs. Maximum : %d blocs, hauteur %d (Y 0 sur le sol plat).
@@ -349,6 +350,10 @@ Touches modifiables : Paramètres → Contrôles." % [int(PlayerScript.REACH), M
 Y : se baisser. R : courir. Modes dans Contrôles : Maintenir, Basculer,
 et pour courir Maintenir conditionnel (un appui lance la course ; s'arrêter,
 sauter, se baisser ou la pause l'arrêtent, puis il faut réappuyer sur R).
+Courir plus vite : R + T maintenus accélèrent peu à peu jusqu'au maximum ;
+R + F ralentissent (jamais sous la course normale) ; R + G : vitesse normale.
+Une fois accélérée, la course continue, même après un saut, à la vitesse atteinte ;
+s'arrêter (aucune touche de déplacement) ou la pause remettent la vitesse normale.
 
 Maintenir clic gauche : casser ; clic droit : poser.
 Première action immédiate, puis répétition selon les paramètres des blocs.

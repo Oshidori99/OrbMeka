@@ -1,4 +1,4 @@
-# OrbMeka™ — prototype 0.0.4.1
+# OrbMeka™ — prototype 0.0.4.2
 
 Godot 4.7 / GDScript. Formes et couleurs simples, sans assets externes.
 
@@ -65,6 +65,7 @@ sont conservés. L'apparition tient compte des blocs présents.
 - Espace : sauter, un appui par saut.
 - Y : se baisser ; R : courir. Mode de chaque touche dans Contrôles :
   Maintenir ou Basculer, et pour courir **Maintenir conditionnel** (0.0.3.25).
+- R + T : accélérer peu à peu ; R + F : ralentir ; R + G : vitesse normale (0.0.4.2).
 - Contrôles : deuxième touche facultative par action, double appui ou
   en même temps (0.0.3.27).
 - Clic gauche : casse immédiate ; maintenir pour répéter selon les paramètres (**300 ms par défaut**).
@@ -1097,3 +1098,29 @@ shortcuts_selection, history_resume (numéro de version).
 Résultat : 36 tests, 0 échec. Capture réelle vérifiée (1280×720).
 À tester manuellement : ressenti « hors du jeu », lancer une ancienne
 version depuis les versions jouées et depuis ▼, petite fenêtre.
+
+## Courir plus vite — 0.0.4.2
+- **Contrôles** : trois nouvelles actions sous Courir, avec deux touches par
+  défaut (par lettre) : **Accélérer** R + T, **Ralentir** R + F, **Vitesse
+  normale** R + G. Pas R + D : D (Aller à droite) remettrait la vitesse
+  normale en courant de côté. Touches et deuxième touche modifiables.
+- Accélérer maintenu : la vitesse monte peu à peu jusqu'au maximum ; elle
+  reste ensuite tant qu'on court (R tenu, Basculer, ou même R relâché), et
+  même après un saut ou un baissé, y compris en Maintenir conditionnel.
+- Ralentir maintenu : redescend, jamais sous la course normale. Vitesse
+  normale : retour immédiat à la course normale. Ces touches font aussi courir
+  (R + T en mode Basculer ne coupe pas la course).
+- Vrai arrêt (aucune touche de déplacement), pause ou fenêtre quittée :
+  vitesse normale.
+- **Attributs → Courir** : Vitesse maximale (14 m/s, en avançant ; les
+  autres directions suivent en proportion), Accélération (3 m/s²),
+  Ralentissement (6 m/s²), avec bornes, ↻ et validation.
+- Comment jouer et vitrine de l'accueil (le renard accélère) mis à jour.
+
+Test ajouté : tests/run_faster_test.gd (accélération progressive, maximum,
+ralentissement, vitesse normale, saut, arrêt, pause, modes, attributs,
+anciens controles.json et attributs.json, menus). Tests mis à jour :
+interface_info (27 champs), pause, prototype, shortcuts_selection,
+history_resume (numéro de version). Résultat : 37 tests, 0 échec.
+À tester manuellement : ressenti de l'accélération, R + T / R + F / R + G
+en jeu dans les trois modes, vitrine du renard.
