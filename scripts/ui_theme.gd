@@ -24,6 +24,12 @@ const ERROR := Color("#ffb7a8")
 const RESET := Color("#f0a640")
 const RESET_HOVER := Color("#ffc25e")
 const RESET_PRESSED := Color("#d88a2a")
+const LAUNCH := Color("#2f9e58")
+const LAUNCH_HOVER := Color("#3bbd6b")
+const LAUNCH_PRESSED := Color("#237a43")
+# Écran du launcher (0.0.3.29) : gris neutre et opaque, pour sortir de l'ambiance du jeu.
+const LAUNCHER_SCREEN := Color("#16181d")
+const LAUNCHER_PANEL := Color("#22252c")
 const MODES := ["dark", "default", "light"]
 # Facteur des marges intérieures pendant la construction du thème (Taille des zones et boutons).
 static var spacing := 1.0
@@ -146,6 +152,24 @@ static func build(text_scale: float = 1.0, mode: String = "default", depth: bool
 	for state in ["font_color", "font_hover_color", "font_pressed_color", "font_focus_color", "font_hover_pressed_color"]:
 		theme.set_color(state, "OrbCategoryReset", Color("#2a1440"))
 	theme.set_font_size("font_size", "OrbCategoryReset", scaled(22, text_scale))
+	# Jouer et ▼ du launcher (OrbLaunch, 0.0.3.29) : gros boutons verts, dans tous les thèmes.
+	theme.set_type_variation("OrbLaunch", "Button")
+	theme.set_stylebox("normal", "OrbLaunch", _button_box(LAUNCH, Color("#145c32"), 1))
+	theme.set_stylebox("hover", "OrbLaunch", _button_box(LAUNCH_HOVER, Color.WHITE, 1))
+	theme.set_stylebox("pressed", "OrbLaunch", _box(LAUNCH_PRESSED, 6, Color.WHITE, 1))
+	theme.set_stylebox("hover_pressed", "OrbLaunch", _box(LAUNCH_PRESSED, 6, Color.WHITE, 1))
+	theme.set_stylebox("disabled", "OrbLaunch", _box(Color(LAUNCH, 0.4), 6))
+	for state in ["font_color", "font_hover_color", "font_pressed_color", "font_focus_color", "font_hover_pressed_color"]:
+		theme.set_color(state, "OrbLaunch", Color.WHITE)
+	theme.set_font_size("font_size", "OrbLaunch", scaled(26, text_scale))
+	# Autres boutons du launcher (OrbLauncherButton) : gris sobres, hors de l'ambiance du jeu.
+	theme.set_type_variation("OrbLauncherButton", "Button")
+	theme.set_stylebox("normal", "OrbLauncherButton", _button_box(Color("#353943"), Color("#1c1e23"), 1))
+	theme.set_stylebox("hover", "OrbLauncherButton", _button_box(Color("#454a56"), Color("#9aa0ad"), 1))
+	theme.set_stylebox("pressed", "OrbLauncherButton", _box(Color("#2a2d35"), 6, Color("#9aa0ad"), 1))
+	theme.set_stylebox("disabled", "OrbLauncherButton", _box(Color("#353943", 0.45), 6))
+	for state in ["font_color", "font_hover_color", "font_pressed_color", "font_focus_color", "font_hover_pressed_color"]:
+		theme.set_color(state, "OrbLauncherButton", Color("#e6e8ec"))
 	# Textes.
 	theme.set_color("font_color", "Label", c.text)
 	# Ombre légère : texte lisible sur le panneau transparent.

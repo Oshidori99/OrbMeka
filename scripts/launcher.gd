@@ -42,6 +42,28 @@ static func build_list(tags: Array, names: Dictionary) -> Array:
 		result.append({"version": version, "name": names.get(version, "")})
 	return result
 
+# Dernières versions jouées (0.0.3.29), la plus récente en dernier : <root>/versions-jouees.json.
+const PLAYED_MAX := 6
+
+static func played_path() -> String:
+	return root.path_join("versions-jouees.json")
+
+static func played() -> Array:
+	var data: Variant = JSON.parse_string(FileAccess.get_file_as_string(played_path())) if FileAccess.file_exists(played_path()) else null
+	if not data is Array:
+		return []
+	return data.filter(func(item): return item is String).slice(-PLAYED_MAX)
+
+static func note_played(version: String) -> void:
+	var list := played()
+	list.erase(version)
+	list.append(version)
+	DirAccess.make_dir_recursive_absolute(ProjectSettings.globalize_path(root))
+	var file := FileAccess.open(played_path(), FileAccess.WRITE)
+	if file != null:
+		file.store_string(JSON.stringify(list.slice(-PLAYED_MAX)))
+		file.close()
+
 static func folder(version: String) -> String:
 	return root.path_join(version)
 

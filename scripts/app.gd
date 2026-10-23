@@ -147,6 +147,11 @@ var quit_button: Button
 var launcher := Launcher.new()
 var launcher_status: RichTextLabel
 var launcher_latest_button: Button
+var launcher_arrow_button: Button
+var launcher_played_title: RichTextLabel
+var launcher_played: VBoxContainer
+var launcher_played_buttons: Dictionary = {}
+var launcher_screen: ColorRect
 var launcher_list: VBoxContainer
 var launcher_scroll: ScrollContainer
 var launcher_back_button: Button
@@ -907,6 +912,12 @@ func _build_interface() -> void:
 	backdrop.material.shader = BackdropShader
 	menu_root.add_child(backdrop)
 	backdrop.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	# Launcher (0.0.3.29) : fond opaque qui cache le monde de l'accueil.
+	launcher_screen = ColorRect.new()
+	launcher_screen.color = UiTheme.LAUNCHER_SCREEN
+	launcher_screen.visible = false
+	menu_root.add_child(launcher_screen)
+	launcher_screen.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	var center := CenterContainer.new()
 	menu_root.add_child(center)
 	center.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
@@ -945,23 +956,47 @@ func _build_interface() -> void:
 	launcher_button = _button("Aller au launcher", home, open_launcher)
 	quit_button = _button("Quitter le jeu", home, func(): get_tree().quit())
 	quit_button.visible = not OS.has_feature("web")
-	var launcher_page := _page(stack, "Launcher")
+	# 0.0.3.29 : écran à part (gris, sans le monde derrière). De haut en bas : Retour au jeu,
+	# dernières versions jouées (la plus récente en bas), gros bouton vert Jouer (dernière
+	# version) avec ▼ qui déplie toutes les versions en dessous, la dernière tout en bas.
+	var launcher_page := _page(stack, "OrbMeka — Launcher")
 	pages.launcher = _page_root(launcher_page)
+	launcher_back_button = _button("Retour au jeu", launcher_page, func(): show_page("home"))
+	launcher_back_button.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
+	launcher_back_button.theme_type_variation = "OrbLauncherButton"
 	launcher_status = _text_label()
 	launcher_status.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	launcher_status.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	launcher_page.add_child(launcher_status)
-	launcher_latest_button = _button("Dernière version", launcher_page, play_latest_version)
+	launcher_played_title = _text_label()
+	launcher_played_title.text = "Dernières versions jouées"
+	launcher_played_title.theme_type_variation = "OrbSection"
+	launcher_page.add_child(launcher_played_title)
+	launcher_played = VBoxContainer.new()
+	_sep(launcher_played, 6)
+	launcher_page.add_child(launcher_played)
+	var play_row := HBoxContainer.new()
+	_sep(play_row, 4)
+	launcher_page.add_child(play_row)
+	launcher_latest_button = _button("Jouer", play_row, play_latest_version)
+	launcher_latest_button.theme_type_variation = "OrbLaunch"
+	launcher_latest_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_min_size(launcher_latest_button, Vector2(0, 64))
+	launcher_arrow_button = _button("▼", play_row, func(): show_all_versions(not launcher_scroll.visible))
+	launcher_arrow_button.theme_type_variation = "OrbLaunch"
+	launcher_arrow_button.toggle_mode = true
+	launcher_arrow_button.tooltip_text = "Choisir une autre version"
+	_min_size(launcher_arrow_button, Vector2(64, 64))
 	launcher_scroll = ScrollContainer.new()
-	launcher_scroll.custom_minimum_size = Vector2(0, 350)
-	menu_reserved_heights[launcher_scroll] = 300.0
+	launcher_scroll.custom_minimum_size = Vector2(0, 260)
+	menu_reserved_heights[launcher_scroll] = 200.0
 	launcher_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
 	launcher_page.add_child(launcher_scroll)
 	launcher_list = VBoxContainer.new()
 	launcher_list.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_sep(launcher_list, 6)
 	launcher_scroll.add_child(launcher_list)
-	launcher_back_button = _button("Retour", launcher_page, func(): show_page("home"))
+	launcher_scroll.visible = false
 	var history_page := _page(stack, "Historique des versions")
 	pages.history = _page_root(history_page)
 	history_scroll = ScrollContainer.new()
@@ -1282,6 +1317,18 @@ func _update_backdrop() -> void:
 	var paused_world := is_instance_valid(active_world)
 	backdrop.material.set_shader_parameter("blur", 2.5 if paused_world else 0.0)
 	backdrop.material.set_shader_parameter("tint", Color(0.07, 0.04, 0.13, 0.5 if paused_world else 0.12))
+	# Launcher (0.0.3.29) : on sort du jeu (fond gris uni, panneau sobre, titre de fenêtre).
+	var outside := page == "launcher"
+	launcher_screen.visible = outside
+	if outside:
+		var panel_box := StyleBoxFlat.new()
+		panel_box.bg_color = UiTheme.LAUNCHER_PANEL
+		panel_box.set_corner_radius_all(6)
+		panel_box.set_content_margin_all(24)
+		menu_panel.add_theme_stylebox_override("panel", panel_box)
+	else:
+		menu_panel.remove_theme_stylebox_override("panel")
+	get_window().title = "OrbMeka — Launcher" if outside else str(ProjectSettings.get_setting("application/config/name", "OrbMeka"))
 
 func show_page(next_page: String) -> void:
 	# En quittant Paramètres, la taille des menus réglée s'applique.
@@ -1550,6 +1597,10 @@ func open_launcher(refresh := true) -> void:
 	if is_instance_valid(active_world):
 		return
 	show_page("launcher")
+	show_all_versions(false)
+	# La version ouverte compte comme jouée (en bas de la liste des dernières versions jouées).
+	if Launcher.supported():
+		Launcher.note_played(Launcher.current_version())
 	if not Launcher.supported():
 		launcher_status.text = "Le launcher fonctionne seulement dans la version Windows."
 	elif refresh and launcher_online and launcher_thread == null:
@@ -1559,26 +1610,41 @@ func open_launcher(refresh := true) -> void:
 	fill_launcher()
 
 func fill_launcher() -> void:
-	for child in launcher_list.get_children():
-		for node in [child] + child.find_children("*", "Control", true, false):
-			scaled_sizes.erase(node)
-			scaled_separations.erase(node)
-			font_sizes.erase(node)
-		launcher_list.remove_child(child)
-		child.queue_free()
+	_clear_launcher_rows(launcher_list)
+	_clear_launcher_rows(launcher_played)
 	launcher_play_buttons.clear()
+	launcher_played_buttons.clear()
 	var current := Launcher.current_version()
 	var busy := launcher_thread != null or launcher_child != -1
 	if not launcher.error.is_empty():
 		launcher_status.text = launcher.error
 	elif Launcher.supported() and not busy:
 		launcher_status.text = "Version ouverte : %s. Les versions sont installées dans les données du jeu (AppData)." % current
-	launcher_latest_button.disabled = launcher.versions.is_empty() or busy
-	var group := ""
+	var names := {}
 	for item in launcher.versions:
-		var version: String = item.version
-		if Launcher.group_of(version) != group:
-			group = Launcher.group_of(version)
+		names[item.version] = item.name
+	# Dernières versions jouées : la plus récente en bas.
+	var played := Launcher.played()
+	launcher_played_title.visible = not played.is_empty()
+	# Place laissée au reste de la page (titre, versions jouées, Jouer) : la liste ▼ tient dans la fenêtre.
+	menu_reserved_heights[launcher_scroll] = 340.0 + 40.0 * played.size()
+	fit_menus_to_window()
+	for version in played:
+		launcher_played_buttons[version] = _launcher_row(launcher_played, version, names.get(version, ""), busy)
+	# Gros bouton : toujours la dernière version.
+	launcher_latest_button.disabled = launcher.versions.is_empty() or busy
+	launcher_arrow_button.disabled = launcher.versions.is_empty()
+	if launcher.versions.is_empty():
+		launcher_latest_button.text = "▶ Jouer"
+	else:
+		var latest: Dictionary = launcher.versions[0]
+		launcher_latest_button.text = "▶ Jouer — " + latest.version + (" · " + latest.name if not latest.name.is_empty() else "")
+	# Toutes les versions (▼), de la plus ancienne à la dernière, tout en bas ; groupes 0.0.x espacés.
+	var group := ""
+	for index in range(launcher.versions.size() - 1, -1, -1):
+		var item: Dictionary = launcher.versions[index]
+		if Launcher.group_of(item.version) != group:
+			group = Launcher.group_of(item.version)
 			if launcher_list.get_child_count() > 0:
 				var gap := Control.new()
 				_min_size(gap, Vector2(0, CATEGORY_GAP))
@@ -1587,19 +1653,49 @@ func fill_launcher() -> void:
 			heading.text = group
 			heading.theme_type_variation = "OrbSection"
 			launcher_list.add_child(heading)
-		var row := HBoxContainer.new()
-		_sep(row, 10)
-		launcher_list.add_child(row)
-		var label := _text_label()
-		label.text = version + (" — " + item.name if not item.name.is_empty() else "")
-		label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-		label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		row.add_child(label)
-		var text := "Ouverte" if version == current else ("Jouer" if not Launcher.executable(version).is_empty() else "Installer et jouer")
-		var button := _button(text, row, func(): play_version(version))
-		_min_size(button, Vector2(170, 0))
-		button.disabled = busy or not Launcher.supported()
-		launcher_play_buttons[version] = button
+		launcher_play_buttons[item.version] = _launcher_row(launcher_list, item.version, item.name, busy)
+	if launcher_scroll.visible:
+		_scroll_launcher_to_latest()
+
+# Ligne « 0.0.3.27 — Nom » et son bouton (Ouverte, Jouer ou Installer et jouer).
+func _launcher_row(parent: Node, version: String, version_name: String, busy: bool) -> Button:
+	var row := HBoxContainer.new()
+	_sep(row, 10)
+	parent.add_child(row)
+	var label := _text_label()
+	label.text = version + (" — " + version_name if not version_name.is_empty() else "")
+	label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	row.add_child(label)
+	var text := "Ouverte" if version == Launcher.current_version() else ("Jouer" if not Launcher.executable(version).is_empty() else "Installer et jouer")
+	var button := _button(text, row, func(): play_version(version))
+	button.theme_type_variation = "OrbLauncherButton"
+	label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	_min_size(button, Vector2(170, 0))
+	button.disabled = busy or not Launcher.supported()
+	return button
+
+func _clear_launcher_rows(container: Node) -> void:
+	for child in container.get_children():
+		for node in [child] + child.find_children("*", "Control", true, false):
+			scaled_sizes.erase(node)
+			scaled_separations.erase(node)
+			font_sizes.erase(node)
+		container.remove_child(child)
+		child.queue_free()
+
+# ▼ : déplie (ou replie) toutes les versions sous le bouton Jouer, la dernière visible en bas.
+func show_all_versions(open: bool) -> void:
+	launcher_arrow_button.set_pressed_no_signal(open)
+	launcher_scroll.visible = open
+	_queue_fit()
+	if open:
+		_scroll_launcher_to_latest()
+
+func _scroll_launcher_to_latest() -> void:
+	(func():
+		await get_tree().process_frame
+		launcher_scroll.scroll_vertical = int(launcher_scroll.get_v_scroll_bar().max_value)).call()
 
 func play_latest_version() -> void:
 	if not launcher.versions.is_empty():
@@ -1626,6 +1722,7 @@ func _start_version(version: String) -> void:
 		launcher_status.text = "Impossible de lancer la version %s." % version
 		fill_launcher()
 		return
+	Launcher.note_played(version)
 	launcher_child = pid
 	launcher_status.text = "Version %s ouverte : fermez-la pour revenir ici." % version
 	fill_launcher()

@@ -47,13 +47,33 @@ func _run() -> void:
 	var buttons: Array = app.play_button.get_parent().get_children().filter(func(node): return node is Button)
 	check(buttons.slice(-3) == [app.history_button, app.launcher_button, app.quit_button] and app.launcher_button.text == "Aller au launcher" and app.quit_button.text == "Quitter le jeu", "launcher just above Quitter, at the bottom of home")
 	check(app.quit_button.visible, "Quitter shown outside a browser")
-	# Page Launcher remplie.
+	# Page Launcher (0.0.3.29) : écran à part, versions jouées, gros Jouer vert et ▼.
+	Launcher.note_played("0.0.2.6")
+	for version in ["0.0.3.1", "0.0.3.2", "0.0.3.3", "0.0.3.4", "0.0.3.5", "0.0.2.6"]:
+		Launcher.note_played(version)
+	check(Launcher.played() == ["0.0.3.1", "0.0.3.2", "0.0.3.3", "0.0.3.4", "0.0.3.5", "0.0.2.6"], "played versions: no duplicate, latest last")
+	Launcher.note_played("0.0.3.6")
+	check(Launcher.played().size() == Launcher.PLAYED_MAX and Launcher.played()[0] == "0.0.3.2" and Launcher.played()[-1] == "0.0.3.6", "at most six played versions kept")
 	app.launcher.versions = list
 	app.open_launcher(false)
-	check(app.page == "launcher" and app.get_viewport().gui_get_focus_owner() == app.launcher_latest_button and not app.launcher_latest_button.disabled, "launcher page opens on Dernière version")
+	check(app.page == "launcher" and app.get_viewport().gui_get_focus_owner() == app.launcher_latest_button and not app.launcher_latest_button.disabled, "launcher page opens on the big Jouer")
+	check(app.launcher_screen.visible and app.get_window().title == "OrbMeka — Launcher" and app.menu_panel.has_theme_stylebox_override("panel"), "launcher looks outside the game")
+	check(app.launcher_latest_button.theme_type_variation == "OrbLaunch" and app.launcher_arrow_button.theme_type_variation == "OrbLaunch" and app.launcher_arrow_button.text == "▼", "Jouer and ▼ are the green buttons")
+	check(app.launcher_latest_button.text.begins_with("▶ Jouer — 9.9.9.1"), "Jouer is always the latest version")
+	var page_items: Array = app.launcher_latest_button.get_parent().get_parent().get_children()
+	check(page_items.find(app.launcher_played) < page_items.find(app.launcher_latest_button.get_parent()) and page_items.find(app.launcher_latest_button.get_parent()) < page_items.find(app.launcher_scroll), "played versions above, all versions below Jouer")
+	var played_rows: Array = app.launcher_played.get_children().map(func(row): return row.get_child(0).text.get_slice(" ", 0))
+	var expected_played: Array = Launcher.played()
+	check(played_rows == expected_played and played_rows[-1] == (current if Launcher.supported() else "0.0.3.6"), "played versions shown, last played at the bottom")
+	check(not app.launcher_scroll.visible, "all versions folded at first")
+	app.launcher_arrow_button.pressed.emit()
+	check(app.launcher_scroll.visible and app.launcher_arrow_button.button_pressed, "▼ unfolds every version")
 	var headings: Array = app.launcher_list.get_children().filter(func(node): return node is RichTextLabel).map(func(node): return node.text)
-	check(headings == ["9.9.9", "0.0.3", "0.0.2"], "one heading per 0.0.x group")
-	check(app.launcher_list.get_children().filter(func(node): return node is HBoxContainer).size() == 3 and app.launcher_list.get_children().any(func(node): return not node is HBoxContainer and not node is RichTextLabel), "rows spaced between groups")
+	check(headings == ["0.0.2", "0.0.3", "9.9.9"], "one heading per 0.0.x group, latest at the bottom")
+	var rows: Array = app.launcher_list.get_children().filter(func(node): return node is HBoxContainer)
+	check(rows.size() == 3 and rows[-1].get_child(1) == app.launcher_play_buttons["9.9.9.1"] and app.launcher_list.get_children().any(func(node): return not node is HBoxContainer and not node is RichTextLabel), "rows spaced between groups, latest version last")
+	app.launcher_arrow_button.pressed.emit()
+	check(not app.launcher_scroll.visible, "▼ again folds the list")
 	var row_text: String = app.launcher_play_buttons[current].get_parent().get_child(0).text
 	check(row_text == current + " — " + local[current], "each row shows the version and its name")
 	if Launcher.supported():
@@ -80,7 +100,7 @@ func _run() -> void:
 	root.remove_child(app)
 	app.queue_free()
 	await process_frame
-	for path in [Launcher.folder("0.0.2.6").path_join("OrbMeka.exe"), Launcher.folder("0.0.2.6").path_join("OrbMeka_console.exe"), Launcher.folder("0.0.2.6"), fixture, fixture + ".worlds"]:
+	for path in [Launcher.played_path(), Launcher.folder("0.0.2.6").path_join("OrbMeka.exe"), Launcher.folder("0.0.2.6").path_join("OrbMeka_console.exe"), Launcher.folder("0.0.2.6"), fixture, fixture + ".worlds"]:
 		DirAccess.remove_absolute(ProjectSettings.globalize_path(path))
 	print("RESULT: %d launcher checks, %d failures" % [checks, failures])
 	quit(0 if failures == 0 else 1)

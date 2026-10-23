@@ -3,6 +3,10 @@ Du plus récent au plus ancien. Ce fichier est mis à jour à chaque version.
 
 === Thème « Contrôles et Paramètres » (0.0.3 et suivantes) ===
 
+0.0.3.29 — Launcher à part
+Écran gris hors du jeu ; dernières versions jouées en haut (6 au plus) ; gros bouton vert
+Jouer (dernière version) et ▼ vert qui déplie toutes les versions, la dernière tout en bas.
+
 0.0.3.28 — Launcher et Quitter
 Accueil : « Aller au launcher » et « Quitter le jeu » tout en bas ; le launcher télécharge
 dans AppData et lance n'importe quelle version (Windows, GitHub CLI connecté), puis y revient.

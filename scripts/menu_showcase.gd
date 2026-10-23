@@ -12,11 +12,11 @@ extends Node3D
 # 2 ou 3, choisis parmi les nouveautés : liste NEWS_RUNNERS ([id, peau], peau vide pour un animal).
 # Chacun prend son modèle Blender, sinon une forme simple (character_model.gd, partagé avec le jeu).
 # Le reste du fichier (sol, collines, ciel, caméra) ne change pas d'une version à l'autre.
-const NEWS_VERSION := "0.0.3.28"
-const NEWS_TEXT := "Nouveau : le launcher, pour jouer à toutes les versions !
-En bas de l'accueil, avec Quitter le jeu."
+const NEWS_VERSION := "0.0.3.29"
+const NEWS_TEXT := "Nouveau : le launcher fait peau neuve !
+Gros bouton vert Jouer, ▼ pour toutes les versions, dernières jouées en haut."
 
-# 0.0.3.25 (gardé de 0.0.3.26 à 0.0.3.28, nouveautés sans 3D) : les trois nouveautés de 0.0.3.23 courent en aller-retour dans l'herbe libre, devant la place
+# 0.0.3.25 (gardé de 0.0.3.26 à 0.0.3.29, nouveautés sans 3D) : les trois nouveautés de 0.0.3.23 courent en aller-retour dans l'herbe libre, devant la place
 # de sable et pierre (sous le panneau des menus, vers la droite),
 # chacune sur sa rangée. Pas encore d'animation des jambes : le modèle glisse, tourné vers où il va.
 const NEWS_RUNNERS := [["girl9", "brown"], ["fox", ""], ["rabbit", ""]]

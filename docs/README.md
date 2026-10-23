@@ -1,4 +1,4 @@
-# OrbMeka™ — prototype 0.0.3.28
+# OrbMeka™ — prototype 0.0.3.29
 
 Godot 4.7 / GDScript. Formes et couleurs simples, sans assets externes.
 
@@ -1078,3 +1078,22 @@ Essai réel sur le PC : liste de 40 versions avec noms, téléchargement de
 0.0.3.26 dans AppData, lancement, retour au launcher à sa fermeture.
 À tester manuellement : boutons en bas de l'accueil (petite fenêtre),
 lisibilité de la liste, lancer une ancienne version puis la fermer.
+
+## Launcher à part — 0.0.3.29
+- Le launcher ressemble à une application séparée : fond gris uni (le
+  monde de l'accueil disparaît), panneau et boutons gris, titre de
+  fenêtre « OrbMeka — Launcher ». « Retour au jeu » en haut à gauche.
+- En haut : **Dernières versions jouées** (6 au plus, la plus récente en
+  bas), enregistrées dans user://launcher/versions-jouees.json. La version
+  ouverte compte comme jouée.
+- En bas : gros bouton vert **▶ Jouer** (toujours la dernière version, avec
+  son nom) et **▼** vert collé à sa droite : il déplie toutes les versions
+  en dessous, groupées par 0.0.x, de la plus ancienne à la dernière, tout
+  en bas (la liste s'ouvre déjà défilée jusqu'à elle). ▼ à nouveau : replie.
+
+Test mis à jour : tests/launcher_test.gd (écran à part, versions jouées,
+6 au plus, ordre, boutons verts, ▼). Tests mis à jour : pause, prototype,
+shortcuts_selection, history_resume (numéro de version).
+Résultat : 36 tests, 0 échec. Capture réelle vérifiée (1280×720).
+À tester manuellement : ressenti « hors du jeu », lancer une ancienne
+version depuis les versions jouées et depuis ▼, petite fenêtre.
