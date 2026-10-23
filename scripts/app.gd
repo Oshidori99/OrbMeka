@@ -38,6 +38,7 @@ Première action immédiate ; un délai plus court accélère la répétition."]
 	"Marche": {"keys": ["walk_forward", "walk_side", "walk_back"], "help": ["", "Vitesse au sol par direction.", "Vitesse au sol dans chaque direction (1 bloc = 1 m)."]},
 	"Courir": {"keys": ["run_forward", "run_side", "run_back"], "help": ["", "Vitesse quand on court.", "En courant (touche de Contrôles maintenue, R par défaut) : vitesse au sol dans chaque direction (1 bloc = 1 m). Se baisser l'emporte sur courir."]},
 	"Se baisser": {"keys": ["crouch_forward", "crouch_side", "crouch_back", "crouch_gravity"], "help": ["", "Vitesses et chute quand on se baisse.", "En se baissant (touche de Contrôles) : vitesse dans chaque direction, et gravité de chute, plus forte pour tomber plus vite."]},
+	"Voler": {"keys": ["fly_forward", "fly_side", "fly_back", "fly_up", "fly_down"], "help": ["", "Vitesses en vol.", "En vol (touche de Contrôles, Espace deux fois par défaut) : vitesse dans chaque direction, et pour monter (touche Sauter) ou descendre (touche Se baisser). Pas de gravité en vol."]},
 	"Changer de vitesse": {"keys": ["speed_max", "speed_min", "speed_up_rate", "speed_down_rate"], "help": ["", "Plus vite (↑), moins vite (↓), R + ↓ : défaut.", "Plus vite (↑) et Moins vite (↓), maintenus : la marche, la course et la marche baissée changent ensemble, peu à peu, en % de leur vitesse normale (la course reste plus rapide que la marche). La vitesse choisie reste jusqu'au prochain changement ; R + ↓ : retour à 100 %. Rapidités : % gagnés ou perdus par seconde."]},
 	"Vue": {"keys": ["eye_height"], "help": ["", "Hauteur de la vue, en blocs.", "Hauteur des yeux au-dessus des pieds, en blocs : 1 = vue à un bloc du sol, 2 = à deux blocs. Deux décimales possibles (ex. 1,9 ou 2,15)."]},
 }
@@ -620,7 +621,7 @@ func _refresh_controls() -> void:
 		var binding: Dictionary = settings.controls[action]
 		control_buttons[action].text = Controls.part_label(Controls.first(binding))
 		var second: Dictionary = Controls.second(binding)
-		control_second_buttons[action].text = "2e touche…" if second.is_empty() else Controls.part_label(second)
+		control_second_buttons[action].text = "Aucune" if second.is_empty() else Controls.part_label(second)
 		control_second_buttons[action].disabled = Controls.kind(binding) == "none"
 		control_second_clears[action].disabled = second.is_empty()
 		var how: String = {"double": " — double appui", "together": " — en même temps"}.get(Controls.kind(binding), "")

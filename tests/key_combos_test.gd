@@ -76,7 +76,7 @@ func _run() -> void:
 	await process_frame
 	app.show_page("settings")
 	app.settings_tabs.controls.pressed.emit()
-	check(app.control_second_buttons.size() == Controls.ACTIONS.size() and app.control_second_buttons.jump.text == "2e touche…" and app.control_second_clears.jump.disabled, "a second-key button and ✕ per action")
+	check(app.control_second_buttons.size() == Controls.ACTIONS.size() and app.control_second_buttons.jump.text == "Aucune" and app.control_second_clears.jump.disabled, "a second-key button and ✕ per action")
 	# Double appui choisi : même touche.
 	app.control_second_buttons.sprint.pressed.emit()
 	check(app.capturing_action == "sprint" and app.capturing_second, "second button waits for a key")

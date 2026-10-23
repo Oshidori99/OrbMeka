@@ -153,7 +153,7 @@ func _run() -> void:
 	await process_frame
 	check(app.control_buttons.has("speed_up") and app.control_buttons.speed_up.text == "↑" and app.control_second_buttons.has("speed_down"), "Plus vite in Contrôles (↑), with a second key")
 	var categories: Array = app.ATTRIBUTE_CATEGORIES.keys()
-	check(categories.find("Changer de vitesse") == categories.find("Se baisser") + 1 and app.setting_fields.has("speed_max") and app.setting_sliders.has("speed_down_rate"), "Changer de vitesse under Se baisser, with fields and sliders")
+	check(categories.find("Changer de vitesse") == categories.find("Voler") + 1 and app.setting_fields.has("speed_max") and app.setting_sliders.has("speed_down_rate"), "Changer de vitesse under Voler, with fields and sliders")
 	var help: String = load("res://scripts/world.gd").get_help_text(2)
 	check(help.contains("↑ maintenu") and help.contains("R + ↓") and not help.contains("R + T") and not help.contains("flèches : marcher"), "Comment jouer explains ↑ ↓")
 	root.remove_child(app)

@@ -64,22 +64,25 @@ F3 : "), "menus share one theme; in-game shortcuts F1, F2, F3 are plain text")
 	for button in [app.new_world_button, app.rename_button, app.duplicate_button, app.world_settings_button, app.delete_button]:
 		check(button.text.length() <= 2 and not button.tooltip_text.is_empty(), "icon button with tooltip: " + button.tooltip_text)
 	check(app.delete_button.tooltip_text == "Supprimer" and app.rename_button.tooltip_text == "Renommer", "icons keep their action names")
-	# Vitrine : courses dans l'herbe libre devant la place, sans toucher place, colline ni tour, tournées vers où elles vont.
+	# Vitrine : vols au-dessus de l'herbe libre devant la place (0.0.4.5 : de haut en bas), sans toucher place, colline ni tour, tournées vers où elles vont.
 	var in_lane := true
 	var turned := {}
+	var heights := []
 	for step in range(80):
 		var before: Array = showcase.runners.map(func(runner): return runner.position.x)
 		showcase._process(0.05)
 		for index in range(showcase.runners.size()):
 			var runner: Node3D = showcase.runners[index]
-			in_lane = in_lane and is_equal_approx(runner.position.y, 0.0) and runner.position.x >= 5.0 and runner.position.x <= 11.0 and runner.position.z > 5.0 and runner.position.z < 8.0
+			heights.append(runner.position.y)
+			in_lane = in_lane and runner.position.y >= showcase.FLY_LOW - 0.01 and runner.position.y <= showcase.FLY_HIGH + 0.01 and runner.position.x >= 5.0 and runner.position.x <= 11.0 and runner.position.z > 5.0 and runner.position.z < 8.0
 			var moved: float = runner.position.x - before[index]
 			# Hors des demi-tours (une image peut aller au bout puis revenir).
 			var far_from_ends: bool = minf(runner.position.x, before[index]) > showcase.RUN_FROM + 0.25 and maxf(runner.position.x, before[index]) < showcase.RUN_TO - 0.25
 			if far_from_ends and absf(moved) > 0.01:
 				# Le modèle regarde vers +Z : rotation de +90° = vers +X.
 				turned[signf(moved) == signf(sin(runner.rotation.y))] = true
-	check(in_lane, "runners stay in the free grass lane, feet on the ground")
+	check(in_lane, "fliers stay above the free grass lane, between low and high")
+	check(heights.min() < 1.2 and heights.max() > 3.0, "fliers go up and down")
 	check(turned.has(true) and not turned.has(false), "runners face where they run")
 	check(app.backdrop.material.get_shader_parameter("blur") == 0.0, "home backdrop keeps the 3D scene sharp")
 	# Pause semi-transparente.

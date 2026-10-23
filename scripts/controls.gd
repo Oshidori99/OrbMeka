@@ -26,6 +26,9 @@ const ACTIONS := {
 	"speed_down": {"label": "Moins vite", "default": {"key": KEY_DOWN}, "fixed": []},
 	# 0.0.4.4 : R + ↓ ensemble, retour à la vitesse par défaut (100 %).
 	"speed_reset": {"label": "Vitesse par défaut", "default": {"key": KEY_R, "second": {"key": KEY_DOWN}}, "by_letter": true, "fixed": []},
+	# 0.0.4.5 : Espace deux fois (choix de l'utilisateur) pour voler, encore deux fois pour arrêter ;
+	# le premier appui fait sauter. En vol, Sauter monte et Se baisser descend.
+	"fly": {"label": "Voler", "default": {"key": KEY_SPACE, "second": {"key": KEY_SPACE}}, "fixed": []},
 	"break_block": {"label": "Casser", "default": {"mouse": MOUSE_BUTTON_LEFT}, "fixed": []},
 	"place_block": {"label": "Poser", "default": {"mouse": MOUSE_BUTTON_RIGHT}, "fixed": []},
 	"block_previous": {"label": "Bloc précédent", "default": {"mouse": MOUSE_BUTTON_WHEEL_UP}, "fixed": []},

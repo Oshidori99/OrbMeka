@@ -12,25 +12,29 @@ extends Node3D
 # 2 ou 3, choisis parmi les nouveautés : liste NEWS_RUNNERS ([id, peau], peau vide pour un animal).
 # Chacun prend son modèle Blender, sinon une forme simple (character_model.gd, partagé avec le jeu).
 # Le reste du fichier (sol, collines, ciel, caméra) ne change pas d'une version à l'autre.
-const NEWS_VERSION := "0.0.4.4"
-const NEWS_TEXT := "Nouveau : R + ↓ remet la vitesse par défaut !
-↑ ↓ changent aussi la vitesse quand on se baisse."
+const NEWS_VERSION := "0.0.4.5"
+const NEWS_TEXT := "Nouveau : on peut voler !
+Espace deux fois ; Espace monte, Y descend ; vitesses dans Attributs → Voler."
 
-# 0.0.3.25 (gardé jusqu'à 0.0.4.4) : les trois nouveautés de 0.0.3.23 courent en aller-retour dans l'herbe libre, devant la place
-# de sable et pierre (sous le panneau des menus, vers la droite),
-# chacune sur sa rangée. Pas encore d'animation des jambes : le modèle glisse, tourné vers où il va.
+# 0.0.3.25 : les trois nouveautés de 0.0.3.23 en aller-retour au-dessus de l'herbe libre, devant la place
+# de sable et pierre (sous le panneau des menus, vers la droite), chacune sur sa rangée.
+# 0.0.4.5 : elles volent, montent et descendent en avançant (FLY_LOW à FLY_HIGH, cycle FLY_CYCLE s,
+# décalé par rangée). Pas encore d'animation de vol : le modèle glisse, tourné vers où il va.
 const NEWS_RUNNERS := [["girl9", "brown"], ["fox", ""], ["rabbit", ""]]
 const NEWS_Z := [5.5, 6.3, 7.1]
 const RUN_FROM := 5.4
 const RUN_TO := 9.2
 const RUN_SPEEDS := [2.6, 3.0, 2.8]
-# 0.0.4.2 à 0.0.4.4 : le renard (rangée du milieu) accélère peu à peu jusqu'à FOX_TOP puis ralentit,
+# 0.0.4.2 et suivantes : le renard (rangée du milieu) accélère peu à peu jusqu'à FOX_TOP puis ralentit,
 # comme ↑ puis ↓ maintenus ; cycle de FOX_CYCLE secondes.
 const FOX_TOP := 7.5
 const FOX_CYCLE := 6.0
 var travelled_by := [0.0, 3.1, 6.2]
 const GROUND_TOP := 0.0
 const NEWS_HEIGHT := 3
+const FLY_LOW := 0.6
+const FLY_HIGH := 3.6
+const FLY_CYCLE := 5.0
 const CharacterModel = preload("res://scripts/character_model.gd")
 var runners: Array[Node3D] = []
 var runner_ids: Array[String] = []
@@ -57,7 +61,8 @@ func _animate_news(delta: float) -> void:
 		var travelled: float = travelled_by[index]
 		var x := RUN_FROM + pingpong(travelled, length)
 		var forward := fmod(travelled, 2.0 * length) < length
-		runners[index].position = Vector3(x, GROUND_TOP, NEWS_Z[index])
+		var height := FLY_LOW + (FLY_HIGH - FLY_LOW) * (0.5 - 0.5 * cos(TAU * (elapsed / FLY_CYCLE + index / 3.0)))
+		runners[index].position = Vector3(x, GROUND_TOP + height, NEWS_Z[index])
 		runners[index].rotation.y = PI / 2.0 if forward else -PI / 2.0
 
 # ===== FIN DE LA VITRINE =====

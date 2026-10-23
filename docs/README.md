@@ -1,4 +1,4 @@
-# OrbMeka™ — prototype 0.0.4.4
+# OrbMeka™ — prototype 0.0.4.5
 
 Godot 4.7 / GDScript. Formes et couleurs simples, sans assets externes.
 
@@ -67,6 +67,7 @@ sont conservés. L'apparition tient compte des blocs présents.
   Maintenir ou Basculer, et pour courir **Maintenir conditionnel** (0.0.3.25).
 - ↑ ↓ maintenues : marcher, courir, se baisser plus ou moins vite (0.0.4.3) ;
   R + ↓ : vitesse par défaut (0.0.4.4).
+- Espace deux fois : voler ; en vol, Espace monte, Y descend (0.0.4.5).
 - Contrôles : deuxième touche facultative par action, double appui ou
   en même temps (0.0.3.27).
 - Clic gauche : casse immédiate ; maintenir pour répéter selon les paramètres (**300 ms par défaut**).
@@ -1163,3 +1164,29 @@ deux touches, retour à 100 %, rien en pause, baissé suit ↑ ↓) ; numéro de
 version (pause, prototype, shortcuts_selection, history_resume).
 Résultat : 37 tests, 0 échec.
 À tester manuellement : R + ↓ en jeu, ↑ ↓ en étant baissé.
+
+## Voler — 0.0.4.5
+- **Contrôles** : nouvelle action **Voler**, **Espace deux fois** par défaut
+  (choix de l'utilisateur ; mécanique courante, non protégée). Le premier
+  appui fait sauter, le second lance le vol ; Espace deux fois à nouveau :
+  on retombe. Modifiable comme les autres.
+- En vol : pas de gravité ; **Sauter** (Espace) maintenu monte, **Se
+  baisser** (Y) maintenu descend (on ne se baisse pas en vol) ; ZQSD/WASD
+  et ← → pour avancer, reculer, aller de côté. Plafond : 60 m.
+- **Attributs → Voler** (sous Se baisser) : Avancer, De côté, Reculer en
+  volant (10 m/s, un peu plus que courir), Monter et Descendre (7 m/s).
+  ↑ ↓ (Plus vite / Moins vite) comptent aussi en vol.
+- **Contrôles** : le bouton de deuxième touche affiche « Aucune » (au lieu
+  de « 2e touche… ») quand il n'y en a pas.
+- **Vitrine** : les trois personnages volent, montent et descendent en
+  avançant (pas encore d'animation de vol).
+- Comment jouer mis à jour. Issues #39 (Voler) et #45 (Attributs de vol).
+
+Test ajouté : tests/fly_test.gd (touche, double appui, attributs, sans
+gravité, vitesses dans chaque direction, monter, descendre, ↑ ↓, plafond,
+sol, retour de la gravité, anciens fichiers, menus, « Aucune »). Tests mis à
+jour : menu_style (vitrine en vol), key_combos (« Aucune »), interface_info
+(33 champs), settings_walk et speed_change (ordre des catégories), numéro de
+version. Résultat : 38 tests, 0 échec.
+À tester manuellement : ressenti du vol, double appui sur Espace (saut puis
+vol), montée et descente, vitrine.

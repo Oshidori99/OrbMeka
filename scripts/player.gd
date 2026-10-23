@@ -86,6 +86,18 @@ var speed_max := 2.0
 var speed_min := 0.5
 var speed_up_rate := 0.4
 var speed_down_rate := 0.4
+# Voler (0.0.4.5) : touche Voler (Espace deux fois) pour commencer ou arrêter ; sans gravité, Sauter monte,
+# Se baisser descend. Vitesses dans Attributs → Voler ; ↑ ↓ les changent aussi.
+const FLY_SPEED := 10.0
+const FLY_VERTICAL := 7.0
+# Plafond du vol (m au-dessus du sol plat).
+const FLY_CEILING := 60.0
+var flying := false
+var fly_forward := FLY_SPEED
+var fly_side := FLY_SPEED
+var fly_back := FLY_SPEED
+var fly_up := FLY_VERTICAL
+var fly_down := FLY_VERTICAL
 var input_ready_frame := -1
 var selected_type := 0:
 	set(value):
@@ -199,6 +211,11 @@ func apply_settings(values: Dictionary) -> void:
 	run_forward = float(values.get("run_forward", RUN_SPEED))
 	run_side = float(values.get("run_side", RUN_SPEED))
 	run_back = float(values.get("run_back", RUN_SPEED))
+	fly_forward = float(values.get("fly_forward", FLY_SPEED))
+	fly_side = float(values.get("fly_side", FLY_SPEED))
+	fly_back = float(values.get("fly_back", FLY_SPEED))
+	fly_up = float(values.get("fly_up", FLY_VERTICAL))
+	fly_down = float(values.get("fly_down", FLY_VERTICAL))
 	speed_max = float(values.get("speed_max", 200.0)) / 100.0
 	speed_min = float(values.get("speed_min", 50.0)) / 100.0
 	speed_up_rate = float(values.get("speed_up_rate", 40.0)) / 100.0
@@ -237,12 +254,23 @@ func _physics_process(delta: float) -> void:
 		direction = Input.get_vector("move_left", "move_right", "move_forward", "move_back")
 		jump_requested = Input.is_action_just_pressed("jump") and not wait_jump_release
 	var active := Input.mouse_mode == Input.MOUSE_MODE_CAPTURED
-	update_crouch(active, Input.is_action_pressed("crouch"), Input.is_action_just_pressed("crouch"))
+	update_fly(active, Input.is_action_just_pressed("fly"))
+	# En vol, Se baisser sert à descendre : on ne se baisse pas.
+	if flying:
+		crouching = false
+	else:
+		update_crouch(active, Input.is_action_pressed("crouch"), Input.is_action_just_pressed("crouch"))
 	update_run(active, Input.is_action_pressed("sprint"), Input.is_action_just_pressed("sprint"), direction != Vector2.ZERO, jump_requested)
 	update_speed(delta, active, Input.is_action_pressed("speed_up"), Input.is_action_pressed("speed_down"), Input.is_action_pressed("speed_reset"))
 	step_breaking(delta, active, Input.is_action_pressed("break_block"))
 	step_placement(delta, active, Input.is_action_pressed("place_block"))
-	step_movement(delta, direction, jump_requested)
+	if flying:
+		var vertical := 0.0
+		if active:
+			vertical = float(Input.is_action_pressed("jump") and not wait_jump_release) - float(Input.is_action_pressed("crouch"))
+		step_flight(delta, direction, vertical)
+	else:
+		step_movement(delta, direction, jump_requested)
 
 # Corps en première personne (0.0.3.26) : le modèle du personnage, aux pieds du joueur, tourné avec lui.
 # La caméra garde la hauteur des yeux réglée, même pour un petit personnage ou un animal.
@@ -379,6 +407,25 @@ func update_speed(delta: float, active: bool, up: bool, down: bool, reset: bool 
 		speed_scale = minf(speed_scale + speed_up_rate * delta, speed_max)
 	else:
 		speed_scale = maxf(speed_scale - speed_down_rate * delta, speed_min)
+
+# Voler (0.0.4.5) : chaque appui sur la touche Voler commence ou arrête le vol (rien en pause).
+func update_fly(active: bool, just_pressed: bool) -> void:
+	if active and just_pressed:
+		flying = not flying
+		velocity.y = 0.0
+
+# Un pas de vol : sans gravité ; vertical > 0 monte, < 0 descend. ↑ ↓ (speed_scale) comptent aussi.
+func step_flight(delta: float, direction: Vector2, vertical: float) -> void:
+	var step := direction.limit_length(1.0)
+	var local := Vector3(step.x * fly_side, 0.0, step.y * (fly_forward if step.y < 0.0 else fly_back)) * speed_scale
+	camera.position.y = move_toward(camera.position.y, eye_height, 4.0 * delta)
+	var movement := global_transform.basis * local
+	velocity = Vector3(movement.x, (fly_up if vertical > 0.0 else fly_down) * vertical * speed_scale, movement.z)
+	move_and_slide()
+	velocity.y = 0.0
+	position.x = clampf(position.x, -58.0, 58.0)
+	position.z = clampf(position.z, -58.0, 58.0)
+	position.y = minf(position.y, FLY_CEILING)
 
 # The same movement step is used by gameplay and windowless physics tests.
 func step_movement(delta: float, direction: Vector2, jump_requested: bool) -> void:
