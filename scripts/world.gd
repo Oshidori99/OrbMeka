@@ -336,7 +336,7 @@ func _process(delta: float) -> void:
 static func get_help_text(level: int = 2) -> String:
 	if level == 0:
 		return "ZQSD : marcher. ↑ ↓ + A : vitesse (⌫ ⌫ : défaut). Espace : sauter ; deux fois : voler. Clic gauche : casser ; clic droit : poser.
-Molette : bloc. Échap : pause. F1 : mondes."
+Molette : bloc. Échap : pause. F1 : mondes. F4 : vue."
 	if level == 1:
 		return "ZQSD / WASD : marcher (← → : de côté). Souris : regarder. Espace : sauter.
 Y : se baisser. R : courir (mode dans Contrôles).
@@ -345,6 +345,7 @@ Y : se baisser. R : courir (mode dans Contrôles).
 Espace deux fois : voler (Espace monte, Y descend) ; encore deux fois : arrêter.
 Maintenir clic gauche : casser ; clic droit : poser. Molette : changer de bloc.
 Échap : pause. F1 : liste des mondes. F2 : Comment jouer. F3 : Informations.
+F4 : vue (première personne, de derrière, de devant).
 Portée : %d blocs. Maximum : %d blocs, hauteur %d (Y 0 sur le sol plat).
 Constructions réinitialisées en quittant le monde.
 Touches modifiables : Paramètres → Contrôles." % [int(PlayerScript.REACH), MAX_BLOCKS, MAX_BUILD_HEIGHT]
@@ -373,6 +374,7 @@ Le sable reste immobile, même sans support.
 Échap : pause et souris libre. Reprendre / Échap : retour direct au jeu.
 Le clic de capture ne casse ni ne pose. F1 : liste des mondes.
 F2 : Comment jouer. F3 : Informations du monde (jeu en pause).
+F4 : changer de vue, première personne, de derrière, puis de devant (on voit son personnage).
 
 Portée : %d blocs. Base protégée. Maximum : %d blocs présents.
 Hauteur maximale : %d blocs au-dessus du sol plat, collines comprises (sommet à Y %d).

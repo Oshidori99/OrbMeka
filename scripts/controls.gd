@@ -7,7 +7,7 @@ extends RefCounted
 # la même touche = double appui (DOUBLE_PRESS_MS), une autre = les deux en même temps.
 # Les anciens fichiers (une seule touche) restent valides tels quels.
 # Touches gardées pour le jeu, jamais attribuables : Échap (pause, « aucune » pendant
-# le choix d'une touche), F1, F2, F3 (raccourcis des menus).
+# le choix d'une touche), F1, F2, F3 (raccourcis des menus), F4 (vue, 0.0.4.9).
 
 const ACTIONS := {
 	"move_forward": {"label": "Avancer", "default": {"key": KEY_W}, "fixed": []},
@@ -68,7 +68,7 @@ static func default_options() -> Dictionary:
 		result[option] = OPTIONS[option].default
 	return result
 
-const RESERVED_KEYS :=[KEY_ESCAPE, KEY_F1, KEY_F2, KEY_F3]
+const RESERVED_KEYS :=[KEY_ESCAPE, KEY_F1, KEY_F2, KEY_F3, KEY_F4]
 const MOUSE_NAMES := {MOUSE_BUTTON_LEFT: "Clic gauche", MOUSE_BUTTON_RIGHT: "Clic droit", MOUSE_BUTTON_MIDDLE: "Clic molette", MOUSE_BUTTON_XBUTTON1: "Bouton souris 4", MOUSE_BUTTON_XBUTTON2: "Bouton souris 5", MOUSE_BUTTON_WHEEL_UP: "Molette haut", MOUSE_BUTTON_WHEEL_DOWN: "Molette bas"}
 
 static func defaults() -> Dictionary:
@@ -291,4 +291,4 @@ const GROUPS := {
 	"Vitesses": ["speed_up", "speed_down", "walk_up", "walk_down", "run_up", "run_down", "break_up", "break_down", "place_up", "place_down", "move_reset", "walk_reset", "run_reset", "break_reset", "place_reset", "speed_reset_all"],
 }
 # Dernière partie, Menus : touches réservées, montrées sans pouvoir les changer.
-const MENU_KEYS := [["Pause", "Échap"], ["Retour aux mondes", "F1"], ["Comment jouer", "F2"], ["Informations du monde", "F3"]]
+const MENU_KEYS := [["Pause", "Échap"], ["Retour aux mondes", "F1"], ["Comment jouer", "F2"], ["Informations du monde", "F3"], ["Changer de vue", "F4"]]

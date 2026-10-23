@@ -445,7 +445,7 @@ func _build_controls_section(parent: Node) -> void:
 	var list := VBoxContainer.new()
 	_sep(list, 10)
 	inset.add_child(list)
-	_explanation(list, ["", "Cliquez une touche puis appuyez sur la nouvelle. Échap : aucune. 2e touche facultative.", "Cliquez le bouton d'une action, puis appuyez sur la touche ou le bouton de souris voulu (molette comprise). Échap : aucune touche. Deuxième touche facultative : la même touche = double appui (deux appuis rapprochés) ; une autre touche = les deux en même temps (par exemple Maj + Z). ✕ la retire. Les flèches ← → restent toujours actives pour aller de côté. Touches rangées en Mouvements, Blocs, Vitesses et Menus ; celles des Menus (Échap, F1, F2, F3) sont réservées."])
+	_explanation(list, ["", "Cliquez une touche puis appuyez sur la nouvelle. Échap : aucune. 2e touche facultative.", "Cliquez le bouton d'une action, puis appuyez sur la touche ou le bouton de souris voulu (molette comprise). Échap : aucune touche. Deuxième touche facultative : la même touche = double appui (deux appuis rapprochés) ; une autre touche = les deux en même temps (par exemple Maj + Z). ✕ la retire. Les flèches ← → restent toujours actives pour aller de côté. Touches rangées en Mouvements, Blocs, Vitesses et Menus ; celles des Menus (Échap, F1, F2, F3, F4) sont réservées."])
 	# Parties (0.0.4.8) : Mouvements, Blocs, Vitesses, puis Menus (touches réservées).
 	for group in Controls.GROUPS:
 		_explanation(list, group)
@@ -1299,7 +1299,8 @@ La graine et le terrain initial sont conservés." % Catalog.MAX_NAME_LENGTH])
 	shortcut_hints.name = "ShortcutHints"
 	shortcut_hints.text = "F1 : Retour aux mondes
 F2 : Comment jouer
-F3 : Informations du monde"
+F3 : Informations du monde
+F4 : Changer de vue"
 	layer.add_child(shortcut_hints)
 	shortcut_hints.set_anchors_and_offsets_preset(Control.PRESET_TOP_RIGHT)
 	shortcut_hints.offset_left = -280

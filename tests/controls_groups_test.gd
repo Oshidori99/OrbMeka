@@ -40,7 +40,7 @@ func _run() -> void:
 		once = once and seen.count(action) == 1
 	check(once, "every action in exactly one group")
 	check(Controls.GROUPS.Mouvements.has("fly") and Controls.GROUPS.Mouvements.has("sprint") and Controls.GROUPS.Blocs.has("break_block") and Controls.GROUPS.Vitesses.has("speed_reset_all"), "actions in the right group")
-	check(Controls.MENU_KEYS.map(func(entry): return entry[1]) == ["Échap", "F1", "F2", "F3"], "Menus: Échap, F1, F2, F3")
+	check(Controls.MENU_KEYS.map(func(entry): return entry[1]).slice(0, 4) == ["Échap", "F1", "F2", "F3"], "Menus: Échap, F1, F2, F3 (then F4, 0.0.4.9)")
 	# Attributs de vol rapide.
 	for key in ["fly_run_forward", "fly_run_side", "fly_run_back"]:
 		check(key in Settings.ATTRIBUTE_KEYS and Settings.SPECS[key].default == 15.0, "attribute 15 m/s: " + key)
@@ -99,7 +99,7 @@ func _run() -> void:
 			var row_index: int = app.control_buttons[action].get_parent().get_index()
 			placed = placed and app.control_buttons[action].get_parent().get_parent() == list and row_index > app.control_group_labels[group].get_index() and row_index < app.control_group_labels[titles[index + 1]].get_index()
 	check(placed, "each action under its part")
-	check(app.control_menu_buttons.size() == 4 and app.control_menu_buttons.values().all(func(button): return button.disabled) and app.control_menu_buttons["Retour aux mondes"].text == "F1" and app.control_menu_buttons.Pause.text == "Échap", "Menus: reserved keys shown, not editable")
+	check(app.control_menu_buttons.size() == Controls.MENU_KEYS.size() and app.control_menu_buttons.values().all(func(button): return button.disabled) and app.control_menu_buttons["Retour aux mondes"].text == "F1" and app.control_menu_buttons.Pause.text == "Échap", "Menus: reserved keys shown, not editable")
 	check(app.control_menu_buttons["Informations du monde"].get_parent().get_index() > app.control_group_labels.Menus.get_index(), "reserved keys under Menus")
 	check(app.ATTRIBUTE_CATEGORIES.Voler.keys.has("fly_run_forward") and app.setting_fields.has("fly_run_back"), "flying fast in Attributs → Voler")
 	root.remove_child(app)

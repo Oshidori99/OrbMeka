@@ -1,4 +1,4 @@
-# OrbMeka™ — prototype 0.0.4.8
+# OrbMeka™ — prototype 0.0.4.9
 
 Godot 4.7 / GDScript. Formes et couleurs simples, sans assets externes.
 
@@ -70,6 +70,7 @@ sont conservés. L'apparition tient compte des blocs présents.
   + clic : casse ou pose ; ⌫ + touche : par défaut ; ⌫ deux fois : tout.
 - Espace deux fois : voler ; en vol, Espace monte, Y descend (0.0.4.5) ;
   R en vol : voler vite (0.0.4.8).
+- F4 : changer de vue, première personne, de derrière, de devant (0.0.4.9).
 - Contrôles : deuxième touche facultative par action, double appui ou
   en même temps (0.0.3.27).
 - Clic gauche : casse immédiate ; maintenir pour répéter selon les paramètres (**300 ms par défaut**).
@@ -1252,3 +1253,22 @@ fois, ordre, Menus non modifiables, voler vite, attributs, ancien
 attributs.json). Tests mis à jour : interface_info (36 champs), numéro de
 version. Résultat : 40 tests, 0 échec.
 À tester manuellement : R en vol, lisibilité des parties de Contrôles.
+
+## Trois vues — 0.0.4.9
+Issue #85 (Vues du joueur).
+- **F4** passe de la **première personne** à la **vue de derrière**, puis à
+  la **vue de devant** (on voit son personnage de face), puis revient.
+- La visée (casser, poser, portée) reste celle des yeux, quelle que soit la
+  vue. Caméra à 4 m, rapprochée si un bloc est entre elle et les yeux.
+- Hors première personne, le corps est entier (tête comprise) ; en
+  première personne, il reste coupé au cou comme avant.
+- F4 est réservée, comme F1 à F3 : affichée dans Contrôles → Menus, dans les
+  rappels en haut à droite et dans Comment jouer. La vue revient à la
+  première personne en entrant dans un monde.
+
+Test ajouté : tests/views_test.gd (F4, trois vues, positions, visée, corps
+entier, bloc derrière, animal, FOV, Contrôles → Menus, rappels, Comment
+jouer). Tests mis à jour : controls_groups (F4 dans Menus), numéro de
+version. Résultat : 41 tests, 0 échec.
+À tester manuellement : F4 en jeu (aspect des vues, corps, ombre), caméra
+près des murs, viser et casser en vue de derrière.

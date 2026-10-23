@@ -118,6 +118,14 @@ const FLY_RUN_SPEED := 15.0
 var fly_run_forward := FLY_RUN_SPEED
 var fly_run_side := FLY_RUN_SPEED
 var fly_run_back := FLY_RUN_SPEED
+# Vues (0.0.4.9, #85) : F4 passe de la première personne à la vue de derrière, puis de devant.
+# La caméra des yeux (camera) vise toujours ; view_camera, rattachée aux yeux, montre les deux autres
+# vues à VIEW_DISTANCE, rapprochée si un bloc est entre les deux. Corps entier visible hors première personne.
+const VIEWS := ["first", "back", "front"]
+const VIEW_NAMES := {"first": "Première personne", "back": "Vue de derrière", "front": "Vue de devant"}
+const VIEW_DISTANCE := 4.0
+var view := "first"
+var view_camera: Camera3D
 var fly_up := FLY_VERTICAL
 var fly_down := FLY_VERTICAL
 var input_ready_frame := -1
@@ -144,6 +152,9 @@ func _ready() -> void:
 	camera.rotation.x = -0.12
 	camera.current = true
 	add_child(camera)
+	view_camera = Camera3D.new()
+	view_camera.name = "ViewCamera"
+	camera.add_child(view_camera)
 	# Capture only after the player explicitly clicks in the game.
 	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
 
@@ -167,6 +178,8 @@ func _unhandled_input(event: InputEvent) -> void:
 			selected_type = 1
 		elif event.keycode == KEY_3 or event.physical_keycode == KEY_3:
 			selected_type = 2
+		elif event.keycode == KEY_F4:
+			cycle_view()
 	if event is InputEventMouseMotion and Input.mouse_mode == Input.MOUSE_MODE_CAPTURED:
 		rotate_y(-event.relative.x * sensitivity)
 		camera.rotation.x = clampf(camera.rotation.x - event.relative.y * sensitivity, deg_to_rad(-89.0), deg_to_rad(89.0))
@@ -254,6 +267,7 @@ func apply_settings(values: Dictionary) -> void:
 	character = str(values.get("character", "boy14"))
 	skin = str(values.get("skin", "light"))
 	sync_body()
+	_sync_body_view()
 	eye_height = float(values.get("eye_height", EYE_HEIGHT))
 	camera.position.y = eye_height
 	break_reach = float(values.get("break_reach", REACH))
@@ -261,6 +275,7 @@ func apply_settings(values: Dictionary) -> void:
 	sensitivity = SENSITIVITY * float(values.get("mouse_sensitivity", 100.0)) / 100.0
 	# Champ de vision réglé (Vidéo → Jeu), valable dans tous les mondes.
 	camera.fov = float(values.get("fov", 75.0))
+	view_camera.fov = camera.fov
 	actions.cancel()
 
 func resume_controls() -> void:
@@ -313,6 +328,47 @@ func _physics_process(delta: float) -> void:
 		step_flight(delta, direction, vertical)
 	else:
 		step_movement(delta, direction, jump_requested)
+	update_view()
+
+# Vues (0.0.4.9) : F4, dans l'ordre de VIEWS.
+func cycle_view() -> void:
+	set_view(VIEWS[(VIEWS.find(view) + 1) % VIEWS.size()])
+
+func set_view(name: String) -> void:
+	view = name if name in VIEWS else "first"
+	view_camera.fov = camera.fov
+	if view == "first":
+		camera.current = true
+	else:
+		view_camera.current = true
+	_sync_body_view()
+	update_view()
+
+# Place la caméra de vue derrière (+Z des yeux) ou devant (-Z, tournée vers le joueur),
+# plus près si un bloc la cacherait.
+func update_view() -> void:
+	if view == "first" or not is_inside_tree():
+		return
+	var side := 1.0 if view == "back" else -1.0
+	view_camera.rotation = Vector3(0.0, 0.0 if view == "back" else PI, 0.0)
+	var origin := camera.global_position
+	var wanted := camera.global_transform * Vector3(0.0, 0.0, side * VIEW_DISTANCE)
+	var query := PhysicsRayQueryParameters3D.create(origin, wanted)
+	query.exclude = [get_rid()]
+	var hit := get_world_3d().direct_space_state.intersect_ray(query)
+	var distance := VIEW_DISTANCE
+	if not hit.is_empty():
+		distance = maxf(0.3, origin.distance_to(hit.position) - 0.2)
+	view_camera.position = Vector3(0.0, 0.0, side * distance)
+
+# Hors première personne : le corps entier (la copie pour l'ombre est montrée), sans la tête coupée.
+func _sync_body_view() -> void:
+	if not is_instance_valid(body) or not is_instance_valid(body_shadow):
+		return
+	var whole := view != "first"
+	body.visible = not whole
+	for node in body_shadow.find_children("*", "GeometryInstance3D", true, false):
+		(node as GeometryInstance3D).cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_ON if whole else GeometryInstance3D.SHADOW_CASTING_SETTING_SHADOWS_ONLY
 
 # Corps en première personne (0.0.3.26) : le modèle du personnage, aux pieds du joueur, tourné avec lui.
 # La caméra garde la hauteur des yeux réglée, même pour un petit personnage ou un animal.
