@@ -7,3 +7,9 @@ Archives/
 
 # Exports locaux
 build/
+
+# Notes personnelles de l'utilisateur (jamais envoyées)
+docs/Tester ancienne version.txt
+
+# Réglages locaux de Claude Code
+.claude/

@@ -1,3 +1,0 @@
-Toutes les versions partagent les mêmes mondes et les mêmes réglages.
-Avant de jouer une ancienne version, copie le dossier %APPDATA%\Godot\app_userdata\OrbMeka (Windows + R, colle le chemin, puis Entrée).
-Après, remets ta copie. Sinon, la vieille version peut effacer les nouveautés comme le mode développeur ou les attributs de Marche.
