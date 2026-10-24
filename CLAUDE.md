@@ -17,18 +17,21 @@ Guide complet : docs/README.md. Fichiers techniques : docs/ORGANISATION.txt.
 - scenes/ : main.tscn (menus), world.tscn (partie). scripts/ : code. tests/ : tests sans fenêtre.
 - Garder les .gd.uid avec leurs scripts. Ne pas toucher à .godot/ (cache) ni au contenu existant des archives (dossier voisin « ..\Archives OrbMeka », hors du dépôt) ; on y ajoute seulement l'archive de chaque version.
 - Données joueur dans user://, jamais dans les sources :
-  - réglages : parametres-generaux.json, video.json, controles.json, personnage.json, attributs.json, menus.json ;
+  - réglages dans user://parametres/ : parametres-generaux.json, video.json, controles.json, personnage.json, attributs.json, menus.json ;
   - mondes : worlds.json (index) et un dossier par monde mondes/<id>/ : monde.json (nom, **graine**, mode),
     joueur.json (position, regard), zones/zone_X_Y_Z.bin (seulement les changements, format versionné) ;
   - launcher : launcher/.
 
 ## Tests
-Depuis PowerShell, à la racine du projet, en parallèle (6 à la fois) :
+Depuis PowerShell, à la racine du projet, en parallèle (4 à la fois) :
 
     .\tests\run_all.ps1                      # tous : avant chaque version (≈ 1 min 20)
     .\tests\run_all.ps1 -Only fly,controls   # pendant le travail : ceux liés au changement
 
 Les tests juridiques (licences, aucun autre jeu cité) passent **toujours**, même avec -Only.
+**Sécurité du PC** (planté le 24.10.2026, mémoire à 99 %) : run_all.ps1 ne lance plus de test au-delà de 85 % de mémoire,
+arrête tout au-delà de 90 % et coupe un test qui dépasse 2 Go. Ne jamais lancer de tests depuis deux sessions à la fois ;
+utiliser -Jobs 2 si le PC est en mode économie d'énergie ou si d'autres gros programmes tournent (Blender, éditeur Godot).
 Godot console : C:\Users\Dev\Desktop\Godot_v4.7.2-stable_win64.exe\Godot_v4.7.2-stable_win64_console.exe
 Un seul test : `& '<Godot console>' --headless --path . --script res://tests/<nom>_test.gd`.
 L'Action Dev lance tous les tests en parallèle à chaque envoi. Ce qui ne peut être vérifié qu'en
@@ -37,10 +40,13 @@ jouant (aspect, souris) est signalé comme « à tester manuellement ».
 ## Plan du Monde (milestone « 0.0.5 — Monde », issues #119 à #124)
 Ordre obligatoire de 1 à 4, ensuite libre :
 1. Dossier du monde et sauvegarde des seuls changements : fait (0.0.5).
-2. Zones (#119) : fait en 0.0.5.1 avec ZONE_SIZE = 8 m (scripts/world_zones.gd). 16 m envisagé, avec un
-   recalcul de l'affichage par sous-blocs de 8 m, à décider selon les mesures (surtout sur le Web).
-3. Terrain lisse sculptable (#120) : densité tous les 25 cm, rendu lisse, pinceaux (creuser, ajouter,
-   aplanir, lisser), sauvegarde des gestes, figés dans la grille quand ils sont nombreux. En petites versions.
+2. Zones (#119) : fait en 0.0.5.1 ; taille confirmée : 8 × 8 × 8 mètres (scripts/world_zones.gd).
+3. Terrain lisse sculptable (#120) : prochaine étape, pas encore livrée. Chaque bloc de 1 m de côté est
+   divisé en 2 × 2 × 2 = 8 sous-cellules au total : chacune mesure 50 cm de côté et représente
+   1/8 du volume du bloc. Une zone de 8 m contient donc 16 × 16 × 16 sous-cellules ; une grille
+   de sommets incluant les deux bords aurait 17 sommets par axe (pas 16 points).
+   Rendu lisse, pinceaux (creuser, ajouter, aplanir, lisser), sauvegarde des gestes, figés dans
+   la grille quand ils sont nombreux. En petites versions.
 4. Relief procédural et sous-sol (#121) : terre, pierre, granite, grottes ; « Roche-mère » incassable en bas
    (ne pas reprendre le nom anglais courant d'un autre jeu).
 5. Matières (#122) · 6. Structures (#123) · 7. Créatif/Survie (#73) · Inventaire (milestone HUD) ·
