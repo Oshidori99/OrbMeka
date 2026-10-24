@@ -25,8 +25,8 @@ Guide complet : docs/README.md. Fichiers techniques : docs/ORGANISATION.txt.
 ## Tests
 Depuis PowerShell, à la racine du projet, en parallèle (4 à la fois) :
 
-    .\tests\run_all.ps1                      # tous : avant chaque version (≈ 1 min 20)
-    .\tests\run_all.ps1 -Only fly,controls   # pendant le travail : ceux liés au changement
+    .\tests\run_all.ps1 -Only fly,controls   # toujours : seulement les plus pertinents (≈ 65 %), même avant une version
+    .\tests\run_all.ps1                      # tous : seulement sur demande (l'Action Dev les lance tous à chaque envoi)
 
 Les tests juridiques (licences, aucun autre jeu cité) passent **toujours**, même avec -Only.
 **Sécurité du PC** (planté le 24.10.2026, mémoire à 99 %) : run_all.ps1 ne lance plus de test au-delà de 85 % de mémoire,

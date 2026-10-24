@@ -77,6 +77,8 @@ const CHOICES := {
 	"menu_depth": {"label": "Profondeur des menus", "options": {"on": "Oui", "off": "Non"}, "default": "on"},
 	# 0.0.3.14 : coordonnées du joueur affichées en jeu, en haut à droite.
 	"show_coords": {"label": "Afficher les coordonnées", "options": {"on": "Oui", "off": "Non"}, "default": "off"},
+	# 0.0.5.4 : brins par carré de 50 cm (terrain_materials.gd) ; moins = plus rapide, surtout sur le Web.
+	"grass_density": {"label": "Densité de l'herbe", "options": {"low": "Basse", "medium": "Moyenne", "high": "Haute"}, "default": "medium"},
 	# 0.0.3.16 : personnage choisi (Paramètres → Personnage), enregistré dans personnage.json.
 	# 0.0.3.23 : enfants de 9 et 14 ans (à la place de « boy » et « girl »), quatre nouveaux animaux.
 	"character": {"label": "Personnage", "options": {"boy9": "Garçon 9 ans", "girl9": "Fille 9 ans", "boy14": "Garçon 14 ans", "girl14": "Fille 14 ans", "man": "Homme", "woman": "Femme", "cat": "Chat", "brioche": "Brioche", "squirrel": "Écureuil", "fox": "Renard", "turtle": "Tortue", "rabbit": "Lapin bleu"}, "default": "boy14"},

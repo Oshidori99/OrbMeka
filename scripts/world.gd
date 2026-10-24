@@ -54,6 +54,8 @@ var zone_queue: Array = []
 var zone_center := Vector3i(999999, 0, 0)
 # Distance de chargement en zones (Paramètres → Vidéo).
 var load_distance := 4
+# Densité de l'herbe (Paramètres → Vidéo), appliquée à l'ouverture du monde.
+var grass_density := "medium"
 var block_material: Material
 var block_box: BoxShape3D
 # Mesures affichées dans Informations du monde (F3).
@@ -68,6 +70,7 @@ func _ready() -> void:
 	_setup_inputs()
 	_setup_environment()
 	# 0.0.5.1 : une seule matière pour tous les blocs, couleur portée par les sommets de chaque section.
+	TerrainMaterials.density = grass_density
 	block_material = TerrainMaterials.surface()
 	block_box = BoxShape3D.new()
 	_create_ground()

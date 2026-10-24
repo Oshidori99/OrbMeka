@@ -49,17 +49,28 @@ Les dossiers existants export_templates/, feature_profiles/, script_templates/
 et text_editor_themes/ sont actuellement vides et restent en place.
 
 DONNÉES ET ARCHIVE
-Les noms, graines et modes personnels sont dans user://worlds.json, hors des sources.
-Les constructions ne sont pas sauvegardées. La copie vérifiée 0.0.2.6 reste
-hors du projet, dans le dossier voisin Archives/OrbMeka/orb-meka 0.0.2.6.
+user://worlds.json reste l'index des mondes, hors des sources.
+Depuis 0.0.5, les blocs posés et cassés, la position et le regard sont sauvegardés.
+Chaque monde a son dossier user://mondes/<identifiant>/ : monde.json (nom, graine,
+mode), joueur.json (position et regard) et, depuis 0.0.5.1, zones/zone_X_Y_Z.bin
+(changements compressés par zone). L'ancien zones/modifications.json est converti,
+puis conservé sous zones/modifications-etape1.json.
+Les archives de versions restent hors du dépôt dans ..\Archives OrbMeka\ ;
+ne jamais écraser leur contenu existant.
 Depuis 0.0.2.8, addons/history_export/ contient un petit plugin d'éditeur
 qui inclut docs/HISTORIQUE.txt lors des exports. Gardez ses fichiers sources.
 Le README à la racine et docs/README.md restent les points d'entrée du guide.
 
-Depuis 0.0.2.10, scripts/user_settings.gd valide et conserve les attributs
-globaux, séparément des noms/graines des mondes. Depuis 0.0.3.6, un fichier par
-menu de Paramètres, nommé d'après lui : user://parametres-generaux.json,
-user://video.json et user://attributs.json (l'ancien settings.json n'est plus que lu) ;
-depuis 0.0.3.12, user://controles.json (touches, scripts/controls.gd) ;
-depuis 0.0.3.16, user://personnage.json (personnage, scripts/character_preview.gd).
+scripts/user_settings.gd conserve les réglages globaux séparément des mondes.
+Chemins actuels : user://parametres/parametres-generaux.json, video.json,
+attributs.json, controles.json, personnage.json et menus.json dans le même dossier.
+Les anciens fichiers à la racine de user:// servent à la migration et à la
+compatibilité avec les anciennes versions du launcher.
 Sous Windows, user:// est %APPDATA%\Godot\app_userdata\OrbMeka\.
+
+PLAN CONFIRMÉ POUR LE TERRAIN LISSE — PROCHAINE ÉTAPE, NON LIVRÉE
+Zones de 8 × 8 × 8 mètres. Chaque bloc de 1 m de côté sera partagé en 2 × 2 × 2 :
+8 sous-cellules au total, de 50 cm de côté et de 1/8 du volume chacune.
+Une zone contient donc 16 × 16 × 16 sous-cellules. Une grille de sommets
+incluant les deux bords compterait 17 sommets par axe, pas 16 points.
+Le code livré stocke encore des blocs, pas ce futur terrain lisse.

@@ -1,6 +1,19 @@
-# OrbMeka™ — prototype 0.0.5.3
+# OrbMeka™ — prototype 0.0.5.4
 
 Godot 4.7 / GDScript. Formes et couleurs simples ; assets externes seulement sous licence vérifiée (sons CC0, assets/sounds/CREDITS.txt).
+
+## 0.0.5.4 — Gazon réaliste
+- Gazon dense sur le sol et sur la terre : brins fins de 3 à 7 cm (environ 5 cm),
+  base sombre, pointe claire, quelques brins secs, balancés par un vent léger.
+  Groupés par carrés de 50 cm, affichés jusqu'à 24 m (au-delà, le sol vert suffit).
+- **Paramètres → Vidéo → Densité de l'herbe** : Basse (160 brins/m²), Moyenne (400,
+  par défaut), Haute (880). Appliquée à la prochaine ouverture d'un monde.
+- FPS plus visibles (20 px, blanc, contour épais).
+- Mesures PC (RTX 4070 portable, fenêtre 1280 × 720) : 150 à 240 images/s ; ouverture 70 ms.
+  Web : à mesurer avec le compteur FPS ; si c'est lent, choisir Basse.
+
+Tests : terrain_visuals, interface_info, settings et tests du monde réussis.
+À tester manuellement : aspect du gazon de près et en marchant, FPS sur le Web.
 
 ## 0.0.5.3 — FPS et date de création
 Un compteur discret affiche les FPS en haut à gauche sous les indications existantes,

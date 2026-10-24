@@ -700,6 +700,7 @@ func open_world(id: String) -> void:
 	active_world.world_name = item.name
 	active_world.save_folder = catalog.world_folder(id)
 	active_world.text_scale = _text_scale()
+	active_world.grass_density = settings.values.grass_density
 	active_world.load_distance = int(settings.values.load_distance)
 	var developer: bool = item.get("mode", Catalog.MODE_DEFAULT) == Catalog.MODE_DEVELOPER
 	active_world.developer_mode = developer
