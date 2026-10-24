@@ -535,10 +535,10 @@ func _create_hud() -> void:
 	fps_label = Label.new()
 	fps_label.name = "FPS"
 	fps_label.text = "FPS : —"
-	fps_label.add_theme_font_size_override("font_size",roundi(13 * text_scale))
-	fps_label.add_theme_color_override("font_color",Color(0.9,0.9,0.9,0.85))
+	fps_label.add_theme_font_size_override("font_size",roundi(20 * text_scale))
+	fps_label.add_theme_color_override("font_color",Color(1,1,1,1))
 	fps_label.add_theme_color_override("font_shadow_color",Color.BLACK)
-	fps_label.add_theme_constant_override("shadow_outline_size",2)
+	fps_label.add_theme_constant_override("shadow_outline_size",4)
 	fps_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	left.add_child(fps_label)
 	var crosshair := Label.new()
@@ -602,7 +602,7 @@ func apply_text_scale(scale: float) -> void:
 		coordinates_label.offset_top = 18 + roundi(80 * text_scale)
 		var exploration: Label = find_child("ExplorationNotice",true,false)
 		exploration.add_theme_font_size_override("font_size",roundi(14 * text_scale))
-		fps_label.add_theme_font_size_override("font_size",roundi(13 * text_scale))
+		fps_label.add_theme_font_size_override("font_size",roundi(20 * text_scale))
 		selected_block_label.get_parent().add_theme_constant_override("separation",roundi(5 * text_scale))
 
 func update_selected_block() -> void:
