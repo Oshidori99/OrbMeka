@@ -1166,6 +1166,8 @@ func _build_interface() -> void:
 	history_button = _button("Historique des versions", home, open_history)
 	# 0.0.4 : launcher puis Quitter, tout en bas (pas de Quitter dans un navigateur).
 	launcher_button = _button("Aller au launcher", home, open_launcher)
+	# 0.0.4.18 : version Web à part : un navigateur ne lance pas de programme, pas de launcher.
+	launcher_button.visible = not OS.has_feature("web")
 	quit_button = _button("Quitter le jeu", home, func(): get_tree().quit())
 	quit_button.visible = not OS.has_feature("web")
 	# 0.0.4.1 : écran à part (gris, sans le monde derrière). De haut en bas : Retour au jeu,

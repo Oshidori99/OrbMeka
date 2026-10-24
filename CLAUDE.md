@@ -8,8 +8,8 @@ Guide complet : docs/README.md. Fichiers techniques : docs/ORGANISATION.txt.
 - L'utilisateur n'est pas expert Git : expliquer les étapes simplement.
 
 ## Juridique (prioritaire)
-- Signaler **immédiatement** tout risque : droit suisse/UE, Mojang/Microsoft, licences, données personnelles.
-- Ne rien reprendre de Minecraft (code, assets, noms, éléments emblématiques, interface identique) ; proposer une alternative originale.
+- Signaler **immédiatement** tout risque : droit suisse/UE, autres jeux et éditeurs (surtout le jeu de blocs le plus connu), licences, données personnelles.
+- Ne rien reprendre d'un autre jeu (code, assets, noms, éléments emblématiques, interface identique) ; proposer une alternative originale. Ne jamais citer un autre jeu dans le dépôt (il est public).
 - Voir « Cadre juridique » dans README.md.
 
 ## Structure

@@ -3,7 +3,7 @@ extends RefCounted
 # des sons CC0 et des polices. Montrées dans le jeu (Paramètres → Licences, dernier onglet) et copiées dans LICENCES.txt, à côté du jeu
 # dans chaque zip et sur itch.io (fichier docs/LICENCES.txt, refait par tests/licences_test.gd).
 
-const GAME := "OrbMeka — © 2026 Oshidori99. Code, personnages et formes : créations originales d'OrbMeka."
+const GAME := "OrbMeka — © 2026 Oshidori99. Tous droits réservés (fichier LICENSE). Code, personnages et formes : créations originales d'OrbMeka."
 const SOUNDS := "Sons d'animaux, CC0 1.0 (domaine public) : « Meow » (IgnasD, OpenGameArt), « Kitten Mew » (AntumDeluge, OpenGameArt), « Bunny hutch » n° 1376 (Joseph Sardin, BigSoundBank, extrait). Autres sons fabriqués par le jeu."
 const FONTS := "Polices de secours (version Web) : DejaVu Sans (© Bitstream, Tavmjong Bah ; licence Bitstream Vera / Arev, libre) et Noto Emoji (© 2013 Google LLC ; SIL Open Font License 1.1). Textes complets dans LICENCES.txt."
 const FONT_LICENSES := {"DejaVu Sans": "res://assets/fonts/DejaVuSans-LICENSE.txt", "Noto Emoji": "res://assets/fonts/NotoEmoji-OFL.txt"}

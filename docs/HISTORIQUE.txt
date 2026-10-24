@@ -3,6 +3,10 @@ Du plus récent au plus ancien. Ce fichier est mis à jour à chaque version.
 
 === Thème « Menus et Paramètres 2 » (0.0.4 et suivantes) ===
 
+0.0.4.18 — Dépôt public et launcher par Internet
+Launcher : versions téléchargées par Internet, sans compte (GitHub CLI en secours) ; pas de launcher
+dans la version Web ; licence « tous droits réservés » (LICENSE).
+
 0.0.4.17 — Licences et version Web corrigée
 Paramètres → Licences (Godot, licence MIT, sons, polices) et LICENCES.txt dans les zips ; Web : couleurs,
 sensibilité de la souris, symboles et emojis corrigés.

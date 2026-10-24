@@ -1,4 +1,4 @@
-# OrbMeka™ — prototype 0.0.4.17
+# OrbMeka™ — prototype 0.0.4.18
 
 Godot 4.7 / GDScript. Formes et couleurs simples ; assets externes seulement sous licence vérifiée (sons CC0, assets/sounds/CREDITS.txt).
 
@@ -1446,3 +1446,26 @@ onglet Licences, polices, chaque symbole affichable), tests/web_fixes_test.gd
 settings_walk (onglet Licences), numéro de version. Résultat : 49 tests, 0 échec.
 À tester manuellement : la version Web sur itch.io (couleurs, sensibilité de
 la souris, symboles), l'onglet Licences, LICENCES.txt dans le zip.
+
+## Dépôt public et launcher par Internet — 0.0.4.18
+- **Launcher par Internet** : il lit les versions (API GitHub) et télécharge
+  les zips Windows directement, sans compte ni jeton, dès que le dépôt est
+  public. Tant qu'il est privé (ou sans Internet), GitHub CLI connecté reste
+  utilisé en secours, comme avant.
+- **Web et Windows séparés** : pas de bouton « Aller au launcher » dans la
+  version Web (un navigateur ne lance pas de programme), comme Quitter.
+- **Licence** : fichier LICENSE, « tous droits réservés » (lire le code et
+  jouer : permis ; copier, modifier, revendre : non, sans accord) ; Godot,
+  sons et polices gardent leur licence. Rappel dans Paramètres → Licences.
+- **Aucun autre jeu cité** dans le dépôt : règles de CLAUDE.md et cadre
+  juridique de README.md reformulés ; un test le vérifie. Vérifié avant
+  de rendre le dépôt public : pas d'e-mail personnel ni de clé dans
+  l'historique.
+
+Test ajouté : tests/public_launcher_test.gd (API, adresses, https seul,
+secours GitHub CLI, Web sans launcher, LICENSE, aucun autre jeu cité).
+Essai réel : téléchargement par Internet (redirection comprise) vérifié sur
+un fichier public. Tests mis à jour : numéro de version.
+Résultat : 50 tests, 0 échec.
+À tester manuellement : une fois le dépôt public, launcher sur un PC sans
+GitHub CLI (liste, téléchargement, lancement).

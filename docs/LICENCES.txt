@@ -1,4 +1,4 @@
-OrbMeka — © 2026 Oshidori99. Code, personnages et formes : créations originales d'OrbMeka.
+OrbMeka — © 2026 Oshidori99. Tous droits réservés (fichier LICENSE). Code, personnages et formes : créations originales d'OrbMeka.
 
 Moteur : Godot Engine (https://godotengine.org), licence MIT :
 
