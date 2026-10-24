@@ -51,7 +51,7 @@ func _run() -> void:
 	var expected := {
 		"walk_up": "↑ + W", "walk_down": "↓ + W", "run_up": "↑ + R", "run_down": "↓ + R",
 		"break_up": "↑ + Clic gauche", "break_down": "↓ + Clic gauche", "place_up": "↑ + Clic droit", "place_down": "↓ + Clic droit",
-		"walk_reset": "⌫ + W", "run_reset": "⌫ + R", "break_reset": "⌫ + Clic gauche", "place_reset": "⌫ + Clic droit", "speed_reset_all": "⌫ deux fois",
+		"walk_reset": "⌫ + W", "run_reset": "⌫ + R", "break_reset": "⌫ + Clic gauche", "place_reset": "⌫ + Clic droit", "speed_reset_all": "⌫ → ⌫",
 		"speed_up": "↑ + A", "speed_down": "↓ + A", "move_reset": "⌫ + A",
 	}
 	for action in expected:
@@ -161,7 +161,7 @@ func _run() -> void:
 	app.catalog = load("res://scripts/world_catalog.gd").new(fixture + ".worlds")
 	root.add_child(app)
 	await process_frame
-	check(app.control_buttons.walk_up.text == "↑" and app.control_second_buttons.walk_up.text == "W" and app.control_second_buttons.break_up.text == "Clic gauche" and app.control_buttons.speed_reset_all.text == "⌫", "new actions in Contrôles")
+	check(app.control_buttons.walk_up.text == "↑" and app.control_slot_texts("walk_up")[1] == "W" and app.control_slot_texts("break_up")[1] == "Clic gauche" and app.control_buttons.speed_reset_all.text == "⌫", "new actions in Contrôles")
 	var help: String = load("res://scripts/world.gd").get_help_text(2)
 	check(help.contains("avec W : la marche seule") and help.contains("⌫ deux fois") and help.contains("75 à 150 % dans") and help.contains("Portée : 5 blocs"), "Comment jouer explains the combinations")
 	root.remove_child(app)

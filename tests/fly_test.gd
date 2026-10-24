@@ -42,7 +42,7 @@ func _run() -> void:
 	root.size = Vector2i(1280, 720)
 	# Contrôles.
 	check(Controls.ACTIONS.has("fly") and Controls.ACTIONS.fly.label == "Voler", "Voler in Contrôles")
-	check(Controls.default_for("fly") == {"key": KEY_SPACE, "second": {"key": KEY_SPACE}} and Controls.label(Controls.default_for("fly")) == "Espace deux fois", "Espace deux fois by default")
+	check(Controls.default_for("fly") == Controls.normalize({"key": KEY_SPACE, "second": {"key": KEY_SPACE}}) and Controls.label(Controls.default_for("fly")) == "Espace → Espace", "Espace deux fois by default (Espace → Espace)")
 	var combos := KeyCombos.new()
 	combos.set_bindings(Controls.defaults())
 	press(combos, KEY_SPACE, true, 0)
@@ -128,7 +128,7 @@ func _run() -> void:
 	file.close()
 	var legacy := Settings.new(fixture)
 	check(legacy.values.fly_forward == 10.0 and legacy.values.speed_max == 300.0 and legacy.load_notice.is_empty(), "old attributs.json: flight by default, no warning")
-	check(legacy.controls.fly == Controls.default_for("fly") and legacy.controls.jump == {"key": KEY_SPACE} and legacy.load_notice.is_empty(), "old controles.json: Voler by default, no warning")
+	check(legacy.controls.fly == Controls.default_for("fly") and legacy.controls.jump == Controls.normalize({"key": KEY_SPACE}) and legacy.load_notice.is_empty(), "old controles.json: Voler by default, no warning")
 	# Menus.
 	var settings := Settings.new(fixture + ".app")
 	var app: Control = load("res://scenes/main.tscn").instantiate()
@@ -136,8 +136,8 @@ func _run() -> void:
 	app.catalog = load("res://scripts/world_catalog.gd").new(fixture + ".worlds")
 	root.add_child(app)
 	await process_frame
-	check(app.control_buttons.fly.text == "Espace" and app.control_second_buttons.fly.text == "Espace" and app.control_labels.fly.text.contains("double appui"), "Voler shown as Espace, Espace (double appui)")
-	check(app.control_second_buttons.jump.text == "Aucune" and app.control_second_buttons.sprint.text == "Aucune", "no second key: Aucune")
+	check(app.control_buttons.fly.text == "Espace" and app.control_slot_texts("fly") == ["Espace", "Espace"] and app.control_labels.fly.text == "Voler", "Voler shown as Espace → Espace")
+	check(app.control_slot_texts("jump").size() == 1 and app.control_slot_texts("sprint").size() == 1, "one key: one box (0.0.4.20, no second-key column)")
 	var categories: Array = app.ATTRIBUTE_CATEGORIES.keys()
 	check(categories.find("Voler") == categories.find("Se baisser") + 1 and app.setting_fields.has("fly_up") and app.setting_sliders.has("fly_down"), "Voler category under Se baisser, with fields and sliders")
 	var help: String = load("res://scripts/world.gd").get_help_text(2)

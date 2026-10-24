@@ -31,7 +31,7 @@ func fly(player: CharacterBody3D, direction: Vector2, steps: int) -> float:
 func _run() -> void:
 	root.size = Vector2i(1280, 720)
 	# Parties.
-	check(Controls.GROUPS.keys() == ["Mouvements", "Blocs", "Vitesses"], "groups: Mouvements, Blocs, Vitesses (then Menus)")
+	check(Controls.GROUPS.keys() == ["Mouvements", "Blocs", "Vitesses", "Vitesses — réinitialiser"], "groups: Mouvements, Blocs, Vitesses, Vitesses — réinitialiser (then Menus)")
 	var seen := []
 	for group in Controls.GROUPS:
 		seen.append_array(Controls.GROUPS[group])
@@ -39,7 +39,7 @@ func _run() -> void:
 	for action in Controls.ACTIONS:
 		once = once and seen.count(action) == 1
 	check(once, "every action in exactly one group")
-	check(Controls.GROUPS.Mouvements.has("fly") and Controls.GROUPS.Mouvements.has("sprint") and Controls.GROUPS.Blocs.has("break_block") and Controls.GROUPS.Vitesses.has("speed_reset_all"), "actions in the right group")
+	check(Controls.GROUPS.Mouvements.has("fly") and Controls.GROUPS.Mouvements.has("sprint") and Controls.GROUPS.Blocs.has("break_block") and Controls.GROUPS["Vitesses — réinitialiser"].has("speed_reset_all") and Controls.GROUPS.Vitesses.has("speed_up"), "actions in the right group")
 	check(Controls.MENU_KEYS.map(func(entry): return entry[1]).slice(0, 4) == ["Échap", "F1", "F2", "F3"], "Menus: Échap, F1, F2, F3 (then F4, 0.0.4.9)")
 	# Attributs de vol rapide.
 	for key in ["fly_run_forward", "fly_run_side", "fly_run_back"]:
@@ -86,17 +86,17 @@ func _run() -> void:
 	app.catalog = load("res://scripts/world_catalog.gd").new(fixture + ".worlds")
 	root.add_child(app)
 	await process_frame
-	var titles: Array = ["Mouvements", "Blocs", "Vitesses", "Menus"]
+	var titles: Array = ["Mouvements", "Blocs", "Vitesses", "Vitesses — réinitialiser", "Menus"]
 	var ordered := titles.all(func(title): return app.control_group_labels.has(title))
 	var list: Node = app.control_group_labels.Mouvements.get_parent()
 	for index in range(titles.size() - 1):
 		ordered = ordered and app.control_group_labels[titles[index]].get_index() < app.control_group_labels[titles[index + 1]].get_index()
-	check(ordered and app.control_group_labels.Menus.text == "▾ Menus", "four titled parts in order (▾ : repliables, 0.0.4.14)")
+	check(ordered and app.control_group_labels.Menus.text == "▾ Menus", "five titled parts in order (▾ : repliables, 0.0.4.14)")
 	var placed := true
 	for index in range(Controls.GROUPS.size()):
 		var group: String = titles[index]
 		for action in Controls.GROUPS[group]:
-			var group_body: Node = app.control_buttons[action].get_parent().get_parent()
+			var group_body: Node = app.control_action_boxes[action].get_parent()
 			placed = placed and group_body.get_parent() == list and group_body.get_index() == app.control_group_labels[group].get_index() + 1
 	check(placed, "each action under its part")
 	check(app.control_menu_buttons.size() == Controls.MENU_KEYS.size() and app.control_menu_buttons.values().all(func(button): return button.disabled) and app.control_menu_buttons["Retour aux mondes"].text == "F1" and app.control_menu_buttons.Pause.text == "Échap", "Menus: reserved keys shown, not editable")

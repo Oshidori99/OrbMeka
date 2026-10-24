@@ -72,7 +72,8 @@ func _run() -> void:
 	var walk_body: Node = app.setting_fields.walk_side.get_parent().get_parent()
 	var lines: Array = walk_body.get_children().filter(func(node): return node is HSeparator)
 	check(lines.size() == 2 and lines.all(func(line): return line.theme_type_variation == "OrbRowLine"), "a thin line between each Marche row")
-	check(app.control_buttons.move_back.get_parent().get_index() > 0 and app.control_buttons.move_back.get_parent().get_parent().get_child(app.control_buttons.move_back.get_parent().get_index() - 1) is HSeparator, "lines between Contrôles rows")
+	var back_block: Node = app.control_action_boxes.move_back
+	check(back_block.get_index() > 0 and back_block.get_parent().get_child(back_block.get_index() - 1) is HSeparator, "lines between Contrôles rows (one block per action, 0.0.4.20)")
 	var style: StyleBoxLine = app.menu_root.theme.get_stylebox("separator", "OrbRowLine")
 	check(style.color.a > 0.1 and style.color.a < 0.4 and style.thickness == 1, "line discreet but visible")
 	# Espacements.

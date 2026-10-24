@@ -39,7 +39,7 @@ func _run() -> void:
 	old.store_string('{"crouch_mode": "toggle", "sprint": {"key": %d}}' % KEY_T)
 	old.close()
 	var legacy := Settings.new(fixture + ".old")
-	check(legacy.control_options.run_mode == "hold" and legacy.control_options.crouch_mode == "toggle" and legacy.controls.sprint == {"key": KEY_T} and legacy.load_notice.is_empty(), "old controles.json still readable, Maintenir")
+	check(legacy.control_options.run_mode == "hold" and legacy.control_options.crouch_mode == "toggle" and legacy.controls.sprint == Controls.normalize({"key": KEY_T}) and legacy.load_notice.is_empty(), "old controles.json still readable, Maintenir")
 	var settings := Settings.new(fixture)
 	var app: Control = load("res://scenes/main.tscn").instantiate()
 	app.settings = settings

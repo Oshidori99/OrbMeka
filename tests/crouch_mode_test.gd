@@ -19,7 +19,7 @@ func check(ok: bool, label: String) -> void:
 func _run() -> void:
 	root.size = Vector2i(1280, 720)
 	check(Controls.OPTIONS.crouch_mode.options.keys() == ["hold", "toggle"] and Controls.OPTIONS.crouch_mode.default == "hold", "Maintenir by default, or Basculer")
-	check(Controls.ACTIONS.crouch.get("by_letter", false) and Controls.default_for("crouch") == {"key": KEY_Y}, "crouch default follows the letter Y")
+	check(Controls.ACTIONS.crouch.get("by_letter", false) and Controls.default_for("crouch") == Controls.single({"key": KEY_Y}), "crouch default follows the letter Y")
 	var fixture := "res://.godot/crouch-mode-%d.json" % Time.get_ticks_usec()
 	var settings := Settings.new(fixture)
 	var app: Control = load("res://scenes/main.tscn").instantiate()

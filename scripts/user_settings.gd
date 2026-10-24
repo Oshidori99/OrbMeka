@@ -171,7 +171,7 @@ func _read_controls() -> void:
 			continue
 		if Controls.is_valid(data[action]):
 			controls[action] = Controls.clean(data[action])
-			if Controls.FORMER_DEFAULTS.get(action) == controls[action]:
+			if Controls.FORMER_DEFAULTS.has(action) and Controls.normalize(Controls.FORMER_DEFAULTS[action]) == controls[action]:
 				controls[action] = Controls.default_for(action)
 		else:
 			load_notice = "Certains contrôles invalides ont repris leur touche par défaut."
@@ -188,17 +188,23 @@ func _write_controls(bindings: Dictionary, options: Dictionary) -> bool:
 	data.merge(options, true)
 	return _write(controls_path(), data)
 
-# Nouvelle liaison d'une action ; la même touche (ou combinaison, 0.0.3.27) est retirée de l'action qui l'avait
-# (renvoie le nom de cette action, ou "" s'il n'y en avait pas).
-func set_control(action: String, binding: Dictionary) -> String:
+# Nouvelle liaison d'une action (toutes ses options, 0.0.4.20 ; ancienne écriture acceptée) ; une même
+# combinaison est retirée de l'action qui l'avait (renvoie le nom de cette action, ou "" s'il n'y en avait pas).
+func set_control(action: String, raw: Dictionary) -> String:
 	last_error = ""
+	var binding := Controls.normalize(raw)
 	var candidate := controls.duplicate(true)
 	var freed := ""
-	if not binding.is_empty():
-		for other in candidate:
-			if other != action and Controls.same(candidate[other], binding):
-				candidate[other] = {}
+	for other in candidate:
+		if other == action:
+			continue
+		var kept := []
+		for combo in Controls.options(candidate[other]):
+			if binding.options.any(func(mine): return Controls.same_combo(mine, combo)):
 				freed = Controls.ACTIONS[other].label
+			else:
+				kept.append(combo)
+		candidate[other] = {"options": kept}
 	candidate[action] = binding
 	if not _write_controls(candidate, control_options):
 		return ""

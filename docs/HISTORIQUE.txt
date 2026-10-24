@@ -3,6 +3,10 @@ Du plus récent au plus ancien. Ce fichier est mis à jour à chaque version.
 
 === Thème « Menus et Paramètres 2 » (0.0.4 et suivantes) ===
 
+0.0.4.20 — Touches à la carte
+Contrôles : + par action (nouvelle option, appuyer en même temps, appuyer après), recherche
+par partie, nom ou touche, bouton Conflits, partie Vitesses — réinitialiser.
+
 0.0.4.19 — Version Web plus juste
 Navigateur : sable, pierre et herbe retrouvent leurs couleurs (lumière réglée sur captures),
 souris nettement moins sensible.

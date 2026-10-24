@@ -1,4 +1,4 @@
-# OrbMeka™ — prototype 0.0.4.19
+# OrbMeka™ — prototype 0.0.4.20
 
 Godot 4.7 / GDScript. Formes et couleurs simples ; assets externes seulement sous licence vérifiée (sons CC0, assets/sounds/CREDITS.txt).
 
@@ -1486,3 +1486,36 @@ Tests mis à jour : web_fixes (nouvelles valeurs, souris), numéro de
 version. Résultat : 50 tests, 0 échec.
 À tester manuellement : version Web sur itch.io (couleurs en partie et à
 l'accueil, sensibilité de la souris).
+
+## Touches à la carte — 0.0.4.20
+Issue #101 (combinaisons avancées).
+- **Bouton +** à droite de ↻ sur chaque action, avec un petit menu :
+  - **Nouvelle option** : une autre façon de faire l'action, sur une ligne
+    « Avancer (2) » (3 options au plus). Un clic sur « ▾ Avancer » cache ou
+    montre les autres options ; ✕ à droite d'une option la retire.
+  - **Appuyer en même temps** : une touche de plus à droite, reliée par une
+    accolade ︸.
+  - **Appuyer après** : une étape de plus, après une flèche → (0,5 s au plus
+    entre deux ; la même touche deux fois = double appui).
+  - 4 touches au plus par combinaison ; ✕ sur chaque touche ajoutée.
+  Remplace la colonne « 2e touche » : les anciens réglages sont convertis
+  (double appui = « Espace → Espace », en même temps = « ↑ + A »).
+- **Recherche**, trois barres fines qui se combinent : **Partie**
+  (Mouvements, Vitesses…), **Nom** (Avancer…), **Touche** (« Espace » ;
+  « Z, X » ou « Z - X » = Z puis X ; « ↑ A » ou « ↑ + A » = en même temps ;
+  « Clic gauche » en deux mots). Nom et partie : un morceau, ou les
+  premières lettres (« tpv » = Tout plus vite, « mar pl » = Marche plus vite).
+- **Conflits** (à droite de la barre Partie) : seulement les actions en
+  conflit (même combinaison, ou une touche seule dans la combinaison d'une
+  autre, sauf quand le jeu l'évite déjà) ; sinon « Aucun conflit. ».
+- Nouvelle partie **Vitesses — réinitialiser** (les ⌫), séparée de Vitesses.
+- controles.json : nouveau format (options, étapes) ; les anciens fichiers
+  restent lus.
+
+Tests : key_combos réécrit (format, conversions, limites, en même temps,
+après, options, menu +, accolade, flèche, ✕, recherche, Conflits, jeu).
+Tests mis à jour pour le nouveau format : controls, controls_groups,
+crouch_mode, fly, folds, layout_lines, speed_change, speed_targets, et
+d'autres (comparaisons converties), numéro de version.
+À tester manuellement : + et son menu, accolade et flèche à l'écran, les
+trois barres, Conflits, une combinaison « après » en jeu.
