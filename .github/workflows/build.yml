@@ -95,7 +95,11 @@ jobs:
           $GODOT --headless --path game --export-release "Web" "$PWD/out/web/index.html"
           test -s out/windows/OrbMeka.exe
           test -s out/web/index.html
-          (cd out/windows && zip -q "../OrbMeka-$VERSION-windows.zip" OrbMeka.exe)
+          # 0.0.4.17 : mentions de licence (Godot, MIT ; sons CC0) à côté du jeu, si la version les a.
+          # Anciennes versions sans ce fichier : celui de la version actuelle (même Godot 4.7.2 pour toutes).
+          LICENCES=game/docs/LICENCES.txt; [ -f "$LICENCES" ] || LICENCES=ci/docs/LICENCES.txt
+          if [ -f "$LICENCES" ]; then cp "$LICENCES" out/windows/LICENCES.txt; cp "$LICENCES" out/web/LICENCES.txt; fi
+          (cd out/windows && zip -q "../OrbMeka-$VERSION-windows.zip" OrbMeka.exe $(ls LICENCES.txt 2>/dev/null))
           (cd out/web && zip -q -r "../OrbMeka-$VERSION-web.zip" .)
           ls -l out
 

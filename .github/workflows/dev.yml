@@ -81,6 +81,8 @@ jobs:
           mkdir -p out/web
           $GODOT --headless --path . --export-release "Web" "$PWD/out/web/index.html"
           test -s out/web/index.html
+          # 0.0.4.17 : mentions de licence à côté du jeu.
+          cp docs/LICENCES.txt out/web/
           curl -fsSL -o butler.zip "https://broth.itch.zone/butler/linux-amd64/${BUTLER_VERSION}/archive/default"
           echo "$BUTLER_SHA256  butler.zip" | sha256sum -c -
           mkdir -p ~/butler && unzip -q butler.zip -d ~/butler && chmod +x ~/butler/butler

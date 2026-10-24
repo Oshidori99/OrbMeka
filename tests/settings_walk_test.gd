@@ -61,7 +61,7 @@ func _run() -> void:
 	app.settings_button.pressed.emit()
 	check(app.page == "settings" and app.pages.settings.get_child(0).text == "Paramètres", "home opens Paramètres")
 	var tabs: Array = app.settings_tabs.values()
-	check(tabs.map(func(tab): return tab.text) == ["Paramètres généraux", "Vidéo", "Contrôles", "Personnage", "Attributs"], "side menu lists Paramètres généraux, Vidéo, Contrôles, Personnage, then Attributs")
+	check(tabs.map(func(tab): return tab.text) == ["Paramètres généraux", "Vidéo", "Contrôles", "Personnage", "Attributs", "Licences"], "side menu lists Paramètres généraux, Vidéo, Contrôles, Personnage, Attributs, then Licences")
 	check(tabs.all(func(tab): return tab.theme_type_variation == "OrbTab" and tab.toggle_mode and tab.button_group == tabs[0].button_group), "side buttons are rectangular toggle tabs in one group")
 	check(tabs[0].get_parent().get_index() == 0 and tabs[0].get_parent().get_parent() is HBoxContainer, "side menu sits on the left")
 	check(app.settings_section == "general" and app.settings_sections.general.visible and not app.settings_sections.attributes.visible and tabs[0].button_pressed, "general settings open first")

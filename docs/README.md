@@ -1,4 +1,4 @@
-# OrbMeka™ — prototype 0.0.4.16
+# OrbMeka™ — prototype 0.0.4.17
 
 Godot 4.7 / GDScript. Formes et couleurs simples ; assets externes seulement sous licence vérifiée (sons CC0, assets/sounds/CREDITS.txt).
 
@@ -1417,3 +1417,32 @@ sous-catégories). Tests mis à jour : launcher (nouvel ordre), folds
 (sous-titres), numéro de version. Résultat : 47 tests, 0 échec.
 À tester manuellement : launcher (ouvrir ▼ plusieurs fois, petite fenêtre),
 lisibilité des traits et des espacements.
+
+## Licences et version Web corrigée — 0.0.4.17
+- **Paramètres → Licences** (dernier onglet, Windows et Web) : OrbMeka,
+  **Godot Engine (licence MIT, texte complet)**, ses composants et leurs
+  licences, sons CC0, polices. **LICENCES.txt** (docs/LICENCES.txt : textes
+  complets) est mis à côté du jeu dans chaque zip et sur itch.io ; une
+  ancienne version reconstruite (Actions → Build → Run workflow) le reçoit
+  aussi. Obligatoire pour la licence MIT de Godot.
+- **Version Web** :
+  - **Couleurs** : le navigateur utilise le rendu « Compatibility », où la
+    lumière paraissait trop forte (couleurs délavées) ; soleil × 0,7 et
+    lumière ambiante × 0,55 dans ce rendu seulement (Windows inchangé).
+    Vérifié en comparant les deux rendus sur le PC.
+  - **Souris** : la vue tournait trop vite, car le mouvement était agrandi
+    selon la taille de l'affichage (plus petit dans un navigateur) ; le jeu
+    prend maintenant le mouvement réel de la souris.
+  - **Symboles et emojis** (↻ ▾ ← ⌫ ▼ ✕ ⚙ ✏ ➕ 🗑 📋) : carrés vides dans le
+    navigateur, faute de polices du système ; polices de secours DejaVu Sans
+    et Noto Emoji (licences libres, texte joint), dans le navigateur
+    seulement.
+- Point juridique : nom « OrbMeka » absent de TMview ; cadre juridique de
+  README.md complété.
+
+Tests ajoutés : tests/licences_test.gd (mentions, LICENCES.txt à jour, zips,
+onglet Licences, polices, chaque symbole affichable), tests/web_fixes_test.gd
+(lumière du rendu Web, souris). Tests mis à jour : controls et
+settings_walk (onglet Licences), numéro de version. Résultat : 49 tests, 0 échec.
+À tester manuellement : la version Web sur itch.io (couleurs, sensibilité de
+la souris, symboles), l'onglet Licences, LICENCES.txt dans le zip.

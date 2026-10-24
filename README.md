@@ -1,4 +1,4 @@
-# OrbMeka™ 0.0.4.16
+# OrbMeka™ 0.0.4.17
 
 Dans Godot, ouvrez **project.godot**, puis **F5** pour lancer le jeu.
 
@@ -17,4 +17,10 @@ Objectif : aucun risque juridique, ni en droit suisse ou européen, ni vis-à-vi
   - Sons d'animaux (0.0.4.13), CC0 1.0 : « Meow » (IgnasD, OpenGameArt), « Kitten Mew »
     (AntumDeluge, OpenGameArt), « Bunny hutch » n° 1376 (Joseph Sardin, BigSoundBank).
     Détails : assets/sounds/CREDITS.txt.
+  - Polices de secours de la version Web (0.0.4.17) : DejaVu Sans (licence Bitstream Vera / Arev,
+    libre) et Noto Emoji (SIL Open Font License 1.1) ; textes dans assets/fonts/ et LICENCES.txt.
+- Godot Engine (licence MIT) et ses composants : mentions dans Paramètres → Licences et dans
+  LICENCES.txt (docs/LICENCES.txt), livré à côté du jeu dans chaque zip et sur itch.io (0.0.4.17).
+- Nom « OrbMeka » : aucune marque trouvée dans TMview (UE, Suisse et autres offices, 24.10.2026) ;
+  pas un registre officiel, à revérifier avant un lancement public. ™ permis, ® seulement si déposée.
 - Données personnelles : aucune collecte sans nécessité (protection des données suisse / RGPD).

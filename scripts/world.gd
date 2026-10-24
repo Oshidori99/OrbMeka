@@ -58,6 +58,14 @@ func _setup_inputs() -> void:
 	# monde lancé seul (tests) : touches par défaut.
 	Controls.ensure_defaults()
 
+# 0.0.4.17 : rendu Compatibility (version Web) : la lumière y paraît plus forte qu'avec Forward+ (Windows),
+# couleurs délavées ; soleil et lumière ambiante y sont donc baissés.
+const COMPAT_SUN := 0.7
+const COMPAT_AMBIENT := 0.55
+
+static func is_compat() -> bool:
+	return RenderingServer.get_current_rendering_method() == "gl_compatibility"
+
 func _setup_environment() -> void:
 	var environment := Environment.new()
 	environment.background_mode = Environment.BG_SKY
@@ -79,6 +87,9 @@ func _setup_environment() -> void:
 	sun.rotation_degrees = Vector3(-50, -25, 0)
 	sun.light_energy = 1.25
 	sun.shadow_enabled = true
+	if is_compat():
+		sun.light_energy *= COMPAT_SUN
+		environment.ambient_light_energy *= COMPAT_AMBIENT
 	add_child(sun)
 
 func _create_ground() -> void:

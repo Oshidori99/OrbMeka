@@ -30,6 +30,19 @@ const LAUNCH_PRESSED := Color("#237a43")
 # Écran du launcher (0.0.4.1) : gris neutre et opaque, pour sortir de l'ambiance du jeu.
 const LAUNCHER_SCREEN := Color("#16181d")
 const LAUNCHER_PANEL := Color("#22252c")
+# 0.0.4.17 : dans un navigateur, pas de polices du système pour compléter celle de Godot : les symboles
+# (↻ ▾ ← ⌫ ▼ ✕ ⚙ ✏ ➕…) et emojis (🗑 📋) viennent de DejaVu Sans et Noto Emoji (licences dans
+# assets/fonts/ et LICENCES.txt). Sur Windows, rien ne change (le système complète déjà).
+const WEB_FALLBACK_FONTS := ["res://assets/fonts/DejaVuSans.ttf", "res://assets/fonts/NotoEmoji.ttf"]
+
+static func use_web_fonts(force := false) -> void:
+	if not (force or OS.has_feature("web")):
+		return
+	var base: Font = ThemeDB.fallback_font
+	var fallbacks: Array[Font] = []
+	for path in WEB_FALLBACK_FONTS:
+		fallbacks.append(load(path))
+	base.fallbacks = fallbacks
 const MODES := ["dark", "default", "light"]
 # Facteur des marges intérieures pendant la construction du thème (Taille des zones et boutons).
 static var spacing := 1.0

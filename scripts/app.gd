@@ -12,6 +12,7 @@ const CharacterPreview = preload("res://scripts/character_preview.gd")
 const MenuShowcase = preload("res://scripts/menu_showcase.gd")
 const Launcher = preload("res://scripts/launcher.gd")
 const BackdropShader = preload("res://scripts/menu_backdrop.gdshader")
+const Licences = preload("res://scripts/licences.gd")
 const MenuSounds = preload("res://scripts/menu_sounds.gd")
 const CharacterVoices = preload("res://scripts/character_voices.gd")
 const MIN_WINDOW_SIZE := Vector2i(800, 450)
@@ -61,7 +62,7 @@ const GENERAL_CATEGORIES := {
 	},
 }
 # Menu latéral de Paramètres : sections dans l'ordre des boutons ; la première s'ouvre par défaut.
-const SETTINGS_SECTIONS := {"general": "Paramètres généraux", "video": "Vidéo", "controls": "Contrôles", "character": "Personnage", "attributes": "Attributs"}
+const SETTINGS_SECTIONS := {"general": "Paramètres généraux", "video": "Vidéo", "controls": "Contrôles", "character": "Personnage", "attributes": "Attributs", "licences": "Licences"}
 # 0.0.4.16 : plus d'espace entre catégories, moins entre les lignes (séparées par un trait fin).
 const CATEGORY_GAP := 30.0
 const ROW_GAP := 4
@@ -162,6 +163,8 @@ var play_button: Button
 var settings_button: Button
 var information_button: Button
 var history_button: Button
+var licences_scroll: ScrollContainer
+var licences_text: RichTextLabel
 # Launcher (0.0.4) : bouton de l'accueil, page des versions, travail en fond (gh), version ouverte.
 var launcher_button: Button
 var quit_button: Button
@@ -222,6 +225,7 @@ var news_label: RichTextLabel
 
 func _ready() -> void:
 	process_mode = Node.PROCESS_MODE_ALWAYS
+	UiTheme.use_web_fonts()
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
 	get_window().min_size = MIN_WINDOW_SIZE
 	if catalog == null:
@@ -1313,6 +1317,24 @@ func _build_interface() -> void:
 		_add_setting_category(attributes, category, ATTRIBUTE_CATEGORIES[category])
 	_explanation(attributes, ["", "Mondes en mode développeur seulement.", "Utilisés seulement par les mondes en mode développeur. Champ vide : défaut."])
 	attributes.get_child(-1).theme_type_variation = "OrbNote"
+	# 0.0.4.17 : dernier onglet, Licences : mentions obligatoires (Godot, licence MIT, composants,
+	# polices) et origine des sons, sur Windows comme dans un navigateur.
+	var licences_box := VBoxContainer.new()
+	licences_box.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	settings_body.add_child(licences_box)
+	settings_sections.licences = licences_box
+	licences_scroll = ScrollContainer.new()
+	licences_scroll.custom_minimum_size = Vector2(0, 320)
+	menu_reserved_heights[licences_scroll] = 300.0
+	licences_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	licences_scroll.focus_mode = Control.FOCUS_ALL
+	licences_box.add_child(licences_scroll)
+	licences_text = _text_label()
+	licences_text.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	licences_text.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_font_size(licences_text, 15)
+	licences_text.text = Licences.summary()
+	licences_scroll.add_child(licences_text)
 	# Message commun aux trois sections : enregistrement automatique à chaque changement (0.0.3.8).
 	settings_message = _text_label()
 	settings_message.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART

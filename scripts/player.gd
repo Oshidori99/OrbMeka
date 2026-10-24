@@ -184,8 +184,9 @@ func _unhandled_input(event: InputEvent) -> void:
 		elif event.keycode == KEY_F4:
 			cycle_view()
 	if event is InputEventMouseMotion and Input.mouse_mode == Input.MOUSE_MODE_CAPTURED:
-		rotate_y(-event.relative.x * sensitivity)
-		camera.rotation.x = clampf(camera.rotation.x - event.relative.y * sensitivity, deg_to_rad(-89.0), deg_to_rad(89.0))
+		# 0.0.4.17 : mouvement réel de la souris (screen_relative), pas agrandi selon la taille de
+		# l'affichage : dans un navigateur (affichage plus petit que 1280 px), la vue tournait trop vite.
+		turn_view(event.screen_relative)
 	if event is InputEventMouseButton and event.pressed:
 		if Input.mouse_mode != Input.MOUSE_MODE_CAPTURED:
 			actions.cancel()
@@ -206,6 +207,11 @@ func _unhandled_input(event: InputEvent) -> void:
 		cycle_block(-1)
 	elif event.is_action_pressed("block_next"):
 		cycle_block(1)
+
+# Rotation de la vue par un déplacement de souris (en pixels de l'écran).
+func turn_view(motion: Vector2) -> void:
+	rotate_y(-motion.x * sensitivity)
+	camera.rotation.x = clampf(camera.rotation.x - motion.y * sensitivity, deg_to_rad(-89.0), deg_to_rad(89.0))
 
 func cycle_block(direction: int) -> void:
 	selected_type = wrapi(selected_type + direction, 0, world.BLOCK_NAMES.size())
