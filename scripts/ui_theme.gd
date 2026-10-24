@@ -193,6 +193,9 @@ static func build(text_scale: float = 1.0, mode: String = "default", depth: bool
 	theme.set_type_variation("OrbSection", "RichTextLabel")
 	theme.set_font_size("normal_font_size", "OrbSection", scaled(22, text_scale))
 	theme.set_color("default_color", "OrbSection", c.section)
+	# 0.0.4.14 : petits boutons Tout réduire / Tout développer / ouverture, en haut de Paramètres.
+	theme.set_type_variation("OrbFold", "Button")
+	theme.set_font_size("font_size", "OrbFold", scaled(14, text_scale))
 	theme.set_type_variation("OrbNote", "RichTextLabel")
 	theme.set_font_size("normal_font_size", "OrbNote", scaled(16, text_scale))
 	theme.set_color("default_color", "OrbNote", c.text_dim)

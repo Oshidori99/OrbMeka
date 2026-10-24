@@ -51,7 +51,8 @@ func _run() -> void:
 	# Profondeur : contenu sous le titre dans un encadré, catégories dans un encadré plus profond.
 	var home_inset: Node = app.pages.home.get_child(1)
 	check(app.pages.home.get_child(0).theme_type_variation == "OrbTitle" and home_inset is PanelContainer and home_inset.theme_type_variation == "OrbInset" and home_inset.is_ancestor_of(app.play_button), "page content sits in an inset below the title")
-	var deep: Node = app.setting_fields.mouse_sensitivity.get_parent().get_parent().get_parent()
+	# 0.0.4.14 : un bloc repliable de plus entre la ligne et la catégorie.
+	var deep: Node = app.setting_fields.mouse_sensitivity.get_parent().get_parent().get_parent().get_parent()
 	check(deep is PanelContainer and deep.theme_type_variation == "OrbInsetDeep", "settings categories sit one level deeper")
 	check(app.menu_root.theme.get_stylebox("panel", "OrbInset") is StyleBoxFlat, "depth on: insets drawn")
 	choose(app, {"menu_depth": "off"})

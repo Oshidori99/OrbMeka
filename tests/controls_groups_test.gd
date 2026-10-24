@@ -91,16 +91,16 @@ func _run() -> void:
 	var list: Node = app.control_group_labels.Mouvements.get_parent()
 	for index in range(titles.size() - 1):
 		ordered = ordered and app.control_group_labels[titles[index]].get_index() < app.control_group_labels[titles[index + 1]].get_index()
-	check(ordered and app.control_group_labels.Menus.text == "Menus", "four titled parts in order")
+	check(ordered and app.control_group_labels.Menus.text == "▾ Menus", "four titled parts in order (▾ : repliables, 0.0.4.14)")
 	var placed := true
 	for index in range(Controls.GROUPS.size()):
 		var group: String = titles[index]
 		for action in Controls.GROUPS[group]:
-			var row_index: int = app.control_buttons[action].get_parent().get_index()
-			placed = placed and app.control_buttons[action].get_parent().get_parent() == list and row_index > app.control_group_labels[group].get_index() and row_index < app.control_group_labels[titles[index + 1]].get_index()
+			var group_body: Node = app.control_buttons[action].get_parent().get_parent()
+			placed = placed and group_body.get_parent() == list and group_body.get_index() == app.control_group_labels[group].get_index() + 1
 	check(placed, "each action under its part")
 	check(app.control_menu_buttons.size() == Controls.MENU_KEYS.size() and app.control_menu_buttons.values().all(func(button): return button.disabled) and app.control_menu_buttons["Retour aux mondes"].text == "F1" and app.control_menu_buttons.Pause.text == "Échap", "Menus: reserved keys shown, not editable")
-	check(app.control_menu_buttons["Informations du monde"].get_parent().get_index() > app.control_group_labels.Menus.get_index(), "reserved keys under Menus")
+	check(app.control_menu_buttons["Informations du monde"].get_parent().get_parent().get_index() == app.control_group_labels.Menus.get_index() + 1, "reserved keys under Menus")
 	check(app.ATTRIBUTE_CATEGORIES.Voler.keys.has("fly_run_forward") and app.setting_fields.has("fly_run_back"), "flying fast in Attributs → Voler")
 	root.remove_child(app)
 	app.queue_free()

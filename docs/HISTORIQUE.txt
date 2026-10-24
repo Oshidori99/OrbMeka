@@ -3,6 +3,10 @@ Du plus récent au plus ancien. Ce fichier est mis à jour à chaque version.
 
 === Thème « Menus et Paramètres 2 » (0.0.4 et suivantes) ===
 
+0.0.4.14 — Paramètres repliables
+Un clic sur un titre de Paramètres le réduit ou le développe ; en haut : Tout réduire,
+Tout développer, et à l'ouverture : comme la dernière fois, tout développé ou tout réduit.
+
 0.0.4.13 — Vrais sons d'animaux
 Le chat, Brioche et le lapin ont de vrais sons enregistrés, libres (CC0, crédités) ;
 renard, écureuil et tortue gardent leur cri fabriqué.

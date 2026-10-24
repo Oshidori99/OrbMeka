@@ -89,6 +89,11 @@ const BASE_TEXT_PX := 18.0
 const FILES := {"general": "parametres-generaux.json", "video": "video.json", "character": "personnage.json", "attributes": "attributs.json"}
 const GENERAL_KEYS := ["character_volume", "menu_volume", "mouse_sensitivity", "text_detail"]
 const CONTROLS_FILE := "controles.json"
+# 0.0.4.14 : titres réduits de Paramètres et choix à l'ouverture (last, expanded, collapsed).
+const MENUS_FILE := "menus.json"
+const MENU_OPEN_MODES := ["last", "expanded", "collapsed"]
+var menu_open_mode := "last"
+var menu_folded: Array = []
 var values: Dictionary = {}
 var controls: Dictionary = {}
 var control_options: Dictionary = {}
@@ -109,6 +114,37 @@ func _init(path: String = DEFAULT_PATH) -> void:
 	controls = Controls.defaults()
 	control_options = Controls.default_options()
 	_read_controls()
+	_read_menus()
+
+# Menus (0.0.4.14) : menus.json, à côté des autres fichiers.
+func menus_path() -> String:
+	if storage_path == DEFAULT_PATH:
+		return storage_path.get_base_dir().path_join(MENUS_FILE)
+	return storage_path.get_basename() + "-" + MENUS_FILE
+
+func _read_menus() -> void:
+	if not FileAccess.file_exists(menus_path()):
+		return
+	var data: Variant = JSON.parse_string(FileAccess.get_file_as_string(menus_path()))
+	if not data is Dictionary:
+		return
+	if data.get("open_mode") in MENU_OPEN_MODES:
+		menu_open_mode = data.open_mode
+	if data.get("folded") is Array:
+		menu_folded = data.folded.filter(func(key): return key is String)
+
+func _write_menus() -> bool:
+	return _write(menus_path(), {"open_mode": menu_open_mode, "folded": menu_folded})
+
+func set_menu_folded(keys: Array) -> bool:
+	menu_folded = keys.duplicate()
+	return _write_menus()
+
+func set_menu_open_mode(mode: String) -> bool:
+	if not mode in MENU_OPEN_MODES:
+		return false
+	menu_open_mode = mode
+	return _write_menus()
 
 # Contrôles (0.0.3.12) : leur propre fichier, controles.json, écrit seulement par set_control.
 func controls_path() -> String:

@@ -1,4 +1,4 @@
-# OrbMeka™ — prototype 0.0.4.13
+# OrbMeka™ — prototype 0.0.4.14
 
 Godot 4.7 / GDScript. Formes et couleurs simples ; assets externes seulement sous licence vérifiée (sons CC0, assets/sounds/CREDITS.txt).
 
@@ -1355,3 +1355,22 @@ installée ?) et les cris, volume.
 Test mis à jour : tests/character_voices_test.gd (sons enregistrés du chat,
 de Brioche et du lapin, durées, crédits). Résultat : 44 tests, 0 échec.
 À tester manuellement : écouter les trois sons (volume, propreté).
+
+## Paramètres repliables — 0.0.4.14
+- Dans Paramètres, **chaque titre** (catégories des Paramètres généraux, de
+  Vidéo et des Attributs, parties de Contrôles, modes Se baisser et Courir)
+  se **réduit ou se développe d'un clic** : ▾ développé, ▸ réduit (il ne
+  reste que le titre).
+- **En haut de Paramètres**, une petite ligne de trois boutons, de gauche à
+  droite : **Tout réduire**, **Tout développer**, et le choix à l'ouverture,
+  qui change à chaque clic : « comme la dernière fois » (défaut), « tout
+  développé », « tout réduit ».
+- Titres réduits et choix enregistrés dans user://menus.json (fichier
+  abîmé : valeurs par défaut).
+
+Test ajouté : tests/folds_test.gd (titres, clic, contenu caché, trois
+boutons, choix à l'ouverture, menus.json, redémarrage, fichier abîmé).
+Tests mis à jour : controls_groups (▾ et blocs), appearance (profondeur),
+numéro de version. Résultat : 45 tests, 0 échec.
+À tester manuellement : cliquer les titres, Tout réduire / Tout développer,
+fermer et rouvrir Paramètres dans chaque mode.

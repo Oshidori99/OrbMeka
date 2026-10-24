@@ -94,6 +94,12 @@ var control_second_clears: Dictionary = {}
 # Parties de Contrôles (0.0.4.8) : titres, et touches réservées de la partie Menus.
 var control_group_labels: Dictionary = {}
 var control_menu_buttons: Dictionary = {}
+# Titres repliables de Paramètres (0.0.4.14) : clé → {"title", "body", "text"}.
+var fold_entries: Dictionary = {}
+var fold_collapse_button: Button
+var fold_expand_button: Button
+var fold_open_button: Button
+const FOLD_OPEN_MODES := {"last": "À l'ouverture : comme la dernière fois", "expanded": "À l'ouverture : tout développé", "collapsed": "À l'ouverture : tout réduit"}
 var control_labels: Dictionary = {}
 var capturing_second := false
 var key_combos := KeyCombos.new()
@@ -478,15 +484,19 @@ func _build_controls_section(parent: Node) -> void:
 		_explanation(list, group)
 		list.get_child(-1).theme_type_variation = "OrbSection"
 		control_group_labels[group] = list.get_child(-1)
+		var group_body := _fold_body(list)
+		_make_foldable(control_group_labels[group], group_body, "controls:" + group)
 		for action in Controls.GROUPS[group]:
-			_add_control_row(list, action)
+			_add_control_row(group_body, action)
 	_explanation(list, "Menus")
 	list.get_child(-1).theme_type_variation = "OrbSection"
 	control_group_labels.Menus = list.get_child(-1)
+	var menus_body := _fold_body(list)
+	_make_foldable(control_group_labels.Menus, menus_body, "controls:Menus")
 	for entry in Controls.MENU_KEYS:
 		var menu_row := HBoxContainer.new()
 		_sep(menu_row, 10)
-		list.add_child(menu_row)
+		menus_body.add_child(menu_row)
 		var menu_label := _text_label()
 		menu_label.text = entry[0]
 		menu_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -542,10 +552,12 @@ func _build_control_options(box: Node) -> void:
 		options_inset.add_child(options)
 		_explanation(options, spec.category)
 		options.get_child(-1).theme_type_variation = "OrbSection"
-		_explanation(options, spec.help)
+		var option_body := _fold_body(options)
+		_make_foldable(options.get_child(0), option_body, "option:" + option)
+		_explanation(option_body, spec.help)
 		var row := HBoxContainer.new()
 		_sep(row, 10)
-		options.add_child(row)
+		option_body.add_child(row)
 		var label := _text_label()
 		label.text = spec.label
 		label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
@@ -769,6 +781,66 @@ func reset_all_controls() -> void:
 		set_control_option(option, Controls.OPTIONS[option].default)
 	settings_message.text = "Toutes les touches par défaut."
 
+# 0.0.4.14 : bloc sous un titre, caché quand le titre est réduit.
+func _fold_body(parent: Node) -> VBoxContainer:
+	var body := VBoxContainer.new()
+	_sep(body, 10)
+	parent.add_child(body)
+	return body
+
+# Titre cliquable (▾ développé, ▸ réduit) ; l'état est enregistré dans menus.json.
+func _make_foldable(title: Node, body: Control, key: String) -> void:
+	var label := title as RichTextLabel
+	fold_entries[key] = {"title": label, "body": body, "text": label.text}
+	label.mouse_filter = Control.MOUSE_FILTER_STOP
+	label.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
+	label.tooltip_text = "Cliquer pour réduire ou développer"
+	label.gui_input.connect(func(event: InputEvent):
+		if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT and event.pressed:
+			toggle_fold(key))
+	set_folded(key, false)
+
+func set_folded(key: String, folded: bool) -> void:
+	var entry: Dictionary = fold_entries[key]
+	entry.body.visible = not folded
+	entry.title.text = ("▸ " if folded else "▾ ") + entry.text
+
+func is_folded(key: String) -> bool:
+	return not fold_entries[key].body.visible
+
+func toggle_fold(key: String) -> void:
+	set_folded(key, not is_folded(key))
+	_sounds().play("click")
+	_save_folds()
+
+func fold_all(folded: bool) -> void:
+	for key in fold_entries:
+		set_folded(key, folded)
+	_save_folds()
+
+func _save_folds() -> void:
+	settings.set_menu_folded(fold_entries.keys().filter(func(key): return is_folded(key)))
+
+# Bouton d'ouverture : comme la dernière fois → tout développé → tout réduit → …
+func cycle_fold_open_mode() -> void:
+	var modes := FOLD_OPEN_MODES.keys()
+	settings.set_menu_open_mode(modes[(modes.find(settings.menu_open_mode) + 1) % modes.size()])
+	_refresh_fold_open_button()
+
+func _refresh_fold_open_button() -> void:
+	fold_open_button.text = FOLD_OPEN_MODES.get(settings.menu_open_mode, FOLD_OPEN_MODES.last)
+
+# En ouvrant Paramètres : état d'avant, tout développé ou tout réduit, selon le choix.
+func apply_fold_open() -> void:
+	for key in fold_entries:
+		match settings.menu_open_mode:
+			"expanded":
+				set_folded(key, false)
+			"collapsed":
+				set_folded(key, true)
+			_:
+				set_folded(key, key in settings.menu_folded)
+
 func _add_setting_category(parent: Node, category: String, data: Dictionary) -> void:
 	# Espace avant chaque catégorie : titres et ↻ de catégorie bien détachés des champs.
 	var gap := Control.new()
@@ -791,9 +863,12 @@ func _add_setting_category(parent: Node, category: String, data: Dictionary) -> 
 	reset.theme_type_variation = "OrbCategoryReset"
 	reset.tooltip_text = "Rétablir les défauts de la catégorie " + category
 	category_resets[category] = reset
-	_explanation(parent, data.help)
+	# 0.0.4.14 : un clic sur le titre réduit ou développe la catégorie (aide et champs).
+	var body := _fold_body(parent)
+	_make_foldable(header.get_child(0), body, "cat:" + category)
+	_explanation(body, data.help)
 	for key in data.keys:
-		_add_setting_row(parent, key)
+		_add_setting_row(body, key)
 
 func _fill_settings() -> void:
 	for key in setting_fields:
@@ -1095,6 +1170,18 @@ func _build_interface() -> void:
 	var settings_page := _page(stack, "Paramètres")
 	_sep(settings_page, 10)
 	pages.settings = _page_root(settings_page)
+	# 0.0.4.14 : une ligne discrète en haut : Tout réduire, Tout développer, et ce qu'on voit à l'ouverture.
+	var fold_row := HBoxContainer.new()
+	_sep(fold_row, 8)
+	settings_page.add_child(fold_row)
+	fold_collapse_button = _button("Tout réduire", fold_row, func(): fold_all(true))
+	fold_expand_button = _button("Tout développer", fold_row, func(): fold_all(false))
+	fold_open_button = _button("", fold_row, cycle_fold_open_mode)
+	fold_open_button.tooltip_text = "À l'ouverture de Paramètres : comme la dernière fois, tout développé ou tout réduit (cliquer pour changer)"
+	for button in [fold_collapse_button, fold_expand_button, fold_open_button]:
+		button.theme_type_variation = "OrbFold"
+		_min_size(button, Vector2(0, 28))
+	_refresh_fold_open_button()
 	# Menu latéral à gauche (onglets rectangulaires), contenu de la section à droite.
 	var settings_body := HBoxContainer.new()
 	_sep(settings_body, 16)
@@ -1417,6 +1504,9 @@ func _update_backdrop() -> void:
 	get_window().title = "OrbMeka — Launcher" if outside else str(ProjectSettings.get_setting("application/config/name", "OrbMeka"))
 
 func show_page(next_page: String) -> void:
+	# 0.0.4.14 : en entrant dans Paramètres, titres réduits ou développés selon le choix d'ouverture.
+	if next_page == "settings" and page != "settings":
+		apply_fold_open()
 	# En quittant Paramètres, la taille des menus réglée s'applique.
 	if page == "settings" and next_page != "settings" and layout_pending():
 		apply_layout()
