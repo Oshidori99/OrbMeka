@@ -1558,13 +1558,21 @@ plusieurs versions jouées).
   **Simultanément** (avant : Appuyer en même temps).
 - **AppData** : les fichiers de réglages (parametres-generaux, video,
   personnage, attributs, controles, menus) sont rangés dans un dossier
-  **parametres/**. Les anciens y sont déplacés au premier lancement, sans
-  rien écraser ; worlds.json et launcher/ restent à leur place. Une version
-  plus ancienne lancée depuis le launcher ne voit pas ce dossier et repart
-  avec ses réglages par défaut.
+  **parametres/**. Les anciens y sont copiés au premier lancement, sans
+  rien écraser, et restent à leur place pour les versions plus anciennes du
+  launcher (qui gardent ainsi leurs réglages) ; worlds.json et launcher/ ne
+  bougent pas.
+- **Choix des Contrôles** (ex. mode pour se baisser) : seuls leurs boutons
+  sont mis à jour, plus toute la page.
+- **Optimisation générale** (mesurée) : changer de page refaisait tout le
+  thème des menus (≈ 2 000 éléments) à chaque fois. Il n'est maintenant refait
+  que si la taille du texte, des zones, le thème, la profondeur ou la synthèse
+  ont changé. Changer de page : 0,16–0,42 s → moins de 0,01 s ; pause :
+  0,3 s → 0,001 s ; retour aux mondes : 0,26 s → 0,002 s. Le reste mesuré
+  (ouvrir un monde 0,02 s, image en jeu, démarrage ≈ 1 s) était déjà correct.
 
 Tests mis à jour : controls_groups (↻ par partie, Tout réinitialiser),
 key_combos (accolade, Simultanément), settings_files (dossier parametres,
-déplacement sans écraser), character, controls.
+copie sans écraser), character, controls.
 À tester manuellement : aspect de l'accolade et des ↻ de partie, rapidité
 ressentie, réglages bien retrouvés après la mise à jour.

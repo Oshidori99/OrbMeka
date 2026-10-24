@@ -10,7 +10,7 @@ func _ready() -> void:
 	if catalog == null:
 		catalog = Catalog.new()
 	if settings == null:
-		UserSettings.move_old_files("user://", "user://".path_join(UserSettings.FOLDER))
+		UserSettings.copy_old_files("user://", "user://".path_join(UserSettings.FOLDER))
 		settings = UserSettings.new()
 	for key in LAYOUT_KEYS:
 		layout_values[key] = settings.values[key]
@@ -474,7 +474,7 @@ func show_page(next_page: String) -> void:
 	fit_menus_to_window()
 	_update_backdrop()
 	shortcut_hints.visible = false
-	apply_appearance()
+	_apply_appearance_if_changed()
 	for key in pages:
 		pages[key].visible = key == page
 	_fit_height()

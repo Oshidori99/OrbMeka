@@ -113,6 +113,7 @@ var controls_conflicts_text: RichTextLabel
 # Parties de Contrôles (0.0.4.8) : titres, et touches réservées de la partie Menus.
 var control_group_labels: Dictionary = {}
 var control_group_resets: Dictionary = {}
+var appearance_key: Array = []
 var control_menu_buttons: Dictionary = {}
 # Titres repliables de Paramètres (0.0.4.14) : clé → {"title", "body", "text"}.
 var fold_entries: Dictionary = {}
@@ -325,6 +326,7 @@ func _sep(container: Control, base: int) -> void:
 
 # Taille du texte, thème, profondeur et taille des zones : appliqués à tous les menus, immédiatement.
 func apply_appearance() -> void:
+	appearance_key = _appearance_key()
 	_sounds().set_volume(settings.values.get("menu_volume", 60.0))
 	_voices().set_volume(settings.values.get("character_volume", 80.0))
 	menu_root.theme = _build_theme()
@@ -338,6 +340,15 @@ func apply_appearance() -> void:
 	news_label.add_theme_color_override("default_color", colors.section)
 	form_error.add_theme_color_override("default_color", colors.error)
 	_refresh_details()
+
+# 0.0.4.22 : en changeant de page, le thème n'est refait que si un de ces réglages a changé
+# (avant : à chaque page, environ 0,15 s).
+func _appearance_key() -> Array:
+	return [_text_scale(), _element_scale(), settings.values.theme_mode, settings.values.menu_depth, settings.values.text_detail]
+
+func _apply_appearance_if_changed() -> void:
+	if appearance_key != _appearance_key():
+		apply_appearance()
 
 # Texte choisi selon Synthèse des textes ; « − » peut être vide (texte masqué).
 func _detail(variants: Array) -> String:

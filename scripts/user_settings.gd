@@ -133,17 +133,18 @@ func _init(path: String = DEFAULT_PATH) -> void:
 func folder() -> String:
 	return storage_path.get_base_dir().path_join(FOLDER)
 
-# Au démarrage du jeu : fichiers d'avant 0.0.4.22 (directement dans user://) déplacés dans le dossier,
-# sauf s'il y en a déjà un du même nom. Renvoie les noms déplacés.
-static func move_old_files(from_dir: String, to_dir: String) -> Array:
-	var moved := []
+# Au démarrage du jeu : fichiers d'avant 0.0.4.22 (directement dans user://) copiés dans le dossier,
+# sauf s'il y en a déjà un du même nom. Les originaux restent pour les anciennes versions du launcher.
+# Renvoie les noms copiés.
+static func copy_old_files(from_dir: String, to_dir: String) -> Array:
+	var copied := []
 	DirAccess.make_dir_recursive_absolute(ProjectSettings.globalize_path(to_dir))
 	for name in FILES.values() + [CONTROLS_FILE, MENUS_FILE]:
 		var old_path := ProjectSettings.globalize_path(from_dir.path_join(name))
 		var new_path := ProjectSettings.globalize_path(to_dir.path_join(name))
-		if FileAccess.file_exists(old_path) and not FileAccess.file_exists(new_path) and DirAccess.rename_absolute(old_path, new_path) == OK:
-			moved.append(name)
-	return moved
+		if FileAccess.file_exists(old_path) and not FileAccess.file_exists(new_path) and DirAccess.copy_absolute(old_path, new_path) == OK:
+			copied.append(name)
+	return copied
 
 # Menus (0.0.4.14) : menus.json, à côté des autres fichiers.
 func menus_path() -> String:

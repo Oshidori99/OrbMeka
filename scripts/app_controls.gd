@@ -396,11 +396,15 @@ func set_control_option(option: String, choice: String) -> void:
 		settings_message.text = settings.last_error
 		return
 	settings_message.text = "%s : %s." % [Controls.OPTIONS[option].label, Controls.OPTIONS[option].options[choice]]
-	_refresh_controls()
+	# 0.0.4.22 : seulement les boutons de choix (les touches ne changent pas).
+	_refresh_control_options()
 	_apply_to_game()
 
 func _refresh_controls() -> void:
 	_rebuild_control_actions(control_action_boxes.keys())
+	_refresh_control_options()
+
+func _refresh_control_options() -> void:
 	for option in control_option_buttons:
 		for choice in control_option_buttons[option]:
 			control_option_buttons[option][choice].set_pressed_no_signal(settings.control_options[option] == choice)

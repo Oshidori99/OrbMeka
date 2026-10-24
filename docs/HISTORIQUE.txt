@@ -5,7 +5,7 @@ Du plus récent au plus ancien. Ce fichier est mis à jour à chaque version.
 
 0.0.4.22 — Contrôles plus rapides
 Contrôles : Tout réinitialiser instantané, ↻ par partie, accolade sous les touches simultanées
-(« Simultanément ») ; réglages rangés dans le dossier parametres/.
+(« Simultanément ») ; changer de page des menus quasi instantané ; réglages rangés dans parametres/.
 
 0.0.4.21 — Plus sûr et mieux rangé
 Launcher : versions vérifiées (empreinte SHA-256, serveurs GitHub seulement), versions anciennes retirées
