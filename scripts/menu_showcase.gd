@@ -12,9 +12,9 @@ extends Node3D
 # 2 ou 3, choisis parmi les nouveautés : liste NEWS_RUNNERS ([id, peau], peau vide pour un animal).
 # Chacun prend son modèle Blender, sinon une forme simple (character_model.gd, partagé avec le jeu).
 # Le reste du fichier (sol, collines, ciel, caméra) ne change pas d'une version à l'autre.
-const NEWS_VERSION := "0.0.5.1"
-const NEWS_TEXT := "Nouveau : le monde en zones de 8 m !
-Chargées autour de vous, sauvegardées une par une."
+const NEWS_VERSION := "0.0.5.2"
+const NEWS_TEXT := "Nouveau : herbe et terre naturelles.
+Exploration visuelle — casse et pose temporairement désactivées."
 
 # 0.0.3.25 : les trois nouveautés de 0.0.3.23 en aller-retour au-dessus de l'herbe libre, devant la place
 # de sable et pierre (sous le panneau des menus, vers la droite), chacune sur sa rangée.
@@ -86,13 +86,14 @@ const PAN_SPEED := 0.12
 const LOOK_DOWN := 0.2
 
 var camera: Camera3D
-var materials: Array[StandardMaterial3D] = []
+var materials: Array[Material] = []
 var orb: MeshInstance3D
 var elapsed := 0.0
 
 func _ready() -> void:
 	for color in WorldRules.BLOCK_COLORS:
 		materials.append(_material(color, 0.85))
+	materials[DIRT] = preload("res://scripts/terrain_materials.gd").surface(false,true)
 	_setup_environment()
 	_build_ground()
 	_build_hills()
@@ -168,7 +169,7 @@ func _build_ground() -> void:
 	box.size = Vector3(240, 1, 240)
 	ground.mesh = box
 	ground.position = Vector3(0, -0.5, 0)
-	ground.material_override = _material(Color("#759a65"), 1.0)
+	ground.material_override = preload("res://scripts/terrain_materials.gd").surface(true)
 	add_child(ground)
 
 func _build_hills() -> void:

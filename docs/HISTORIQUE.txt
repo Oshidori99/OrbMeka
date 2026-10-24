@@ -3,6 +3,10 @@ Du plus récent au plus ancien. Ce fichier est mis à jour à chaque version.
 
 === Thème « Monde » (0.0.5 et suivantes) ===
 
+0.0.5.2 — Monde 3 : première passe visuelle
+Herbe et terre procédurales, touffes légères et lumière ajustée ; relief encore anguleux.
+Exploration conservée ; casse, pose et pinceaux désactivés pour cette étape, sauvegardes préservées.
+
 0.0.5.1 — Monde 2 : zones
 Monde découpé en zones de 8 m (aussi en hauteur), chargées autour du joueur (distance dans Vidéo),
 affichage fusionné par zone ; un fichier compressé par zone modifiée ; sauvegardes 0.0.5 converties.

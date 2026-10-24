@@ -99,6 +99,10 @@ static func build_section(blocks: Dictionary, section: Vector3i, colors: Array, 
 	instance.mesh = mesh
 	instance.material_override = material
 	body.add_child(instance)
+	if material is ShaderMaterial:
+		var grass := preload("res://scripts/terrain_materials.gd").section_grass(blocks,section,SECTION_SIZE)
+		if grass != null:
+			body.add_child(grass)
 	body.name = "Section_%d_%d_%d" % [section.x, section.y, section.z]
 	body.add_to_group("blocks")
 	body.set_meta("section", section)

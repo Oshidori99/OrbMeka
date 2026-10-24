@@ -221,23 +221,19 @@ func cycle_block(direction: int) -> void:
 	selected_type = wrapi(selected_type + direction, 0, world.BLOCK_NAMES.size())
 
 func begin_breaking() -> bool:
-	if actions.set_break_pressed(true, true):
-		return world.break_target(get_target())
+	actions.cancel()
 	return false
 
 func step_breaking(delta: float, active: bool, button_held: bool) -> bool:
-	if actions.tick_break(delta, active, button_held):
-		return world.break_target(get_target())
+	actions.cancel()
 	return false
 
 func begin_placement() -> bool:
-	if actions.set_place_pressed(true, true):
-		return world.place_target(get_target(), selected_type)
+	actions.cancel()
 	return false
 
 func step_placement(delta: float, active: bool, button_held: bool) -> bool:
-	if actions.tick_place(delta, active, button_held):
-		return world.place_target(get_target(), selected_type)
+	actions.cancel()
 	return false
 
 func release_controls() -> void:

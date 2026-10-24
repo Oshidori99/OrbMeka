@@ -66,19 +66,21 @@ func _run() -> void:
 	var player: CharacterBody3D = world.player
 	await frames(60)
 	player.set_physics_process(false)
+	# Isoler les actions des chargements de zones déclenchés par le déplacement de la fixture.
+	world.set_process(false)
 	player.position = Vector3(30.5, 0.0, 30.5)
 	player.velocity = Vector3.ZERO
 	player.camera.rotation.x = -0.7
 	await frames(3)
 	var count: int = world.blocks.size()
-	check(player.begin_placement(), "gameplay press immediately places through real camera ray")
-	check(world.blocks.size() == count + 1, "immediate press adds one block")
+	check(not player.begin_placement(), "visual exploration rejects immediate placement")
+	check(world.blocks.size() == count, "disabled placement preserves blocks")
 	check(not player.step_placement(0.299, true, true), "gameplay repeat waits before interval")
 	await frames(3)
 	# Aim at a different cell while holding; the repeat must use the current ray.
 	player.position.x += 2.0
-	check(player.step_placement(0.001, true, true), "repeat places at updated camera target")
-	check(world.blocks.size() == count + 2, "repeat adds exactly one block")
+	check(not player.step_placement(0.001, true, true), "visual exploration rejects repeated placement")
+	check(world.blocks.size() == count, "disabled repetition preserves blocks")
 	var release := InputEventMouseButton.new()
 	release.button_index = MOUSE_BUTTON_RIGHT
 	release.pressed = false

@@ -1,4 +1,4 @@
-# OrbMeka™ 0.0.5.1
+# OrbMeka™ 0.0.5.2
 
 Dans Godot, ouvrez **project.godot**, puis **F5** pour lancer le jeu.
 
@@ -9,10 +9,21 @@ Dans Godot, ouvrez **project.godot**, puis **F5** pour lancer le jeu.
 Scènes : scenes/ · Scripts : scripts/ · Tests : tests/ · Documentation : docs/.
 Les mondes personnels restent dans les données Godot user:// : un dossier par monde, mondes/<id>/,
 avec monde.json (qui contient la graine), joueur.json et zones/ (seulement les changements).
+Depuis 0.0.5, blocs posés et cassés, position et regard sont sauvegardés ; depuis 0.0.5.1,
+les changements sont compressés par zone dans zones/zone_X_Y_Z.bin.
 
 ## Prochaines étapes (Monde)
+0.0.5.2 : première passe visuelle originale sur l'herbe et la terre (matières procédurales et touffes).
+Le relief reste anguleux. Casse, pose et pinceaux sont désactivés pendant cette étape ;
+exploration, pause et anciennes constructions restent disponibles.
+
 Zones (fait) → terrain lisse sculptable → relief et sous-sol (avec la Roche-mère) → matières → structures
 → modes Créatif et Survie → inventaire → eau réaliste. Détail : CLAUDE.md et le GitHub Project.
+
+Plan confirmé pour le terrain lisse (prochaine étape, non livré) : zones de **8 × 8 × 8 m**.
+Chaque bloc de 1 m de côté est partagé en **2 × 2 × 2 = 8 sous-cellules au total**, de **50 cm de côté**
+et de **1/8 du volume** chacune. Une zone contient **16 × 16 × 16 sous-cellules** ;
+une grille de sommets avec les bords compterait **17 sommets par axe**.
 
 ## Cadre juridique
 Objectif : aucun risque juridique, ni en droit suisse ou européen, ni vis-à-vis d'autres jeux ou éditeurs.

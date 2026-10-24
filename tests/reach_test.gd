@@ -31,8 +31,8 @@ func _run() -> void:
 	values.place_reach = 8.0
 	world.player.apply_settings(values)
 	var cell: Vector3i = world.blocks.keys()[0]
-	check(not world.break_target(hit_at(world, cell, 4.0)) and world.blocks.has(cell), "break refused beyond break reach (4 > 3)")
-	check(world.break_target(hit_at(world, cell, 2.5)) and not world.blocks.has(cell), "break allowed within break reach")
+	check(not world._edit_break_target(hit_at(world, cell, 4.0)) and world.blocks.has(cell), "break refused beyond break reach (4 > 3)")
+	check(world._edit_break_target(hit_at(world, cell, 2.5)) and not world.blocks.has(cell), "break allowed within break reach")
 	var target: Vector3i = world.blocks.keys()[0]
 	var count: int = world.blocks.size()
 	var far := hit_at(world, target, 7.0)
@@ -40,12 +40,12 @@ func _run() -> void:
 	var camera_far: float = world.player.camera.global_position.distance_to(far.position)
 	values.place_reach = camera_far + 1.0
 	world.player.apply_settings(values)
-	world.place_target(far, 0)
+	world._edit_place_target(far, 0)
 	var placed_far: bool = world.blocks.size() == count + 1
 	values.place_reach = maxf(1.0, camera_far - 1.0)
 	world.player.apply_settings(values)
 	count = world.blocks.size()
-	check(not world.place_target(far, 0) and world.blocks.size() == count, "place refused beyond place reach")
+	check(not world._edit_place_target(far, 0) and world.blocks.size() == count, "place refused beyond place reach")
 	check(placed_far, "place allowed within place reach")
 	check(world.player.break_reach == 3 and world.player.place_reach == values.place_reach, "player receives both reaches")
 	# Le rayon de visée va jusqu'à la plus grande portée.

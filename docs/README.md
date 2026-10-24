@@ -1,6 +1,22 @@
-# OrbMeka™ — prototype 0.0.5.1
+# OrbMeka™ — prototype 0.0.5.2
 
 Godot 4.7 / GDScript. Formes et couleurs simples ; assets externes seulement sous licence vérifiée (sons CC0, assets/sounds/CREDITS.txt).
+
+## 0.0.5.2 — Première passe visuelle du terrain (#120)
+Herbe et terre utilisent des matières procédurales originales, sans texture externe,
+avec des touffes regroupées par section. Le relief et les collisions restent ceux des blocs :
+le terrain lisse et les pinceaux sont encore à réaliser. Les zones restent de 8 m,
+avec des sous-cellules prévues de 50 cm (16 cellules, 17 sommets par axe).
+Casse et pose sont désactivées, même avec une touche réaffectée ou maintenue.
+Les anciennes constructions, la position, le regard, l'exploration et la pause sont conservés.
+Les anciennes instructions de construction ci-dessous décrivent les versions précédentes.
+
+Aperçu natif hors écran : [terrain](previews/0.0.5.2-terrain.png).
+Mesure indicative en Compatibility à 1400 × 900 : 3,769 ms de rendu médian forcé,
+chargement chaud 834 ms sur le PC de développement ; ce n'est pas une mesure de FPS en partie.
+Performances Web et aspect en mouvement restent à vérifier manuellement.
+Validation : suite complète tests/run_all.ps1 réussie (54/54, 81 s) ; terrain_visuals couvre
+les matières, les entrées désactivées et l'absence de modifications du monde.
 
 ## Lancer et choisir un monde
 1. Dans Godot, arrêtez l'ancienne partie si nécessaire, puis appuyez sur **F5**.
@@ -43,7 +59,9 @@ Les mondes créés avant 0.0.3 sont en mode Par défaut.
 
 Réouvrir un monde recalcule le terrain avec sa graine, puis applique les changements enregistrés.
 Sauvegarde : pause, retour aux mondes, fermeture (navigateur compris) et toutes les 45 s.
-Dossier : user://mondes/<identifiant>/ (monde.json, joueur.json, zones/modifications.json).
+Dossier actuel : user://mondes/<identifiant>/ (monde.json, joueur.json, zones/zone_X_Y_Z.bin).
+Depuis 0.0.5.1, les changements sont compressés par zone ; l'ancien zones/modifications.json
+est converti puis conservé sous zones/modifications-etape1.json.
 
 Le nom est obligatoire, limité à 48 caractères. Les espaces aux extrémités
 sont retirés et un doublon de nom est refusé, sans distinction de majuscules.
@@ -59,6 +77,16 @@ Le terrain reste reproductible pour une même graine dans cette version.
 La base plate de 128 × 128 blocs (1 bloc = 1 m ; X et Z de -64 à 63) est protégée. Les collines sont cassables.
 L'aire de départ reste dégagée et les 74 blocs de démonstration en sable et pierre
 sont conservés. L'apparition tient compte des blocs présents.
+
+## Plan confirmé — terrain lisse (prochaine étape, non livré)
+Les zones restent de **8 × 8 × 8 mètres**. Chaque bloc de 1 m de côté sera découpé en
+**2 divisions sur chaque axe**, donc **2 × 2 × 2 = 8 sous-cellules au total**.
+Chaque sous-cellule mesurera **50 cm de côté** et représentera **1/8 du volume**
+du bloc. Une zone contiendra **16 subdivisions par axe**, soit **16 × 16 × 16
+sous-cellules de 50 cm**. Si la densité est portée par les sommets, les deux
+bords inclus demandent **17 sommets par axe** ; ce ne sont pas 16 points.
+Le jeu livré utilise encore des blocs et leur sauvegarde par zones : cette
+description fixe la prochaine étape, elle n'annonce pas du terrain lisse déjà jouable.
 
 ## Commandes en partie
 - ZQSD / WASD : marcher ; ← → : aller de côté ; souris : regarder.
@@ -1602,6 +1630,11 @@ duplication, suppression, fichiers illisibles) ; tous les tests réussis.
 absence de saccade pendant la sauvegarde régulière.
 
 ## Monde 2 : zones — 0.0.5.1
+Note de lecture historique : les mentions « 16 possible », « 25 cm possible plus tard »
+et « 16 × 16 × 16 points » de l'annonce initiale ci-dessous ne sont pas le plan courant.
+Le plan confirmé ci-dessus les remplace : zones de 8 m, sous-cellules de 50 cm,
+16 cellules par axe (17 sommets avec les bords). L'annonce ancienne est conservée.
+
 - **Zones de 8 m × 8 m × 8 m**, empilées en hauteur (constante ZONE_SIZE dans
   scripts/world_zones.gd ; 16 possible). Choix : 8 = 2 × 2 × 2, et à
   l'étape 3, 1 m = 8 parties de 50 cm (grille de 16 × 16 × 16 points par

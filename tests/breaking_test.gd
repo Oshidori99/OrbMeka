@@ -47,18 +47,20 @@ func _run() -> void:
 	var player: CharacterBody3D = world.player
 	await frames(60)
 	player.set_physics_process(false)
+	# Isoler les actions des chargements de zones déclenchés par le déplacement de la fixture.
+	world.set_process(false)
 	player.position = Vector3(30.5, 0.0, 30.5)
 	player.camera.rotation.x = 0
 	for z in [28, 27, 26]:
 		world.add_block(Vector3i(30, 1, z), 2)
 	await frames(3)
 	var count: int = world.blocks.size()
-	check(player.begin_breaking(), "immediate gameplay break uses real ray")
-	check(world.blocks.size() == count - 1, "immediate break removes one block")
+	check(not player.begin_breaking(), "visual exploration rejects immediate breaking")
+	check(world.blocks.size() == count, "disabled breaking preserves blocks")
 	await frames(3)
 	check(not player.step_breaking(0.299, true, true), "gameplay break waits 299 ms")
-	check(player.step_breaking(0.001, true, true), "gameplay repeat breaks next target at 300 ms")
-	check(world.blocks.size() == count - 2, "repeat removes one further block")
+	check(not player.step_breaking(0.001, true, true), "visual exploration rejects repeated breaking")
+	check(world.blocks.size() == count, "disabled repetition preserves blocks")
 	var release := InputEventMouseButton.new()
 	release.button_index = MOUSE_BUTTON_LEFT
 	release.pressed = false

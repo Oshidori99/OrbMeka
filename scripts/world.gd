@@ -6,6 +6,7 @@ const Controls = preload("res://scripts/controls.gd")
 const CharacterPreview = preload("res://scripts/character_preview.gd")
 const Store = preload("res://scripts/world_store.gd")
 const Zones = preload("res://scripts/world_zones.gd")
+const TerrainMaterials = preload("res://scripts/terrain_materials.gd")
 const DIRT := 2
 const BLOCK_COLORS := [Color("#d8c291"), Color("#888b90"), Color("#855332")]
 const BLOCK_NAMES := ["Sable", "Pierre", "Terre"]
@@ -48,7 +49,7 @@ var zone_queue: Array = []
 var zone_center := Vector3i(999999, 0, 0)
 # Distance de chargement en zones (Paramètres → Vidéo).
 var load_distance := 4
-var block_material: StandardMaterial3D
+var block_material: Material
 var block_box: BoxShape3D
 # Mesures affichées dans Informations du monde (F3).
 var last_zone_load_ms := 0.0
@@ -61,10 +62,7 @@ func _ready() -> void:
 	_setup_inputs()
 	_setup_environment()
 	# 0.0.5.1 : une seule matière pour tous les blocs, couleur portée par les sommets de chaque section.
-	block_material = StandardMaterial3D.new()
-	block_material.vertex_color_use_as_albedo = true
-	block_material.vertex_color_is_srgb = true
-	block_material.roughness = 0.85
+	block_material = TerrainMaterials.surface()
 	block_box = BoxShape3D.new()
 	_create_ground()
 	_create_terrain()
@@ -83,6 +81,9 @@ func _ready() -> void:
 	_apply_saved_player(saved_player)
 	_create_selection()
 	_create_hud()
+	var grass := TerrainMaterials.ground_grass(generated,terrain_seed)
+	if grass != null:
+		add_child(grass)
 
 func _setup_inputs() -> void:
 	# Touches choisies dans Paramètres → Contrôles (0.0.3.12), appliquées par le menu ;
@@ -116,15 +117,16 @@ func _setup_environment() -> void:
 	sky.sky_material = sky_material
 	environment.sky = sky
 	environment.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
-	environment.ambient_light_color = Color("#d7eaff")
-	environment.ambient_light_energy = 0.65
+	environment.ambient_light_color = Color("#dbe7ed")
+	environment.ambient_light_energy = 0.7
 	environment.tonemap_mode = Environment.TONE_MAPPER_FILMIC
 	var world_environment := WorldEnvironment.new()
 	world_environment.environment = environment
 	add_child(world_environment)
 	var sun := DirectionalLight3D.new()
 	sun.rotation_degrees = Vector3(-50, -25, 0)
-	sun.light_energy = 1.25
+	sun.light_energy = 1.1
+	sun.light_color = Color("#fff1d8")
 	sun.shadow_enabled = true
 	apply_compat_light(environment, sun)
 	add_child(sun)
@@ -138,10 +140,7 @@ func _create_ground() -> void:
 	var box := BoxMesh.new()
 	box.size = BASE_SIZE
 	mesh.mesh = box
-	var material := StandardMaterial3D.new()
-	material.albedo_color = Color("#759a65")
-	material.roughness = 1.0
-	mesh.material_override = material
+	mesh.material_override = TerrainMaterials.surface(true)
 	ground.add_child(mesh)
 	var collision := CollisionShape3D.new()
 	var shape := BoxShape3D.new()
@@ -430,7 +429,11 @@ func _valid_hit(hit: Dictionary, reach: float) -> bool:
 		return false
 	return hit.collider.is_in_group("blocks") or hit.collider.is_in_group("ground")
 
-func break_target(hit: Dictionary) -> bool:
+func break_target(_hit: Dictionary) -> bool:
+	return false
+
+# Legacy domain operation for saved-data/constraint regression tests; not player input.
+func _edit_break_target(hit: Dictionary) -> bool:
 	if not _valid_hit(hit, player.break_reach):
 		return false
 	var collider: Node = hit.collider
@@ -451,7 +454,10 @@ static func hit_cell(hit: Dictionary) -> Vector3i:
 	var point: Vector3 = hit.position - hit.normal * 0.02
 	return Vector3i(floori(point.x), floori(point.y), floori(point.z))
 
-func place_target(hit: Dictionary, kind: int) -> bool:
+func place_target(_hit: Dictionary, _kind: int) -> bool:
+	return false
+
+func _edit_place_target(hit: Dictionary, kind: int) -> bool:
 	if not _valid_hit(hit, player.place_reach):
 		return false
 	var point: Vector3 = hit.position + hit.normal * 0.02
@@ -507,6 +513,15 @@ func _create_hud() -> void:
 	selected_block_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	layer.add_child(selected_block_label)
 	update_selected_block()
+	var exploration := Label.new()
+	exploration.name = "ExplorationNotice"
+	exploration.text = "Exploration visuelle — casse et pose désactivées"
+	exploration.position = Vector2(18,48)
+	exploration.add_theme_font_size_override("font_size",14)
+	exploration.add_theme_color_override("font_shadow_color",Color.BLACK)
+	exploration.add_theme_constant_override("shadow_outline_size",3)
+	exploration.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	layer.add_child(exploration)
 	var crosshair := Label.new()
 	crosshair.text = "+"
 	crosshair.add_theme_font_size_override("font_size", 30)
@@ -585,7 +600,7 @@ func _process(delta: float) -> void:
 	notice_time = maxf(0.0, notice_time - delta)
 	var captured := Input.mouse_mode == Input.MOUSE_MODE_CAPTURED
 	var hit: Dictionary = player.get_target()
-	selection.visible = captured and not hit.is_empty() and hit.collider.is_in_group("blocks")
+	selection.visible = false
 	if selection.visible:
 		selection.global_position = Vector3(hit_cell(hit)) + Vector3.ONE * 0.5
 	# Zones autour du joueur : file mise à jour en changeant de zone, travail étalé sur les images.
@@ -599,7 +614,7 @@ func _process(delta: float) -> void:
 # level : 0 = −, 1 = Par défaut, 2 = + (textes complets d'avant 0.0.3.3), selon Synthèse des textes.
 static func get_help_text(level: int = 2) -> String:
 	if level == 0:
-		return "ZQSD : marcher. ↑ ↓ + A : vitesse (⌫ ⌫ : défaut). Espace : sauter ; deux fois : voler. Clic gauche : casser ; clic droit : poser.
+		return "ZQSD : marcher. ↑ ↓ + A : vitesse (⌫ ⌫ : défaut). Espace : sauter ; deux fois : voler. Exploration : casse et pose désactivées.
 Molette : bloc. Échap : pause. F1 : mondes. F4 : vue."
 	if level == 1:
 		return "ZQSD / WASD : marcher (← → : de côté). Souris : regarder. Espace : sauter.
@@ -607,7 +622,7 @@ Y : se baisser. R : courir (mode dans Contrôles).
 ↑ ↓ + A : tout le déplacement plus ou moins vite ; + W : marche, + R : course,
 + clic : casse ou pose (mode développeur). ⌫ + touche : par défaut ; ⌫ deux fois : tout.
 Espace deux fois : voler (Espace monte, Y descend) ; encore deux fois : arrêter.
-Maintenir clic gauche : casser ; clic droit : poser. Molette : changer de bloc.
+Exploration visuelle : casse et pose désactivées. Molette : changer de bloc.
 Échap : pause. F1 : liste des mondes. F2 : Comment jouer. F3 : Informations.
 F4 : vue (première personne, de derrière, de devant).
 Portée : %d blocs. Maximum : %d blocs, hauteur %d (Y 0 sur le sol plat).
@@ -628,8 +643,8 @@ Voler : Espace deux fois (rapidement) ; en vol, pas de gravité, Espace maintenu
 Y maintenu descend ; Espace deux fois à nouveau : on retombe. Vitesses dans Attributs → Voler,
 ↑ ↓ comptent aussi en vol. R en vol : voler vite.
 
-Maintenir clic gauche : casser ; clic droit : poser.
-Première action immédiate, puis répétition selon les paramètres des blocs.
+Exploration visuelle : casse et pose désactivées.
+Aucun pinceau actif pour cette étape ; les constructions antérieures sont conservées.
 Relâcher ou mettre en pause arrête la répétition.
 
 Molette : changer de bloc.

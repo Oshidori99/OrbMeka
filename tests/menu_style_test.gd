@@ -59,7 +59,7 @@ F3 : "), "menus share one theme; in-game shortcuts F1, F2, F3 are plain text")
 	check(showcase.camera.position.is_equal_approx(start_position), "showcase viewpoint stays in place (no flying)")
 	var feet: float = showcase.camera.position.y - showcase.EYE_HEIGHT
 	check(is_equal_approx(feet, showcase.TOWER_HEIGHT) and showcase.TOWER_HEIGHT >= 3 and showcase.TOWER_HEIGHT <= 4, "viewpoint stands on a 3-4 block tower")
-	check(showcase.find_children("*", "MeshInstance3D", true, false).filter(func(mesh): return mesh.material_override and mesh.material_override.transparency != BaseMaterial3D.TRANSPARENCY_DISABLED).is_empty(), "showcase shows no glass (not in the game yet)")
+	check(showcase.find_children("*", "MeshInstance3D", true, false).filter(func(mesh): return mesh.material_override is BaseMaterial3D and mesh.material_override.transparency != BaseMaterial3D.TRANSPARENCY_DISABLED).is_empty(), "showcase shows no glass (not in the game yet)")
 	# Boutons-icônes de Mes mondes.
 	for button in [app.new_world_button, app.rename_button, app.duplicate_button, app.world_settings_button, app.delete_button]:
 		check(button.text.length() <= 2 and not button.tooltip_text.is_empty(), "icon button with tooltip: " + button.tooltip_text)
