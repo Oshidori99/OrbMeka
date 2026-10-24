@@ -14,7 +14,7 @@ Guide complet : docs/README.md. Fichiers techniques : docs/ORGANISATION.txt.
 
 ## Structure
 - scenes/ : main.tscn (menus), world.tscn (partie). scripts/ : code. tests/ : tests sans fenêtre.
-- Garder les .gd.uid avec leurs scripts. Ne pas toucher à .godot/ (cache) ni au contenu existant d'Archives/ (local, ignoré par Git) ; on y ajoute seulement l'archive de chaque version.
+- Garder les .gd.uid avec leurs scripts. Ne pas toucher à .godot/ (cache) ni au contenu existant des archives (dossier voisin « ..\Archives OrbMeka », hors du dépôt) ; on y ajoute seulement l'archive de chaque version.
 - Données joueur dans user:// (worlds.json, parametres-generaux.json, video.json, controles.json, personnage.json, attributs.json, menus.json), jamais dans les sources.
 
 ## Tests
@@ -46,7 +46,7 @@ L'utilisateur peut lancer Claude Code dans le cloud depuis son téléphone, sur 
 - **« Envoie dans main »** (dit explicitement par l'utilisateur, Action Dev verte) : suivre « Nouvelle version » étapes 1 à 5
   (version, historique, README, fusion dans main, tag, push). Le Project et l'archive (étapes 4 et 6) se font si possible,
   sinon les noter dans docs/README.md « À faire sur PC ».
-- Godot local, Archives/ et les chemins C:\… n'existent pas dans le cloud. De retour sur le PC : `git pull`,
+- Godot local, les archives et les chemins C:\… n'existent pas dans le cloud. De retour sur le PC : `git pull`,
   rattraper l'archive et le Project notés « À faire sur PC », puis supprimer la note.
 
 ## Nouvelle version
@@ -59,6 +59,6 @@ L'utilisateur peut lancer Claude Code dans le cloud depuis son téléphone, sur 
 5. Commit sur `dev`, puis fusionner dans `main` (`git checkout main`, `git merge dev`),
    créer le tag (`git tag vX.Y.Z`), pousser (`git push origin main dev vX.Y.Z`), revenir sur `dev`.
    Vérifier que l'Action Build est verte et que la Release existe.
-6. Archive : copie du dossier du jeu (sans .git/ ni Archives/) dans « Archives/orb-meka X.Y.Z ». Ne jamais écraser une archive existante.
+6. Archive : copie du dossier du jeu (sans .git/) dans « ..\Archives OrbMeka\orb-meka X.Y.Z » (dossier Godot, à côté d'orb-meka). Ne jamais écraser une archive existante.
 
 gh CLI : "C:\Program Files\GitHub CLI\gh.exe" (connecté en Oshidori99).
