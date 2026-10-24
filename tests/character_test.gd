@@ -25,7 +25,7 @@ func _run() -> void:
 	check(CharacterPreview.MODELS.keys() == ["boy9", "girl9", "boy14", "girl14", "squirrel", "fox", "turtle", "rabbit"], "new characters modelled in Blender")
 	var tall := func(id: String) -> float: return CharacterPreview.CHARACTERS[id].height
 	check(tall.call("boy9") < tall.call("boy14") and tall.call("boy14") < tall.call("man") and tall.call("girl9") < tall.call("girl14") and tall.call("girl14") < tall.call("woman"), "9-year-olds smaller than 14-year-olds, smaller than adults")
-	check(Settings.new().file_path("character") == "user://personnage.json", "player file named after the menu")
+	check(Settings.new().file_path("character") == "user://parametres/personnage.json", "player file named after the menu")
 	var fixture := "res://.godot/character-test-%d.json" % Time.get_ticks_usec()
 	var settings := Settings.new(fixture)
 	check(settings.values.character == "boy14", "Garçon 14 ans by default")

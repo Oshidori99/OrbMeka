@@ -27,10 +27,30 @@ func apply(app: Control, values: Dictionary) -> void:
 
 func _run() -> void:
 	root.size = Vector2i(1280, 720)
-	# Noms des fichiers du joueur : le nom du menu, dans user:// (lecture seule ici).
+	# Noms des fichiers du joueur : le nom du menu, dans user://parametres/ (lecture seule ici).
 	var player_files := Settings.new()
-	check(player_files.file_path("general") == "user://parametres-generaux.json" and player_files.file_path("video") == "user://video.json" and player_files.file_path("attributes") == "user://attributs.json", "player files are named after their menu")
+	check(player_files.file_path("general") == "user://parametres/parametres-generaux.json" and player_files.file_path("video") == "user://parametres/video.json" and player_files.file_path("attributes") == "user://parametres/attributs.json", "player files are named after their menu")
 	var fixture := "res://.godot/files-test-%d.json" % Time.get_ticks_usec()
+	# 0.0.4.22 : anciens fichiers (à la racine) déplacés dans parametres/, sans écraser ceux qui y sont déjà.
+	var old_dir := fixture.get_basename() + "-old"
+	var new_dir := old_dir.path_join(Settings.FOLDER)
+	DirAccess.make_dir_recursive_absolute(ProjectSettings.globalize_path(new_dir))
+	for name in ["video.json", "controles.json", "menus.json", "worlds.json"]:
+		var old_file := FileAccess.open(old_dir.path_join(name), FileAccess.WRITE)
+		old_file.store_string("{\"old\": true}")
+		old_file.close()
+	var kept_file := FileAccess.open(new_dir.path_join("menus.json"), FileAccess.WRITE)
+	kept_file.store_string("{\"new\": true}")
+	kept_file.close()
+	var moved: Array = Settings.move_old_files(old_dir, new_dir)
+	check(moved == ["video.json", "controles.json"] and FileAccess.file_exists(new_dir.path_join("video.json")) and not FileAccess.file_exists(old_dir.path_join("video.json")), "old settings files moved into parametres/")
+	check(FileAccess.get_file_as_string(new_dir.path_join("menus.json")).contains("new") and FileAccess.file_exists(old_dir.path_join("worlds.json")), "never overwrites, worlds stay where they are")
+	for name in ["video.json", "controles.json", "menus.json"]:
+		DirAccess.remove_absolute(ProjectSettings.globalize_path(new_dir.path_join(name)))
+	DirAccess.remove_absolute(ProjectSettings.globalize_path(old_dir.path_join("menus.json")))
+	DirAccess.remove_absolute(ProjectSettings.globalize_path(old_dir.path_join("worlds.json")))
+	DirAccess.remove_absolute(ProjectSettings.globalize_path(new_dir))
+	DirAccess.remove_absolute(ProjectSettings.globalize_path(old_dir))
 	var paths: Array = []
 	var settings := Settings.new(fixture)
 	for menu in Settings.FILES:

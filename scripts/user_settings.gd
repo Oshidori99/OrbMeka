@@ -87,7 +87,7 @@ const FORMER_SKINS := {"boy": "light", "girl": "brown", "man": "dark", "woman": 
 const FORMER_CHARACTERS := {"boy": "boy14", "girl": "girl14"}
 # Attributs du joueur : par défaut dans un monde par défaut, réglables en mode développeur.
 const ATTRIBUTE_KEYS := ["jump_height", "jump_speed", "fall_gravity", "place_ms", "break_ms", "break_reach", "place_reach", "walk_forward", "walk_side", "walk_back", "crouch_forward", "crouch_side", "crouch_back", "crouch_gravity", "run_forward", "run_side", "run_back", "fly_forward", "fly_side", "fly_back", "fly_run_forward", "fly_run_side", "fly_run_back", "fly_up", "fly_down", "speed_max", "speed_min", "speed_up_rate", "speed_down_rate", "current_speed", "current_walk", "current_run", "current_break", "current_place", "eye_height"]
-# Un fichier par menu de Paramètres (0.0.3.6), nommé d'après le menu, dans user://
+# Un fichier par menu de Paramètres (0.0.3.6), nommé d'après le menu, dans user://parametres/
 # (Windows : %APPDATA%\Godot\app_userdata\OrbMeka\). L'ancien settings.json (avant 0.0.3.6)
 # n'est que lu, pour reprendre les réglages, si aucun de ces fichiers n'existe encore.
 const DEFAULT_PATH := "user://settings.json"
@@ -99,6 +99,8 @@ const CONTROLS_FILE := "controles.json"
 # 0.0.4.14 : titres réduits de Paramètres et choix à l'ouverture (last, expanded, collapsed).
 const MENUS_FILE := "menus.json"
 const MENU_OPEN_MODES := ["last", "expanded", "collapsed"]
+# 0.0.4.22 : fichiers du joueur rangés dans user://parametres/ (avant : directement dans user://).
+const FOLDER := "parametres"
 var menu_open_mode := "last"
 var menu_folded: Array = []
 var values: Dictionary = {}
@@ -127,10 +129,26 @@ func _init(path: String = DEFAULT_PATH) -> void:
 	_read_controls()
 	_read_menus()
 
+# Dossier des fichiers du joueur (user://parametres) ; les tests gardent leurs fichiers à part.
+func folder() -> String:
+	return storage_path.get_base_dir().path_join(FOLDER)
+
+# Au démarrage du jeu : fichiers d'avant 0.0.4.22 (directement dans user://) déplacés dans le dossier,
+# sauf s'il y en a déjà un du même nom. Renvoie les noms déplacés.
+static func move_old_files(from_dir: String, to_dir: String) -> Array:
+	var moved := []
+	DirAccess.make_dir_recursive_absolute(ProjectSettings.globalize_path(to_dir))
+	for name in FILES.values() + [CONTROLS_FILE, MENUS_FILE]:
+		var old_path := ProjectSettings.globalize_path(from_dir.path_join(name))
+		var new_path := ProjectSettings.globalize_path(to_dir.path_join(name))
+		if FileAccess.file_exists(old_path) and not FileAccess.file_exists(new_path) and DirAccess.rename_absolute(old_path, new_path) == OK:
+			moved.append(name)
+	return moved
+
 # Menus (0.0.4.14) : menus.json, à côté des autres fichiers.
 func menus_path() -> String:
 	if storage_path == DEFAULT_PATH:
-		return storage_path.get_base_dir().path_join(MENUS_FILE)
+		return folder().path_join(MENUS_FILE)
 	return storage_path.get_basename() + "-" + MENUS_FILE
 
 func _read_menus() -> void:
@@ -160,7 +178,7 @@ func set_menu_open_mode(mode: String) -> bool:
 # Contrôles (0.0.3.12) : leur propre fichier, controles.json, écrit seulement par set_control.
 func controls_path() -> String:
 	if storage_path == DEFAULT_PATH:
-		return storage_path.get_base_dir().path_join(CONTROLS_FILE)
+		return folder().path_join(CONTROLS_FILE)
 	return storage_path.get_basename() + "-" + CONTROLS_FILE
 
 func _read_controls() -> void:
@@ -195,24 +213,34 @@ func _write_controls(bindings: Dictionary, options: Dictionary) -> bool:
 # Nouvelle liaison d'une action (toutes ses options, 0.0.4.20 ; ancienne écriture acceptée) ; une même
 # combinaison est retirée de l'action qui l'avait (renvoie le nom de cette action, ou "" s'il n'y en avait pas).
 func set_control(action: String, raw: Dictionary) -> String:
+	return set_controls({action: raw})
+
+# Plusieurs actions d'un coup (0.0.4.22 : ↻ d'une partie, Tout réinitialiser) : un seul fichier écrit ;
+# options = choix des Contrôles à changer aussi. Renvoie le nom de la dernière action qui a perdu une combinaison.
+func set_controls(changes: Dictionary, options: Dictionary = {}) -> String:
 	last_error = ""
-	var binding := Controls.normalize(raw)
+	var bindings := {}
+	for action in changes:
+		bindings[action] = Controls.normalize(changes[action])
 	var candidate := controls.duplicate(true)
 	var freed := ""
 	for other in candidate:
-		if other == action:
+		if bindings.has(other):
 			continue
 		var kept := []
 		for combo in Controls.options(candidate[other]):
-			if binding.options.any(func(mine): return Controls.same_combo(mine, combo)):
+			if bindings.values().any(func(binding): return binding.options.any(func(mine): return Controls.same_combo(mine, combo))):
 				freed = Controls.ACTIONS[other].label
 			else:
 				kept.append(combo)
 		candidate[other] = {"options": kept}
-	candidate[action] = binding
-	if not _write_controls(candidate, control_options):
+	candidate.merge(bindings, true)
+	var chosen := control_options.duplicate()
+	chosen.merge(options, true)
+	if not _write_controls(candidate, chosen):
 		return ""
 	controls = candidate
+	control_options = chosen
 	return freed
 
 # Choix des Contrôles (0.0.3.18), ex. mode pour se baisser ; même fichier controles.json.
@@ -232,7 +260,7 @@ func set_control_option(option: String, choice: String) -> bool:
 # même dossier, préfixé du nom de ce chemin, pour ne jamais toucher aux fichiers du joueur.
 func file_path(menu: String) -> String:
 	if storage_path == DEFAULT_PATH:
-		return storage_path.get_base_dir().path_join(FILES[menu])
+		return folder().path_join(FILES[menu])
 	return storage_path.get_basename() + "-" + FILES[menu]
 
 static func menu_of(key: String) -> String:
@@ -339,6 +367,8 @@ func save_values() -> bool:
 	return true
 
 func _write(path: String, data: Dictionary) -> bool:
+	if not DirAccess.dir_exists_absolute(ProjectSettings.globalize_path(path.get_base_dir())):
+		DirAccess.make_dir_recursive_absolute(ProjectSettings.globalize_path(path.get_base_dir()))
 	var file := FileAccess.open(path + ".tmp", FileAccess.WRITE)
 	if file == null:
 		last_error = "Impossible d'enregistrer les paramètres."

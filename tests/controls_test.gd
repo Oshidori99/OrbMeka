@@ -41,7 +41,7 @@ func _run() -> void:
 	root.size = Vector2i(1280, 720)
 	var fixture := "res://.godot/controls-test-%d.json" % Time.get_ticks_usec()
 	var settings := Settings.new(fixture)
-	check(Settings.new().controls_path() == "user://controles.json", "player controls file is named after the menu")
+	check(Settings.new().controls_path() == "user://parametres/controles.json", "player controls file is named after the menu")
 	check(settings.controls == Controls.defaults(), "default controls")
 	var app: Control = load("res://scenes/main.tscn").instantiate()
 	app.settings = settings

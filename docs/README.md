@@ -1,4 +1,4 @@
-# OrbMeka™ — prototype 0.0.4.21
+# OrbMeka™ — prototype 0.0.4.22
 
 Godot 4.7 / GDScript. Formes et couleurs simples ; assets externes seulement sous licence vérifiée (sons CC0, assets/sounds/CREDITS.txt).
 
@@ -702,8 +702,8 @@ cherchent des boutons dans les pages. Résultat : 20 tests, 0 échec.
   dézoom), en plus des réglages de taille des panneaux et du texte.
 - Vidéo → Jeu : **Champ de vision (FOV)**, 50 à 110° (75° par défaut,
   vue d'origine), dans tous les mondes.
-- Un fichier par menu de Paramètres, nommé d'après lui, dans user://
-  (Windows : %APPDATA%\Godot\app_userdata\OrbMeka\) :
+- Un fichier par menu de Paramètres, nommé d'après lui, dans user://parametres/
+  depuis 0.0.4.22 (Windows : %APPDATA%\Godot\app_userdata\OrbMeka\parametres\) :
   parametres-generaux.json, video.json, attributs.json.
   L'ancien settings.json est lu une fois pour reprendre les réglages, sans
   être modifié ni supprimé. Un fichier illisible ne remet à zéro que son menu.
@@ -1544,3 +1544,27 @@ empreintes, nettoyage, Supprimer, fichiers rangés). Tous les tests :
 51 / 51 en parallèle.
 À tester manuellement : launcher (installer, Supprimer, nettoyage après
 plusieurs versions jouées).
+
+## Contrôles plus rapides — 0.0.4.22
+- **↻ Tout réinitialiser** (Contrôles) : 5,7 s → 0,2 s. Toutes les touches
+  sont changées d'un coup : un seul fichier écrit, la page refaite une fois.
+- **↻ par partie** à droite des titres Mouvements, Blocs, Vitesses et
+  Vitesses — réinitialiser : seules les touches de cette partie reviennent
+  par défaut.
+- **Une touche changée** : 0,19 s → 0,01 s (seules l'action changée et
+  celle qui a perdu la touche sont refaites ; recherche appliquée une fois).
+- **Accolade** dessinée sous les touches simultanées, du début de la
+  première touche à la fin de la dernière. Le menu + dit
+  **Simultanément** (avant : Appuyer en même temps).
+- **AppData** : les fichiers de réglages (parametres-generaux, video,
+  personnage, attributs, controles, menus) sont rangés dans un dossier
+  **parametres/**. Les anciens y sont déplacés au premier lancement, sans
+  rien écraser ; worlds.json et launcher/ restent à leur place. Une version
+  plus ancienne lancée depuis le launcher ne voit pas ce dossier et repart
+  avec ses réglages par défaut.
+
+Tests mis à jour : controls_groups (↻ par partie, Tout réinitialiser),
+key_combos (accolade, Simultanément), settings_files (dossier parametres,
+déplacement sans écraser), character, controls.
+À tester manuellement : aspect de l'accolade et des ↻ de partie, rapidité
+ressentie, réglages bien retrouvés après la mise à jour.

@@ -112,6 +112,7 @@ var controls_conflicts_button: Button
 var controls_conflicts_text: RichTextLabel
 # Parties de Contrôles (0.0.4.8) : titres, et touches réservées de la partie Menus.
 var control_group_labels: Dictionary = {}
+var control_group_resets: Dictionary = {}
 var control_menu_buttons: Dictionary = {}
 # Titres repliables de Paramètres (0.0.4.14) : clé → {"title", "body", "text"}.
 var fold_entries: Dictionary = {}

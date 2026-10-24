@@ -10,6 +10,7 @@ func _ready() -> void:
 	if catalog == null:
 		catalog = Catalog.new()
 	if settings == null:
+		UserSettings.move_old_files("user://", "user://".path_join(UserSettings.FOLDER))
 		settings = UserSettings.new()
 	for key in LAYOUT_KEYS:
 		layout_values[key] = settings.values[key]

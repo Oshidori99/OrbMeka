@@ -22,12 +22,13 @@ func _build_controls_section(parent: Node) -> void:
 	var list := VBoxContainer.new()
 	_sep(list, 10)
 	inset.add_child(list)
-	_explanation(list, ["", "Cliquez une touche puis appuyez sur la nouvelle. Échap : aucune. + : options et combinaisons.", "Cliquez une touche, puis appuyez sur la touche ou le bouton de souris voulu (molette comprise). Échap : aucune touche. + : Nouvelle option (une autre façon de faire l'action), Appuyer en même temps (︸ sous les touches), Appuyer après (→ ; 0,5 s au plus entre deux, la même touche deux fois = double appui) ; 4 touches et 3 options au plus. ✕ retire une touche ou une option. Les flèches ← → restent toujours actives pour aller de côté. Celles des Menus (Échap, F1 à F4) sont réservées."])
+	_explanation(list, ["", "Cliquez une touche puis appuyez sur la nouvelle. Échap : aucune. + : options et combinaisons.", "Cliquez une touche, puis appuyez sur la touche ou le bouton de souris voulu (molette comprise). Échap : aucune touche. + : Nouvelle option (une autre façon de faire l'action), Simultanément (accolade sous les touches), Appuyer après (→ ; 0,5 s au plus entre deux, la même touche deux fois = double appui) ; 4 touches et 3 options au plus. ✕ retire une touche ou une option. Les flèches ← → restent toujours actives pour aller de côté. Celles des Menus (Échap, F1 à F4) sont réservées."])
 	# Parties (0.0.4.8) : Mouvements, Blocs, Vitesses, puis Menus (touches réservées).
 	for group in Controls.GROUPS:
 		_explanation(list, group)
 		list.get_child(-1).theme_type_variation = "OrbSection"
 		control_group_labels[group] = list.get_child(-1)
+		_add_group_reset(list.get_child(-1), group)
 		var group_body := _fold_body(list)
 		control_group_bodies[group] = group_body
 		_make_foldable(control_group_labels[group], group_body, "controls:" + group)
@@ -56,9 +57,23 @@ func _build_controls_section(parent: Node) -> void:
 	_build_control_options(box)
 
 # Une action de Contrôles (0.0.4.20) : un bloc, refait à chaque changement, avec une ligne par option
-# (Avancer, Avancer (2)…). Sur chaque ligne : les touches (︸ sous celles en même temps, → entre deux
-# étapes, ✕ sur chaque touche ajoutée), ↻ (première ligne), puis + : Nouvelle option, Appuyer en
-# même temps, Appuyer après. Un clic sur le nom replie ou déplie les options suivantes.
+# (Avancer, Avancer (2)…). Sur chaque ligne : les touches (accolade sous celles simultanées, → entre deux
+# étapes, ✕ sur chaque touche ajoutée), ↻ (première ligne), puis + : Nouvelle option, Simultanément,
+# Appuyer après. Un clic sur le nom replie ou déplie les options suivantes.
+# 0.0.4.22 : ↻ à droite du titre d'une partie (le titre passe dans une ligne avec le bouton).
+func _add_group_reset(title: Control, group: String) -> void:
+	var list := title.get_parent()
+	var line := HBoxContainer.new()
+	list.add_child(line)
+	list.move_child(line, title.get_index())
+	list.remove_child(title)
+	line.add_child(title)
+	title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	var reset := _button("↻", line, func(): reset_control_group(group))
+	_min_size(reset, Vector2(42, 0))
+	reset.tooltip_text = "Rétablir les touches de « %s » par défaut" % group
+	control_group_resets[group] = reset
+
 func _add_control_row(list: Node, action: String) -> void:
 	_row_line(list)
 	var block := VBoxContainer.new()
@@ -70,7 +85,8 @@ func _add_control_row(list: Node, action: String) -> void:
 func _control_binding(action: String) -> Dictionary:
 	return control_pending.get(action, Controls.normalize(settings.controls[action]))
 
-func _build_control_action(action: String) -> void:
+# filter = false : l'appelant applique la recherche une seule fois après avoir refait plusieurs actions.
+func _build_control_action(action: String, filter: bool = true) -> void:
 	var block: VBoxContainer = control_action_boxes[action]
 	for child in block.get_children():
 		for node in [child] + child.find_children("*", "Control", true, false):
@@ -125,6 +141,7 @@ func _build_control_action(action: String) -> void:
 			_sep(chord_row, 2)
 			chord_box.add_child(chord_row)
 			var chord: Array = steps[step]
+			var chord_keys := []
 			for part_index in range(chord.size()):
 				var slot := [index, step, part_index]
 				var part: Dictionary = chord[part_index]
@@ -134,6 +151,7 @@ func _build_control_action(action: String) -> void:
 				_min_size(key_button, Vector2(110 if index == 0 and step == 0 and part_index == 0 else 90, 0))
 				key_button.tooltip_text = "Changer la touche : " + label.text
 				control_slot_buttons[action].append([slot, key_button])
+				chord_keys.append(key_button)
 				# Première touche d'une option : pas de ✕ (celui de l'option, à droite, la retire).
 				if step == 0 and part_index == 0:
 					if index == 0:
@@ -144,12 +162,7 @@ func _build_control_action(action: String) -> void:
 					_min_size(remove, Vector2(22, 0))
 					remove.tooltip_text = "Retirer cette touche"
 			if chord.size() > 1:
-				var brace := _text_label()
-				brace.text = "︸"
-				brace.autowrap_mode = TextServer.AUTOWRAP_OFF
-				brace.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-				brace.tooltip_text = "En même temps"
-				chord_box.add_child(brace)
+				_add_chord_brace(chord_box, chord_keys)
 		if index == 0:
 			var reset := _button("↻", row, func(): reset_control(action))
 			_min_size(reset, Vector2(42, 0))
@@ -163,20 +176,42 @@ func _build_control_action(action: String) -> void:
 		more.text = "+"
 		more.flat = false
 		_min_size(more, Vector2(42, 0))
-		more.tooltip_text = "Nouvelle option, appuyer en même temps, appuyer après"
+		more.tooltip_text = "Nouvelle option, simultanément, appuyer après"
 		row.add_child(more)
 		var popup := more.get_popup()
 		var parts_count := Controls.combo_parts(combo).size()
 		popup.add_item("Nouvelle option", 0)
 		popup.set_item_disabled(0, all.size() >= Controls.MAX_OPTIONS)
-		popup.add_item("Appuyer en même temps", 1)
+		popup.add_item("Simultanément", 1)
 		popup.set_item_disabled(1, parts_count >= Controls.MAX_KEYS or all.is_empty())
 		popup.add_item("Appuyer après", 2)
 		popup.set_item_disabled(2, parts_count >= Controls.MAX_KEYS or all.is_empty())
 		popup.id_pressed.connect(func(id: int): control_more(action, index, id))
 		if index == 0:
 			control_more_buttons[action] = more
-	_filter_controls()
+	if filter:
+		_filter_controls()
+
+# 0.0.4.22 : accolade dessinée sous les touches simultanées, du début de la première touche à la fin
+# de la dernière (les ✕ à côté ne comptent pas).
+func _add_chord_brace(chord_box: Node, keys: Array) -> void:
+	var brace := Control.new()
+	brace.name = "Brace"
+	brace.mouse_filter = Control.MOUSE_FILTER_PASS
+	brace.tooltip_text = "Simultanément"
+	_min_size(brace, Vector2(0, 9))
+	chord_box.add_child(brace)
+	brace.draw.connect(func():
+		var first: Control = keys[0]
+		var last: Control = keys[-1]
+		var left := first.position.x + 2.0
+		var right := last.position.x + last.size.x - 2.0
+		var middle := (left + right) / 2.0
+		var h := brace.size.y
+		var points := PackedVector2Array([Vector2(left, 0), Vector2(left + 3, h * 0.5), Vector2(middle - 4, h * 0.5), Vector2(middle, h - 1), Vector2(middle + 4, h * 0.5), Vector2(right - 3, h * 0.5), Vector2(right, 0)])
+		brace.draw_polyline(points, brace.get_theme_color("font_color", "Label"), 1.5, true))
+	for key in keys:
+		key.item_rect_changed.connect(brace.queue_redraw)
 
 # Menu + : 0 nouvelle option, 1 une touche de plus en même temps (dernière étape), 2 une étape après.
 func control_more(action: String, option: int, choice: int) -> void:
@@ -365,8 +400,7 @@ func set_control_option(option: String, choice: String) -> void:
 	_apply_to_game()
 
 func _refresh_controls() -> void:
-	for action in control_action_boxes:
-		_build_control_action(action)
+	_rebuild_control_actions(control_action_boxes.keys())
 	for option in control_option_buttons:
 		for choice in control_option_buttons[option]:
 			control_option_buttons[option][choice].set_pressed_no_signal(settings.control_options[option] == choice)
@@ -407,6 +441,7 @@ func set_control(action: String, binding: Dictionary) -> void:
 	capturing_action = ""
 	capturing_slot = []
 	control_pending.erase(action)
+	var before: Dictionary = settings.controls.duplicate(true)
 	var freed: String = settings.set_control(action, binding)
 	if not settings.last_error.is_empty():
 		settings_message.text = settings.last_error
@@ -419,7 +454,13 @@ func set_control(action: String, binding: Dictionary) -> void:
 	if settings.last_error.is_empty() and not overlaps.is_empty():
 		settings_message.text += " Attention : déclenche aussi %s." % ", ".join(overlaps)
 	_apply_controls()
-	_refresh_controls()
+	# 0.0.4.22 : seulement les actions changées (celle-ci, et celle qui a perdu la combinaison).
+	_rebuild_control_actions(control_action_boxes.keys().filter(func(other): return other == action or before.get(other) != settings.controls.get(other)))
+
+func _rebuild_control_actions(actions: Array) -> void:
+	for action in actions:
+		_build_control_action(action, false)
+	_filter_controls()
 
 # Touches dans le jeu (InputMap) et suivi des actions à deux touches.
 func _apply_controls() -> void:
@@ -441,9 +482,31 @@ func _send_combos(changes: Array) -> void:
 func reset_control(action: String) -> void:
 	set_control(action, Controls.default_for(action))
 
+# 0.0.4.22 : tout d'un coup (un fichier écrit, une page refaite), avant c'était action par action (lent).
 func reset_all_controls() -> void:
-	for action in Controls.ACTIONS:
-		set_control(action, Controls.default_for(action))
+	var options := {}
 	for option in Controls.OPTIONS:
-		set_control_option(option, Controls.OPTIONS[option].default)
-	settings_message.text = "Toutes les touches par défaut."
+		options[option] = Controls.OPTIONS[option].default
+	if _reset_controls(Controls.ACTIONS.keys(), options):
+		settings_message.text = "Toutes les touches par défaut."
+
+# ↻ à côté du titre d'une partie (Mouvements, Blocs…) : ses actions par défaut.
+func reset_control_group(group: String) -> void:
+	if _reset_controls(Controls.GROUPS[group], {}):
+		settings_message.text = "%s : touches par défaut." % group
+
+func _reset_controls(actions: Array, options: Dictionary) -> bool:
+	capturing_action = ""
+	capturing_slot = []
+	var changes := {}
+	for action in actions:
+		control_pending.erase(action)
+		changes[action] = Controls.default_for(action)
+	settings.set_controls(changes, options)
+	if not settings.last_error.is_empty():
+		settings_message.text = settings.last_error
+		return false
+	_apply_controls()
+	_refresh_controls()
+	_apply_to_game()
+	return true

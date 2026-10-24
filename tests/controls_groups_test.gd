@@ -88,19 +88,35 @@ func _run() -> void:
 	await process_frame
 	var titles: Array = ["Mouvements", "Blocs", "Vitesses", "Vitesses — réinitialiser", "Menus"]
 	var ordered := titles.all(func(title): return app.control_group_labels.has(title))
-	var list: Node = app.control_group_labels.Mouvements.get_parent()
+	# 0.0.4.22 : le titre d'une partie est dans une ligne avec son ↻ (sauf Menus).
+	var list: Node = app.control_group_labels.Menus.get_parent()
+	var head := func(title: String) -> int:
+		var label: Node = app.control_group_labels[title]
+		return label.get_index() if label.get_parent() == list else label.get_parent().get_index()
 	for index in range(titles.size() - 1):
-		ordered = ordered and app.control_group_labels[titles[index]].get_index() < app.control_group_labels[titles[index + 1]].get_index()
+		ordered = ordered and head.call(titles[index]) < head.call(titles[index + 1])
 	check(ordered and app.control_group_labels.Menus.text == "▾ Menus", "five titled parts in order (▾ : repliables, 0.0.4.14)")
 	var placed := true
 	for index in range(Controls.GROUPS.size()):
 		var group: String = titles[index]
 		for action in Controls.GROUPS[group]:
 			var group_body: Node = app.control_action_boxes[action].get_parent()
-			placed = placed and group_body.get_parent() == list and group_body.get_index() == app.control_group_labels[group].get_index() + 1
+			placed = placed and group_body.get_parent() == list and group_body.get_index() == head.call(group) + 1
 	check(placed, "each action under its part")
 	check(app.control_menu_buttons.size() == Controls.MENU_KEYS.size() and app.control_menu_buttons.values().all(func(button): return button.disabled) and app.control_menu_buttons["Retour aux mondes"].text == "F1" and app.control_menu_buttons.Pause.text == "Échap", "Menus: reserved keys shown, not editable")
 	check(app.control_menu_buttons["Informations du monde"].get_parent().get_parent().get_index() == app.control_group_labels.Menus.get_index() + 1, "reserved keys under Menus")
+	# ↻ par partie (0.0.4.22) : seulement les touches de cette partie reviennent par défaut, d'un coup.
+	check(Controls.GROUPS.keys().all(func(group): return app.control_group_resets.has(group) and app.control_group_resets[group].get_parent() == app.control_group_labels[group].get_parent()) and not app.control_group_resets.has("Menus"), "a ↻ beside each part title (not Menus)")
+	var block_action: String = Controls.GROUPS.Blocs[0]
+	var move_action: String = Controls.GROUPS.Mouvements[0]
+	app.set_control(block_action, {"key": KEY_F7})
+	app.set_control(move_action, {"key": KEY_F8})
+	app.control_group_resets.Blocs.pressed.emit()
+	check(Controls.same(settings.controls[block_action], Controls.default_for(block_action)) and Controls.label(settings.controls[move_action]) == "F8", "↻ Blocs: only Blocs back to default")
+	check(Controls.same(Settings.new(fixture + ".app").controls[block_action], Controls.default_for(block_action)), "group reset saved")
+	app.reset_all_controls()
+	check(Controls.ACTIONS.keys().all(func(action): return Controls.same(settings.controls[action], Controls.default_for(action))) and app.settings_message.text == "Toutes les touches par défaut.", "Tout réinitialiser: everything back, at once")
+	check(Controls.label(Settings.new(fixture + ".app").controls[move_action]) != "F8", "reset all saved")
 	check(app.ATTRIBUTE_CATEGORIES.Voler.keys.has("fly_run_forward") and app.setting_fields.has("fly_run_back"), "flying fast in Attributs → Voler")
 	root.remove_child(app)
 	app.queue_free()

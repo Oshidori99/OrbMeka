@@ -1,6 +1,6 @@
 extends SceneTree
 # Combinaisons de touches. 0.0.3.27 : deux touches (double appui, en même temps). 0.0.4.20 : jusqu'à
-# 3 options par action et 4 touches par combinaison, étapes « en même temps » (︸) et « après » (→,
+# 3 options par action et 4 touches par combinaison, étapes simultanées (accolade) et « après » (→,
 # Controls.SEQUENCE_MS au plus), bouton + (Nouvelle option, Appuyer en même temps, Appuyer après),
 # ✕ par touche et par option, recherche par partie, nom ou touche, bouton Conflits. Anciens
 # controles.json toujours lus.
@@ -123,13 +123,15 @@ func _run() -> void:
 	check(not app.control_action_boxes.move_forward.get_child(1).visible and app.control_labels.move_forward.text == "▸ Avancer", "click on Avancer hides the other options")
 	app.toggle_control_options("move_forward")
 	check(app.control_action_boxes.move_forward.get_child(1).visible, "and shows them again")
-	# Appuyer en même temps.
+	# Simultanément.
 	app.control_more_buttons.sprint.get_popup().id_pressed.emit(1)
-	check(app.capturing_slot == [0, 0, 1], "Appuyer en même temps adds a key on the right")
+	check(app.capturing_slot == [0, 0, 1], "Simultanément adds a key on the right")
 	push_key(KEY_SHIFT)
 	check(settings.controls.sprint == {"options": [combo([[k(KEY_R), k(KEY_SHIFT)]])]} and Controls.label(settings.controls.sprint) == "R + Shift", "R + Shift together")
-	var braces: Array = app.control_action_boxes.sprint.find_children("*", "RichTextLabel", true, false).filter(func(node): return node.text == "︸")
-	check(braces.size() == 1, "brace under keys pressed together")
+	# 0.0.4.22 : accolade dessinée, de la première à la dernière touche simultanée ; menu « Simultanément ».
+	var braces: Array = app.control_action_boxes.sprint.find_children("Brace", "Control", true, false)
+	check(braces.size() == 1 and braces[0].get_parent().get_child(0).get_child_count() == 3, "brace under keys pressed together (R, Shift and its ✕)")
+	check(app.control_more_buttons.sprint.get_popup().get_item_text(1) == "Simultanément", "+ menu: Simultanément")
 	check(not InputMap.action_get_events("sprint").any(func(event): return event is InputEventKey and event.physical_keycode == KEY_R), "a single R no longer runs")
 	# Appuyer après.
 	app.control_more_buttons.sprint.get_popup().id_pressed.emit(2)
