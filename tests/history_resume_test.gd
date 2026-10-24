@@ -35,7 +35,7 @@ func _run() -> void:
 "):
 		if line.begins_with("0.0."):
 			titles.append(line)
-	check(titles.size() == 72 and titles[0].begins_with("0.0.4.20 ") and titles[-1].begins_with("0.0.1 "), "all seventy-two versions shown latest to earliest")
+	check(titles.size() == 73 and titles[0].begins_with("0.0.4.21 ") and titles[-1].begins_with("0.0.1 "), "all seventy-three versions shown latest to earliest")
 	check(titles.find("0.0.2.5.1 — Rappels de commandes") < titles.find("0.0.2.5 — Raccourcis et sélection"), "five-part patch number sorted correctly")
 	check(not is_instance_valid(app.active_world) and Input.mouse_mode == Input.MOUSE_MODE_VISIBLE, "history does not launch game or capture pointer")
 	await process_frame

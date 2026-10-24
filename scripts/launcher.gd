@@ -13,9 +13,15 @@ const API_RELEASES := "https://api.github.com/repos/%s/releases?per_page=100&pag
 const RAW_HISTORY := "https://raw.githubusercontent.com/%s/main/docs/HISTORIQUE.txt"
 const ZIP_URL := "https://github.com/%s/releases/download/v%s/OrbMeka-%s-windows.zip"
 const HTTP_TIMEOUT_MS := 60000
+# 0.0.4.21 (sécurité) : seulement des numéros de version simples (pas de chemin piégé), seulement des
+# serveurs de GitHub, et chaque zip vérifié avec l'empreinte SHA-256 publiée par GitHub avant d'être ouvert.
+const VERSION_PATTERN := "^\\d+(\\.\\d+){1,5}$"
+const ALLOWED_HOSTS := ["github.com", "api.github.com", "raw.githubusercontent.com", "objects.githubusercontent.com", "release-assets.githubusercontent.com", "codeload.github.com"]
 
 # Versions connues, de la plus récente à la plus ancienne : {"version", "name"}.
 var versions: Array = []
+# Empreintes des zips Windows, lues dans l'API GitHub : {version: "sha256:…"}.
+var digests: Dictionary = {}
 var error := ""
 
 static func supported() -> bool:
@@ -23,6 +29,9 @@ static func supported() -> bool:
 
 static func current_version() -> String:
 	return str(ProjectSettings.get_setting("application/config/version", ""))
+
+static func valid_version(version: String) -> bool:
+	return RegEx.create_from_string(VERSION_PATTERN).search(version) != null
 
 # Groupe d'affichage : les trois premiers nombres (« 0.0.3 » pour 0.0.3.27).
 static func group_of(version: String) -> String:
@@ -43,6 +52,8 @@ static func build_list(tags: Array, names: Dictionary) -> Array:
 	var result := []
 	for tag in tags:
 		var version := str(tag).trim_prefix("v")
+		if not valid_version(version):
+			continue
 		result.append({"version": version, "name": names.get(version, "")})
 	return result
 
@@ -69,10 +80,12 @@ static func note_played(version: String) -> void:
 		file.close()
 
 static func folder(version: String) -> String:
-	return root.path_join(version)
+	return root.path_join(version) if valid_version(version) else ""
 
 # Exécutable installé de cette version, ou "" si elle n'est pas encore téléchargée.
 static func executable(version: String) -> String:
+	if folder(version).is_empty():
+		return ""
 	var dir := DirAccess.open(folder(version))
 	if dir == null:
 		return ""
@@ -114,6 +127,9 @@ func refresh() -> bool:
 # Télécharge et décompresse le zip Windows d'une version (bloquant, fil à part) : Internet d'abord, gh sinon.
 func install(version: String) -> bool:
 	error = ""
+	if not valid_version(version):
+		error = "Numéro de version refusé : " + version.left(40)
+		return false
 	var dir := ProjectSettings.globalize_path(folder(version))
 	DirAccess.make_dir_recursive_absolute(dir)
 	var download := http_get(ZIP_URL % [REPO, version, version])
@@ -129,6 +145,11 @@ func install(version: String) -> bool:
 			return false
 	for file in DirAccess.get_files_at(dir):
 		if file.get_extension().to_lower() == "zip":
+			# 0.0.4.21 : zip vérifié avec l'empreinte publiée par GitHub ; différent : effacé, jamais ouvert.
+			if digests.has(version) and not digest_matches(dir.path_join(file), digests[version]):
+				DirAccess.remove_absolute(dir.path_join(file))
+				error = "Fichier téléchargé abîmé ou modifié (empreinte différente) : version %s non installée." % version
+				return false
 			if not _unzip(dir.path_join(file), dir):
 				error = "Archive illisible : " + file
 				return false
@@ -170,8 +191,10 @@ func refresh_online() -> bool:
 		var answer := http_get(API_RELEASES % [REPO, page])
 		if answer.code != 200:
 			return false
-		var page_tags := tags_from_api(answer.body.get_string_from_utf8())
+		var page_text: String = answer.body.get_string_from_utf8()
+		var page_tags := tags_from_api(page_text)
 		tags.append_array(page_tags)
+		digests.merge(digests_from_api(page_text), true)
 		if page_tags.size() < 100:
 			break
 	if tags.is_empty():
@@ -182,6 +205,25 @@ func refresh_online() -> bool:
 		text = FileAccess.get_file_as_string(LOCAL_HISTORY)
 	versions = build_list(tags, names_from_history(text))
 	return true
+
+# 0.0.4.21 : empreintes des zips Windows dans la réponse de l'API : {version: "sha256:…"}.
+static func digests_from_api(text: String) -> Dictionary:
+	var result := {}
+	var data: Variant = JSON.parse_string(text)
+	if not data is Array:
+		return result
+	for release in data:
+		if not (release is Dictionary and release.get("tag_name") is String and release.get("assets") is Array):
+			continue
+		var version: String = release.tag_name.trim_prefix("v")
+		for asset in release.assets:
+			if asset is Dictionary and str(asset.get("name", "")).ends_with("-windows.zip") and str(asset.get("digest", "")).begins_with("sha256:"):
+				result[version] = asset.digest
+	return result
+
+# Le fichier a-t-il cette empreinte (« sha256:… ») ?
+static func digest_matches(path: String, digest: String) -> bool:
+	return digest.begins_with("sha256:") and FileAccess.get_sha256(path) == digest.trim_prefix("sha256:").to_lower()
 
 # Tags des Releases dans la réponse de l'API GitHub (liste JSON), dans le même ordre (récente d'abord).
 static func tags_from_api(text: String) -> Array:
@@ -206,7 +248,8 @@ static func split_url(url: String) -> Array:
 # des Releases passent par un autre serveur de GitHub). Renvoie {"code", "body"} ; code 0 si échec.
 static func http_get(url: String, redirects := 5) -> Dictionary:
 	var parts := split_url(url)
-	if parts.is_empty():
+	# 0.0.4.21 : seulement les serveurs de GitHub, même après une redirection.
+	if parts.is_empty() or not parts[0] in ALLOWED_HOSTS:
 		return {"code": 0, "body": PackedByteArray()}
 	var client := HTTPClient.new()
 	if client.connect_to_host(parts[0], 443, TLSOptions.client()) != OK:
@@ -243,3 +286,35 @@ static func http_get(url: String, redirects := 5) -> Dictionary:
 			break
 	client.close()
 	return {"code": code, "body": body}
+
+# --- Place dans AppData (0.0.4.21) : chaque version installée pèse environ 100 Mo. ---
+
+# Versions installées (dossiers de <root> au nom de version valide).
+static func installed() -> Array:
+	var result := []
+	for name in DirAccess.get_directories_at(root):
+		if valid_version(name):
+			result.append(name)
+	return result
+
+# Supprime une version installée (son dossier et ce qu'il contient).
+static func remove_version(version: String) -> bool:
+	if folder(version).is_empty() or not DirAccess.dir_exists_absolute(folder(version)):
+		return false
+	return _remove_tree(ProjectSettings.globalize_path(folder(version)))
+
+static func _remove_tree(path: String) -> bool:
+	for file in DirAccess.get_files_at(path):
+		DirAccess.remove_absolute(path.path_join(file))
+	for sub in DirAccess.get_directories_at(path):
+		_remove_tree(path.path_join(sub))
+	return DirAccess.remove_absolute(path) == OK
+
+# Garde seulement les versions jouées récemment (PLAYED_MAX) ; renvoie celles supprimées.
+static func cleanup(running := "") -> Array:
+	var keep := played()
+	var removed := []
+	for version in installed():
+		if not version in keep and version != running and remove_version(version):
+			removed.append(version)
+	return removed

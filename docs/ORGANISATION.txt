@@ -6,10 +6,12 @@ le fonctionnement du jeu.
 
 LES DOSSIERS
 scenes/ contient main.tscn (accueil et menus) et world.tscn (partie).
-scripts/ contient le code GDScript : app pour les menus, world pour les blocs
+scripts/ contient le code GDScript : app pour les menus (0.0.4.21 : en cinq parties empilées,
+app_base → app_controls → app_launcher → app_settings → app ; constantes et variables dans
+app_base), world pour les blocs
 et le monde, player pour le joueur, terrain_generator pour les collines,
 world_catalog pour les noms/graines, action_timing pour les délais,
-controls et key_combos pour les touches (deux touches par action depuis 0.0.3.27),
+controls et key_combos pour les touches (options, en même temps, après depuis 0.0.4.20),
 launcher pour télécharger et lancer les versions (0.0.4, user://launcher/,
 versions jouées dans user://launcher/versions-jouees.json depuis 0.0.4.1),
 ui_theme pour le thème des menus et menu_showcase pour le fond 3D de l'accueil
@@ -17,7 +19,7 @@ ui_theme pour le thème des menus et menu_showcase pour le fond 3D de l'accueil
 tests/ contient les vérifications automatiques, lancées sans fenêtre.
 docs/ contient le guide détaillé README.md et cette note.
 docs/idees/ garde des images d'idées pas encore dans le jeu (pour plus tard).
-idee/ garde les prototypes de chaque nouveau personnage (nom-1.png à nom-3.png,
+docs/idees/personnages/ garde les prototypes de chaque nouveau personnage (nom-1.png à nom-3.png,
 rendus dans Blender), pour comparer ; Godot l'ignore (fichier .gdignore).
 sources_blender/personnages.blend contient les modèles des personnages et les
 scripts qui les construisent (textes orbmeka_*.py dans Blender) ; ils sont
@@ -34,8 +36,8 @@ icon.svg.import conserve les options d'importation de l'icône : ce n'est pas
 l'image elle-même. Godot peut le régénérer, mais ses réglages sont à préserver.
 README.md, à la racine, renvoie vers docs/README.md et les explications.
 docs/HISTORIQUE.txt liste les versions (lu par l'écran Historique du jeu, depuis 0.0.2.14).
-project.godot.before-prototype est une copie de la toute première configuration,
-pas la configuration active : conservée comme référence, elle ne lance pas le jeu.
+(0.0.4.21 : l'ancienne copie project.godot.before-prototype et un main.tscn inutilisé à la racine ont été
+retirés ; ils restent dans l'historique Git.)
 
 LES FICHIERS TECHNIQUES
 .godot/ est le cache local de Godot : imports calculés, index, données d'éditeur

@@ -1,4 +1,4 @@
-# OrbMeka™ — prototype 0.0.4.20
+# OrbMeka™ — prototype 0.0.4.21
 
 Godot 4.7 / GDScript. Formes et couleurs simples ; assets externes seulement sous licence vérifiée (sons CC0, assets/sounds/CREDITS.txt).
 
@@ -105,7 +105,6 @@ ou génération infinie dans cette version.
 - scripts/player.gd : caméra, déplacements, collisions et commandes.
 - scripts/action_timing.gd : délais de casse/pose et tolérances de saut.
 - tests/ : tests sans fenêtre, sans injection d'entrée système.
-- project.godot.before-prototype : configuration originale préservée.
 
 Les objets 3D sont construits au lancement : world.tscn semble vide dans l'éditeur.
 Pour le parcours complet, F5 lance scenes/main.tscn.
@@ -956,7 +955,7 @@ aperçus de peau (trois thèmes), lecture des coordonnées en grimpant.
   Créations originales : aucune copie d'un personnage connu.
 - Les huit nouveaux sont modélisés dans **Blender** (sources_blender/personnages.blend),
   exportés en .glb (assets/characters/) et montrés **en 3D** dans le menu.
-  Prototypes de chacun (3 au plus) dans **idee/** ; le meilleur est gardé
+  Prototypes de chacun (3 au plus) dans **idee/** (docs/idees/personnages/ depuis 0.0.4.21) ; le meilleur est gardé
   (renard : le 2 ; les autres : le 3).
 - Ancien personnage.json : « boy » devient Garçon 14 ans, « girl » Fille 14 ans,
   avec la même peau. Défaut : Garçon 14 ans, peau claire.
@@ -1519,3 +1518,29 @@ crouch_mode, fly, folds, layout_lines, speed_change, speed_targets, et
 d'autres (comparaisons converties), numéro de version.
 À tester manuellement : + et son menu, accolade et flèche à l'écran, les
 trois barres, Conflits, une combinaison « après » en jeu.
+
+## Plus sûr et mieux rangé — 0.0.4.21
+- **Sécurité du launcher** : chaque zip téléchargé est vérifié avec
+  l'empreinte SHA-256 publiée par GitHub ; s'il ne correspond pas, il est
+  effacé et jamais ouvert. Seuls des numéros de version simples sont acceptés
+  (un nom piégé ne peut pas écrire hors du dossier du launcher), et seuls les
+  serveurs de GitHub sont contactés, même après une redirection.
+- **AppData** : chaque version installée pèse environ 100 Mo. Seules les
+  versions jouées récemment (6) restent installées ; les autres sont retirées
+  au lancement d'une version. Bouton **Supprimer** sur chaque version
+  installée (réinstallable). L'ancien settings.json (avant 0.0.3.6), déjà
+  repris, est effacé.
+- **Code** : app.gd (2 374 lignes) découpé en cinq fichiers empilés :
+  app_base (constantes, variables, outils), app_controls, app_launcher,
+  app_settings, app (pages, mondes, partie). Même jeu.
+- **Fichiers** : main.tscn à la racine (doublon inutilisé) et
+  project.godot.before-prototype retirés (toujours dans l'historique Git) ;
+  idee/ rangé dans docs/idees/personnages/.
+- Petit bug corrigé : un ajustement de taille différé pouvait s'exécuter
+  après la fermeture des menus.
+
+Test ajouté : tests/security_cleanup_test.gd (versions piégées, serveurs,
+empreintes, nettoyage, Supprimer, fichiers rangés). Tous les tests :
+51 / 51 en parallèle.
+À tester manuellement : launcher (installer, Supprimer, nettoyage après
+plusieurs versions jouées).

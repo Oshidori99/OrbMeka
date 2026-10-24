@@ -3,6 +3,10 @@ Du plus récent au plus ancien. Ce fichier est mis à jour à chaque version.
 
 === Thème « Menus et Paramètres 2 » (0.0.4 et suivantes) ===
 
+0.0.4.21 — Plus sûr et mieux rangé
+Launcher : versions vérifiées (empreinte SHA-256, serveurs GitHub seulement), versions anciennes retirées
+et bouton Supprimer ; code des menus en cinq fichiers ; fichiers inutiles retirés.
+
 0.0.4.20 — Touches à la carte
 Contrôles : + par action (nouvelle option, appuyer en même temps, appuyer après), recherche
 par partie, nom ou touche, bouton Conflits, partie Vitesses — réinitialiser.

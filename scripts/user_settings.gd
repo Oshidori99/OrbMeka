@@ -118,6 +118,10 @@ func _init(path: String = DEFAULT_PATH) -> void:
 			_read(file_path(menu))
 	if not found and FileAccess.file_exists(path):
 		_read(path)
+	# 0.0.4.21 : l'ancien settings.json (avant 0.0.3.6), déjà repris dans les fichiers par menu, est effacé
+	# une fois ces fichiers tous écrits (seulement les vrais fichiers du joueur, jamais ceux des tests).
+	if path == DEFAULT_PATH and FileAccess.file_exists(path) and FILES.keys().all(func(menu): return FileAccess.file_exists(file_path(menu))):
+		DirAccess.remove_absolute(ProjectSettings.globalize_path(path))
 	controls = Controls.defaults()
 	control_options = Controls.default_options()
 	_read_controls()
