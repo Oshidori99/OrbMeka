@@ -12,9 +12,9 @@ extends Node3D
 # 2 ou 3, choisis parmi les nouveautés : liste NEWS_RUNNERS ([id, peau], peau vide pour un animal).
 # Chacun prend son modèle Blender, sinon une forme simple (character_model.gd, partagé avec le jeu).
 # Le reste du fichier (sol, collines, ciel, caméra) ne change pas d'une version à l'autre.
-const NEWS_VERSION := "0.0.4.18"
-const NEWS_TEXT := "Nouveau : launcher par Internet !
-Les versions se téléchargent sans compte (version Windows)."
+const NEWS_VERSION := "0.0.4.19"
+const NEWS_TEXT := "Nouveau : version Web plus juste !
+Sable et pierre colorés, souris plus douce dans le navigateur."
 
 # 0.0.3.25 : les trois nouveautés de 0.0.3.23 en aller-retour au-dessus de l'herbe libre, devant la place
 # de sable et pierre (sous le panneau des menus, vers la droite), chacune sur sa rangée.
@@ -159,9 +159,7 @@ func _setup_environment() -> void:
 	sun.light_energy = 1.2
 	sun.shadow_enabled = true
 	# 0.0.4.17 : version Web (rendu Compatibility) : lumière baissée, comme en partie.
-	if WorldRules.is_compat():
-		sun.light_energy *= WorldRules.COMPAT_SUN
-		environment.ambient_light_energy *= WorldRules.COMPAT_AMBIENT
+	WorldRules.apply_compat_light(environment, sun)
 	add_child(sun)
 
 func _build_ground() -> void:

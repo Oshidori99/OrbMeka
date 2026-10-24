@@ -186,7 +186,7 @@ func _unhandled_input(event: InputEvent) -> void:
 	if event is InputEventMouseMotion and Input.mouse_mode == Input.MOUSE_MODE_CAPTURED:
 		# 0.0.4.17 : mouvement réel de la souris (screen_relative), pas agrandi selon la taille de
 		# l'affichage : dans un navigateur (affichage plus petit que 1280 px), la vue tournait trop vite.
-		turn_view(event.screen_relative)
+		turn_view(event.screen_relative * (WEB_MOUSE_FACTOR if OS.has_feature("web") else 1.0))
 	if event is InputEventMouseButton and event.pressed:
 		if Input.mouse_mode != Input.MOUSE_MODE_CAPTURED:
 			actions.cancel()
@@ -207,6 +207,10 @@ func _unhandled_input(event: InputEvent) -> void:
 		cycle_block(-1)
 	elif event.is_action_pressed("block_next"):
 		cycle_block(1)
+
+# 0.0.4.19 : dans un navigateur, les déplacements de la souris arrivent bien plus grands (verrouillage du
+# pointeur, écrans à haute densité) : la vue tournait encore trop vite. Réduits pour le Web seulement.
+const WEB_MOUSE_FACTOR := 0.4
 
 # Rotation de la vue par un déplacement de souris (en pixels de l'écran).
 func turn_view(motion: Vector2) -> void:

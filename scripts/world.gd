@@ -58,10 +58,18 @@ func _setup_inputs() -> void:
 	# monde lancé seul (tests) : touches par défaut.
 	Controls.ensure_defaults()
 
-# 0.0.4.17 : rendu Compatibility (version Web) : la lumière y paraît plus forte qu'avec Forward+ (Windows),
-# couleurs délavées ; soleil et lumière ambiante y sont donc baissés.
-const COMPAT_SUN := 0.7
-const COMPAT_AMBIENT := 0.55
+# 0.0.4.17 : rendu Compatibility (version Web) : la lumière y paraît bien plus forte qu'avec Forward+ (Windows),
+# couleurs délavées (sable et pierre blancs). 0.0.4.19 : réglé en comparant des captures des deux rendus :
+# conversion des couleurs simple (tonemap linéaire), soleil × 0,48, lumière ambiante × 0,38.
+const COMPAT_SUN := 0.48
+const COMPAT_AMBIENT := 0.38
+
+static func apply_compat_light(environment: Environment, sun: DirectionalLight3D) -> void:
+	if not is_compat():
+		return
+	environment.tonemap_mode = Environment.TONE_MAPPER_LINEAR
+	sun.light_energy *= COMPAT_SUN
+	environment.ambient_light_energy *= COMPAT_AMBIENT
 
 static func is_compat() -> bool:
 	return RenderingServer.get_current_rendering_method() == "gl_compatibility"
@@ -87,9 +95,7 @@ func _setup_environment() -> void:
 	sun.rotation_degrees = Vector3(-50, -25, 0)
 	sun.light_energy = 1.25
 	sun.shadow_enabled = true
-	if is_compat():
-		sun.light_energy *= COMPAT_SUN
-		environment.ambient_light_energy *= COMPAT_AMBIENT
+	apply_compat_light(environment, sun)
 	add_child(sun)
 
 func _create_ground() -> void:

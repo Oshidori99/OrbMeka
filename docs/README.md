@@ -1,4 +1,4 @@
-# OrbMeka™ — prototype 0.0.4.18
+# OrbMeka™ — prototype 0.0.4.19
 
 Godot 4.7 / GDScript. Formes et couleurs simples ; assets externes seulement sous licence vérifiée (sons CC0, assets/sounds/CREDITS.txt).
 
@@ -1469,3 +1469,20 @@ un fichier public. Tests mis à jour : numéro de version.
 Résultat : 50 tests, 0 échec.
 À tester manuellement : une fois le dépôt public, launcher sur un PC sans
 GitHub CLI (liste, téléchargement, lancement).
+
+## Version Web plus juste — 0.0.4.19
+- **Couleurs** : en partie, le sable et la pierre restaient blancs et l'herbe
+  très pâle dans le navigateur (rendu « Compatibility »). Réglé en comparant
+  des captures des deux rendus sur le PC : conversion des couleurs simple
+  (tonemap linéaire), soleil × 0,48, lumière ambiante × 0,38, en partie et
+  à l'accueil. Windows inchangé.
+- **Souris** : encore trop sensible dans le navigateur ; mouvements × 0,4
+  dans la version Web seulement (réglage Sensibilité de la souris en plus).
+- Rappel : le launcher est dans la version Windows (Release → zip →
+  OrbMeka.exe → Aller au launcher) ; la version Web vient du même code,
+  exporté par la GitHub Action.
+
+Tests mis à jour : web_fixes (nouvelles valeurs, souris), numéro de
+version. Résultat : 50 tests, 0 échec.
+À tester manuellement : version Web sur itch.io (couleurs en partie et à
+l'accueil, sensibilité de la souris).
