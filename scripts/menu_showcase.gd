@@ -12,9 +12,9 @@ extends Node3D
 # 2 ou 3, choisis parmi les nouveautés : liste NEWS_RUNNERS ([id, peau], peau vide pour un animal).
 # Chacun prend son modèle Blender, sinon une forme simple (character_model.gd, partagé avec le jeu).
 # Le reste du fichier (sol, collines, ciel, caméra) ne change pas d'une version à l'autre.
-const NEWS_VERSION := "0.0.5"
-const NEWS_TEXT := "Nouveau : les mondes sont sauvegardés !
-Constructions, position et regard retrouvés."
+const NEWS_VERSION := "0.0.5.1"
+const NEWS_TEXT := "Nouveau : le monde en zones de 8 m !
+Chargées autour de vous, sauvegardées une par une."
 
 # 0.0.3.25 : les trois nouveautés de 0.0.3.23 en aller-retour au-dessus de l'herbe libre, devant la place
 # de sable et pierre (sous le panneau des menus, vers la droite), chacune sur sa rangée.

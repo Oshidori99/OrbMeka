@@ -61,7 +61,7 @@ const GENERAL_CATEGORIES := {
 		"Zones": {"keys": ["element_scale"], "help": ["", "Boutons, champs, marges et espaces.", "Taille des boutons, des zones de saisie, des marges et des espaces des menus, sans changer le texte, qui reste toujours dans sa zone."]},
 		"Texte": {"keys": ["text_px"], "help": ["", "Taille des textes.", "Taille de tous les textes, menus et jeu (13 px par défaut ; 18 px : taille d'avant 0.0.3.10)."]},
 		"Apparence": {"keys": ["theme_mode", "menu_depth"], "help": ["", "Couleurs et encadrés des menus.", "Thème de couleurs des menus. Profondeur : contenu dans des encadrés creusés sous le titre."]},
-		"Jeu": {"keys": ["fov", "show_coords"], "help": ["", "Champ de vision et coordonnées en partie.", "Champ de vision de la caméra en partie, en degrés (75° : vue d'origine). Coordonnées en blocs, en haut à droite : X largeur, Y hauteur des pieds (0 sur le sol plat), Z longueur."]},
+		"Jeu": {"keys": ["fov", "load_distance", "show_coords"], "help": ["", "Champ de vision, distance de chargement et coordonnées en partie.", "Champ de vision de la caméra en partie, en degrés (75° : vue d'origine). Distance de chargement : zones de 8 m chargées autour du joueur, dans chaque direction (moins = plus rapide). Coordonnées en blocs, en haut à droite : X largeur, Y hauteur des pieds (0 sur le sol plat), Z longueur."]},
 	},
 }
 # Menu latéral de Paramètres : sections dans l'ordre des boutons ; la première s'ouvre par défaut.

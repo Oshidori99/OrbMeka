@@ -5,6 +5,7 @@ const TerrainGenerator = preload("res://scripts/terrain_generator.gd")
 const Controls = preload("res://scripts/controls.gd")
 const CharacterPreview = preload("res://scripts/character_preview.gd")
 const Store = preload("res://scripts/world_store.gd")
+const Zones = preload("res://scripts/world_zones.gd")
 const DIRT := 2
 const BLOCK_COLORS := [Color("#d8c291"), Color("#888b90"), Color("#855332")]
 const BLOCK_NAMES := ["Sable", "Pierre", "Terre"]
@@ -37,8 +38,21 @@ var notice := ""
 var notice_time := 0.0
 # 0.0.5 : dossier du monde (world_store.gd) ; vide = rien n'est enregistré (monde lancé seul, tests).
 var save_folder := ""
+# 0.0.5.1 : blocks = blocs des zones chargées (case → sorte) ; generated = terrain de la graine.
 var generated: Dictionary = {}
-var changed := false
+var generated_by_zone: Dictionary = {}
+var loaded_zones: Dictionary = {}
+var dirty_zones: Dictionary = {}
+var sections: Dictionary = {}
+var zone_queue: Array = []
+var zone_center := Vector3i(999999, 0, 0)
+# Distance de chargement en zones (Paramètres → Vidéo).
+var load_distance := 4
+var block_material: StandardMaterial3D
+var block_box: BoxShape3D
+# Mesures affichées dans Informations du monde (F3).
+var last_zone_load_ms := 0.0
+var last_section_ms := 0.0
 var autosave_time := 0.0
 const AUTOSAVE_SECONDS := 45.0
 var save_error := ""
@@ -46,16 +60,22 @@ var save_error := ""
 func _ready() -> void:
 	_setup_inputs()
 	_setup_environment()
-	for color in BLOCK_COLORS:
-		var material := StandardMaterial3D.new()
-		material.albedo_color = color
-		material.roughness = 0.85
-		materials.append(material)
+	# 0.0.5.1 : une seule matière pour tous les blocs, couleur portée par les sommets de chaque section.
+	block_material = StandardMaterial3D.new()
+	block_material.vertex_color_use_as_albedo = true
+	block_material.vertex_color_is_srgb = true
+	block_material.roughness = 0.85
+	block_box = BoxShape3D.new()
 	_create_ground()
 	_create_terrain()
 	_create_blocks()
-	_remember_generated()
-	var saved_player := _load_saved_changes()
+	_migrate_step1()
+	var saved_player := _read_saved_player()
+	# Ouverture : zones autour du point d'arrivée chargées tout de suite (ensuite, étalées sur les images).
+	var arrival := Vector3i(0, 0, 0)
+	if not saved_player.is_empty():
+		arrival = Vector3i(floori(saved_player.position[0]), floori(saved_player.position[1]), floori(saved_player.position[2]))
+	update_zones(arrival, true)
 	player = PlayerScript.new()
 	player.name = "Player"
 	player.position = spawn_position()
@@ -135,7 +155,7 @@ func _create_terrain() -> void:
 	generated_max_height = 0
 	for cell in TerrainGenerator.generate_cells(terrain_seed):
 		generated_max_height = maxi(generated_max_height, cell.y + 1)
-		add_block(cell, DIRT)
+		_generate_block(cell, DIRT)
 
 func spawn_position() -> Vector3:
 	# Apparition en X 0, Y 0, Z 0 (Y 1 avant 0.0.3.22) : pieds posés sur le sol plat, au centre de la case 0, 0.
@@ -175,63 +195,36 @@ static func build_range_text() -> String:
 func _create_blocks() -> void:
 	for x in range(-4, 5):
 		for z in range(-6, 0):
-			add_block(Vector3i(x, 0, z), 0 if (x + z) % 2 == 0 else 1)
+			_generate_block(Vector3i(x, 0, z), 0 if (x + z) % 2 == 0 else 1)
 	for x in range(-4, 0):
 		for y in range(1, 3):
-			add_block(Vector3i(x, y, -6), 0)
+			_generate_block(Vector3i(x, y, -6), 0)
 	for y in range(1, 4):
-		add_block(Vector3i(4, y, -5), 1)
+		_generate_block(Vector3i(4, y, -5), 1)
 	for x in range(1, 4):
 		for y in range(x):
-			add_block(Vector3i(x, y, 2), 1)
+			_generate_block(Vector3i(x, y, 2), 1)
 	for x in range(-3, 0):
-		add_block(Vector3i(x, 0, 4), 0)
+		_generate_block(Vector3i(x, 0, 4), 0)
 
-# Terrain recalculé avec la graine (collines et blocs de démonstration) : seules les différences sont enregistrées.
-func _remember_generated() -> void:
-	generated.clear()
-	for cell: Vector3i in blocks:
-		generated[cell] = blocks[cell].get_meta("kind")
-
-func changes_data() -> Dictionary:
-	var placed: Array = []
-	var removed: Array = []
-	for cell: Vector3i in blocks:
-		var kind: int = blocks[cell].get_meta("kind")
-		if generated.get(cell, -1) != kind:
-			placed.append([cell.x, cell.y, cell.z, kind])
-	for cell: Vector3i in generated:
-		if not blocks.has(cell):
-			removed.append([cell.x, cell.y, cell.z])
-	return {"format": Store.CHANGES_FORMAT, "type": "blocs", "poses": placed, "casses": removed}
-
-func apply_changes(data: Dictionary) -> void:
-	for entry in data.casses:
-		var cell := Vector3i(int(entry[0]), int(entry[1]), int(entry[2]))
-		if blocks.has(cell):
-			blocks[cell].free()
-			blocks.erase(cell)
-	for entry in data.poses:
-		var cell := Vector3i(int(entry[0]), int(entry[1]), int(entry[2]))
-		if blocks.has(cell):
-			blocks[cell].free()
-			blocks.erase(cell)
-		add_block(cell, int(entry[3]))
+# Terrain recalculé avec la graine (collines et blocs de démonstration), rangé par zone.
+# Il ne change pas avec le découpage : même graine, même monde. Seules les différences sont enregistrées.
+func _generate_block(cell: Vector3i, kind: int) -> void:
+	if generated.has(cell) or generated.size() >= MAX_BLOCKS:
+		return
+	generated[cell] = kind
+	var zone := Zones.zone_of(cell)
+	if not generated_by_zone.has(zone):
+		generated_by_zone[zone] = []
+	generated_by_zone[zone].append(cell)
 
 func player_data() -> Dictionary:
 	return {"format": Store.FORMAT, "position": [player.position.x, player.position.y, player.position.z],
 		"regard_horizontal": player.rotation.y, "regard_vertical": player.camera.rotation.x}
 
-# Lecture au chargement ; un fichier illisible est mis de côté (jamais écrasé), avec un message.
-func _load_saved_changes() -> Dictionary:
+func _read_saved_player() -> Dictionary:
 	if save_folder.is_empty():
 		return {}
-	var changes := Store.read_json(save_folder.path_join(Store.CHANGES_FILE), Store.valid_changes)
-	if changes.has("data"):
-		apply_changes(changes.data)
-	elif changes.has("error"):
-		_notify(changes.error)
-		notice_time = 8.0
 	var saved := Store.read_json(save_folder.path_join(Store.PLAYER_FILE), Store.valid_player)
 	if saved.has("error"):
 		_notify(saved.error)
@@ -245,42 +238,188 @@ func _apply_saved_player(data: Dictionary) -> void:
 	player.rotation.y = float(data.regard_horizontal)
 	player.camera.rotation.x = clampf(float(data.regard_vertical), deg_to_rad(-89.0), deg_to_rad(89.0))
 
-# Au retour aux mondes, à la pause, à la fermeture et toutes les 45 s.
+# Migration de l'étape 1 (0.0.5) : zones/modifications.json réparti en fichiers de zone ;
+# l'ancien fichier est gardé (renommé) une fois toutes les zones écrites.
+func _migrate_step1() -> void:
+	if save_folder.is_empty() or not FileAccess.file_exists(save_folder.path_join(Store.CHANGES_FILE)):
+		return
+	var old := Store.read_json(save_folder.path_join(Store.CHANGES_FILE), Store.valid_changes)
+	if old.has("error"):
+		_notify(old.error)
+		notice_time = 8.0
+		return
+	var by_zone := {}
+	for entry in old.data.poses + old.data.casses:
+		var cell := Vector3i(int(entry[0]), int(entry[1]), int(entry[2]))
+		var zone := Zones.zone_of(cell)
+		if not by_zone.has(zone):
+			by_zone[zone] = [[], []]
+		if entry.size() == 4:
+			by_zone[zone][0].append([cell.x, cell.y, cell.z, int(entry[3])])
+		else:
+			by_zone[zone][1].append([cell.x, cell.y, cell.z])
+	for zone: Vector3i in by_zone:
+		if not Zones.write_zone(save_folder.path_join(Zones.zone_file(zone)), Zones.zone_data(zone, by_zone[zone][0], by_zone[zone][1])):
+			_notify("Conversion en zones impossible : l'ancien fichier est gardé.")
+			return
+	DirAccess.rename_absolute(ProjectSettings.globalize_path(save_folder.path_join(Store.CHANGES_FILE)), ProjectSettings.globalize_path(save_folder.path_join(Zones.STEP1_KEPT)))
+
+# Zones voulues autour d'une case : distance de chargement en zones, dans les limites de construction.
+func wanted_zones(center: Vector3i) -> Dictionary:
+	var result := {}
+	var here := Zones.zone_of(center)
+	var low := Zones.zone_of(Vector3i(-BUILD_LIMIT, 0, -BUILD_LIMIT))
+	var high := Zones.zone_of(Vector3i(BUILD_LIMIT, MAX_BUILD_HEIGHT - 1, BUILD_LIMIT))
+	for x in range(maxi(low.x, here.x - load_distance), mini(high.x, here.x + load_distance) + 1):
+		for y in range(maxi(low.y, here.y - load_distance), mini(high.y, here.y + load_distance) + 1):
+			for z in range(maxi(low.z, here.z - load_distance), mini(high.z, here.z + load_distance) + 1):
+				result[Vector3i(x, y, z)] = true
+	return result
+
+# Met en file les zones à charger (les plus proches d'abord) et à décharger ; now : tout de suite.
+func update_zones(center: Vector3i, now: bool = false) -> void:
+	zone_center = Zones.zone_of(center)
+	var wanted := wanted_zones(center)
+	zone_queue = zone_queue.filter(func(item: Array): return item[0] == "section")
+	for zone: Vector3i in loaded_zones.keys():
+		if not wanted.has(zone):
+			zone_queue.append(["unload", zone])
+	var missing: Array = wanted.keys().filter(func(zone: Vector3i): return not loaded_zones.has(zone))
+	missing.sort_custom(func(a: Vector3i, b: Vector3i): return (a - zone_center).length_squared() < (b - zone_center).length_squared())
+	for zone in missing:
+		zone_queue.append(["load", zone])
+	if now:
+		while not zone_queue.is_empty():
+			_run_queue_item(zone_queue.pop_front())
+
+# Travail étalé : quelques zones ou sections par image, dans un budget de temps.
+func process_zone_queue(budget_usec: int = 3000, max_items: int = -1) -> void:
+	var started := Time.get_ticks_usec()
+	var done := 0
+	while not zone_queue.is_empty() and Time.get_ticks_usec() - started < budget_usec and done != max_items:
+		done += 1
+		_run_queue_item(zone_queue.pop_front())
+
+func _run_queue_item(item: Array) -> void:
+	if item[0] == "load":
+		load_zone(item[1])
+	elif item[0] == "unload":
+		unload_zone(item[1])
+	elif loaded_zones.has(Zones.zone_of(item[1] * Zones.SECTION_SIZE)):
+		rebuild_section(item[1])
+
+func load_zone(zone: Vector3i) -> void:
+	if loaded_zones.has(zone):
+		return
+	var started := Time.get_ticks_usec()
+	for cell: Vector3i in generated_by_zone.get(zone, []):
+		blocks[cell] = generated[cell]
+	if not save_folder.is_empty():
+		var saved := Zones.read_zone(save_folder.path_join(Zones.zone_file(zone)))
+		if saved.has("data"):
+			for entry in saved.data.casses:
+				blocks.erase(Vector3i(entry[0], entry[1], entry[2]))
+			for entry in saved.data.poses:
+				blocks[Vector3i(entry[0], entry[1], entry[2])] = entry[3]
+		elif saved.has("error"):
+			_notify(saved.error)
+			notice_time = 8.0
+	loaded_zones[zone] = true
+	# Zone vide (ni terrain ni fichier) : rien à afficher, le cas le plus courant en hauteur.
+	if generated_by_zone.has(zone) or FileAccess.file_exists(save_folder.path_join(Zones.zone_file(zone))) and not save_folder.is_empty():
+		for section in Zones.zone_sections(zone):
+			rebuild_section(section)
+	last_zone_load_ms = (Time.get_ticks_usec() - started) / 1000.0
+
+func unload_zone(zone: Vector3i) -> void:
+	if not loaded_zones.has(zone):
+		return
+	if dirty_zones.has(zone):
+		_save_zone(zone)
+	for cell: Vector3i in blocks.keys():
+		if Zones.zone_of(cell) == zone:
+			blocks.erase(cell)
+	loaded_zones.erase(zone)
+	for section in Zones.zone_sections(zone):
+		if sections.has(section):
+			sections[section].free()
+			sections.erase(section)
+	# Les faces des zones voisines cachées par celle-ci réapparaissent.
+	for face in Zones.FACES:
+		if loaded_zones.has(zone + face[0]):
+			for section in Zones.zone_sections(zone + face[0]):
+				zone_queue.append(["section", section])
+
+func rebuild_section(section: Vector3i) -> void:
+	var started := Time.get_ticks_usec()
+	if sections.has(section):
+		sections[section].free()
+		sections.erase(section)
+	var body := Zones.build_section(blocks, section, BLOCK_COLORS, block_material, block_box)
+	if body != null:
+		add_child(body)
+		sections[section] = body
+	last_section_ms = (Time.get_ticks_usec() - started) / 1000.0
+
+func section_body(cell: Vector3i) -> StaticBody3D:
+	return sections.get(Zones.section_of(cell))
+
+func _zone_changes(zone: Vector3i) -> Array:
+	var placed: Array = []
+	var removed: Array = []
+	for cell: Vector3i in blocks:
+		if Zones.zone_of(cell) == zone and generated.get(cell, -1) != blocks[cell]:
+			placed.append([cell.x, cell.y, cell.z, blocks[cell]])
+	for cell: Vector3i in generated_by_zone.get(zone, []):
+		if not blocks.has(cell):
+			removed.append([cell.x, cell.y, cell.z])
+	return [placed, removed]
+
+# Une zone revenue au terrain de la graine n'a plus de fichier.
+func _save_zone(zone: Vector3i) -> bool:
+	if save_folder.is_empty():
+		dirty_zones.erase(zone)
+		return true
+	var path := save_folder.path_join(Zones.zone_file(zone))
+	var changes := _zone_changes(zone)
+	var ok := true
+	if changes[0].is_empty() and changes[1].is_empty():
+		if FileAccess.file_exists(path):
+			ok = DirAccess.remove_absolute(ProjectSettings.globalize_path(path)) == OK
+	else:
+		ok = Zones.write_zone(path, Zones.zone_data(zone, changes[0], changes[1]))
+	if ok:
+		dirty_zones.erase(zone)
+	return ok
+
+# Au retour aux mondes, à la pause, à la fermeture et toutes les 45 s : joueur et zones modifiées.
 func save_now() -> bool:
 	autosave_time = 0.0
 	if save_folder.is_empty() or not is_instance_valid(player):
 		return true
 	var ok := Store.write_json(save_folder.path_join(Store.PLAYER_FILE), player_data())
-	if changed:
-		if Store.write_json(save_folder.path_join(Store.CHANGES_FILE), changes_data()):
-			changed = false
-		else:
+	for zone: Vector3i in dirty_zones.keys():
+		if loaded_zones.has(zone) and not _save_zone(zone):
 			ok = false
 	save_error = "" if ok else "Sauvegarde impossible : vérifiez l'espace disque."
 	if not ok:
 		_notify(save_error)
 	return ok
 
+# Bloc posé ou cassé par le joueur : zone à enregistrer, sections touchées recalculées tout de suite.
+func _changed(cell: Vector3i) -> void:
+	dirty_zones[Zones.zone_of(cell)] = true
+	for section in Zones.touched_sections(cell):
+		rebuild_section(section)
+
 func add_block(cell: Vector3i, kind: int) -> bool:
 	if blocks.has(cell) or blocks.size() >= MAX_BLOCKS:
 		return false
-	if kind < 0 or kind >= materials.size():
+	if kind < 0 or kind >= BLOCK_COLORS.size():
 		return false
-	var block := StaticBody3D.new()
-	block.name = "Block"
-	block.position = Vector3(cell) + Vector3.ONE * 0.5
-	block.set_meta("cell", cell)
-	block.set_meta("kind", kind)
-	block.add_to_group("blocks")
-	var mesh := MeshInstance3D.new()
-	mesh.mesh = BoxMesh.new()
-	mesh.material_override = materials[kind]
-	block.add_child(mesh)
-	var collision := CollisionShape3D.new()
-	collision.shape = BoxShape3D.new()
-	block.add_child(collision)
-	add_child(block)
-	blocks[cell] = block
+	blocks[cell] = kind
+	for section in Zones.touched_sections(cell):
+		rebuild_section(section)
 	return true
 
 # reach : portée de l'action (casse ou pose), réglable dans Attributs → Blocs.
@@ -298,12 +437,19 @@ func break_target(hit: Dictionary) -> bool:
 	if not collider.is_in_group("blocks"):
 		_notify("Le sol est indestructible. Visez un bloc ou une colline.")
 		return false
-	var cell: Vector3i = collider.get_meta("cell")
+	var cell := hit_cell(hit)
+	if not blocks.has(cell):
+		return false
 	blocks.erase(cell)
-	changed = true
-	remove_child(collider)
-	collider.queue_free()
+	_changed(cell)
 	return true
+
+# Case du bloc visé : juste derrière la face touchée (ou « cell » donné par une visée simulée).
+static func hit_cell(hit: Dictionary) -> Vector3i:
+	if hit.has("cell"):
+		return hit.cell
+	var point: Vector3 = hit.position - hit.normal * 0.02
+	return Vector3i(floori(point.x), floori(point.y), floori(point.z))
 
 func place_target(hit: Dictionary, kind: int) -> bool:
 	if not _valid_hit(hit, player.place_reach):
@@ -321,7 +467,7 @@ func place_target(hit: Dictionary, kind: int) -> bool:
 		return false
 	if not add_block(cell, kind):
 		return false
-	changed = true
+	dirty_zones[Zones.zone_of(cell)] = true
 	return true
 
 func _create_selection() -> void:
@@ -432,7 +578,7 @@ func _notify(message: String) -> void:
 func _process(delta: float) -> void:
 	if not is_instance_valid(player):
 		return
-	# Sauvegarde régulière (petits fichiers JSON : pas de saccade).
+	# Sauvegarde régulière (petits fichiers, seulement les zones modifiées : pas de saccade).
 	autosave_time += delta
 	if autosave_time >= AUTOSAVE_SECONDS:
 		save_now()
@@ -441,7 +587,12 @@ func _process(delta: float) -> void:
 	var hit: Dictionary = player.get_target()
 	selection.visible = captured and not hit.is_empty() and hit.collider.is_in_group("blocks")
 	if selection.visible:
-		selection.global_position = hit.collider.global_position
+		selection.global_position = Vector3(hit_cell(hit)) + Vector3.ONE * 0.5
+	# Zones autour du joueur : file mise à jour en changeant de zone, travail étalé sur les images.
+	var here := player_coordinates()
+	if Zones.zone_of(here) != zone_center:
+		update_zones(here)
+	process_zone_queue()
 	hint.text = notice if notice_time > 0.0 else ""
 	_update_coordinates()
 
@@ -504,7 +655,12 @@ func get_world_info_text(level: int = 2) -> String:
 		who += ", " + CharacterPreview.SKINS.get(player.skin, CharacterPreview.SKINS.light).name.to_lower()
 	return "Votre position actuelle : %s
 Personnage : %s
-%s" % [coordinates_text(), who, _world_info_body(level)]
+%s
+%s" % [coordinates_text(), who, zones_text(), _world_info_body(level)]
+
+# 0.0.5.1 : mesures en direct (aussi dans le navigateur) : zones, temps de chargement et de recalcul, images/s.
+func zones_text() -> String:
+	return "Zones de %d m chargées : %d (distance %d) · zone : %.1f ms · recalcul : %.1f ms · %d images/s" % [Zones.ZONE_SIZE, loaded_zones.size(), load_distance, last_zone_load_ms, last_section_ms, Engine.get_frames_per_second()]
 
 # Ligne ajoutée au mode quand le mode développeur a déjà servi (vide sinon).
 func _used_note() -> String:

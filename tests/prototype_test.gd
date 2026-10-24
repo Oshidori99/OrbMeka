@@ -56,7 +56,7 @@ func _run() -> void:
 	check(world.blocks.size() == cells.size() + 74, "terrain and all 74 original blocks are present")
 	var dirt_matches := true
 	for cell in cells:
-		if not world.blocks.has(cell) or world.blocks[cell].get_meta("kind") != world.DIRT:
+		if not world.blocks.has(cell) or world.blocks[cell] != world.DIRT:
 			dirt_matches = false
 	check(dirt_matches, "every generated cell is a breakable dirt block")
 	check(player.is_on_floor(), "player lands safely at spawn")
@@ -67,7 +67,7 @@ func _run() -> void:
 			spawn_clear = false
 	check(spawn_clear, "spawn capsule does not intersect any block")
 	check(Input.mouse_mode == Input.MOUSE_MODE_VISIBLE, "startup leaves mouse free")
-	check(ProjectSettings.get_setting("application/config/version") == "0.0.5", "project version is 0.0.5")
+	check(ProjectSettings.get_setting("application/config/version") == "0.0.5.1", "project version is 0.0.5.1")
 	for action in ["move_forward", "move_back", "move_left", "move_right", "jump"]:
 		check(InputMap.has_action(action), "input binding: " + action)
 	# Marche testée dans l'aire dégagée (l'apparition en 0, 0 fait face aux blocs de démonstration).
@@ -102,7 +102,7 @@ func _run() -> void:
 	check(world.place_target(hit, world.DIRT), "dirt can be placed on base")
 	check(world.blocks.size() == count + 1, "placing creates exactly one block")
 	var placed_cell := Vector3i(floori(hit.position.x), 0, floori(hit.position.z))
-	check(world.blocks.has(placed_cell) and world.blocks[placed_cell].get_meta("kind") == world.DIRT, "placed dirt uses the third material")
+	check(world.blocks.has(placed_cell) and world.blocks[placed_cell] == world.DIRT, "placed dirt uses the third material")
 	check(not world.place_target(hit, world.DIRT), "duplicate placement is rejected")
 	var ground := world.get_node("Ground")
 	var self_hit := {"collider": ground, "position": Vector3(0.5, 0, 5.5), "normal": Vector3.UP}
@@ -123,7 +123,7 @@ func _run() -> void:
 	await frames(90)
 	check(player.is_on_floor() and absf(player.position.y - max_height) < 0.05, "hill collision supports player at summit")
 	hit = player.get_target()
-	check(not hit.is_empty() and hit.collider.get_meta("kind", -1) == world.DIRT, "camera ray targets generated hill dirt")
+	check(not hit.is_empty() and world.blocks.get(world.hit_cell(hit), -1) == world.DIRT, "camera ray targets generated hill dirt")
 	count = world.blocks.size()
 	check(world.break_target(hit), "generated hill dirt breaks through existing interaction")
 	check(world.blocks.size() == count - 1, "breaking hill removes exactly one generated cell")
@@ -163,12 +163,12 @@ func _run() -> void:
 		event.keycode = [KEY_1, KEY_2, KEY_3][kind]
 		player._unhandled_input(event)
 		check(player.selected_type == kind, "number key selects material %d" % kind)
-		check(world.materials[kind].albedo_color == expected_colors[kind], "material %d uses expected simple color" % kind)
+		check(world.BLOCK_COLORS[kind] == expected_colors[kind], "material %d uses expected simple color" % kind)
 		hit = player.get_target()
 		check(world.place_target(hit, player.selected_type), "selected material %d can be placed" % kind)
 		await frames(3)
 		hit = player.get_target()
-		check(not hit.is_empty() and hit.collider.get_meta("kind", -1) == kind, "placed material %d is targeted correctly" % kind)
+		check(not hit.is_empty() and world.blocks.get(world.hit_cell(hit), -1) == kind, "placed material %d is targeted correctly" % kind)
 		check(world.break_target(hit), "selected material %d can be broken" % kind)
 		await frames(3)
 	# The upper accepted cell is y=24: its top is 25 m above the flat base.
@@ -182,11 +182,11 @@ func _run() -> void:
 	await frames(3)
 	hit = player.get_target()
 	check(not world.place_target(hit, 0), "placement above 25 blocks is rejected")
-	var support: Node = world.blocks[Vector3i(31, 23, 30)]
+	var support: Node = world.section_body(Vector3i(31, 23, 30))
 	var support_hit := {"collider": support, "position": Vector3(31.5, 24, 30.5), "normal": Vector3.UP}
 	check(world.break_target(support_hit), "support below sand can be broken")
 	await frames(15)
-	check(world.blocks.has(Vector3i(31, 24, 30)) and world.blocks[Vector3i(31, 24, 30)].position.y == 24.5, "unsupported sand remains stationary")
+	check(world.blocks.has(Vector3i(31, 24, 30)) and world.blocks[Vector3i(31, 24, 30)] == 0, "unsupported sand remains stationary")
 	player.position = Vector3(30.5, 0.02, 30.5)
 	player.velocity = Vector3.ZERO
 	player.set_physics_process(true)

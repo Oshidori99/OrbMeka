@@ -1,4 +1,4 @@
-# OrbMeka™ — prototype 0.0.5
+# OrbMeka™ — prototype 0.0.5.1
 
 Godot 4.7 / GDScript. Formes et couleurs simples ; assets externes seulement sous licence vérifiée (sons CC0, assets/sounds/CREDITS.txt).
 
@@ -1600,3 +1600,36 @@ Tests : world_save (sauvegarde, redémarrage en deux processus, migration,
 duplication, suppression, fichiers illisibles) ; tous les tests réussis.
 À tester manuellement : sauvegarde en fermant l'onglet du navigateur,
 absence de saccade pendant la sauvegarde régulière.
+
+## Monde 2 : zones — 0.0.5.1
+- **Zones de 8 m × 8 m × 8 m**, empilées en hauteur (constante ZONE_SIZE dans
+  scripts/world_zones.gd ; 16 possible). Choix : 8 = 2 × 2 × 2, et à
+  l'étape 3, 1 m = 8 parties de 50 cm (grille de 16 × 16 × 16 points par
+  zone, DENSITY_STEP ; 25 cm possible plus tard).
+- **Affichage fusionné** par section de 8 m (une seule forme par section,
+  faces cachées retirées) : un bloc posé ou cassé ne recalcule que sa section,
+  et la voisine s'il est au bord.
+- **Chargement autour du joueur**, les zones proches d'abord, travail étalé
+  (3 ms au plus par image, sans thread, compatible Web) ; zones lointaines
+  déchargées (enregistrées avant si modifiées). **Paramètres → Vidéo →
+  Distance de chargement** : 1 à 8 zones (4 par défaut).
+- **Sauvegarde** : un fichier compressé par zone modifiée
+  (zones/zone_X_Y_Z.bin, format 2, type « blocs ») ; aucun fichier pour une
+  zone jamais touchée ou revenue au terrain de la graine.
+- **Migration** : le fichier de l'étape 1 (zones/modifications.json) est
+  réparti en zones, puis gardé sous le nom modifications-etape1.json.
+- Terrain inchangé : même graine, même monde.
+- **F3 (Informations du monde)** affiche en direct les zones chargées, le temps
+  de chargement d'une zone, de recalcul et les images/s.
+
+Mesures sur PC (RTX 4070 portable, Forward+) : chargement d'une zone 0,1 ms ;
+recalcul après une modification 0,8 ms ; image la plus chargée pendant un
+déplacement 3 ms ; 159 images/s ; ouverture du monde entier (distance 8) 0,5 s.
+Web (itch.io) : pas mesuré par Claude (page privée). À mesurer avec F3 :
+si les images/s sont trop basses, baisser la Distance de chargement.
+
+Tests : zones (découpage, chargement/déchargement étalé, sauvegarde par zone,
+migration étape 1, même monde pour une même graine, recalcul limité),
+world_save mis à jour ; tous les tests réussis.
+À tester manuellement : aspect des blocs fusionnés, fluidité en marchant
+loin, mesures F3 dans le navigateur.

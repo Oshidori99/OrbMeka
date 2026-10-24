@@ -18,7 +18,7 @@ func check(ok: bool, label: String) -> void:
 # Visée simulée : un bloc touché à « distance » mètres de la caméra.
 func hit_at(world: Node3D, cell: Vector3i, distance: float) -> Dictionary:
 	var camera: Camera3D = world.player.camera
-	return {"collider": world.blocks[cell], "position": camera.global_position + Vector3(0, 0, -distance), "normal": Vector3.UP}
+	return {"collider": world.section_body(cell), "cell": cell, "position": camera.global_position + Vector3(0, 0, -distance), "normal": Vector3.UP}
 
 func _run() -> void:
 	root.size = Vector2i(1280, 720)

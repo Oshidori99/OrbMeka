@@ -67,6 +67,8 @@ const SPECS := {
 	# remplace l'échelle totale de 0.0.3.6 (ancien réglage ui_scale ignoré). 0.0.3.6 : FOV en jeu.
 	"element_scale": {"label": "Taille des zones et boutons", "unit": "%", "default": 100.0, "min": 50.0, "max": 150.0},
 	"fov": {"label": "Champ de vision (FOV)", "unit": "°", "default": 75.0, "min": 50.0, "max": 110.0},
+	# 0.0.5.1 : zones de 8 m chargées autour du joueur (dans chaque direction).
+	"load_distance": {"label": "Distance de chargement", "unit": "zones de 8 m", "default": 4.0, "min": 1.0, "max": 8.0, "step": 1.0},
 }
 # Réglages à choix (0.0.3.4 ; profondeur 0.0.3.5), affichés en boutons ; options dans l'ordre d'affichage.
 const CHOICES := {

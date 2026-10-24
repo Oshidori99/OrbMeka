@@ -3,6 +3,7 @@ extends SceneTree
 # duplication, suppression, fichiers illisibles.
 const Catalog = preload("res://scripts/world_catalog.gd")
 const Store = preload("res://scripts/world_store.gd")
+const Zones = preload("res://scripts/world_zones.gd")
 const WorldScene = preload("res://scenes/world.tscn")
 const PATH := "res://.godot/world-save-test.json"
 const OLD_PATH := "res://.godot/world-save-old-test.json"
@@ -59,18 +60,22 @@ func _run() -> void:
 	var world := open(folder, item.seed)
 	var removed := first_generated(world)
 	var count_generated: int = world.blocks.size()
-	world.blocks[removed].free()
 	world.blocks.erase(removed)
+	world._changed(removed)
 	world.add_block(PLACED, 1)
-	world.changed = true
+	world._changed(PLACED)
 	world.player.position = Vector3(3.5, 2.0, -7.5)
 	world.player.rotation.y = 1.25
 	world.player.camera.rotation.x = -0.4
 	check(world.save_now(), "save succeeds")
-	var changes: Variant = read(folder.path_join(Store.CHANGES_FILE))
-	check(changes is Dictionary and changes.poses.size() == 1 and changes.casses.size() == 1, "only differences from the seed terrain are saved (%d generated blocks)" % count_generated)
-	check(FileAccess.get_file_as_string(folder.path_join(Store.CHANGES_FILE)).length() < 400, "saved changes stay small")
-	check(not FileAccess.file_exists(folder.path_join(Store.CHANGES_FILE) + ".tmp"), "temporary file replaced")
+	var placed_file := folder.path_join(Zones.zone_file(Zones.zone_of(PLACED)))
+	var removed_file := folder.path_join(Zones.zone_file(Zones.zone_of(removed)))
+	var placed_zone: Dictionary = Zones.read_zone(placed_file).get("data", {})
+	var removed_zone: Dictionary = Zones.read_zone(removed_file).get("data", {})
+	check(placed_zone.get("poses", []).size() == 1 and removed_zone.get("casses", []).size() == 1, "only differences from the seed terrain are saved, per zone (%d generated blocks)" % count_generated)
+	var zone_files := Array(DirAccess.get_files_at(ProjectSettings.globalize_path(folder.path_join(Store.ZONES_DIR))))
+	check(zone_files.size() == 2 and FileAccess.get_file_as_bytes(placed_file).size() < 400, "one small file per modified zone, none for untouched zones")
+	check(not FileAccess.file_exists(placed_file + ".tmp"), "temporary file replaced")
 	close(world)
 	# Redémarrage : un second processus recharge blocs, position et regard.
 	var output: Array = []
@@ -80,7 +85,7 @@ func _run() -> void:
 	# Duplication : la copie reprend les constructions ; suppression : le dossier disparaît.
 	var copy: Dictionary = catalog.duplicate_world(item.id)
 	var copy_folder: String = catalog.world_folder(copy.id)
-	check(FileAccess.file_exists(copy_folder.path_join(Store.CHANGES_FILE)) and FileAccess.file_exists(copy_folder.path_join(Store.PLAYER_FILE)), "duplicate copies changes and player")
+	check(FileAccess.file_exists(copy_folder.path_join(Zones.zone_file(Zones.zone_of(PLACED)))) and FileAccess.file_exists(copy_folder.path_join(Store.PLAYER_FILE)), "duplicate copies changes and player")
 	check(read(copy_folder.path_join(Store.BASE_FILE)).nom == copy.name, "duplicate keeps its own monde.json")
 	var copied := open(copy_folder, copy.seed)
 	check(copied.blocks.has(PLACED) and not copied.blocks.has(removed), "duplicate opens with the same constructions")
@@ -89,14 +94,15 @@ func _run() -> void:
 	check(catalog.delete_world(copy.id) and not DirAccess.dir_exists_absolute(copy_folder), "delete removes the world folder")
 	check(DirAccess.dir_exists_absolute(folder), "delete leaves other worlds' folders")
 	# Fichiers illisibles : pas de plantage, rien n'est écrasé, le fichier est gardé de côté.
-	var bad := FileAccess.open(folder.path_join(Store.CHANGES_FILE), FileAccess.WRITE)
+	var bad := FileAccess.open(placed_file, FileAccess.WRITE)
 	bad.store_string("{ illisible")
 	bad.close()
 	var broken := open(folder, item.seed)
-	check(broken.blocks.size() == count_generated and broken.notice.begins_with("Fichier illisible"), "unreadable changes: seed terrain and a message")
+	check(not broken.blocks.has(PLACED) and not broken.blocks.has(removed) and broken.notice.begins_with("Zone illisible"), "unreadable zone: seed terrain there, other zones kept, and a message")
 	var kept := DirAccess.get_files_at(ProjectSettings.globalize_path(folder.path_join(Store.ZONES_DIR)))
-	check(Array(kept).any(func(name: String): return name.contains(".illisible-")) and not FileAccess.file_exists(folder.path_join(Store.CHANGES_FILE)), "unreadable file kept aside, never overwritten")
-	broken.changed = true
+	check(Array(kept).any(func(name: String): return name.contains(".illisible-")) and not FileAccess.file_exists(placed_file), "unreadable file kept aside, never overwritten")
+	broken.add_block(PLACED, 2)
+	broken._changed(PLACED)
 	broken.save_now()
 	kept = DirAccess.get_files_at(ProjectSettings.globalize_path(folder.path_join(Store.ZONES_DIR)))
 	check(Array(kept).filter(func(name: String): return name.contains(".illisible-")).size() == 1, "later save keeps the set-aside file")
@@ -126,7 +132,7 @@ func _verify_restart() -> void:
 	var item: Dictionary = catalog.find_world(args[1])
 	var removed: Vector3i = str_to_var(args[2])
 	var world := open(catalog.world_folder(item.id), item.seed)
-	check(world.blocks.has(PLACED) and world.blocks[PLACED].get_meta("kind") == 1, "placed block restored")
+	check(world.blocks.has(PLACED) and world.blocks[PLACED] == 1, "placed block restored")
 	check(not world.blocks.has(removed), "broken block stays broken")
 	check(world.player.position.distance_to(Vector3(3.5, 2.0, -7.5)) < 0.01, "position restored")
 	check(is_equal_approx(world.player.rotation.y, 1.25) and is_equal_approx(world.player.camera.rotation.x, -0.4), "look restored")

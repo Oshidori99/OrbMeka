@@ -88,7 +88,7 @@ func _run() -> void:
 	check(world.place_target({"collider": ground, "position": Vector3(57.5, 0.0, 57.5), "normal": Vector3.UP}, 1), "block placed at X 57")
 	world.player.position = Vector3(58.5, 0.01, 55.5)
 	check(not world.place_target({"collider": ground, "position": Vector3(58.5, 0.0, 57.5), "normal": Vector3.UP}, 1), "block refused at X 58")
-	var column_top: StaticBody3D = world.blocks[Vector3i(30, 24, 30)]
+	var column_top: StaticBody3D = world.section_body(Vector3i(30, 24, 30))
 	world.player.position = Vector3(30.5, 22.01, 28.5)
 	check(not world.place_target({"collider": column_top, "position": Vector3(30.5, 25.0, 30.5), "normal": Vector3.UP}, 1), "block refused above height 25")
 	app.return_to_worlds()
