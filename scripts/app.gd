@@ -42,6 +42,7 @@ Première action immédiate ; un délai plus court accélère la répétition."]
 	"Se baisser": {"keys": ["crouch_forward", "crouch_side", "crouch_back", "crouch_gravity"], "help": ["", "Vitesses et chute quand on se baisse.", "En se baissant (touche de Contrôles) : vitesse dans chaque direction, et gravité de chute, plus forte pour tomber plus vite."]},
 	"Voler": {"keys": ["fly_forward", "fly_side", "fly_back", "fly_run_forward", "fly_run_side", "fly_run_back", "fly_up", "fly_down"], "help": ["", "Vitesses en vol, et en volant vite.", "En vol (touche de Contrôles, Espace deux fois par défaut) : vitesse dans chaque direction, en volant vite (touche Courir, R par défaut, avec son mode), et pour monter (touche Sauter) ou descendre (touche Se baisser). Pas de gravité en vol."]},
 	"Changer de vitesse": {"keys": ["speed_max", "speed_min", "speed_up_rate", "speed_down_rate"], "help": ["", "↑ ↓ + touche : vitesses ; ⌫ : par défaut. Limites et rapidité.", "↑ ou ↓ maintenue avec A : tout le déplacement (marche, course, baissé, vol) plus ou moins vite, peu à peu, en % de la vitesse normale ; avec W : la marche seule ; avec R : la course seule ; avec clic gauche ou droit : la casse ou la pose (mode développeur seulement). ⌫ + la même touche : cette valeur par défaut ; ⌫ deux fois : tout par défaut. Vitesse maximale et minimale : limites en mode développeur (monde par défaut : 75 à 150 %). Rapidités : % gagnés ou perdus par seconde."]},
+	"Vitesses actuelles": {"keys": ["current_speed", "current_walk", "current_run", "current_break", "current_place"], "help": ["", "Où en sont les vitesses, en direct.", "Position actuelle des vitesses réglées en jeu avec ↑ ↓ (+ A : déplacement, + W : marche, + R : course, + clic : casse ou pose), en % de la normale. Les barres bougent en direct ; on peut aussi les régler ici. Gardées dans les limites de Changer de vitesse."]},
 	"Vue": {"keys": ["eye_height"], "help": ["", "Hauteur de la vue, en blocs.", "Hauteur des yeux au-dessus des pieds, en blocs : 1 = vue à un bloc du sol, 2 = à deux blocs. Deux décimales possibles (ex. 1,9 ou 2,15)."]},
 }
 # Réglages généraux (tous les mondes, quel que soit leur mode), par section du menu latéral.
@@ -250,6 +251,28 @@ func _voices() -> Node:
 		character_voices.name = "CharacterVoices"
 		add_child(character_voices)
 	return character_voices
+
+# 0.0.4.15 : en mode développeur, les vitesses changées en jeu (↑ ↓, ⌫) s'affichent tout de suite dans
+# Attributs → Vitesses actuelles (champ et barre) ; enregistrées peu après le dernier changement.
+const SPEED_SAVE_DELAY := 0.6
+var speed_save_timer: Timer
+
+func _on_player_speeds() -> void:
+	if not is_instance_valid(active_world) or not active_world.developer_mode:
+		return
+	var player: Node = active_world.player
+	for scale in player.SCALES:
+		var key: String = "current_" + scale
+		var percent := snappedf(float(player.get(scale + "_scale")) * 100.0, 0.1)
+		settings.values[key] = percent
+		setting_fields[key].text = UserSettings.number_text(percent)
+		_sync_slider(key)
+	if speed_save_timer == null:
+		speed_save_timer = Timer.new()
+		speed_save_timer.one_shot = true
+		speed_save_timer.timeout.connect(func(): settings.save_values())
+		add_child(speed_save_timer)
+	speed_save_timer.start(SPEED_SAVE_DELAY)
 
 # Sons des menus (0.0.4.11), créés au premier bouton.
 func _sounds() -> Node:
@@ -1748,6 +1771,8 @@ func open_world(id: String) -> void:
 	active_world.set_coordinates_visible(settings.values.show_coords == "on")
 	active_world.player.crouch_toggle = settings.control_options.crouch_mode == "toggle"
 	active_world.player.run_mode = settings.control_options.run_mode
+	# 0.0.4.15 : vitesses changées en jeu → Attributs → Vitesses actuelles, en direct.
+	active_world.player.speeds_changed.connect(_on_player_speeds)
 	active_world.player.click_modifiers = Controls.click_modifiers(settings.controls)
 	active_world.player.move_blocks = Controls.blocked_moves(settings.controls)
 	# Opening from a menu is an explicit request to play immediately.

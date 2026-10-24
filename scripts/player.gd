@@ -1,5 +1,8 @@
 extends CharacterBody3D
 
+# 0.0.4.15 : une vitesse a changé (↑ ↓, ⌫) : l'application met à jour les Attributs → Vitesses actuelles.
+signal speeds_changed
+
 const ActionTiming = preload("res://scripts/action_timing.gd")
 
 const SPEED := 5.5
@@ -261,8 +264,11 @@ func apply_settings(values: Dictionary) -> void:
 	speed_min = float(values.get("speed_min", 50.0)) / 100.0
 	speed_up_rate = float(values.get("speed_up_rate", 40.0)) / 100.0
 	speed_down_rate = float(values.get("speed_down_rate", 40.0)) / 100.0
+	# 0.0.4.15 : en mode développeur, les vitesses actuelles viennent des Attributs ; sinon, celles
+	# de la partie restent (monde par défaut : non enregistrées). Toujours dans les limites.
 	for scale in SCALES:
-		set(scale + "_scale", clampf(get(scale + "_scale"), scale_min(), scale_max()))
+		var current: float = float(values.get("current_" + scale, 100.0)) / 100.0 if developer() else get(scale + "_scale")
+		set(scale + "_scale", clampf(current, scale_min(), scale_max()))
 	_apply_intervals()
 	character = str(values.get("character", "boy14"))
 	skin = str(values.get("skin", "light"))
@@ -502,6 +508,7 @@ func update_speed(delta: float, active: bool, up: bool, down: bool, reset_all: b
 		for scale in SCALES:
 			set(scale + "_scale", 1.0)
 		_apply_intervals()
+		speeds_changed.emit()
 		return
 	for target in resets:
 		set(target + "_scale", 1.0)
@@ -513,6 +520,8 @@ func update_speed(delta: float, active: bool, up: bool, down: bool, reset_all: b
 		var rate := speed_up_rate if changes[target] > 0.0 else speed_down_rate
 		set(target + "_scale", clampf(get(target + "_scale") + changes[target] * rate * delta, scale_min(), scale_max()))
 	_apply_intervals()
+	if not changes.is_empty() or not resets.is_empty():
+		speeds_changed.emit()
 
 func developer() -> bool:
 	return is_instance_valid(world) and world.get("developer_mode") == true

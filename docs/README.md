@@ -1,4 +1,4 @@
-# OrbMeka™ — prototype 0.0.4.14
+# OrbMeka™ — prototype 0.0.4.15
 
 Godot 4.7 / GDScript. Formes et couleurs simples ; assets externes seulement sous licence vérifiée (sons CC0, assets/sounds/CREDITS.txt).
 
@@ -1374,3 +1374,23 @@ Tests mis à jour : controls_groups (▾ et blocs), appearance (profondeur),
 numéro de version. Résultat : 45 tests, 0 échec.
 À tester manuellement : cliquer les titres, Tout réduire / Tout développer,
 fermer et rouvrir Paramètres dans chaque mode.
+
+## Vitesses actuelles — 0.0.4.15
+- Nouvelle catégorie **Attributs → Vitesses actuelles** (sous Changer de
+  vitesse) : Déplacement, Marche, Course, Casse et Pose actuels, en % de la
+  normale (100 % par défaut), avec leur barre.
+- Dans un monde en **mode développeur**, les touches de vitesse (↑ ↓ + A, W,
+  R, clic ; ⌫) changent ces valeurs **en direct** : le champ et la barre
+  bougent, et c'est enregistré dans attributs.json peu après le dernier
+  changement. On peut aussi les régler à la main ; en jeu, elles restent
+  dans les limites de Changer de vitesse.
+- Monde par défaut : les touches changent la vitesse en jeu seulement
+  (75 à 150 %), rien n'est enregistré.
+
+Test ajouté : tests/current_speeds_test.gd (attributs, barres, touches en
+direct, maximum, ⌫, réglage à la main, limites, monde par défaut, ancien
+fichier). Tests mis à jour : interface_info (43 champs), eye_height et
+settings_walk (ordre des catégories), numéro de version.
+Résultat : 46 tests, 0 échec.
+À tester manuellement : en mode développeur, ouvrir la pause → Attributs
+après avoir changé les vitesses, et voir les barres.
