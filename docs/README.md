@@ -1,6 +1,15 @@
-# OrbMeka™ — prototype 0.0.5.5
+# OrbMeka™ — prototype 0.0.5.6
 
 Godot 4.7 / GDScript. Formes et couleurs simples ; assets externes seulement sous licence vérifiée (sons CC0, assets/sounds/CREDITS.txt).
+
+## 0.0.5.6 — Vitrine de l'accueil à jour (#126)
+- Le fond 3D de l'accueil montre ce qui existe dans le jeu : sol plat, gazon réaliste
+  (densité basse pour rester fluide derrière les menus), plage de sable plate, l'orbe
+  et les personnages. Plus de collines de terre ni de tour de pierre : la caméra est
+  à hauteur des yeux, sur le sol.
+
+Tests : menu_style mis à jour ; tests choisis réussis.
+À tester manuellement : aspect et fluidité de l'accueil.
 
 ## 0.0.5.5 — Monde plat et plage de sable
 - Tous les mondes (anciens et nouveaux) commencent **tout plats**, en herbe : plus de

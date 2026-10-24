@@ -43,7 +43,7 @@ F3 : "), "menus share one theme; in-game shortcuts F1, F2, F3 are plain text")
 	# Fond 3D de l'accueil.
 	var showcase: Node3D = app.showcase
 	check(showcase.is_inside_tree() and showcase.camera.is_current(), "home shows the 3D showcase with its own camera")
-	check(showcase.find_children("*", "MultiMeshInstance3D", true, false).size() >= 3, "showcase is built from block meshes in code")
+	check(showcase.find_children("*", "MultiMeshInstance3D", true, false).size() >= 3, "showcase shows the game's flat lawn (0.0.5.5)")
 	# 0.0.3.23 : trois nouveautés (trop de personnages pour les montrer tous) ; 0.0.3.25 : elles courent.
 	check(showcase.runners.size() >= 2 and showcase.runners.size() <= 3 and showcase.runner_ids.all(func(id): return CharacterPreview.CHARACTERS.has(id)), "showcase shows 2 or 3 characters of the menu")
 	check(showcase.runner_ids == ["girl9", "fox", "rabbit"] and showcase.runners.all(func(runner): return not runner.find_children("*", "MeshInstance3D", true, false).is_empty()), "new characters run with their Blender models")
@@ -58,7 +58,7 @@ F3 : "), "menus share one theme; in-game shortcuts F1, F2, F3 are plain text")
 	check(not showcase.camera.basis.is_equal_approx(start_basis), "showcase camera turns slowly")
 	check(showcase.camera.position.is_equal_approx(start_position), "showcase viewpoint stays in place (no flying)")
 	var feet: float = showcase.camera.position.y - showcase.EYE_HEIGHT
-	check(is_equal_approx(feet, showcase.TOWER_HEIGHT) and showcase.TOWER_HEIGHT >= 3 and showcase.TOWER_HEIGHT <= 4, "viewpoint stands on a 3-4 block tower")
+	check(is_equal_approx(feet, 0.0), "viewpoint stands on the flat ground (no tower since 0.0.5.5)")
 	check(showcase.find_children("*", "MeshInstance3D", true, false).filter(func(mesh): return mesh.material_override is BaseMaterial3D and mesh.material_override.transparency != BaseMaterial3D.TRANSPARENCY_DISABLED).is_empty(), "showcase shows no glass (not in the game yet)")
 	# Boutons-icônes de Mes mondes.
 	for button in [app.new_world_button, app.rename_button, app.duplicate_button, app.world_settings_button, app.delete_button]:

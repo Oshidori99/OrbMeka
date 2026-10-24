@@ -3,6 +3,9 @@ Du plus récent au plus ancien. Ce fichier est mis à jour à chaque version.
 
 === Thème « Monde » (0.0.5 et suivantes) ===
 
+0.0.5.6 — Vitrine de l'accueil à jour
+L'accueil montre le monde actuel : sol plat, gazon et plage de sable ; plus de collines ni de tour de pierre.
+
 0.0.5.5 — Monde plat et plage de sable
 Plus de collines de terre ni de blocs de démonstration : tout plat, en herbe ; plage de sable plate et réaliste.
 

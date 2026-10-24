@@ -1,6 +1,6 @@
 extends Node3D
-# Fond 3D de l'accueil : un petit monde en blocs, généré en code, avec une caméra qui tourne lentement.
-# Règle : n'y montrer que ce qui existe déjà dans le jeu (blocs Sable, Pierre, Terre, sol, collines, ciel,
+# Fond 3D de l'accueil : un petit monde plat, généré en code, avec une caméra qui tourne lentement.
+# Règle : n'y montrer que ce qui existe déjà dans le jeu (sol plat, gazon, plage de sable, ciel,
 # personnages du menu Personnage). Les idées pas encore dans le jeu sont gardées en image dans docs/idees/.
 #
 # ===== VITRINE DE LA VERSION (à modifier à chaque mise à jour) =====
@@ -11,10 +11,10 @@ extends Node3D
 # Depuis 0.0.3.23 (30 personnages avec les peaux, trop pour la vitrine), on n'en montre que
 # 2 ou 3, choisis parmi les nouveautés : liste NEWS_RUNNERS ([id, peau], peau vide pour un animal).
 # Chacun prend son modèle Blender, sinon une forme simple (character_model.gd, partagé avec le jeu).
-# Le reste du fichier (sol, collines, ciel, caméra) ne change pas d'une version à l'autre.
-const NEWS_VERSION := "0.0.5.5"
-const NEWS_TEXT := "Nouveau : monde tout plat et plage de sable !
-Sable réaliste : grains et rides de vent."
+# Le reste du fichier (sol, gazon, plage, ciel, caméra) ne change pas d'une version à l'autre.
+const NEWS_VERSION := "0.0.5.6"
+const NEWS_TEXT := "Nouveau : l'accueil montre le monde actuel !
+Sol plat, gazon et plage de sable, comme en partie."
 
 # 0.0.3.25 : les trois nouveautés de 0.0.3.23 en aller-retour au-dessus de l'herbe libre, devant la place
 # de sable et pierre (sous le panneau des menus, vers la droite), chacune sur sa rangée.
@@ -31,7 +31,7 @@ const FOX_TOP := 7.5
 const FOX_CYCLE := 6.0
 var travelled_by := [0.0, 3.1, 6.2]
 const GROUND_TOP := 0.0
-const NEWS_HEIGHT := 3
+const NEWS_HEIGHT := 1
 const FLY_LOW := 0.6
 const FLY_HIGH := 3.6
 const FLY_CYCLE := 5.0
@@ -69,34 +69,30 @@ func _animate_news(delta: float) -> void:
 
 const CharacterPreview = preload("res://scripts/character_preview.gd")
 
-const Terrain = preload("res://scripts/terrain_generator.gd")
+const TerrainMaterials = preload("res://scripts/terrain_materials.gd")
 const WorldRules = preload("res://scripts/world.gd")
-const SAND := 0
-const STONE := 1
-const DIRT := 2
 const SCENE_SEED := 20612
-# Point de vue : un joueur debout sur une tour de pierre (on ne vole pas dans le jeu).
+# Point de vue : un joueur debout sur le sol plat (0.0.5.5 : plus de tour de pierre).
 # Il tourne lentement la tête ; la vitrine reste sur le côté, hors du panneau des menus.
 const TOWER_CELL := Vector2i(12, 12)
-const TOWER_HEIGHT := 4
+const TOWER_HEIGHT := 0
+# Plage de sable de la vitrine (même matière que dans le jeu), sous les personnages.
+const BEACH_CENTER := Vector2(6.5, 6.0)
+const BEACH_RADIUS := 3.2
 const EYE_HEIGHT := 1.62
 const SIDE_TURN := 0.42
 const PAN_RANGE := 0.15
 const PAN_SPEED := 0.12
-const LOOK_DOWN := 0.2
+const LOOK_DOWN := 0.12
 
 var camera: Camera3D
-var materials: Array[Material] = []
 var orb: MeshInstance3D
 var elapsed := 0.0
 
 func _ready() -> void:
-	for color in WorldRules.BLOCK_COLORS:
-		materials.append(_material(color, 0.85))
-	materials[DIRT] = preload("res://scripts/terrain_materials.gd").surface(false,true)
 	_setup_environment()
 	_build_ground()
-	_build_hills()
+	_build_scene()
 	_build_orb()
 	_build_news()
 	camera = Camera3D.new()
@@ -121,19 +117,6 @@ func _material(color: Color, roughness: float) -> StandardMaterial3D:
 	material.albedo_color = color
 	material.roughness = roughness
 	return material
-
-func _multimesh(kind: int) -> MultiMeshInstance3D:
-	var instance := MultiMeshInstance3D.new()
-	instance.multimesh = MultiMesh.new()
-	instance.multimesh.transform_format = MultiMesh.TRANSFORM_3D
-	instance.multimesh.mesh = BoxMesh.new()
-	instance.material_override = materials[kind]
-	return instance
-
-func _fill_multimesh(instance: MultiMeshInstance3D, cells: Array[Vector3i]) -> void:
-	instance.multimesh.instance_count = cells.size()
-	for index in range(cells.size()):
-		instance.multimesh.set_instance_transform(index, Transform3D(Basis(), Vector3(cells[index]) + Vector3.ONE * 0.5))
 
 func _setup_environment() -> void:
 	# Ciel de fin de journée, légèrement violet pour s'accorder aux menus.
@@ -169,33 +152,19 @@ func _build_ground() -> void:
 	box.size = Vector3(240, 1, 240)
 	ground.mesh = box
 	ground.position = Vector3(0, -0.5, 0)
-	ground.material_override = preload("res://scripts/terrain_materials.gd").surface(true)
+	var ground_material := TerrainMaterials.surface(true)
+	ground_material.set_shader_parameter("sand_center", BEACH_CENTER)
+	ground_material.set_shader_parameter("sand_radius", BEACH_RADIUS)
+	ground.material_override = ground_material
 	add_child(ground)
 
-func _build_hills() -> void:
-	# Mêmes collines que dans le jeu (graine fixe), plus une petite place en sable et pierre.
-	var dirt: Array[Vector3i] = Terrain.generate_cells(SCENE_SEED)
-	var sand: Array[Vector3i] = []
-	var stone: Array[Vector3i] = []
-	for x in range(-5, 6):
-		for z in range(1, 5):
-			if (x + z) % 2 == 0:
-				sand.append(Vector3i(x, 0, z))
-			else:
-				stone.append(Vector3i(x, 0, z))
-	for y in range(1, 4):
-		stone.append(Vector3i(-4, y - 1, 7))
-	for x in range(2, 5):
-		for y in range(x - 1):
-			sand.append(Vector3i(x, y, -4))
-	for x in range(3):
-		for z in range(3):
-			for y in range(TOWER_HEIGHT):
-				stone.append(Vector3i(TOWER_CELL.x + x, y, TOWER_CELL.y + z))
-	for cells_kind in [[dirt, DIRT], [sand, SAND], [stone, STONE]]:
-		var instance := _multimesh(cells_kind[1])
-		add_child(instance)
-		_fill_multimesh(instance, cells_kind[0])
+func _build_scene() -> void:
+	# 0.0.5.5 : comme dans le jeu, tout plat : gazon réaliste et plage de sable plate (plus de collines
+	# ni de blocs). La plage est sous les personnages, entre la caméra et l'orbe.
+	# Herbe moins dense qu'en partie : l'accueil reste fluide derrière les menus flous.
+	TerrainMaterials.density = "low"
+	var lawn := TerrainMaterials.ground_grass({}, SCENE_SEED, BEACH_CENTER, BEACH_RADIUS)
+	add_child(lawn)
 
 func _build_orb() -> void:
 	# L'orbe de OrbMeka : une sphère lumineuse qui flotte au-dessus de la vitrine.
