@@ -30,6 +30,9 @@ func _run() -> void:
 	values.break_reach = 3.0
 	values.place_reach = 8.0
 	world.player.apply_settings(values)
+	# 0.0.5.5 : monde plat sans bloc de départ : deux blocs posés pour les essais.
+	world.add_block(Vector3i(20, 0, 20), 0)
+	world.add_block(Vector3i(22, 0, 20), 0)
 	var cell: Vector3i = world.blocks.keys()[0]
 	check(not world._edit_break_target(hit_at(world, cell, 4.0)) and world.blocks.has(cell), "break refused beyond break reach (4 > 3)")
 	check(world._edit_break_target(hit_at(world, cell, 2.5)) and not world.blocks.has(cell), "break allowed within break reach")

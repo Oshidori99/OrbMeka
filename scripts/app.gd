@@ -259,23 +259,22 @@ func _build_interface() -> void:
 	settings_back_button = _button("Retour", settings_page, leave_settings)
 	var information_page := _page(stack, "Génération des mondes")
 	pages.information = _page_root(information_page)
-	var span := Terrain.MAX_CELL - Terrain.MIN_CELL + 1
-	var sizes := [int(WorldRules.BASE_SIZE.x), int(WorldRules.BASE_SIZE.z), span, span, WorldRules.MAX_BUILD_HEIGHT, Terrain.MAX_HEIGHT]
+	# 0.0.5.5 : tout plat, en herbe, avec une plage de sable ; plus de collines (relief : étape 4).
+	var sizes := [int(WorldRules.BASE_SIZE.x), int(WorldRules.BASE_SIZE.z), WorldRules.MAX_BUILD_HEIGHT, WorldRules.sand_area()]
 	_explanation(information_page, [
-		"Base %d × %d, hauteur maximale %d. Constructions sauvegardées." % [sizes[0], sizes[1], sizes[4]],
-		"Base plate : %d × %d blocs ; génération : %d × %d.
-Hauteur maximale : %d blocs ; 3 ou 4 collines de %d blocs au plus.
+		"Base %d × %d, hauteur maximale %d. Constructions sauvegardées." % [sizes[0], sizes[1], sizes[2]],
+		"Base plate en herbe : %d × %d blocs.
+Hauteur maximale : %d blocs ; plage de sable d'environ %d m².
 Graine aléatoire si vide. Constructions sauvegardées." % sizes,
-		"Base plate : largeur %d × longueur %d blocs (%s), sol à Y 0
-Zone de génération : largeur %d × longueur %d blocs (%s)
-Construction : hauteur maximale %d blocs au-dessus du sol plat, collines comprises (sommet à Y %d), %s.
-Collines : 3 ou 4, hauteur maximale %d blocs (sommet à Y %d)
+		"Base plate en herbe : largeur %d × longueur %d blocs (%s), sol à Y 0
+Construction : hauteur maximale %d blocs au-dessus du sol plat (sommet à Y %d), %s.
+Relief : tout plat ; une plage de sable d'environ %d m², à une dizaine de mètres de l'apparition.
 %s
 
 Graine choisie à la création, ou aléatoire si le champ est vide.
 Nom, graine, mode, constructions et position sauvegardés (dossier du monde).
 Seules les différences avec le terrain de la graine sont enregistrées.
-F1 : revenir à la liste des mondes depuis la partie." % [sizes[0], sizes[1], WorldRules.base_range_text(), span, span, WorldRules.generation_range_text(), sizes[4], sizes[4], WorldRules.build_range_text(), sizes[5], sizes[5], WorldRules.COORDINATES_NOTE],
+F1 : revenir à la liste des mondes depuis la partie." % [sizes[0], sizes[1], WorldRules.base_range_text(), sizes[2], sizes[2], WorldRules.build_range_text(), sizes[3], WorldRules.COORDINATES_NOTE],
 	])
 	generation_info = information_page.get_child(-1)
 	information_back_button = _button("Retour", information_page, func(): show_page("home"))

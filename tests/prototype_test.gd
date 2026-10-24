@@ -53,12 +53,12 @@ func _run() -> void:
 	current_scene = world
 	await frames(60)
 	var player: CharacterBody3D = world.player
-	check(world.blocks.size() == cells.size() + 74, "terrain and all 74 original blocks are present")
+	check(world.blocks.is_empty(), "flat start without blocks (0.0.5.5)")
 	var dirt_matches := true
-	for cell in cells:
-		if not world.blocks.has(cell) or world.blocks[cell] != world.DIRT:
+	for cell: Vector3i in world.blocks:
+		if world.blocks[cell] != 0:
 			dirt_matches = false
-	check(dirt_matches, "every generated cell is a breakable dirt block")
+	check(dirt_matches, "every starting block is sand")
 	check(player.is_on_floor(), "player lands safely at spawn")
 	check(absf(player.position.y) < 0.05, "spawn feet rest on protected base")
 	var spawn_clear := true
@@ -67,7 +67,7 @@ func _run() -> void:
 			spawn_clear = false
 	check(spawn_clear, "spawn capsule does not intersect any block")
 	check(Input.mouse_mode == Input.MOUSE_MODE_VISIBLE, "startup leaves mouse free")
-	check(ProjectSettings.get_setting("application/config/version") == "0.0.5.4", "project version is 0.0.5.3")
+	check(ProjectSettings.get_setting("application/config/version") == "0.0.5.5", "project version is 0.0.5.5")
 	for action in ["move_forward", "move_back", "move_left", "move_right", "jump"]:
 		check(InputMap.has_action(action), "input binding: " + action)
 	# Marche testée dans l'aire dégagée (l'apparition en 0, 0 fait face aux blocs de démonstration).
@@ -81,7 +81,12 @@ func _run() -> void:
 	check(player.position.y > 0.5, "shared movement step jumps")
 	await frames(100)
 	check(player.is_on_floor(), "character lands after jumping")
-	player.position = Vector3(0.5, 0.02, 2.5)
+	# Monde plat : blocs posés pour les essais de casse, de visée et de sommet.
+	for y in range(3):
+		world.add_block(Vector3i(11, y, 9), 0)
+	for x in range(10, 13):
+		world.add_block(Vector3i(x, 0, 10), 0)
+	player.position = Vector3(11.5, 0.02, 12.5)
 	player.velocity = Vector3.ZERO
 	player.camera.rotation.x = -0.3
 	await frames(5)
@@ -112,18 +117,14 @@ func _run() -> void:
 	check(not world._edit_break_target(far_hit), "breaking beyond five metres is rejected")
 	check(not world._edit_place_target({}, 0), "empty target cannot place")
 	check(not world._edit_break_target({}), "empty target cannot break")
-	var summit := Vector2i.ZERO
-	for column: Vector2i in heights:
-		if heights[column] == max_height:
-			summit = column
-			break
+	var summit := Vector2i(11, 9)
 	player.position = Vector3(summit.x + 0.5, max_height + 2.0, summit.y + 0.5)
 	player.velocity = Vector3.ZERO
 	player.camera.rotation.x = -PI / 2.0 + 0.01
 	await frames(90)
 	check(player.is_on_floor() and absf(player.position.y - max_height) < 0.05, "hill collision supports player at summit")
 	hit = player.get_target()
-	check(not hit.is_empty() and world.blocks.get(world.hit_cell(hit), -1) == world.DIRT, "camera ray targets generated hill dirt")
+	check(not hit.is_empty() and world.blocks.get(world.hit_cell(hit), -1) == 0, "camera ray targets the top sand block")
 	count = world.blocks.size()
 	check(world._edit_break_target(hit), "generated hill dirt breaks through existing interaction")
 	check(world.blocks.size() == count - 1, "breaking hill removes exactly one generated cell")

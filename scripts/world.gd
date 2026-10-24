@@ -90,7 +90,7 @@ func _ready() -> void:
 	_apply_saved_player(saved_player)
 	_create_selection()
 	_create_hud()
-	var grass := TerrainMaterials.ground_grass(generated,terrain_seed)
+	var grass := TerrainMaterials.ground_grass(generated, terrain_seed, SAND_CENTER, SAND_RADIUS)
 	if grass != null:
 		add_child(grass)
 
@@ -149,7 +149,10 @@ func _create_ground() -> void:
 	var box := BoxMesh.new()
 	box.size = BASE_SIZE
 	mesh.mesh = box
-	mesh.material_override = TerrainMaterials.surface(true)
+	var ground_material := TerrainMaterials.surface(true)
+	ground_material.set_shader_parameter("sand_center", SAND_CENTER)
+	ground_material.set_shader_parameter("sand_radius", SAND_RADIUS)
+	mesh.material_override = ground_material
 	ground.add_child(mesh)
 	var collision := CollisionShape3D.new()
 	var shape := BoxShape3D.new()
@@ -158,12 +161,12 @@ func _create_ground() -> void:
 	ground.add_child(collision)
 	add_child(ground)
 
+# 0.0.5.5 : plus de collines de terre ni de blocs de pierre (demande de l'utilisateur) ; le relief
+# reviendra avec l'étape 4 (relief procédural). terrain_generator.gd reste pour cette étape.
 func _create_terrain() -> void:
-	generated_hill_count = TerrainGenerator.generate_hills(terrain_seed).size()
+	generated_hill_count = 0
 	generated_max_height = 0
-	for cell in TerrainGenerator.generate_cells(terrain_seed):
-		generated_max_height = maxi(generated_max_height, cell.y + 1)
-		_generate_block(cell, DIRT)
+
 
 func spawn_position() -> Vector3:
 	# Apparition en X 0, Y 0, Z 0 (Y 1 avant 0.0.3.22) : pieds posés sur le sol plat, au centre de la case 0, 0.
@@ -175,7 +178,7 @@ func spawn_position() -> Vector3:
 	return Vector3(0.5, top + 0.01, 0.5)
 
 # Coordonnées affichées : case des pieds, en blocs. Y = hauteur des pieds au-dessus du sol plat
-# (0.0.3.22 ; Y 1 au sol avant) : Y 0 au sol, Y 3 au sommet d'une colline de 3 blocs.
+# (0.0.3.22 ; Y 1 au sol avant) : Y 0 au sol, Y 2 sur 2 blocs empilés.
 func player_coordinates() -> Vector3i:
 	var feet: Vector3 = player.position
 	return Vector3i(floori(feet.x), floori(feet.y + 0.001), floori(feet.z))
@@ -199,23 +202,19 @@ static func generation_range_text() -> String:
 static func build_range_text() -> String:
 	return "X et Z de %d à %d" % [-BUILD_LIMIT, BUILD_LIMIT]
 
-# Blocs de démonstration, décalés d'une case vers -Z en 0.0.3.14 pour libérer l'apparition en 0, 0.
-func _create_blocks() -> void:
-	for x in range(-4, 5):
-		for z in range(-6, 0):
-			_generate_block(Vector3i(x, 0, z), 0 if (x + z) % 2 == 0 else 1)
-	for x in range(-4, 0):
-		for y in range(1, 3):
-			_generate_block(Vector3i(x, y, -6), 0)
-	for y in range(1, 4):
-		_generate_block(Vector3i(4, y, -5), 1)
-	for x in range(1, 4):
-		for y in range(x):
-			_generate_block(Vector3i(x, y, 2), 1)
-	for x in range(-3, 0):
-		_generate_block(Vector3i(x, 0, 4), 0)
+# 0.0.5.5 : monde tout plat, sans bloc au départ (demande de l'utilisateur, le terrain deviendra lisse) ;
+# une plage de sable plate d'environ 21 m², au niveau de l'herbe, à une dizaine de mètres de l'apparition.
+# Peinte par la matière du sol (terrain_surface.gdshader), bord irrégulier ; pas d'herbe dessus.
+const SAND_CENTER := Vector2(11.0, 9.0)
+const SAND_RADIUS := 2.6
 
-# Terrain recalculé avec la graine (collines et blocs de démonstration), rangé par zone.
+static func sand_area() -> int:
+	return roundi(PI * SAND_RADIUS * SAND_RADIUS)
+
+func _create_blocks() -> void:
+	pass
+
+# Blocs de départ (aucun depuis 0.0.5.5), rangés par zone.
 # Il ne change pas avec le découpage : même graine, même monde. Seules les différences sont enregistrées.
 func _generate_block(cell: Vector3i, kind: int) -> void:
 	if generated.has(cell) or generated.size() >= MAX_BLOCKS:
@@ -447,7 +446,7 @@ func _edit_break_target(hit: Dictionary) -> bool:
 		return false
 	var collider: Node = hit.collider
 	if not collider.is_in_group("blocks"):
-		_notify("Le sol est indestructible. Visez un bloc ou une colline.")
+		_notify("Le sol est indestructible. Visez un bloc.")
 		return false
 	var cell := hit_cell(hit)
 	if not blocks.has(cell):
@@ -683,7 +682,7 @@ F2 : Comment jouer. F3 : Informations du monde (jeu en pause).
 F4 : changer de vue, première personne, de derrière, puis de devant (on voit son personnage).
 
 Portée : %d blocs. Base protégée. Maximum : %d blocs présents.
-Hauteur maximale : %d blocs au-dessus du sol plat, collines comprises (sommet à Y %d).
+Hauteur maximale : %d blocs au-dessus du sol plat (sommet à Y %d).
 Construction : %s.
 %s
 
@@ -730,7 +729,6 @@ static func format_creation_date(value: Variant) -> String:
 	return WorldMetadata.format_creation_date(value)
 
 func _world_info_body(level: int) -> String:
-	var span := TerrainGenerator.MAX_CELL - TerrainGenerator.MIN_CELL + 1
 	if level == 0:
 		return "Monde : %s · Graine : %d
 Mode : %s" % [world_name, terrain_seed, world_mode_text] + _used_note()
@@ -738,20 +736,18 @@ Mode : %s" % [world_name, terrain_seed, world_mode_text] + _used_note()
 		return "Monde : %s
 Graine : %d
 Mode : %s
-Collines : %d, jusqu'à %d blocs. Base %d × %d.
-Constructions sauvegardées." % [world_name, terrain_seed, world_mode_text, generated_hill_count, generated_max_height, int(BASE_SIZE.x), int(BASE_SIZE.z)] + _used_note()
+Base %d × %d, plage de sable d'environ %d m².
+Constructions sauvegardées." % [world_name, terrain_seed, world_mode_text, int(BASE_SIZE.x), int(BASE_SIZE.z), sand_area()] + _used_note()
 	var mode_line := "Mode : %s — %s" % [world_mode_text, "attributs de Paramètres → Attributs" if developer_mode else "attributs par défaut, non modifiables"]
 	mode_line += _used_note()
 	return "Monde : %s
 Graine : %d
 %s
 
-Collines générées : %d
-Hauteur maximale initiale des collines : %d blocs (sommet à Y %d)
-Zone de génération : largeur %d × longueur %d blocs (%s)
+Relief : tout plat, en herbe ; une plage de sable d'environ %d m² à une dizaine de mètres de l'apparition.
 
 Base plate : largeur %d × longueur %d blocs (%s), sol à Y 0
 Construction : hauteur maximale %d blocs au-dessus du sol plat (sommet à Y %d), %s.
 %s
 
-Nom, graine, mode, constructions et position sauvegardés." % [world_name, terrain_seed, mode_line, generated_hill_count, generated_max_height, generated_max_height, span, span, generation_range_text(), int(BASE_SIZE.x), int(BASE_SIZE.z), base_range_text(), MAX_BUILD_HEIGHT, MAX_BUILD_HEIGHT, build_range_text(), COORDINATES_NOTE]
+Nom, graine, mode, constructions et position sauvegardés." % [world_name, terrain_seed, mode_line, sand_area(), int(BASE_SIZE.x), int(BASE_SIZE.z), base_range_text(), MAX_BUILD_HEIGHT, MAX_BUILD_HEIGHT, build_range_text(), COORDINATES_NOTE]

@@ -45,12 +45,7 @@ func _run() -> void:
 		check(app.page == "world_info" and paused, "information button keeps world paused")
 		check(app.info_text.text.contains("Monde : Monde chargé %d" % index) and app.info_text.text.contains("Graine : %d
 " % values[index]), "information shows exact active name and seed")
-		check(app.info_text.text.contains("Collines générées : %d
-" % Terrain.generate_hills(values[index]).size()), "information shows actual three-or-four hill count")
-		var actual_height := 0
-		for height in Terrain.generate_heights(values[index]).values():
-			actual_height = maxi(actual_height, height)
-		check(app.info_text.text.contains("collines : %d blocs" % actual_height), "hill height matches original generated cells")
+		check(app.info_text.text.contains("plage de sable d'environ 21 m²"), "information shows the sand beach")
 		var saved_position: Vector3 = world.player.position
 		await create_timer(0.05, true).timeout
 		check(world.player.position == saved_position and not world.can_process() and not world.player.actions.placing and not world.player.actions.breaking, "information freezes physics and cancels interactions")

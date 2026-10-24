@@ -53,7 +53,7 @@ func _run() -> void:
 	app.how_button.pressed.emit()
 	await process_frame
 	check(app.page == "help" and paused, "Comment jouer opens while game stays paused")
-	for text in ["Molette", "Paramètres", "25 blocs", "5 blocs", "1200", "collines comprises", "sauvegard"]:
+	for text in ["Molette", "Paramètres", "25 blocs", "5 blocs", "1200", "sauvegard"]:
 		check(app.help_text.text.contains(text), "help retains information: " + text)
 	app._unhandled_key_input(escape)
 	check(app.page == "pause" and paused, "Escape from help returns to pause without resuming")

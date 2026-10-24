@@ -34,7 +34,7 @@ func _run() -> void:
 	for level in range(3):
 		check(world.get_help_text(level).contains("désactivées"), "help reports unavailable editing at detail level %d" % level)
 	check(world.Zones.ZONE_SIZE == 8 and world.Zones.DENSITY_STEP == 0.5, "agreed zone and future sub-cell scale unchanged")
-	check(world.generated.size() == world.TerrainGenerator.generate_cells(world.terrain_seed).size()+74, "seed terrain and legacy constructions retained")
+	check(world.generated.is_empty() and world.SAND_RADIUS > 0.0, "flat start: no blocks, a painted sand beach (0.0.5.5)")
 	root.remove_child(world)
 	world.queue_free()
 	await process_frame

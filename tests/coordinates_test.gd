@@ -32,7 +32,7 @@ func _run() -> void:
 	var world: Node3D = app.active_world
 	for index in range(30):
 		await physics_frame
-	check(not world.blocks.has(Vector3i(0, 0, 0)) and world.blocks.has(Vector3i(0, 0, -1)), "demo blocks shifted, cell 0, 0 left free")
+	check(not world.blocks.has(Vector3i(0, 0, 0)) and world.blocks.is_empty(), "flat world without starting blocks, cell 0, 0 left free")
 	check(world.player_coordinates() == Vector3i(0, 0, 0), "player appears at X 0, Y 0, Z 0")
 	check(not world.coordinates_label.visible, "no coordinates in game while the option is off")
 	app.pause_game()

@@ -91,7 +91,7 @@ static func section_grass(blocks: Dictionary, section: Vector3i, size: int) -> M
 	return grass_instance(points,hash(section))
 
 # Sol plat : une pelouse par carré de 8 m (chacun masqué au loin séparément).
-static func ground_grass(blocks: Dictionary, terrain_seed: int) -> Node3D:
+static func ground_grass(blocks: Dictionary, terrain_seed: int, sand_center := Vector2.ZERO, sand_radius := 0.0) -> Node3D:
 	var lawn := Node3D.new()
 	lawn.name = "Lawn"
 	var rng := RandomNumberGenerator.new()
@@ -101,8 +101,11 @@ static func ground_grass(blocks: Dictionary, terrain_seed: int) -> Node3D:
 			var points: Array[Vector3] = []
 			for x in range(tile_x * 8, tile_x * 8 + 8):
 				for z in range(tile_z * 8, tile_z * 8 + 8):
+					# Pas d'herbe sur la plage (bord du sable un peu irrégulier dans la matière du sol).
 					if not blocks.has(Vector3i(x, 0, z)):
 						_cell_patches(points, Vector3(x, 0.001, z), rng)
+			if sand_radius > 0.0:
+				points = points.filter(func(at: Vector3): return Vector2(at.x, at.z).distance_to(sand_center) > sand_radius - 0.2)
 			var tile := grass_instance(points, terrain_seed + tile_x * 31 + tile_z)
 			if tile != null:
 				lawn.add_child(tile)

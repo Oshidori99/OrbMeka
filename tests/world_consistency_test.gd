@@ -64,18 +64,13 @@ func _run() -> void:
 			tallest = maxi(tallest, heights[column])
 	check(span == 41 and outside == 0, "hills stay inside the 41 × 41 zone, -20 to 20")
 	check(tallest == Terrain.MAX_HEIGHT and tallest == 3, "hills go up to 3 blocks, as announced")
+	# 0.0.5.5 : tout plat, plage de sable ; colonne de 3 blocs posée pour vérifier Y 3.
 	for text in [home_info, info]:
-		check(text.contains("largeur 41 × longueur 41 blocs (X et Z de -20 à 20)"), "generation zone size and range announced")
-	check(home_info.contains("Collines : 3 ou 4, hauteur maximale 3 blocs (sommet à Y 3)"), "home info: hill top at Y 3")
-	# Sommet réel d'une colline de ce monde : les pieds y sont à la hauteur annoncée par F3.
-	heights = Terrain.generate_heights(world.terrain_seed)
-	var top_column := Vector2i.ZERO
-	for column: Vector2i in heights:
-		if heights[column] > heights.get(top_column, 0):
-			top_column = column
-	var hill_top := stand(world, top_column.x + 0.5, heights[top_column], top_column.y + 0.5)
-	check(hill_top.y == world.generated_max_height and info.contains("Hauteur maximale initiale des collines : %d blocs (sommet à Y %d)" % [hill_top.y, hill_top.y]), "standing on the highest hill shows the announced Y")
-	check(world.blocks.has(Vector3i(top_column.x, hill_top.y - 1, top_column.y)) and not world.blocks.has(Vector3i(top_column.x, hill_top.y, top_column.y)), "hill top block is just under the feet")
+		check(text.contains("plage de sable d'environ 21 m²"), "sand beach announced")
+	for y in range(3):
+		world.add_block(Vector3i(11, y, 9), 0)
+	var dune_top := stand(world, 11.5, 3, 9.5)
+	check(dune_top.y == 3 and world.blocks.has(Vector3i(11, 2, 9)) and not world.blocks.has(Vector3i(11, 3, 9)), "standing on a 3-block column shows Y 3, top block just under the feet")
 	# Construction : 25 blocs de haut ; debout sur le plus haut bloc permis, Y 25.
 	world.add_block(Vector3i(30, WorldRules.MAX_BUILD_HEIGHT - 1, 30), 1)
 	check(stand(world, 30.5, WorldRules.MAX_BUILD_HEIGHT, 30.5).y == 25, "standing on the highest allowed block shows Y 25")

@@ -41,12 +41,10 @@ func _run() -> void:
 	# Même monde pour une même graine, quel que soit le découpage.
 	var world := open("", 4321)
 	var expected := {}
-	for cell in TerrainGenerator.generate_cells(4321):
-		expected[cell] = world.DIRT
 	var same := true
 	for cell in expected:
-		same = same and world.blocks.get(cell, -1) == world.DIRT
-	check(same and world.blocks.size() == world.generated.size(), "all zones loaded: same terrain as the seed generation")
+		same = same and world.blocks.get(cell, -1) == expected[cell]
+	check(same and world.blocks.size() == world.generated.size(), "all zones loaded: same flat start")
 	var other := open("", 4321)
 	check(other.blocks == world.blocks, "two openings with the same seed give identical worlds")
 	close(other)
@@ -97,7 +95,7 @@ func _run() -> void:
 	close(world)
 	# Migration de l'étape 1 : modifications.json → fichiers de zone, ancien fichier gardé.
 	Store.delete_folder(FOLDER)
-	var generated_cell: Vector3i = TerrainGenerator.generate_cells(4321)[0]
+	var generated_cell := Vector3i(11, 2, 9)
 	Store.write_json(FOLDER.path_join(Store.CHANGES_FILE), {"format": 1, "type": "blocs", "poses": [[30, 0, 30, 1], [-30, 2, 10, 0]], "casses": [[generated_cell.x, generated_cell.y, generated_cell.z]]})
 	world = open(FOLDER, 4321)
 	check(world.blocks.get(Vector3i(30, 0, 30), -1) == 1 and world.blocks.get(Vector3i(-30, 2, 10), -1) == 0 and not world.blocks.has(generated_cell), "step 1 save migrates without losing anything")

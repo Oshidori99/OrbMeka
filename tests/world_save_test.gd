@@ -7,7 +7,7 @@ const Zones = preload("res://scripts/world_zones.gd")
 const WorldScene = preload("res://scenes/world.tscn")
 const PATH := "res://.godot/world-save-test.json"
 const OLD_PATH := "res://.godot/world-save-old-test.json"
-const PLACED := Vector3i(10, 0, 10)
+const PLACED := Vector3i(20, 0, 20)
 var checks := 0
 var failures := 0
 
@@ -58,7 +58,10 @@ func _run() -> void:
 	check(base is Dictionary and int(base.graine) == 1234 and base.nom == "Sauvegardé" and base.format == Store.FORMAT and not str(base.creation).is_empty(), "monde.json holds name, seed, format and creation date")
 	# Partie : un bloc posé, un bloc généré cassé, déplacement et regard.
 	var world := open(folder, item.seed)
-	var removed := first_generated(world)
+	# 0.0.5.5 : monde plat sans bloc de départ ; un bloc « généré » est ajouté pour tester les cassés.
+	var removed := Vector3i(-20, 0, -20)
+	world._generate_block(removed, 0)
+	world.blocks[removed] = 0
 	var count_generated: int = world.blocks.size()
 	world.blocks.erase(removed)
 	world._changed(removed)

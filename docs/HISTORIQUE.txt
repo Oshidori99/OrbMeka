@@ -3,6 +3,9 @@ Du plus récent au plus ancien. Ce fichier est mis à jour à chaque version.
 
 === Thème « Monde » (0.0.5 et suivantes) ===
 
+0.0.5.5 — Monde plat et plage de sable
+Plus de collines de terre ni de blocs de démonstration : tout plat, en herbe ; plage de sable plate et réaliste.
+
 0.0.5.4 — Gazon réaliste
 Gazon dense de brins de 3 à 7 cm, balancés par un vent léger ; Densité de l'herbe dans Vidéo ; FPS plus grands.
 

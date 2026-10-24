@@ -1,6 +1,18 @@
-# OrbMeka™ — prototype 0.0.5.4
+# OrbMeka™ — prototype 0.0.5.5
 
 Godot 4.7 / GDScript. Formes et couleurs simples ; assets externes seulement sous licence vérifiée (sons CC0, assets/sounds/CREDITS.txt).
+
+## 0.0.5.5 — Monde plat et plage de sable
+- Tous les mondes (anciens et nouveaux) commencent **tout plats**, en herbe : plus de
+  collines de terre ni de blocs de démonstration (sable et pierre). Les blocs posés
+  et la position restent sauvegardés.
+- **Plage de sable** plate d'environ 21 m², au niveau de l'herbe, à une dizaine de
+  mètres de l'apparition (X 11, Z 9) : grains fins, teintes chaudes, rides de vent,
+  bord irrégulier fondu avec l'herbe. Les blocs de sable ont la même matière.
+- Mesure PC : environ 180 images/s.
+
+Tests : monde, zones, sauvegarde, informations et actions mis à jour ; tests choisis réussis.
+À tester manuellement : aspect de la plage de près, bord avec l'herbe, FPS sur le Web.
 
 ## 0.0.5.4 — Gazon réaliste
 - Gazon dense sur le sol et sur la terre : brins fins de 3 à 7 cm (environ 5 cm),
