@@ -1,6 +1,7 @@
 # OrbMeka — règles pour Claude
 
-Jeu de construction en blocs, Godot 4.7.2 / GDScript, formes simples ; assets externes seulement sous licence vérifiée (sons CC0 : assets/sounds/CREDITS.txt).
+Jeu de construction et d'exploration, Godot 4.7.2 / GDScript (pas de C# : il empêcherait l'export Web).
+Personnages 3D faits dans Blender (assets/characters), sons en partie CC0 ; assets externes seulement sous licence vérifiée, notée dans README.md.
 Guide complet : docs/README.md. Fichiers techniques : docs/ORGANISATION.txt.
 
 ## Communication
@@ -15,7 +16,11 @@ Guide complet : docs/README.md. Fichiers techniques : docs/ORGANISATION.txt.
 ## Structure
 - scenes/ : main.tscn (menus), world.tscn (partie). scripts/ : code. tests/ : tests sans fenêtre.
 - Garder les .gd.uid avec leurs scripts. Ne pas toucher à .godot/ (cache) ni au contenu existant des archives (dossier voisin « ..\Archives OrbMeka », hors du dépôt) ; on y ajoute seulement l'archive de chaque version.
-- Données joueur dans user:// (worlds.json, parametres-generaux.json, video.json, controles.json, personnage.json, attributs.json, menus.json), jamais dans les sources.
+- Données joueur dans user://, jamais dans les sources :
+  - réglages : parametres-generaux.json, video.json, controles.json, personnage.json, attributs.json, menus.json ;
+  - mondes : worlds.json (index) et un dossier par monde mondes/<id>/ : monde.json (nom, **graine**, mode),
+    joueur.json (position, regard), zones/zone_X_Y_Z.bin (seulement les changements, format versionné) ;
+  - launcher : launcher/.
 
 ## Tests
 Depuis PowerShell, à la racine du projet, en parallèle (6 à la fois) :
@@ -24,9 +29,24 @@ Depuis PowerShell, à la racine du projet, en parallèle (6 à la fois) :
     .\tests\run_all.ps1 -Only fly,controls   # pendant le travail : ceux liés au changement
 
 Les tests juridiques (licences, aucun autre jeu cité) passent **toujours**, même avec -Only.
+Godot console : C:\Users\Dev\Desktop\Godot_v4.7.2-stable_win64.exe\Godot_v4.7.2-stable_win64_console.exe
 Un seul test : `& '<Godot console>' --headless --path . --script res://tests/<nom>_test.gd`.
 L'Action Dev lance tous les tests en parallèle à chaque envoi. Ce qui ne peut être vérifié qu'en
 jouant (aspect, souris) est signalé comme « à tester manuellement ».
+
+## Plan du Monde (milestone « 0.0.5 — Monde », issues #119 à #124)
+Ordre obligatoire de 1 à 4, ensuite libre :
+1. Dossier du monde et sauvegarde des seuls changements : fait (0.0.5).
+2. Zones (#119) : fait en 0.0.5.1 avec ZONE_SIZE = 8 m (scripts/world_zones.gd). 16 m envisagé, avec un
+   recalcul de l'affichage par sous-blocs de 8 m, à décider selon les mesures (surtout sur le Web).
+3. Terrain lisse sculptable (#120) : densité tous les 25 cm, rendu lisse, pinceaux (creuser, ajouter,
+   aplanir, lisser), sauvegarde des gestes, figés dans la grille quand ils sont nombreux. En petites versions.
+4. Relief procédural et sous-sol (#121) : terre, pierre, granite, grottes ; « Roche-mère » incassable en bas
+   (ne pas reprendre le nom anglais courant d'un autre jeu).
+5. Matières (#122) · 6. Structures (#123) · 7. Créatif/Survie (#73) · Inventaire (milestone HUD) ·
+   Eau réaliste (#124 : lacs-réservoirs à volume, rivières en hauteur d'eau).
+Règles : même graine = même monde ; mondes légers (seulement les changements, compressés) ;
+mesurer les performances sur PC et sur le Web à chaque étape.
 
 ## Branches et builds
 - `dev` : travail en cours. `main` : seulement les versions validées.

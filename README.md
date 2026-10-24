@@ -7,7 +7,12 @@ Dans Godot, ouvrez **project.godot**, puis **F5** pour lancer le jeu.
 - [Historique des versions](docs/HISTORIQUE.txt)
 
 Scènes : scenes/ · Scripts : scripts/ · Tests : tests/ · Documentation : docs/.
-Les mondes personnels restent dans les données Godot user://.
+Les mondes personnels restent dans les données Godot user:// : un dossier par monde, mondes/<id>/,
+avec monde.json (qui contient la graine), joueur.json et zones/ (seulement les changements).
+
+## Prochaines étapes (Monde)
+Zones (fait) → terrain lisse sculptable → relief et sous-sol (avec la Roche-mère) → matières → structures
+→ modes Créatif et Survie → inventaire → eau réaliste. Détail : CLAUDE.md et le GitHub Project.
 
 ## Cadre juridique
 Objectif : aucun risque juridique, ni en droit suisse ou européen, ni vis-à-vis d'autres jeux ou éditeurs.
