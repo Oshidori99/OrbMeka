@@ -46,7 +46,7 @@ func _run() -> void:
 		check(world.selected_block_label.text == "Bloc sélectionné : " + expected, "wheel forward cycle updates " + expected)
 	player.cycle_block(-1)
 	check(world.selected_block_label.text == "Bloc sélectionné : Terre", "wheel reverse wraps selection")
-	check(world.selected_block_label.position == Vector2(18, 18) and world.selected_block_label.mouse_filter == Control.MOUSE_FILTER_IGNORE, "discreet top-left indicator does not intercept clicks")
+	check(world.selected_block_label.global_position == Vector2(18, 18) and world.selected_block_label.mouse_filter == Control.MOUSE_FILTER_IGNORE, "discreet top-left indicator does not intercept clicks")
 	check(world.find_child("Help", true, false) == null, "old help panel remains absent")
 	player.position.y = 4
 	player.actions.set_place_pressed(true, true)

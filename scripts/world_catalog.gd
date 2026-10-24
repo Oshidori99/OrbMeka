@@ -42,8 +42,7 @@ func _migrate_folders() -> void:
 		elif result.has("data"):
 			item["created"] = str(result.data.get("creation", ""))
 			continue
-		if str(item.get("created", "")).is_empty():
-			item["created"] = Time.get_datetime_string_from_system()
+		# Ancien monde sans date : conserver l'inconnu, jamais la date de migration.
 		_write_base(item)
 
 func _write_base(item: Dictionary) -> bool:

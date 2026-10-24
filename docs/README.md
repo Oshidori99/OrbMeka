@@ -1,6 +1,20 @@
-# OrbMeka™ — prototype 0.0.5.2
+# OrbMeka™ — prototype 0.0.5.3
 
 Godot 4.7 / GDScript. Formes et couleurs simples ; assets externes seulement sous licence vérifiée (sons CC0, assets/sounds/CREDITS.txt).
+
+## 0.0.5.3 — FPS et date de création
+Un compteur discret affiche les FPS en haut à gauche sous les indications existantes,
+avec une mise à jour toutes les 0,5 s. Il disparaît pendant la pause et suit la taille du texte.
+Informations du monde (pause ou F3) affiche la date et l'heure de création à tous les niveaux
+de synthèse. Lecture de monde.json sans modification : présentation française,
+heure locale enregistrée par Godot (les anciennes dates ne contiennent pas de fuseau).
+Une date absente ou invalide reste inconnue, y compris après migration d'un ancien monde.
+Renommer garde la date ; dupliquer crée un nouveau monde avec sa propre date.
+Validation : 8 tests ciblés réussis, puis suite complète 55/55 en 103 s.
+Exécution avec deux tests à la fois (-Jobs 2), binaire Godot natif et protections mémoire actives.
+fps_creation vérifie le rythme du compteur, la pause, les tailles de texte de 50 à 150 %,
+la lecture de la date, le renommage, la duplication et la migration sans date inventée.
+Aspect en mouvement et comportement souris restent à vérifier manuellement.
 
 ## 0.0.5.2 — Première passe visuelle du terrain (#120)
 Herbe et terre utilisent des matières procédurales originales, sans texture externe,

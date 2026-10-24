@@ -7,6 +7,7 @@ const CharacterPreview = preload("res://scripts/character_preview.gd")
 const Store = preload("res://scripts/world_store.gd")
 const Zones = preload("res://scripts/world_zones.gd")
 const TerrainMaterials = preload("res://scripts/terrain_materials.gd")
+const WorldMetadata = preload("res://scripts/world_metadata.gd")
 const DIRT := 2
 const BLOCK_COLORS := [Color("#d8c291"), Color("#888b90"), Color("#855332")]
 const BLOCK_NAMES := ["Sable", "Pierre", "Terre"]
@@ -35,6 +36,10 @@ var selection: MeshInstance3D
 var selected_block_label: Label
 var hint: Label
 var coordinates_label: Label
+var fps_label: Label
+var fps_elapsed := 0.0
+const FPS_INTERVAL := 0.5
+var creation_text := "Création : inconnue"
 var notice := ""
 var notice_time := 0.0
 # 0.0.5 : dossier du monde (world_store.gd) ; vide = rien n'est enregistré (monde lancé seul, tests).
@@ -59,6 +64,7 @@ const AUTOSAVE_SECONDS := 45.0
 var save_error := ""
 
 func _ready() -> void:
+	_read_creation_date()
 	_setup_inputs()
 	_setup_environment()
 	# 0.0.5.1 : une seule matière pour tous les blocs, couleur portée par les sommets de chaque section.
@@ -504,24 +510,37 @@ func _create_selection() -> void:
 func _create_hud() -> void:
 	var layer := CanvasLayer.new()
 	add_child(layer)
+	var left := VBoxContainer.new()
+	left.name = "LeftHUD"
+	left.position = Vector2(18,18)
+	left.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	left.add_theme_constant_override("separation",roundi(5 * text_scale))
+	layer.add_child(left)
 	selected_block_label = Label.new()
 	selected_block_label.name = "SelectedBlock"
-	selected_block_label.position = Vector2(18, 18)
 	selected_block_label.add_theme_font_size_override("font_size", roundi(18 * text_scale))
 	selected_block_label.add_theme_color_override("font_shadow_color", Color.BLACK)
 	selected_block_label.add_theme_constant_override("shadow_outline_size", 3)
 	selected_block_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	layer.add_child(selected_block_label)
+	left.add_child(selected_block_label)
 	update_selected_block()
 	var exploration := Label.new()
 	exploration.name = "ExplorationNotice"
 	exploration.text = "Exploration visuelle — casse et pose désactivées"
-	exploration.position = Vector2(18,48)
-	exploration.add_theme_font_size_override("font_size",14)
+	exploration.add_theme_font_size_override("font_size",roundi(14 * text_scale))
 	exploration.add_theme_color_override("font_shadow_color",Color.BLACK)
 	exploration.add_theme_constant_override("shadow_outline_size",3)
 	exploration.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	layer.add_child(exploration)
+	left.add_child(exploration)
+	fps_label = Label.new()
+	fps_label.name = "FPS"
+	fps_label.text = "FPS : —"
+	fps_label.add_theme_font_size_override("font_size",roundi(13 * text_scale))
+	fps_label.add_theme_color_override("font_color",Color(0.9,0.9,0.9,0.85))
+	fps_label.add_theme_color_override("font_shadow_color",Color.BLACK)
+	fps_label.add_theme_constant_override("shadow_outline_size",2)
+	fps_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	left.add_child(fps_label)
 	var crosshair := Label.new()
 	crosshair.text = "+"
 	crosshair.add_theme_font_size_override("font_size", 30)
@@ -581,6 +600,10 @@ func apply_text_scale(scale: float) -> void:
 		hint.add_theme_font_size_override("font_size", roundi(19 * text_scale))
 		coordinates_label.add_theme_font_size_override("font_size", roundi(16 * text_scale))
 		coordinates_label.offset_top = 18 + roundi(80 * text_scale)
+		var exploration: Label = find_child("ExplorationNotice",true,false)
+		exploration.add_theme_font_size_override("font_size",roundi(14 * text_scale))
+		fps_label.add_theme_font_size_override("font_size",roundi(13 * text_scale))
+		selected_block_label.get_parent().add_theme_constant_override("separation",roundi(5 * text_scale))
 
 func update_selected_block() -> void:
 	if is_instance_valid(selected_block_label) and is_instance_valid(player):
@@ -593,6 +616,7 @@ func _notify(message: String) -> void:
 func _process(delta: float) -> void:
 	if not is_instance_valid(player):
 		return
+	_update_fps(delta)
 	# Sauvegarde régulière (petits fichiers, seulement les zones modifiées : pas de saccade).
 	autosave_time += delta
 	if autosave_time >= AUTOSAVE_SECONDS:
@@ -671,7 +695,8 @@ func get_world_info_text(level: int = 2) -> String:
 	return "Votre position actuelle : %s
 Personnage : %s
 %s
-%s" % [coordinates_text(), who, zones_text(), _world_info_body(level)]
+%s
+%s" % [coordinates_text(), who, creation_text, zones_text(), _world_info_body(level)]
 
 # 0.0.5.1 : mesures en direct (aussi dans le navigateur) : zones, temps de chargement et de recalcul, images/s.
 func zones_text() -> String:
@@ -681,6 +706,25 @@ func zones_text() -> String:
 func _used_note() -> String:
 	return "
 " + DEVELOPER_USED_NOTE if developer_used else ""
+
+# Le compteur ne refait son texte que deux fois par seconde pendant le jeu.
+func _update_fps(delta: float) -> void:
+	fps_elapsed += delta
+	if fps_elapsed < FPS_INTERVAL:
+		return
+	fps_elapsed = fmod(fps_elapsed,FPS_INTERVAL)
+	fps_label.text = "FPS : %d" % Engine.get_frames_per_second()
+
+func _notification(what: int) -> void:
+	if is_instance_valid(fps_label) and what in [NOTIFICATION_PAUSED,NOTIFICATION_UNPAUSED]:
+		fps_label.visible = what == NOTIFICATION_UNPAUSED
+		fps_elapsed = 0.0
+
+func _read_creation_date() -> void:
+	creation_text = WorldMetadata.read_creation(save_folder)
+
+static func format_creation_date(value: Variant) -> String:
+	return WorldMetadata.format_creation_date(value)
 
 func _world_info_body(level: int) -> String:
 	var span := TerrainGenerator.MAX_CELL - TerrainGenerator.MIN_CELL + 1

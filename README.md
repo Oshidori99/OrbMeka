@@ -1,6 +1,9 @@
-# OrbMeka™ 0.0.5.2
+# OrbMeka™ 0.0.5.3
 
 Dans Godot, ouvrez **project.godot**, puis **F5** pour lancer le jeu.
+
+0.0.5.3 : FPS discrets en jeu ; date et heure de création dans Informations du monde (pause/F3).
+Une date absente reste inconnue. L'exploration visuelle de la 0.0.5.2 est conservée.
 
 - [Guide détaillé et commandes](docs/README.md)
 - [Organisation et fichiers techniques](docs/ORGANISATION.txt)

@@ -3,6 +3,10 @@ Du plus récent au plus ancien. Ce fichier est mis à jour à chaque version.
 
 === Thème « Monde » (0.0.5 et suivantes) ===
 
+0.0.5.3 — FPS et date de création
+FPS discrets en haut à gauche, actualisés deux fois par seconde et masqués en pause.
+Informations du monde (pause/F3) : date et heure de création enregistrées ; inconnue si absente.
+
 0.0.5.2 — Monde 3 : première passe visuelle
 Herbe et terre procédurales, touffes légères et lumière ajustée ; relief encore anguleux.
 Exploration conservée ; casse, pose et pinceaux désactivés pour cette étape, sauvegardes préservées.
