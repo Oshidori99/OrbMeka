@@ -18,11 +18,15 @@ Guide complet : docs/README.md. Fichiers techniques : docs/ORGANISATION.txt.
 - Données joueur dans user:// (worlds.json, parametres-generaux.json, video.json, controles.json, personnage.json, attributs.json, menus.json), jamais dans les sources.
 
 ## Tests
-Depuis PowerShell, à la racine du projet :
+Depuis PowerShell, à la racine du projet, en parallèle (6 à la fois) :
 
-    & 'C:\Users\Dev\Desktop\Godot_v4.7.2-stable_win64.exe\Godot_v4.7.2-stable_win64_console.exe' --headless --path . --script res://tests/<nom>_test.gd
+    .\tests\run_all.ps1                      # tous : avant chaque version (≈ 1 min 20)
+    .\tests\run_all.ps1 -Only fly,controls   # pendant le travail : ceux liés au changement
 
-Lancer les tests liés au changement ; ce qui ne peut être vérifié qu'en jouant (aspect, souris) est signalé comme « à tester manuellement ».
+Les tests juridiques (licences, aucun autre jeu cité) passent **toujours**, même avec -Only.
+Un seul test : `& '<Godot console>' --headless --path . --script res://tests/<nom>_test.gd`.
+L'Action Dev lance tous les tests en parallèle à chaque envoi. Ce qui ne peut être vérifié qu'en
+jouant (aspect, souris) est signalé comme « à tester manuellement ».
 
 ## Branches et builds
 - `dev` : travail en cours. `main` : seulement les versions validées.

@@ -65,11 +65,17 @@ jobs:
         run: |
           GODOT=~/godot/godot
           $GODOT --headless --path . --import || true
+          # Plusieurs tests à la fois (un par cœur) : chacun a ses propres fichiers de test.
+          mkdir -p test-logs
+          export GODOT
+          ls tests/*_test.gd | xargs -P "$(nproc)" -I{} sh -c 'n=$(basename {} .gd); if timeout 300 "$GODOT" --headless --path . --script "res://{}" > "test-logs/$n.log" 2>&1; then touch "test-logs/$n.ok"; fi'
           FAILED=""
           for t in tests/*_test.gd; do
+            n=$(basename "$t" .gd)
             echo "::group::$t"
-            if ! timeout 300 $GODOT --headless --path . --script "res://$t"; then FAILED="$FAILED $t"; fi
+            cat "test-logs/$n.log"
             echo "::endgroup::"
+            if [ ! -f "test-logs/$n.ok" ]; then FAILED="$FAILED $t"; fi
           done
           if [ -n "$FAILED" ]; then echo "::error::Tests en échec :$FAILED"; exit 1; fi
           echo "Tous les tests passent."
