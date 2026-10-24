@@ -1,5 +1,7 @@
 extends RefCounted
-# Only identity, name, seed, mode and developer_used are stored. Never block edits or player state.
+# Index des mondes (worlds.json, gardé tel quel : identifiant, nom, graine, mode). 0.0.5 : chaque monde a
+# aussi son dossier (world_store.gd), avec monde.json, joueur.json et zones/ ; créé ici, copié, supprimé.
+const Store = preload("res://scripts/world_store.gd")
 const MAX_NAME_LENGTH := 48
 const MAX_SEED := 4294967295
 # Mode du monde : « default » garde les attributs par défaut ; « developer » utilise les
@@ -12,12 +14,49 @@ var worlds: Array[Dictionary] = []
 var last_error := ""
 var load_error := ""
 var storage_path: String
+# Dossier des mondes : user://mondes ; à côté de l'index pour les tests (ex. « …-test-mondes »).
+var worlds_root: String
+# Message de réparation (monde.json illisible mis de côté et recréé), affiché dans Mes mondes.
+var repair_note := ""
 var rng := RandomNumberGenerator.new()
 
 func _init(path: String = "user://worlds.json") -> void:
 	storage_path = path
+	worlds_root = Store.ROOT if path == "user://worlds.json" else path.get_basename() + "-mondes"
 	rng.randomize()
 	_load_worlds()
+	if load_error.is_empty():
+		_migrate_folders()
+
+func world_folder(id: String) -> String:
+	return Store.folder(worlds_root, id) if Store.valid_id(id) else ""
+
+# Migration (0.0.5) : un monde sans dossier reçoit son monde.json, sans rien perdre de l'index.
+func _migrate_folders() -> void:
+	for item in worlds:
+		if not Store.valid_id(item.id):
+			continue
+		var result := Store.read_json(world_folder(item.id).path_join(Store.BASE_FILE), Store.valid_base)
+		if result.has("error"):
+			repair_note = "« %s » : %s ; recréé depuis la liste des mondes." % [item.name, result.error]
+		elif result.has("data"):
+			item["created"] = str(result.data.get("creation", ""))
+			continue
+		if str(item.get("created", "")).is_empty():
+			item["created"] = Time.get_datetime_string_from_system()
+		_write_base(item)
+
+func _write_base(item: Dictionary) -> bool:
+	return Store.valid_id(item.id) and Store.write_json(world_folder(item.id).path_join(Store.BASE_FILE), Store.base_data(item))
+
+func _write_base_for(id: String) -> void:
+	for item in worlds:
+		if item.id == id:
+			_write_base(item)
+
+func world_size(id: String) -> int:
+	var path := world_folder(id)
+	return 0 if path.is_empty() else Store.folder_size(path)
 
 func _load_worlds() -> void:
 	if not FileAccess.file_exists(storage_path):
@@ -58,7 +97,7 @@ func _load_worlds() -> void:
 		names.append(clean_name.to_lower())
 		# Avant 0.0.4.10 (sans developer_used) : utilisé si le monde est en mode développeur.
 		var used: bool = item.get("developer_used", mode == MODE_DEVELOPER) == true or mode == MODE_DEVELOPER
-		loaded.append({"id": item.id, "name": clean_name, "seed": int(seed_value), "mode": mode, "developer_used": used})
+		loaded.append({"id": item.id, "name": clean_name, "seed": int(seed_value), "mode": mode, "developer_used": used, "created": str(item.get("created", ""))})
 	worlds = loaded
 
 func _save_worlds() -> bool:
@@ -114,10 +153,16 @@ func create_world(raw_name: String, raw_seed: String = "", mode: String = MODE_D
 	var world_id := str(rng.randi())
 	while used_ids.has(world_id):
 		world_id = str(rng.randi())
-	var item := {"id": world_id, "name": world_name, "seed": terrain_seed, "mode": mode, "developer_used": developer_used or mode == MODE_DEVELOPER}
+	var item := {"id": world_id, "name": world_name, "seed": terrain_seed, "mode": mode, "developer_used": developer_used or mode == MODE_DEVELOPER, "created": Time.get_datetime_string_from_system()}
+	# Un reste de dossier au même identifiant (essai interrompu) ne doit rien apporter au nouveau monde.
+	Store.delete_folder(world_folder(world_id))
+	if not _write_base(item):
+		last_error = "Impossible de créer le dossier du monde."
+		return {}
 	worlds.append(item)
 	if not _save_worlds():
 		worlds.pop_back()
+		Store.delete_folder(world_folder(world_id))
 		return {}
 	return item.duplicate()
 
@@ -146,6 +191,7 @@ func rename_world(id: String, raw_name: String) -> bool:
 			if not _save_worlds():
 				worlds[index].name = old_name
 				return false
+			_write_base_for(id)
 			return true
 	last_error = "Ce monde n'existe plus."
 	return false
@@ -166,6 +212,7 @@ func enable_developer_mode(id: String) -> bool:
 			if not _save_worlds():
 				worlds[index] = before
 				return false
+			_write_base_for(id)
 			return true
 	last_error = "Ce monde n'existe plus."
 	return false
@@ -184,6 +231,7 @@ func disable_developer_mode(id: String) -> bool:
 			if not _save_worlds():
 				worlds[index]["mode"] = MODE_DEVELOPER
 				return false
+			_write_base_for(id)
 			return true
 	last_error = "Ce monde n'existe plus."
 	return false
@@ -201,6 +249,8 @@ func delete_world(id: String) -> bool:
 			if not _save_worlds():
 				worlds.insert(index, removed)
 				return false
+			# 0.0.5 : dossier du monde supprimé (chemin tiré de l'identifiant, jamais du nom).
+			Store.delete_folder(world_folder(id))
 			return true
 	last_error = "Ce monde n'existe plus."
 	return false
@@ -219,6 +269,15 @@ func duplicate_world(id: String) -> Dictionary:
 				exists = true
 				break
 		if not exists:
-			return create_world(copy_name, str(original.seed), original.get("mode", MODE_DEFAULT), original.get("developer_used", false))
+			var copy := create_world(copy_name, str(original.seed), original.get("mode", MODE_DEFAULT), original.get("developer_used", false))
+			# 0.0.5 : la copie reprend aussi constructions et position (son monde.json reste le sien).
+			if not copy.is_empty():
+				var from := world_folder(id)
+				var to := world_folder(copy.id)
+				if DirAccess.dir_exists_absolute(from.path_join(Store.ZONES_DIR)):
+					Store.copy_folder(from.path_join(Store.ZONES_DIR), to.path_join(Store.ZONES_DIR))
+				if FileAccess.file_exists(from.path_join(Store.PLAYER_FILE)):
+					DirAccess.copy_absolute(ProjectSettings.globalize_path(from.path_join(Store.PLAYER_FILE)), ProjectSettings.globalize_path(to.path_join(Store.PLAYER_FILE)))
+			return copy
 		number += 1
 	return {}

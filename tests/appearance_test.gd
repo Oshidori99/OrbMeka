@@ -71,7 +71,7 @@ func _run() -> void:
 	for level in ["minus", "default", "plus"]:
 		choose(app, {"text_detail": level})
 		lengths.append(app.generation_info.text.length())
-	check(lengths[0] < lengths[1] and lengths[1] < lengths[2] and app.generation_info.text.contains("Réouvrir un monde régénère son terrain initial."), "information text shorter at −, complete at +")
+	check(lengths[0] < lengths[1] and lengths[1] < lengths[2] and app.generation_info.text.contains("Seules les différences avec le terrain de la graine sont enregistrées."), "information text shorter at −, complete at +")
 	choose(app, {"text_detail": "minus"})
 	var hidden: Array = app.detail_labels.keys().filter(func(label): return label.text.is_empty())
 	check(not hidden.is_empty() and hidden.all(func(label): return not label.visible), "empty − texts are hidden")

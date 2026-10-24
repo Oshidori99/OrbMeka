@@ -147,6 +147,8 @@ var settings_message: RichTextLabel
 var catalog: RefCounted
 var page := "home"
 var active_world: Node3D
+# Rappel JavaScript gardé en vie (version Web : sauvegarde quand la page est cachée ou fermée).
+var web_hide_callback: JavaScriptObject
 var current_world_id := ""
 var menu_root: Control
 var menu_panel: PanelContainer

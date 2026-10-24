@@ -1,6 +1,12 @@
 ORBMEKA — HISTORIQUE DES VERSIONS
 Du plus récent au plus ancien. Ce fichier est mis à jour à chaque version.
 
+=== Thème « Monde » (0.0.5 et suivantes) ===
+
+0.0.5 — Monde 1 : dossier et sauvegarde
+Un dossier par monde (monde.json avec la graine, joueur.json, zones/) ; blocs posés et cassés, position
+et regard sauvegardés (seulement les différences), régulièrement et à la fermeture ; anciens mondes repris.
+
 === Thème « Menus et Paramètres 2 » (0.0.4 et suivantes) ===
 
 0.0.4.22 — Contrôles plus rapides

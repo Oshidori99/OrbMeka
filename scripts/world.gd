@@ -4,6 +4,7 @@ const PlayerScript = preload("res://scripts/player.gd")
 const TerrainGenerator = preload("res://scripts/terrain_generator.gd")
 const Controls = preload("res://scripts/controls.gd")
 const CharacterPreview = preload("res://scripts/character_preview.gd")
+const Store = preload("res://scripts/world_store.gd")
 const DIRT := 2
 const BLOCK_COLORS := [Color("#d8c291"), Color("#888b90"), Color("#855332")]
 const BLOCK_NAMES := ["Sable", "Pierre", "Terre"]
@@ -34,6 +35,13 @@ var hint: Label
 var coordinates_label: Label
 var notice := ""
 var notice_time := 0.0
+# 0.0.5 : dossier du monde (world_store.gd) ; vide = rien n'est enregistré (monde lancé seul, tests).
+var save_folder := ""
+var generated: Dictionary = {}
+var changed := false
+var autosave_time := 0.0
+const AUTOSAVE_SECONDS := 45.0
+var save_error := ""
 
 func _ready() -> void:
 	_setup_inputs()
@@ -46,10 +54,13 @@ func _ready() -> void:
 	_create_ground()
 	_create_terrain()
 	_create_blocks()
+	_remember_generated()
+	var saved_player := _load_saved_changes()
 	player = PlayerScript.new()
 	player.name = "Player"
 	player.position = spawn_position()
 	add_child(player)
+	_apply_saved_player(saved_player)
 	_create_selection()
 	_create_hud()
 
@@ -176,6 +187,80 @@ func _create_blocks() -> void:
 	for x in range(-3, 0):
 		add_block(Vector3i(x, 0, 4), 0)
 
+# Terrain recalculé avec la graine (collines et blocs de démonstration) : seules les différences sont enregistrées.
+func _remember_generated() -> void:
+	generated.clear()
+	for cell: Vector3i in blocks:
+		generated[cell] = blocks[cell].get_meta("kind")
+
+func changes_data() -> Dictionary:
+	var placed: Array = []
+	var removed: Array = []
+	for cell: Vector3i in blocks:
+		var kind: int = blocks[cell].get_meta("kind")
+		if generated.get(cell, -1) != kind:
+			placed.append([cell.x, cell.y, cell.z, kind])
+	for cell: Vector3i in generated:
+		if not blocks.has(cell):
+			removed.append([cell.x, cell.y, cell.z])
+	return {"format": Store.CHANGES_FORMAT, "type": "blocs", "poses": placed, "casses": removed}
+
+func apply_changes(data: Dictionary) -> void:
+	for entry in data.casses:
+		var cell := Vector3i(int(entry[0]), int(entry[1]), int(entry[2]))
+		if blocks.has(cell):
+			blocks[cell].free()
+			blocks.erase(cell)
+	for entry in data.poses:
+		var cell := Vector3i(int(entry[0]), int(entry[1]), int(entry[2]))
+		if blocks.has(cell):
+			blocks[cell].free()
+			blocks.erase(cell)
+		add_block(cell, int(entry[3]))
+
+func player_data() -> Dictionary:
+	return {"format": Store.FORMAT, "position": [player.position.x, player.position.y, player.position.z],
+		"regard_horizontal": player.rotation.y, "regard_vertical": player.camera.rotation.x}
+
+# Lecture au chargement ; un fichier illisible est mis de côté (jamais écrasé), avec un message.
+func _load_saved_changes() -> Dictionary:
+	if save_folder.is_empty():
+		return {}
+	var changes := Store.read_json(save_folder.path_join(Store.CHANGES_FILE), Store.valid_changes)
+	if changes.has("data"):
+		apply_changes(changes.data)
+	elif changes.has("error"):
+		_notify(changes.error)
+		notice_time = 8.0
+	var saved := Store.read_json(save_folder.path_join(Store.PLAYER_FILE), Store.valid_player)
+	if saved.has("error"):
+		_notify(saved.error)
+		notice_time = 8.0
+	return saved.get("data", {})
+
+func _apply_saved_player(data: Dictionary) -> void:
+	if data.is_empty():
+		return
+	player.position = Vector3(float(data.position[0]), float(data.position[1]), float(data.position[2]))
+	player.rotation.y = float(data.regard_horizontal)
+	player.camera.rotation.x = clampf(float(data.regard_vertical), deg_to_rad(-89.0), deg_to_rad(89.0))
+
+# Au retour aux mondes, à la pause, à la fermeture et toutes les 45 s.
+func save_now() -> bool:
+	autosave_time = 0.0
+	if save_folder.is_empty() or not is_instance_valid(player):
+		return true
+	var ok := Store.write_json(save_folder.path_join(Store.PLAYER_FILE), player_data())
+	if changed:
+		if Store.write_json(save_folder.path_join(Store.CHANGES_FILE), changes_data()):
+			changed = false
+		else:
+			ok = false
+	save_error = "" if ok else "Sauvegarde impossible : vérifiez l'espace disque."
+	if not ok:
+		_notify(save_error)
+	return ok
+
 func add_block(cell: Vector3i, kind: int) -> bool:
 	if blocks.has(cell) or blocks.size() >= MAX_BLOCKS:
 		return false
@@ -215,6 +300,7 @@ func break_target(hit: Dictionary) -> bool:
 		return false
 	var cell: Vector3i = collider.get_meta("cell")
 	blocks.erase(cell)
+	changed = true
 	remove_child(collider)
 	collider.queue_free()
 	return true
@@ -233,7 +319,10 @@ func place_target(hit: Dictionary, kind: int) -> bool:
 	if blocks.size() >= MAX_BLOCKS:
 		_notify("Limite de 1200 blocs atteinte : cassez-en quelques-uns.")
 		return false
-	return add_block(cell, kind)
+	if not add_block(cell, kind):
+		return false
+	changed = true
+	return true
 
 func _create_selection() -> void:
 	selection = MeshInstance3D.new()
@@ -343,6 +432,10 @@ func _notify(message: String) -> void:
 func _process(delta: float) -> void:
 	if not is_instance_valid(player):
 		return
+	# Sauvegarde régulière (petits fichiers JSON : pas de saccade).
+	autosave_time += delta
+	if autosave_time >= AUTOSAVE_SECONDS:
+		save_now()
 	notice_time = maxf(0.0, notice_time - delta)
 	var captured := Input.mouse_mode == Input.MOUSE_MODE_CAPTURED
 	var hit: Dictionary = player.get_target()
@@ -367,7 +460,7 @@ Maintenir clic gauche : casser ; clic droit : poser. Molette : changer de bloc.
 Échap : pause. F1 : liste des mondes. F2 : Comment jouer. F3 : Informations.
 F4 : vue (première personne, de derrière, de devant).
 Portée : %d blocs. Maximum : %d blocs, hauteur %d (Y 0 sur le sol plat).
-Constructions réinitialisées en quittant le monde.
+Constructions et position sauvegardées (pause, retour, fermeture, toutes les 45 s).
 Touches modifiables : Paramètres → Contrôles." % [int(PlayerScript.REACH), MAX_BLOCKS, MAX_BUILD_HEIGHT]
 	return "ZQSD / WASD : marcher ; ← → : aller de côté. Souris : regarder. Espace : sauter.
 Y : se baisser. R : courir. Modes dans Contrôles : Maintenir, Basculer,
@@ -401,7 +494,7 @@ Hauteur maximale : %d blocs au-dessus du sol plat, collines comprises (sommet à
 Construction : %s.
 %s
 
-Nom, graine et mode conservés ; constructions réinitialisées en quittant le monde.
+Nom, graine, mode, constructions et position sauvegardés : pause, retour aux mondes, fermeture, toutes les 45 s.
 Touches modifiables (clavier, clics, molette) : Paramètres → Contrôles, aussi depuis la pause." % [int(PlayerScript.REACH), MAX_BLOCKS, MAX_BUILD_HEIGHT, MAX_BUILD_HEIGHT, build_range_text(), COORDINATES_NOTE]
 
 func get_world_info_text(level: int = 2) -> String:
@@ -428,7 +521,7 @@ Mode : %s" % [world_name, terrain_seed, world_mode_text] + _used_note()
 Graine : %d
 Mode : %s
 Collines : %d, jusqu'à %d blocs. Base %d × %d.
-Constructions non sauvegardées." % [world_name, terrain_seed, world_mode_text, generated_hill_count, generated_max_height, int(BASE_SIZE.x), int(BASE_SIZE.z)] + _used_note()
+Constructions sauvegardées." % [world_name, terrain_seed, world_mode_text, generated_hill_count, generated_max_height, int(BASE_SIZE.x), int(BASE_SIZE.z)] + _used_note()
 	var mode_line := "Mode : %s — %s" % [world_mode_text, "attributs de Paramètres → Attributs" if developer_mode else "attributs par défaut, non modifiables"]
 	mode_line += _used_note()
 	return "Monde : %s
@@ -443,4 +536,4 @@ Base plate : largeur %d × longueur %d blocs (%s), sol à Y 0
 Construction : hauteur maximale %d blocs au-dessus du sol plat (sommet à Y %d), %s.
 %s
 
-Nom, graine et mode conservés ; constructions non sauvegardées." % [world_name, terrain_seed, mode_line, generated_hill_count, generated_max_height, generated_max_height, span, span, generation_range_text(), int(BASE_SIZE.x), int(BASE_SIZE.z), base_range_text(), MAX_BUILD_HEIGHT, MAX_BUILD_HEIGHT, build_range_text(), COORDINATES_NOTE]
+Nom, graine, mode, constructions et position sauvegardés." % [world_name, terrain_seed, mode_line, generated_hill_count, generated_max_height, generated_max_height, span, span, generation_range_text(), int(BASE_SIZE.x), int(BASE_SIZE.z), base_range_text(), MAX_BUILD_HEIGHT, MAX_BUILD_HEIGHT, build_range_text(), COORDINATES_NOTE]

@@ -24,7 +24,7 @@ func _run() -> void:
 	app.catalog.worlds.append({"id": "pause-test", "name": "Mon monde", "seed": 123})
 	root.add_child(app)
 	current_scene = app
-	check(app.home_version.text == "v0.0.4.22", "version visible on home")
+	check(app.home_version.text == "v0.0.5", "version visible on home")
 	app.open_world("pause-test")
 	var world: Node3D = app.active_world
 	var player: CharacterBody3D = world.player
@@ -40,7 +40,7 @@ func _run() -> void:
 	escape.pressed = true
 	app._unhandled_key_input(escape)
 	check(app.page == "pause" and paused, "Escape opens real pause")
-	check(app.pause_version.text == "v0.0.4.22" and app.pause_version.is_visible_in_tree(), "version visible in pause")
+	check(app.pause_version.text == "v0.0.5" and app.pause_version.is_visible_in_tree(), "version visible in pause")
 	check(not world.can_process() and app.can_process(), "world stops processing while menus remain active")
 	check(not player.actions.placing and not player.actions.breaking, "pause cancels both repeat timers")
 	check(Input.mouse_mode == Input.MOUSE_MODE_VISIBLE, "pause releases pointer")
@@ -53,7 +53,7 @@ func _run() -> void:
 	app.how_button.pressed.emit()
 	await process_frame
 	check(app.page == "help" and paused, "Comment jouer opens while game stays paused")
-	for text in ["Molette", "paramètres", "25 blocs", "5 blocs", "1200", "collines comprises", "réinitialisées"]:
+	for text in ["Molette", "paramètres", "25 blocs", "5 blocs", "1200", "collines comprises", "sauvegard"]:
 		check(app.help_text.text.contains(text), "help retains information: " + text)
 	app._unhandled_key_input(escape)
 	check(app.page == "pause" and paused, "Escape from help returns to pause without resuming")

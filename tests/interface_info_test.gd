@@ -44,7 +44,7 @@ func _run() -> void:
 	check(app.page == "home", "Escape returns from settings to home")
 	app.information_button.pressed.emit()
 	check(app.page == "information" and app.pages.information.get_child(0).text == "Génération des mondes", "home information opens generation section")
-	for text in ["largeur 128 × longueur 128", "largeur 41 × longueur 41", "hauteur maximale 25", "3 ou 4, hauteur maximale 3", "Graine choisie à la création", "constructions non sauvegardées"]:
+	for text in ["largeur 128 × longueur 128", "largeur 41 × longueur 41", "hauteur maximale 25", "3 ou 4, hauteur maximale 3", "Graine choisie à la création", "constructions et position sauvegardés"]:
 		check(app.generation_info.text.contains(text), "general information includes: " + text)
 	check(not app.generation_info.text.contains("Monde privé") and not app.generation_info.text.contains("123456789"), "home information contains no specific world name or seed")
 	check(not is_instance_valid(app.active_world) and not paused and Input.mouse_mode == Input.MOUSE_MODE_VISIBLE, "home screens do not start gameplay or capture pointer")

@@ -1,4 +1,4 @@
-# OrbMeka™ — prototype 0.0.4.22
+# OrbMeka™ — prototype 0.0.5
 
 Godot 4.7 / GDScript. Formes et couleurs simples ; assets externes seulement sous licence vérifiée (sons CC0, assets/sounds/CREDITS.txt).
 
@@ -13,7 +13,7 @@ Godot 4.7 / GDScript. Formes et couleurs simples ; assets externes seulement sou
    Un double-clic ou Entrée sur la liste permet aussi de l'ouvrir.
    **Renommer** modifie uniquement le nom, en conservant identité et graine.
    **Supprimer** demande confirmation avec le nom du monde ; **Annuler**
-   est sélectionné par défaut. Seules les métadonnées du monde choisi sont retirées.
+   est sélectionné par défaut. Le dossier du monde choisi est supprimé.
 5. Le monde se lance avec la souris directement capturée. **Échap** ouvre la pause et la libère.
 6. Pour quitter la partie : **F1**, ou Échap puis **Retour aux mondes** dans la pause.
    **F8** arrête une partie lancée par l'éditeur.
@@ -23,9 +23,9 @@ sélectionné. Échap revient du formulaire à la liste, puis de la liste à l'a
 La souris reste libre dans les menus ; lancer un monde la capture automatiquement.
 Le clic qui capture la souris ne casse ni ne pose de bloc.
 
-## Mondes conservés, constructions réinitialisées
+## Mondes sauvegardés (dossier par monde, 0.0.5)
 Chaque nouveau monde reçoit la graine saisie à la création, ou une graine aléatoire si le champ est vide.
-**Seuls son identifiant, son nom, sa graine et son mode sont conservés après fermeture.**
+Nom, graine, mode, **blocs posés et cassés, position et regard** sont sauvegardés.
 La liste est enregistrée localement dans le dossier de données Godot du jeu,
 fichier **user://worlds.json**. La graine est facultative à la création.
 
@@ -41,9 +41,9 @@ La mention « Mode développeur utilisé au moins une fois » reste alors,
 **définitive**, dans Informations du monde (F3), où s'affiche aussi le mode. Une copie garde le mode de l'original.
 Les mondes créés avant 0.0.3 sont en mode Par défaut.
 
-Réouvrir un monde utilise sa graine enregistrée et recrée son terrain initial.
-**Les blocs posés ou cassés et la position du joueur ne sont pas sauvegardés**,
-y compris lors d'un simple retour à la liste.
+Réouvrir un monde recalcule le terrain avec sa graine, puis applique les changements enregistrés.
+Sauvegarde : pause, retour aux mondes, fermeture (navigateur compris) et toutes les 45 s.
+Dossier : user://mondes/<identifiant>/ (monde.json, joueur.json, zones/modifications.json).
 
 Le nom est obligatoire, limité à 48 caractères. Les espaces aux extrémités
 sont retirés et un doublon de nom est refusé, sans distinction de majuscules.
@@ -99,7 +99,7 @@ ou génération infinie dans cette version.
 
 ## Organisation
 - scenes/main.tscn / scripts/app.gd : accueil, navigation, liste, création, retour de partie.
-- scripts/world_catalog.gd : noms/graines et enregistrement local des métadonnées.
+- scripts/world_catalog.gd : liste des mondes (worlds.json) ; scripts/world_store.gd : dossier de chaque monde.
 - scenes/world.tscn / scripts/world.gd : scène de jeu, blocs, base, ciel, aide et interactions.
 - scripts/terrain_generator.gd : profils et cellules déterministes, séparés de l'affichage.
 - scripts/player.gd : caméra, déplacements, collisions et commandes.
@@ -1576,3 +1576,27 @@ key_combos (accolade, Simultanément), settings_files (dossier parametres,
 copie sans écraser), character, controls.
 À tester manuellement : aspect de l'accolade et des ↻ de partie, rapidité
 ressentie, réglages bien retrouvés après la mise à jour.
+
+## Monde 1 : dossier et sauvegarde — 0.0.5
+Début de la série « Monde ».
+- **Un dossier par monde** : user://mondes/<identifiant>/ (Windows :
+  %APPDATA%\Godot\app_userdata\OrbMeka\mondes\).
+  - **monde.json** : nom, **graine**, mode, date de création, version du format.
+  - **joueur.json** : position et regard (le personnage reste celui de Paramètres).
+  - **zones/modifications.json** : blocs posés et cassés, seulement les
+    **différences** avec le terrain recalculé par la graine (format 1, prévu
+    pour être converti en zones puis en terrain lisse).
+- **Sauvegarde** : pause, retour aux mondes, Quitter, fermeture de la
+  fenêtre ou de l'onglet, et toutes les 45 s. Rechargement à l'ouverture.
+- **worlds.json reste l'index** (le plus simple : liste et anciens mondes
+  inchangés). Les mondes existants reçoivent leur dossier au premier lancement.
+- **Dupliquer** copie aussi constructions et position ; **Supprimer** efface
+  le dossier (après confirmation).
+- **Fichier illisible** : renommé « .illisible-<date> » et gardé, avec un
+  message ; jamais écrasé. Écriture sûre (fichier temporaire, puis remplacement).
+- **Paramètres du monde** affiche la graine et la taille du monde.
+
+Tests : world_save (sauvegarde, redémarrage en deux processus, migration,
+duplication, suppression, fichiers illisibles) ; tous les tests réussis.
+À tester manuellement : sauvegarde en fermant l'onglet du navigateur,
+absence de saccade pendant la sauvegarde régulière.

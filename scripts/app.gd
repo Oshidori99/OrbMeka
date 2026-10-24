@@ -9,6 +9,7 @@ func _ready() -> void:
 	get_window().min_size = MIN_WINDOW_SIZE
 	if catalog == null:
 		catalog = Catalog.new()
+	_watch_web_page()
 	if settings == null:
 		UserSettings.copy_old_files("user://", "user://".path_join(UserSettings.FOLDER))
 		settings = UserSettings.new()
@@ -82,7 +83,7 @@ func _build_interface() -> void:
 	launcher_button = _button("Aller au launcher", home, open_launcher)
 	# 0.0.4.18 : version Web à part : un navigateur ne lance pas de programme, pas de launcher.
 	launcher_button.visible = not OS.has_feature("web")
-	quit_button = _button("Quitter le jeu", home, func(): get_tree().quit())
+	quit_button = _button("Quitter le jeu", home, quit_game)
 	quit_button.visible = not OS.has_feature("web")
 	# 0.0.4.1 : écran à part (gris, sans le monde derrière). De haut en bas : Retour au jeu,
 	# dernières versions jouées (la plus récente en bas), gros bouton vert Jouer (dernière
@@ -261,10 +262,10 @@ func _build_interface() -> void:
 	var span := Terrain.MAX_CELL - Terrain.MIN_CELL + 1
 	var sizes := [int(WorldRules.BASE_SIZE.x), int(WorldRules.BASE_SIZE.z), span, span, WorldRules.MAX_BUILD_HEIGHT, Terrain.MAX_HEIGHT]
 	_explanation(information_page, [
-		"Base %d × %d, hauteur maximale %d. Constructions non sauvegardées." % [sizes[0], sizes[1], sizes[4]],
+		"Base %d × %d, hauteur maximale %d. Constructions sauvegardées." % [sizes[0], sizes[1], sizes[4]],
 		"Base plate : %d × %d blocs ; génération : %d × %d.
 Hauteur maximale : %d blocs ; 3 ou 4 collines de %d blocs au plus.
-Graine aléatoire si vide. Constructions non sauvegardées." % sizes,
+Graine aléatoire si vide. Constructions sauvegardées." % sizes,
 		"Base plate : largeur %d × longueur %d blocs (%s), sol à Y 0
 Zone de génération : largeur %d × longueur %d blocs (%s)
 Construction : hauteur maximale %d blocs au-dessus du sol plat, collines comprises (sommet à Y %d), %s.
@@ -272,8 +273,8 @@ Collines : 3 ou 4, hauteur maximale %d blocs (sommet à Y %d)
 %s
 
 Graine choisie à la création, ou aléatoire si le champ est vide.
-Nom, graine et mode conservés ; constructions non sauvegardées.
-Réouvrir un monde régénère son terrain initial.
+Nom, graine, mode, constructions et position sauvegardés (dossier du monde).
+Seules les différences avec le terrain de la graine sont enregistrées.
 F1 : revenir à la liste des mondes depuis la partie." % [sizes[0], sizes[1], WorldRules.base_range_text(), span, span, WorldRules.generation_range_text(), sizes[4], sizes[4], WorldRules.build_range_text(), sizes[5], sizes[5], WorldRules.COORDINATES_NOTE],
 	])
 	generation_info = information_page.get_child(-1)
@@ -311,7 +312,7 @@ F1 : revenir à la liste des mondes depuis la partie." % [sizes[0], sizes[1], Wo
 	form.add_child(name_label)
 	_explanation(form, ["", "Graine facultative : vide = aléatoire.", "Un nom de 1 à %d caractères suffit.
 Graine facultative : vide pour un terrain aléatoire.
-Nom, graine et mode conservés ; constructions non sauvegardées." % Catalog.MAX_NAME_LENGTH])
+Nom, graine, mode, constructions et position sauvegardés." % Catalog.MAX_NAME_LENGTH])
 	name_field = LineEdit.new()
 	name_field.placeholder_text = "Mon monde"
 	name_field.max_length = Catalog.MAX_NAME_LENGTH
@@ -538,6 +539,8 @@ func refresh_world_list(preferred_id: String = "") -> void:
 		for index in range(world_list.item_count):
 			if world_list.get_item_metadata(index) == preferred_id:
 				world_list.select(index)
+	if not catalog.repair_note.is_empty():
+		list_message.text += "\n" + catalog.repair_note
 	_update_world_actions()
 
 func _selected_world_id() -> String:
@@ -595,7 +598,8 @@ func _show_world_settings(item: Dictionary) -> void:
 	world_settings_text.text = _detail(["« %s » · Mode : %s" % [item.name, mode_name], "Monde : %s
 Mode : %s" % [item.name, mode_name], "Monde : %s
 Mode : %s
-%s" % [item.name, mode_name, plus]])
+%s" % [item.name, mode_name, plus]]) + "
+Graine : %d · Taille : %s" % [item.seed, Catalog.Store.size_text(catalog.world_size(item.id))]
 	world_developer_button.visible = not developer
 	world_default_button.visible = developer
 	show_page("world_settings")
@@ -646,7 +650,7 @@ func request_delete() -> void:
 		return
 	pending_world_id = item.id
 	delete_message.text = _detail(["« %s »" % item.name, "Supprimer le monde « %s » ?" % item.name, "Supprimer le monde « %s » ?
-Son nom et sa graine seront retirés de la liste." % item.name])
+Son dossier (nom, graine, constructions) sera supprimé." % item.name])
 	show_page("delete")
 
 func confirm_delete() -> void:
@@ -694,6 +698,7 @@ func open_world(id: String) -> void:
 	active_world.process_mode = Node.PROCESS_MODE_PAUSABLE
 	active_world.terrain_seed = item.seed
 	active_world.world_name = item.name
+	active_world.save_folder = catalog.world_folder(id)
 	active_world.text_scale = _text_scale()
 	var developer: bool = item.get("mode", Catalog.MODE_DEFAULT) == Catalog.MODE_DEVELOPER
 	active_world.developer_mode = developer
@@ -717,6 +722,7 @@ func return_to_worlds() -> void:
 	get_tree().paused = false
 	if is_instance_valid(active_world):
 		active_world.player.release_controls()
+		active_world.save_now()
 		remove_child(active_world)
 		active_world.queue_free()
 		active_world = null
@@ -726,12 +732,29 @@ func return_to_worlds() -> void:
 		showcase.camera.make_current()
 	show_page("worlds")
 
+func quit_game() -> void:
+	if is_instance_valid(active_world):
+		active_world.save_now()
+	get_tree().quit()
+
+# Navigateur : onglet caché ou fermé (pagehide) → sauvegarde, avant que la page ne s'arrête.
+func _watch_web_page() -> void:
+	if not OS.has_feature("web"):
+		return
+	web_hide_callback = JavaScriptBridge.create_callback(func(_args: Array):
+		if is_instance_valid(active_world):
+			active_world.save_now())
+	var page_window: JavaScriptObject = JavaScriptBridge.get_interface("window")
+	page_window.addEventListener("pagehide", web_hide_callback)
+	page_window.document.addEventListener("visibilitychange", web_hide_callback)
+
 func pause_game() -> void:
 	if page != "playing" or not is_instance_valid(active_world):
 		return
 	active_world.player.release_controls()
 	_send_combos(key_combos.release_all())
 	get_tree().paused = true
+	active_world.save_now()
 	show_page("pause")
 
 func open_history() -> void:
@@ -835,6 +858,9 @@ func _notification(what: int) -> void:
 	# Fenêtre quittée : les touches tenues ne seront pas relâchées ici.
 	if what == NOTIFICATION_APPLICATION_FOCUS_OUT:
 		_send_combos(key_combos.release_all())
+	# 0.0.5 : partie enregistrée en quittant la fenêtre ou en la fermant (onglet du navigateur compris).
+	if what in [NOTIFICATION_APPLICATION_FOCUS_OUT, NOTIFICATION_WM_CLOSE_REQUEST, NOTIFICATION_APPLICATION_PAUSED] and is_instance_valid(active_world):
+		active_world.save_now()
 	# Le fond 3D peut être hors de l'arbre pendant une partie : le libérer avec l'application.
 	if what == NOTIFICATION_PREDELETE and is_instance_valid(showcase) and not showcase.is_inside_tree():
 		showcase.free()
