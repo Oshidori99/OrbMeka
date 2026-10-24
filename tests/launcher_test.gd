@@ -61,8 +61,9 @@ func _run() -> void:
 	check(app.launcher_latest_button.theme_type_variation == "OrbLaunch" and app.launcher_arrow_button.theme_type_variation == "OrbLaunch" and app.launcher_arrow_button.text == "▼", "Jouer and ▼ are the green buttons")
 	check(app.launcher_latest_button.text.begins_with("▶ Jouer — 9.9.9.1"), "Jouer is always the latest version")
 	var page_items: Array = app.launcher_latest_button.get_parent().get_parent().get_children()
-	check(page_items.find(app.launcher_played) < page_items.find(app.launcher_latest_button.get_parent()) and page_items.find(app.launcher_latest_button.get_parent()) < page_items.find(app.launcher_scroll), "played versions above, all versions below Jouer")
-	var played_rows: Array = app.launcher_played.get_children().map(func(row): return row.get_child(0).text.get_slice(" ", 0))
+	# 0.0.4.16 : Jouer tout en bas de la page ; la liste ▼ juste au-dessus, les versions jouées plus haut.
+	check(page_items.find(app.launcher_played) < page_items.find(app.launcher_scroll) and page_items.find(app.launcher_scroll) == page_items.find(app.launcher_latest_button.get_parent()) - 1 and page_items[-1] == app.launcher_latest_button.get_parent(), "played versions, then all versions, then Jouer at the very bottom")
+	var played_rows: Array = app.launcher_played.get_children().filter(func(row): return row is HBoxContainer).map(func(row): return row.get_child(0).text.get_slice(" ", 0))
 	var expected_played: Array = Launcher.played()
 	check(played_rows == expected_played and played_rows[-1] == (current if Launcher.supported() else "0.0.3.6"), "played versions shown, last played at the bottom")
 	check(not app.launcher_scroll.visible, "all versions folded at first")

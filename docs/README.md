@@ -1,4 +1,4 @@
-# OrbMeka™ — prototype 0.0.4.15
+# OrbMeka™ — prototype 0.0.4.16
 
 Godot 4.7 / GDScript. Formes et couleurs simples ; assets externes seulement sous licence vérifiée (sons CC0, assets/sounds/CREDITS.txt).
 
@@ -1394,3 +1394,26 @@ settings_walk (ordre des catégories), numéro de version.
 Résultat : 46 tests, 0 échec.
 À tester manuellement : en mode développeur, ouvrir la pause → Attributs
 après avoir changé les vitesses, et voir les barres.
+
+## Launcher et menus plus lisibles — 0.0.4.16
+- **Launcher** : la page prend toute la hauteur de la fenêtre, **Jouer tout
+  en bas**. ▼ ouvre la liste des versions **au-dessus** de Jouer (la plus
+  récente tout en bas, les plus anciennes en haut), **6 versions** visibles
+  au plus, moins si la place manque ; les versions jouées restent au-dessus
+  (repliées seulement si la liste manque vraiment de place). Lignes plus
+  basses, marges réduites.
+- **Bug corrigé** : en ouvrant la liste ▼, le bas de la page sortait de la
+  fenêtre (tout n'était plus visible).
+- **Traits fins gris**, discrets, entre les lignes des menus (Paramètres,
+  Contrôles, launcher), pour suivre une ligne de gauche à droite.
+- **Espacements** : un peu moins entre les lignes, un peu plus entre les
+  catégories et les sous-titres.
+- **Attributs → Voler** en sous-catégories repliables : Normal, Rapide,
+  Monter et descendre.
+
+Test ajouté : tests/layout_lines_test.gd (Jouer en bas, liste au-dessus, 6
+versions, ouvrir/fermer plusieurs fois sans rien couper, traits, espacements,
+sous-catégories). Tests mis à jour : launcher (nouvel ordre), folds
+(sous-titres), numéro de version. Résultat : 47 tests, 0 échec.
+À tester manuellement : launcher (ouvrir ▼ plusieurs fois, petite fenêtre),
+lisibilité des traits et des espacements.

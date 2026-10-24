@@ -193,6 +193,16 @@ static func build(text_scale: float = 1.0, mode: String = "default", depth: bool
 	theme.set_type_variation("OrbSection", "RichTextLabel")
 	theme.set_font_size("normal_font_size", "OrbSection", scaled(22, text_scale))
 	theme.set_color("default_color", "OrbSection", c.section)
+	# 0.0.4.16 : trait fin et discret entre deux lignes des menus ; sous-titres (ex. Voler → Rapide).
+	theme.set_type_variation("OrbRowLine", "HSeparator")
+	var row_line := StyleBoxLine.new()
+	row_line.color = Color(0.55, 0.55, 0.58, 0.28)
+	row_line.thickness = 1
+	theme.set_stylebox("separator", "OrbRowLine", row_line)
+	theme.set_constant("separation", "OrbRowLine", 1)
+	theme.set_type_variation("OrbSubsection", "RichTextLabel")
+	theme.set_font_size("normal_font_size", "OrbSubsection", scaled(18, text_scale))
+	theme.set_color("default_color", "OrbSubsection", c.section)
 	# 0.0.4.14 : petits boutons Tout réduire / Tout développer / ouverture, en haut de Paramètres.
 	theme.set_type_variation("OrbFold", "Button")
 	theme.set_font_size("font_size", "OrbFold", scaled(14, text_scale))

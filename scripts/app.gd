@@ -40,7 +40,7 @@ Première action immédiate ; un délai plus court accélère la répétition."]
 	"Marche": {"keys": ["walk_forward", "walk_side", "walk_back"], "help": ["", "Vitesse au sol par direction.", "Vitesse au sol dans chaque direction (1 bloc = 1 m)."]},
 	"Courir": {"keys": ["run_forward", "run_side", "run_back"], "help": ["", "Vitesse quand on court.", "En courant (touche de Contrôles maintenue, R par défaut) : vitesse au sol dans chaque direction (1 bloc = 1 m). Se baisser l'emporte sur courir."]},
 	"Se baisser": {"keys": ["crouch_forward", "crouch_side", "crouch_back", "crouch_gravity"], "help": ["", "Vitesses et chute quand on se baisse.", "En se baissant (touche de Contrôles) : vitesse dans chaque direction, et gravité de chute, plus forte pour tomber plus vite."]},
-	"Voler": {"keys": ["fly_forward", "fly_side", "fly_back", "fly_run_forward", "fly_run_side", "fly_run_back", "fly_up", "fly_down"], "help": ["", "Vitesses en vol, et en volant vite.", "En vol (touche de Contrôles, Espace deux fois par défaut) : vitesse dans chaque direction, en volant vite (touche Courir, R par défaut, avec son mode), et pour monter (touche Sauter) ou descendre (touche Se baisser). Pas de gravité en vol."]},
+	"Voler": {"keys": ["fly_forward", "fly_side", "fly_back", "fly_run_forward", "fly_run_side", "fly_run_back", "fly_up", "fly_down"], "groups": {"Normal": ["fly_forward", "fly_side", "fly_back"], "Rapide": ["fly_run_forward", "fly_run_side", "fly_run_back"], "Monter et descendre": ["fly_up", "fly_down"]}, "help": ["", "Vitesses en vol, et en volant vite.", "En vol (touche de Contrôles, Espace deux fois par défaut) : vitesse dans chaque direction, en volant vite (touche Courir, R par défaut, avec son mode), et pour monter (touche Sauter) ou descendre (touche Se baisser). Pas de gravité en vol."]},
 	"Changer de vitesse": {"keys": ["speed_max", "speed_min", "speed_up_rate", "speed_down_rate"], "help": ["", "↑ ↓ + touche : vitesses ; ⌫ : par défaut. Limites et rapidité.", "↑ ou ↓ maintenue avec A : tout le déplacement (marche, course, baissé, vol) plus ou moins vite, peu à peu, en % de la vitesse normale ; avec W : la marche seule ; avec R : la course seule ; avec clic gauche ou droit : la casse ou la pose (mode développeur seulement). ⌫ + la même touche : cette valeur par défaut ; ⌫ deux fois : tout par défaut. Vitesse maximale et minimale : limites en mode développeur (monde par défaut : 75 à 150 %). Rapidités : % gagnés ou perdus par seconde."]},
 	"Vitesses actuelles": {"keys": ["current_speed", "current_walk", "current_run", "current_break", "current_place"], "help": ["", "Où en sont les vitesses, en direct.", "Position actuelle des vitesses réglées en jeu avec ↑ ↓ (+ A : déplacement, + W : marche, + R : course, + clic : casse ou pose), en % de la normale. Les barres bougent en direct ; on peut aussi les régler ici. Gardées dans les limites de Changer de vitesse."]},
 	"Vue": {"keys": ["eye_height"], "help": ["", "Hauteur de la vue, en blocs.", "Hauteur des yeux au-dessus des pieds, en blocs : 1 = vue à un bloc du sol, 2 = à deux blocs. Deux décimales possibles (ex. 1,9 ou 2,15)."]},
@@ -62,7 +62,9 @@ const GENERAL_CATEGORIES := {
 }
 # Menu latéral de Paramètres : sections dans l'ordre des boutons ; la première s'ouvre par défaut.
 const SETTINGS_SECTIONS := {"general": "Paramètres généraux", "video": "Vidéo", "controls": "Contrôles", "character": "Personnage", "attributes": "Attributs"}
-const CATEGORY_GAP := 22.0
+# 0.0.4.16 : plus d'espace entre catégories, moins entre les lignes (séparées par un trait fin).
+const CATEGORY_GAP := 30.0
+const ROW_GAP := 4
 const SLIDER_WIDTH := 150.0
 
 var settings: RefCounted
@@ -173,6 +175,9 @@ var launcher_played_buttons: Dictionary = {}
 var launcher_screen: ColorRect
 var launcher_list: VBoxContainer
 var launcher_scroll: ScrollContainer
+var launcher_box: VBoxContainer
+# 0.0.4.16 : versions visibles à la fois dans la liste ▼ (moins si la fenêtre est petite).
+const LAUNCHER_LIST_ROWS := 6
 var launcher_back_button: Button
 var launcher_play_buttons: Dictionary = {}
 var launcher_thread: Thread
@@ -366,7 +371,15 @@ func _explanation(parent: Node, text: Variant) -> void:
 	else:
 		label.text = text
 
+# 0.0.4.16 : trait fin et discret entre deux lignes, pour suivre une ligne de gauche à droite.
+func _row_line(parent: Node) -> void:
+	if parent.get_children().any(func(child): return child is HBoxContainer):
+		var line := HSeparator.new()
+		line.theme_type_variation = "OrbRowLine"
+		parent.add_child(line)
+
 func _add_setting_row(parent: Node, key: String) -> void:
+	_row_line(parent)
 	if UserSettings.CHOICES.has(key):
 		_add_choice_row(parent, key)
 		return
@@ -517,6 +530,7 @@ func _build_controls_section(parent: Node) -> void:
 	var menus_body := _fold_body(list)
 	_make_foldable(control_group_labels.Menus, menus_body, "controls:Menus")
 	for entry in Controls.MENU_KEYS:
+		_row_line(menus_body)
 		var menu_row := HBoxContainer.new()
 		_sep(menu_row, 10)
 		menus_body.add_child(menu_row)
@@ -533,6 +547,7 @@ func _build_controls_section(parent: Node) -> void:
 
 # Une ligne de Contrôles : action, touche, deuxième touche, ✕, ↻.
 func _add_control_row(list: Node, action: String) -> void:
+	_row_line(list)
 	var row := HBoxContainer.new()
 	_sep(row, 10)
 	list.add_child(row)
@@ -807,7 +822,7 @@ func reset_all_controls() -> void:
 # 0.0.4.14 : bloc sous un titre, caché quand le titre est réduit.
 func _fold_body(parent: Node) -> VBoxContainer:
 	var body := VBoxContainer.new()
-	_sep(body, 10)
+	_sep(body, ROW_GAP)
 	parent.add_child(body)
 	return body
 
@@ -890,6 +905,20 @@ func _add_setting_category(parent: Node, category: String, data: Dictionary) -> 
 	var body := _fold_body(parent)
 	_make_foldable(header.get_child(0), body, "cat:" + category)
 	_explanation(body, data.help)
+	# 0.0.4.16 : sous-catégories (ex. Voler : Normal, Rapide, Monter et descendre), repliables aussi.
+	if data.has("groups"):
+		for group in data.groups:
+			var sub_gap := Control.new()
+			_min_size(sub_gap, Vector2(0, 10))
+			body.add_child(sub_gap)
+			_explanation(body, group)
+			var subtitle: Node = body.get_child(-1)
+			subtitle.theme_type_variation = "OrbSubsection"
+			var group_body := _fold_body(body)
+			_make_foldable(subtitle, group_body, "sub:%s/%s" % [category, group])
+			for key in data.groups[group]:
+				_add_setting_row(group_body, key)
+		return
 	for key in data.keys:
 		_add_setting_row(body, key)
 
@@ -1140,6 +1169,7 @@ func _build_interface() -> void:
 	# version) avec ▼ qui déplie toutes les versions en dessous, la dernière tout en bas.
 	var launcher_page := _page(stack, "OrbMeka — Launcher")
 	pages.launcher = _page_root(launcher_page)
+	launcher_box = launcher_page
 	launcher_back_button = _button("Retour au jeu", launcher_page, func(): show_page("home"))
 	launcher_back_button.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
 	launcher_back_button.theme_type_variation = "OrbLauncherButton"
@@ -1152,8 +1182,20 @@ func _build_interface() -> void:
 	launcher_played_title.theme_type_variation = "OrbSection"
 	launcher_page.add_child(launcher_played_title)
 	launcher_played = VBoxContainer.new()
-	_sep(launcher_played, 6)
+	_sep(launcher_played, 2)
 	launcher_page.add_child(launcher_played)
+	# 0.0.4.16 : la page prend toute la hauteur ; la liste ▼ s'ouvre au-dessus de Jouer, tout en bas.
+	var launcher_spacer := Control.new()
+	launcher_spacer.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	launcher_page.add_child(launcher_spacer)
+	launcher_scroll = ScrollContainer.new()
+	launcher_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	launcher_page.add_child(launcher_scroll)
+	launcher_list = VBoxContainer.new()
+	launcher_list.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_sep(launcher_list, 2)
+	launcher_scroll.add_child(launcher_list)
+	launcher_scroll.visible = false
 	var play_row := HBoxContainer.new()
 	_sep(play_row, 4)
 	launcher_page.add_child(play_row)
@@ -1166,16 +1208,6 @@ func _build_interface() -> void:
 	launcher_arrow_button.toggle_mode = true
 	launcher_arrow_button.tooltip_text = "Choisir une autre version"
 	_min_size(launcher_arrow_button, Vector2(64, 64))
-	launcher_scroll = ScrollContainer.new()
-	launcher_scroll.custom_minimum_size = Vector2(0, 260)
-	menu_reserved_heights[launcher_scroll] = 200.0
-	launcher_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
-	launcher_page.add_child(launcher_scroll)
-	launcher_list = VBoxContainer.new()
-	launcher_list.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	_sep(launcher_list, 6)
-	launcher_scroll.add_child(launcher_list)
-	launcher_scroll.visible = false
 	var history_page := _page(stack, "Historique des versions")
 	pages.history = _page_root(history_page)
 	history_scroll = ScrollContainer.new()
@@ -1497,7 +1529,34 @@ func _fit_height() -> void:
 	var view := get_viewport().get_visible_rect().size
 	var frame: float = menu_panel.get_theme_stylebox("panel").get_minimum_size().y
 	var available := maxf(SCROLL_MIN_HEIGHT, view.y - frame - 2.0 * WINDOW_MARGIN)
+	if page == "launcher" and is_instance_valid(launcher_box):
+		_fit_launcher(available)
 	menu_scroll.custom_minimum_size.y = minf(menu_stack.get_combined_minimum_size().y, available)
+
+# 0.0.4.16 : launcher sur toute la hauteur de la fenêtre, Jouer tout en bas ; la liste ▼ montre
+# LAUNCHER_LIST_ROWS versions au plus, et moins si la place manque : rien n'est coupé.
+func _fit_launcher(available: float) -> void:
+	launcher_scroll.custom_minimum_size.y = 0.0
+	launcher_box.custom_minimum_size.y = 0.0
+	# Versions jouées montrées, sauf si la liste ouverte manque de place (au moins 3 lignes).
+	var has_played := launcher_played.get_child_count() > 0
+	launcher_played.visible = true
+	launcher_played_title.visible = has_played
+	var overhead := menu_stack.get_combined_minimum_size().y - launcher_box.get_combined_minimum_size().y
+	var inner := available - overhead
+	if launcher_scroll.visible:
+		var row_height := 46.0
+		for child in launcher_list.get_children():
+			if child is HBoxContainer:
+				row_height = child.get_combined_minimum_size().y + float(launcher_list.get_theme_constant("separation"))
+				break
+		var free := inner - launcher_box.get_combined_minimum_size().y
+		if free < row_height * 3.0 and has_played:
+			launcher_played.visible = false
+			launcher_played_title.visible = false
+			free = inner - launcher_box.get_combined_minimum_size().y
+		launcher_scroll.custom_minimum_size.y = clampf(free, row_height, row_height * LAUNCHER_LIST_ROWS)
+	launcher_box.custom_minimum_size.y = maxf(inner, launcher_box.get_combined_minimum_size().y)
 
 func _queue_fit() -> void:
 	# Le contenu a changé de taille (texte replié, page changée) : réajuster une fois, plus tard.
@@ -1520,7 +1579,8 @@ func _update_backdrop() -> void:
 		var panel_box := StyleBoxFlat.new()
 		panel_box.bg_color = UiTheme.LAUNCHER_PANEL
 		panel_box.set_corner_radius_all(6)
-		panel_box.set_content_margin_all(24)
+		# 0.0.4.16 : marges réduites, pour la place.
+		panel_box.set_content_margin_all(12)
 		menu_panel.add_theme_stylebox_override("panel", panel_box)
 	else:
 		menu_panel.remove_theme_stylebox_override("panel")
@@ -1842,8 +1902,6 @@ func fill_launcher() -> void:
 	# Dernières versions jouées : la plus récente en bas.
 	var played := Launcher.played()
 	launcher_played_title.visible = not played.is_empty()
-	# Place laissée au reste de la page (titre, versions jouées, Jouer) : la liste ▼ tient dans la fenêtre.
-	menu_reserved_heights[launcher_scroll] = 340.0 + 40.0 * played.size()
 	fit_menus_to_window()
 	for version in played:
 		launcher_played_buttons[version] = _launcher_row(launcher_played, version, names.get(version, ""), busy)
@@ -1875,6 +1933,7 @@ func fill_launcher() -> void:
 
 # Ligne « 0.0.3.27 — Nom » et son bouton (Ouverte, Jouer ou Installer et jouer).
 func _launcher_row(parent: Node, version: String, version_name: String, busy: bool) -> Button:
+	_row_line(parent)
 	var row := HBoxContainer.new()
 	_sep(row, 10)
 	parent.add_child(row)
@@ -1887,7 +1946,8 @@ func _launcher_row(parent: Node, version: String, version_name: String, busy: bo
 	var button := _button(text, row, func(): play_version(version))
 	button.theme_type_variation = "OrbLauncherButton"
 	label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	_min_size(button, Vector2(170, 0))
+	# 0.0.4.16 : lignes plus basses, pour voir plus de versions.
+	_min_size(button, Vector2(170, 30))
 	button.disabled = busy or not Launcher.supported()
 	return button
 

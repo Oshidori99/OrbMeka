@@ -48,7 +48,7 @@ func _run() -> void:
 	var general_count := 0
 	for section in app.GENERAL_CATEGORIES:
 		general_count += app.GENERAL_CATEGORIES[section].size()
-	check(app.fold_entries.size() == app.ATTRIBUTE_CATEGORIES.size() + general_count + 4 + Controls.OPTIONS.size(), "attributes, general, video, controls and modes titles")
+	check(app.fold_entries.size() == app.ATTRIBUTE_CATEGORIES.size() + general_count + 4 + Controls.OPTIONS.size() + app.ATTRIBUTE_CATEGORIES.Voler.groups.size(), "attributes, general, video, controls, modes and Voler sub-titles")
 	check(app.fold_entries.keys().all(func(key): return not app.is_folded(key) and app.fold_entries[key].title.text.begins_with("▾ ")), "all developed at first, ▾")
 	# Un clic sur un titre.
 	var marche: Dictionary = app.fold_entries["cat:Marche"]

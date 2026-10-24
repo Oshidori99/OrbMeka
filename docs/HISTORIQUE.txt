@@ -3,6 +3,10 @@ Du plus récent au plus ancien. Ce fichier est mis à jour à chaque version.
 
 === Thème « Menus et Paramètres 2 » (0.0.4 et suivantes) ===
 
+0.0.4.16 — Launcher et menus plus lisibles
+Launcher : Jouer tout en bas, liste ▼ au-dessus (6 versions), plus rien de coupé ; traits fins gris
+entre les lignes des menus ; Voler en sous-catégories ; espacements revus.
+
 0.0.4.15 — Vitesses actuelles
 Attributs → Vitesses actuelles : déplacement, marche, course, casse, pose ; les touches de vitesse
 les changent en direct (champ et barre) dans un monde en mode développeur.
