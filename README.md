@@ -1,8 +1,8 @@
-# OrbMeka™ 0.0.5.6
+# OrbMeka™ 0.0.5.7
 
 Dans Godot, ouvrez **project.godot**, puis **F5** pour lancer le jeu.
 
-0.0.5.6 : vitrine de l'accueil refaite : sol plat, gazon, plage de sable (plus de collines ni de tour).
+0.0.5.7 : herbe haute (environ 40 cm, deux fois plus de brins) et sol vert plus clair, aussi sur le Web.
 0.0.5.5 : monde tout plat, sans bloc au départ ; plage de sable réaliste (grains, rides de vent) près de l'apparition.
 0.0.5.4 : gazon dense, brins de 3 à 7 cm balancés par le vent ; Densité de l'herbe dans Vidéo ; FPS plus visibles.
 0.0.5.3 : FPS discrets en jeu ; date et heure de création dans Informations du monde (pause/F3).

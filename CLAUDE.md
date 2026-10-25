@@ -85,6 +85,6 @@ L'utilisateur peut lancer Claude Code dans le cloud depuis son téléphone, sur 
 5. Commit sur `dev`, puis fusionner dans `main` (`git checkout main`, `git merge dev`),
    créer le tag (`git tag vX.Y.Z`), pousser (`git push origin main dev vX.Y.Z`), revenir sur `dev`.
    Vérifier que l'Action Build est verte et que la Release existe.
-6. Archive : copie du dossier du jeu (sans .git/) dans « ..\Archives OrbMeka\orb-meka X.Y.Z » (dossier Godot, à côté d'orb-meka). Ne jamais écraser une archive existante.
+6. Archive : copie du dossier du jeu (sans .git/ ni .godot/, le cache se recrée) dans « ..\Archives OrbMeka\orb-meka X.Y.Z » (dossier Godot, à côté d'orb-meka). Ne jamais écraser une archive existante.
 
 gh CLI : "C:\Program Files\GitHub CLI\gh.exe" (connecté en Oshidori99).

@@ -52,7 +52,8 @@ void fragment() {
 		float top = smoothstep(0.64,0.94,n.y);
 		float lip = 1.0-smoothstep(0.035,0.14,1.0-fract(p.y+0.002)+(noise3(p*13.0)-0.5)*0.055);
 		float cover = max(top,lip*0.62);
-		if (ground_surface) { cover = top; grass *= 0.62; }
+		// 0.0.5.7 : sol plat plus clair (il paraissait noir sur le Web), proche de la couleur des brins.
+		if (ground_surface) { cover = top; grass = mix(grass * 1.25, vec3(0.16,0.27,0.06), 0.35); }
 		albedo = mix(soil,grass,cover);
 		float detail_fade = 1.0-smoothstep(8.0,35.0,length(VERTEX));
 		height = mix(clods*0.004+grains*0.0006,fibers*0.0015,cover)*detail_fade;

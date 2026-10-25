@@ -9,11 +9,12 @@ static func surface(ground := false, dirt := false) -> ShaderMaterial:
 	material.set_shader_parameter("dirt_surface",dirt)
 	return material
 
-# 0.0.5.4 : gazon dense, brins de 3 à 7 cm (environ 5 cm), regroupés en carrés de 50 cm (PATCH).
+# 0.0.5.4 : gazon dense, regroupé en carrés de 50 cm (PATCH). 0.0.5.7 : brins 8 fois plus longs,
+# de 24 à 56 cm (environ 40 cm), un peu plus larges et plus penchés, et deux fois plus nombreux.
 # Densité (Paramètres → Vidéo → Densité de l'herbe) : brins par carré, donc par m² × 4.
 const GRASS_SHADER = preload("res://shaders/grass_blades.gdshader")
 const PATCH := 0.5
-const BLADES := {"low": 40, "medium": 100, "high": 220}
+const BLADES := {"low": 80, "medium": 200, "high": 440}
 # Herbe visible jusqu'à cette distance (m) ; au-delà, la surface verte du sol suffit.
 const GRASS_RANGE := 24.0
 static var density := "medium"
@@ -31,9 +32,9 @@ static func grass_mesh() -> ArrayMesh:
 	for index in range(BLADES.get(density, BLADES.medium)):
 		var base := Vector3(rng.randf_range(-PATCH, PATCH) * 0.5, 0.0, rng.randf_range(-PATCH, PATCH) * 0.5)
 		var facing := rng.randf() * TAU
-		var side := Vector3(cos(facing), 0.0, sin(facing)) * rng.randf_range(0.0025, 0.0045)
-		var lean := Vector3(-sin(facing), 0.0, cos(facing)) * rng.randf_range(-0.03, 0.03)
-		var tip := base + lean + Vector3(0.0, rng.randf_range(0.03, 0.07), 0.0)
+		var side := Vector3(cos(facing), 0.0, sin(facing)) * rng.randf_range(0.004, 0.008)
+		var lean := Vector3(-sin(facing), 0.0, cos(facing)) * rng.randf_range(-0.15, 0.15)
+		var tip := base + lean + Vector3(0.0, rng.randf_range(0.24, 0.56), 0.0)
 		var normal := Vector3(-sin(facing), 0.4, cos(facing)).normalized()
 		for point in [[base - side, 0.0], [tip, 1.0], [base + side, 0.0]]:
 			tool.set_normal(normal)

@@ -1,6 +1,16 @@
-# OrbMeka™ — prototype 0.0.5.6
+# OrbMeka™ — prototype 0.0.5.7
 
 Godot 4.7 / GDScript. Formes et couleurs simples ; assets externes seulement sous licence vérifiée (sons CC0, assets/sounds/CREDITS.txt).
+
+## 0.0.5.7 — Herbe haute
+- Brins d'herbe de 24 à 56 cm (environ 40 cm, 8 fois plus longs), un peu plus larges,
+  plus penchés et balancés plus fort par le vent.
+- Deux fois plus de brins pour chaque densité (Basse 80, Moyenne 200, Haute 440 par carré de 50 cm).
+- Sol vert plus clair, proche des brins : au loin, il paraissait presque noir sur le Web.
+
+Tests : terrain_visuals vérifie la hauteur et le nombre de brins ; tests choisis réussis.
+Captures comparées en rendu PC et Web (Compatibility).
+À tester manuellement : aspect de l'herbe et FPS, surtout sur le Web (baisser la densité si le jeu ralentit).
 
 ## 0.0.5.6 — Vitrine de l'accueil à jour (#126)
 - Le fond 3D de l'accueil montre ce qui existe dans le jeu : sol plat, gazon réaliste

@@ -1,8 +1,8 @@
 shader_type spatial;
-// 0.0.5.4 : brins d'herbe fins (3 à 7 cm), base sombre et pointe claire, balancés par un vent léger.
+// 0.0.5.4 : brins d'herbe fins (0.0.5.7 : 24 à 56 cm), base sombre et pointe claire, balancés par un vent léger.
 // UV.y : 0 à la base, 1 à la pointe. Couleur propre à chaque brin selon sa position dans le monde.
 render_mode cull_disabled, diffuse_burley, specular_disabled;
-uniform float wind_strength = 0.012;
+uniform float wind_strength = 0.06;
 varying float blade_shade;
 
 float hash2(vec2 p) {

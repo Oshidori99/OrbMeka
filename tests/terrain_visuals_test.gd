@@ -21,6 +21,10 @@ func _run() -> void:
 	check(world.block_material is ShaderMaterial, "original procedural earth shader assigned")
 	check(world.get_node("Ground").get_child(0).material_override is ShaderMaterial, "grass ground uses original procedural surface")
 	check(world.find_children("GrassDetail","MultiMeshInstance3D",true,false).size()>0, "grass tufts generated")
+	# 0.0.5.7 : brins de 24 à 56 cm, 200 par carré de 50 cm en densité moyenne.
+	var patch: ArrayMesh = world.find_children("GrassDetail","MultiMeshInstance3D",true,false)[0].multimesh.mesh
+	check(patch.get_aabb().size.y > 0.5 and patch.get_aabb().size.y <= 0.57, "grass blades about 40 cm tall, up to 56 cm")
+	check(patch.surface_get_array_len(0) == 200 * 3, "medium density has 200 blades per 50 cm patch")
 	check(world.save_folder.is_empty(), "visual test never opens personal world storage")
 	var before: Dictionary = world.blocks.duplicate()
 	check(not world.break_target({}) and not world.place_target({},2), "public edit entry points disabled")

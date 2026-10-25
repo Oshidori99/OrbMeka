@@ -3,6 +3,9 @@ Du plus récent au plus ancien. Ce fichier est mis à jour à chaque version.
 
 === Thème « Monde » (0.0.5 et suivantes) ===
 
+0.0.5.7 — Herbe haute
+Brins d'environ 40 cm (8 fois plus longs), deux fois plus nombreux ; sol vert plus clair (il paraissait noir sur le Web).
+
 0.0.5.6 — Vitrine de l'accueil à jour
 L'accueil montre le monde actuel : sol plat, gazon et plage de sable ; plus de collines ni de tour de pierre.
 
