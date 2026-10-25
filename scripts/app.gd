@@ -716,6 +716,7 @@ func open_world(id: String) -> void:
 	active_world.player.speeds_changed.connect(_on_player_speeds)
 	active_world.player.click_modifiers = Controls.click_modifiers(settings.controls)
 	active_world.player.move_blocks = Controls.blocked_moves(settings.controls)
+	active_world.player.wheel_modifiers = Controls.wheel_modifiers(settings.controls)
 	# Opening from a menu is an explicit request to play immediately.
 	active_world.player.resume_controls()
 
@@ -804,22 +805,31 @@ func resume_game() -> void:
 func _unhandled_key_input(event: InputEvent) -> void:
 	if not event.is_pressed() or event.is_echo():
 		return
+	_menu_shortcut(event)
+
+# 0.0.5.10 : raccourcis en combinaison (touches modifiables) : ils arrivent comme des actions.
+func _unhandled_input(event: InputEvent) -> void:
+	if event is InputEventAction and event.is_pressed():
+		_menu_shortcut(event)
+
+# F1 à F3 par défaut, modifiables depuis 0.0.5.10 (Contrôles → Raccourcis) ; Échap reste réservé.
+func _menu_shortcut(event: InputEvent) -> void:
 	# Paramètres ouverts depuis la pause comptent comme une page de la partie (F1, F2, F3).
 	var in_game_pages := ["playing", "pause", "help", "world_info", "settings"] if is_instance_valid(active_world) else ["playing", "pause", "help", "world_info"]
-	if page in in_game_pages and event is InputEventKey and event.keycode == KEY_F1:
+	if page in in_game_pages and event.is_action_pressed("worlds_menu"):
 		return_to_worlds()
 		get_viewport().set_input_as_handled()
-	elif is_instance_valid(active_world) and page in in_game_pages and event is InputEventKey and event.keycode in [KEY_F2, KEY_F3]:
+	elif is_instance_valid(active_world) and page in in_game_pages and (event.is_action_pressed("help_page") or event.is_action_pressed("world_info_page")):
 		if page == "playing":
 			pause_game()
 		else:
 			show_page("pause")
-		if event.keycode == KEY_F2:
+		if event.is_action_pressed("help_page"):
 			open_help()
 		else:
 			open_world_info()
 		get_viewport().set_input_as_handled()
-	elif event.is_action_pressed("ui_cancel"):
+	elif event is InputEventKey and event.is_action_pressed("ui_cancel"):
 		_cancel_page()
 		get_viewport().set_input_as_handled()
 

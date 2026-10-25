@@ -1,6 +1,21 @@
-# OrbMeka™ — prototype 0.0.5.9
+# OrbMeka™ — prototype 0.0.5.10
 
 Godot 4.7 / GDScript. Formes et couleurs simples ; assets externes seulement sous licence vérifiée (sons CC0, assets/sounds/CREDITS.txt).
+
+## 0.0.5.10 — Touches modifiables et corrections des pinceaux
+- Paramètres → Contrôles → Blocs : « Pinceau suivant » (B + T), « Geste plus grand » (B + molette bas)
+  et « Geste plus petit » (B + molette haut) se changent comme les autres touches.
+- Nouvelle partie Raccourcis : Retour aux mondes (F1), Comment jouer (F2), Informations du monde (F3),
+  Changer de vue (F4), modifiables. Seule Échap (pause) reste réservée.
+- Aplanir et lisser n'ajoutent plus jamais de matière : aplanir coupe les bosses, lisser adoucit ;
+  seul Poser ajoute du sable ou de la terre.
+- Terre posée sur la plage : elle reste de la terre (avant, la plage la peignait en sable).
+- Le terrain est enregistré point par point (gestes « figés » dans la grille) : en revenant dans le
+  monde, il est exactement le même.
+
+Tests : controls, controls_groups, views, menu, pause, pause_settings, shortcuts_selection et
+smooth_terrain mis à jour ; tests choisis réussis. Capture Web : terre sur la plage.
+À tester manuellement : changer ces touches et les utiliser en jeu, aplanir près d'un trou.
 
 ## 0.0.5.9 — Pinceaux du terrain (#120)
 - Clic droit : pinceau choisi avec **B + T** (Poser → Aplanir → Lisser). Clic gauche : toujours creuser.

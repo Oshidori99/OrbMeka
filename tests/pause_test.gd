@@ -91,6 +91,7 @@ func _run() -> void:
 	app.open_help()
 	var key := InputEventKey.new()
 	key.keycode = KEY_F1
+	key.physical_keycode = KEY_F1
 	key.pressed = true
 	app._unhandled_key_input(key)
 	check(app.page == "worlds" and not paused and not is_instance_valid(app.active_world), "F1 exits help to world list and clears pause")

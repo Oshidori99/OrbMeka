@@ -67,10 +67,11 @@ func _run() -> void:
 	app.control_buttons.jump.pressed.emit()
 	press_key(KEY_ESCAPE)
 	check(app.page == "settings" and settings.controls.jump == Controls.normalize({}) and InputMap.action_get_events("jump").is_empty() and app.control_buttons.jump.text == "Aucune", "Escape leaves the action without any key")
-	# Touches réservées refusées.
+	# 0.0.5.10 : F1 n'est plus réservée (seul Échap l'est) : elle peut être choisie.
 	app.control_buttons.jump.pressed.emit()
 	press_key(KEY_F1)
-	check(app.capturing_action == "jump" and app.page == "settings" and settings.controls.jump == Controls.normalize({}), "F1 is refused, still waiting")
+	check(settings.controls.jump == Controls.normalize({"key": KEY_F1}), "F1 can be chosen (0.0.5.10)")
+	app.control_buttons.jump.pressed.emit()
 	# Boutons de souris : clic molette, molette, clic gauche.
 	press_mouse(MOUSE_BUTTON_MIDDLE)
 	check(settings.controls.jump == Controls.normalize({"mouse": MOUSE_BUTTON_MIDDLE}) and has_mouse("jump", MOUSE_BUTTON_MIDDLE), "middle click can be chosen")
@@ -90,7 +91,7 @@ func _run() -> void:
 	check(reloaded.controls.move_left == Controls.normalize({"key": KEY_J}) and FileAccess.file_exists(settings.controls_path()), "controls saved in controles.json and reloaded")
 	var damaged := settings.controls_path() + ".bad.json"
 	var file := FileAccess.open(settings.controls_path(), FileAccess.WRITE)
-	file.store_string('{"jump": {"key": 4194332}, "move_back": "x"}')
+	file.store_string('{"jump": {"key": 4194305}, "move_back": "x"}')
 	file.close()
 	var bad := Settings.new(fixture)
 	check(not bad.load_notice.is_empty() and bad.controls.jump == Controls.default_for("jump") and bad.controls.move_back == Controls.default_for("move_back"), "invalid or reserved saved keys fall back to defaults")

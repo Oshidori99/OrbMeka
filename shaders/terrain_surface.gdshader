@@ -70,7 +70,8 @@ void fragment() {
 	}
 	if (ground_surface && sand_radius > 0.0) {
 		float edge = length(p.xz - sand_center) + (fbm(vec3(p.x, 0.0, p.z) * 0.9) - 0.5) * 1.4;
-		beach = max(beach, 1.0 - smoothstep(sand_radius - 0.3, sand_radius, edge));
+		// 0.0.5.10 : la terre posée (bleu à 0) reste de la terre, même sur la plage.
+		beach = max(beach, (1.0 - smoothstep(sand_radius - 0.3, sand_radius, edge)) * tint.b);
 	}
 	vec3 grass_albedo = albedo;
 	float grass_height = height;

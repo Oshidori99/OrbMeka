@@ -3,6 +3,9 @@ Du plus récent au plus ancien. Ce fichier est mis à jour à chaque version.
 
 === Thème « Monde » (0.0.5 et suivantes) ===
 
+0.0.5.10 — Touches modifiables et corrections des pinceaux
+Pinceau, taille du geste et F1 à F4 modifiables ; aplanir et lisser n'ajoutent plus de matière ; terre posée visible sur la plage.
+
 0.0.5.9 — Pinceaux du terrain
 Clic droit : poser, aplanir ou lisser (B + T) ; sable ou terre ; taille 1/8, 1/4 ou 1/2 bloc (B + molette).
 

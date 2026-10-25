@@ -22,7 +22,7 @@ func _build_controls_section(parent: Node) -> void:
 	var list := VBoxContainer.new()
 	_sep(list, 10)
 	inset.add_child(list)
-	_explanation(list, ["", "Cliquez une touche puis appuyez sur la nouvelle. Échap : aucune. + : options et combinaisons.", "Cliquez une touche, puis appuyez sur la touche ou le bouton de souris voulu (molette comprise). Échap : aucune touche. + : Nouvelle option (une autre façon de faire l'action), Simultanément (accolade sous les touches), Appuyer après (→ ; 0,5 s au plus entre deux, la même touche deux fois = double appui) ; 4 touches et 3 options au plus. ✕ retire une touche ou une option. Les flèches ← → restent toujours actives pour aller de côté. Celles des Menus (Échap, F1 à F4) sont réservées."])
+	_explanation(list, ["", "Cliquez une touche puis appuyez sur la nouvelle. Échap : aucune. + : options et combinaisons.", "Cliquez une touche, puis appuyez sur la touche ou le bouton de souris voulu (molette comprise). Échap : aucune touche. + : Nouvelle option (une autre façon de faire l'action), Simultanément (accolade sous les touches), Appuyer après (→ ; 0,5 s au plus entre deux, la même touche deux fois = double appui) ; 4 touches et 3 options au plus. ✕ retire une touche ou une option. Les flèches ← → restent toujours actives pour aller de côté. Seule Échap (Menus) est réservée ; F1 à F4 se changent dans Raccourcis."])
 	# Parties (0.0.4.8) : Mouvements, Blocs, Vitesses, puis Menus (touches réservées).
 	for group in Controls.GROUPS:
 		_explanation(list, group)
@@ -473,6 +473,7 @@ func _apply_controls() -> void:
 	if is_instance_valid(active_world):
 		active_world.player.click_modifiers = Controls.click_modifiers(settings.controls)
 		active_world.player.move_blocks = Controls.blocked_moves(settings.controls)
+		active_world.player.wheel_modifiers = Controls.wheel_modifiers(settings.controls)
 
 # Changements des actions à deux touches, lus par le jeu comme les autres touches.
 func _send_combos(changes: Array) -> void:

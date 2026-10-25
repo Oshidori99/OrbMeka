@@ -106,6 +106,8 @@ var place_base := 0.3
 const Controls = preload("res://scripts/controls.gd")
 var click_modifiers: Array = Controls.click_modifiers(Controls.defaults())
 var move_blocks: Dictionary = Controls.blocked_moves(Controls.defaults())
+# 0.0.5.10 : touches qui, tenues, font de la molette un réglage (taille du geste) : pas de changement de matière.
+var wheel_modifiers: Array = Controls.wheel_modifiers(Controls.defaults())
 # Voler (0.0.4.5) : touche Voler (Espace deux fois) pour commencer ou arrêter ; sans gravité, Sauter monte,
 # Se baisser descend. Vitesses dans Attributs → Voler ; ↑ ↓ les changent aussi.
 const FLY_SPEED := 10.0
@@ -176,6 +178,9 @@ func _input(event: InputEvent) -> void:
 func _unhandled_input(event: InputEvent) -> void:
 	if Engine.get_process_frames() <= input_ready_frame:
 		return
+	# Changer de vue en combinaison (0.0.5.10, touche modifiable) : arrive comme une action.
+	if event is InputEventAction and event.is_action_pressed("change_view"):
+		cycle_view()
 	if event is InputEventKey and event.pressed and not event.echo:
 		if event.keycode == KEY_ESCAPE:
 			release_controls()
@@ -188,9 +193,7 @@ func _unhandled_input(event: InputEvent) -> void:
 		elif event.keycode == KEY_3 or event.physical_keycode == KEY_3:
 			selected_type = 2
 			world.show_choice("Matière : %s" % world.BLOCK_NAMES[selected_type])
-		elif (event.physical_keycode == KEY_T and Input.is_physical_key_pressed(KEY_B)) or (event.physical_keycode == KEY_B and Input.is_physical_key_pressed(KEY_T)):
-			cycle_brush()
-		elif event.keycode == KEY_F4:
+		elif event.is_action_pressed("change_view", false, true):
 			cycle_view()
 	if event is InputEventMouseMotion and Input.mouse_mode == Input.MOUSE_MODE_CAPTURED:
 		# 0.0.4.17 : mouvement réel de la souris (screen_relative), pas agrandi selon la taille de
@@ -212,8 +215,12 @@ func _unhandled_input(event: InputEvent) -> void:
 	elif event.is_action_pressed("place_block"):
 		if not click_modified():
 			begin_placement()
-	elif (event.is_action_pressed("block_previous") or event.is_action_pressed("block_next")) and Input.is_physical_key_pressed(KEY_B):
-		cycle_size(1 if event.is_action_pressed("block_next") else -1)
+	elif event.is_action_pressed("brush_next"):
+		cycle_brush()
+	elif event.is_action_pressed("size_up") or event.is_action_pressed("size_down"):
+		cycle_size(1 if event.is_action_pressed("size_up") else -1)
+	elif (event.is_action_pressed("block_previous") or event.is_action_pressed("block_next")) and wheel_modifiers.any(func(code): return Input.is_physical_key_pressed(code)):
+		pass # molette tenue avec B (taille du geste) : la matière ne change pas
 	elif event.is_action_pressed("block_previous"):
 		cycle_block(-1)
 	elif event.is_action_pressed("block_next"):

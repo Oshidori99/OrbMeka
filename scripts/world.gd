@@ -332,8 +332,9 @@ func sculpt(hit: Dictionary, add: bool, kind: int = SmoothTerrain.DIRT, cells: i
 		_notify(message)
 	return _apply_terrain(updates)
 
-# Aplanir : sol mis à la hauteur visée, sur un disque autour (bosses coupées, creux remplis).
-func flatten(hit: Dictionary, kind: int = SmoothTerrain.DIRT, cells: int = 1) -> bool:
+# Aplanir : bosses coupées à la hauteur visée, sur un disque autour. 0.0.5.10 : n'ajoute jamais de matière
+# (les creux restent : seul Poser ajoute).
+func flatten(hit: Dictionary, cells: int = 1) -> bool:
 	if not _aimed_ground(hit, player.place_reach):
 		return false
 	var level := clampf(hit.position.y, SmoothTerrain.LOW_POINT * SmoothTerrain.STEP, SmoothTerrain.HIGH_POINT * SmoothTerrain.STEP)
@@ -350,14 +351,13 @@ func flatten(hit: Dictionary, kind: int = SmoothTerrain.DIRT, cells: int = 1) ->
 					continue
 				var value := clampf(level - y * SmoothTerrain.STEP, -1.0, 1.0)
 				var old := terrain.density(point)
-				if is_equal_approx(value, old):
+				if value >= old - 0.001:
 					continue
-				if value > 0.0 and old <= 0.0 and _inside_player(point):
-					continue
-				updates[point] = [value, kind if value > 0.0 and old <= 0.0 else -1]
+				updates[point] = [value, -1]
 	return _apply_terrain(updates)
 
-# Lisser : chaque point se rapproche de la moyenne de ses 6 voisins (angles et marches adoucis).
+# Lisser : chaque point se rapproche de la moyenne de ses 6 voisins (angles et marches adoucis) ;
+# 0.0.5.10 : sans créer de matière dans l'air (seul Poser ajoute).
 func smooth(hit: Dictionary, cells: int = 1) -> bool:
 	if not _aimed_ground(hit, player.place_reach):
 		return false
@@ -379,7 +379,7 @@ func smooth(hit: Dictionary, cells: int = 1) -> bool:
 				var value := clampf(old * 0.5 + around / 12.0, -1.0, 1.0)
 				if absf(value - old) < 0.01:
 					continue
-				if value > 0.0 and old <= 0.0 and _inside_player(point):
+				if value > 0.0 and old <= 0.0:
 					continue
 				updates[point] = [value, -1]
 	return _apply_terrain(updates)
@@ -723,7 +723,7 @@ func place_target(hit: Dictionary, kind: int) -> bool:
 		kind = SmoothTerrain.DIRT
 	match player.brush:
 		1:
-			return flatten(hit, kind, cells)
+			return flatten(hit, cells)
 		2:
 			return smooth(hit, cells)
 	return sculpt(hit, true, kind, cells)

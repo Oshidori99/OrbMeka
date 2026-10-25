@@ -27,7 +27,7 @@ func press_f4(player: CharacterBody3D) -> void:
 
 func _run() -> void:
 	root.size = Vector2i(1280, 720)
-	check(KEY_F4 in Controls.RESERVED_KEYS and Controls.MENU_KEYS[-1] == ["Changer de vue", "F4"], "F4 reserved, shown in Menus")
+	check(not KEY_F4 in Controls.RESERVED_KEYS and Controls.ACTIONS.change_view.default.key == KEY_F4 and Controls.GROUPS.Raccourcis.has("change_view"), "F4 by default, changeable in Raccourcis (0.0.5.10)")
 	var world: Node3D = load("res://scenes/world.tscn").instantiate()
 	root.add_child(world)
 	await process_frame
@@ -92,7 +92,7 @@ func _run() -> void:
 	app.catalog = load("res://scripts/world_catalog.gd").new(fixture + ".worlds")
 	root.add_child(app)
 	await process_frame
-	check(app.control_menu_buttons.has("Changer de vue") and app.control_menu_buttons["Changer de vue"].text == "F4" and app.control_menu_buttons["Changer de vue"].disabled, "Contrôles → Menus: F4, not editable")
+	check(app.control_buttons.has("change_view") and not app.control_buttons.change_view.disabled, "Contrôles → Raccourcis: F4 editable (0.0.5.10)")
 	check(app.shortcut_hints.text.contains("F4 : Changer de vue"), "shortcut reminder shows F4")
 	var help: String = load("res://scripts/world.gd").get_help_text(2)
 	check(help.contains("F4 : changer de vue") and load("res://scripts/world.gd").get_help_text(0).contains("F4"), "Comment jouer explains F4")

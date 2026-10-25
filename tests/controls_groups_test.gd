@@ -31,7 +31,7 @@ func fly(player: CharacterBody3D, direction: Vector2, steps: int) -> float:
 func _run() -> void:
 	root.size = Vector2i(1280, 720)
 	# Parties.
-	check(Controls.GROUPS.keys() == ["Mouvements", "Blocs", "Vitesses", "Vitesses — réinitialiser"], "groups: Mouvements, Blocs, Vitesses, Vitesses — réinitialiser (then Menus)")
+	check(Controls.GROUPS.keys() == ["Mouvements", "Blocs", "Vitesses", "Vitesses — réinitialiser", "Raccourcis"], "groups: Mouvements, Blocs, Vitesses, Vitesses — réinitialiser, Raccourcis (then Menus)")
 	var seen := []
 	for group in Controls.GROUPS:
 		seen.append_array(Controls.GROUPS[group])
@@ -40,7 +40,8 @@ func _run() -> void:
 		once = once and seen.count(action) == 1
 	check(once, "every action in exactly one group")
 	check(Controls.GROUPS.Mouvements.has("fly") and Controls.GROUPS.Mouvements.has("sprint") and Controls.GROUPS.Blocs.has("break_block") and Controls.GROUPS["Vitesses — réinitialiser"].has("speed_reset_all") and Controls.GROUPS.Vitesses.has("speed_up"), "actions in the right group")
-	check(Controls.MENU_KEYS.map(func(entry): return entry[1]).slice(0, 4) == ["Échap", "F1", "F2", "F3"], "Menus: Échap, F1, F2, F3 (then F4, 0.0.4.9)")
+	check(Controls.MENU_KEYS == [["Pause", "Échap"]] and Controls.RESERVED_KEYS == [KEY_ESCAPE], "Menus: only Escape stays reserved (0.0.5.10)")
+	check(Controls.GROUPS.Raccourcis == ["worlds_menu", "help_page", "world_info_page", "change_view"] and Controls.GROUPS.Blocs.has("brush_next") and Controls.GROUPS.Blocs.has("size_up"), "F1 to F4, brush and gesture size are changeable")
 	# Attributs de vol rapide.
 	for key in ["fly_run_forward", "fly_run_side", "fly_run_back"]:
 		check(key in Settings.ATTRIBUTE_KEYS and Settings.SPECS[key].default == 15.0, "attribute 15 m/s: " + key)
@@ -86,7 +87,7 @@ func _run() -> void:
 	app.catalog = load("res://scripts/world_catalog.gd").new(fixture + ".worlds")
 	root.add_child(app)
 	await process_frame
-	var titles: Array = ["Mouvements", "Blocs", "Vitesses", "Vitesses — réinitialiser", "Menus"]
+	var titles: Array = ["Mouvements", "Blocs", "Vitesses", "Vitesses — réinitialiser", "Raccourcis", "Menus"]
 	var ordered := titles.all(func(title): return app.control_group_labels.has(title))
 	# 0.0.4.22 : le titre d'une partie est dans une ligne avec son ↻ (sauf Menus).
 	var list: Node = app.control_group_labels.Menus.get_parent()
@@ -95,7 +96,7 @@ func _run() -> void:
 		return label.get_index() if label.get_parent() == list else label.get_parent().get_index()
 	for index in range(titles.size() - 1):
 		ordered = ordered and head.call(titles[index]) < head.call(titles[index + 1])
-	check(ordered and app.control_group_labels.Menus.text == "▾ Menus", "five titled parts in order (▾ : repliables, 0.0.4.14)")
+	check(ordered and app.control_group_labels.Menus.text == "▾ Menus", "six titled parts in order (▾ : repliables, 0.0.4.14 ; Raccourcis 0.0.5.10)")
 	var placed := true
 	for index in range(Controls.GROUPS.size()):
 		var group: String = titles[index]
@@ -103,8 +104,8 @@ func _run() -> void:
 			var group_body: Node = app.control_action_boxes[action].get_parent()
 			placed = placed and group_body.get_parent() == list and group_body.get_index() == head.call(group) + 1
 	check(placed, "each action under its part")
-	check(app.control_menu_buttons.size() == Controls.MENU_KEYS.size() and app.control_menu_buttons.values().all(func(button): return button.disabled) and app.control_menu_buttons["Retour aux mondes"].text == "F1" and app.control_menu_buttons.Pause.text == "Échap", "Menus: reserved keys shown, not editable")
-	check(app.control_menu_buttons["Informations du monde"].get_parent().get_parent().get_index() == app.control_group_labels.Menus.get_index() + 1, "reserved keys under Menus")
+	check(app.control_menu_buttons.size() == Controls.MENU_KEYS.size() and app.control_menu_buttons.values().all(func(button): return button.disabled) and app.control_menu_buttons.Pause.text == "Échap", "Menus: reserved key shown, not editable")
+	check(app.control_menu_buttons.Pause.get_parent().get_parent().get_index() == app.control_group_labels.Menus.get_index() + 1, "reserved key under Menus")
 	# ↻ par partie (0.0.4.22) : seulement les touches de cette partie reviennent par défaut, d'un coup.
 	check(Controls.GROUPS.keys().all(func(group): return app.control_group_resets.has(group) and app.control_group_resets[group].get_parent() == app.control_group_labels[group].get_parent()) and not app.control_group_resets.has("Menus"), "a ↻ beside each part title (not Menus)")
 	var block_action: String = Controls.GROUPS.Blocs[0]

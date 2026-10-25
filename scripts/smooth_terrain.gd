@@ -53,6 +53,8 @@ func material(point: Vector3i) -> int:
 	return materials.get(point, -1)
 
 func set_density(point: Vector3i, value: float, kind: int = -1) -> void:
+	# Millièmes, comme dans le fichier : le terrain rouvert est exactement le même.
+	value = roundf(value * 1000.0) / 1000.0
 	var zone := point_zone(point)
 	var column := Vector2i(point.x, point.z)
 	if changes.has(point):

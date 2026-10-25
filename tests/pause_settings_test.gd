@@ -20,6 +20,7 @@ func check(ok: bool, label: String) -> void:
 func key(code: int) -> void:
 	var event := InputEventKey.new()
 	event.keycode = code
+	event.physical_keycode = code
 	event.pressed = true
 	root.push_input(event)
 

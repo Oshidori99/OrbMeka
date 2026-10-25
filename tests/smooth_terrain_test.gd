@@ -124,14 +124,24 @@ func _run() -> void:
 	var mound := Vector3(10.25, 0.0, -20.25)
 	for index in range(3):
 		world.terrain.set_density(SmoothTerrain.point_of(mound) + Vector3i(0, index, 0), 0.5, SmoothTerrain.DIRT)
+		world.terrain_dirty[SmoothTerrain.point_zone(SmoothTerrain.point_of(mound) + Vector3i(0, index, 0))] = true
 	world.rebuild_terrain_piece(Vector3i(1, -1, -3))
 	world.rebuild_terrain_piece(Vector3i(1, 0, -3))
 	check(world.place_target(aim(world, mound), 2), "flatten works on a mound")
+	var pit := SmoothTerrain.point_of(Vector3(-40.25, -0.3, -40.25))
+	world.terrain.set_density(pit, SmoothTerrain.DUG)
+	world.terrain_dirty[SmoothTerrain.point_zone(pit)] = true
+	var before_materials: int = world.terrain.materials.size()
+	world.place_target(aim(world, Vector3(-39.25, 0.0, -40.25)), 2)
+	check(world.terrain.density(pit) <= 0.0 and world.terrain.materials.size() == before_materials, "flatten never fills a pit: no material added")
 	check(world.terrain.density(SmoothTerrain.point_of(mound) + Vector3i(0, 2, 0)) <= 0.0, "flatten cuts the mound down to the aimed level")
 	player.brush = 2
 	world.terrain.set_density(SmoothTerrain.point_of(mound) + Vector3i(1, 1, 0), 0.5, SmoothTerrain.DIRT)
+	world.terrain_dirty[SmoothTerrain.point_zone(SmoothTerrain.point_of(mound) + Vector3i(1, 1, 0))] = true
 	var sharp: float = world.terrain.density(SmoothTerrain.point_of(mound) + Vector3i(1, 1, 0))
 	check(world.place_target(aim(world, mound + Vector3(0.5, 0.5, 0)), 2) and world.terrain.density(SmoothTerrain.point_of(mound) + Vector3i(1, 1, 0)) < sharp, "smoothing softens a lone bump")
+	var air_above := SmoothTerrain.point_of(mound) + Vector3i(0, 4, 0)
+	check(world.terrain.density(air_above) <= 0.0, "smoothing adds no material in the air")
 	player.brush = 0
 	player.brush_size = 0
 	check(world.BRUSH_NAMES == ["Poser", "Aplanir", "Lisser"] and world.SIZE_CELLS == [1, 2, 4], "three right-click brushes, three sizes")
@@ -153,7 +163,8 @@ func _run() -> void:
 	var same: bool = world.terrain.changes.size() == changed.size()
 	for key in changed:
 		same = same and absf(world.terrain.changes.get(key, 9.0) - changed[key]) < 0.001
-	check(same and world.terrain.material(sand_point) == SmoothTerrain.SAND, "same sculpted terrain and materials after reopening")
+	check(same, "same sculpted terrain after reopening")
+	check(world.terrain.material(sand_point) == SmoothTerrain.SAND, "same materials after reopening")
 	check(world.terrain_pieces[Vector3i(2, -1, 2)].get_child(1).shape is ConcavePolygonShape3D, "sculpted zone rebuilt at opening")
 	# Format 2 (blocs seuls) toujours lisible.
 	check(Zones.valid_zone({"format": 2, "type": "blocs", "poses": [[1, 0, 1, 2]], "casses": []}), "older zone files (format 2) still read")

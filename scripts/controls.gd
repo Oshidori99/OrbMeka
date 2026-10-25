@@ -51,6 +51,15 @@ const ACTIONS := {
 	"place_block": {"label": "Poser", "default": {"mouse": MOUSE_BUTTON_RIGHT}, "fixed": []},
 	"block_previous": {"label": "Bloc précédent", "default": {"mouse": MOUSE_BUTTON_WHEEL_UP}, "fixed": []},
 	"block_next": {"label": "Bloc suivant", "default": {"mouse": MOUSE_BUTTON_WHEEL_DOWN}, "fixed": []},
+	# 0.0.5.10 : pinceau du clic droit (Poser, Aplanir, Lisser) et taille du geste (1/8, 1/4, 1/2 bloc), modifiables.
+	"brush_next": {"label": "Pinceau suivant (clic droit)", "default": {"key": KEY_B, "second": {"key": KEY_T}}, "fixed": []},
+	"size_up": {"label": "Geste plus grand", "default": {"key": KEY_B, "second": {"mouse": MOUSE_BUTTON_WHEEL_DOWN}}, "fixed": []},
+	"size_down": {"label": "Geste plus petit", "default": {"key": KEY_B, "second": {"mouse": MOUSE_BUTTON_WHEEL_UP}}, "fixed": []},
+	# 0.0.5.10 : F1 à F4 modifiables aussi (seul Échap reste réservé).
+	"worlds_menu": {"label": "Retour aux mondes", "default": {"key": KEY_F1}, "fixed": []},
+	"help_page": {"label": "Comment jouer", "default": {"key": KEY_F2}, "fixed": []},
+	"world_info_page": {"label": "Informations du monde", "default": {"key": KEY_F3}, "fixed": []},
+	"change_view": {"label": "Changer de vue", "default": {"key": KEY_F4}, "fixed": []},
 }
 # Choix des Contrôles (0.0.3.18), enregistrés dans controles.json avec les touches.
 # Se baisser : Maintenir = rester appuyé ; Basculer = un appui pour se baisser, un autre pour se relever.
@@ -69,7 +78,8 @@ static func default_options() -> Dictionary:
 		result[option] = OPTIONS[option].default
 	return result
 
-const RESERVED_KEYS :=[KEY_ESCAPE, KEY_F1, KEY_F2, KEY_F3, KEY_F4]
+# 0.0.5.10 : seul Échap reste réservé (F1 à F4 : actions modifiables, partie Raccourcis).
+const RESERVED_KEYS :=[KEY_ESCAPE]
 const MOUSE_NAMES := {MOUSE_BUTTON_LEFT: "Clic gauche", MOUSE_BUTTON_RIGHT: "Clic droit", MOUSE_BUTTON_MIDDLE: "Clic molette", MOUSE_BUTTON_XBUTTON1: "Bouton souris 4", MOUSE_BUTTON_XBUTTON2: "Bouton souris 5", MOUSE_BUTTON_WHEEL_UP: "Molette haut", MOUSE_BUTTON_WHEEL_DOWN: "Molette bas"}
 
 static func defaults() -> Dictionary:
@@ -473,12 +483,13 @@ const FORMER_DEFAULTS := {"speed_up": {"key": KEY_UP}, "speed_down": {"key": KEY
 # 0.0.4.20 : les remises par défaut (⌫) dans leur propre partie.
 const GROUPS := {
 	"Mouvements": ["move_forward", "move_back", "move_left", "move_right", "jump", "crouch", "sprint", "fly"],
-	"Blocs": ["break_block", "place_block", "block_previous", "block_next"],
+	"Blocs": ["break_block", "place_block", "block_previous", "block_next", "brush_next", "size_up", "size_down"],
 	"Vitesses": ["speed_up", "speed_down", "walk_up", "walk_down", "run_up", "run_down", "break_up", "break_down", "place_up", "place_down"],
 	"Vitesses — réinitialiser": ["move_reset", "walk_reset", "run_reset", "break_reset", "place_reset", "speed_reset_all"],
+	"Raccourcis": ["worlds_menu", "help_page", "world_info_page", "change_view"],
 }
-# Dernière partie, Menus : touches réservées, montrées sans pouvoir les changer.
-const MENU_KEYS := [["Pause", "Échap"], ["Retour aux mondes", "F1"], ["Comment jouer", "F2"], ["Informations du monde", "F3"], ["Changer de vue", "F4"]]
+# Dernière partie, Menus : touche réservée (Échap), montrée sans pouvoir la changer.
+const MENU_KEYS := [["Pause", "Échap"]]
 
 # 0.0.4.20 : recherche par texte (partie ou nom) : un morceau du nom, ou les premières lettres des mots
 # (« tpv » : Tout plus vite), ou le début de plusieurs mots dans l'ordre (« mar pl » : Marche plus vite).
@@ -510,3 +521,19 @@ static func text_matches(label: String, query: String) -> bool:
 			return false
 		at += 1
 	return true
+
+# 0.0.5.10 : touches qui, tenues avec la molette, en font un autre réglage (ex. B + molette : taille
+# du geste) : la molette seule ne change alors pas de matière.
+static func wheel_modifiers(bindings: Dictionary) -> Array:
+	var result := []
+	for action in ACTIONS:
+		for combo in options(bindings.get(action, default_for(action))):
+			if combo_kind(combo) != "chord":
+				continue
+			var parts: Array = combo_parts(combo)
+			if not parts.any(func(part): return part.get("mouse", 0) in [MOUSE_BUTTON_WHEEL_UP, MOUSE_BUTTON_WHEEL_DOWN]):
+				continue
+			for part in parts:
+				if part.has("key") and not part.key in result:
+					result.append(part.key)
+	return result

@@ -88,11 +88,13 @@ func _run() -> void:
 	check(not app.active_world.blocks.has(Vector3i(40, 0, 40)) and app.active_world.blocks.keys() == original_cells, "reopening regenerates original terrain without saving constructions")
 	var key := InputEventKey.new()
 	key.keycode = KEY_F1
+	key.physical_keycode = KEY_F1
 	key.pressed = true
 	app._unhandled_key_input(key)
 	check(app.page == "worlds", "F1 returns from gameplay to list")
 	app.show_page("create")
 	key.keycode = KEY_ESCAPE
+	key.physical_keycode = KEY_ESCAPE
 	app._unhandled_key_input(key)
 	check(app.page == "worlds", "Escape returns from creation to list")
 	app._unhandled_key_input(key)
