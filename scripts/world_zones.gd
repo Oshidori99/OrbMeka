@@ -5,13 +5,16 @@ extends RefCounted
 # Sauvegarde : un fichier compressé par zone modifiée (zones/zone_X_Y_Z.bin), rien pour les autres.
 # Choix de l'utilisateur (0.0.5.1) : zones de 8 m (puissance de 2 dans les trois dimensions), plus légères
 # sur le Web ; 16 reste possible (ZONE_SIZE multiple de SECTION_SIZE).
-# Étape 3 : chaque zone pourra stocker une grille de densité (DENSITY_POINTS³ points : 1 m = 2 × 2 × 2
-# parties de 50 cm) à la place des blocs (champ « type » du fichier : « blocs » aujourd'hui, « densite » plus tard).
+# Étape 3 (0.0.5.8) : chaque zone stocke aussi les points changés de sa grille de densité (DENSITY_POINTS par axe :
+# 1 m = 2 × 2 × 2 sous-cellules de 50 cm), dans le champ « densite » (smooth_terrain.gd).
 const ZONE_SIZE := 8
 const SECTION_SIZE := 8
 const DENSITY_STEP := 0.5
 const DENSITY_POINTS := int(ZONE_SIZE / DENSITY_STEP)
-const FORMAT := 2
+# 0.0.5.8 : format 3, champ « densite » en plus (points du terrain lisse changés : X, Y, Z en pas de 50 cm,
+# densité en millièmes) ; les fichiers au format 2 (blocs seuls) restent lisibles.
+const FORMAT := 3
+const FORMATS_READ := [2, 3]
 const TYPE_BLOCKS := "blocs"
 # Ancien fichier de l'étape 1 (0.0.5), gardé sous ce nom une fois converti en zones.
 const STEP1_KEPT := "zones/modifications-etape1.json"
@@ -109,11 +112,14 @@ static func build_section(blocks: Dictionary, section: Vector3i, colors: Array, 
 	return body
 
 static func valid_zone(data: Dictionary) -> bool:
-	if data.get("format") != FORMAT or data.get("type") != TYPE_BLOCKS:
+	if not data.get("format") in FORMATS_READ or data.get("type") != TYPE_BLOCKS:
 		return false
-	if not data.get("poses") is Array or not data.get("casses") is Array:
+	if not data.get("poses") is Array or not data.get("casses") is Array or not data.get("densite", []) is Array:
 		return false
 	for entry in data.poses:
+		if not entry is Array or entry.size() != 4 or not entry.all(func(v): return v is int):
+			return false
+	for entry in data.get("densite", []):
 		if not entry is Array or entry.size() != 4 or not entry.all(func(v): return v is int):
 			return false
 	for entry in data.casses:
@@ -151,5 +157,5 @@ static func read_zone(path: String) -> Dictionary:
 	DirAccess.rename_absolute(ProjectSettings.globalize_path(path), ProjectSettings.globalize_path(kept))
 	return {"error": "Zone illisible mise de côté : %s" % kept.get_file()}
 
-static func zone_data(zone: Vector3i, placed: Array, removed: Array) -> Dictionary:
-	return {"format": FORMAT, "type": TYPE_BLOCKS, "zone": [zone.x, zone.y, zone.z], "taille": ZONE_SIZE, "poses": placed, "casses": removed}
+static func zone_data(zone: Vector3i, placed: Array, removed: Array, dense: Array = []) -> Dictionary:
+	return {"format": FORMAT, "type": TYPE_BLOCKS, "zone": [zone.x, zone.y, zone.z], "taille": ZONE_SIZE, "poses": placed, "casses": removed, "densite": dense}

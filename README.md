@@ -1,7 +1,8 @@
-# OrbMeka™ 0.0.5.7
+# OrbMeka™ 0.0.5.8
 
 Dans Godot, ouvrez **project.godot**, puis **F5** pour lancer le jeu.
 
+0.0.5.8 : terrain lisse (1re étape) : clic gauche creuse, clic droit ajoute 50 cm ; Web plus lumineux ; réglages Jeu en tête de Vidéo.
 0.0.5.7 : herbe haute (environ 40 cm, deux fois plus de brins) et sol vert plus clair, aussi sur le Web.
 0.0.5.5 : monde tout plat, sans bloc au départ ; plage de sable réaliste (grains, rides de vent) près de l'apparition.
 0.0.5.4 : gazon dense, brins de 3 à 7 cm balancés par le vent ; Densité de l'herbe dans Vidéo ; FPS plus visibles.
@@ -23,10 +24,10 @@ les changements sont compressés par zone dans zones/zone_X_Y_Z.bin.
 Le relief reste anguleux. Casse, pose et pinceaux sont désactivés pendant cette étape ;
 exploration, pause et anciennes constructions restent disponibles.
 
-Zones (fait) → terrain lisse sculptable → relief et sous-sol (avec la Roche-mère) → matières → structures
+Zones (fait) → terrain lisse sculptable (en cours) → relief et sous-sol (avec la Roche-mère) → matières → structures
 → modes Créatif et Survie → inventaire → eau réaliste. Détail : CLAUDE.md et le GitHub Project.
 
-Plan confirmé pour le terrain lisse (prochaine étape, non livré) : zones de **8 × 8 × 8 m**.
+Terrain lisse (première version en 0.0.5.8 : creuser et ajouter 50 cm par clic) : zones de **8 × 8 × 8 m**.
 Chaque bloc de 1 m de côté est partagé en **2 × 2 × 2 = 8 sous-cellules au total**, de **50 cm de côté**
 et de **1/8 du volume** chacune. Une zone contient **16 × 16 × 16 sous-cellules** ;
 une grille de sommets avec les bords compterait **17 sommets par axe**.

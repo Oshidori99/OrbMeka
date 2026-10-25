@@ -1,6 +1,23 @@
-# OrbMeka™ — prototype 0.0.5.7
+# OrbMeka™ — prototype 0.0.5.8
 
 Godot 4.7 / GDScript. Formes et couleurs simples ; assets externes seulement sous licence vérifiée (sons CC0, assets/sounds/CREDITS.txt).
+
+## 0.0.5.8 — Terrain lisse, première étape (#120)
+- Chaque bloc de 1 m est divisé en 2 × 2 × 2 = 8 sous-cellules de 50 cm (16 par axe dans une zone de 8 m,
+  17 points de grille avec les deux bords). Le sol est maintenant ce terrain lisse, une pièce par zone
+  (scripts/smooth_terrain.gd) ; sable et herbe restent comme avant.
+- Clic gauche : creuser 50 cm ; clic droit : ajouter 50 cm. La surface reste lisse (pentes en terre),
+  l'herbe disparaît autour. Jusqu'à 3,5 m sous le sol ; la base indestructible est dessous.
+- Sauvegarde : seuls les points changés, dans le fichier de la zone (format 3 ; les anciens restent lisibles).
+- Les blocs posés avant restent ; plus de casse ni de pose de blocs pour l'instant.
+- Web : soleil et lumière ambiante plus forts (le jeu y paraissait sombre).
+- Paramètres → Vidéo : le groupe « Jeu » est en premier.
+
+Tests : nouveau smooth_terrain (25 vérifications : échelle 50 cm, sol plat calculé, creuser, ajouter,
+limites, herbe, sauvegarde et réouverture) ; breaking, action_timing, web_fixes et terrain_visuals mis à jour ;
+tests choisis réussis. Recalcul d'une zone sculptée : environ 10 ms sur PC.
+Captures comparées en rendu PC et Web.
+À tester manuellement : creuser et ajouter à la souris, marcher dans les trous, FPS sur le Web.
 
 ## 0.0.5.7 — Herbe haute
 - Brins d'herbe de 24 à 56 cm (environ 40 cm, 8 fois plus longs), un peu plus larges,
@@ -136,15 +153,15 @@ La base plate de 128 × 128 blocs (1 bloc = 1 m ; X et Z de -64 à 63) est prot�
 L'aire de départ reste dégagée et les 74 blocs de démonstration en sable et pierre
 sont conservés. L'apparition tient compte des blocs présents.
 
-## Plan confirmé — terrain lisse (prochaine étape, non livré)
+## Plan confirmé — terrain lisse (première version livrée en 0.0.5.8)
 Les zones restent de **8 × 8 × 8 mètres**. Chaque bloc de 1 m de côté sera découpé en
 **2 divisions sur chaque axe**, donc **2 × 2 × 2 = 8 sous-cellules au total**.
 Chaque sous-cellule mesurera **50 cm de côté** et représentera **1/8 du volume**
 du bloc. Une zone contiendra **16 subdivisions par axe**, soit **16 × 16 × 16
 sous-cellules de 50 cm**. Si la densité est portée par les sommets, les deux
 bords inclus demandent **17 sommets par axe** ; ce ne sont pas 16 points.
-Le jeu livré utilise encore des blocs et leur sauvegarde par zones : cette
-description fixe la prochaine étape, elle n'annonce pas du terrain lisse déjà jouable.
+Depuis 0.0.5.8, le sol est ce terrain lisse (scripts/smooth_terrain.gd) : on y creuse et on y ajoute
+50 cm par clic. Aplanir et lisser viendront dans les versions suivantes.
 
 ## Commandes en partie
 - ZQSD / WASD : marcher ; ← → : aller de côté ; souris : regarder.

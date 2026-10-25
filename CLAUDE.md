@@ -41,11 +41,12 @@ jouant (aspect, souris) est signalé comme « à tester manuellement ».
 Ordre obligatoire de 1 à 4, ensuite libre :
 1. Dossier du monde et sauvegarde des seuls changements : fait (0.0.5).
 2. Zones (#119) : fait en 0.0.5.1 ; taille confirmée : 8 × 8 × 8 mètres (scripts/world_zones.gd).
-3. Terrain lisse sculptable (#120) : prochaine étape, pas encore livrée. Chaque bloc de 1 m de côté est
+3. Terrain lisse sculptable (#120) : en cours ; première version livrée en 0.0.5.8 (scripts/smooth_terrain.gd :
+   sol lisse, creuser / ajouter 50 cm par clic, sauvegarde des points changés). Chaque bloc de 1 m de côté est
    divisé en 2 × 2 × 2 = 8 sous-cellules au total : chacune mesure 50 cm de côté et représente
    1/8 du volume du bloc. Une zone de 8 m contient donc 16 × 16 × 16 sous-cellules ; une grille
    de sommets incluant les deux bords aurait 17 sommets par axe (pas 16 points).
-   Rendu lisse, pinceaux (creuser, ajouter, aplanir, lisser), sauvegarde des gestes, figés dans
+   Rendu lisse, pinceaux (creuser, ajouter : faits ; aplanir, lisser : à faire), sauvegarde des gestes, figés dans
    la grille quand ils sont nombreux. En petites versions.
 4. Relief procédural et sous-sol (#121) : terre, pierre, granite, grottes ; « Roche-mère » incassable en bas
    (ne pas reprendre le nom anglais courant d'un autre jeu).

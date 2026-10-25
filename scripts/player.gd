@@ -220,19 +220,20 @@ func turn_view(motion: Vector2) -> void:
 func cycle_block(direction: int) -> void:
 	selected_type = wrapi(selected_type + direction, 0, world.BLOCK_NAMES.size())
 
+# 0.0.5.8 : un clic = un geste sur le terrain lisse (creuser ou ajouter 50 cm) ; pas de répétition en maintenant.
 func begin_breaking() -> bool:
 	actions.cancel()
-	return false
+	return world.break_target(get_target())
 
-func step_breaking(delta: float, active: bool, button_held: bool) -> bool:
+func step_breaking(_delta: float, _active: bool, _button_held: bool) -> bool:
 	actions.cancel()
 	return false
 
 func begin_placement() -> bool:
 	actions.cancel()
-	return false
+	return world.place_target(get_target(), selected_type)
 
-func step_placement(delta: float, active: bool, button_held: bool) -> bool:
+func step_placement(_delta: float, _active: bool, _button_held: bool) -> bool:
 	actions.cancel()
 	return false
 

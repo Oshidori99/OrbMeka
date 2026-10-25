@@ -18,7 +18,8 @@ Références partagées : [CLAUDE.md](CLAUDE.md), [README.md](README.md),
 ## Décision terrain à respecter
 
 Les zones sont de **8 × 8 × 8 mètres**.
-Pour le terrain lisse, chaque bloc de 1 m de côté sera divisé en **2 × 2 × 2 = 8 sous-parties au total**,
+Pour le terrain lisse, chaque bloc de 1 m de côté est divisé en **2 × 2 × 2 = 8 sous-parties au total**,
 chacune de **50 cm de côté**, soit **1/8 du volume** du bloc.
-Une zone aura donc 16 sous-cellules par axe ; une grille de sommets avec les deux bords
-en compterait 17 par axe. Le **terrain lisse reste une étape à réaliser**, pas une fonction livrée.
+Une zone a donc 16 sous-cellules par axe ; la grille de sommets avec les deux bords
+en compte 17 par axe. **Première version livrée en 0.0.5.8** (scripts/smooth_terrain.gd) : sol lisse,
+creuser et ajouter 50 cm par clic ; aplanir et lisser restent à faire.

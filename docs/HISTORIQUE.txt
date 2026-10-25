@@ -3,6 +3,9 @@ Du plus récent au plus ancien. Ce fichier est mis à jour à chaque version.
 
 === Thème « Monde » (0.0.5 et suivantes) ===
 
+0.0.5.8 — Terrain lisse, première étape
+Sol lisse en sous-cellules de 50 cm : clic gauche creuse, clic droit ajoute, sauvegardé ; Web plus lumineux ; Jeu en tête de Vidéo.
+
 0.0.5.7 — Herbe haute
 Brins d'environ 40 cm (8 fois plus longs), deux fois plus nombreux ; sol vert plus clair (il paraissait noir sur le Web).
 

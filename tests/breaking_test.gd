@@ -90,7 +90,9 @@ func _run() -> void:
 	player._unhandled_input(capture)
 	check(not player.actions.breaking and world.blocks.size() == count, "capture click never breaks a block or starts a hold")
 	player.camera.rotation.x = -PI / 2.0 + 0.01
-	check(not player.begin_breaking(), "base rejects immediate breaking")
+	# 0.0.5.8 : le sol est du terrain lisse : regarder en bas et cliquer le creuse (50 cm), sans toucher aux blocs.
+	count = world.blocks.size()
+	check(player.begin_breaking() and world.terrain.changes.size() == 1 and world.blocks.size() == count, "looking down digs the smooth ground, blocks untouched")
 	check(not player.step_breaking(0.3, true, true), "base rejects repeated breaking")
 	player.actions.cancel()
 	player.position.z = 40.5

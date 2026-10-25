@@ -8,6 +8,7 @@ const Store = preload("res://scripts/world_store.gd")
 const Zones = preload("res://scripts/world_zones.gd")
 const TerrainMaterials = preload("res://scripts/terrain_materials.gd")
 const WorldMetadata = preload("res://scripts/world_metadata.gd")
+const SmoothTerrain = preload("res://scripts/smooth_terrain.gd")
 const DIRT := 2
 const BLOCK_COLORS := [Color("#d8c291"), Color("#888b90"), Color("#855332")]
 const BLOCK_NAMES := ["Sable", "Pierre", "Terre"]
@@ -62,6 +63,15 @@ var block_box: BoxShape3D
 var last_zone_load_ms := 0.0
 var last_section_ms := 0.0
 var autosave_time := 0.0
+# 0.0.5.8 : terrain lisse (smooth_terrain.gd) : une pièce par zone (sol plat ou sculpté), herbe par carré de 8 m.
+var terrain := SmoothTerrain.new()
+var terrain_pieces: Dictionary = {}
+var terrain_dirty: Dictionary = {}
+var terrain_node: Node3D
+var ground_material: ShaderMaterial
+var lawn: Node3D
+var flat_ground_mesh: ArrayMesh
+var flat_ground_shape: BoxShape3D
 const AUTOSAVE_SECONDS := 45.0
 var save_error := ""
 
@@ -90,9 +100,8 @@ func _ready() -> void:
 	_apply_saved_player(saved_player)
 	_create_selection()
 	_create_hud()
-	var grass := TerrainMaterials.ground_grass(generated, terrain_seed, SAND_CENTER, SAND_RADIUS)
-	if grass != null:
-		add_child(grass)
+	lawn = TerrainMaterials.ground_grass(generated, terrain_seed, SAND_CENTER, SAND_RADIUS, _grass_skipped)
+	add_child(lawn)
 
 func _setup_inputs() -> void:
 	# Touches choisies dans Paramètres → Contrôles (0.0.3.12), appliquées par le menu ;
@@ -101,9 +110,10 @@ func _setup_inputs() -> void:
 
 # 0.0.4.17 : rendu Compatibility (version Web) : la lumière y paraît bien plus forte qu'avec Forward+ (Windows),
 # couleurs délavées (sable et pierre blancs). 0.0.4.19 : réglé en comparant des captures des deux rendus :
-# conversion des couleurs simple (tonemap linéaire), soleil × 0,48, lumière ambiante × 0,38.
-const COMPAT_SUN := 0.48
-const COMPAT_AMBIENT := 0.38
+# conversion des couleurs simple (tonemap linéaire). 0.0.5.8 : le Web paraissait trop sombre (herbe, soleil) :
+# soleil × 0,75 (avant 0,48), lumière ambiante × 0,6 (avant 0,38).
+const COMPAT_SUN := 0.75
+const COMPAT_AMBIENT := 0.6
 
 static func apply_compat_light(environment: Environment, sun: DirectionalLight3D) -> void:
 	if not is_compat():
@@ -144,12 +154,14 @@ func _create_ground() -> void:
 	var ground := StaticBody3D.new()
 	ground.name = "Ground"
 	ground.add_to_group("ground")
-	ground.position = Vector3(0, -0.5, 0)
+	# 0.0.5.8 : la base indestructible est sous la profondeur qu'on peut creuser ; le sol visible au-dessus
+	# est le terrain lisse (pièces par zone, _create_terrain).
+	ground.position = Vector3(0, BASE_TOP - 0.5, 0)
 	var mesh := MeshInstance3D.new()
 	var box := BoxMesh.new()
 	box.size = BASE_SIZE
 	mesh.mesh = box
-	var ground_material := TerrainMaterials.surface(true)
+	ground_material = TerrainMaterials.surface(true)
 	ground_material.set_shader_parameter("sand_center", SAND_CENTER)
 	ground_material.set_shader_parameter("sand_radius", SAND_RADIUS)
 	mesh.material_override = ground_material
@@ -166,6 +178,132 @@ func _create_ground() -> void:
 func _create_terrain() -> void:
 	generated_hill_count = 0
 	generated_max_height = 0
+	_read_terrain_changes()
+	terrain_node = Node3D.new()
+	terrain_node.name = "Terrain"
+	add_child(terrain_node)
+	flat_ground_mesh = SmoothTerrain.flat_mesh()
+	flat_ground_shape = BoxShape3D.new()
+	flat_ground_shape.size = Vector3(SmoothTerrain.ZONE_SIZE, 1, SmoothTerrain.ZONE_SIZE)
+	for zone: Vector3i in terrain.surface_zones(BASE_ZONES_LOW, BASE_ZONES_HIGH):
+		rebuild_terrain_piece(zone)
+
+# 0.0.5.8 : terrain lisse sur toute la base (zones de X et Z −64 à 63) ; base indestructible en dessous.
+const BASE_TOP := -4.0
+const BASE_ZONES_LOW := Vector2i(-8, -8)
+const BASE_ZONES_HIGH := Vector2i(7, 7)
+
+# Points changés de tous les fichiers de zone (lus une fois à l'ouverture ; les blocs restent lus par zone).
+func _read_terrain_changes() -> void:
+	if save_folder.is_empty():
+		return
+	var folder := save_folder.path_join("zones")
+	if not DirAccess.dir_exists_absolute(folder):
+		return
+	for file in DirAccess.get_files_at(folder):
+		if not file.begins_with("zone_") or not file.ends_with(".bin"):
+			continue
+		var saved := Zones.read_zone(folder.path_join(file))
+		if saved.has("data"):
+			terrain.load_entries(saved.data.get("densite", []))
+		elif saved.has("error"):
+			_notify(saved.error)
+			notice_time = 8.0
+
+# Pièce de terrain d'une zone : carré plat partagé si rien n'a changé, sinon surface lisse calculée.
+func rebuild_terrain_piece(zone: Vector3i) -> void:
+	var started := Time.get_ticks_usec()
+	if terrain_pieces.has(zone):
+		terrain_pieces[zone].free()
+		terrain_pieces.erase(zone)
+	var body := StaticBody3D.new()
+	body.name = "Terrain_%d_%d_%d" % [zone.x, zone.y, zone.z]
+	body.add_to_group("ground")
+	body.set_meta("zone", zone)
+	var instance := MeshInstance3D.new()
+	instance.material_override = ground_material
+	var collision := CollisionShape3D.new()
+	if terrain.is_flat(zone):
+		if not SmoothTerrain.ground_zone(zone):
+			body.free()
+			return
+		body.position = Vector3(zone.x, 0, zone.z) * SmoothTerrain.ZONE_SIZE
+		instance.mesh = flat_ground_mesh
+		collision.shape = flat_ground_shape
+		collision.position = Vector3(SmoothTerrain.ZONE_SIZE / 2.0, -0.5, SmoothTerrain.ZONE_SIZE / 2.0)
+	else:
+		var surface := terrain.zone_mesh(zone)
+		if surface[0].is_empty():
+			body.free()
+			return
+		var arrays := []
+		arrays.resize(Mesh.ARRAY_MAX)
+		arrays[Mesh.ARRAY_VERTEX] = surface[0]
+		arrays[Mesh.ARRAY_NORMAL] = surface[1]
+		var mesh := ArrayMesh.new()
+		mesh.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arrays)
+		instance.mesh = mesh
+		var shape := ConcavePolygonShape3D.new()
+		shape.backface_collision = true
+		shape.set_faces(surface[0])
+		collision.shape = shape
+	body.add_child(instance)
+	body.add_child(collision)
+	terrain_node.add_child(body)
+	terrain_pieces[zone] = body
+	last_section_ms = (Time.get_ticks_usec() - started) / 1000.0
+
+# Herbe écartée là où le terrain a été sculpté (colonne de 50 cm et ses voisines).
+func _grass_skipped(at: Vector3) -> bool:
+	return terrain.column_changed(Vector2i(roundi(at.x / SmoothTerrain.STEP), roundi(at.z / SmoothTerrain.STEP)))
+
+func _rebuild_lawn_tile(tile: Vector2i) -> void:
+	for child in lawn.get_children():
+		if child.get_meta("tile", Vector2i(999, 999)) == tile:
+			child.free()
+	var node := TerrainMaterials.lawn_tile(tile, generated, terrain_seed, SAND_CENTER, SAND_RADIUS, _grass_skipped)
+	if node != null:
+		lawn.add_child(node)
+
+# Geste de terrain (clic gauche : creuser, clic droit : ajouter) : une sous-cellule de 50 cm,
+# juste derrière (creuser) ou devant (ajouter) la surface visée ; la surface reste lisse.
+func sculpt(hit: Dictionary, add: bool) -> bool:
+	if not _valid_hit(hit, player.place_reach if add else player.break_reach):
+		return false
+	if not hit.collider.is_in_group("ground"):
+		_notify("Visez le sol pour le sculpter.")
+		return false
+	var normal: Vector3 = hit.normal
+	var point := SmoothTerrain.point_of(hit.position + normal * (0.15 if add else -0.3))
+	if point.y < SmoothTerrain.LOW_POINT:
+		_notify("Base indestructible : on ne peut pas creuser plus bas.")
+		return false
+	if point.y > SmoothTerrain.HIGH_POINT:
+		_notify("Hauteur maximale du terrain atteinte.")
+		return false
+	if absi(point.x) > BUILD_LIMIT * 2 or absi(point.z) > BUILD_LIMIT * 2:
+		_notify("Limite de construction atteinte.")
+		return false
+	if (terrain.density(point) > 0.0) == add:
+		return false
+	if add and AABB(player.global_position + Vector3(-0.33, 0.01, -0.33), Vector3(0.66, 1.78, 0.66)).intersects(AABB(Vector3(point) * SmoothTerrain.STEP - Vector3.ONE * 0.25, Vector3.ONE * 0.5)):
+		_notify("Reculez un peu pour ajouter du terrain.")
+		return false
+	if terrain.changes.size() >= SmoothTerrain.MAX_CHANGES and not terrain.changes.has(point):
+		_notify("Limite du terrain sculpté atteinte.")
+		return false
+	terrain.set_density(point, SmoothTerrain.ADDED if add else SmoothTerrain.DUG)
+	terrain_dirty[SmoothTerrain.point_zone(point)] = true
+	for zone in SmoothTerrain.zones_using(point):
+		if zone.x >= BASE_ZONES_LOW.x and zone.x <= BASE_ZONES_HIGH.x and zone.z >= BASE_ZONES_LOW.y and zone.z <= BASE_ZONES_HIGH.y:
+			rebuild_terrain_piece(zone)
+	var tiles := {}
+	for dx in [-1, 0, 1]:
+		for dz in [-1, 0, 1]:
+			tiles[Vector2i(floori((point.x + dx * 2) * SmoothTerrain.STEP / 8.0), floori((point.z + dz * 2) * SmoothTerrain.STEP / 8.0))] = true
+	for tile: Vector2i in tiles:
+		_rebuild_lawn_tile(tile)
+	return true
 
 
 func spawn_position() -> Vector3:
@@ -388,15 +526,23 @@ func _save_zone(zone: Vector3i) -> bool:
 		dirty_zones.erase(zone)
 		return true
 	var path := save_folder.path_join(Zones.zone_file(zone))
-	var changes := _zone_changes(zone)
+	# 0.0.5.8 : même fichier pour les blocs et le terrain ; zone de blocs pas chargée : ses blocs sont relus.
+	var changes := [[], []]
+	if loaded_zones.has(zone):
+		changes = _zone_changes(zone)
+	elif FileAccess.file_exists(path):
+		var saved: Dictionary = Zones.read_zone(path).get("data", {})
+		changes = [saved.get("poses", []), saved.get("casses", [])]
+	var dense := terrain.zone_entries(zone)
 	var ok := true
-	if changes[0].is_empty() and changes[1].is_empty():
+	if changes[0].is_empty() and changes[1].is_empty() and dense.is_empty():
 		if FileAccess.file_exists(path):
 			ok = DirAccess.remove_absolute(ProjectSettings.globalize_path(path)) == OK
 	else:
-		ok = Zones.write_zone(path, Zones.zone_data(zone, changes[0], changes[1]))
+		ok = Zones.write_zone(path, Zones.zone_data(zone, changes[0], changes[1], dense))
 	if ok:
 		dirty_zones.erase(zone)
+		terrain_dirty.erase(zone)
 	return ok
 
 # Au retour aux mondes, à la pause, à la fermeture et toutes les 45 s : joueur et zones modifiées.
@@ -407,6 +553,9 @@ func save_now() -> bool:
 	var ok := Store.write_json(save_folder.path_join(Store.PLAYER_FILE), player_data())
 	for zone: Vector3i in dirty_zones.keys():
 		if loaded_zones.has(zone) and not _save_zone(zone):
+			ok = false
+	for zone: Vector3i in terrain_dirty.keys():
+		if not _save_zone(zone):
 			ok = false
 	save_error = "" if ok else "Sauvegarde impossible : vérifiez l'espace disque."
 	if not ok:
@@ -437,8 +586,9 @@ func _valid_hit(hit: Dictionary, reach: float) -> bool:
 		return false
 	return hit.collider.is_in_group("blocks") or hit.collider.is_in_group("ground")
 
-func break_target(_hit: Dictionary) -> bool:
-	return false
+# 0.0.5.8 : clic gauche : creuser le terrain lisse (les blocs posés avant restent, sans casse ni pose).
+func break_target(hit: Dictionary) -> bool:
+	return sculpt(hit, false)
 
 # Legacy domain operation for saved-data/constraint regression tests; not player input.
 func _edit_break_target(hit: Dictionary) -> bool:
@@ -462,8 +612,9 @@ static func hit_cell(hit: Dictionary) -> Vector3i:
 	var point: Vector3 = hit.position - hit.normal * 0.02
 	return Vector3i(floori(point.x), floori(point.y), floori(point.z))
 
-func place_target(_hit: Dictionary, _kind: int) -> bool:
-	return false
+# Clic droit : ajouter du terrain (la sorte de bloc choisie ne compte pas encore).
+func place_target(hit: Dictionary, _kind: int) -> bool:
+	return sculpt(hit, true)
 
 func _edit_place_target(hit: Dictionary, kind: int) -> bool:
 	if not _valid_hit(hit, player.place_reach):
@@ -528,7 +679,7 @@ func _create_hud() -> void:
 	update_selected_block()
 	var exploration := Label.new()
 	exploration.name = "ExplorationNotice"
-	exploration.text = "Exploration visuelle — casse et pose désactivées"
+	exploration.text = "Terrain : clic gauche creuse, clic droit ajoute (50 cm)"
 	exploration.add_theme_font_size_override("font_size",roundi(14 * text_scale))
 	exploration.add_theme_color_override("font_shadow_color",Color.BLACK)
 	exploration.add_theme_constant_override("shadow_outline_size",3)
@@ -640,15 +791,15 @@ func _process(delta: float) -> void:
 # level : 0 = −, 1 = Par défaut, 2 = + (textes complets d'avant 0.0.3.3), selon Synthèse des textes.
 static func get_help_text(level: int = 2) -> String:
 	if level == 0:
-		return "ZQSD : marcher. ↑ ↓ + A : vitesse (⌫ ⌫ : défaut). Espace : sauter ; deux fois : voler. Exploration : casse et pose désactivées.
+		return "ZQSD : marcher. ↑ ↓ + A : vitesse (⌫ ⌫ : défaut). Espace : sauter ; deux fois : voler. Clic gauche : creuser, droit : ajouter.
 Molette : bloc. Échap : pause. F1 : mondes. F4 : vue."
 	if level == 1:
 		return "ZQSD / WASD : marcher (← → : de côté). Souris : regarder. Espace : sauter.
 Y : se baisser. R : courir (mode dans Contrôles).
 ↑ ↓ + A : tout le déplacement plus ou moins vite ; + W : marche, + R : course,
-+ clic : casse ou pose (mode développeur). ⌫ + touche : par défaut ; ⌫ deux fois : tout.
+⌫ + touche : par défaut ; ⌫ deux fois : tout.
 Espace deux fois : voler (Espace monte, Y descend) ; encore deux fois : arrêter.
-Exploration visuelle : casse et pose désactivées. Molette : changer de bloc.
+Clic gauche : creuser le terrain ; clic droit : en ajouter (50 cm à chaque clic). Molette : changer de bloc.
 Échap : pause. F1 : liste des mondes. F2 : Comment jouer. F3 : Informations.
 F4 : vue (première personne, de derrière, de devant).
 Portée : %d blocs. Maximum : %d blocs, hauteur %d (Y 0 sur le sol plat).
@@ -660,7 +811,7 @@ et pour courir Maintenir conditionnel (un appui lance la course ; s'arrêter,
 sauter, se baisser ou la pause l'arrêtent, puis il faut réappuyer sur R).
 ↑ + A maintenus : tout le déplacement (marche, course, baissé, vol) de plus en plus rapide ;
 ↓ + A : de plus en plus lent. ↑ ou ↓ avec W : la marche seule ; avec R : la course seule ;
-avec clic gauche ou droit : la casse ou la pose plus ou moins rapide (mode développeur).
+avec clic gauche ou droit : rien pour l'instant (un clic = un geste sur le terrain).
 Limites : 75 à 150 %% dans un monde par défaut, Attributs en mode développeur.
 La vitesse choisie reste. A ou W tenus avec ↑, ↓ ou ⌫ ne font pas bouger.
 ⌫ + la même touche (A, W, R, clic) : cette valeur par défaut ;
@@ -669,9 +820,9 @@ Voler : Espace deux fois (rapidement) ; en vol, pas de gravité, Espace maintenu
 Y maintenu descend ; Espace deux fois à nouveau : on retombe. Vitesses dans Attributs → Voler,
 ↑ ↓ comptent aussi en vol. R en vol : voler vite.
 
-Exploration visuelle : casse et pose désactivées.
-Aucun pinceau actif pour cette étape ; les constructions antérieures sont conservées.
-Relâcher ou mettre en pause arrête la répétition.
+Terrain lisse : clic gauche creuse, clic droit ajoute, 50 cm à chaque clic (sous-cellules de 50 cm,
+8 par bloc de 1 m). On peut creuser jusqu'à 3,5 m sous le sol ; la base, dessous, est indestructible.
+Les blocs posés avant sont conservés ; plus de casse ni de pose de blocs pour l'instant.
 
 Molette : changer de bloc.
 Le sable reste immobile, même sans support.

@@ -73,8 +73,9 @@ func _run() -> void:
 	player.camera.rotation.x = -0.7
 	await frames(3)
 	var count: int = world.blocks.size()
-	check(not player.begin_placement(), "visual exploration rejects immediate placement")
-	check(world.blocks.size() == count, "disabled placement preserves blocks")
+	# 0.0.5.8 : un clic droit ajoute du terrain lisse (50 cm), pas de bloc.
+	check(player.begin_placement() and world.terrain.changes.size() == 1, "right click adds smooth ground")
+	check(world.blocks.size() == count, "adding ground places no block")
 	check(not player.step_placement(0.299, true, true), "gameplay repeat waits before interval")
 	await frames(3)
 	# Aim at a different cell while holding; the repeat must use the current ray.
@@ -128,7 +129,7 @@ func _run() -> void:
 	world.blocks = saved_blocks.duplicate()
 	for index in range(world.MAX_BLOCKS - world.blocks.size()):
 		world.blocks[Vector3i(100 + index, 0, 100)] = null
-	check(not player.begin_placement(), "capacity blocks immediate placement")
+	check(world.blocks.size() >= world.MAX_BLOCKS, "block capacity reached (terrain gestures do not use it)")
 	check(not player.step_placement(0.3, true, true), "capacity also blocks repeated placement")
 	world.blocks = saved_blocks
 	player.actions.cancel()

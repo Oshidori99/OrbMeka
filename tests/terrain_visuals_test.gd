@@ -27,16 +27,16 @@ func _run() -> void:
 	check(patch.surface_get_array_len(0) == 200 * 3, "medium density has 200 blades per 50 cm patch")
 	check(world.save_folder.is_empty(), "visual test never opens personal world storage")
 	var before: Dictionary = world.blocks.duplicate()
-	check(not world.break_target({}) and not world.place_target({},2), "public edit entry points disabled")
+	# 0.0.5.8 : clics = gestes sur le terrain lisse ; sans cible, rien ; maintenir ne répète pas.
+	check(not world.break_target({}) and not world.place_target({},2), "empty target sculpts nothing")
 	for index in range(20):
-		check(not world.player.begin_breaking() and not world.player.begin_placement(), "no immediate edit in visual exploration")
 		world.player.step_breaking(0.3,true,true)
 		world.player.step_placement(0.3,true,true)
-	check(world.blocks == before and world.dirty_zones.is_empty(), "held actions neither change blocks nor dirty save data")
+	check(world.blocks == before and world.dirty_zones.is_empty() and world.terrain.changes.is_empty(), "held actions neither change blocks, terrain nor save data")
 	check(not world.player.actions.breaking and not world.player.actions.placing, "repetition timers remain disarmed")
-	check(world.find_child("ExplorationNotice",true,false).text.contains("désactivées"), "player sees exploration-only notice")
+	check(world.find_child("ExplorationNotice",true,false).text.contains("creuse"), "player sees how to sculpt the terrain")
 	for level in range(3):
-		check(world.get_help_text(level).contains("désactivées"), "help reports unavailable editing at detail level %d" % level)
+		check(world.get_help_text(level).contains("creuser"), "help explains digging at detail level %d" % level)
 	check(world.Zones.ZONE_SIZE == 8 and world.Zones.DENSITY_STEP == 0.5, "agreed zone and future sub-cell scale unchanged")
 	check(world.generated.is_empty() and world.SAND_RADIUS > 0.0, "flat start: no blocks, a painted sand beach (0.0.5.5)")
 	root.remove_child(world)
