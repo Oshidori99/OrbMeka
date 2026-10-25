@@ -46,8 +46,7 @@ Ordre obligatoire de 1 à 4, ensuite libre :
    divisé en 2 × 2 × 2 = 8 sous-cellules au total : chacune mesure 50 cm de côté et représente
    1/8 du volume du bloc. Une zone de 8 m contient donc 16 × 16 × 16 sous-cellules ; une grille
    de sommets incluant les deux bords aurait 17 sommets par axe (pas 16 points).
-   Rendu lisse, pinceaux (creuser, ajouter, aplanir, lisser : faits en 0.0.5.9), sauvegarde des gestes, figés dans
-   la grille quand ils sont nombreux. En petites versions.
+   Rendu lisse, pinceaux (creuser, ajouter, aplanir, lisser : faits en 0.0.5.9), sauvegarde de l'état des zones modifiées point par point (pas geste par geste). En petites versions.
 4. Relief procédural et sous-sol (#121) : terre, pierre, granite, grottes ; « Roche-mère » incassable en bas
    (ne pas reprendre le nom anglais courant d'un autre jeu).
 5. Matières (#122) · 6. Structures (#123) · 7. Créatif/Survie (#73) · Inventaire (milestone HUD) ·
