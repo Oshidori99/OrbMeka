@@ -1,6 +1,18 @@
-# OrbMeka™ — prototype 0.0.5.12
+# OrbMeka™ — prototype 0.0.5.13
 
 Godot 4.7 / GDScript. Formes et couleurs simples ; assets externes seulement sous licence vérifiée (sons CC0, assets/sounds/CREDITS.txt).
+
+## 0.0.5.13 — La pioche
+- La pioche rejoint la sélection existante : molette Sable → Terre → Pioche, ou touches 1, 2, 3.
+  Un petit texte en bas dit « Outil : Pioche » quand on la prend.
+- Pioche en main (vue à la première personne) : clic gauche casse la terre et aussi la pierre,
+  jusqu'à la Roche-mère (toujours incassable). Sans la pioche, la pierre ne casse pas (un message le dit).
+- Animation simple : la pioche s'abat et revient (0,25 s), des éclats gris (pierre) ou bruns (terre) volent.
+- La pioche ne pose rien ; aplanir et lisser ne touchent pas la pierre.
+
+Tests : smooth_terrain (pioche, pierre, Roche-mère, éclats), prototype et shortcuts_selection mis à jour ;
+tests choisis réussis. Capture PC : pioche en main.
+À tester manuellement : coup de pioche et éclats, creuser la pierre jusqu'à la Roche-mère.
 
 ## 0.0.5.12 — Pierre et Roche-mère (#121)
 - Sous le gazon : 4 m de terre (comme avant), puis 4 m de pierre, puis la Roche-mère, à 8 m sous le sol.

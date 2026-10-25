@@ -139,6 +139,7 @@ var selected_type := 0:
 		selected_type = value
 		if is_instance_valid(world):
 			world.update_selected_block()
+			_update_pickaxe()
 var world: Node3D
 # 0.0.5.9 : pinceau du clic droit (0 poser, 1 aplanir, 2 lisser ; B + T) et taille du geste
 # (0 : 1/8, 1 : 1/4, 2 : 1/2 bloc ; B + molette). Un texte en bas les rappelle au changement seulement.
@@ -164,6 +165,7 @@ func _ready() -> void:
 	view_camera = Camera3D.new()
 	view_camera.name = "ViewCamera"
 	camera.add_child(view_camera)
+	_make_pickaxe()
 	# Capture only after the player explicitly clicks in the game.
 	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
 
@@ -186,13 +188,13 @@ func _unhandled_input(event: InputEvent) -> void:
 			release_controls()
 		elif event.keycode == KEY_1 or event.physical_keycode == KEY_1:
 			selected_type = 0
-			world.show_choice("Matière : %s" % world.BLOCK_NAMES[selected_type])
+			world.show_choice(world.choice_text(selected_type))
 		elif event.keycode == KEY_2 or event.physical_keycode == KEY_2:
 			selected_type = 2
-			world.show_choice("Matière : %s" % world.BLOCK_NAMES[selected_type])
+			world.show_choice(world.choice_text(selected_type))
 		elif event.keycode == KEY_3 or event.physical_keycode == KEY_3:
-			selected_type = 2
-			world.show_choice("Matière : %s" % world.BLOCK_NAMES[selected_type])
+			selected_type = world.PICKAXE
+			world.show_choice(world.choice_text(selected_type))
 		elif event.is_action_pressed("change_view", false, true):
 			cycle_view()
 	if event is InputEventMouseMotion and Input.mouse_mode == Input.MOUSE_MODE_CAPTURED:
@@ -235,10 +237,57 @@ func turn_view(motion: Vector2) -> void:
 	rotate_y(-motion.x * sensitivity)
 	camera.rotation.x = clampf(camera.rotation.x - motion.y * sensitivity, deg_to_rad(-89.0), deg_to_rad(89.0))
 
-# 0.0.5.9 : seulement le sable et la terre (plus la pierre pour l'instant) ; 1 : sable, 2 ou 3 : terre.
-func cycle_block(_direction: int) -> void:
-	selected_type = 2 if selected_type == 0 else 0
-	world.show_choice("Matière : %s" % world.BLOCK_NAMES[selected_type])
+# 0.0.5.13 : sélection Sable → Terre → Pioche (plus la pierre à poser) ; 1 : sable, 2 : terre, 3 : pioche.
+func cycle_block(direction: int) -> void:
+	var order: Array = world.SELECTION
+	selected_type = order[wrapi(maxi(order.find(selected_type), 0) + direction, 0, order.size())]
+	world.show_choice(world.choice_text(selected_type))
+
+# Pioche tenue en main, en vue à la première personne, quand elle est choisie.
+var pickaxe: Node3D
+const PICKAXE_REST := Vector3(-0.35, 0.45, 0.02)
+
+func _make_pickaxe() -> void:
+	pickaxe = Node3D.new()
+	pickaxe.name = "Pickaxe"
+	pickaxe.position = Vector3(0.34, -0.32, -0.6)
+	pickaxe.rotation = PICKAXE_REST
+	var wood := StandardMaterial3D.new()
+	wood.albedo_color = Color("#7a5230")
+	var iron := StandardMaterial3D.new()
+	iron.albedo_color = Color("#8d9196")
+	iron.metallic = 0.6
+	iron.roughness = 0.45
+	# Manche, douille, puis deux bras de fer qui s'affinent et descendent en pointe de chaque côté.
+	var parts := [[Vector3(0.035, 0.55, 0.035), Vector3.ZERO, 0.0, wood], [Vector3(0.07, 0.07, 0.065), Vector3(0, 0.27, 0), 0.0, iron]]
+	for side in [-1.0, 1.0]:
+		parts.append([Vector3(0.14, 0.05, 0.05), Vector3(side * 0.1, 0.262, 0), side * -0.2, iron])
+		parts.append([Vector3(0.1, 0.034, 0.034), Vector3(side * 0.205, 0.228, 0), side * -0.45, iron])
+		parts.append([Vector3(0.05, 0.018, 0.018), Vector3(side * 0.262, 0.193, 0), side * -0.7, iron])
+	for part in parts:
+		var mesh := BoxMesh.new()
+		mesh.size = part[0]
+		mesh.material = part[3]
+		var piece := MeshInstance3D.new()
+		piece.mesh = mesh
+		piece.position = part[1]
+		piece.rotation.z = part[2]
+		piece.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		pickaxe.add_child(piece)
+	camera.add_child(pickaxe)
+	_update_pickaxe()
+
+func _update_pickaxe() -> void:
+	if is_instance_valid(pickaxe) and is_instance_valid(world):
+		pickaxe.visible = selected_type == world.PICKAXE and view == "first"
+
+# Coup de pioche : elle s'abat puis revient (0,25 s).
+func swing_pickaxe() -> void:
+	if not is_instance_valid(pickaxe) or not pickaxe.visible:
+		return
+	var tween := create_tween()
+	tween.tween_property(pickaxe, "rotation", PICKAXE_REST + Vector3(-1.1, 0, 0), 0.1).set_ease(Tween.EASE_IN)
+	tween.tween_property(pickaxe, "rotation", PICKAXE_REST, 0.15).set_ease(Tween.EASE_OUT)
 
 func cycle_brush() -> void:
 	brush = wrapi(brush + 1, 0, world.BRUSH_NAMES.size())
@@ -251,6 +300,8 @@ func cycle_size(direction: int) -> void:
 # 0.0.5.8 : un clic = un geste sur le terrain lisse (creuser ou ajouter 50 cm) ; pas de répétition en maintenant.
 func begin_breaking() -> bool:
 	actions.cancel()
+	if selected_type == world.PICKAXE:
+		swing_pickaxe()
 	return world.break_target(get_target())
 
 func step_breaking(_delta: float, _active: bool, _button_held: bool) -> bool:
@@ -383,6 +434,7 @@ func set_view(name: String) -> void:
 	else:
 		view_camera.current = true
 	_sync_body_view()
+	_update_pickaxe()
 	update_view()
 
 # Place la caméra de vue derrière (+Z des yeux) ou devant (-Z, tournée vers le joueur),

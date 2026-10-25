@@ -99,7 +99,14 @@ func _run() -> void:
 	var raised: Vector3i = SmoothTerrain.point_of(Vector3(-20.25, 0.15, -20.25))
 	check(world.terrain.density(raised) > 0.0, "one 50 cm sub-cell added above the ground")
 	var deep: Dictionary = aim(world, Vector3(5.25, SmoothTerrain.LOW_POINT * SmoothTerrain.STEP - 0.1, 5.25))
-	check(not world.break_target(deep) and world.notice == "La pierre ne se casse pas encore.", "stone cannot be broken yet (0.0.5.12)")
+	check(not world.break_target(deep) and world.notice.begins_with("La pierre se casse avec la pioche"), "without the pickaxe, stone does not break (0.0.5.13)")
+	world.player.selected_type = world.PICKAXE
+	check(world.player.pickaxe.visible and world.break_target(aim(world, Vector3(5.25, -4.0, 5.25))), "with the pickaxe (shown in hand), stone breaks")
+	check(world.terrain.density(SmoothTerrain.point_of(Vector3(5.25, -4.3, 5.25))) <= 0.0 and world.find_children("Debris", "CPUParticles3D", true, false).size() > 0, "a stone sub-cell is removed, with flying chips")
+	check(not world.break_target(aim(world, Vector3(5.25, -7.9, 5.25))) and world.notice == "Roche-mère : incassable.", "Roche-mère never breaks, even with the pickaxe")
+	check(not world.place_target(aim(world, Vector3(6.25, 0.0, 6.25)), world.PICKAXE), "the pickaxe places nothing")
+	world.player.selected_type = 0
+	check(not world.player.pickaxe.visible, "pickaxe hidden when sand is chosen")
 	# Fond d'un puits creusé jusqu'à la pierre : la surface est peinte en pierre, et la pierre ne tombe pas.
 	var shaft := SmoothTerrain.new()
 	for y in range(SmoothTerrain.LOW_POINT, 0):

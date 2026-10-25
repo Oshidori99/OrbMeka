@@ -12,7 +12,7 @@ const ZONE_SIZE := 8
 # Profondeur et hauteur qu'on peut sculpter, en points (−3,5 m à +4 m).
 # 0.0.5.12 : sous le gazon, 4 m de terre (points −1 à −7), puis 4 m de pierre (STONE_TOP à −15),
 # puis la Roche-mère (dès BEDROCK_TOP, à 8 m sous le sol), incassable, qui porte le monde.
-# La pierre ne se casse pas encore (plus tard, avec une animation) et ne tombe jamais.
+# La pierre ne tombe jamais ; 0.0.5.13 : elle se casse avec la pioche (sélection), jusqu'à la Roche-mère.
 const LOW_POINT := -7
 const STONE_TOP := -8
 const BEDROCK_TOP := -16
@@ -139,7 +139,14 @@ func surface_zones(low_zone: Vector2i, high_zone: Vector2i) -> Dictionary:
 func zone_mesh(zone: Vector3i) -> Array:
 	var origin := zone * POINTS
 	# Hauteurs utiles seulement : là où la surface peut passer (sol, points changés).
-	var y_low := maxi(origin.y - 1, LOW_POINT - 2)
+	# 0.0.5.13 : plus bas seulement si la pioche a creusé la pierre (recalcul plus court sinon).
+	var lowest := LOW_POINT
+	for dx in range(-1, 2):
+		for dy in range(-1, 2):
+			for dz in range(-1, 2):
+				for point: Vector3i in by_zone.get(zone + Vector3i(dx, dy, dz), {}):
+					lowest = mini(lowest, point.y)
+	var y_low := maxi(origin.y - 1, maxi(lowest, BEDROCK_TOP) - 2)
 	var y_high := mini(origin.y + POINTS, HIGH_POINT + 2)
 	var vertices := PackedVector3Array()
 	var normals := PackedVector3Array()
@@ -277,9 +284,13 @@ static func flat_mesh() -> ArrayMesh:
 var unstable: Dictionary = {}
 const SIDES := [Vector3i(1, 0, 0), Vector3i(-1, 0, 0), Vector3i(0, 0, 1), Vector3i(0, 0, -1)]
 
+# Pierre en place (de la graine) : ne tombe jamais.
+func is_stone(point: Vector3i) -> bool:
+	return density(point) > 0.0 and materials.get(point, natural_kind(point)) == STONE
+
 func solid(point: Vector3i) -> bool:
-	# La base indestructible porte tout, sous la profondeur qu'on peut creuser.
-	return point.y < LOW_POINT or density(point) > 0.0
+	# La Roche-mère porte tout (jamais changée : on ne casse que jusqu'à la pierre au-dessus).
+	return point.y <= BEDROCK_TOP or density(point) > 0.0
 
 # Après un changement : le point, ceux au-dessus et autour sont à vérifier.
 func wake(point: Vector3i) -> void:
@@ -290,7 +301,7 @@ func wake(point: Vector3i) -> void:
 
 # Où tombe ou glisse ce point (lui-même s'il tient).
 func fall_target(point: Vector3i) -> Vector3i:
-	if point.y <= LOW_POINT or not solid(point):
+	if point.y <= BEDROCK_TOP or not solid(point) or is_stone(point):
 		return point
 	var below := point + Vector3i.DOWN
 	if not solid(below):

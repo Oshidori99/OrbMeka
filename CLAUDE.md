@@ -55,7 +55,7 @@ Ordre obligatoire de 1 à 4, ensuite libre :
    Note pour plus tard (gravité réaliste, demandée par l'utilisateur ; 0.0.5.11 n'en fait qu'une première version) :
    sable : glisse au-delà d'environ 34° et ne tient jamais en plafond ; terre : pentes raides possibles
    et petit plafond d'environ 1 m au plus, au-delà elle s'effondre ; pierre : ne tombe pas. Plus tard,
-   des poutres pourront soutenir la terre. Casser la pierre : plus tard, avec une belle animation (0.0.5.12 : incassable).
+   des poutres pourront soutenir la terre. Pierre : cassée à la pioche depuis 0.0.5.13 (animation simple, à améliorer).
 Règles : même graine = même monde ; mondes légers (seulement les changements, compressés) ;
 mesurer les performances sur PC et sur le Web à chaque étape.
 

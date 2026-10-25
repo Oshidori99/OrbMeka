@@ -274,6 +274,15 @@ const SIZE_NAMES := ["1/8 de bloc", "1/4 de bloc", "1/2 bloc"]
 const SIZE_CELLS := [1, 2, 4]
 # Matières qu'on peut poser pour l'instant (0.0.5.9 : plus la pierre).
 const PLACEABLE := [0, 2]
+# 0.0.5.13 : la pioche, dans la même sélection (molette : Sable, Terre, Pioche ; touches 1, 2, 3).
+const PICKAXE := 3
+const SELECTION := [0, 2, PICKAXE]
+
+func choice_name(kind: int) -> String:
+	return "Pioche" if kind == PICKAXE else BLOCK_NAMES[kind]
+
+func choice_text(kind: int) -> String:
+	return ("Outil : %s" if kind == PICKAXE else "Matière : %s") % choice_name(kind)
 
 func _aimed_ground(hit: Dictionary, reach: float) -> bool:
 	if not _valid_hit(hit, reach):
@@ -301,14 +310,15 @@ static func gesture_points(center: Vector3i, normal: Vector3, cells: int) -> Arr
 		result.append_array([center + side_b, center + side_a + side_b])
 	return result
 
+# 0.0.5.13 : jusqu'à la pierre juste au-dessus de la Roche-mère (la pierre : seulement à la pioche).
 func _in_terrain_limits(point: Vector3i) -> bool:
-	return point.y >= SmoothTerrain.LOW_POINT and point.y <= SmoothTerrain.HIGH_POINT and absi(point.x) <= BUILD_LIMIT * 2 and absi(point.z) <= BUILD_LIMIT * 2
+	return point.y > SmoothTerrain.BEDROCK_TOP and point.y <= SmoothTerrain.HIGH_POINT and absi(point.x) <= BUILD_LIMIT * 2 and absi(point.z) <= BUILD_LIMIT * 2
 
 func _inside_player(point: Vector3i) -> bool:
 	return AABB(player.global_position + Vector3(-0.33, 0.01, -0.33), Vector3(0.66, 1.78, 0.66)).intersects(AABB(Vector3(point) * SmoothTerrain.STEP - Vector3.ONE * 0.25, Vector3.ONE * 0.5))
 
 # Creuser (add false) ou poser (add true, matière kind).
-func sculpt(hit: Dictionary, add: bool, kind: int = SmoothTerrain.DIRT, cells: int = 1) -> bool:
+func sculpt(hit: Dictionary, add: bool, kind: int = SmoothTerrain.DIRT, cells: int = 1, pickaxe: bool = false) -> bool:
 	if not _aimed_ground(hit, player.place_reach if add else player.break_reach):
 		return false
 	var center := SmoothTerrain.point_of(hit.position + hit.normal * (0.15 if add else -0.3))
@@ -316,14 +326,17 @@ func sculpt(hit: Dictionary, add: bool, kind: int = SmoothTerrain.DIRT, cells: i
 	var message := ""
 	for point in gesture_points(center, hit.normal, cells):
 		if not _in_terrain_limits(point):
-			if point.y < SmoothTerrain.LOW_POINT:
-				message = "Roche-mère : incassable." if point.y < SmoothTerrain.BEDROCK_TOP else "La pierre ne se casse pas encore."
+			if point.y <= SmoothTerrain.BEDROCK_TOP:
+				message = "Roche-mère : incassable."
 			elif point.y > SmoothTerrain.HIGH_POINT:
 				message = "Hauteur maximale atteinte : 4 blocs au-dessus du sol."
 			else:
 				message = "Limite de construction atteinte."
 			continue
 		if (terrain.density(point) > 0.0) == add:
+			continue
+		if not add and terrain.is_stone(point) and not pickaxe:
+			message = "La pierre se casse avec la pioche (molette ou touche 3)."
 			continue
 		if add and _inside_player(point):
 			message = "Reculez un peu pour ajouter du terrain."
@@ -348,7 +361,7 @@ func flatten(hit: Dictionary, cells: int = 1) -> bool:
 				continue
 			for y in range(floori((level - 1.5) / SmoothTerrain.STEP), ceili((level + 1.5) / SmoothTerrain.STEP) + 1):
 				var point := Vector3i(center.x + dx, y, center.z + dz)
-				if not _in_terrain_limits(point):
+				if not _in_terrain_limits(point) or terrain.is_stone(point):
 					continue
 				var value := clampf(level - y * SmoothTerrain.STEP, -1.0, 1.0)
 				var old := terrain.density(point)
@@ -371,7 +384,7 @@ func smooth(hit: Dictionary, cells: int = 1) -> bool:
 				if dx * dx + dy * dy + dz * dz > radius * radius:
 					continue
 				var point := center + Vector3i(dx, dy, dz)
-				if not _in_terrain_limits(point):
+				if not _in_terrain_limits(point) or terrain.is_stone(point):
 					continue
 				var around := 0.0
 				for step in [Vector3i.LEFT, Vector3i.RIGHT, Vector3i.UP, Vector3i.DOWN, Vector3i.FORWARD, Vector3i.BACK]:
@@ -730,7 +743,12 @@ func _valid_hit(hit: Dictionary, reach: float) -> bool:
 
 # 0.0.5.8 : clic gauche : creuser le terrain lisse (les blocs posés avant restent, sans casse ni pose).
 func break_target(hit: Dictionary) -> bool:
-	return sculpt(hit, false, -1, SIZE_CELLS[player.brush_size])
+	var pickaxe: bool = player.selected_type == PICKAXE
+	var stone := not hit.is_empty() and terrain.is_stone(SmoothTerrain.point_of(hit.position - hit.normal * 0.3))
+	var done := sculpt(hit, false, -1, SIZE_CELLS[player.brush_size], pickaxe)
+	if done:
+		_debris(hit.position, Color("#6f6b66") if stone else Color("#6b4a2e"))
+	return done
 
 # Legacy domain operation for saved-data/constraint regression tests; not player input.
 func _edit_break_target(hit: Dictionary) -> bool:
@@ -756,6 +774,9 @@ static func hit_cell(hit: Dictionary) -> Vector3i:
 
 # Clic droit : le pinceau choisi (B + T), avec la matière choisie (sable ou terre) et la taille (B + molette).
 func place_target(hit: Dictionary, kind: int) -> bool:
+	if kind == PICKAXE and player.brush == 0:
+		_notify("Choisissez du sable ou de la terre pour poser (molette).")
+		return false
 	var cells: int = SIZE_CELLS[player.brush_size]
 	if not kind in PLACEABLE:
 		kind = SmoothTerrain.DIRT
@@ -910,7 +931,7 @@ func apply_text_scale(scale: float) -> void:
 
 func update_selected_block() -> void:
 	if is_instance_valid(selected_block_label) and is_instance_valid(player):
-		selected_block_label.text = "Bloc sélectionné : %s" % BLOCK_NAMES[player.selected_type]
+		selected_block_label.text = "Bloc sélectionné : %s" % choice_name(player.selected_type)
 
 # 0.0.5.9 : choix du joueur (matière, pinceau, taille), en bas, seulement quand il change.
 func show_choice(message: String) -> void:
@@ -948,7 +969,7 @@ func _process(delta: float) -> void:
 static func get_help_text(level: int = 2) -> String:
 	if level == 0:
 		return "ZQSD : marcher. ↑ ↓ + A : vitesse (⌫ ⌫ : défaut). Espace : sauter ; deux fois : voler. Clic gauche : creuser ; droit : poser, aplanir ou lisser (B + T).
-Molette : sable ou terre ; B + molette : taille. Échap : pause. F1 : mondes. F4 : vue."
+Molette : sable, terre ou pioche ; B + molette : taille. Échap : pause. F1 : mondes. F4 : vue."
 	if level == 1:
 		return "ZQSD / WASD : marcher (← → : de côté). Souris : regarder. Espace : sauter.
 Y : se baisser. R : courir (mode dans Contrôles).
@@ -956,7 +977,7 @@ Y : se baisser. R : courir (mode dans Contrôles).
 ⌫ + touche : par défaut ; ⌫ deux fois : tout.
 Espace deux fois : voler (Espace monte, Y descend) ; encore deux fois : arrêter.
 Clic gauche : creuser ; clic droit : pinceau (B + T : poser, aplanir, lisser).
-B + molette : taille du geste (1/8, 1/4, 1/2 bloc). Molette : sable ou terre.
+B + molette : taille du geste (1/8, 1/4, 1/2 bloc). Molette : sable, terre ou pioche.
 Échap : pause. F1 : liste des mondes. F3 : Informations.
 F4 : vue (première personne, de derrière, de devant).
 Portée : %d blocs. Maximum : %d blocs, hauteur %d (Y 0 sur le sol plat).
@@ -981,10 +1002,10 @@ Terrain lisse (sous-cellules de 50 cm, 8 par bloc de 1 m) : clic gauche creuse ;
 choisi avec B + T : Poser (sable ou terre, molette ou 1 et 2), Aplanir (sol mis à la hauteur visée)
 ou Lisser (formes adoucies). B + molette : taille du geste, 1/8, 1/4 ou 1/2 bloc (1, 2 ou 4 sous-cellules).
 Le choix s'affiche en bas quand on le change. Poser : jusqu'à 4 blocs au-dessus du sol.
-Sous le gazon : 4 m de terre qu'on peut creuser, puis 4 m de pierre (pas encore cassable), puis la Roche-mère, incassable.
+Sous le gazon : 4 m de terre qu'on peut creuser, puis 4 m de pierre (à la pioche), puis la Roche-mère, incassable.
 Les blocs posés avant sont conservés ; plus de casse ni de pose de blocs pour l'instant.
 
-Molette : sable ou terre (la pierre n'est plus posée pour l'instant).
+Molette (ou 1, 2, 3) : sable, terre ou pioche. Avec la pioche, le clic gauche casse aussi la pierre.
 Le sable reste immobile, même sans support.
 
 Échap : pause et souris libre. Reprendre / Échap : retour direct au jeu.
@@ -1056,10 +1077,36 @@ Graine : %d
 %s
 
 Relief : tout plat, en herbe ; une plage de sable d'environ %d m² à une dizaine de mètres de l'apparition.
-Sous-sol : 4 m de terre, 4 m de pierre, puis la Roche-mère incassable.
+Sous-sol : 4 m de terre, 4 m de pierre (à casser à la pioche), puis la Roche-mère incassable.
 
 Base plate : largeur %d × longueur %d blocs (%s), sol à Y 0
 Construction : hauteur maximale %d blocs au-dessus du sol plat (sommet à Y %d), %s.
 %s
 
 Nom, graine, mode, constructions et position sauvegardés." % [world_name, terrain_seed, mode_line, sand_area(), int(BASE_SIZE.x), int(BASE_SIZE.z), base_range_text(), MAX_BUILD_HEIGHT, MAX_BUILD_HEIGHT, build_range_text(), COORDINATES_NOTE]
+
+# 0.0.5.13 : éclats de terre ou de pierre là où l'on vient de creuser (animation simple, une fois).
+func _debris(at: Vector3, color: Color) -> void:
+	var burst := CPUParticles3D.new()
+	burst.name = "Debris"
+	burst.one_shot = true
+	burst.amount = 14
+	burst.lifetime = 0.7
+	burst.explosiveness = 1.0
+	burst.direction = Vector3.UP
+	burst.spread = 55.0
+	burst.initial_velocity_min = 1.2
+	burst.initial_velocity_max = 2.6
+	burst.scale_amount_min = 0.6
+	burst.scale_amount_max = 1.2
+	var piece := BoxMesh.new()
+	piece.size = Vector3.ONE * 0.06
+	var material := StandardMaterial3D.new()
+	material.albedo_color = color
+	material.roughness = 0.95
+	piece.material = material
+	burst.mesh = piece
+	burst.position = at + Vector3.UP * 0.05
+	add_child(burst)
+	burst.emitting = true
+	burst.finished.connect(burst.queue_free)

@@ -3,6 +3,9 @@ Du plus récent au plus ancien. Ce fichier est mis à jour à chaque version.
 
 === Thème « Monde » (0.0.5 et suivantes) ===
 
+0.0.5.13 — La pioche
+Dans la sélection (molette : sable, terre, pioche ; touche 3) : elle casse la pierre, avec un coup de pioche et des éclats.
+
 0.0.5.12 — Pierre et Roche-mère
 Sous le gazon : 4 m de terre, 4 m de pierre (pas encore cassable), puis la Roche-mère incassable ; chute plus lente.
 

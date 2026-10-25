@@ -67,7 +67,7 @@ func _run() -> void:
 			spawn_clear = false
 	check(spawn_clear, "spawn capsule does not intersect any block")
 	check(Input.mouse_mode == Input.MOUSE_MODE_VISIBLE, "startup leaves mouse free")
-	check(ProjectSettings.get_setting("application/config/version") == "0.0.5.12", "project version is 0.0.5.12")
+	check(ProjectSettings.get_setting("application/config/version") == "0.0.5.13", "project version is 0.0.5.13")
 	for action in ["move_forward", "move_back", "move_left", "move_right", "jump"]:
 		check(InputMap.has_action(action), "input binding: " + action)
 	# Marche testée dans l'aire dégagée (l'apparition en 0, 0 fait face aux blocs de démonstration).
@@ -152,7 +152,7 @@ func _run() -> void:
 	check(player.selected_type == 2, "key 2 selects dirt (no stone to place since 0.0.5.9)")
 	event.keycode = KEY_3
 	player._unhandled_input(event)
-	check(player.selected_type == 2, "key 3 selects dirt")
+	check(player.selected_type == world.PICKAXE, "key 3 selects the pickaxe (0.0.5.13)")
 	# Exercise all three slots through the selection handler and real physics rays.
 	player.position = Vector3(30.5, 0.02, 30.5)
 	player.velocity = Vector3.ZERO
@@ -163,7 +163,7 @@ func _run() -> void:
 	for kind in range(3):
 		event.keycode = [KEY_1, KEY_2, KEY_3][kind]
 		player._unhandled_input(event)
-		check(player.selected_type == (2 if kind == 1 else kind), "number key selects material %d" % kind)
+		check(player.selected_type == [0, 2, world.PICKAXE][kind], "number key selects sand, dirt or pickaxe %d" % kind)
 		check(world.BLOCK_COLORS[kind] == expected_colors[kind], "material %d uses expected simple color" % kind)
 		hit = player.get_target()
 		check(world._edit_place_target(hit, kind), "selected material %d can be placed" % kind)
