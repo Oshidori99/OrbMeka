@@ -1,6 +1,19 @@
-# OrbMeka™ — prototype 0.0.5.14
+# OrbMeka™ — prototype 0.0.5.15
 
 Godot 4.7 / GDScript. Formes et couleurs simples ; assets externes seulement sous licence vérifiée (sons CC0, assets/sounds/CREDITS.txt).
+
+## 0.0.5.15 — Relief varié et déserts (#121)
+- Collines jusqu'à 3 m, surtout douces ; petites bosses partout (le sol est moins plat), toujours en gazon.
+- Environ 1 zone de 8 m sur 9 : une crête abrupte (ça monte, puis ça tombe d'un coup).
+- Environ 1 zone sur 9 : un trou, petit ou gros, jamais jusqu'à la pierre (3,5 m au plus) ; le gazon
+  reste dedans (seul ce qu'on creuse soi-même perd son herbe).
+- Environ 1 zone sur 8 : un petit désert (une zone) ; 1 sur 12 : le départ d'un grand désert (3 ou 4 zones).
+  Sable sur 2 m, puis la terre ; ce sable tombe et glisse comme le sable posé ; pas d'herbe.
+- Toujours plat autour de l'apparition et de la plage ; même graine = même monde.
+
+Tests : smooth_terrain (fréquences sur 1600 zones, déserts en sable, trous avant la pierre) ;
+tests choisis réussis. Captures PC (vue d'en haut) et Web (désert). Ouverture : environ 0,9 s sur PC.
+À tester manuellement : se promener (crêtes, trous, déserts), FPS et ouverture sur le Web.
 
 ## 0.0.5.14 — Petites collines (#121)
 - La graine crée de petites collines de terre douces (1,6 m au plus, jamais sous Y 0), plates autour

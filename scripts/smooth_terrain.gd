@@ -27,23 +27,118 @@ var changes: Dictionary = {}
 var by_zone: Dictionary = {}
 var columns: Dictionary = {}
 
-# 0.0.5.14 : petites collines de terre selon la graine (étape 4, #121, début) : hauteur du sol par colonne
-# de points, d'un bruit doux ; jamais sous Y 0 ; aplati autour des endroits donnés (apparition, plage).
-# Sans setup() (tests) : sol plat à Y 0.
-const HILL_HEIGHT := 1.6
-const HILL_SIZE := 34.0
+# 0.0.5.14 : petites collines de terre selon la graine (étape 4, #121, début), aplaties autour des endroits
+# donnés (apparition, plage). Sans setup() (tests) : sol plat à Y 0.
+# 0.0.5.15 (demandes de l'utilisateur) : collines jusqu'à 3 m, surtout douces ; petites bosses partout ;
+# par zone de 8 m (CHUNK), au hasard de la graine : environ 1 sur 9 a une crête abrupte (ça monte puis
+# ça tombe d'un coup), environ 1 sur 9 un trou, petit ou gros (jamais jusqu'à la pierre : 3,5 m au plus) ;
+# environ 1 sur 8 est un petit désert (une zone), 1 sur 12 le départ d'un grand désert (3 ou 4 zones).
+# Le gazon couvre tout le sol de la graine, trous compris ; les déserts sont en sable.
+const HILL_HEIGHT := 3.0
+const HILL_SIZE := 40.0
+const BUMP_HEIGHT := 0.25
+const DEEPEST := -3.5
+const CHUNK := 8.0
+const FEATURE_CHANCE := 1.0 / 9.0
+const SMALL_DESERT_CHANCE := 1.0 / 8.0
+const BIG_DESERT_CHANCE := 1.0 / 12.0
+# Épaisseur du sable sous un désert (m), puis la terre.
+const DESERT_SAND := 2.0
 var _noise: FastNoiseLite
+var _bumps: FastNoiseLite
+var _warp: FastNoiseLite
+var _seed := 0
 var _flat_spots: Array = []
 var _heights: Dictionary = {}
+var _chunks: Dictionary = {}
+var _deserts: Dictionary = {}
 
 func setup(terrain_seed: int, flat_spots: Array = []) -> void:
+	_seed = terrain_seed
 	_noise = FastNoiseLite.new()
 	_noise.seed = terrain_seed
 	_noise.noise_type = FastNoiseLite.TYPE_SIMPLEX_SMOOTH
 	_noise.frequency = 1.0 / HILL_SIZE
 	_noise.fractal_octaves = 3
+	_bumps = FastNoiseLite.new()
+	_bumps.seed = terrain_seed + 1
+	_bumps.noise_type = FastNoiseLite.TYPE_SIMPLEX_SMOOTH
+	_bumps.frequency = 1.0 / 9.0
+	_warp = FastNoiseLite.new()
+	_warp.seed = terrain_seed + 2
+	_warp.frequency = 1.0 / 6.0
 	_flat_spots = flat_spots
 	_heights.clear()
+	_chunks.clear()
+	_deserts.clear()
+
+# Ce que la graine met dans une zone de 8 m : crête, trou, désert (toujours pareil pour une graine).
+func _chunk(chunk: Vector2i) -> Dictionary:
+	if _chunks.has(chunk):
+		return _chunks[chunk]
+	var rng := RandomNumberGenerator.new()
+	rng.seed = hash([_seed, chunk.x, chunk.y])
+	var corner := Vector2(chunk) * CHUNK
+	var info := {}
+	if rng.randf() < FEATURE_CHANCE:
+		info.hole = [corner + Vector2(rng.randf_range(2.0, 6.0), rng.randf_range(2.0, 6.0)), rng.randf_range(0.8, -DEEPEST - 0.1), rng.randf_range(1.5, 4.0)]
+	if rng.randf() < FEATURE_CHANCE:
+		var angle := rng.randf() * TAU
+		info.ridge = [corner + Vector2(rng.randf_range(2.0, 6.0), rng.randf_range(2.0, 6.0)), Vector2(cos(angle), sin(angle)), rng.randf_range(1.2, 2.4), rng.randf_range(3.0, 5.0), rng.randf_range(2.5, 4.0)]
+	info.small_desert = rng.randf() < SMALL_DESERT_CHANCE
+	if rng.randf() < BIG_DESERT_CHANCE:
+		var around := [Vector2i(1, 0), Vector2i(0, 1), Vector2i(1, 1)]
+		info.big_desert = [Vector2i.ZERO] + around.slice(0, rng.randi_range(2, 3))
+	_chunks[chunk] = info
+	return info
+
+# Relief rare d'une zone (et de ses voisines, qui peuvent déborder) au point « at » (m).
+func _features(at: Vector2) -> float:
+	var total := 0.0
+	var here := Vector2i(floori(at.x / CHUNK), floori(at.y / CHUNK))
+	for dx in range(-1, 2):
+		for dz in range(-1, 2):
+			var info := _chunk(here + Vector2i(dx, dz))
+			if info.has("hole"):
+				var hole: Array = info.hole
+				total -= hole[1] * (1.0 - smoothstep(hole[2] * 0.5, hole[2], at.distance_to(hole[0])))
+			if info.has("ridge"):
+				var ridge: Array = info.ridge
+				var offset: Vector2 = at - ridge[0]
+				var along: float = offset.dot(ridge[1])
+				var across: float = absf(offset.dot(Vector2(-ridge[1].y, ridge[1].x)))
+				var profile := 0.0
+				if along > -ridge[3] and along <= 0.0:
+					profile = smoothstep(0.0, 1.0, (along + ridge[3]) / ridge[3])
+				elif along > 0.0 and along < 0.6:
+					profile = 1.0 - along / 0.6
+				total += ridge[2] * profile * (1.0 - smoothstep(ridge[4] * 0.6, ridge[4], across))
+	return total
+
+func _away_from_spots(at: Vector2, margin: float) -> float:
+	var fade := 1.0
+	for spot in _flat_spots:
+		fade *= smoothstep(spot[1], spot[1] + margin, at.distance_to(spot[0]))
+	return fade
+
+# Désert au point « at » (m) : la zone (bord un peu irrégulier) est un petit désert ou fait partie d'un grand.
+func is_desert(at: Vector2) -> bool:
+	if _noise == null:
+		return false
+	var key := Vector2i(floori(at.x * 2.0), floori(at.y * 2.0))
+	if _deserts.has(key):
+		return _deserts[key]
+	var warped := at + Vector2(_warp.get_noise_2d(at.x, at.y), _warp.get_noise_2d(at.x + 97.0, at.y - 31.0)) * 2.5
+	var chunk := Vector2i(floori(warped.x / CHUNK), floori(warped.y / CHUNK))
+	var desert: bool = _chunk(chunk).small_desert
+	for dx in range(-1, 1):
+		for dz in range(-1, 1):
+			var info := _chunk(chunk + Vector2i(dx, dz))
+			desert = desert or (info.has("big_desert") and Vector2i(-dx, -dz) in info.big_desert)
+	# Jamais autour de l'apparition ni de la plage.
+	desert = desert and _away_from_spots((Vector2(chunk) + Vector2(0.5, 0.5)) * CHUNK, 8.0) > 0.0
+	_deserts[key] = desert
+	return desert
 
 # Hauteur du sol (m) au point de colonne (x, z) ; même graine = même hauteur (arrondie au millième).
 func ground_height(column: Vector2i) -> float:
@@ -53,10 +148,9 @@ func ground_height(column: Vector2i) -> float:
 		return _heights[column]
 	var at := Vector2(column) * STEP
 	var hill := clampf(_noise.get_noise_2d(at.x, at.y) * 1.6 - 0.15, 0.0, 1.0)
-	var fade := 1.0
-	for spot in _flat_spots:
-		fade *= smoothstep(spot[1], spot[1] + 7.0, at.distance_to(spot[0]))
-	var height := roundf(HILL_HEIGHT * pow(hill, 1.4) * fade * 1000.0) / 1000.0
+	var height := HILL_HEIGHT * pow(hill, 1.4) + _bumps.get_noise_2d(at.x, at.y) * BUMP_HEIGHT + _features(at)
+	height = clampf(height * _away_from_spots(at, 7.0), DEEPEST, HILL_HEIGHT)
+	height = roundf(height * 1000.0) / 1000.0
 	_heights[column] = height
 	return height
 
@@ -98,9 +192,15 @@ const SAND := 0
 const DIRT := 2
 const STONE := 1
 
-# Matière du sol de la graine selon la profondeur : terre (-1, aspect du sol avec herbe), pierre ou Roche-mère.
-static func natural_kind(point: Vector3i) -> int:
-	return STONE if point.y <= STONE_TOP else -1
+# Matière du sol de la graine : terre (-1, aspect du sol avec herbe), sable des déserts, pierre ou Roche-mère.
+func natural_kind(point: Vector3i) -> int:
+	if point.y <= STONE_TOP:
+		return STONE
+	# 0.0.5.15 : sable sous les déserts, sur DESERT_SAND mètres, puis la terre.
+	var column := Vector2i(point.x, point.z)
+	if is_desert(Vector2(column) * STEP) and point.y * STEP > ground_height(column) - DESERT_SAND:
+		return SAND
+	return -1
 
 func material(point: Vector3i) -> int:
 	return materials.get(point, -1)
@@ -172,7 +272,17 @@ func is_flat(zone: Vector3i) -> bool:
 				for point: Vector3i in by_zone.get(zone + Vector3i(dx, dy, dz), {}):
 					if point.x >= low.x and point.y >= low.y and point.z >= low.z and point.x <= high.x and point.y <= high.y and point.z <= high.z:
 						return false
-	return _noise == null or zone_heights(zone).y <= 0.0
+	if _noise == null:
+		return true
+	# 0.0.5.15 : plate seulement sans bosse (hauteur 0 partout) ni désert (sable à peindre).
+	var heights := zone_heights(zone)
+	if heights.x != 0.0 or heights.y != 0.0:
+		return false
+	var origin := Vector2(zone.x, zone.z) * CHUNK
+	for corner in [Vector2(0, 0), Vector2(CHUNK, 0), Vector2(0, CHUNK), Vector2(CHUNK, CHUNK), Vector2(CHUNK, CHUNK) / 2.0]:
+		if is_desert(origin + corner):
+			return false
+	return true
 
 # Zones qui ont une surface : le sol plat (zones juste sous Y 0), celles des collines (zones dès Y 0)
 # et celles qui lisent un point changé.
@@ -385,7 +495,7 @@ func fall_target(point: Vector3i) -> Vector3i:
 	if not solid(below):
 		return below
 	# Talus : un côté libre, et assez de vide en dessous de ce côté.
-	var drop := 2 if materials.get(point, DIRT) == SAND else 3
+	var drop := 2 if materials.get(point, natural_kind(point)) == SAND else 3
 	var first := absi(hash(point)) % 4
 	for turn in range(4):
 		var side: Vector3i = point + SIDES[(first + turn) % 4]
@@ -411,7 +521,9 @@ func settle_step(limit: int = 96) -> Array[Vector3i]:
 		if target == point or absi(target.x) > 2 * 57 or absi(target.z) > 2 * 57:
 			continue
 		var value := density(point)
-		var kind: int = materials.get(point, DIRT)
+		var kind: int = materials.get(point, natural_kind(point))
+		if kind < 0:
+			kind = DIRT
 		set_density(target, maxf(value, ADDED), kind)
 		set_density(point, DUG)
 		moved.append_array([point, target])

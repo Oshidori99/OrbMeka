@@ -3,6 +3,9 @@ Du plus récent au plus ancien. Ce fichier est mis à jour à chaque version.
 
 === Thème « Monde » (0.0.5 et suivantes) ===
 
+0.0.5.15 — Relief varié et déserts
+Collines jusqu'à 3 m, bosses, crêtes abruptes et trous rares (1 zone sur 9), petits et grands déserts de sable.
+
 0.0.5.14 — Petites collines
 Collines de terre douces selon la graine ; clic maintenu qui répète le geste ; B + molette haut = geste plus grand.
 

@@ -49,6 +49,8 @@ func _run() -> void:
 	check(cells.size() > 0 and cells.size() < 1000, "terrain stays small and leaves construction capacity")
 	print("TERRAIN: seed=%d, columns=%d, dirt blocks=%d" % [TerrainGenerator.SEED, heights.size(), cells.size()])
 	world = load("res://scenes/world.tscn").instantiate()
+	# 0.0.5.14 : anciens blocs posés sur un sol plat (sans les collines de la graine).
+	world.relief = false
 	root.add_child(world)
 	current_scene = world
 	await frames(60)
@@ -67,7 +69,7 @@ func _run() -> void:
 			spawn_clear = false
 	check(spawn_clear, "spawn capsule does not intersect any block")
 	check(Input.mouse_mode == Input.MOUSE_MODE_VISIBLE, "startup leaves mouse free")
-	check(ProjectSettings.get_setting("application/config/version") == "0.0.5.14", "project version is 0.0.5.14")
+	check(ProjectSettings.get_setting("application/config/version") == "0.0.5.15", "project version is 0.0.5.15")
 	for action in ["move_forward", "move_back", "move_left", "move_right", "jump"]:
 		check(InputMap.has_action(action), "input binding: " + action)
 	# Marche testée dans l'aire dégagée (l'apparition en 0, 0 fait face aux blocs de démonstration).

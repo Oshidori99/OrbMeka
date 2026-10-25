@@ -82,7 +82,7 @@ func _run() -> void:
 	check(world.terrain_pieces.size() == 16 * 16, "flat smooth ground covers the 128 m base, one piece per zone")
 	check(is_equal_approx(world.get_node("Ground").position.y + 0.5, -8.0), "Roche-mère (indestructible base) starts 8 m below the grass (0.0.5.12)")
 	check(SmoothTerrain.LOW_POINT * SmoothTerrain.STEP == -3.5 and SmoothTerrain.STONE_TOP * SmoothTerrain.STEP == -4.0 and SmoothTerrain.BEDROCK_TOP * SmoothTerrain.STEP == -8.0, "layers: 4 m of dirt, then 4 m of stone, then Roche-mère")
-	check(SmoothTerrain.natural_kind(Vector3i(0, -7, 0)) == -1 and SmoothTerrain.natural_kind(Vector3i(0, -8, 0)) == SmoothTerrain.STONE and SmoothTerrain.natural_kind(Vector3i(0, -15, 0)) == SmoothTerrain.STONE, "dirt down to 4 m, stone below")
+	check(SmoothTerrain.new().natural_kind(Vector3i(0, -7, 0)) == -1 and SmoothTerrain.new().natural_kind(Vector3i(0, -8, 0)) == SmoothTerrain.STONE and SmoothTerrain.new().natural_kind(Vector3i(0, -15, 0)) == SmoothTerrain.STONE, "dirt down to 4 m, stone below")
 	var spot := Vector3(20.25, 0.0, 20.25)
 	var grass_before := 0
 	for tile in world.lawn.get_children():
@@ -129,8 +129,8 @@ func _run() -> void:
 		for z in range(-120, 121, 3):
 			var column := Vector2i(x, z)
 			tallest = maxf(tallest, hills.ground_height(column))
-			same_hills = same_hills and hills.ground_height(column) == again.ground_height(column) and hills.ground_height(column) >= 0.0
-	check(same_hills and tallest > 0.5 and tallest <= SmoothTerrain.HILL_HEIGHT, "same seed = same small hills (up to 1.6 m, never below Y 0)")
+			same_hills = same_hills and hills.ground_height(column) == again.ground_height(column) and hills.ground_height(column) >= SmoothTerrain.DEEPEST and hills.ground_height(column) > SmoothTerrain.STONE_TOP * SmoothTerrain.STEP
+	check(same_hills and tallest > 0.5 and tallest <= SmoothTerrain.HILL_HEIGHT, "same seed = same hills (up to 3 m, holes never down to the stone)")
 	check(hills.ground_height(Vector2i(1, 1)) == 0.0 and hills.ground_height(Vector2i(10, -6)) == 0.0, "flat around the spawn")
 	var other := SmoothTerrain.new()
 	other.setup(99, [[Vector2(0.5, 0.5), 9.0]])
@@ -138,6 +138,31 @@ func _run() -> void:
 	for x in range(-120, 121, 9):
 		differs = differs or other.ground_height(Vector2i(x, 60)) != hills.ground_height(Vector2i(x, 60))
 	check(differs, "another seed gives other hills")
+	# 0.0.5.15 : crêtes, trous et déserts, à peu près aux fréquences demandées (sur 1600 zones).
+	var counts := {"hole": 0, "ridge": 0, "small_desert": 0, "big_desert": 0}
+	for x in range(-20, 20):
+		for z in range(-20, 20):
+			var info: Dictionary = hills._chunk(Vector2i(x, z))
+			for key in ["hole", "ridge", "big_desert"]:
+				if info.has(key):
+					counts[key] += 1
+			if info.small_desert:
+				counts.small_desert += 1
+	print("Zones : ", counts)
+	check(absf(counts.hole / 1600.0 - 1.0 / 9.0) < 0.03 and absf(counts.ridge / 1600.0 - 1.0 / 9.0) < 0.03, "about 1 zone in 9 has a hole, 1 in 9 an abrupt ridge")
+	check(absf(counts.small_desert / 1600.0 - 1.0 / 8.0) < 0.03 and absf(counts.big_desert / 1600.0 - 1.0 / 12.0) < 0.03, "about 1 zone in 8 is a small desert, 1 in 12 starts a big one")
+	var desert_at := Vector2.ZERO
+	var hole_at := Vector2.ZERO
+	for x in range(-20, 20):
+		for z in range(-20, 20):
+			var info: Dictionary = hills._chunk(Vector2i(x, z))
+			if info.small_desert and desert_at == Vector2.ZERO and hills.is_desert((Vector2(x, z) + Vector2(0.5, 0.5)) * 8.0):
+				desert_at = (Vector2(x, z) + Vector2(0.5, 0.5)) * 8.0
+			if info.has("hole") and info.hole[1] > 2.0 and hole_at == Vector2.ZERO and hills.height_at(info.hole[0].x, info.hole[0].y) < -1.0:
+				hole_at = info.hole[0]
+	var desert_point := Vector3i(roundi(desert_at.x / 0.5), floori(hills.height_at(desert_at.x, desert_at.y) / 0.5), roundi(desert_at.y / 0.5))
+	check(desert_at != Vector2.ZERO and hills.natural_kind(desert_point) == SmoothTerrain.SAND and hills.natural_kind(desert_point + Vector3i(0, -6, 0)) != SmoothTerrain.SAND, "deserts are sand on top, dirt below")
+	check(hole_at != Vector2.ZERO and hills.height_at(hole_at.x, hole_at.y) > SmoothTerrain.STONE_TOP * SmoothTerrain.STEP, "deep holes exist and stop before the stone")
 	var started_hill := Time.get_ticks_usec()
 	var hill_zone := Vector3i.ZERO
 	for x in range(-8, 8):

@@ -268,7 +268,7 @@ Hauteur maximale : %d blocs ; plage de sable d'environ %d m².
 Graine aléatoire si vide. Constructions sauvegardées." % sizes,
 		"Base plate en herbe : largeur %d × longueur %d blocs (%s), sol à Y 0
 Construction : hauteur maximale %d blocs au-dessus du sol plat (sommet à Y %d), %s.
-Relief : petites collines de terre selon la graine (1,6 m au plus), plat autour de l'apparition ; une plage de sable d'environ %d m², à une dizaine de mètres de l'apparition.
+Relief selon la graine : collines jusqu'à 3 m, bosses, crêtes et trous rares, déserts ; plat autour de l'apparition ; une plage de sable d'environ %d m², à une dizaine de mètres de l'apparition.
 %s
 
 Graine choisie à la création, ou aléatoire si le champ est vide.

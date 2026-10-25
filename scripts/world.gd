@@ -288,9 +288,10 @@ func rebuild_terrain_piece(zone: Vector3i, flat_for_now: bool = false) -> void:
 	terrain_pieces[zone] = body
 	last_section_ms = (Time.get_ticks_usec() - started) / 1000.0
 
-# Herbe écartée là où le terrain a été sculpté (colonne de 50 cm et ses voisines).
+# Herbe écartée là où le terrain a été sculpté (colonne de 50 cm et ses voisines) et dans les déserts.
 func _grass_skipped(at: Vector3) -> bool:
-	return terrain.column_changed(Vector2i(roundi(at.x / SmoothTerrain.STEP), roundi(at.z / SmoothTerrain.STEP)))
+	# 0.0.5.15 : pas d'herbe dans les déserts.
+	return terrain.column_changed(Vector2i(roundi(at.x / SmoothTerrain.STEP), roundi(at.z / SmoothTerrain.STEP))) or terrain.is_desert(Vector2(at.x, at.z))
 
 func _rebuild_lawn_tile(tile: Vector2i) -> void:
 	for child in lawn.get_children():
@@ -1110,7 +1111,8 @@ Constructions sauvegardées." % [world_name, terrain_seed, world_mode_text, int(
 Graine : %d
 %s
 
-Relief : petites collines de terre selon la graine (1,6 m au plus), plat autour de l'apparition ; en herbe ;
+Relief selon la graine : collines jusqu'à 3 m, petites bosses, parfois une crête abrupte ou un trou,
+petits et grands déserts de sable ; plat autour de l'apparition ; en herbe ;
 une plage de sable d'environ %d m² à une dizaine de mètres de l'apparition.
 Sous-sol : 4 m de terre, 4 m de pierre (à casser à la pioche), puis la Roche-mère incassable.
 
