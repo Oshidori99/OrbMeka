@@ -55,8 +55,9 @@ Chaque monde a son dossier user://mondes/<identifiant>/ : monde.json (nom, grain
 mode), joueur.json (position et regard) et, depuis 0.0.5.1, zones/zone_X_Y_Z.bin
 (changements compressés par zone). L'ancien zones/modifications.json est converti,
 puis conservé sous zones/modifications-etape1.json.
-Les archives de versions restent hors du dépôt dans ..\Archives OrbMeka\ ;
-ne jamais écraser leur contenu existant.
+Les archives restent hors du dépôt dans ..\Archives OrbMeka\ : une copie seulement au début de chaque
+nouvelle série (0.0.6, 0.0.7…). Toutes les versions sont de toute façon sur GitHub (tags et Releases).
+Ne jamais écraser une archive existante.
 Depuis 0.0.2.8, addons/history_export/ contient un petit plugin d'éditeur
 qui inclut docs/HISTORIQUE.txt lors des exports. Gardez ses fichiers sources.
 Le README à la racine et docs/README.md restent les points d'entrée du guide.

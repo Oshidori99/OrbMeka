@@ -15,7 +15,7 @@ Guide complet : docs/README.md. Fichiers techniques : docs/ORGANISATION.txt.
 
 ## Structure
 - scenes/ : main.tscn (menus), world.tscn (partie). scripts/ : code. tests/ : tests sans fenêtre.
-- Garder les .gd.uid avec leurs scripts. Ne pas toucher à .godot/ (cache) ni au contenu existant des archives (dossier voisin « ..\Archives OrbMeka », hors du dépôt) ; on y ajoute seulement l'archive de chaque version.
+- Garder les .gd.uid avec leurs scripts. Ne pas toucher à .godot/ (cache) ni au contenu existant des archives (dossier voisin « ..\Archives OrbMeka », hors du dépôt) ; on y ajoute seulement l'archive de chaque **nouvelle série** (0.0.x).
 - Données joueur dans user://, jamais dans les sources :
   - réglages dans user://parametres/ : parametres-generaux.json, video.json, controles.json, personnage.json, attributs.json, menus.json ;
   - mondes : worlds.json (index) et un dossier par monde mondes/<id>/ : monde.json (nom, **graine**, mode),
@@ -70,10 +70,10 @@ L'utilisateur peut lancer Claude Code dans le cloud depuis son téléphone, sur 
   Si les tests échouent, corriger avant toute autre chose. Dire à l'utilisateur quand la page itch.io est à jour.
 - Sur téléphone, l'utilisateur ne peut tester que menus et affichage (pas de commandes tactiles) : le rappeler pour le gameplay.
 - **« Envoie dans main »** (dit explicitement par l'utilisateur, Action Dev verte) : suivre « Nouvelle version » étapes 1 à 5
-  (version, historique, README, fusion dans main, tag, push). Le Project et l'archive (étapes 4 et 6) se font si possible,
+  (version, historique, README, fusion dans main, tag, push). Le Project (étape 4) et, pour une nouvelle série, l'archive (étape 6) se font si possible,
   sinon les noter dans docs/README.md « À faire sur PC ».
 - Godot local, les archives et les chemins C:\… n'existent pas dans le cloud. De retour sur le PC : `git pull`,
-  rattraper l'archive et le Project notés « À faire sur PC », puis supprimer la note.
+  rattraper le Project (et l'archive d'une nouvelle série) notés « À faire sur PC », puis supprimer la note.
 
 ## Nouvelle version
 0. Travailler et committer sur `dev`.
@@ -85,6 +85,8 @@ L'utilisateur peut lancer Claude Code dans le cloud depuis son téléphone, sur 
 5. Commit sur `dev`, puis fusionner dans `main` (`git checkout main`, `git merge dev`),
    créer le tag (`git tag vX.Y.Z`), pousser (`git push origin main dev vX.Y.Z`), revenir sur `dev`.
    Vérifier que l'Action Build est verte et que la Release existe.
-6. Archive : copie du dossier du jeu (sans .git/ ni .godot/, le cache se recrée) dans « ..\Archives OrbMeka\orb-meka X.Y.Z » (dossier Godot, à côté d'orb-meka). Ne jamais écraser une archive existante.
+6. Archive, **seulement pour une nouvelle série à trois chiffres** (0.0.6, 0.0.7…), pas pour les sous-versions (0.0.5.7…),
+   déjà conservées sur GitHub (tags et Releases) : copie du dossier du jeu (sans .git/ ni .godot/, le cache se recrée)
+   dans « ..\Archives OrbMeka\orb-meka X.Y.Z » (dossier Godot, à côté d'orb-meka). Ne jamais écraser une archive existante.
 
 gh CLI : "C:\Program Files\GitHub CLI\gh.exe" (connecté en Oshidori99).
