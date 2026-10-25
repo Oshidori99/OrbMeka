@@ -51,6 +51,10 @@ Ordre obligatoire de 1 à 4, ensuite libre :
    (ne pas reprendre le nom anglais courant d'un autre jeu).
 5. Matières (#122) · 6. Structures (#123) · 7. Créatif/Survie (#73) · Inventaire (milestone HUD) ·
    Eau réaliste (#124 : lacs-réservoirs à volume, rivières en hauteur d'eau).
+   Note pour plus tard (gravité réaliste, demandée par l'utilisateur ; 0.0.5.11 n'en fait qu'une première version) :
+   sable : glisse au-delà d'environ 34° et ne tient jamais en plafond ; terre : pentes raides possibles
+   et petit plafond d'environ 1 m au plus, au-delà elle s'effondre ; pierre : ne tombe pas. Plus tard,
+   des poutres pourront soutenir la terre.
 Règles : même graine = même monde ; mondes légers (seulement les changements, compressés) ;
 mesurer les performances sur PC et sur le Web à chaque étape.
 
