@@ -1,7 +1,8 @@
-# OrbMeka™ 0.0.5.11
+# OrbMeka™ 0.0.5.12
 
 Dans Godot, ouvrez **project.godot**, puis **F5** pour lancer le jeu.
 
+0.0.5.12 : sous-sol : 4 m de terre, 4 m de pierre (pas encore cassable), puis la Roche-mère ; chute plus lente.
 0.0.5.11 : gravité de la terre et du sable (chute, talus, petites piles) ; plus de page Comment jouer.
 0.0.5.10 : touches du pinceau, de la taille et de F1 à F4 modifiables ; aplanir et lisser sans ajouter de matière ; terre posée sur la plage.
 0.0.5.9 : pinceaux du clic droit (B + T : poser, aplanir, lisser), sable ou terre, taille 1/8, 1/4, 1/2 bloc (B + molette).

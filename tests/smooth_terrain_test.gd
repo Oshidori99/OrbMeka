@@ -79,7 +79,9 @@ func _run() -> void:
 	# Monde : toute la base couverte de terrain plat, la base indestructible dessous.
 	var world := open(FOLDER)
 	check(world.terrain_pieces.size() == 16 * 16, "flat smooth ground covers the 128 m base, one piece per zone")
-	check(world.get_node("Ground").position.y + 0.5 <= SmoothTerrain.LOW_POINT * SmoothTerrain.STEP, "indestructible base lies under the deepest dig")
+	check(is_equal_approx(world.get_node("Ground").position.y + 0.5, -8.0), "Roche-mère (indestructible base) starts 8 m below the grass (0.0.5.12)")
+	check(SmoothTerrain.LOW_POINT * SmoothTerrain.STEP == -3.5 and SmoothTerrain.STONE_TOP * SmoothTerrain.STEP == -4.0 and SmoothTerrain.BEDROCK_TOP * SmoothTerrain.STEP == -8.0, "layers: 4 m of dirt, then 4 m of stone, then Roche-mère")
+	check(SmoothTerrain.natural_kind(Vector3i(0, -7, 0)) == -1 and SmoothTerrain.natural_kind(Vector3i(0, -8, 0)) == SmoothTerrain.STONE and SmoothTerrain.natural_kind(Vector3i(0, -15, 0)) == SmoothTerrain.STONE, "dirt down to 4 m, stone below")
 	var spot := Vector3(20.25, 0.0, 20.25)
 	var grass_before := 0
 	for tile in world.lawn.get_children():
@@ -97,7 +99,17 @@ func _run() -> void:
 	var raised: Vector3i = SmoothTerrain.point_of(Vector3(-20.25, 0.15, -20.25))
 	check(world.terrain.density(raised) > 0.0, "one 50 cm sub-cell added above the ground")
 	var deep: Dictionary = aim(world, Vector3(5.25, SmoothTerrain.LOW_POINT * SmoothTerrain.STEP - 0.1, 5.25))
-	check(not world.break_target(deep), "digging below 3.5 m is refused")
+	check(not world.break_target(deep) and world.notice == "La pierre ne se casse pas encore.", "stone cannot be broken yet (0.0.5.12)")
+	# Fond d'un puits creusé jusqu'à la pierre : la surface est peinte en pierre, et la pierre ne tombe pas.
+	var shaft := SmoothTerrain.new()
+	for y in range(SmoothTerrain.LOW_POINT, 0):
+		shaft.set_density(Vector3i(4, y, 4), SmoothTerrain.DUG)
+	var stone_colors: PackedColorArray = shaft.zone_mesh(Vector3i(0, -1, 0))[2]
+	var rocky := false
+	for color in stone_colors:
+		rocky = rocky or color.g < 0.5
+	check(rocky, "the bottom of a 4 m shaft shows stone")
+	check(shaft.fall_target(Vector3i(4, SmoothTerrain.STONE_TOP, 4)) == Vector3i(4, SmoothTerrain.STONE_TOP, 4) and shaft.solid(Vector3i(4, SmoothTerrain.BEDROCK_TOP - 3, 4)), "stone never falls; Roche-mère holds everything")
 	var under_feet: Dictionary = aim(world, Vector3(0.25, 0.0, 0.25))
 	world.player.global_position = Vector3(0.25, 0.0, 0.25)
 	check(not world.place_target(under_feet, 0), "no ground added inside the player")

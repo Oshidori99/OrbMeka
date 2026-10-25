@@ -154,7 +154,7 @@ func _create_ground() -> void:
 	var ground := StaticBody3D.new()
 	ground.name = "Ground"
 	ground.add_to_group("ground")
-	# 0.0.5.8 : la base indestructible est sous la profondeur qu'on peut creuser ; le sol visible au-dessus
+	# 0.0.5.8 : la base indestructible (Roche-mère depuis 0.0.5.12) est sous la terre et la pierre ; le sol visible au-dessus
 	# est le terrain lisse (pièces par zone, _create_terrain).
 	ground.position = Vector3(0, BASE_TOP - 0.5, 0)
 	var mesh := MeshInstance3D.new()
@@ -189,7 +189,8 @@ func _create_terrain() -> void:
 		rebuild_terrain_piece(zone)
 
 # 0.0.5.8 : terrain lisse sur toute la base (zones de X et Z −64 à 63) ; base indestructible en dessous.
-const BASE_TOP := -4.0
+# 0.0.5.12 : la base (« Roche-mère », incassable) commence à 8 m sous le sol, sous 4 m de terre et 4 m de pierre.
+const BASE_TOP := SmoothTerrain.BEDROCK_TOP * SmoothTerrain.STEP
 const BASE_ZONES_LOW := Vector2i(-8, -8)
 const BASE_ZONES_HIGH := Vector2i(7, 7)
 
@@ -316,7 +317,7 @@ func sculpt(hit: Dictionary, add: bool, kind: int = SmoothTerrain.DIRT, cells: i
 	for point in gesture_points(center, hit.normal, cells):
 		if not _in_terrain_limits(point):
 			if point.y < SmoothTerrain.LOW_POINT:
-				message = "Base indestructible : on ne peut pas creuser plus bas."
+				message = "Roche-mère : incassable." if point.y < SmoothTerrain.BEDROCK_TOP else "La pierre ne se casse pas encore."
 			elif point.y > SmoothTerrain.HIGH_POINT:
 				message = "Hauteur maximale atteinte : 4 blocs au-dessus du sol."
 			else:
@@ -417,8 +418,9 @@ func _refresh_terrain(points: Array) -> void:
 	for tile: Vector2i in tiles:
 		_rebuild_lawn_tile(tile)
 
-# 0.0.5.11 : la terre et le sable tombent peu à peu (un cran de 50 cm toutes les FALL_SECONDS).
-const FALL_SECONDS := 0.06
+# 0.0.5.11 : la terre et le sable tombent peu à peu (un cran de 50 cm toutes les FALL_SECONDS) ;
+# 0.0.5.12 : plus lent (0,15 s par cran au lieu de 0,06), pour bien voir tomber.
+const FALL_SECONDS := 0.15
 var fall_time := 0.0
 
 func _settle_terrain(delta: float) -> void:
@@ -979,7 +981,7 @@ Terrain lisse (sous-cellules de 50 cm, 8 par bloc de 1 m) : clic gauche creuse ;
 choisi avec B + T : Poser (sable ou terre, molette ou 1 et 2), Aplanir (sol mis à la hauteur visée)
 ou Lisser (formes adoucies). B + molette : taille du geste, 1/8, 1/4 ou 1/2 bloc (1, 2 ou 4 sous-cellules).
 Le choix s'affiche en bas quand on le change. Poser : jusqu'à 4 blocs au-dessus du sol.
-On peut creuser jusqu'à 3,5 m sous le sol ; la base, dessous, est indestructible.
+Sous le gazon : 4 m de terre, puis 4 m de pierre (pas encore cassable), puis la Roche-mère, incassable.
 Les blocs posés avant sont conservés ; plus de casse ni de pose de blocs pour l'instant.
 
 Molette : sable ou terre (la pierre n'est plus posée pour l'instant).
@@ -1054,6 +1056,7 @@ Graine : %d
 %s
 
 Relief : tout plat, en herbe ; une plage de sable d'environ %d m² à une dizaine de mètres de l'apparition.
+Sous-sol : 4 m de terre, 4 m de pierre, puis la Roche-mère incassable.
 
 Base plate : largeur %d × longueur %d blocs (%s), sol à Y 0
 Construction : hauteur maximale %d blocs au-dessus du sol plat (sommet à Y %d), %s.

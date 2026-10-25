@@ -1,6 +1,17 @@
-# OrbMeka™ — prototype 0.0.5.11
+# OrbMeka™ — prototype 0.0.5.12
 
 Godot 4.7 / GDScript. Formes et couleurs simples ; assets externes seulement sous licence vérifiée (sons CC0, assets/sounds/CREDITS.txt).
+
+## 0.0.5.12 — Pierre et Roche-mère (#121)
+- Sous le gazon : 4 m de terre (comme avant), puis 4 m de pierre, puis la Roche-mère, à 8 m sous le sol.
+- La pierre a son aspect (roche grise, veines sombres), sans herbe ; elle ne tombe jamais.
+  Elle ne se casse pas encore (plus tard, avec une animation) : « La pierre ne se casse pas encore. »
+- La Roche-mère est incassable et porte tout le monde.
+- La terre et le sable tombent plus lentement (0,15 s par 50 cm au lieu de 0,06), pour bien les voir tomber.
+
+Tests : smooth_terrain (couches, pierre incassable, fond de puits en pierre, la pierre ne tombe pas) ;
+tests choisis réussis. Capture PC : puits jusqu'à la pierre.
+À tester manuellement : creuser jusqu'à la pierre, voir tomber la terre et le sable.
 
 ## 0.0.5.11 — Gravité de la terre et du sable
 - Un point de terre ou de sable sans rien juste dessous tombe, 50 cm à la fois (on le voit descendre).

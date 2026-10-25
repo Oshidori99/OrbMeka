@@ -9,8 +9,13 @@ extends RefCounted
 const STEP := 0.5
 const POINTS := 16
 const ZONE_SIZE := 8
-# Profondeur et hauteur qu'on peut sculpter, en points (−3,5 m à +4 m) ; la base reste dessous.
+# Profondeur et hauteur qu'on peut sculpter, en points (−3,5 m à +4 m).
+# 0.0.5.12 : sous le gazon, 4 m de terre (points −1 à −7), puis 4 m de pierre (STONE_TOP à −15),
+# puis la Roche-mère (dès BEDROCK_TOP, à 8 m sous le sol), incassable, qui porte le monde.
+# La pierre ne se casse pas encore (plus tard, avec une animation) et ne tombe jamais.
 const LOW_POINT := -7
+const STONE_TOP := -8
+const BEDROCK_TOP := -16
 const HIGH_POINT := 8
 const MAX_CHANGES := 20000
 # Valeurs posées par un geste : une sous-cellule creusée ou ajoutée.
@@ -48,6 +53,11 @@ static func zones_using(point: Vector3i) -> Array[Vector3i]:
 var materials: Dictionary = {}
 const SAND := 0
 const DIRT := 2
+const STONE := 1
+
+# Matière du sol de la graine selon la profondeur : terre (-1, aspect du sol avec herbe), pierre ou Roche-mère.
+static func natural_kind(point: Vector3i) -> int:
+	return STONE if point.y <= STONE_TOP else -1
 
 func material(point: Vector3i) -> int:
 	return materials.get(point, -1)
@@ -196,16 +206,18 @@ func zone_mesh(zone: Vector3i) -> Array:
 					corners[2] + corners[3] + corners[6] + corners[7] - corners[0] - corners[1] - corners[4] - corners[5],
 					corners[4] + corners[5] + corners[6] + corners[7] - corners[0] - corners[1] - corners[2] - corners[3])
 				cell_normal[cell] = (-slope).normalized() if slope.length_squared() > 0.000001 else Vector3.UP
-				# Couleur des sommets (0.0.5.9) : alpha 0 = sable posé, bleu 0 = terre nue posée, blanc = sol de la graine.
-				var paint := Vector2.ZERO
+				# Couleur des sommets (0.0.5.9) : alpha 0 = sable posé, bleu 0 = terre nue posée, blanc = sol de la graine ;
+				# 0.0.5.12 : vert 0 = pierre.
+				var paint := Vector3.ZERO
 				var weight := 0
 				for index in range(8):
 					if corners[index] > 0.0:
-						var kind: int = kinds.get(Vector3i(x + (index & 1), y + ((index >> 1) & 1), z + ((index >> 2) & 1)), -1)
-						paint += Vector2(1.0 if kind == SAND else 0.0, 1.0 if kind == DIRT else 0.0)
+						var corner := Vector3i(x + (index & 1), y + ((index >> 1) & 1), z + ((index >> 2) & 1))
+						var kind: int = kinds.get(corner, natural_kind(start + corner))
+						paint += Vector3(1.0 if kind == SAND else 0.0, 1.0 if kind == DIRT else 0.0, 1.0 if kind == STONE else 0.0)
 						weight += 1
 				paint /= maxf(weight, 1)
-				cell_color[cell] = Color(1.0, 1.0, 1.0 - paint.y, 1.0 - paint.x)
+				cell_color[cell] = Color(1.0, 1.0 - paint.z, 1.0 - paint.y, 1.0 - paint.x)
 	# Une face par arête traversée, entre les 4 sous-cellules qui la partagent ; la zone garde les arêtes
 	# qui partent de ses propres points (pas de double avec la zone voisine).
 	var axes := [Vector3i(1, 0, 0), Vector3i(0, 1, 0), Vector3i(0, 0, 1)]

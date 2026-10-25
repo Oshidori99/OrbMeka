@@ -54,10 +54,21 @@ void fragment() {
 		float cover = max(top,lip*0.62);
 		// 0.0.5.7 : sol plat plus clair (il paraissait noir sur le Web), proche de la couleur des brins.
 		// 0.0.5.9 : terre posée (bleu du sommet à 0) : nue, sans herbe.
-		if (ground_surface) { cover = top * tint.b; grass = mix(grass * 1.25, vec3(0.16,0.27,0.06), 0.35); }
+		// 0.0.5.12 : pas d'herbe sur la pierre (vert du sommet à 0).
+		if (ground_surface) { cover = top * tint.b * tint.g; grass = mix(grass * 1.25, vec3(0.16,0.27,0.06), 0.35); }
 		albedo = mix(soil,grass,cover);
 		float detail_fade = 1.0-smoothstep(8.0,35.0,length(VERTEX));
 		height = mix(clods*0.004+grains*0.0006,fibers*0.0015,cover)*detail_fade;
+		// 0.0.5.12 : pierre sous les 4 m de terre : roche grise, veines sombres, grain fin.
+		if (ground_surface && tint.g < 0.99) {
+			float stone = smoothstep(0.3, 0.7, 1.0 - tint.g);
+			float veins = smoothstep(0.55, 0.8, fbm(p*vec3(2.5,6.0,2.5)));
+			vec3 rock = mix(vec3(0.17,0.165,0.16), vec3(0.36,0.345,0.32), fbm(p*1.4));
+			rock = mix(rock, vec3(0.11,0.105,0.10), veins*0.55);
+			rock *= 0.88 + noise3(p*40.0)*0.24;
+			albedo = mix(albedo, rock, stone);
+			height = mix(height, (fbm(p*9.0)*0.01 + grains*0.001)*detail_fade, stone);
+		}
 	}
 	// 0.0.5.5 : sable réaliste (couleur du bloc #d8c291) : grains fins, teintes chaudes variées,
 	// rides de vent sur le dessus, quelques grains plus sombres et quelques reflets.
