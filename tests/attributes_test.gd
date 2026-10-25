@@ -30,7 +30,8 @@ func key(code: int) -> void:
 func measure(player: CharacterBody3D, values: Dictionary) -> Dictionary:
 	player.set_physics_process(false)
 	player.apply_settings(values)
-	player.position = Vector3(45.5, 0.02, 45.5)
+	# 0.0.5.17 : sur le sol plat de l'apparition (les collines de la graine changent le sol plus loin).
+	player.position = Vector3(2.5, 0.02, 2.5)
 	player.velocity = Vector3.ZERO
 	for index in range(10):
 		await physics_frame
