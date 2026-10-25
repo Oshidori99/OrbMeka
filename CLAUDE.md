@@ -50,7 +50,9 @@ Ordre obligatoire de 1 à 4, ensuite libre :
 4. Relief procédural et sous-sol (#121) : terre, pierre, granite, grottes ; « Roche-mère » incassable en bas
    (0.0.5.12 : couches faites, 4 m de terre, 4 m de pierre, Roche-mère à 8 m ; 0.0.5.14 : petites collines
    de terre selon la graine ; 0.0.5.15 : collines 3 m, bosses, crêtes et trous (1 zone sur 9), petits déserts
-   (1 sur 8) et grands (1 sur 12, 3 ou 4 zones) ; grottes à faire)
+   (1 sur 8) et grands (1 sur 12, 3 ou 4 zones) ; 0.0.5.16 : mondes personnalisés (chances par zone) ;
+   0.0.5.17 : génération version 2 enregistrée avec chaque nouveau monde (relief moins plat, déserts plus rares),
+   distance d'affichage horizontale ; grottes à faire)
    (ne pas reprendre le nom anglais courant d'un autre jeu).
 5. Matières (#122) · 6. Structures (#123) · 7. Créatif/Survie (#73) · Inventaire (milestone HUD) ·
    Eau réaliste (#124 : lacs-réservoirs à volume, rivières en hauteur d'eau).

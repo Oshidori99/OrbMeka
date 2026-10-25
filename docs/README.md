@@ -1,19 +1,41 @@
-# OrbMeka™ — prototype 0.0.5.16
+# OrbMeka™ — prototype 0.0.5.17
 
 Godot 4.7 / GDScript. Formes et couleurs simples ; assets externes seulement sous licence vérifiée (sons CC0, assets/sounds/CREDITS.txt).
+
+## 0.0.5.17 — Distance d'affichage et relief version 2 (#121)
+- **Distance d'affichage** (Vidéo → Jeu) : 8 zones de 8 m par défaut, de 1 à 32, comptée à l'horizontale.
+  Toutes les zones où passe le sol d'une colonne proche sont affichées, même en volant très haut ;
+  les plus lointaines arrivent peu à peu, d'abord plates. Brume au bord de la vue. Le monde fait toujours
+  16 × 16 zones (128 m) : au-delà d'environ 8, rien de plus à voir pour l'instant.
+- **Herbe** : distance réglée en zones (4 par défaut, 1 à 12) au lieu de mètres.
+- **Génération version 2**, enregistrée avec chaque nouveau monde : relief moins plat (collines douces
+  partout, longues ondulations, bosses ; les trous se creusent dedans), déserts aux bords irréguliers,
+  plus rares (environ 1/6 du sol au lieu de 1/3) ; déserts moyens 2 à 4 zones, grands 4 à 6.
+  Les mondes déjà créés gardent exactement leur génération (version 1 ou celle de 0.0.5.15).
+- **Monde personnalisé** : « zone » au lieu de « chunk » ; chaque réglage dit ce qu'il donne dans le monde
+  (nombre de reliefs ou de déserts sur 256 zones, part du sol en désert). Ce sont des chances par zone,
+  pas des nombres maximum (cause des nombreux déserts du monde Test12 : 71 zones sur 256).
+- **Informations** (accueil, page renommée) et **Informations du monde** (pause) : partie repliable
+  « Génération du monde » qui explique comment le monde a été généré (graine, réglages, sous-sol).
+
+Tests : smooth_terrain (distance horizontale, colonnes affichées et retirées, sol sous le joueur en vol,
+brume), custom_generation (version 2, tailles, estimations, mondes version 1 inchangés),
+custom_world_menu, interface_info, folds et menu mis à jour ; tests choisis réussis.
+Captures PC (vue d'en haut) et Web (au sol). Ouverture d'un monde : environ 0,7 s sur PC.
+À tester manuellement : marcher et voler loin, distance 1 à 32, FPS sur le Web.
 
 ## 0.0.5.16 — Mondes personnalisés
 - Créer un monde → Options du monde → Monde personnalisé, sous la note des attributs.
 - Catégorie Génération du terrain : dix barres de fréquence, 1/64 à gauche (rare), 1/1 à droite
-  (chaque chunk), tous les entiers intermédiaires. Un chunk mesure 8 × 8 m.
+  (chaque zone), tous les entiers intermédiaires. Une zone mesure 8 × 8 m.
 - Sous chaque barre : Valeur par défaut et bouton ↻. Les valeurs connues viennent des mêmes constantes
   que la génération standard : petits déserts 1/8, crêtes et trous lisses 1/9. Les collines standards
   sont un relief continu jusqu’à 3 blocs, sans fréquence distincte pour les deux tailles.
   Catégories nouvelles : indiquées absentes et désactivées ; un interrupteur permet de les activer
   à 1/64. Le curseur actif conserve bien ses bornes 1/64 à 1/1.
-- Déserts : petits (1 chunk), moyens (4 à 6), grands (8 à 11), en groupes connexes ;
-  les groupes peuvent se recouvrir. Les trois fréquences règlent le départ d'un désert par chunk.
-  Les déserts standards de 3 à 4 chunks (1/12) n'ont pas d'équivalent exact dans ces nouvelles tailles.
+- Déserts : petits (1 zone), moyens (4 à 6), grands (8 à 11), en groupes connexes ;
+  les groupes peuvent se recouvrir. Les trois fréquences règlent le départ d'un désert par zone.
+  Les déserts standards de 3 à 4 zones (1/12) n'ont pas d'équivalent exact dans ces nouvelles tailles.
 - Collines : lisses de 1 bloc, lisses de 2 à 3 blocs, abruptes.
 - Trous : plutôt lisses, abrupts, bien profonds (près de la pierre), grands trous atteignant
   2 à 3 blocs dans la pierre (fond entre Y −6 et −7). La Roche-mère reste intacte à Y −8.

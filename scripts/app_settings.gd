@@ -371,9 +371,10 @@ func _apply_to_game() -> void:
 	active_world.player.apply_settings(settings.world_values(active_world.developer_mode))
 	active_world.apply_text_scale(_text_scale())
 	active_world.set_coordinates_visible(settings.values.show_coords == "on")
-	# Distance de chargement changée en pause : zones mises à jour peu à peu.
-	active_world.set_grass_distance(float(settings.values.grass_distance))
-	active_world.load_distance = int(settings.values.load_distance)
+	# Distance d'affichage changée en pause : zones (et terrain, 0.0.5.17) mises à jour peu à peu.
+	active_world.set_grass_distance(float(settings.values.grass_zones) * 8.0)
+	active_world.load_distance = int(settings.values.view_distance)
+	active_world.update_terrain_view(true)
 	active_world.update_zones(active_world.player_coordinates())
 	active_world.player.crouch_toggle = settings.control_options.crouch_mode == "toggle"
 	active_world.player.run_mode = settings.control_options.run_mode

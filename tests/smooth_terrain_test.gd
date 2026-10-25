@@ -24,7 +24,7 @@ func open(folder: String) -> Node3D:
 	var world: Node3D = WorldScene.instantiate()
 	world.terrain_seed = 4321
 	world.save_folder = folder
-	world.load_distance = 2
+	world.load_distance = 16
 	world.relief = false
 	root.add_child(world)
 	world.player.set_physics_process(false)
@@ -142,7 +142,7 @@ func _run() -> void:
 	var counts := {"hole": 0, "ridge": 0, "small_desert": 0, "big_desert": 0}
 	for x in range(-20, 20):
 		for z in range(-20, 20):
-			var info: Dictionary = hills._chunk(Vector2i(x, z))
+			var info: Dictionary = hills._zone_info(Vector2i(x, z))
 			for key in ["hole", "ridge", "big_desert"]:
 				if info.has(key):
 					counts[key] += 1
@@ -155,7 +155,7 @@ func _run() -> void:
 	var hole_at := Vector2.ZERO
 	for x in range(-20, 20):
 		for z in range(-20, 20):
-			var info: Dictionary = hills._chunk(Vector2i(x, z))
+			var info: Dictionary = hills._zone_info(Vector2i(x, z))
 			if info.small_desert and desert_at == Vector2.ZERO and hills.is_desert((Vector2(x, z) + Vector2(0.5, 0.5)) * 8.0):
 				desert_at = (Vector2(x, z) + Vector2(0.5, 0.5)) * 8.0
 			if info.has("hole") and info.hole[1] > 2.0 and hole_at == Vector2.ZERO and hills.height_at(info.hole[0].x, info.hole[0].y) < -1.0:
@@ -301,5 +301,22 @@ func _run() -> void:
 	# 0.0.5.14 : B + molette haut = geste plus grand.
 	var Controls = load("res://scripts/controls.gd")
 	check(Controls.ACTIONS.size_up.default.second.mouse == MOUSE_BUTTON_WHEEL_UP and Controls.ACTIONS.size_down.default.second.mouse == MOUSE_BUTTON_WHEEL_DOWN, "B + wheel up makes the gesture bigger")
+	# 0.0.5.17 : distance d'affichage comptée à l'horizontale (8 zones par défaut).
+	var viewer: Node3D = WorldScene.instantiate()
+	viewer.relief = false
+	viewer.load_distance = 2
+	root.add_child(viewer)
+	viewer.finish_terrain()
+	check(viewer.shown_columns.size() == 25 and viewer.lawn.get_child_count() > 0, "only the 5 × 5 columns around the player are shown (distance 2)")
+	viewer.player.position = Vector3(36.0, 40.0, 4.0)
+	viewer.update_terrain_view(false, Vector2i(4, 0))
+	viewer.finish_terrain()
+	check(viewer.column_shown(Vector2i(4, 0)) and viewer.column_shown(Vector2i(6, 2)) and not viewer.column_shown(Vector2i(-2, 0)), "walking (or flying 40 m high) shows the columns ahead, hides those behind")
+	var under := false
+	for zone in viewer.terrain_pieces:
+		under = under or (zone.x == 4 and zone.z == 0)
+	check(under and viewer.environment.fog_enabled and is_equal_approx(viewer.environment.fog_depth_end, 16.0), "the ground under a flying player is there; mist at the edge of the view")
+	check(WorldScene.instantiate().load_distance == 8, "view distance 8 zones by default")
+	close(viewer)
 	print("RESULT: %d smooth terrain checks, %d failures" % [checks, failures])
 	quit(0 if failures == 0 else 1)

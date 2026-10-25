@@ -3,6 +3,9 @@ Du plus récent au plus ancien. Ce fichier est mis à jour à chaque version.
 
 === Thème « Monde » (0.0.5 et suivantes) ===
 
+0.0.5.17 — Distance d'affichage et relief version 2
+Vue réglable de 1 à 32 zones (8), comptée à l'horizontale ; relief moins plat, déserts plus rares ; Génération du monde.
+
 0.0.5.16 — Mondes personnalisés
 Dix fréquences de génération, repères du monde standard et ↻ ; réglages conservés par monde.
 Distance de l'herbe dans Vidéo → Jeu (36 m par défaut) ; compteur FPS moteur conservé.

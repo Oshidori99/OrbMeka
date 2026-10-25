@@ -257,7 +257,8 @@ func _build_interface() -> void:
 	settings_message.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	settings_page.add_child(settings_message)
 	settings_back_button = _button("Retour", settings_page, leave_settings)
-	var information_page := _page(stack, "Génération des mondes")
+	# 0.0.5.17 : page « Informations » de l'accueil (titre comme son bouton) ; partie repliable Génération du monde.
+	var information_page := _page(stack, "Informations")
 	pages.information = _page_root(information_page)
 	# 0.0.5.5 : en herbe, avec une plage de sable ; 0.0.5.14 : petites collines selon la graine.
 	var sizes := [int(WorldRules.BASE_SIZE.x), int(WorldRules.BASE_SIZE.z), WorldRules.MAX_BUILD_HEIGHT, WorldRules.sand_area()]
@@ -277,6 +278,15 @@ Seules les différences avec le terrain de la graine sont enregistrées.
 F1 : revenir à la liste des mondes depuis la partie." % [sizes[0], sizes[1], WorldRules.base_range_text(), sizes[2], sizes[2], WorldRules.build_range_text(), sizes[3], WorldRules.COORDINATES_NOTE],
 	])
 	generation_info = information_page.get_child(-1)
+	_explanation(information_page, "Génération du monde")
+	information_page.get_child(-1).theme_type_variation = "OrbSection"
+	var home_generation_title: Node = information_page.get_child(-1)
+	var home_generation_body := _fold_body(information_page)
+	home_generation_text = _text_label()
+	home_generation_text.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	home_generation_text.text = "Un nouveau monde utilise la génération standard ci-dessous (ou ses réglages de « Monde personnalisé… »), enregistrée avec lui.\n" + Generation.describe(Generation.defaults())
+	home_generation_body.add_child(home_generation_text)
+	_make_foldable(home_generation_title, home_generation_body, "information:generation")
 	information_back_button = _button("Retour", information_page, func(): show_page("home"))
 	var list_page := _page(stack, "Mes mondes")
 	pages.worlds = _page_root(list_page)
@@ -411,9 +421,28 @@ La graine et le terrain initial sont conservés." % Catalog.MAX_NAME_LENGTH])
 	# 0.0.5.11 : plus de page Comment jouer (demande de l'utilisateur) : pause, Paramètres, Informations.
 	var info_page := _page(stack, "Informations du monde")
 	pages.world_info = _page_root(info_page)
+	# 0.0.5.17 : texte défilant, avec une partie repliable « Génération du monde » (réglages de ce monde).
+	var info_scroll := ScrollContainer.new()
+	info_scroll.custom_minimum_size = Vector2(0, 350)
+	menu_reserved_heights[info_scroll] = 300.0
+	info_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	info_page.add_child(info_scroll)
+	var info_box := VBoxContainer.new()
+	info_box.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	info_scroll.add_child(info_box)
 	info_text = _text_label()
 	info_text.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	info_page.add_child(info_text)
+	info_text.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	info_box.add_child(info_text)
+	_explanation(info_box, "Génération du monde")
+	info_box.get_child(-1).theme_type_variation = "OrbSection"
+	var generation_title: Node = info_box.get_child(-1)
+	var generation_body := _fold_body(info_box)
+	world_generation_text = _text_label()
+	world_generation_text.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	world_generation_text.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	generation_body.add_child(world_generation_text)
+	_make_foldable(generation_title, generation_body, "world_info:generation")
 	info_back_button = _button("Retour à la pause", info_page, func(): show_page("pause"))
 	# Rappels des raccourcis en jeu, en haut à droite : simple texte, sans bouton.
 	shortcut_hints = Label.new()
@@ -664,7 +693,7 @@ func cancel_world_action() -> void:
 	refresh_world_list(previous_id)
 
 func create_named_world() -> void:
-	var item: Dictionary = catalog.create_world(name_field.text, seed_field.text, create_mode, false, custom_generation)
+	var item: Dictionary = catalog.create_world(name_field.text, seed_field.text, create_mode, false, Generation.defaults() if custom_generation.is_empty() else custom_generation)
 	if item.is_empty():
 		form_error.text = catalog.last_error
 		if catalog.last_error.begins_with("La graine"):
@@ -700,8 +729,8 @@ func open_world(id: String) -> void:
 	active_world.save_folder = catalog.world_folder(id)
 	active_world.text_scale = _text_scale()
 	active_world.grass_density = settings.values.grass_density
-	active_world.grass_distance = float(settings.values.grass_distance)
-	active_world.load_distance = int(settings.values.load_distance)
+	active_world.grass_distance = float(settings.values.grass_zones) * 8.0
+	active_world.load_distance = int(settings.values.view_distance)
 	var developer: bool = item.get("mode", Catalog.MODE_DEFAULT) == Catalog.MODE_DEVELOPER
 	active_world.developer_mode = developer
 	active_world.developer_used = item.get("developer_used", developer)
@@ -780,6 +809,7 @@ func open_world_info() -> void:
 	if page != "pause" or not is_instance_valid(active_world):
 		return
 	info_text.text = active_world.get_world_info_text(DETAIL_LEVELS.find(settings.values.text_detail))
+	world_generation_text.text = "Graine : %d\n" % active_world.terrain_seed + Generation.describe(active_world.generation_options)
 	show_page("world_info")
 
 func resume_game() -> void:
@@ -876,7 +906,9 @@ func _build_custom_world(stack: Node) -> void:
 	category.theme_type_variation = "OrbSection"
 	form.add_child(category)
 	var explanation := _text_label()
-	explanation.text = "Un chunk mesure 8 × 8 m. Plus à droite : plus fréquent.\n1 sur 64 : rare ; 1 sur 1 : à chaque chunk. Les reliefs peuvent se superposer.\nRéférence : les déserts standards de 3 à 4 chunks (1 sur 12) n’ont pas d’équivalent exact dans les nouvelles tailles."
+	explanation.text = "Chaque réglage est une chance par zone de 8 × 8 m (le monde en compte 256), pas un nombre maximum.
+Plus à droite : plus fréquent (1 sur 1 : dans chaque zone ; 1 sur 64 : rare). Les reliefs peuvent se superposer.
+Sous chaque réglage : ce que ça donne à peu près dans le monde."
 	explanation.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	form.add_child(explanation)
 	for spec in Generation.SPECS:
@@ -907,7 +939,7 @@ func _build_custom_world(stack: Node) -> void:
 		slider.step = 1
 		slider.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		slider.custom_minimum_size.x = 140
-		slider.tooltip_text = spec.label + " : fréquence par chunk"
+		slider.tooltip_text = spec.label + " : chance par zone de 8 m"
 		row.add_child(slider)
 		var frequent := _text_label()
 		frequent.text = "1/1"
@@ -925,7 +957,7 @@ func _build_custom_world(stack: Node) -> void:
 		reset.tooltip_text = "Rétablir la valeur par défaut : " + Generation.default_text(key)
 		slider.value_changed.connect(func(amount: float):
 			custom_draft[key] = 65 - int(amount)
-			_update_custom_label(key))
+			_refresh_custom_labels(key))
 	custom_apply_button = _button("Appliquer",form,func():
 		custom_generation = {} if custom_draft == Generation.defaults() else custom_draft.duplicate(true)
 		show_page("create"))
@@ -942,11 +974,14 @@ func open_custom_world() -> void:
 
 func _update_custom_label(key: String) -> void:
 	var n: int = custom_draft[key]
-	var current := "Chaque chunk" if n == 1 else "1 chance sur %d par chunk" % n
+	var current := "Dans chaque zone" if n == 1 else Generation.estimate_text(key, n, int(custom_draft.get("version", Generation.VERSION)))
 	if n == 0:
-		current = "Non présent"
-		if key in ["low_hills","high_hills"]:
+		current = "Jamais"
+		if key in ["low_hills","high_hills"] and int(custom_draft.get("version", Generation.VERSION)) < 2:
 			current = "Relief continu standard" if custom_draft.low_hills == 0 and custom_draft.high_hills == 0 else "Cette catégorie n’est pas générée"
+	# 0.0.5.17 : pour les déserts, aussi la part totale du sol (les trois tailles ensemble).
+	if key.ends_with("deserts"):
+		current += "\nTous les déserts ensemble : environ %d %% du sol" % roundi(Generation.desert_share(custom_draft) * 100.0)
 	custom_labels[key].text = current + "\nValeur par défaut : " + Generation.default_text(key)
 
 func _size_frequency_endpoint(label: RichTextLabel) -> void:
@@ -959,10 +994,17 @@ func _sync_custom_option(key: String) -> void:
 	custom_sliders[key].set_value_no_signal(65 - (n if n > 0 else 64))
 	custom_sliders[key].editable = n > 0
 	custom_enabled[key].set_pressed_no_signal(n > 0)
-	_update_custom_label(key)
-	if key in ["low_hills","high_hills"]:
-		_update_custom_label("low_hills")
-		_update_custom_label("high_hills")
+	_refresh_custom_labels(key)
+
+# Texte sous un réglage ; les déserts se mettent à jour ensemble (part totale du sol).
+func _refresh_custom_labels(key: String) -> void:
+	var keys: Array = [key]
+	if key.ends_with("deserts"):
+		keys = ["small_deserts", "medium_deserts", "large_deserts"]
+	elif key in ["low_hills", "high_hills"]:
+		keys = ["low_hills", "high_hills"]
+	for each in keys:
+		_update_custom_label(each)
 
 func reset_custom_option(key: String) -> void:
 	for spec in Generation.SPECS:

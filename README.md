@@ -1,7 +1,8 @@
-# OrbMeka™ 0.0.5.16
+# OrbMeka™ 0.0.5.17
 
 Dans Godot, ouvrez **project.godot**, puis **F5** pour lancer le jeu.
 
+0.0.5.17 : distance d'affichage horizontale (8 zones, 1 à 32), relief moins plat, moins de déserts, écran Monde personnalisé plus clair, Génération du monde dans Informations.
 0.0.5.16 : Monde personnalisé à la création : dix fréquences de déserts, collines et trous.
 Les options sont sauvegardées avec le monde ; distance de l'herbe réglable dans Vidéo → Jeu.
 

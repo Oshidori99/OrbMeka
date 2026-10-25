@@ -54,8 +54,8 @@ var dirty_zones: Dictionary = {}
 var sections: Dictionary = {}
 var zone_queue: Array = []
 var zone_center := Vector3i(999999, 0, 0)
-# Distance de chargement en zones (Paramètres → Vidéo).
-var load_distance := 4
+# Distance d'affichage en zones (Paramètres → Vidéo ; 0.0.5.17 : 8 par défaut, comptée à l'horizontale pour le terrain).
+var load_distance := 8
 # Densité de l'herbe (Paramètres → Vidéo), appliquée à l'ouverture du monde.
 var grass_density := "medium"
 var grass_distance := 36.0
@@ -108,8 +108,6 @@ func _ready() -> void:
 	_apply_saved_player(saved_player)
 	_create_selection()
 	_create_hud()
-	lawn = TerrainMaterials.ground_grass(generated, terrain_seed, SAND_CENTER, SAND_RADIUS, _grass_skipped, terrain.height_at)
-	add_child(lawn)
 
 func _setup_inputs() -> void:
 	# Touches choisies dans Paramètres → Contrôles (0.0.3.12), appliquées par le menu ;
@@ -133,14 +131,18 @@ static func apply_compat_light(environment: Environment, sun: DirectionalLight3D
 static func is_compat() -> bool:
 	return RenderingServer.get_current_rendering_method() == "gl_compatibility"
 
+var environment: Environment
+
 func _setup_environment() -> void:
-	var environment := Environment.new()
+	environment = Environment.new()
 	environment.background_mode = Environment.BG_SKY
 	var sky := Sky.new()
 	var sky_material := ProceduralSkyMaterial.new()
 	sky_material.sky_top_color = Color("#428de0")
 	sky_material.sky_horizon_color = Color("#b9e2fa")
 	sky_material.ground_horizon_color = Color("#b9e2fa")
+	# 0.0.5.17 : sous l'horizon, au-delà du terrain affiché : même teinte que la brume (plus de bande noire).
+	sky_material.ground_bottom_color = Color("#b9e2fa")
 	sky.sky_material = sky_material
 	environment.sky = sky
 	environment.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
@@ -196,33 +198,106 @@ func _create_terrain(start_at: Vector3 = Vector3.ZERO) -> void:
 	flat_ground_mesh = SmoothTerrain.flat_mesh()
 	flat_ground_shape = BoxShape3D.new()
 	flat_ground_shape.size = Vector3(SmoothTerrain.ZONE_SIZE, 1, SmoothTerrain.ZONE_SIZE)
-	# 0.0.5.14 : zones proches de l'arrivée tout de suite ; les autres d'abord plates, puis refaites peu à peu
-	# (les plus proches d'abord), quelques-unes par image : l'ouverture reste rapide, aussi sur le Web.
-	var here := Vector2i(floori(start_at.x / SmoothTerrain.ZONE_SIZE), floori(start_at.z / SmoothTerrain.ZONE_SIZE))
-	var later: Array = []
-	for zone: Vector3i in terrain.surface_zones(BASE_ZONES_LOW, BASE_ZONES_HIGH):
-		if maxi(absi(zone.x - here.x), absi(zone.z - here.y)) <= NEAR_ZONES:
-			rebuild_terrain_piece(zone)
-		else:
-			if SmoothTerrain.ground_zone(zone):
-				rebuild_terrain_piece(zone, true)
-			later.append(zone)
-	later.sort_custom(func(a: Vector3i, b: Vector3i): return absi(a.x - here.x) + absi(a.z - here.y) < absi(b.x - here.x) + absi(b.z - here.y))
-	terrain_queue = later
+	# 0.0.5.17 : herbe par carré de 8 m, chargée avec la colonne de zones (voir update_terrain_view).
+	lawn = Node3D.new()
+	lawn.name = "Lawn"
+	add_child(lawn)
+	view_center = Vector2i(floori(start_at.x / SmoothTerrain.ZONE_SIZE), floori(start_at.z / SmoothTerrain.ZONE_SIZE))
+	update_terrain_view(true)
+	# Le socle (Roche-mère) n'est jamais à voir : seulement sa collision, sous le terrain.
+	get_node("Ground").get_child(0).visible = false
 
+# 0.0.5.17 : distance d'affichage (Paramètres → Vidéo, 8 zones par défaut, 1 à 32), comptée à l'horizontale :
+# toutes les zones où passe la surface d'une colonne proche sont affichées, quelle que soit la hauteur du
+# joueur (en volant, on voit toujours le sol). Colonnes proches (NEAR_ZONES) faites tout de suite ; les autres
+# d'abord plates, puis refaites peu à peu (les plus proches d'abord). Hors distance : retirées (terrain, herbe).
 const NEAR_ZONES := 2
 const TERRAIN_BUDGET_USEC := 5000
 var terrain_queue: Array = []
+var shown_columns: Dictionary = {}
+var view_center := Vector2i(999999, 0)
+
+func wanted_columns(center: Vector2i) -> Dictionary:
+	var result := {}
+	for x in range(maxi(BASE_ZONES_LOW.x, center.x - load_distance), mini(BASE_ZONES_HIGH.x, center.x + load_distance) + 1):
+		for z in range(maxi(BASE_ZONES_LOW.y, center.y - load_distance), mini(BASE_ZONES_HIGH.y, center.y + load_distance) + 1):
+			result[Vector2i(x, z)] = true
+	return result
+
+func update_terrain_view(force: bool = false, center: Vector2i = view_center) -> void:
+	if not force and center == view_center:
+		return
+	view_center = center
+	_update_fog()
+	var wanted := wanted_columns(center)
+	for column: Vector2i in shown_columns.keys():
+		if not wanted.has(column):
+			_hide_column(column)
+	var by_column := {}
+	for zone: Vector3i in terrain.surface_zones(BASE_ZONES_LOW, BASE_ZONES_HIGH):
+		var column := Vector2i(zone.x, zone.z)
+		if wanted.has(column) and not shown_columns.has(column):
+			if not by_column.has(column):
+				by_column[column] = []
+			by_column[column].append(zone)
+	var later: Array = []
+	for column: Vector2i in by_column:
+		shown_columns[column] = by_column[column]
+		if maxi(absi(column.x - center.x), absi(column.y - center.y)) <= NEAR_ZONES:
+			_show_column(column)
+		else:
+			for zone: Vector3i in by_column[column]:
+				if SmoothTerrain.ground_zone(zone):
+					rebuild_terrain_piece(zone, true)
+			later.append(column)
+	terrain_queue = terrain_queue.filter(func(column: Vector2i): return wanted.has(column)) + later
+	terrain_queue.sort_custom(func(a: Vector2i, b: Vector2i): return maxi(absi(a.x - center.x), absi(a.y - center.y)) < maxi(absi(b.x - center.x), absi(b.y - center.y)))
+
+# Colonne affichée : ses zones de surface et son herbe.
+func _show_column(column: Vector2i) -> void:
+	for zone: Vector3i in shown_columns.get(column, []):
+		rebuild_terrain_piece(zone)
+	_rebuild_lawn_tile(column)
+
+func _hide_column(column: Vector2i) -> void:
+	shown_columns.erase(column)
+	for zone: Vector3i in terrain_pieces.keys():
+		if zone.x == column.x and zone.z == column.y:
+			terrain_pieces[zone].free()
+			terrain_pieces.erase(zone)
+	for child in lawn.get_children():
+		if child.get_meta("tile", Vector2i(999, 999)) == column:
+			child.free()
+
+func column_shown(column: Vector2i) -> bool:
+	return shown_columns.has(column)
 
 func _process_terrain_queue() -> void:
 	var started := Time.get_ticks_usec()
 	while not terrain_queue.is_empty() and Time.get_ticks_usec() - started < TERRAIN_BUDGET_USEC:
-		rebuild_terrain_piece(terrain_queue.pop_front())
+		var column: Vector2i = terrain_queue.pop_front()
+		if shown_columns.has(column):
+			_show_column(column)
 
 # Tout le terrain en attente, d'un coup (tests, captures).
 func finish_terrain() -> void:
 	while not terrain_queue.is_empty():
-		rebuild_terrain_piece(terrain_queue.pop_front())
+		var column: Vector2i = terrain_queue.pop_front()
+		if shown_columns.has(column):
+			_show_column(column)
+
+# Brume au loin, au bord de la distance d'affichage : le terrain ne s'arrête pas d'un coup.
+func _update_fog() -> void:
+	if not is_instance_valid(environment):
+		return
+	var reach := float(load_distance * SmoothTerrain.ZONE_SIZE)
+	environment.fog_enabled = true
+	environment.fog_mode = Environment.FOG_MODE_DEPTH
+	environment.fog_light_color = Color("#b9e2fa")
+	environment.fog_density = 1.0
+	environment.fog_depth_begin = reach * 0.65
+	environment.fog_depth_end = reach
+	environment.fog_sky_affect = 0.0
 
 # 0.0.5.8 : terrain lisse sur toute la base (zones de X et Z −64 à 63) ; base indestructible en dessous.
 # 0.0.5.12 : la base (« Roche-mère », incassable) commence à 8 m sous le sol, sous 4 m de terre et 4 m de pierre.
@@ -463,10 +538,16 @@ func _refresh_terrain(points: Array) -> void:
 		for dx in [-1, 0, 1]:
 			for dz in [-1, 0, 1]:
 				tiles[Vector2i(floori((point.x + dx * 2) * SmoothTerrain.STEP / 8.0), floori((point.z + dz * 2) * SmoothTerrain.STEP / 8.0))] = true
+	# 0.0.5.17 : seulement les colonnes affichées ; les autres seront faites en arrivant à portée.
 	for zone: Vector3i in zones:
-		rebuild_terrain_piece(zone)
+		var column := Vector2i(zone.x, zone.z)
+		if column_shown(column):
+			if not zone in shown_columns[column]:
+				shown_columns[column].append(zone)
+			rebuild_terrain_piece(zone)
 	for tile: Vector2i in tiles:
-		_rebuild_lawn_tile(tile)
+		if column_shown(tile):
+			_rebuild_lawn_tile(tile)
 
 # 0.0.5.11 : la terre et le sable tombent peu à peu (un cran de 50 cm toutes les FALL_SECONDS) ;
 # 0.0.5.12 : plus lent (0,15 s par cran au lieu de 0,06), pour bien voir tomber.
@@ -998,6 +1079,7 @@ func _process(delta: float) -> void:
 		update_zones(here)
 	process_zone_queue()
 	_settle_terrain(delta)
+	update_terrain_view(false, Vector2i(floori(player.position.x / SmoothTerrain.ZONE_SIZE), floori(player.position.z / SmoothTerrain.ZONE_SIZE)))
 	_process_terrain_queue()
 	hint.text = notice if notice_time > 0.0 else ""
 	_update_coordinates()

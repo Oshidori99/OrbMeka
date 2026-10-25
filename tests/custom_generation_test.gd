@@ -16,8 +16,8 @@ func _run() -> void:
 	for source in ["res://scripts/world_generation.gd.uid","res://tests/custom_generation_test.gd.uid","res://tests/custom_world_menu_test.gd.uid"]:
 		check(ResourceUID.text_to_id(FileAccess.get_file_as_string(source).strip_edges()) > 0, "new script UID is valid")
 	var options := Generation.defaults()
-	check(options.small_deserts == 8 and options.steep_hills == 9 and options.smooth_holes == 9, "defaults share actual standard generator constants")
-	check(options.medium_deserts == 0 and options.large_deserts == 0 and options.stone_holes == 0, "new categories are absent by default, never assigned an invented reference")
+	check(options.version == 2 and options.small_deserts == 32 and options.medium_deserts == 48 and options.large_deserts == 64, "0.0.5.17 standard: fewer deserts (version 2)")
+	check(options.deep_holes == 0 and options.stone_holes == 0 and absf(Generation.desert_share(options) - 0.16) < 0.03, "deep pits absent by default; deserts cover about a sixth of the ground")
 	check(Generation.valid({}) and Generation.valid(options), "legacy and custom options accepted")
 	for invalid in [-1,65,1.5,"24",null]:
 		var bad := options.duplicate()
@@ -27,28 +27,35 @@ func _run() -> void:
 	for spec in Generation.SPECS:
 		all[spec.key] = 1
 	for x in range(16):
-		var info := Generation.chunk_info(42,Vector2i(x,3),all)
-		check(info.small_desert and info.landforms.size() == 7, "1/1 produces each feature at every chunk")
+		var info := Generation.zone_info(42,Vector2i(x,3),all)
+		check(info.small_desert and info.landforms.size() == 7, "1/1 produces each feature at every zone")
 		for key in ["medium_desert","big_desert"]:
 			var cells: Array = info[key]
-			check(cells.size() >= (4 if key == "medium_desert" else 8) and cells.size() <= (6 if key == "medium_desert" else 11), "desert has requested chunk count")
+			check(cells.size() >= (2 if key == "medium_desert" else 4) and cells.size() <= (4 if key == "medium_desert" else 6), "desert has the requested number of zones (version 2)")
 			var unique := {}
 			for cell in cells:
 				unique[cell] = true
-			check(unique.size() == cells.size(), "desert chunks never duplicated")
+			check(unique.size() == cells.size(), "desert zones never duplicated")
 			var reachable := {Vector2i.ZERO:true}
 			for attempt in range(cells.size()):
 				for cell in cells:
 					for side in [Vector2i.LEFT,Vector2i.RIGHT,Vector2i.UP,Vector2i.DOWN]:
 						if reachable.has(cell+side):
 							reachable[cell] = true
-			check(reachable.size() == cells.size(), "desert chunks form a connected group")
+			check(reachable.size() == cells.size(), "desert zones form a connected group")
+	# Version 1 (0.0.5.16) : mêmes tailles qu'avant, pour les mondes déjà créés avec elle.
+	var old := all.duplicate()
+	old.version = 1
+	var old_info := Generation.zone_info(42, Vector2i(2, 3), old)
+	check(old_info.medium_desert.size() >= 4 and old_info.medium_desert.size() <= 6 and old_info.big_desert.size() >= 8 and old_info.big_desert.size() <= 11, "version 1 worlds keep their desert sizes")
+	check(Generation.valid(old) and not Generation.valid({"version": 3}), "versions 1 and 2 accepted, others refused")
+	check(Generation.estimate_text("medium_deserts", 24).contains("environ 11 désert") and Generation.estimate_text("steep_hills", 9).contains("environ 28 dans le monde"), "estimates in plain words")
 	var rare := options.duplicate()
 	for spec in Generation.SPECS:
 		rare[spec.key] = 64
 	var rare_count := 0
 	for x in range(512):
-		if Generation.chunk_info(42,Vector2i(x,9),rare).small_desert:
+		if Generation.zone_info(42,Vector2i(x,9),rare).small_desert:
 			rare_count += 1
 	check(rare_count > 0 and rare_count < 24, "1/64 really reduces generated desert frequency")
 	var a := Terrain.new()
@@ -66,7 +73,7 @@ func _run() -> void:
 	pits.stone_holes = 1
 	var deep := Terrain.new()
 	deep.setup(123,[],pits)
-	var info := deep._chunk(Vector2i(5,6))
+	var info := deep._zone_info(Vector2i(5,6))
 	for form in info.landforms:
 		if form.kind == "stone_holes":
 			var at := Vector2i(roundi(form.center.x*2),roundi(form.center.y*2))
@@ -83,8 +90,10 @@ func _run() -> void:
 	check(reopened.rename_world(item.id,"Renommé") and reopened.find_world(item.id).generation == options, "rename preserves generation")
 	var copy: Dictionary = reopened.duplicate_world(item.id)
 	check(copy.id != item.id and copy.generation == options, "duplicate retains seed options with distinct identity")
-	var legacy: Dictionary = reopened.create_world("Standard","123")
-	check(legacy.generation.is_empty(), "standard world keeps historical generation")
+	var standard: Dictionary = reopened.create_world("Standard","123")
+	check(standard.generation == Generation.defaults(), "a new standard world saves the version 2 settings")
+	var legacy: Dictionary = reopened.create_world("Ancien","124","default",false,{})
+	check(legacy.generation.is_empty(), "worlds without settings keep the 0.0.5.15 generation")
 	Store.delete_folder(catalog.worlds_root)
 	DirAccess.remove_absolute(ProjectSettings.globalize_path(path))
 	print("RESULT: %d custom generation checks, %d failures" % [checks,failures])

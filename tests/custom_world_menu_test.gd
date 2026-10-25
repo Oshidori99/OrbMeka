@@ -17,7 +17,7 @@ func _run() -> void:
 	var app: Control = load("res://scenes/main.tscn").instantiate()
 	app.settings = Settings.new(path.get_basename()+"-settings.json")
 	app.settings.values.grass_density = "low"
-	app.settings.values.load_distance = 1
+	app.settings.values.view_distance = 1
 	app.catalog = Catalog.new(path)
 	root.add_child(app)
 	app.show_page("create")
@@ -36,36 +36,36 @@ func _run() -> void:
 	root.size = Vector2i(1280,720)
 	var slider: HSlider = app.custom_sliders.small_deserts
 	check(slider.get_parent().get_child(1).size.x > 20 and slider.get_parent().get_child(3).size.x > 15, "frequency endpoint labels are visible")
-	check(app.custom_draft.small_deserts == 8 and int(slider.value) == 57, "slider starts at actual standard 1/8 frequency")
-	check(app.custom_labels.small_deserts.text.contains("Valeur par défaut : 1 chance sur 8"), "standard default remains visible as a reference")
+	check(app.custom_draft.small_deserts == 32 and int(slider.value) == 33, "slider starts at the standard 1/32 chance per zone")
+	check(app.custom_labels.small_deserts.text.contains("Valeur par défaut : 1 chance sur 32 par zone") and app.custom_labels.small_deserts.text.contains("% du sol"), "default and estimated share of the ground shown")
 	slider.value = 1
 	check(app.custom_draft.small_deserts == 64 and app.custom_labels.small_deserts.text.contains("64"), "left endpoint is 1/64")
 	slider.value = 64
-	check(app.custom_draft.small_deserts == 1 and app.custom_labels.small_deserts.text.begins_with("Chaque chunk"), "right endpoint is 1/1")
+	check(app.custom_draft.small_deserts == 1 and app.custom_labels.small_deserts.text.begins_with("Dans chaque zone"), "right endpoint is 1/1")
 	app.reset_custom_option("small_deserts")
-	check(app.custom_draft.small_deserts == 8 and int(slider.value) == 57, "per-slider reset restores actual standard value")
-	check(not app.custom_sliders.stone_holes.editable and app.custom_labels.stone_holes.text.contains("absent du monde standard"), "absent category has no invented active frequency")
+	check(app.custom_draft.small_deserts == 32 and int(slider.value) == 33, "per-slider reset restores the standard value")
+	check(not app.custom_sliders.stone_holes.editable and app.custom_labels.stone_holes.text.contains("jamais dans le monde standard"), "absent category has no invented active frequency")
 	app.custom_enabled.stone_holes.button_pressed = true
 	check(app.custom_sliders.stone_holes.editable and app.custom_draft.stone_holes == 64, "new category can be enabled at 1/64")
 	app.reset_custom_option("stone_holes")
 	check(app.custom_draft.stone_holes == 0 and not app.custom_sliders.stone_holes.editable, "reset disables a category absent from the standard world")
-	slider.value = 33
-	check(app.custom_draft.small_deserts == 32, "slider supports every intermediate integer")
+	slider.value = 34
+	check(app.custom_draft.small_deserts == 31, "slider supports every intermediate integer")
 	app.custom_apply_button.pressed.emit()
 	check(app.page == "create" and app.name_field.text == "Personnalisé" and app.seed_field.text == "123", "applying preserves name and seed")
-	check(app.custom_generation.small_deserts == 32, "applying retains chosen settings")
+	check(app.custom_generation.small_deserts == 31, "applying retains chosen settings")
 	app.open_custom_world()
 	slider.value = 64
 	app._cancel_page()
-	check(app.page == "create" and app.custom_generation.small_deserts == 32, "Escape cancels draft without discarding applied options")
-	check(app.GENERAL_CATEGORIES.video.Jeu.keys.has("grass_distance"), "grass distance is under Video / Jeu")
-	check(Settings.SPECS.grass_distance.default == 36 and Settings.menu_of("grass_distance") == "video", "larger grass default is a video setting")
+	check(app.page == "create" and app.custom_generation.small_deserts == 31, "Escape cancels draft without discarding applied options")
+	check(app.GENERAL_CATEGORIES.video.Jeu.keys.has("grass_zones") and app.GENERAL_CATEGORIES.video.Jeu.keys.has("view_distance"), "grass and view distances are under Video / Jeu")
+	check(Settings.SPECS.grass_zones.default == 4 and Settings.SPECS.grass_zones.unit == "zones de 8 m" and Settings.SPECS.view_distance.default == 8 and Settings.SPECS.view_distance.max == 32, "grass distance in zones (4); view distance 8, from 1 to 32")
 	app.create_named_world()
 	var world: Node3D = app.active_world
 	check(app.page == "playing" and world.generation_options == app.custom_generation, "creation supplies chosen generation to the actual world")
-	check(world.grass_distance == 36, "actual world receives larger grass distance")
-	app.setting_sliders.grass_distance.value = 48
-	check(Settings.new(path.get_basename()+"-settings.json").values.grass_distance == 48, "grass distance saved through the real video slider")
+	check(world.grass_distance == 32, "actual world receives the grass distance (4 zones = 32 m)")
+	app.setting_sliders.grass_zones.value = 6
+	check(Settings.new(path.get_basename()+"-settings.json").values.grass_zones == 6, "grass distance saved through the real video slider")
 	var patches := world.find_children("GrassDetail","MultiMeshInstance3D",true,false)
 	check(not patches.is_empty() and patches.all(func(patch): return patch.visibility_range_end == 48), "grass distance changes actual patch culling")
 	# FPS : lecture directe de la mesure moteur existante, aucune modification d'apparence.

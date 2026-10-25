@@ -123,7 +123,9 @@ func _save_worlds() -> bool:
 		return false
 	return true
 
-func create_world(raw_name: String, raw_seed: String = "", mode: String = MODE_DEFAULT, developer_used: bool = false, generation: Dictionary = {}) -> Dictionary:
+# 0.0.5.17 : un nouveau monde garde toujours ses réglages de génération (standard : Generation.defaults()) ;
+# seuls les mondes d'avant 0.0.5.16 n'en ont pas (génération de 0.0.5.15).
+func create_world(raw_name: String, raw_seed: String = "", mode: String = MODE_DEFAULT, developer_used: bool = false, generation: Dictionary = Generation.defaults()) -> Dictionary:
 	last_error = ""
 	if not Generation.valid(generation):
 		last_error = "Paramètres de génération invalides."

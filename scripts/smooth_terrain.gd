@@ -32,7 +32,7 @@ var columns: Dictionary = {}
 # 0.0.5.14 : petites collines de terre selon la graine (étape 4, #121, début), aplaties autour des endroits
 # donnés (apparition, plage). Sans setup() (tests) : sol plat à Y 0.
 # 0.0.5.15 (demandes de l'utilisateur) : collines jusqu'à 3 m, surtout douces ; petites bosses partout ;
-# par zone de 8 m (CHUNK), au hasard de la graine : environ 1 sur 9 a une crête abrupte (ça monte puis
+# par zone de 8 m (ZONE_METERS), au hasard de la graine : environ 1 sur 9 a une crête abrupte (ça monte puis
 # ça tombe d'un coup), environ 1 sur 9 un trou, petit ou gros (jamais jusqu'à la pierre : 3,5 m au plus) ;
 # environ 1 sur 8 est un petit désert (une zone), 1 sur 12 le départ d'un grand désert (3 ou 4 zones).
 # Le gazon couvre tout le sol de la graine, trous compris ; les déserts sont en sable.
@@ -40,7 +40,8 @@ const HILL_HEIGHT := Generation.STANDARD_HILL_HEIGHT
 const HILL_SIZE := 40.0
 const BUMP_HEIGHT := 0.25
 const DEEPEST := -3.5
-const CHUNK := 8.0
+# Côté d'une zone en mètres (pour les reliefs et déserts tirés par zone).
+const ZONE_METERS := 8.0
 const FEATURE_CHANCE := 1.0 / Generation.STANDARD_FEATURE_DENOMINATOR
 const SMALL_DESERT_CHANCE := 1.0 / Generation.STANDARD_SMALL_DENOMINATOR
 const BIG_DESERT_CHANCE := 1.0 / Generation.STANDARD_GROUP_DENOMINATOR
@@ -52,7 +53,7 @@ var _warp: FastNoiseLite
 var _seed := 0
 var _flat_spots: Array = []
 var _heights: Dictionary = {}
-var _chunks: Dictionary = {}
+var _zone_infos: Dictionary = {}
 var _deserts: Dictionary = {}
 
 func setup(terrain_seed: int, flat_spots: Array = [], options: Dictionary = {}) -> void:
@@ -72,19 +73,19 @@ func setup(terrain_seed: int, flat_spots: Array = [], options: Dictionary = {}) 
 	_warp.frequency = 1.0 / 6.0
 	_flat_spots = flat_spots
 	_heights.clear()
-	_chunks.clear()
+	_zone_infos.clear()
 	_deserts.clear()
 
 # Ce que la graine met dans une zone de 8 m : crête, trou, désert (toujours pareil pour une graine).
-func _chunk(chunk: Vector2i) -> Dictionary:
-	if _chunks.has(chunk):
-		return _chunks[chunk]
+func _zone_info(area: Vector2i) -> Dictionary:
+	if _zone_infos.has(area):
+		return _zone_infos[area]
 	if not generation_options.is_empty():
-		_chunks[chunk] = Generation.chunk_info(_seed, chunk, generation_options)
-		return _chunks[chunk]
+		_zone_infos[area] = Generation.zone_info(_seed, area, generation_options)
+		return _zone_infos[area]
 	var rng := RandomNumberGenerator.new()
-	rng.seed = hash([_seed, chunk.x, chunk.y])
-	var corner := Vector2(chunk) * CHUNK
+	rng.seed = hash([_seed, area.x, area.y])
+	var corner := Vector2(area) * ZONE_METERS
 	var info := {}
 	if rng.randf() < FEATURE_CHANCE:
 		info.hole = [corner + Vector2(rng.randf_range(2.0, 6.0), rng.randf_range(2.0, 6.0)), rng.randf_range(0.8, -DEEPEST - 0.1), rng.randf_range(1.5, 4.0)]
@@ -95,16 +96,16 @@ func _chunk(chunk: Vector2i) -> Dictionary:
 	if rng.randf() < BIG_DESERT_CHANCE:
 		var around := [Vector2i(1, 0), Vector2i(0, 1), Vector2i(1, 1)]
 		info.big_desert = [Vector2i.ZERO] + around.slice(0, rng.randi_range(2, 3))
-	_chunks[chunk] = info
+	_zone_infos[area] = info
 	return info
 
 # Relief rare d'une zone (et de ses voisines, qui peuvent déborder) au point « at » (m).
 func _features(at: Vector2) -> float:
 	var total := 0.0
-	var here := Vector2i(floori(at.x / CHUNK), floori(at.y / CHUNK))
+	var here := Vector2i(floori(at.x / ZONE_METERS), floori(at.y / ZONE_METERS))
 	for dx in range(-1, 2):
 		for dz in range(-1, 2):
-			var info := _chunk(here + Vector2i(dx, dz))
+			var info := _zone_info(here + Vector2i(dx, dz))
 			if info.has("hole"):
 				var hole: Array = info.hole
 				total -= hole[1] * (1.0 - smoothstep(hole[2] * 0.5, hole[2], at.distance_to(hole[0])))
@@ -137,14 +138,14 @@ func is_desert(at: Vector2) -> bool:
 	if _deserts.has(key):
 		return _deserts[key]
 	var warped := at + Vector2(_warp.get_noise_2d(at.x, at.y), _warp.get_noise_2d(at.x + 97.0, at.y - 31.0)) * 2.5
-	var chunk := Vector2i(floori(warped.x / CHUNK), floori(warped.y / CHUNK))
-	var desert: bool = _chunk(chunk).small_desert
+	var area := Vector2i(floori(warped.x / ZONE_METERS), floori(warped.y / ZONE_METERS))
+	var desert: bool = _zone_info(area).small_desert
 	for dx in range(-1, 1):
 		for dz in range(-1, 1):
-			var info := _chunk(chunk + Vector2i(dx, dz))
+			var info := _zone_info(area + Vector2i(dx, dz))
 			desert = desert or (info.has("big_desert") and Vector2i(-dx, -dz) in info.big_desert)
 	# Jamais autour de l'apparition ni de la plage.
-	desert = desert and _away_from_spots((Vector2(chunk) + Vector2(0.5, 0.5)) * CHUNK, 8.0) > 0.0
+	desert = desert and _away_from_spots((Vector2(area) + Vector2(0.5, 0.5)) * ZONE_METERS, 8.0) > 0.0
 	_deserts[key] = desert
 	return desert
 
@@ -290,8 +291,8 @@ func is_flat(zone: Vector3i) -> bool:
 	var heights := zone_heights(zone)
 	if heights.x != 0.0 or heights.y != 0.0:
 		return false
-	var origin := Vector2(zone.x, zone.z) * CHUNK
-	for corner in [Vector2(0, 0), Vector2(CHUNK, 0), Vector2(0, CHUNK), Vector2(CHUNK, CHUNK), Vector2(CHUNK, CHUNK) / 2.0]:
+	var origin := Vector2(zone.x, zone.z) * ZONE_METERS
+	for corner in [Vector2(0, 0), Vector2(ZONE_METERS, 0), Vector2(0, ZONE_METERS), Vector2(ZONE_METERS, ZONE_METERS), Vector2(ZONE_METERS, ZONE_METERS) / 2.0]:
 		if is_desert(origin + corner):
 			return false
 	return true
@@ -543,33 +544,40 @@ func settle_step(limit: int = 96) -> Array[Vector3i]:
 		wake(target)
 	return moved
 
-# Les mondes sans paramètres conservent exactement la génération historique.
+# Mondes avec paramètres (0.0.5.16) ; les mondes sans paramètres gardent la génération de 0.0.5.15 (plus haut).
+# 0.0.5.17 : version 2 (nouveaux mondes) : bords de désert irréguliers, relief continu toujours présent.
 func _custom_desert(at: Vector2) -> bool:
-	var chunk := Vector2i(floori(at.x/CHUNK),floori(at.y/CHUNK))
-	if _deserts.has(chunk):
-		return _deserts[chunk]
-	if _chunk(chunk).small_desert:
-		_deserts[chunk] = true
+	if int(generation_options.version) >= 2:
+		at += Vector2(_warp.get_noise_2d(at.x, at.y), _warp.get_noise_2d(at.x + 97.0, at.y - 31.0)) * 2.5
+	var area := Vector2i(floori(at.x/ZONE_METERS),floori(at.y/ZONE_METERS))
+	if _deserts.has(area):
+		return _deserts[area]
+	if _zone_info(area).small_desert:
+		_deserts[area] = true
 		return true
 	for dx in range(-3,1):
 		for dz in range(-2,1):
-			var info := _chunk(chunk + Vector2i(dx,dz))
+			var info := _zone_info(area + Vector2i(dx,dz))
 			var offset := Vector2i(-dx,-dz)
 			if offset in info.get("medium_desert",[]) or offset in info.get("big_desert",[]):
-				_deserts[chunk] = true
+				_deserts[area] = true
 				return true
-	_deserts[chunk] = false
+	_deserts[area] = false
 	return false
 
 func _custom_height(at: Vector2) -> float:
-	var here := Vector2i(floori(at.x/CHUNK),floori(at.y/CHUNK))
+	var here := Vector2i(floori(at.x/ZONE_METERS),floori(at.y/ZONE_METERS))
 	var hill := 0.0
-	if generation_options.low_hills == 0 and generation_options.high_hills == 0:
+	var continuous := int(generation_options.version) >= 2
+	if continuous:
+		hill = _rolling(at)
+	elif generation_options.low_hills == 0 and generation_options.high_hills == 0:
 		hill = clampf(_noise.get_noise_2d(at.x, at.y) * 1.6 - 0.15, 0.0, 1.0) * HILL_HEIGHT + _bumps.get_noise_2d(at.x, at.y) * BUMP_HEIGHT
 	var hole := 3.0
+	var dig := 0.0
 	for dx in range(-1,2):
 		for dz in range(-1,2):
-			for form in _chunk(here + Vector2i(dx,dz)).landforms:
+			for form in _zone_info(here + Vector2i(dx,dz)).landforms:
 				var offset: Vector2 = at - form.center
 				var distance: float = offset.length()
 				var radius: float = form.radius
@@ -585,4 +593,18 @@ func _custom_height(at: Vector2) -> float:
 					hill = maxf(hill,form.height*profile)
 				else:
 					hole = minf(hole,lerpf(3.0,form.height,profile))
+					dig = minf(dig, form.height * profile)
+	# Version 2 : les trous se creusent dans le relief (en dessous de la colline ou de la bosse où ils sont).
+	if continuous:
+		return hill + dig
 	return minf(hill,hole)
+
+# 0.0.5.17 : relief continu de la version 2, moins plat (demande de l'utilisateur) : collines douces plus
+# fréquentes (3 m au plus), longues ondulations, petites bosses. Notre propre réglage, sans copier d'autre jeu.
+const ROLLING_SIZE := 22.0
+const ROLLING_HEIGHT := 0.7
+
+func _rolling(at: Vector2) -> float:
+	var hill := clampf(_noise.get_noise_2d(at.x, at.y) * 1.3 + 0.1, 0.0, 1.0)
+	var swell := _noise.get_noise_2d(at.x * HILL_SIZE / ROLLING_SIZE + 311.0, at.y * HILL_SIZE / ROLLING_SIZE - 173.0)
+	return HILL_HEIGHT * pow(hill, 1.3) + (swell * 0.5 + 0.5) * ROLLING_HEIGHT + _bumps.get_noise_2d(at.x, at.y) * BUMP_HEIGHT
