@@ -6,6 +6,8 @@ extends RefCounted
 # Le sol de la graine est calculé (base_density), seuls les points changés sont gardés et enregistrés.
 # Rendu lisse : « surface nets » (un sommet par sous-cellule traversée par la surface, au milieu des
 # passages de la surface sur ses arêtes), une pièce par zone. Zone sans changement : simple carré plat.
+const Generation = preload("res://scripts/world_generation.gd")
+var generation_options: Dictionary = {}
 const STEP := 0.5
 const POINTS := 16
 const ZONE_SIZE := 8
@@ -34,14 +36,14 @@ var columns: Dictionary = {}
 # ça tombe d'un coup), environ 1 sur 9 un trou, petit ou gros (jamais jusqu'à la pierre : 3,5 m au plus) ;
 # environ 1 sur 8 est un petit désert (une zone), 1 sur 12 le départ d'un grand désert (3 ou 4 zones).
 # Le gazon couvre tout le sol de la graine, trous compris ; les déserts sont en sable.
-const HILL_HEIGHT := 3.0
+const HILL_HEIGHT := Generation.STANDARD_HILL_HEIGHT
 const HILL_SIZE := 40.0
 const BUMP_HEIGHT := 0.25
 const DEEPEST := -3.5
 const CHUNK := 8.0
-const FEATURE_CHANCE := 1.0 / 9.0
-const SMALL_DESERT_CHANCE := 1.0 / 8.0
-const BIG_DESERT_CHANCE := 1.0 / 12.0
+const FEATURE_CHANCE := 1.0 / Generation.STANDARD_FEATURE_DENOMINATOR
+const SMALL_DESERT_CHANCE := 1.0 / Generation.STANDARD_SMALL_DENOMINATOR
+const BIG_DESERT_CHANCE := 1.0 / Generation.STANDARD_GROUP_DENOMINATOR
 # Épaisseur du sable sous un désert (m), puis la terre.
 const DESERT_SAND := 2.0
 var _noise: FastNoiseLite
@@ -53,7 +55,8 @@ var _heights: Dictionary = {}
 var _chunks: Dictionary = {}
 var _deserts: Dictionary = {}
 
-func setup(terrain_seed: int, flat_spots: Array = []) -> void:
+func setup(terrain_seed: int, flat_spots: Array = [], options: Dictionary = {}) -> void:
+	generation_options = Generation.normalized(options) if Generation.valid(options) else {}
 	_seed = terrain_seed
 	_noise = FastNoiseLite.new()
 	_noise.seed = terrain_seed
@@ -75,6 +78,9 @@ func setup(terrain_seed: int, flat_spots: Array = []) -> void:
 # Ce que la graine met dans une zone de 8 m : crête, trou, désert (toujours pareil pour une graine).
 func _chunk(chunk: Vector2i) -> Dictionary:
 	if _chunks.has(chunk):
+		return _chunks[chunk]
+	if not generation_options.is_empty():
+		_chunks[chunk] = Generation.chunk_info(_seed, chunk, generation_options)
 		return _chunks[chunk]
 	var rng := RandomNumberGenerator.new()
 	rng.seed = hash([_seed, chunk.x, chunk.y])
@@ -125,6 +131,8 @@ func _away_from_spots(at: Vector2, margin: float) -> float:
 func is_desert(at: Vector2) -> bool:
 	if _noise == null:
 		return false
+	if not generation_options.is_empty():
+		return _custom_desert(at)
 	var key := Vector2i(floori(at.x * 2.0), floori(at.y * 2.0))
 	if _deserts.has(key):
 		return _deserts[key]
@@ -147,6 +155,10 @@ func ground_height(column: Vector2i) -> float:
 	if _heights.has(column):
 		return _heights[column]
 	var at := Vector2(column) * STEP
+	if not generation_options.is_empty():
+		var custom_height := clampf(_custom_height(at), -7.0, 3.0) * _away_from_spots(at, 8.0)
+		_heights[column] = roundf(custom_height * 1000.0) / 1000.0
+		return _heights[column]
 	var hill := clampf(_noise.get_noise_2d(at.x, at.y) * 1.6 - 0.15, 0.0, 1.0)
 	var height := HILL_HEIGHT * pow(hill, 1.4) + _bumps.get_noise_2d(at.x, at.y) * BUMP_HEIGHT + _features(at)
 	height = clampf(height * _away_from_spots(at, 7.0), DEEPEST, HILL_HEIGHT)
@@ -530,3 +542,47 @@ func settle_step(limit: int = 96) -> Array[Vector3i]:
 		wake(point)
 		wake(target)
 	return moved
+
+# Les mondes sans paramètres conservent exactement la génération historique.
+func _custom_desert(at: Vector2) -> bool:
+	var chunk := Vector2i(floori(at.x/CHUNK),floori(at.y/CHUNK))
+	if _deserts.has(chunk):
+		return _deserts[chunk]
+	if _chunk(chunk).small_desert:
+		_deserts[chunk] = true
+		return true
+	for dx in range(-3,1):
+		for dz in range(-2,1):
+			var info := _chunk(chunk + Vector2i(dx,dz))
+			var offset := Vector2i(-dx,-dz)
+			if offset in info.get("medium_desert",[]) or offset in info.get("big_desert",[]):
+				_deserts[chunk] = true
+				return true
+	_deserts[chunk] = false
+	return false
+
+func _custom_height(at: Vector2) -> float:
+	var here := Vector2i(floori(at.x/CHUNK),floori(at.y/CHUNK))
+	var hill := 0.0
+	if generation_options.low_hills == 0 and generation_options.high_hills == 0:
+		hill = clampf(_noise.get_noise_2d(at.x, at.y) * 1.6 - 0.15, 0.0, 1.0) * HILL_HEIGHT + _bumps.get_noise_2d(at.x, at.y) * BUMP_HEIGHT
+	var hole := 3.0
+	for dx in range(-1,2):
+		for dz in range(-1,2):
+			for form in _chunk(here + Vector2i(dx,dz)).landforms:
+				var offset: Vector2 = at - form.center
+				var distance: float = offset.length()
+				var radius: float = form.radius
+				if distance >= radius:
+					continue
+				var profile := 1.0 - smoothstep(radius*0.15,radius,distance)
+				if form.kind == "steep_hills":
+					var along: float = offset.dot(form.direction)
+					profile *= 1.0 - smoothstep(-0.35,0.35,along)
+				elif form.kind == "steep_holes":
+					profile = 1.0 - smoothstep(radius-0.3,radius,distance)
+				if form.height > 0:
+					hill = maxf(hill,form.height*profile)
+				else:
+					hole = minf(hole,lerpf(3.0,form.height,profile))
+	return minf(hill,hole)

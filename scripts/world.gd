@@ -20,6 +20,7 @@ const BUILD_LIMIT := 57
 
 var generated_hill_count := 0
 var generated_max_height := 0
+var generation_options: Dictionary = {}
 var terrain_seed: int = TerrainGenerator.SEED
 var world_name := "OrbMeka"
 # Mode du monde, affiché dans Informations du monde (F3).
@@ -57,6 +58,7 @@ var zone_center := Vector3i(999999, 0, 0)
 var load_distance := 4
 # Densité de l'herbe (Paramètres → Vidéo), appliquée à l'ouverture du monde.
 var grass_density := "medium"
+var grass_distance := 36.0
 var block_material: Material
 var block_box: BoxShape3D
 # Mesures affichées dans Informations du monde (F3).
@@ -83,6 +85,7 @@ func _ready() -> void:
 	_setup_environment()
 	# 0.0.5.1 : une seule matière pour tous les blocs, couleur portée par les sommets de chaque section.
 	TerrainMaterials.density = grass_density
+	TerrainMaterials.grass_range = grass_distance
 	block_material = TerrainMaterials.surface()
 	block_box = BoxShape3D.new()
 	_create_ground()
@@ -185,7 +188,7 @@ func _create_terrain(start_at: Vector3 = Vector3.ZERO) -> void:
 	generated_max_height = 0
 	# 0.0.5.14 : petites collines selon la graine, plates autour de l'apparition et de la plage.
 	if relief:
-		terrain.setup(terrain_seed, [[Vector2(0.5, 0.5), 9.0], [SAND_CENTER, SAND_RADIUS + 2.0]])
+		terrain.setup(terrain_seed, [[Vector2(0.5, 0.5), 9.0], [SAND_CENTER, SAND_RADIUS + 2.0]], generation_options)
 	_read_terrain_changes()
 	terrain_node = Node3D.new()
 	terrain_node.name = "Terrain"
@@ -1147,3 +1150,9 @@ func _debris(at: Vector3, color: Color) -> void:
 	add_child(burst)
 	burst.emitting = true
 	burst.finished.connect(burst.queue_free)
+
+func set_grass_distance(distance: float) -> void:
+	grass_distance = clampf(distance,8.0,96.0)
+	TerrainMaterials.grass_range = grass_distance
+	for patch in find_children("GrassDetail","MultiMeshInstance3D",true,false):
+		patch.visibility_range_end = grass_distance

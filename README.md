@@ -1,6 +1,9 @@
-# OrbMeka™ 0.0.5.15
+# OrbMeka™ 0.0.5.16
 
 Dans Godot, ouvrez **project.godot**, puis **F5** pour lancer le jeu.
+
+0.0.5.16 : Monde personnalisé à la création : dix fréquences de déserts, collines et trous.
+Les options sont sauvegardées avec le monde ; distance de l'herbe réglable dans Vidéo → Jeu.
 
 0.0.5.15 : relief plus varié : collines jusqu'à 3 m, bosses, crêtes abruptes et trous rares, petits et grands déserts.
 0.0.5.14 : petites collines de terre selon la graine ; clic maintenu qui répète ; B + molette haut = plus grand.

@@ -16,7 +16,8 @@ const GRASS_SHADER = preload("res://shaders/grass_blades.gdshader")
 const PATCH := 0.5
 const BLADES := {"low": 80, "medium": 200, "high": 440}
 # Herbe visible jusqu'à cette distance (m) ; au-delà, la surface verte du sol suffit.
-const GRASS_RANGE := 24.0
+const GRASS_RANGE := 36.0
+static var grass_range := GRASS_RANGE
 static var density := "medium"
 static var _patches := {}
 static var _blade_material: ShaderMaterial
@@ -66,7 +67,7 @@ static func grass_instance(points: Array[Vector3], terrain_seed: int) -> MultiMe
 		_blade_material.shader = GRASS_SHADER
 	node.material_override = _blade_material
 	node.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-	node.visibility_range_end = GRASS_RANGE
+	node.visibility_range_end = grass_range
 	node.visibility_range_end_margin = 4.0
 	node.visibility_range_fade_mode = GeometryInstance3D.VISIBILITY_RANGE_FADE_SELF
 	return node

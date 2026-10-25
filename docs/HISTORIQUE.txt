@@ -3,6 +3,10 @@ Du plus récent au plus ancien. Ce fichier est mis à jour à chaque version.
 
 === Thème « Monde » (0.0.5 et suivantes) ===
 
+0.0.5.16 — Mondes personnalisés
+Dix fréquences de génération, repères du monde standard et ↻ ; réglages conservés par monde.
+Distance de l'herbe dans Vidéo → Jeu (36 m par défaut) ; compteur FPS moteur conservé.
+
 0.0.5.15 — Relief varié et déserts
 Collines jusqu'à 3 m, bosses, crêtes abruptes et trous rares (1 zone sur 9), petits et grands déserts de sable.
 

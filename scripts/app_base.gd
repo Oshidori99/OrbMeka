@@ -58,7 +58,7 @@ const GENERAL_CATEGORIES := {
 	},
 	"video": {
 		# 0.0.5.8 : réglages du jeu en premier (demande de l'utilisateur).
-		"Jeu": {"keys": ["fov", "load_distance", "grass_density", "show_coords"], "help": ["", "Champ de vision, distance de chargement et coordonnées en partie.", "Champ de vision de la caméra en partie, en degrés (75° : vue d'origine). Distance de chargement : zones de 8 m chargées autour du joueur, dans chaque direction (moins = plus rapide). Densité de l'herbe : nombre de brins (appliquée à la prochaine ouverture d'un monde). Coordonnées en blocs, en haut à droite : X largeur, Y hauteur des pieds (0 sur le sol plat), Z longueur."]},
+		"Jeu": {"keys": ["fov", "load_distance", "grass_density", "grass_distance", "show_coords"], "help": ["", "Champ de vision, distance de chargement et coordonnées en partie.", "Champ de vision de la caméra en partie, en degrés (75° : vue d'origine). Distance de chargement : zones de 8 m chargées autour du joueur, dans chaque direction (moins = plus rapide). Densité de l'herbe : nombre de brins (appliquée à la prochaine ouverture d'un monde). Distance d’affichage de l’herbe : portée des brins en mètres, appliquée immédiatement. Coordonnées en blocs, en haut à droite : X largeur, Y hauteur des pieds (0 sur le sol plat), Z longueur."]},
 		"Panneaux": {"keys": ["panel_size", "nav_percent"], "help": ["", "Largeur des menus et de la colonne d'onglets.", "Largeur des menus ; le menu de gauche est la colonne d'onglets."]},
 		"Zones": {"keys": ["element_scale"], "help": ["", "Boutons, champs, marges et espaces.", "Taille des boutons, des zones de saisie, des marges et des espaces des menus, sans changer le texte, qui reste toujours dans sa zone."]},
 		"Texte": {"keys": ["text_px"], "help": ["", "Taille des textes.", "Taille de tous les textes, menus et jeu (13 px par défaut ; 18 px : taille d'avant 0.0.3.10)."]},
@@ -160,6 +160,15 @@ var open_button: Button
 var list_message: RichTextLabel
 var name_field: LineEdit
 var seed_field: LineEdit
+const Generation = preload("res://scripts/world_generation.gd")
+var custom_generation: Dictionary = {}
+var custom_draft: Dictionary = {}
+var custom_sliders: Dictionary = {}
+var custom_enabled: Dictionary = {}
+var custom_labels: Dictionary = {}
+var custom_world_button: Button
+var custom_status: RichTextLabel
+var custom_apply_button: Button
 var world_options_title: RichTextLabel
 var duplicate_button: Button
 var world_settings_button: Button

@@ -349,11 +349,17 @@ Nom, graine, mode, constructions et position sauvegardés." % Catalog.MAX_NAME_L
 	create_mode_note.theme_type_variation = "OrbNote"
 	create_mode_note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	form.add_child(create_mode_note)
+	custom_world_button = _button("Monde personnalisé…", form, open_custom_world)
+	custom_status = _text_label()
+	custom_status.theme_type_variation = "OrbNote"
+	custom_status.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	form.add_child(custom_status)
 	form_error = _text_label()
 	form_error.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	form.add_child(form_error)
 	create_button = _button("➕ Créer", form, create_named_world)
 	_button("Retour", form, func(): show_page("worlds"))
+	_build_custom_world(stack)
 	var world_settings_page := _page(stack, "Paramètres du monde")
 	pages.world_settings = _page_root(world_settings_page)
 	world_settings_text = _text_label()
@@ -448,6 +454,7 @@ func _update_backdrop() -> void:
 	get_window().title = "OrbMeka — Launcher" if outside else str(ProjectSettings.get_setting("application/config/name", "OrbMeka"))
 
 func show_page(next_page: String) -> void:
+	var previous_page := page
 	# 0.0.4.14 : en entrant dans Paramètres, titres réduits ou développés selon le choix d'ouverture.
 	if next_page == "settings" and page != "settings":
 		apply_fold_open()
@@ -484,12 +491,20 @@ func show_page(next_page: String) -> void:
 	elif page == "information":
 		information_back_button.grab_focus()
 	elif page == "create":
-		name_field.clear()
-		seed_field.clear()
+		if previous_page != "custom_world":
+			name_field.clear()
+			seed_field.clear()
+			custom_generation = {}
+			set_create_mode(Catalog.MODE_DEFAULT)
 		form_error.text = ""
+		custom_status.text = "Génération standard" if custom_generation.is_empty() else "Génération personnalisée enregistrée pour ce monde"
 		create_button.disabled = not catalog.load_error.is_empty()
-		set_create_mode(Catalog.MODE_DEFAULT)
-		name_field.grab_focus()
+		if previous_page == "custom_world":
+			custom_world_button.grab_focus()
+		else:
+			name_field.grab_focus()
+	elif page == "custom_world":
+		custom_sliders[Generation.SPECS[0].key].grab_focus()
 	elif page == "world_settings":
 		world_settings_back_button.grab_focus()
 	elif page == "developer_confirm":
@@ -649,7 +664,7 @@ func cancel_world_action() -> void:
 	refresh_world_list(previous_id)
 
 func create_named_world() -> void:
-	var item: Dictionary = catalog.create_world(name_field.text, seed_field.text, create_mode)
+	var item: Dictionary = catalog.create_world(name_field.text, seed_field.text, create_mode, false, custom_generation)
 	if item.is_empty():
 		form_error.text = catalog.last_error
 		if catalog.last_error.begins_with("La graine"):
@@ -679,11 +694,13 @@ func open_world(id: String) -> void:
 		remove_child(showcase)
 	active_world = WorldScene.instantiate()
 	active_world.process_mode = Node.PROCESS_MODE_PAUSABLE
+	active_world.generation_options = item.get("generation", {}).duplicate(true)
 	active_world.terrain_seed = item.seed
 	active_world.world_name = item.name
 	active_world.save_folder = catalog.world_folder(id)
 	active_world.text_scale = _text_scale()
 	active_world.grass_density = settings.values.grass_density
+	active_world.grass_distance = float(settings.values.grass_distance)
 	active_world.load_distance = int(settings.values.load_distance)
 	var developer: bool = item.get("mode", Catalog.MODE_DEFAULT) == Catalog.MODE_DEVELOPER
 	active_world.developer_mode = developer
@@ -825,6 +842,8 @@ func _cancel_page() -> void:
 		show_page("pause")
 	elif page == "pause":
 		resume_game()
+	elif page == "custom_world":
+		show_page("create")
 	elif page in ["rename", "delete", "world_settings"]:
 		cancel_world_action()
 	elif page == "developer_confirm":
@@ -848,3 +867,106 @@ func _notification(what: int) -> void:
 	# Le fond 3D peut être hors de l'arbre pendant une partie : le libérer avec l'application.
 	if what == NOTIFICATION_PREDELETE and is_instance_valid(showcase) and not showcase.is_inside_tree():
 		showcase.free()
+
+func _build_custom_world(stack: Node) -> void:
+	var form := _page(stack,"Monde personnalisé")
+	pages.custom_world = _page_root(form)
+	var category := _text_label()
+	category.text = "Génération du terrain"
+	category.theme_type_variation = "OrbSection"
+	form.add_child(category)
+	var explanation := _text_label()
+	explanation.text = "Un chunk mesure 8 × 8 m. Plus à droite : plus fréquent.\n1 sur 64 : rare ; 1 sur 1 : à chaque chunk. Les reliefs peuvent se superposer.\nRéférence : les déserts standards de 3 à 4 chunks (1 sur 12) n’ont pas d’équivalent exact dans les nouvelles tailles."
+	explanation.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	form.add_child(explanation)
+	for spec in Generation.SPECS:
+		var key: String = spec.key
+		var title := _text_label()
+		title.text = spec.label
+		title.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		_font_size(title,18)
+		form.add_child(title)
+		var row := HBoxContainer.new()
+		_sep(row,10)
+		form.add_child(row)
+		var enabled := CheckButton.new()
+		enabled.tooltip_text = "Personnaliser cette catégorie" if key in ["low_hills","high_hills"] else "Activer cette catégorie"
+		row.add_child(enabled)
+		custom_enabled[key] = enabled
+		enabled.toggled.connect(func(on: bool):
+			custom_draft[key] = (int(spec.default) if spec.default > 0 else 64) if on else 0
+			_sync_custom_option(key))
+		var rare := _text_label()
+		rare.text = "1/64"
+		row.add_child(rare)
+		_size_frequency_endpoint(rare)
+		rare.theme_changed.connect(func(): _size_frequency_endpoint(rare))
+		var slider := HSlider.new()
+		slider.min_value = 1
+		slider.max_value = 64
+		slider.step = 1
+		slider.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		slider.custom_minimum_size.x = 140
+		slider.tooltip_text = spec.label + " : fréquence par chunk"
+		row.add_child(slider)
+		var frequent := _text_label()
+		frequent.text = "1/1"
+		row.add_child(frequent)
+		_size_frequency_endpoint(frequent)
+		frequent.theme_changed.connect(func(): _size_frequency_endpoint(frequent))
+		var value := _text_label()
+		value.theme_type_variation = "OrbNote"
+		value.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		form.add_child(value)
+		custom_sliders[key] = slider
+		custom_labels[key] = value
+		var reset := _button("↻",row,func(): reset_custom_option(key))
+		_min_size(reset,Vector2(42,0))
+		reset.tooltip_text = "Rétablir la valeur par défaut : " + Generation.default_text(key)
+		slider.value_changed.connect(func(amount: float):
+			custom_draft[key] = 65 - int(amount)
+			_update_custom_label(key))
+	custom_apply_button = _button("Appliquer",form,func():
+		custom_generation = {} if custom_draft == Generation.defaults() else custom_draft.duplicate(true)
+		show_page("create"))
+	_button("Génération standard",form,func():
+		custom_generation = {}
+		show_page("create"))
+	_button("Annuler",form,func(): show_page("create"))
+
+func open_custom_world() -> void:
+	custom_draft = Generation.defaults() if custom_generation.is_empty() else custom_generation.duplicate(true)
+	for spec in Generation.SPECS:
+		_sync_custom_option(spec.key)
+	show_page("custom_world")
+
+func _update_custom_label(key: String) -> void:
+	var n: int = custom_draft[key]
+	var current := "Chaque chunk" if n == 1 else "1 chance sur %d par chunk" % n
+	if n == 0:
+		current = "Non présent"
+		if key in ["low_hills","high_hills"]:
+			current = "Relief continu standard" if custom_draft.low_hills == 0 and custom_draft.high_hills == 0 else "Cette catégorie n’est pas générée"
+	custom_labels[key].text = current + "\nValeur par défaut : " + Generation.default_text(key)
+
+func _size_frequency_endpoint(label: RichTextLabel) -> void:
+	var font := label.get_theme_font("normal_font")
+	var font_size := label.get_theme_font_size("normal_font_size")
+	label.custom_minimum_size.x = ceilf(font.get_string_size(label.text,HORIZONTAL_ALIGNMENT_LEFT,-1,font_size).x)+2.0
+
+func _sync_custom_option(key: String) -> void:
+	var n: int = custom_draft[key]
+	custom_sliders[key].set_value_no_signal(65 - (n if n > 0 else 64))
+	custom_sliders[key].editable = n > 0
+	custom_enabled[key].set_pressed_no_signal(n > 0)
+	_update_custom_label(key)
+	if key in ["low_hills","high_hills"]:
+		_update_custom_label("low_hills")
+		_update_custom_label("high_hills")
+
+func reset_custom_option(key: String) -> void:
+	for spec in Generation.SPECS:
+		if spec.key == key:
+			custom_draft[key] = spec.default
+			_sync_custom_option(key)
+			return

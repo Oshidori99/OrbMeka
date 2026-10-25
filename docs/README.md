@@ -1,6 +1,44 @@
-# OrbMeka™ — prototype 0.0.5.15
+# OrbMeka™ — prototype 0.0.5.16
 
 Godot 4.7 / GDScript. Formes et couleurs simples ; assets externes seulement sous licence vérifiée (sons CC0, assets/sounds/CREDITS.txt).
+
+## 0.0.5.16 — Mondes personnalisés
+- Créer un monde → Options du monde → Monde personnalisé, sous la note des attributs.
+- Catégorie Génération du terrain : dix barres de fréquence, 1/64 à gauche (rare), 1/1 à droite
+  (chaque chunk), tous les entiers intermédiaires. Un chunk mesure 8 × 8 m.
+- Sous chaque barre : Valeur par défaut et bouton ↻. Les valeurs connues viennent des mêmes constantes
+  que la génération standard : petits déserts 1/8, crêtes et trous lisses 1/9. Les collines standards
+  sont un relief continu jusqu’à 3 blocs, sans fréquence distincte pour les deux tailles.
+  Catégories nouvelles : indiquées absentes et désactivées ; un interrupteur permet de les activer
+  à 1/64. Le curseur actif conserve bien ses bornes 1/64 à 1/1.
+- Déserts : petits (1 chunk), moyens (4 à 6), grands (8 à 11), en groupes connexes ;
+  les groupes peuvent se recouvrir. Les trois fréquences règlent le départ d'un désert par chunk.
+  Les déserts standards de 3 à 4 chunks (1/12) n'ont pas d'équivalent exact dans ces nouvelles tailles.
+- Collines : lisses de 1 bloc, lisses de 2 à 3 blocs, abruptes.
+- Trous : plutôt lisses, abrupts, bien profonds (près de la pierre), grands trous atteignant
+  2 à 3 blocs dans la pierre (fond entre Y −6 et −7). La Roche-mère reste intacte à Y −8.
+- Appliquer sans changer les valeurs de référence conserve exactement la génération standard.
+  Tant que les deux tailles de collines ne sont pas personnalisées, leur relief continu est conservé.
+- Les reliefs peuvent se superposer ; leurs hauteurs ne s'additionnent pas indéfiniment.
+  Le départ et la plage restent plats pour les reliefs ; à 1/1, le sable peut couvrir aussi le départ.
+- Appliquer garde les choix ainsi que le nom, la graine et le mode. Annuler/Échap garde les choix
+  précédemment appliqués. Génération standard retire la personnalisation.
+- Les réglages sont enregistrés dans monde.json et l'index, champ generation version 1 : même graine
+  et mêmes options donnent le même monde. Renommer, rouvrir et dupliquer conservent les options.
+  Les mondes sans ce champ continuent d'utiliser exactement leur génération historique.
+- Vidéo → Jeu : Distance d'affichage de l'herbe, de 8 à 96 m, 36 m par défaut (avant : 24 m).
+  Appliquée immédiatement et sauvegardée dans les réglages vidéo ; la densité reste séparée.
+- FPS : lecture directe de Engine.get_frames_per_second(), actualisée toutes les 0,5 s ;
+  apparence conservée à la demande de l'utilisateur.
+
+Validation : 18 suites pertinentes vérifiées sur 58 (31 %), génération, sauvegarde, menus,
+paramètres et compatibilité ; les trois suites corrigées ont été revérifiées (dernier lot 5/5
+avec les contrôles juridiques). Les valeurs par défaut et leur rétablissement ont ensuite été
+revérifiés dans 8 suites (8/8). Deux tests à la fois, pics observés : CPU 31 %, mémoire 73 %.
+Runner local : CPU et mémoire du PC surveillés, arrêt de nos seuls tests au-delà de 85 %,
+quatre simultanés au maximum et réduction à deux si la charge monte ; pas de deuxième runner.
+À tester manuellement : aspect des terrains extrêmes, défilement du menu et coût GPU de l'herbe,
+notamment dans le navigateur. Aucun contrôle de la souris ni capture d'écran du PC pendant les tests.
 
 ## 0.0.5.15 — Relief varié et déserts (#121)
 - Collines jusqu'à 3 m, surtout douces ; petites bosses partout (le sol est moins plat), toujours en gazon.

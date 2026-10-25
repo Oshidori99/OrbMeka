@@ -2,6 +2,7 @@ extends RefCounted
 # Index des mondes (worlds.json, gardé tel quel : identifiant, nom, graine, mode). 0.0.5 : chaque monde a
 # aussi son dossier (world_store.gd), avec monde.json, joueur.json et zones/ ; créé ici, copié, supprimé.
 const Store = preload("res://scripts/world_store.gd")
+const Generation = preload("res://scripts/world_generation.gd")
 const MAX_NAME_LENGTH := 48
 const MAX_SEED := 4294967295
 # Mode du monde : « default » garde les attributs par défaut ; « developer » utilise les
@@ -41,6 +42,7 @@ func _migrate_folders() -> void:
 			repair_note = "« %s » : %s ; recréé depuis la liste des mondes." % [item.name, result.error]
 		elif result.has("data"):
 			item["created"] = str(result.data.get("creation", ""))
+			item["generation"] = Generation.normalized(result.data.get("generation", {}))
 			continue
 		# Ancien monde sans date : conserver l'inconnu, jamais la date de migration.
 		_write_base(item)
@@ -92,11 +94,14 @@ func _load_worlds() -> void:
 		if item.id.is_empty() or clean_name.is_empty() or clean_name.length() > MAX_NAME_LENGTH or ids.has(item.id) or names.has(clean_name.to_lower()) or float(seed_value) != float(int(seed_value)) or seed_value < 0 or seed_value > 4294967295:
 			load_error = "La liste contient un monde invalide ; le fichier est conservé."
 			return
+		if not Generation.valid(item.get("generation", {})):
+			load_error = "Paramètres de génération invalides ; fichier conservé."
+			return
 		ids.append(item.id)
 		names.append(clean_name.to_lower())
 		# Avant 0.0.4.10 (sans developer_used) : utilisé si le monde est en mode développeur.
 		var used: bool = item.get("developer_used", mode == MODE_DEVELOPER) == true or mode == MODE_DEVELOPER
-		loaded.append({"id": item.id, "name": clean_name, "seed": int(seed_value), "mode": mode, "developer_used": used, "created": str(item.get("created", ""))})
+		loaded.append({"id": item.id, "name": clean_name, "seed": int(seed_value), "mode": mode, "developer_used": used, "created": str(item.get("created", "")), "generation": Generation.normalized(item.get("generation", {}))})
 	worlds = loaded
 
 func _save_worlds() -> bool:
@@ -118,8 +123,11 @@ func _save_worlds() -> bool:
 		return false
 	return true
 
-func create_world(raw_name: String, raw_seed: String = "", mode: String = MODE_DEFAULT, developer_used: bool = false) -> Dictionary:
+func create_world(raw_name: String, raw_seed: String = "", mode: String = MODE_DEFAULT, developer_used: bool = false, generation: Dictionary = {}) -> Dictionary:
 	last_error = ""
+	if not Generation.valid(generation):
+		last_error = "Paramètres de génération invalides."
+		return {}
 	if not MODE_NAMES.has(mode):
 		last_error = "Mode de monde inconnu."
 		return {}
@@ -152,7 +160,7 @@ func create_world(raw_name: String, raw_seed: String = "", mode: String = MODE_D
 	var world_id := str(rng.randi())
 	while used_ids.has(world_id):
 		world_id = str(rng.randi())
-	var item := {"id": world_id, "name": world_name, "seed": terrain_seed, "mode": mode, "developer_used": developer_used or mode == MODE_DEVELOPER, "created": Time.get_datetime_string_from_system()}
+	var item := {"id": world_id, "name": world_name, "seed": terrain_seed, "mode": mode, "developer_used": developer_used or mode == MODE_DEVELOPER, "created": Time.get_datetime_string_from_system(), "generation": Generation.normalized(generation)}
 	# Un reste de dossier au même identifiant (essai interrompu) ne doit rien apporter au nouveau monde.
 	Store.delete_folder(world_folder(world_id))
 	if not _write_base(item):
@@ -268,7 +276,7 @@ func duplicate_world(id: String) -> Dictionary:
 				exists = true
 				break
 		if not exists:
-			var copy := create_world(copy_name, str(original.seed), original.get("mode", MODE_DEFAULT), original.get("developer_used", false))
+			var copy := create_world(copy_name, str(original.seed), original.get("mode", MODE_DEFAULT), original.get("developer_used", false), original.get("generation", {}))
 			# 0.0.5 : la copie reprend aussi constructions et position (son monde.json reste le sien).
 			if not copy.is_empty():
 				var from := world_folder(id)

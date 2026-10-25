@@ -79,3 +79,8 @@ scripts/smooth_terrain.gd : densité par point (calculée depuis la graine, seul
 changés sont gardés), surface lisse par zone, gestes creuser / ajouter de 50 cm.
 Les points changés sont enregistrés dans le champ « densite » des fichiers de zone
 (format 3 ; le format 2, blocs seuls, reste lisible). Base indestructible à 4 m sous le sol.
+
+MONDES PERSONNALISÉS (0.0.5.16)
+scripts/world_generation.gd définit les dix fréquences et l'algorithme personnalisé version 1.
+Le champ generation de monde.json et de l'index est propre à chaque monde. Absent ou vide :
+génération historique inchangée. Les réglages vidéo, dont la portée de l'herbe, restent globaux.

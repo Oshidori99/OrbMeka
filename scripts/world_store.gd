@@ -56,10 +56,10 @@ static func read_json(path: String, check: Callable) -> Dictionary:
 
 static func base_data(item: Dictionary) -> Dictionary:
 	return {"format": FORMAT, "id": item.id, "nom": item.name, "graine": item.seed, "mode": item.get("mode", "default"),
-		"mode_developpeur_utilise": item.get("developer_used", false), "creation": item.get("created", ""), "terrain": "blocs"}
+		"mode_developpeur_utilise": item.get("developer_used", false), "creation": item.get("created", ""), "terrain": "blocs", "generation": item.get("generation", {}).duplicate(true)}
 
 static func valid_base(data: Dictionary) -> bool:
-	return data.get("id") is String and data.get("nom") is String and (data.get("graine") is float or data.get("graine") is int)
+	return preload("res://scripts/world_generation.gd").valid(data.get("generation", {})) and data.get("id") is String and data.get("nom") is String and (data.get("graine") is float or data.get("graine") is int)
 
 static func valid_player(data: Dictionary) -> bool:
 	var at: Variant = data.get("position")

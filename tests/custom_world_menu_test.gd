@@ -1,0 +1,88 @@
+extends SceneTree
+const Settings = preload("res://scripts/user_settings.gd")
+const Catalog = preload("res://scripts/world_catalog.gd")
+const Store = preload("res://scripts/world_store.gd")
+var checks := 0
+var failures := 0
+func check(ok: bool, label: String) -> void:
+	checks += 1
+	if not ok:
+		failures += 1
+		push_error("FAIL: " + label)
+func _initialize() -> void:
+	call_deferred("_run")
+func _run() -> void:
+	root.size = Vector2i(1280,720)
+	var path := "res://.godot/custom-menu-%d.json" % Time.get_ticks_usec()
+	var app: Control = load("res://scenes/main.tscn").instantiate()
+	app.settings = Settings.new(path.get_basename()+"-settings.json")
+	app.settings.values.grass_density = "low"
+	app.settings.values.load_distance = 1
+	app.catalog = Catalog.new(path)
+	root.add_child(app)
+	app.show_page("create")
+	app.name_field.text = "Personnalisé"
+	app.seed_field.text = "123"
+	app.custom_world_button.pressed.emit()
+	check(app.page == "custom_world" and app.custom_sliders.size() == 10, "custom menu offers ten generation sliders")
+	for size in [Vector2i(1280,720),Vector2i(800,600)]:
+		root.size = size
+		app.fit_menus_to_window()
+		await process_frame
+		await process_frame
+		var bounds: Rect2 = app.menu_panel.get_global_rect()
+		var view: Vector2 = root.get_visible_rect().size
+		check(bounds.position.x >= 0 and bounds.position.y >= 0 and bounds.end.x <= view.x+1 and bounds.end.y <= view.y+1, "custom menu stays inside window %s : %s" % [str(size),str(bounds)])
+	root.size = Vector2i(1280,720)
+	var slider: HSlider = app.custom_sliders.small_deserts
+	check(slider.get_parent().get_child(1).size.x > 20 and slider.get_parent().get_child(3).size.x > 15, "frequency endpoint labels are visible")
+	check(app.custom_draft.small_deserts == 8 and int(slider.value) == 57, "slider starts at actual standard 1/8 frequency")
+	check(app.custom_labels.small_deserts.text.contains("Valeur par défaut : 1 chance sur 8"), "standard default remains visible as a reference")
+	slider.value = 1
+	check(app.custom_draft.small_deserts == 64 and app.custom_labels.small_deserts.text.contains("64"), "left endpoint is 1/64")
+	slider.value = 64
+	check(app.custom_draft.small_deserts == 1 and app.custom_labels.small_deserts.text.begins_with("Chaque chunk"), "right endpoint is 1/1")
+	app.reset_custom_option("small_deserts")
+	check(app.custom_draft.small_deserts == 8 and int(slider.value) == 57, "per-slider reset restores actual standard value")
+	check(not app.custom_sliders.stone_holes.editable and app.custom_labels.stone_holes.text.contains("absent du monde standard"), "absent category has no invented active frequency")
+	app.custom_enabled.stone_holes.button_pressed = true
+	check(app.custom_sliders.stone_holes.editable and app.custom_draft.stone_holes == 64, "new category can be enabled at 1/64")
+	app.reset_custom_option("stone_holes")
+	check(app.custom_draft.stone_holes == 0 and not app.custom_sliders.stone_holes.editable, "reset disables a category absent from the standard world")
+	slider.value = 33
+	check(app.custom_draft.small_deserts == 32, "slider supports every intermediate integer")
+	app.custom_apply_button.pressed.emit()
+	check(app.page == "create" and app.name_field.text == "Personnalisé" and app.seed_field.text == "123", "applying preserves name and seed")
+	check(app.custom_generation.small_deserts == 32, "applying retains chosen settings")
+	app.open_custom_world()
+	slider.value = 64
+	app._cancel_page()
+	check(app.page == "create" and app.custom_generation.small_deserts == 32, "Escape cancels draft without discarding applied options")
+	check(app.GENERAL_CATEGORIES.video.Jeu.keys.has("grass_distance"), "grass distance is under Video / Jeu")
+	check(Settings.SPECS.grass_distance.default == 36 and Settings.menu_of("grass_distance") == "video", "larger grass default is a video setting")
+	app.create_named_world()
+	var world: Node3D = app.active_world
+	check(app.page == "playing" and world.generation_options == app.custom_generation, "creation supplies chosen generation to the actual world")
+	check(world.grass_distance == 36, "actual world receives larger grass distance")
+	app.setting_sliders.grass_distance.value = 48
+	check(Settings.new(path.get_basename()+"-settings.json").values.grass_distance == 48, "grass distance saved through the real video slider")
+	var patches := world.find_children("GrassDetail","MultiMeshInstance3D",true,false)
+	check(not patches.is_empty() and patches.all(func(patch): return patch.visibility_range_end == 48), "grass distance changes actual patch culling")
+	# FPS : lecture directe de la mesure moteur existante, aucune modification d'apparence.
+	world._update_fps(0.5)
+	check(world.fps_label.text == "FPS : %d" % Engine.get_frames_per_second(), "FPS display uses current engine measurement")
+	app.return_to_worlds()
+	root.remove_child(app)
+	var settings_path: String = app.settings.storage_path
+	var settings_files: Array = []
+	for menu in Settings.FILES:
+		settings_files.append(app.settings.file_path(menu))
+	app.free()
+	for file in settings_files:
+		DirAccess.remove_absolute(ProjectSettings.globalize_path(file))
+	DirAccess.remove_absolute(ProjectSettings.globalize_path(settings_path))
+	Store.delete_folder(path.get_basename()+"-mondes")
+	DirAccess.remove_absolute(ProjectSettings.globalize_path(path))
+	check(Input.mouse_mode == Input.MOUSE_MODE_VISIBLE, "headless menu verification never captures mouse")
+	print("RESULT: %d custom menu checks, %d failures" % [checks,failures])
+	quit(failures)
