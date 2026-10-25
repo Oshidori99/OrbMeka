@@ -101,6 +101,48 @@ func _run() -> void:
 	var under_feet: Dictionary = aim(world, Vector3(0.25, 0.0, 0.25))
 	world.player.global_position = Vector3(0.25, 0.0, 0.25)
 	check(not world.place_target(under_feet, 0), "no ground added inside the player")
+	# 0.0.5.9 : matière posée, tailles 1/8, 1/4, 1/2 bloc, aplanir et lisser.
+	var player: CharacterBody3D = world.player
+	player.selected_type = 0
+	player.brush = 0
+	player.brush_size = 2
+	var before_size: int = world.terrain.changes.size()
+	check(world.place_target(aim(world, Vector3(-30.25, 0.0, 10.25)), player.selected_type), "half-block gesture adds sand")
+	var sand_point: Vector3i = SmoothTerrain.point_of(Vector3(-30.25, 0.15, 10.25))
+	check(world.terrain.changes.size() - before_size == 4 and world.terrain.material(sand_point) == SmoothTerrain.SAND, "1/2 bloc = 4 sub-cells, sand remembered")
+	var colors: PackedColorArray = world.terrain.zone_mesh(SmoothTerrain.point_zone(sand_point))[2]
+	var sandy := false
+	for color in colors:
+		sandy = sandy or color.a < 0.5
+	check(sandy, "sand shows on the smooth surface (vertex colour)")
+	player.brush_size = 1
+	before_size = world.terrain.changes.size()
+	check(world.break_target(aim(world, Vector3(-30.25, 0.0, -10.25))) and world.terrain.changes.size() - before_size == 2, "1/4 bloc gesture digs 2 sub-cells")
+	check(not world.place_target(aim(world, Vector3(30.25, 0.0, -30.25)), 1) or world.terrain.material(SmoothTerrain.point_of(Vector3(30.25, 0.15, -30.25))) == SmoothTerrain.DIRT, "stone is no longer placed: dirt instead")
+	player.brush = 1
+	player.brush_size = 2
+	var mound := Vector3(10.25, 0.0, -20.25)
+	for index in range(3):
+		world.terrain.set_density(SmoothTerrain.point_of(mound) + Vector3i(0, index, 0), 0.5, SmoothTerrain.DIRT)
+	world.rebuild_terrain_piece(Vector3i(1, -1, -3))
+	world.rebuild_terrain_piece(Vector3i(1, 0, -3))
+	check(world.place_target(aim(world, mound), 2), "flatten works on a mound")
+	check(world.terrain.density(SmoothTerrain.point_of(mound) + Vector3i(0, 2, 0)) <= 0.0, "flatten cuts the mound down to the aimed level")
+	player.brush = 2
+	world.terrain.set_density(SmoothTerrain.point_of(mound) + Vector3i(1, 1, 0), 0.5, SmoothTerrain.DIRT)
+	var sharp: float = world.terrain.density(SmoothTerrain.point_of(mound) + Vector3i(1, 1, 0))
+	check(world.place_target(aim(world, mound + Vector3(0.5, 0.5, 0)), 2) and world.terrain.density(SmoothTerrain.point_of(mound) + Vector3i(1, 1, 0)) < sharp, "smoothing softens a lone bump")
+	player.brush = 0
+	player.brush_size = 0
+	check(world.BRUSH_NAMES == ["Poser", "Aplanir", "Lisser"] and world.SIZE_CELLS == [1, 2, 4], "three right-click brushes, three sizes")
+	player.cycle_brush()
+	check(player.brush == 1 and world.notice == "Clic droit : Aplanir", "B + T shows the new brush at the bottom")
+	player.cycle_size(1)
+	check(player.brush_size == 1 and world.notice == "Taille du geste : 1/4 de bloc", "B + wheel shows the gesture size at the bottom")
+	player.brush = 0
+	player.brush_size = 0
+	world.notice_time = 0.0
+	check(SmoothTerrain.HIGH_POINT * SmoothTerrain.STEP == 4.0, "placing limited to 4 blocks above the ground")
 	var changed: Dictionary = world.terrain.changes.duplicate()
 	check(world.save_now(), "saved")
 	var zone_file := FOLDER.path_join(Zones.zone_file(SmoothTerrain.point_zone(point)))
@@ -108,7 +150,10 @@ func _run() -> void:
 	check(saved.has("data") and saved.data.format == Zones.FORMAT and saved.data.densite.size() >= 1, "zone file stores only changed points (format 3)")
 	close(world)
 	world = open(FOLDER)
-	check(world.terrain.changes == changed, "same sculpted terrain after reopening")
+	var same: bool = world.terrain.changes.size() == changed.size()
+	for key in changed:
+		same = same and absf(world.terrain.changes.get(key, 9.0) - changed[key]) < 0.001
+	check(same and world.terrain.material(sand_point) == SmoothTerrain.SAND, "same sculpted terrain and materials after reopening")
 	check(world.terrain_pieces[Vector3i(2, -1, 2)].get_child(1).shape is ConcavePolygonShape3D, "sculpted zone rebuilt at opening")
 	# Format 2 (blocs seuls) toujours lisible.
 	check(Zones.valid_zone({"format": 2, "type": "blocs", "poses": [[1, 0, 1, 2]], "casses": []}), "older zone files (format 2) still read")

@@ -37,15 +37,17 @@ func _run() -> void:
 	await process_frame
 	await process_frame
 	check(world.selected_block_label.text == "Bloc sélectionné : Sable", "initial selected block is displayed")
-	for pair in [[KEY_2, "Pierre"], [KEY_3, "Terre"], [KEY_1, "Sable"]]:
+	# 0.0.5.9 : seulement le sable et la terre (2 et 3 : terre).
+	for pair in [[KEY_2, "Terre"], [KEY_1, "Sable"], [KEY_3, "Terre"], [KEY_1, "Sable"]]:
 		key(pair[0])
 		check(world.selected_block_label.text == "Bloc sélectionné : " + pair[1], "number key immediately updates " + pair[1])
 	# Same cycling function called by the wheel handler; no OS mouse input.
-	for expected in ["Pierre", "Terre", "Sable"]:
+	for expected in ["Terre", "Sable", "Terre"]:
 		player.cycle_block(1)
 		check(world.selected_block_label.text == "Bloc sélectionné : " + expected, "wheel forward cycle updates " + expected)
 	player.cycle_block(-1)
-	check(world.selected_block_label.text == "Bloc sélectionné : Terre", "wheel reverse wraps selection")
+	check(world.selected_block_label.text == "Bloc sélectionné : Sable", "wheel reverse toggles back to sand")
+	check(world.hint.text == "" or world.notice.begins_with("Matière"), "choice shown at the bottom")
 	check(world.selected_block_label.global_position == Vector2(18, 18) and world.selected_block_label.mouse_filter == Control.MOUSE_FILTER_IGNORE, "discreet top-left indicator does not intercept clicks")
 	check(world.find_child("Help", true, false) == null, "old help panel remains absent")
 	player.position.y = 4

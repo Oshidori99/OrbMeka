@@ -1,7 +1,8 @@
-# OrbMeka™ 0.0.5.8
+# OrbMeka™ 0.0.5.9
 
 Dans Godot, ouvrez **project.godot**, puis **F5** pour lancer le jeu.
 
+0.0.5.9 : pinceaux du clic droit (B + T : poser, aplanir, lisser), sable ou terre, taille 1/8, 1/4, 1/2 bloc (B + molette).
 0.0.5.8 : terrain lisse (1re étape) : clic gauche creuse, clic droit ajoute 50 cm ; Web plus lumineux ; réglages Jeu en tête de Vidéo.
 0.0.5.7 : herbe haute (environ 40 cm, deux fois plus de brins) et sol vert plus clair, aussi sur le Web.
 0.0.5.5 : monde tout plat, sans bloc au départ ; plage de sable réaliste (grains, rides de vent) près de l'apparition.

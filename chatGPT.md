@@ -22,4 +22,4 @@ Pour le terrain lisse, chaque bloc de 1 m de côté est divisé en **2 × 2 × 2
 chacune de **50 cm de côté**, soit **1/8 du volume** du bloc.
 Une zone a donc 16 sous-cellules par axe ; la grille de sommets avec les deux bords
 en compte 17 par axe. **Première version livrée en 0.0.5.8** (scripts/smooth_terrain.gd) : sol lisse,
-creuser et ajouter 50 cm par clic ; aplanir et lisser restent à faire.
+creuser et ajouter 50 cm par clic ; aplanir et lisser depuis 0.0.5.9.

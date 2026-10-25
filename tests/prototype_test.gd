@@ -67,7 +67,7 @@ func _run() -> void:
 			spawn_clear = false
 	check(spawn_clear, "spawn capsule does not intersect any block")
 	check(Input.mouse_mode == Input.MOUSE_MODE_VISIBLE, "startup leaves mouse free")
-	check(ProjectSettings.get_setting("application/config/version") == "0.0.5.8", "project version is 0.0.5.8")
+	check(ProjectSettings.get_setting("application/config/version") == "0.0.5.9", "project version is 0.0.5.9")
 	for action in ["move_forward", "move_back", "move_left", "move_right", "jump"]:
 		check(InputMap.has_action(action), "input binding: " + action)
 	# Marche testée dans l'aire dégagée (l'apparition en 0, 0 fait face aux blocs de démonstration).
@@ -149,7 +149,7 @@ func _run() -> void:
 	check(Input.mouse_mode == Input.MOUSE_MODE_VISIBLE, "Escape keeps mouse free")
 	event.keycode = KEY_2
 	player._unhandled_input(event)
-	check(player.selected_type == 1, "key 2 selects stone")
+	check(player.selected_type == 2, "key 2 selects dirt (no stone to place since 0.0.5.9)")
 	event.keycode = KEY_3
 	player._unhandled_input(event)
 	check(player.selected_type == 2, "key 3 selects dirt")
@@ -163,10 +163,10 @@ func _run() -> void:
 	for kind in range(3):
 		event.keycode = [KEY_1, KEY_2, KEY_3][kind]
 		player._unhandled_input(event)
-		check(player.selected_type == kind, "number key selects material %d" % kind)
+		check(player.selected_type == (2 if kind == 1 else kind), "number key selects material %d" % kind)
 		check(world.BLOCK_COLORS[kind] == expected_colors[kind], "material %d uses expected simple color" % kind)
 		hit = player.get_target()
-		check(world._edit_place_target(hit, player.selected_type), "selected material %d can be placed" % kind)
+		check(world._edit_place_target(hit, kind), "selected material %d can be placed" % kind)
 		await frames(3)
 		hit = player.get_target()
 		check(not hit.is_empty() and world.blocks.get(world.hit_cell(hit), -1) == kind, "placed material %d is targeted correctly" % kind)

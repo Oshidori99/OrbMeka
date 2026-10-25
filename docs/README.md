@@ -1,6 +1,21 @@
-# OrbMeka™ — prototype 0.0.5.8
+# OrbMeka™ — prototype 0.0.5.9
 
 Godot 4.7 / GDScript. Formes et couleurs simples ; assets externes seulement sous licence vérifiée (sons CC0, assets/sounds/CREDITS.txt).
+
+## 0.0.5.9 — Pinceaux du terrain (#120)
+- Clic droit : pinceau choisi avec **B + T** (Poser → Aplanir → Lisser). Clic gauche : toujours creuser.
+- Poser : **sable ou terre** (molette, ou 1 : sable, 2 et 3 : terre) ; plus de pierre pour l'instant.
+  Le sable posé a l'aspect de la plage, la terre posée reste nue (sans herbe). Jusqu'à 4 blocs au-dessus du sol.
+- Aplanir : le sol prend la hauteur visée sur un disque (bosses coupées, creux remplis avec la matière choisie).
+- Lisser : les formes s'adoucissent (chaque point se rapproche de ses voisins).
+- **B + molette** : taille du geste, 1/8, 1/4 ou 1/2 bloc (1, 2 ou 4 sous-cellules) ; aplanir et lisser
+  agissent alors sur 50 cm, 1 m ou 1,5 m autour.
+- Un petit texte en bas dit le choix (matière, pinceau, taille), seulement quand on le change.
+- La matière posée est enregistrée avec chaque point (5e nombre dans le fichier de zone).
+
+Tests : smooth_terrain (37 vérifications : matières, tailles, aplanir, lisser, textes, réouverture) ;
+shortcuts_selection et prototype mis à jour ; tests choisis réussis. Captures PC vérifiées.
+À tester manuellement : B + T et B + molette au clavier, sensation des pinceaux, FPS sur le Web.
 
 ## 0.0.5.8 — Terrain lisse, première étape (#120)
 - Chaque bloc de 1 m est divisé en 2 × 2 × 2 = 8 sous-cellules de 50 cm (16 par axe dans une zone de 8 m,
@@ -161,7 +176,7 @@ du bloc. Une zone contiendra **16 subdivisions par axe**, soit **16 × 16 × 16
 sous-cellules de 50 cm**. Si la densité est portée par les sommets, les deux
 bords inclus demandent **17 sommets par axe** ; ce ne sont pas 16 points.
 Depuis 0.0.5.8, le sol est ce terrain lisse (scripts/smooth_terrain.gd) : on y creuse et on y ajoute
-50 cm par clic. Aplanir et lisser viendront dans les versions suivantes.
+50 cm par clic ; depuis 0.0.5.9, aussi aplanir et lisser (B + T), sable ou terre, trois tailles.
 
 ## Commandes en partie
 - ZQSD / WASD : marcher ; ← → : aller de côté ; souris : regarder.

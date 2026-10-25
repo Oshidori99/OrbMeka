@@ -53,7 +53,8 @@ void fragment() {
 		float lip = 1.0-smoothstep(0.035,0.14,1.0-fract(p.y+0.002)+(noise3(p*13.0)-0.5)*0.055);
 		float cover = max(top,lip*0.62);
 		// 0.0.5.7 : sol plat plus clair (il paraissait noir sur le Web), proche de la couleur des brins.
-		if (ground_surface) { cover = top; grass = mix(grass * 1.25, vec3(0.16,0.27,0.06), 0.35); }
+		// 0.0.5.9 : terre posée (bleu du sommet à 0) : nue, sans herbe.
+		if (ground_surface) { cover = top * tint.b; grass = mix(grass * 1.25, vec3(0.16,0.27,0.06), 0.35); }
 		albedo = mix(soil,grass,cover);
 		float detail_fade = 1.0-smoothstep(8.0,35.0,length(VERTEX));
 		height = mix(clods*0.004+grains*0.0006,fibers*0.0015,cover)*detail_fade;
@@ -63,9 +64,13 @@ void fragment() {
 	bool sand = !earth && tint.r > 0.6 && tint.g > 0.5 && tint.b < tint.g;
 	// Sol plat : sable à l'intérieur d'un bord irrégulier, fondu sur 30 cm avec l'herbe.
 	float beach = 0.0;
+	// 0.0.5.9 : sable posé sur le terrain lisse (alpha du sommet à 0).
+	if (ground_surface) {
+		beach = smoothstep(0.35, 0.65, 1.0 - tint.a);
+	}
 	if (ground_surface && sand_radius > 0.0) {
 		float edge = length(p.xz - sand_center) + (fbm(vec3(p.x, 0.0, p.z) * 0.9) - 0.5) * 1.4;
-		beach = 1.0 - smoothstep(sand_radius - 0.3, sand_radius, edge);
+		beach = max(beach, 1.0 - smoothstep(sand_radius - 0.3, sand_radius, edge));
 	}
 	vec3 grass_albedo = albedo;
 	float grass_height = height;

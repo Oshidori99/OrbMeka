@@ -3,6 +3,9 @@ Du plus récent au plus ancien. Ce fichier est mis à jour à chaque version.
 
 === Thème « Monde » (0.0.5 et suivantes) ===
 
+0.0.5.9 — Pinceaux du terrain
+Clic droit : poser, aplanir ou lisser (B + T) ; sable ou terre ; taille 1/8, 1/4 ou 1/2 bloc (B + molette).
+
 0.0.5.8 — Terrain lisse, première étape
 Sol lisse en sous-cellules de 50 cm : clic gauche creuse, clic droit ajoute, sauvegardé ; Web plus lumineux ; Jeu en tête de Vidéo.
 

@@ -138,6 +138,10 @@ var selected_type := 0:
 		if is_instance_valid(world):
 			world.update_selected_block()
 var world: Node3D
+# 0.0.5.9 : pinceau du clic droit (0 poser, 1 aplanir, 2 lisser ; B + T) et taille du geste
+# (0 : 1/8, 1 : 1/4, 2 : 1/2 bloc ; B + molette). Un texte en bas les rappelle au changement seulement.
+var brush := 0
+var brush_size := 0
 var wait_jump_release := false
 
 func _ready() -> void:
@@ -177,10 +181,15 @@ func _unhandled_input(event: InputEvent) -> void:
 			release_controls()
 		elif event.keycode == KEY_1 or event.physical_keycode == KEY_1:
 			selected_type = 0
+			world.show_choice("Matière : %s" % world.BLOCK_NAMES[selected_type])
 		elif event.keycode == KEY_2 or event.physical_keycode == KEY_2:
-			selected_type = 1
+			selected_type = 2
+			world.show_choice("Matière : %s" % world.BLOCK_NAMES[selected_type])
 		elif event.keycode == KEY_3 or event.physical_keycode == KEY_3:
 			selected_type = 2
+			world.show_choice("Matière : %s" % world.BLOCK_NAMES[selected_type])
+		elif (event.physical_keycode == KEY_T and Input.is_physical_key_pressed(KEY_B)) or (event.physical_keycode == KEY_B and Input.is_physical_key_pressed(KEY_T)):
+			cycle_brush()
 		elif event.keycode == KEY_F4:
 			cycle_view()
 	if event is InputEventMouseMotion and Input.mouse_mode == Input.MOUSE_MODE_CAPTURED:
@@ -203,6 +212,8 @@ func _unhandled_input(event: InputEvent) -> void:
 	elif event.is_action_pressed("place_block"):
 		if not click_modified():
 			begin_placement()
+	elif (event.is_action_pressed("block_previous") or event.is_action_pressed("block_next")) and Input.is_physical_key_pressed(KEY_B):
+		cycle_size(1 if event.is_action_pressed("block_next") else -1)
 	elif event.is_action_pressed("block_previous"):
 		cycle_block(-1)
 	elif event.is_action_pressed("block_next"):
@@ -217,8 +228,18 @@ func turn_view(motion: Vector2) -> void:
 	rotate_y(-motion.x * sensitivity)
 	camera.rotation.x = clampf(camera.rotation.x - motion.y * sensitivity, deg_to_rad(-89.0), deg_to_rad(89.0))
 
-func cycle_block(direction: int) -> void:
-	selected_type = wrapi(selected_type + direction, 0, world.BLOCK_NAMES.size())
+# 0.0.5.9 : seulement le sable et la terre (plus la pierre pour l'instant) ; 1 : sable, 2 ou 3 : terre.
+func cycle_block(_direction: int) -> void:
+	selected_type = 2 if selected_type == 0 else 0
+	world.show_choice("Matière : %s" % world.BLOCK_NAMES[selected_type])
+
+func cycle_brush() -> void:
+	brush = wrapi(brush + 1, 0, world.BRUSH_NAMES.size())
+	world.show_choice("Clic droit : %s" % world.BRUSH_NAMES[brush])
+
+func cycle_size(direction: int) -> void:
+	brush_size = wrapi(brush_size + direction, 0, world.SIZE_NAMES.size())
+	world.show_choice("Taille du geste : %s" % world.SIZE_NAMES[brush_size])
 
 # 0.0.5.8 : un clic = un geste sur le terrain lisse (creuser ou ajouter 50 cm) ; pas de répétition en maintenant.
 func begin_breaking() -> bool:

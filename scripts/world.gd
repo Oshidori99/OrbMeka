@@ -240,6 +240,7 @@ func rebuild_terrain_piece(zone: Vector3i) -> void:
 		arrays.resize(Mesh.ARRAY_MAX)
 		arrays[Mesh.ARRAY_VERTEX] = surface[0]
 		arrays[Mesh.ARRAY_NORMAL] = surface[1]
+		arrays[Mesh.ARRAY_COLOR] = surface[2]
 		var mesh := ArrayMesh.new()
 		mesh.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arrays)
 		instance.mesh = mesh
@@ -264,43 +265,146 @@ func _rebuild_lawn_tile(tile: Vector2i) -> void:
 	var node := TerrainMaterials.lawn_tile(tile, generated, terrain_seed, SAND_CENTER, SAND_RADIUS, _grass_skipped)
 	if node != null:
 		lawn.add_child(node)
+# Gestes de terrain (0.0.5.8, pinceaux en 0.0.5.9). Clic gauche : creuser ; clic droit : le pinceau
+# choisi avec B + T (poser, aplanir, lisser). Taille (B + molette) : 1/8, 1/4 ou 1/2 bloc, soit 1, 2 ou
+# 4 sous-cellules de 50 cm ; aplanir et lisser agissent autour, sur 50 cm, 1 m ou 1,5 m.
+const BRUSH_NAMES := ["Poser", "Aplanir", "Lisser"]
+const SIZE_NAMES := ["1/8 de bloc", "1/4 de bloc", "1/2 bloc"]
+const SIZE_CELLS := [1, 2, 4]
+# Matières qu'on peut poser pour l'instant (0.0.5.9 : plus la pierre).
+const PLACEABLE := [0, 2]
 
-# Geste de terrain (clic gauche : creuser, clic droit : ajouter) : une sous-cellule de 50 cm,
-# juste derrière (creuser) ou devant (ajouter) la surface visée ; la surface reste lisse.
-func sculpt(hit: Dictionary, add: bool) -> bool:
-	if not _valid_hit(hit, player.place_reach if add else player.break_reach):
+func _aimed_ground(hit: Dictionary, reach: float) -> bool:
+	if not _valid_hit(hit, reach):
 		return false
 	if not hit.collider.is_in_group("ground"):
 		_notify("Visez le sol pour le sculpter.")
 		return false
-	var normal: Vector3 = hit.normal
-	var point := SmoothTerrain.point_of(hit.position + normal * (0.15 if add else -0.3))
-	if point.y < SmoothTerrain.LOW_POINT:
-		_notify("Base indestructible : on ne peut pas creuser plus bas.")
+	return true
+
+# Sous-cellules d'un geste : la visée, puis ses voisines dans le plan de la surface visée.
+static func gesture_points(center: Vector3i, normal: Vector3, cells: int) -> Array[Vector3i]:
+	var axis := 0
+	if absf(normal.y) >= absf(normal.x) and absf(normal.y) >= absf(normal.z):
+		axis = 1
+	elif absf(normal.z) > absf(normal.x):
+		axis = 2
+	var side_a := Vector3i.ZERO
+	var side_b := Vector3i.ZERO
+	side_a[(axis + 1) % 3] = 1
+	side_b[(axis + 2) % 3] = 1
+	var result: Array[Vector3i] = [center]
+	if cells >= 2:
+		result.append(center + side_a)
+	if cells >= 4:
+		result.append_array([center + side_b, center + side_a + side_b])
+	return result
+
+func _in_terrain_limits(point: Vector3i) -> bool:
+	return point.y >= SmoothTerrain.LOW_POINT and point.y <= SmoothTerrain.HIGH_POINT and absi(point.x) <= BUILD_LIMIT * 2 and absi(point.z) <= BUILD_LIMIT * 2
+
+func _inside_player(point: Vector3i) -> bool:
+	return AABB(player.global_position + Vector3(-0.33, 0.01, -0.33), Vector3(0.66, 1.78, 0.66)).intersects(AABB(Vector3(point) * SmoothTerrain.STEP - Vector3.ONE * 0.25, Vector3.ONE * 0.5))
+
+# Creuser (add false) ou poser (add true, matière kind).
+func sculpt(hit: Dictionary, add: bool, kind: int = SmoothTerrain.DIRT, cells: int = 1) -> bool:
+	if not _aimed_ground(hit, player.place_reach if add else player.break_reach):
 		return false
-	if point.y > SmoothTerrain.HIGH_POINT:
-		_notify("Hauteur maximale du terrain atteinte.")
+	var center := SmoothTerrain.point_of(hit.position + hit.normal * (0.15 if add else -0.3))
+	var updates := {}
+	var message := ""
+	for point in gesture_points(center, hit.normal, cells):
+		if not _in_terrain_limits(point):
+			if point.y < SmoothTerrain.LOW_POINT:
+				message = "Base indestructible : on ne peut pas creuser plus bas."
+			elif point.y > SmoothTerrain.HIGH_POINT:
+				message = "Hauteur maximale atteinte : 4 blocs au-dessus du sol."
+			else:
+				message = "Limite de construction atteinte."
+			continue
+		if (terrain.density(point) > 0.0) == add:
+			continue
+		if add and _inside_player(point):
+			message = "Reculez un peu pour ajouter du terrain."
+			continue
+		updates[point] = [SmoothTerrain.ADDED if add else SmoothTerrain.DUG, kind if add else -1]
+	if updates.is_empty() and not message.is_empty():
+		_notify(message)
+	return _apply_terrain(updates)
+
+# Aplanir : sol mis à la hauteur visée, sur un disque autour (bosses coupées, creux remplis).
+func flatten(hit: Dictionary, kind: int = SmoothTerrain.DIRT, cells: int = 1) -> bool:
+	if not _aimed_ground(hit, player.place_reach):
 		return false
-	if absi(point.x) > BUILD_LIMIT * 2 or absi(point.z) > BUILD_LIMIT * 2:
-		_notify("Limite de construction atteinte.")
+	var level := clampf(hit.position.y, SmoothTerrain.LOW_POINT * SmoothTerrain.STEP, SmoothTerrain.HIGH_POINT * SmoothTerrain.STEP)
+	var center := SmoothTerrain.point_of(hit.position)
+	var radius: int = [1, 2, 3][SIZE_CELLS.find(cells)]
+	var updates := {}
+	for dx in range(-radius, radius + 1):
+		for dz in range(-radius, radius + 1):
+			if dx * dx + dz * dz > radius * radius:
+				continue
+			for y in range(floori((level - 1.5) / SmoothTerrain.STEP), ceili((level + 1.5) / SmoothTerrain.STEP) + 1):
+				var point := Vector3i(center.x + dx, y, center.z + dz)
+				if not _in_terrain_limits(point):
+					continue
+				var value := clampf(level - y * SmoothTerrain.STEP, -1.0, 1.0)
+				var old := terrain.density(point)
+				if is_equal_approx(value, old):
+					continue
+				if value > 0.0 and old <= 0.0 and _inside_player(point):
+					continue
+				updates[point] = [value, kind if value > 0.0 and old <= 0.0 else -1]
+	return _apply_terrain(updates)
+
+# Lisser : chaque point se rapproche de la moyenne de ses 6 voisins (angles et marches adoucis).
+func smooth(hit: Dictionary, cells: int = 1) -> bool:
+	if not _aimed_ground(hit, player.place_reach):
 		return false
-	if (terrain.density(point) > 0.0) == add:
+	var center := SmoothTerrain.point_of(hit.position)
+	var radius: int = [1, 2, 3][SIZE_CELLS.find(cells)]
+	var updates := {}
+	for dx in range(-radius, radius + 1):
+		for dy in range(-radius, radius + 1):
+			for dz in range(-radius, radius + 1):
+				if dx * dx + dy * dy + dz * dz > radius * radius:
+					continue
+				var point := center + Vector3i(dx, dy, dz)
+				if not _in_terrain_limits(point):
+					continue
+				var around := 0.0
+				for step in [Vector3i.LEFT, Vector3i.RIGHT, Vector3i.UP, Vector3i.DOWN, Vector3i.FORWARD, Vector3i.BACK]:
+					around += terrain.density(point + step)
+				var old := terrain.density(point)
+				var value := clampf(old * 0.5 + around / 12.0, -1.0, 1.0)
+				if absf(value - old) < 0.01:
+					continue
+				if value > 0.0 and old <= 0.0 and _inside_player(point):
+					continue
+				updates[point] = [value, -1]
+	return _apply_terrain(updates)
+
+# Applique un geste : points changés, zones et herbe autour recalculées une seule fois.
+func _apply_terrain(updates: Dictionary) -> bool:
+	if updates.is_empty():
 		return false
-	if add and AABB(player.global_position + Vector3(-0.33, 0.01, -0.33), Vector3(0.66, 1.78, 0.66)).intersects(AABB(Vector3(point) * SmoothTerrain.STEP - Vector3.ONE * 0.25, Vector3.ONE * 0.5)):
-		_notify("Reculez un peu pour ajouter du terrain.")
-		return false
-	if terrain.changes.size() >= SmoothTerrain.MAX_CHANGES and not terrain.changes.has(point):
+	var fresh := updates.keys().filter(func(point): return not terrain.changes.has(point)).size()
+	if terrain.changes.size() + fresh > SmoothTerrain.MAX_CHANGES:
 		_notify("Limite du terrain sculpté atteinte.")
 		return false
-	terrain.set_density(point, SmoothTerrain.ADDED if add else SmoothTerrain.DUG)
-	terrain_dirty[SmoothTerrain.point_zone(point)] = true
-	for zone in SmoothTerrain.zones_using(point):
-		if zone.x >= BASE_ZONES_LOW.x and zone.x <= BASE_ZONES_HIGH.x and zone.z >= BASE_ZONES_LOW.y and zone.z <= BASE_ZONES_HIGH.y:
-			rebuild_terrain_piece(zone)
+	var zones := {}
 	var tiles := {}
-	for dx in [-1, 0, 1]:
-		for dz in [-1, 0, 1]:
-			tiles[Vector2i(floori((point.x + dx * 2) * SmoothTerrain.STEP / 8.0), floori((point.z + dz * 2) * SmoothTerrain.STEP / 8.0))] = true
+	for point: Vector3i in updates:
+		terrain.set_density(point, updates[point][0], updates[point][1])
+		terrain_dirty[SmoothTerrain.point_zone(point)] = true
+		for zone in SmoothTerrain.zones_using(point):
+			if zone.x >= BASE_ZONES_LOW.x and zone.x <= BASE_ZONES_HIGH.x and zone.z >= BASE_ZONES_LOW.y and zone.z <= BASE_ZONES_HIGH.y:
+				zones[zone] = true
+		for dx in [-1, 0, 1]:
+			for dz in [-1, 0, 1]:
+				tiles[Vector2i(floori((point.x + dx * 2) * SmoothTerrain.STEP / 8.0), floori((point.z + dz * 2) * SmoothTerrain.STEP / 8.0))] = true
+	for zone: Vector3i in zones:
+		rebuild_terrain_piece(zone)
 	for tile: Vector2i in tiles:
 		_rebuild_lawn_tile(tile)
 	return true
@@ -588,7 +692,7 @@ func _valid_hit(hit: Dictionary, reach: float) -> bool:
 
 # 0.0.5.8 : clic gauche : creuser le terrain lisse (les blocs posés avant restent, sans casse ni pose).
 func break_target(hit: Dictionary) -> bool:
-	return sculpt(hit, false)
+	return sculpt(hit, false, -1, SIZE_CELLS[player.brush_size])
 
 # Legacy domain operation for saved-data/constraint regression tests; not player input.
 func _edit_break_target(hit: Dictionary) -> bool:
@@ -612,9 +716,17 @@ static func hit_cell(hit: Dictionary) -> Vector3i:
 	var point: Vector3 = hit.position - hit.normal * 0.02
 	return Vector3i(floori(point.x), floori(point.y), floori(point.z))
 
-# Clic droit : ajouter du terrain (la sorte de bloc choisie ne compte pas encore).
-func place_target(hit: Dictionary, _kind: int) -> bool:
-	return sculpt(hit, true)
+# Clic droit : le pinceau choisi (B + T), avec la matière choisie (sable ou terre) et la taille (B + molette).
+func place_target(hit: Dictionary, kind: int) -> bool:
+	var cells: int = SIZE_CELLS[player.brush_size]
+	if not kind in PLACEABLE:
+		kind = SmoothTerrain.DIRT
+	match player.brush:
+		1:
+			return flatten(hit, kind, cells)
+		2:
+			return smooth(hit, cells)
+	return sculpt(hit, true, kind, cells)
 
 func _edit_place_target(hit: Dictionary, kind: int) -> bool:
 	if not _valid_hit(hit, player.place_reach):
@@ -679,7 +791,7 @@ func _create_hud() -> void:
 	update_selected_block()
 	var exploration := Label.new()
 	exploration.name = "ExplorationNotice"
-	exploration.text = "Terrain : clic gauche creuse, clic droit ajoute (50 cm)"
+	exploration.text = "Clic gauche : creuser · clic droit : pinceau (B + T) · taille : B + molette"
 	exploration.add_theme_font_size_override("font_size",roundi(14 * text_scale))
 	exploration.add_theme_color_override("font_shadow_color",Color.BLACK)
 	exploration.add_theme_constant_override("shadow_outline_size",3)
@@ -762,6 +874,10 @@ func update_selected_block() -> void:
 	if is_instance_valid(selected_block_label) and is_instance_valid(player):
 		selected_block_label.text = "Bloc sélectionné : %s" % BLOCK_NAMES[player.selected_type]
 
+# 0.0.5.9 : choix du joueur (matière, pinceau, taille), en bas, seulement quand il change.
+func show_choice(message: String) -> void:
+	_notify(message)
+
 func _notify(message: String) -> void:
 	notice = message
 	notice_time = 2.5
@@ -791,15 +907,16 @@ func _process(delta: float) -> void:
 # level : 0 = −, 1 = Par défaut, 2 = + (textes complets d'avant 0.0.3.3), selon Synthèse des textes.
 static func get_help_text(level: int = 2) -> String:
 	if level == 0:
-		return "ZQSD : marcher. ↑ ↓ + A : vitesse (⌫ ⌫ : défaut). Espace : sauter ; deux fois : voler. Clic gauche : creuser, droit : ajouter.
-Molette : bloc. Échap : pause. F1 : mondes. F4 : vue."
+		return "ZQSD : marcher. ↑ ↓ + A : vitesse (⌫ ⌫ : défaut). Espace : sauter ; deux fois : voler. Clic gauche : creuser ; droit : poser, aplanir ou lisser (B + T).
+Molette : sable ou terre ; B + molette : taille. Échap : pause. F1 : mondes. F4 : vue."
 	if level == 1:
 		return "ZQSD / WASD : marcher (← → : de côté). Souris : regarder. Espace : sauter.
 Y : se baisser. R : courir (mode dans Contrôles).
 ↑ ↓ + A : tout le déplacement plus ou moins vite ; + W : marche, + R : course,
 ⌫ + touche : par défaut ; ⌫ deux fois : tout.
 Espace deux fois : voler (Espace monte, Y descend) ; encore deux fois : arrêter.
-Clic gauche : creuser le terrain ; clic droit : en ajouter (50 cm à chaque clic). Molette : changer de bloc.
+Clic gauche : creuser ; clic droit : pinceau (B + T : poser, aplanir, lisser).
+B + molette : taille du geste (1/8, 1/4, 1/2 bloc). Molette : sable ou terre.
 Échap : pause. F1 : liste des mondes. F2 : Comment jouer. F3 : Informations.
 F4 : vue (première personne, de derrière, de devant).
 Portée : %d blocs. Maximum : %d blocs, hauteur %d (Y 0 sur le sol plat).
@@ -820,11 +937,14 @@ Voler : Espace deux fois (rapidement) ; en vol, pas de gravité, Espace maintenu
 Y maintenu descend ; Espace deux fois à nouveau : on retombe. Vitesses dans Attributs → Voler,
 ↑ ↓ comptent aussi en vol. R en vol : voler vite.
 
-Terrain lisse : clic gauche creuse, clic droit ajoute, 50 cm à chaque clic (sous-cellules de 50 cm,
-8 par bloc de 1 m). On peut creuser jusqu'à 3,5 m sous le sol ; la base, dessous, est indestructible.
+Terrain lisse (sous-cellules de 50 cm, 8 par bloc de 1 m) : clic gauche creuse ; clic droit utilise le pinceau
+choisi avec B + T : Poser (sable ou terre, molette ou 1 et 2), Aplanir (sol mis à la hauteur visée)
+ou Lisser (formes adoucies). B + molette : taille du geste, 1/8, 1/4 ou 1/2 bloc (1, 2 ou 4 sous-cellules).
+Le choix s'affiche en bas quand on le change. Poser : jusqu'à 4 blocs au-dessus du sol.
+On peut creuser jusqu'à 3,5 m sous le sol ; la base, dessous, est indestructible.
 Les blocs posés avant sont conservés ; plus de casse ni de pose de blocs pour l'instant.
 
-Molette : changer de bloc.
+Molette : sable ou terre (la pierre n'est plus posée pour l'instant).
 Le sable reste immobile, même sans support.
 
 Échap : pause et souris libre. Reprendre / Échap : retour direct au jeu.

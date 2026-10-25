@@ -44,7 +44,15 @@ static func zones_using(point: Vector3i) -> Array[Vector3i]:
 				result.append(Vector3i(x, y, z))
 	return result
 
-func set_density(point: Vector3i, value: float) -> void:
+# 0.0.5.9 : matière d'un point posé (0 sable, 2 terre, comme les blocs) ; sans matière : sol de la graine.
+var materials: Dictionary = {}
+const SAND := 0
+const DIRT := 2
+
+func material(point: Vector3i) -> int:
+	return materials.get(point, -1)
+
+func set_density(point: Vector3i, value: float, kind: int = -1) -> void:
 	var zone := point_zone(point)
 	var column := Vector2i(point.x, point.z)
 	if changes.has(point):
@@ -53,7 +61,11 @@ func set_density(point: Vector3i, value: float) -> void:
 		columns[column] -= 1
 		if columns[column] == 0:
 			columns.erase(column)
-	if is_equal_approx(value, base_density(point)):
+	if kind >= 0 and value > 0.0:
+		materials[point] = kind
+	elif value <= 0.0:
+		materials.erase(point)
+	if is_equal_approx(value, base_density(point)) and not materials.has(point):
 		return
 	changes[point] = value
 	if not by_zone.has(zone):
@@ -69,16 +81,19 @@ func column_changed(column: Vector2i) -> bool:
 				return true
 	return false
 
-# Sauvegarde : points changés d'une zone, densité en millièmes (nombres entiers).
+# Sauvegarde : points changés d'une zone, densité en millièmes (nombres entiers), puis la matière si posée (0.0.5.9).
 func zone_entries(zone: Vector3i) -> Array:
 	var result: Array = []
 	for point: Vector3i in by_zone.get(zone, {}):
-		result.append([point.x, point.y, point.z, roundi(changes[point] * 1000.0)])
+		var entry := [point.x, point.y, point.z, roundi(changes[point] * 1000.0)]
+		if materials.has(point):
+			entry.append(materials[point])
+		result.append(entry)
 	return result
 
 func load_entries(entries: Array) -> void:
 	for entry in entries:
-		set_density(Vector3i(entry[0], entry[1], entry[2]), clampf(entry[3] / 1000.0, -1.0, 1.0))
+		set_density(Vector3i(entry[0], entry[1], entry[2]), clampf(entry[3] / 1000.0, -1.0, 1.0), entry[4] if entry.size() > 4 and entry[4] in [SAND, DIRT] else -1)
 
 # Zone plate : aucun point changé parmi ceux qu'elle lit.
 func is_flat(zone: Vector3i) -> bool:
@@ -116,13 +131,15 @@ func zone_mesh(zone: Vector3i) -> Array:
 	var y_high := mini(origin.y + POINTS, HIGH_POINT + 2)
 	var vertices := PackedVector3Array()
 	var normals := PackedVector3Array()
+	var colors := PackedColorArray()
 	if y_low >= y_high:
-		return [vertices, normals]
+		return [vertices, normals, colors]
 	var size := POINTS + 2
 	var height := y_high - y_low + 1
 	var start := Vector3i(origin.x - 1, y_low, origin.z - 1)
 	var values := PackedFloat32Array()
 	values.resize(size * height * size)
+	var kinds := {}
 	for y in range(height):
 		var base := base_density(Vector3i(0, y_low + y, 0))
 		for x in range(size):
@@ -135,11 +152,14 @@ func zone_mesh(zone: Vector3i) -> Array:
 					var local := point - start
 					if local.x >= 0 and local.y >= 0 and local.z >= 0 and local.x < size and local.y < height and local.z < size:
 						values[(local.x * height + local.y) * size + local.z] = changes[point]
+						if materials.has(point):
+							kinds[local] = materials[point]
 	var at := func(local: Vector3i) -> float:
 		return values[(local.x * height + local.y) * size + local.z]
 	# Un sommet par sous-cellule traversée : moyenne des passages sur ses 12 arêtes ; normale = pente de la densité.
 	var cell_vertex := {}
 	var cell_normal := {}
+	var cell_color := {}
 	for x in range(size - 1):
 		for y in range(height - 1):
 			for z in range(size - 1):
@@ -174,6 +194,16 @@ func zone_mesh(zone: Vector3i) -> Array:
 					corners[2] + corners[3] + corners[6] + corners[7] - corners[0] - corners[1] - corners[4] - corners[5],
 					corners[4] + corners[5] + corners[6] + corners[7] - corners[0] - corners[1] - corners[2] - corners[3])
 				cell_normal[cell] = (-slope).normalized() if slope.length_squared() > 0.000001 else Vector3.UP
+				# Couleur des sommets (0.0.5.9) : alpha 0 = sable posé, bleu 0 = terre nue posée, blanc = sol de la graine.
+				var paint := Vector2.ZERO
+				var weight := 0
+				for index in range(8):
+					if corners[index] > 0.0:
+						var kind: int = kinds.get(Vector3i(x + (index & 1), y + ((index >> 1) & 1), z + ((index >> 2) & 1)), -1)
+						paint += Vector2(1.0 if kind == SAND else 0.0, 1.0 if kind == DIRT else 0.0)
+						weight += 1
+				paint /= maxf(weight, 1)
+				cell_color[cell] = Color(1.0, 1.0, 1.0 - paint.y, 1.0 - paint.x)
 	# Une face par arête traversée, entre les 4 sous-cellules qui la partagent ; la zone garde les arêtes
 	# qui partent de ses propres points (pas de double avec la zone voisine).
 	var axes := [Vector3i(1, 0, 0), Vector3i(0, 1, 0), Vector3i(0, 0, 1)]
@@ -205,7 +235,8 @@ func zone_mesh(zone: Vector3i) -> Array:
 						for cell in order:
 							vertices.append(cell_vertex[cell])
 							normals.append(cell_normal[cell])
-	return [vertices, normals]
+							colors.append(cell_color[cell])
+	return [vertices, normals, colors]
 
 # Carré plat d'une zone sans changement (8 m, du milieu de la sous-cellule −1 au bord suivant).
 static func flat_mesh() -> ArrayMesh:

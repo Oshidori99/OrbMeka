@@ -120,7 +120,7 @@ static func valid_zone(data: Dictionary) -> bool:
 		if not entry is Array or entry.size() != 4 or not entry.all(func(v): return v is int):
 			return false
 	for entry in data.get("densite", []):
-		if not entry is Array or entry.size() != 4 or not entry.all(func(v): return v is int):
+		if not entry is Array or not entry.size() in [4, 5] or not entry.all(func(v): return v is int):
 			return false
 	for entry in data.casses:
 		if not entry is Array or entry.size() != 3 or not entry.all(func(v): return v is int):
