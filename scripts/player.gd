@@ -297,24 +297,32 @@ func cycle_size(direction: int) -> void:
 	brush_size = wrapi(brush_size + direction, 0, world.SIZE_NAMES.size())
 	world.show_choice("Taille du geste : %s" % world.SIZE_NAMES[brush_size])
 
-# 0.0.5.8 : un clic = un geste sur le terrain lisse (creuser ou ajouter 50 cm) ; pas de répétition en maintenant.
+# 0.0.5.8 : un clic = un geste sur le terrain lisse. 0.0.5.14 : clic maintenu = le geste se répète
+# (creuser, poser, aplanir ou lisser), au rythme de Attributs → Blocs (et ↑ ↓ + clic).
 func begin_breaking() -> bool:
 	actions.cancel()
+	actions.set_break_pressed(true, true)
+	return _break_once()
+
+func step_breaking(delta: float, active: bool, button_held: bool) -> bool:
+	if not actions.tick_break(delta, active, button_held):
+		return false
+	return _break_once()
+
+func _break_once() -> bool:
 	if selected_type == world.PICKAXE:
 		swing_pickaxe()
 	return world.break_target(get_target())
 
-func step_breaking(_delta: float, _active: bool, _button_held: bool) -> bool:
-	actions.cancel()
-	return false
-
 func begin_placement() -> bool:
 	actions.cancel()
+	actions.set_place_pressed(true, true)
 	return world.place_target(get_target(), selected_type)
 
-func step_placement(_delta: float, _active: bool, _button_held: bool) -> bool:
-	actions.cancel()
-	return false
+func step_placement(delta: float, active: bool, button_held: bool) -> bool:
+	if not actions.tick_place(delta, active, button_held):
+		return false
+	return world.place_target(get_target(), selected_type)
 
 func release_controls() -> void:
 	actions.cancel()

@@ -65,6 +65,8 @@ var last_section_ms := 0.0
 var autosave_time := 0.0
 # 0.0.5.8 : terrain lisse (smooth_terrain.gd) : une pièce par zone (sol plat ou sculpté), herbe par carré de 8 m.
 var terrain := SmoothTerrain.new()
+# Collines de la graine (false : sol plat, pour les tests qui mesurent sur un sol plat).
+var relief := true
 var terrain_pieces: Dictionary = {}
 var terrain_dirty: Dictionary = {}
 var terrain_node: Node3D
@@ -84,10 +86,13 @@ func _ready() -> void:
 	block_material = TerrainMaterials.surface()
 	block_box = BoxShape3D.new()
 	_create_ground()
-	_create_terrain()
+	var saved_player := _read_saved_player()
+	var start_at := Vector3.ZERO
+	if not saved_player.is_empty():
+		start_at = Vector3(float(saved_player.position[0]), 0.0, float(saved_player.position[2]))
+	_create_terrain(start_at)
 	_create_blocks()
 	_migrate_step1()
-	var saved_player := _read_saved_player()
 	# Ouverture : zones autour du point d'arrivée chargées tout de suite (ensuite, étalées sur les images).
 	var arrival := Vector3i(0, 0, 0)
 	if not saved_player.is_empty():
@@ -100,7 +105,7 @@ func _ready() -> void:
 	_apply_saved_player(saved_player)
 	_create_selection()
 	_create_hud()
-	lawn = TerrainMaterials.ground_grass(generated, terrain_seed, SAND_CENTER, SAND_RADIUS, _grass_skipped)
+	lawn = TerrainMaterials.ground_grass(generated, terrain_seed, SAND_CENTER, SAND_RADIUS, _grass_skipped, terrain.height_at)
 	add_child(lawn)
 
 func _setup_inputs() -> void:
@@ -173,11 +178,14 @@ func _create_ground() -> void:
 	ground.add_child(collision)
 	add_child(ground)
 
-# 0.0.5.5 : plus de collines de terre ni de blocs de pierre (demande de l'utilisateur) ; le relief
-# reviendra avec l'étape 4 (relief procédural). terrain_generator.gd reste pour cette étape.
-func _create_terrain() -> void:
+# 0.0.5.5 : plus de collines de blocs ni de blocs de pierre (demande de l'utilisateur) ; 0.0.5.14 : petites
+# collines de terrain lisse selon la graine (smooth_terrain.gd). terrain_generator.gd (anciennes collines) reste.
+func _create_terrain(start_at: Vector3 = Vector3.ZERO) -> void:
 	generated_hill_count = 0
 	generated_max_height = 0
+	# 0.0.5.14 : petites collines selon la graine, plates autour de l'apparition et de la plage.
+	if relief:
+		terrain.setup(terrain_seed, [[Vector2(0.5, 0.5), 9.0], [SAND_CENTER, SAND_RADIUS + 2.0]])
 	_read_terrain_changes()
 	terrain_node = Node3D.new()
 	terrain_node.name = "Terrain"
@@ -185,8 +193,33 @@ func _create_terrain() -> void:
 	flat_ground_mesh = SmoothTerrain.flat_mesh()
 	flat_ground_shape = BoxShape3D.new()
 	flat_ground_shape.size = Vector3(SmoothTerrain.ZONE_SIZE, 1, SmoothTerrain.ZONE_SIZE)
+	# 0.0.5.14 : zones proches de l'arrivée tout de suite ; les autres d'abord plates, puis refaites peu à peu
+	# (les plus proches d'abord), quelques-unes par image : l'ouverture reste rapide, aussi sur le Web.
+	var here := Vector2i(floori(start_at.x / SmoothTerrain.ZONE_SIZE), floori(start_at.z / SmoothTerrain.ZONE_SIZE))
+	var later: Array = []
 	for zone: Vector3i in terrain.surface_zones(BASE_ZONES_LOW, BASE_ZONES_HIGH):
-		rebuild_terrain_piece(zone)
+		if maxi(absi(zone.x - here.x), absi(zone.z - here.y)) <= NEAR_ZONES:
+			rebuild_terrain_piece(zone)
+		else:
+			if SmoothTerrain.ground_zone(zone):
+				rebuild_terrain_piece(zone, true)
+			later.append(zone)
+	later.sort_custom(func(a: Vector3i, b: Vector3i): return absi(a.x - here.x) + absi(a.z - here.y) < absi(b.x - here.x) + absi(b.z - here.y))
+	terrain_queue = later
+
+const NEAR_ZONES := 2
+const TERRAIN_BUDGET_USEC := 5000
+var terrain_queue: Array = []
+
+func _process_terrain_queue() -> void:
+	var started := Time.get_ticks_usec()
+	while not terrain_queue.is_empty() and Time.get_ticks_usec() - started < TERRAIN_BUDGET_USEC:
+		rebuild_terrain_piece(terrain_queue.pop_front())
+
+# Tout le terrain en attente, d'un coup (tests, captures).
+func finish_terrain() -> void:
+	while not terrain_queue.is_empty():
+		rebuild_terrain_piece(terrain_queue.pop_front())
 
 # 0.0.5.8 : terrain lisse sur toute la base (zones de X et Z −64 à 63) ; base indestructible en dessous.
 # 0.0.5.12 : la base (« Roche-mère », incassable) commence à 8 m sous le sol, sous 4 m de terre et 4 m de pierre.
@@ -212,7 +245,7 @@ func _read_terrain_changes() -> void:
 			notice_time = 8.0
 
 # Pièce de terrain d'une zone : carré plat partagé si rien n'a changé, sinon surface lisse calculée.
-func rebuild_terrain_piece(zone: Vector3i) -> void:
+func rebuild_terrain_piece(zone: Vector3i, flat_for_now: bool = false) -> void:
 	var started := Time.get_ticks_usec()
 	if terrain_pieces.has(zone):
 		terrain_pieces[zone].free()
@@ -224,7 +257,7 @@ func rebuild_terrain_piece(zone: Vector3i) -> void:
 	var instance := MeshInstance3D.new()
 	instance.material_override = ground_material
 	var collision := CollisionShape3D.new()
-	if terrain.is_flat(zone):
+	if flat_for_now or terrain.is_flat(zone):
 		if not SmoothTerrain.ground_zone(zone):
 			body.free()
 			return
@@ -263,7 +296,7 @@ func _rebuild_lawn_tile(tile: Vector2i) -> void:
 	for child in lawn.get_children():
 		if child.get_meta("tile", Vector2i(999, 999)) == tile:
 			child.free()
-	var node := TerrainMaterials.lawn_tile(tile, generated, terrain_seed, SAND_CENTER, SAND_RADIUS, _grass_skipped)
+	var node := TerrainMaterials.lawn_tile(tile, generated, terrain_seed, SAND_CENTER, SAND_RADIUS, _grass_skipped, terrain.height_at)
 	if node != null:
 		lawn.add_child(node)
 # Gestes de terrain (0.0.5.8, pinceaux en 0.0.5.9). Clic gauche : creuser ; clic droit : le pinceau
@@ -961,6 +994,7 @@ func _process(delta: float) -> void:
 		update_zones(here)
 	process_zone_queue()
 	_settle_terrain(delta)
+	_process_terrain_queue()
 	hint.text = notice if notice_time > 0.0 else ""
 	_update_coordinates()
 
@@ -1076,7 +1110,8 @@ Constructions sauvegardées." % [world_name, terrain_seed, world_mode_text, int(
 Graine : %d
 %s
 
-Relief : tout plat, en herbe ; une plage de sable d'environ %d m² à une dizaine de mètres de l'apparition.
+Relief : petites collines de terre selon la graine (1,6 m au plus), plat autour de l'apparition ; en herbe ;
+une plage de sable d'environ %d m² à une dizaine de mètres de l'apparition.
 Sous-sol : 4 m de terre, 4 m de pierre (à casser à la pioche), puis la Roche-mère incassable.
 
 Base plate : largeur %d × longueur %d blocs (%s), sol à Y 0

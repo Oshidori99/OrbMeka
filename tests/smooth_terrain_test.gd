@@ -25,6 +25,7 @@ func open(folder: String) -> Node3D:
 	world.terrain_seed = 4321
 	world.save_folder = folder
 	world.load_distance = 2
+	world.relief = false
 	root.add_child(world)
 	world.player.set_physics_process(false)
 	return world
@@ -53,7 +54,7 @@ func _run() -> void:
 	# Échelle confirmée : bloc de 1 m = 2 × 2 × 2 = 8 sous-cellules de 50 cm ; zone de 8 m = 16 par axe, 17 points.
 	check(SmoothTerrain.STEP == 0.5 and SmoothTerrain.POINTS == 16 and SmoothTerrain.POINTS + 1 == 17, "50 cm sub-cells: 16 per 8 m zone axis, 17 grid points with both edges")
 	check(int(1.0 / SmoothTerrain.STEP) ** 3 == 8 and Zones.DENSITY_POINTS == SmoothTerrain.POINTS, "a 1 m block holds 8 sub-cells, zone files use the same grid")
-	check(SmoothTerrain.base_density(Vector3i(0, -1, 0)) > 0.0 and SmoothTerrain.base_density(Vector3i(0, 0, 0)) <= 0.0 and SmoothTerrain.base_density(Vector3i(0, 1, 0)) < 0.0, "seed ground: solid below Y 0, air from Y 0")
+	check(SmoothTerrain.new().base_density(Vector3i(0, -1, 0)) > 0.0 and SmoothTerrain.new().base_density(Vector3i(0, 0, 0)) <= 0.0 and SmoothTerrain.new().base_density(Vector3i(0, 1, 0)) < 0.0, "seed ground: solid below Y 0, air from Y 0")
 	# Le même maillage qu'un sol plat, calculé : surface à Y 0 avec normales vers le haut.
 	var data := SmoothTerrain.new()
 	var flat: Array = data.zone_mesh(Vector3i(0, -1, 0))
@@ -70,7 +71,7 @@ func _run() -> void:
 	check(lowest < -0.4 and lowest > -1.0 and outward(dug[0], dug[1]), "one dug sub-cell: smooth pit about 50 cm deep, faces outward")
 	check(not data.is_flat(Vector3i(0, -1, 0)) and data.is_flat(Vector3i(1, -1, 1)), "only zones reading the changed point are recomputed")
 	check(SmoothTerrain.zones_using(Vector3i(16, -1, 3)).has(Vector3i(0, -1, 0)) and SmoothTerrain.zones_using(Vector3i(16, -1, 3)).has(Vector3i(1, -1, 0)), "border point belongs to both neighbouring zones")
-	data.set_density(Vector3i(4, -1, 4), SmoothTerrain.base_density(Vector3i(4, -1, 4)))
+	data.set_density(Vector3i(4, -1, 4), SmoothTerrain.new().base_density(Vector3i(4, -1, 4)))
 	check(data.changes.is_empty() and data.columns.is_empty(), "back to the seed value: nothing kept")
 	var started := Time.get_ticks_usec()
 	data.set_density(Vector3i(20, -2, 20), SmoothTerrain.DUG)
@@ -117,6 +118,38 @@ func _run() -> void:
 		rocky = rocky or color.g < 0.5
 	check(rocky, "the bottom of a 4 m shaft shows stone")
 	check(shaft.fall_target(Vector3i(4, SmoothTerrain.STONE_TOP, 4)) == Vector3i(4, SmoothTerrain.STONE_TOP, 4) and shaft.solid(Vector3i(4, SmoothTerrain.BEDROCK_TOP - 3, 4)), "stone never falls; Roche-mère holds everything")
+	# 0.0.5.14 : petites collines de terre selon la graine, plates autour de l'apparition.
+	var hills := SmoothTerrain.new()
+	hills.setup(4321, [[Vector2(0.5, 0.5), 9.0]])
+	var again := SmoothTerrain.new()
+	again.setup(4321, [[Vector2(0.5, 0.5), 9.0]])
+	var tallest := 0.0
+	var same_hills := true
+	for x in range(-120, 121, 3):
+		for z in range(-120, 121, 3):
+			var column := Vector2i(x, z)
+			tallest = maxf(tallest, hills.ground_height(column))
+			same_hills = same_hills and hills.ground_height(column) == again.ground_height(column) and hills.ground_height(column) >= 0.0
+	check(same_hills and tallest > 0.5 and tallest <= SmoothTerrain.HILL_HEIGHT, "same seed = same small hills (up to 1.6 m, never below Y 0)")
+	check(hills.ground_height(Vector2i(1, 1)) == 0.0 and hills.ground_height(Vector2i(10, -6)) == 0.0, "flat around the spawn")
+	var other := SmoothTerrain.new()
+	other.setup(99, [[Vector2(0.5, 0.5), 9.0]])
+	var differs := false
+	for x in range(-120, 121, 9):
+		differs = differs or other.ground_height(Vector2i(x, 60)) != hills.ground_height(Vector2i(x, 60))
+	check(differs, "another seed gives other hills")
+	var started_hill := Time.get_ticks_usec()
+	var hill_zone := Vector3i.ZERO
+	for x in range(-8, 8):
+		for z in range(-8, 8):
+			if hills.zone_heights(Vector3i(x, 0, z)).y > 1.0:
+				hill_zone = Vector3i(x, 0, z)
+	var hill_mesh: Array = hills.zone_mesh(hill_zone)
+	print("Zone de colline calculée en %.1f ms" % ((Time.get_ticks_usec() - started_hill) / 1000.0))
+	var top_vertex := 0.0
+	for vertex in hill_mesh[0]:
+		top_vertex = maxf(top_vertex, vertex.y)
+	check(hill_mesh[0].size() > 0 and top_vertex > 0.5 and outward(hill_mesh[0], hill_mesh[1]), "a hill zone gets a smooth surface, faces outward")
 	var under_feet: Dictionary = aim(world, Vector3(0.25, 0.0, 0.25))
 	world.player.global_position = Vector3(0.25, 0.0, 0.25)
 	check(not world.place_target(under_feet, 0), "no ground added inside the player")
@@ -219,11 +252,29 @@ func _run() -> void:
 		same = same and absf(world.terrain.changes.get(key, 9.0) - changed[key]) < 0.001
 	check(same, "same sculpted terrain after reopening")
 	check(world.terrain.material(sand_point) == SmoothTerrain.SAND, "same materials after reopening")
+	world.finish_terrain()
 	check(world.terrain_pieces[Vector3i(2, -1, 2)].get_child(1).shape is ConcavePolygonShape3D, "sculpted zone rebuilt at opening")
 	# Format 2 (blocs seuls) toujours lisible.
 	check(Zones.valid_zone({"format": 2, "type": "blocs", "poses": [[1, 0, 1, 2]], "casses": []}), "older zone files (format 2) still read")
 	check(not Zones.valid_zone({"format": 3, "type": "blocs", "poses": [], "casses": [], "densite": [[1, 2, 3]]}), "malformed terrain entries rejected")
 	close(world)
 	Store.delete_folder(FOLDER)
+	# Monde avec collines : apparition à Y 0, herbe posée sur les collines, terrain lointain fait peu à peu.
+	var hilly: Node3D = WorldScene.instantiate()
+	hilly.terrain_seed = 4321
+	root.add_child(hilly)
+	check(hilly.player_coordinates().y == 0 and not hilly.terrain_queue.is_empty(), "spawn on flat ground at Y 0; far hills built a few at a time")
+	hilly.finish_terrain()
+	var grass_up := false
+	var TerrainMaterials = load("res://scripts/terrain_materials.gd")
+	for tile_x in range(-8, 8):
+		for tile_z in range(-8, 8, 4):
+			for patch_at in TerrainMaterials.lawn_points(Vector2i(tile_x, tile_z), {}, 4321, Vector2.ZERO, 0.0, Callable(), hilly.terrain.height_at):
+				grass_up = grass_up or patch_at.y > 0.3
+	check(hilly.terrain_queue.is_empty() and grass_up, "grass grows on the hills")
+	close(hilly)
+	# 0.0.5.14 : B + molette haut = geste plus grand.
+	var Controls = load("res://scripts/controls.gd")
+	check(Controls.ACTIONS.size_up.default.second.mouse == MOUSE_BUTTON_WHEEL_UP and Controls.ACTIONS.size_down.default.second.mouse == MOUSE_BUTTON_WHEEL_DOWN, "B + wheel up makes the gesture bigger")
 	print("RESULT: %d smooth terrain checks, %d failures" % [checks, failures])
 	quit(0 if failures == 0 else 1)

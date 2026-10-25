@@ -94,17 +94,25 @@ static func section_grass(blocks: Dictionary, section: Vector3i, size: int) -> M
 # Sol plat : une pelouse par carré de 8 m (chacun masqué au loin séparément).
 # 0.0.5.8 : skip(position) écarte les carrés d'herbe là où le terrain lisse a été sculpté ; chaque carré
 # de 8 m a sa propre graine, pour être refait seul après un geste (lawn_tile).
-static func ground_grass(blocks: Dictionary, terrain_seed: int, sand_center := Vector2.ZERO, sand_radius := 0.0, skip := Callable()) -> Node3D:
+# 0.0.5.14 : height(x, z) pose l'herbe sur les collines (sinon à Y 0).
+static func ground_grass(blocks: Dictionary, terrain_seed: int, sand_center := Vector2.ZERO, sand_radius := 0.0, skip := Callable(), height := Callable()) -> Node3D:
 	var lawn := Node3D.new()
 	lawn.name = "Lawn"
 	for tile_x in range(-8, 8):
 		for tile_z in range(-8, 8):
-			var tile := lawn_tile(Vector2i(tile_x, tile_z), blocks, terrain_seed, sand_center, sand_radius, skip)
+			var tile := lawn_tile(Vector2i(tile_x, tile_z), blocks, terrain_seed, sand_center, sand_radius, skip, height)
 			if tile != null:
 				lawn.add_child(tile)
 	return lawn
 
-static func lawn_tile(tile: Vector2i, blocks: Dictionary, terrain_seed: int, sand_center := Vector2.ZERO, sand_radius := 0.0, skip := Callable()) -> MultiMeshInstance3D:
+static func lawn_tile(tile: Vector2i, blocks: Dictionary, terrain_seed: int, sand_center := Vector2.ZERO, sand_radius := 0.0, skip := Callable(), height := Callable()) -> MultiMeshInstance3D:
+	var node := grass_instance(lawn_points(tile, blocks, terrain_seed, sand_center, sand_radius, skip, height), terrain_seed + tile.x * 31 + tile.y)
+	if node != null:
+		node.set_meta("tile", tile)
+	return node
+
+# Emplacements des carrés d'herbe d'un carré de 8 m (séparés pour les tests : sans fenêtre, Godot ne garde pas les brins).
+static func lawn_points(tile: Vector2i, blocks: Dictionary, terrain_seed: int, sand_center := Vector2.ZERO, sand_radius := 0.0, skip := Callable(), height := Callable()) -> Array[Vector3]:
 	var rng := RandomNumberGenerator.new()
 	rng.seed = terrain_seed + tile.x * 7919 + tile.y * 104729
 	var points: Array[Vector3] = []
@@ -117,7 +125,6 @@ static func lawn_tile(tile: Vector2i, blocks: Dictionary, terrain_seed: int, san
 		points = points.filter(func(at: Vector3): return Vector2(at.x, at.z).distance_to(sand_center) > sand_radius - 0.2)
 	if skip.is_valid():
 		points = points.filter(func(at: Vector3): return not skip.call(at))
-	var node := grass_instance(points, terrain_seed + tile.x * 31 + tile.y)
-	if node != null:
-		node.set_meta("tile", tile)
-	return node
+	if height.is_valid():
+		points.assign(points.map(func(at: Vector3): return Vector3(at.x, height.call(at.x, at.z) + 0.001, at.z)))
+	return points

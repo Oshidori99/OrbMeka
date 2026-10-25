@@ -1,6 +1,21 @@
-# OrbMeka™ — prototype 0.0.5.13
+# OrbMeka™ — prototype 0.0.5.14
 
 Godot 4.7 / GDScript. Formes et couleurs simples ; assets externes seulement sous licence vérifiée (sons CC0, assets/sounds/CREDITS.txt).
+
+## 0.0.5.14 — Petites collines (#121)
+- La graine crée de petites collines de terre douces (1,6 m au plus, jamais sous Y 0), plates autour
+  de l'apparition et de la plage. Même graine = mêmes collines. L'herbe pousse dessus.
+- Ouverture rapide : les zones proches sont faites tout de suite, les autres peu à peu pendant le jeu
+  (d'abord plates, quelques-unes par image). Calcul d'une zone bien plus rapide (2 à 5 ms sur PC).
+- Clic gauche ou droit maintenu : le geste se répète (creuser, poser, aplanir, lisser, pioche),
+  au rythme de Attributs → Blocs.
+- B + molette haut : geste plus grand ; B + molette bas : plus petit (l'ancien réglage par défaut
+  enregistré est mis à jour tout seul).
+
+Tests : smooth_terrain (collines, même graine, herbe sur les collines, faces bien tournées, chargement
+peu à peu, B + molette), breaking et action_timing (répétition) ; tests choisis réussis.
+Captures PC et Web : collines. Ouverture d'un monde : environ 0,5 s sur PC.
+À tester manuellement : marcher sur les collines, clic maintenu, FPS et ouverture sur le Web.
 
 ## 0.0.5.13 — La pioche
 - La pioche rejoint la sélection existante : molette Sable → Terre → Pioche, ou touches 1, 2, 3.

@@ -1,7 +1,8 @@
-# OrbMeka™ 0.0.5.13
+# OrbMeka™ 0.0.5.14
 
 Dans Godot, ouvrez **project.godot**, puis **F5** pour lancer le jeu.
 
+0.0.5.14 : petites collines de terre selon la graine ; clic maintenu qui répète ; B + molette haut = plus grand.
 0.0.5.13 : la pioche (molette : sable, terre, pioche ; touche 3) casse la pierre, avec un coup de pioche et des éclats.
 0.0.5.12 : sous-sol : 4 m de terre, 4 m de pierre (pas encore cassable), puis la Roche-mère ; chute plus lente.
 0.0.5.11 : gravité de la terre et du sable (chute, talus, petites piles) ; plus de page Comment jouer.

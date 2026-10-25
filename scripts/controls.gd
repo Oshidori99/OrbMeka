@@ -53,8 +53,9 @@ const ACTIONS := {
 	"block_next": {"label": "Bloc suivant", "default": {"mouse": MOUSE_BUTTON_WHEEL_DOWN}, "fixed": []},
 	# 0.0.5.10 : pinceau du clic droit (Poser, Aplanir, Lisser) et taille du geste (1/8, 1/4, 1/2 bloc), modifiables.
 	"brush_next": {"label": "Pinceau suivant (clic droit)", "default": {"key": KEY_B, "second": {"key": KEY_T}}, "fixed": []},
-	"size_up": {"label": "Geste plus grand", "default": {"key": KEY_B, "second": {"mouse": MOUSE_BUTTON_WHEEL_DOWN}}, "fixed": []},
-	"size_down": {"label": "Geste plus petit", "default": {"key": KEY_B, "second": {"mouse": MOUSE_BUTTON_WHEEL_UP}}, "fixed": []},
+	# 0.0.5.14 : molette vers le haut = plus grand (inversé, demande de l'utilisateur).
+	"size_up": {"label": "Geste plus grand", "default": {"key": KEY_B, "second": {"mouse": MOUSE_BUTTON_WHEEL_UP}}, "fixed": []},
+	"size_down": {"label": "Geste plus petit", "default": {"key": KEY_B, "second": {"mouse": MOUSE_BUTTON_WHEEL_DOWN}}, "fixed": []},
 	# 0.0.5.10 : F1 à F4 modifiables aussi (seul Échap reste réservé).
 	"worlds_menu": {"label": "Retour aux mondes", "default": {"key": KEY_F1}, "fixed": []},
 	"world_info_page": {"label": "Informations du monde", "default": {"key": KEY_F3}, "fixed": []},
@@ -476,7 +477,9 @@ static func blocked_moves(bindings: Dictionary) -> Dictionary:
 	return result
 
 # Défauts de 0.0.4.3 à 0.0.4.6 (↑, ↓ seules) remplacés : un ancien controles.json les relit comme le nouveau défaut.
-const FORMER_DEFAULTS := {"speed_up": {"key": KEY_UP}, "speed_down": {"key": KEY_DOWN}}
+# 0.0.5.14 : B + molette inversé ; l'ancien défaut gardé dans un controles.json devient le nouveau.
+const FORMER_DEFAULTS := {"speed_up": {"key": KEY_UP}, "speed_down": {"key": KEY_DOWN},
+	"size_up": {"key": KEY_B, "second": {"mouse": MOUSE_BUTTON_WHEEL_DOWN}}, "size_down": {"key": KEY_B, "second": {"mouse": MOUSE_BUTTON_WHEEL_UP}}}
 
 # 0.0.4.8 : parties du menu Contrôles, dans l'ordre d'affichage ; chaque action dans une seule.
 # 0.0.4.20 : les remises par défaut (⌫) dans leur propre partie.

@@ -3,6 +3,9 @@ Du plus récent au plus ancien. Ce fichier est mis à jour à chaque version.
 
 === Thème « Monde » (0.0.5 et suivantes) ===
 
+0.0.5.14 — Petites collines
+Collines de terre douces selon la graine ; clic maintenu qui répète le geste ; B + molette haut = geste plus grand.
+
 0.0.5.13 — La pioche
 Dans la sélection (molette : sable, terre, pioche ; touche 3) : elle casse la pierre, avec un coup de pioche et des éclats.
 

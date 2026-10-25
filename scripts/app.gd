@@ -259,7 +259,7 @@ func _build_interface() -> void:
 	settings_back_button = _button("Retour", settings_page, leave_settings)
 	var information_page := _page(stack, "Génération des mondes")
 	pages.information = _page_root(information_page)
-	# 0.0.5.5 : tout plat, en herbe, avec une plage de sable ; plus de collines (relief : étape 4).
+	# 0.0.5.5 : en herbe, avec une plage de sable ; 0.0.5.14 : petites collines selon la graine.
 	var sizes := [int(WorldRules.BASE_SIZE.x), int(WorldRules.BASE_SIZE.z), WorldRules.MAX_BUILD_HEIGHT, WorldRules.sand_area()]
 	_explanation(information_page, [
 		"Base %d × %d, hauteur maximale %d. Constructions sauvegardées." % [sizes[0], sizes[1], sizes[2]],
@@ -268,7 +268,7 @@ Hauteur maximale : %d blocs ; plage de sable d'environ %d m².
 Graine aléatoire si vide. Constructions sauvegardées." % sizes,
 		"Base plate en herbe : largeur %d × longueur %d blocs (%s), sol à Y 0
 Construction : hauteur maximale %d blocs au-dessus du sol plat (sommet à Y %d), %s.
-Relief : tout plat ; une plage de sable d'environ %d m², à une dizaine de mètres de l'apparition.
+Relief : petites collines de terre selon la graine (1,6 m au plus), plat autour de l'apparition ; une plage de sable d'environ %d m², à une dizaine de mètres de l'apparition.
 %s
 
 Graine choisie à la création, ou aléatoire si le champ est vide.

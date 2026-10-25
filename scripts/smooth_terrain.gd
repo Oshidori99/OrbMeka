@@ -27,9 +27,52 @@ var changes: Dictionary = {}
 var by_zone: Dictionary = {}
 var columns: Dictionary = {}
 
-# Sol plat de la graine : surface à Y 0 (pas encore de relief, étape 4).
-static func base_density(point: Vector3i) -> float:
-	return clampf(-point.y * STEP, -1.0, 1.0)
+# 0.0.5.14 : petites collines de terre selon la graine (étape 4, #121, début) : hauteur du sol par colonne
+# de points, d'un bruit doux ; jamais sous Y 0 ; aplati autour des endroits donnés (apparition, plage).
+# Sans setup() (tests) : sol plat à Y 0.
+const HILL_HEIGHT := 1.6
+const HILL_SIZE := 34.0
+var _noise: FastNoiseLite
+var _flat_spots: Array = []
+var _heights: Dictionary = {}
+
+func setup(terrain_seed: int, flat_spots: Array = []) -> void:
+	_noise = FastNoiseLite.new()
+	_noise.seed = terrain_seed
+	_noise.noise_type = FastNoiseLite.TYPE_SIMPLEX_SMOOTH
+	_noise.frequency = 1.0 / HILL_SIZE
+	_noise.fractal_octaves = 3
+	_flat_spots = flat_spots
+	_heights.clear()
+
+# Hauteur du sol (m) au point de colonne (x, z) ; même graine = même hauteur (arrondie au millième).
+func ground_height(column: Vector2i) -> float:
+	if _noise == null:
+		return 0.0
+	if _heights.has(column):
+		return _heights[column]
+	var at := Vector2(column) * STEP
+	var hill := clampf(_noise.get_noise_2d(at.x, at.y) * 1.6 - 0.15, 0.0, 1.0)
+	var fade := 1.0
+	for spot in _flat_spots:
+		fade *= smoothstep(spot[1], spot[1] + 7.0, at.distance_to(spot[0]))
+	var height := roundf(HILL_HEIGHT * pow(hill, 1.4) * fade * 1000.0) / 1000.0
+	_heights[column] = height
+	return height
+
+# Hauteur entre les points (herbe posée sur le sol de la graine).
+func height_at(x: float, z: float) -> float:
+	var cx := floori(x / STEP)
+	var cz := floori(z / STEP)
+	var fx := x / STEP - cx
+	var fz := z / STEP - cz
+	var low := lerpf(ground_height(Vector2i(cx, cz)), ground_height(Vector2i(cx + 1, cz)), fx)
+	var high := lerpf(ground_height(Vector2i(cx, cz + 1)), ground_height(Vector2i(cx + 1, cz + 1)), fx)
+	return lerpf(low, high, fz)
+
+# Sol de la graine : plein sous la hauteur du sol, air au-dessus (densité en mètres, bornée à ±1).
+func base_density(point: Vector3i) -> float:
+	return clampf(ground_height(Vector2i(point.x, point.z)) - point.y * STEP, -1.0, 1.0)
 
 func density(point: Vector3i) -> float:
 	return changes.get(point, base_density(point))
@@ -107,7 +150,19 @@ func load_entries(entries: Array) -> void:
 	for entry in entries:
 		set_density(Vector3i(entry[0], entry[1], entry[2]), clampf(entry[3] / 1000.0, -1.0, 1.0), entry[4] if entry.size() > 4 and entry[4] in [SAND, DIRT] else -1)
 
-# Zone plate : aucun point changé parmi ceux qu'elle lit.
+# Plus haute et plus basse hauteur du sol sur les colonnes que lit une zone (bords compris).
+func zone_heights(zone: Vector3i) -> Vector2:
+	var origin := zone * POINTS
+	var low := INF
+	var high := -INF
+	for x in range(origin.x - 1, origin.x + POINTS + 2):
+		for z in range(origin.z - 1, origin.z + POINTS + 2):
+			var height := ground_height(Vector2i(x, z))
+			low = minf(low, height)
+			high = maxf(high, height)
+	return Vector2(low, high)
+
+# Zone plate : aucun point changé parmi ceux qu'elle lit, et pas de colline (0.0.5.14).
 func is_flat(zone: Vector3i) -> bool:
 	var low := zone * POINTS - Vector3i.ONE
 	var high := zone * POINTS + Vector3i.ONE * POINTS
@@ -117,9 +172,10 @@ func is_flat(zone: Vector3i) -> bool:
 				for point: Vector3i in by_zone.get(zone + Vector3i(dx, dy, dz), {}):
 					if point.x >= low.x and point.y >= low.y and point.z >= low.z and point.x <= high.x and point.y <= high.y and point.z <= high.z:
 						return false
-	return true
+	return _noise == null or zone_heights(zone).y <= 0.0
 
-# Zones qui ont une surface : le sol plat (zones juste sous Y 0) et celles qui lisent un point changé.
+# Zones qui ont une surface : le sol plat (zones juste sous Y 0), celles des collines (zones dès Y 0)
+# et celles qui lisent un point changé.
 static func ground_zone(zone: Vector3i) -> bool:
 	return zone.y == -1
 
@@ -128,29 +184,38 @@ func surface_zones(low_zone: Vector2i, high_zone: Vector2i) -> Dictionary:
 	for x in range(low_zone.x, high_zone.x + 1):
 		for z in range(low_zone.y, high_zone.y + 1):
 			result[Vector3i(x, -1, z)] = true
+			if _noise != null and zone_heights(Vector3i(x, 0, z)).y > 0.0:
+				result[Vector3i(x, 0, z)] = true
 	for point: Vector3i in changes:
 		for zone in zones_using(point):
 			if zone.x >= low_zone.x and zone.x <= high_zone.x and zone.z >= low_zone.y and zone.z <= high_zone.y:
 				result[zone] = true
 	return result
 
-# Maillage lisse d'une zone (coordonnées du monde) : [sommets, normales], triangles dans le sens
+# Maillage lisse d'une zone (coordonnées du monde) : [sommets, normales, couleurs], triangles dans le sens
 # des aiguilles d'une montre vus de dehors, comme les blocs. Vide si la surface ne passe pas.
+# 0.0.5.14 : seulement les hauteurs où la surface peut passer (sol de la graine, points changés), sans
+# fonction appelée par point : bien plus rapide.
 func zone_mesh(zone: Vector3i) -> Array:
 	var origin := zone * POINTS
-	# Hauteurs utiles seulement : là où la surface peut passer (sol, points changés).
-	# 0.0.5.13 : plus bas seulement si la pioche a creusé la pierre (recalcul plus court sinon).
-	var lowest := LOW_POINT
+	var vertices := PackedVector3Array()
+	var normals := PackedVector3Array()
+	var colors := PackedColorArray()
+	var nearby: Array = []
+	var lowest := INF
+	var highest := -INF
 	for dx in range(-1, 2):
 		for dy in range(-1, 2):
 			for dz in range(-1, 2):
 				for point: Vector3i in by_zone.get(zone + Vector3i(dx, dy, dz), {}):
-					lowest = mini(lowest, point.y)
-	var y_low := maxi(origin.y - 1, maxi(lowest, BEDROCK_TOP) - 2)
-	var y_high := mini(origin.y + POINTS, HIGH_POINT + 2)
-	var vertices := PackedVector3Array()
-	var normals := PackedVector3Array()
-	var colors := PackedColorArray()
+					nearby.append(point)
+					lowest = minf(lowest, point.y)
+					highest = maxf(highest, point.y)
+	var ground := zone_heights(zone)
+	lowest = minf(lowest, floorf(ground.x / STEP))
+	highest = maxf(highest, ceilf(ground.y / STEP))
+	var y_low := maxi(maxi(origin.y - 1, int(lowest) - 2), BEDROCK_TOP - 2)
+	var y_high := mini(mini(origin.y + POINTS, int(highest) + 2), HIGH_POINT + 2)
 	if y_low >= y_high:
 		return [vertices, normals, colors]
 	var size := POINTS + 2
@@ -158,35 +223,37 @@ func zone_mesh(zone: Vector3i) -> Array:
 	var start := Vector3i(origin.x - 1, y_low, origin.z - 1)
 	var values := PackedFloat32Array()
 	values.resize(size * height * size)
+	for x in range(size):
+		for z in range(size):
+			var top := ground_height(Vector2i(start.x + x, start.z + z))
+			for y in range(height):
+				values[(x * height + y) * size + z] = clampf(top - (y_low + y) * STEP, -1.0, 1.0)
 	var kinds := {}
-	for y in range(height):
-		var base := base_density(Vector3i(0, y_low + y, 0))
-		for x in range(size):
-			for z in range(size):
-				values[(x * height + y) * size + z] = base
-	for dx in range(-1, 2):
-		for dy in range(-1, 2):
-			for dz in range(-1, 2):
-				for point: Vector3i in by_zone.get(zone + Vector3i(dx, dy, dz), {}):
-					var local := point - start
-					if local.x >= 0 and local.y >= 0 and local.z >= 0 and local.x < size and local.y < height and local.z < size:
-						values[(local.x * height + local.y) * size + local.z] = changes[point]
-						if materials.has(point):
-							kinds[local] = materials[point]
-	var at := func(local: Vector3i) -> float:
-		return values[(local.x * height + local.y) * size + local.z]
+	for point: Vector3i in nearby:
+		var local := point - start
+		if local.x >= 0 and local.y >= 0 and local.z >= 0 and local.x < size and local.y < height and local.z < size:
+			values[(local.x * height + local.y) * size + local.z] = changes[point]
+			if materials.has(point):
+				kinds[local] = materials[point]
+	# Décalages des 8 coins d'une sous-cellule dans le tableau.
+	var corner_at := [Vector3i(0, 0, 0), Vector3i(1, 0, 0), Vector3i(0, 1, 0), Vector3i(1, 1, 0), Vector3i(0, 0, 1), Vector3i(1, 0, 1), Vector3i(0, 1, 1), Vector3i(1, 1, 1)]
+	var offsets := PackedInt32Array()
+	for corner: Vector3i in corner_at:
+		offsets.append((corner.x * height + corner.y) * size + corner.z)
 	# Un sommet par sous-cellule traversée : moyenne des passages sur ses 12 arêtes ; normale = pente de la densité.
 	var cell_vertex := {}
 	var cell_normal := {}
 	var cell_color := {}
+	var corners := PackedFloat32Array()
+	corners.resize(8)
 	for x in range(size - 1):
 		for y in range(height - 1):
 			for z in range(size - 1):
-				var corners: Array[float] = []
+				var base := (x * height + y) * size + z
 				var solid := 0
 				for index in range(8):
-					var value: float = at.call(Vector3i(x + (index & 1), y + ((index >> 1) & 1), z + ((index >> 2) & 1)))
-					corners.append(value)
+					var value := values[base + offsets[index]]
+					corners[index] = value
 					if value > 0.0:
 						solid += 1
 				if solid == 0 or solid == 8:
@@ -197,14 +264,11 @@ func zone_mesh(zone: Vector3i) -> Array:
 					for axis in [1, 2, 4]:
 						if index & axis:
 							continue
-						var a: float = corners[index]
-						var b: float = corners[index | axis]
+						var a := corners[index]
+						var b := corners[index | axis]
 						if (a > 0.0) == (b > 0.0):
 							continue
-						var t := a / (a - b)
-						var from := Vector3(index & 1, (index >> 1) & 1, (index >> 2) & 1)
-						var to := Vector3((index | axis) & 1, ((index | axis) >> 1) & 1, ((index | axis) >> 2) & 1)
-						sum += from.lerp(to, t)
+						sum += Vector3(corner_at[index]).lerp(Vector3(corner_at[index | axis]), a / (a - b))
 						count += 1
 				var cell := Vector3i(x, y, z)
 				cell_vertex[cell] = (Vector3(start + cell) + sum / count) * STEP
@@ -219,7 +283,7 @@ func zone_mesh(zone: Vector3i) -> Array:
 				var weight := 0
 				for index in range(8):
 					if corners[index] > 0.0:
-						var corner := Vector3i(x + (index & 1), y + ((index >> 1) & 1), z + ((index >> 2) & 1))
+						var corner: Vector3i = cell + corner_at[index]
 						var kind: int = kinds.get(corner, natural_kind(start + corner))
 						paint += Vector3(1.0 if kind == SAND else 0.0, 1.0 if kind == DIRT else 0.0, 1.0 if kind == STONE else 0.0)
 						weight += 1
@@ -232,21 +296,35 @@ func zone_mesh(zone: Vector3i) -> Array:
 		var axis: Vector3i = axes[axis_index]
 		var side_a: Vector3i = axes[(axis_index + 1) % 3]
 		var side_b: Vector3i = axes[(axis_index + 2) % 3]
+		var step := (axis.x * height + axis.y) * size + axis.z
 		for x in range(1, size - 1):
 			for y in range(maxi(1, origin.y - y_low), mini(height - 1, origin.y + POINTS - y_low)):
+				if y + axis.y >= height:
+					continue
 				for z in range(1, size - 1):
+					var index := (x * height + y) * size + z
+					var first := values[index]
+					if (first > 0.0) == (values[index + step] > 0.0):
+						continue
 					var point := Vector3i(x, y, z)
-					var next := point + axis
-					if next.y >= height:
-						continue
-					var first: float = at.call(point)
-					if (first > 0.0) == (at.call(next) > 0.0):
-						continue
 					var quad := [point, point - side_a, point - side_a - side_b, point - side_b]
-					if quad.any(func(cell): return not cell_vertex.has(cell)):
+					if not (cell_vertex.has(quad[0]) and cell_vertex.has(quad[1]) and cell_vertex.has(quad[2]) and cell_vertex.has(quad[3])):
 						continue
 					var outward := Vector3(axis) if first > 0.0 else -Vector3(axis)
-					for triangle in [[0, 1, 2], [0, 2, 3]]:
+					# 0.0.5.14 : face coupée selon la diagonale qui garde les deux triangles tournés vers dehors
+					# (sur les pentes, l'autre coupe pouvait retourner un petit triangle).
+					var split := [[0, 1, 2], [0, 2, 3]]
+					var p0: Vector3 = cell_vertex[quad[0]]
+					var p1: Vector3 = cell_vertex[quad[1]]
+					var p2: Vector3 = cell_vertex[quad[2]]
+					var p3: Vector3 = cell_vertex[quad[3]]
+					var facing := absf((p2 - p0).cross(p1 - p0).dot(outward)) + absf((p3 - p0).cross(p2 - p0).dot(outward))
+					var other_facing := absf((p3 - p1).cross(p2 - p1).dot(outward)) + absf((p0 - p1).cross(p3 - p1).dot(outward))
+					var folded := signf((p2 - p0).cross(p1 - p0).dot(outward)) != signf((p3 - p0).cross(p2 - p0).dot(outward))
+					var other_folded := signf((p3 - p1).cross(p2 - p1).dot(outward)) != signf((p0 - p1).cross(p3 - p1).dot(outward))
+					if (folded and not other_folded) or (folded == other_folded and other_facing > facing):
+						split = [[1, 2, 3], [1, 3, 0]]
+					for triangle in split:
 						var a: Vector3 = cell_vertex[quad[triangle[0]]]
 						var b: Vector3 = cell_vertex[quad[triangle[1]]]
 						var c: Vector3 = cell_vertex[quad[triangle[2]]]

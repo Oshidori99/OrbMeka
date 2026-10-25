@@ -61,6 +61,7 @@ func _run() -> void:
 	timer.cancel()
 	check(not timer.tick_jump(0.01, true, false), "cancelling control clears buffered jump")
 	var world: Node3D = load("res://scenes/world.tscn").instantiate()
+	world.relief = false
 	root.add_child(world)
 	current_scene = world
 	var player: CharacterBody3D = world.player
@@ -80,8 +81,8 @@ func _run() -> void:
 	await frames(3)
 	# Aim at a different cell while holding; the repeat must use the current ray.
 	player.position.x += 2.0
-	check(not player.step_placement(0.001, true, true), "visual exploration rejects repeated placement")
-	check(world.blocks.size() == count, "disabled repetition preserves blocks")
+	check(player.step_placement(0.3, true, true), "holding the right click adds again (0.0.5.14)")
+	check(world.blocks.size() == count, "repetition adds ground, never blocks")
 	var release := InputEventMouseButton.new()
 	release.button_index = MOUSE_BUTTON_RIGHT
 	release.pressed = false

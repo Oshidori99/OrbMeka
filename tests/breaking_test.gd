@@ -93,7 +93,7 @@ func _run() -> void:
 	# 0.0.5.8 : le sol est du terrain lisse : regarder en bas et cliquer le creuse (50 cm), sans toucher aux blocs.
 	count = world.blocks.size()
 	check(player.begin_breaking() and world.terrain.changes.size() == 1 and world.blocks.size() == count, "looking down digs the smooth ground, blocks untouched")
-	check(not player.step_breaking(0.3, true, true), "base rejects repeated breaking")
+	check(player.step_breaking(0.3, true, true) and world.terrain.changes.size() >= 2, "holding the click digs again (0.0.5.14)")
 	player.actions.cancel()
 	player.position.z = 40.5
 	player.camera.rotation.x = 0
