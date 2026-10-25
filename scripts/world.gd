@@ -981,7 +981,7 @@ Terrain lisse (sous-cellules de 50 cm, 8 par bloc de 1 m) : clic gauche creuse ;
 choisi avec B + T : Poser (sable ou terre, molette ou 1 et 2), Aplanir (sol mis à la hauteur visée)
 ou Lisser (formes adoucies). B + molette : taille du geste, 1/8, 1/4 ou 1/2 bloc (1, 2 ou 4 sous-cellules).
 Le choix s'affiche en bas quand on le change. Poser : jusqu'à 4 blocs au-dessus du sol.
-Sous le gazon : 4 m de terre, puis 4 m de pierre (pas encore cassable), puis la Roche-mère, incassable.
+Sous le gazon : 4 m de terre qu'on peut creuser, puis 4 m de pierre (pas encore cassable), puis la Roche-mère, incassable.
 Les blocs posés avant sont conservés ; plus de casse ni de pose de blocs pour l'instant.
 
 Molette : sable ou terre (la pierre n'est plus posée pour l'instant).
