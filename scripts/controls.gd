@@ -8,7 +8,7 @@ extends RefCounted
 # la même = deux fois de suite, une autre = en même temps), convertie par normalize(), comme les
 # anciens controles.json (0.0.3.12 à 0.0.4.19).
 # Touches gardées pour le jeu, jamais attribuables : Échap (pause, « aucune » pendant
-# le choix d'une touche), F1, F2, F3 (raccourcis des menus), F4 (vue, 0.0.4.9).
+# le choix d'une touche). Depuis 0.0.5.10, F1, F3, F4 sont des actions modifiables (Raccourcis).
 
 const ACTIONS := {
 	"move_forward": {"label": "Avancer", "default": {"key": KEY_W}, "fixed": []},
@@ -57,7 +57,6 @@ const ACTIONS := {
 	"size_down": {"label": "Geste plus petit", "default": {"key": KEY_B, "second": {"mouse": MOUSE_BUTTON_WHEEL_UP}}, "fixed": []},
 	# 0.0.5.10 : F1 à F4 modifiables aussi (seul Échap reste réservé).
 	"worlds_menu": {"label": "Retour aux mondes", "default": {"key": KEY_F1}, "fixed": []},
-	"help_page": {"label": "Comment jouer", "default": {"key": KEY_F2}, "fixed": []},
 	"world_info_page": {"label": "Informations du monde", "default": {"key": KEY_F3}, "fixed": []},
 	"change_view": {"label": "Changer de vue", "default": {"key": KEY_F4}, "fixed": []},
 }
@@ -486,7 +485,7 @@ const GROUPS := {
 	"Blocs": ["break_block", "place_block", "block_previous", "block_next", "brush_next", "size_up", "size_down"],
 	"Vitesses": ["speed_up", "speed_down", "walk_up", "walk_down", "run_up", "run_down", "break_up", "break_down", "place_up", "place_down"],
 	"Vitesses — réinitialiser": ["move_reset", "walk_reset", "run_reset", "break_reset", "place_reset", "speed_reset_all"],
-	"Raccourcis": ["worlds_menu", "help_page", "world_info_page", "change_view"],
+	"Raccourcis": ["worlds_menu", "world_info_page", "change_view"],
 }
 # Dernière partie, Menus : touche réservée (Échap), montrée sans pouvoir la changer.
 const MENU_KEYS := [["Pause", "Échap"]]

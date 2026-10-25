@@ -41,7 +41,7 @@ func _run() -> void:
 	check(once, "every action in exactly one group")
 	check(Controls.GROUPS.Mouvements.has("fly") and Controls.GROUPS.Mouvements.has("sprint") and Controls.GROUPS.Blocs.has("break_block") and Controls.GROUPS["Vitesses — réinitialiser"].has("speed_reset_all") and Controls.GROUPS.Vitesses.has("speed_up"), "actions in the right group")
 	check(Controls.MENU_KEYS == [["Pause", "Échap"]] and Controls.RESERVED_KEYS == [KEY_ESCAPE], "Menus: only Escape stays reserved (0.0.5.10)")
-	check(Controls.GROUPS.Raccourcis == ["worlds_menu", "help_page", "world_info_page", "change_view"] and Controls.GROUPS.Blocs.has("brush_next") and Controls.GROUPS.Blocs.has("size_up"), "F1 to F4, brush and gesture size are changeable")
+	check(Controls.GROUPS.Raccourcis == ["worlds_menu", "world_info_page", "change_view"] and Controls.GROUPS.Blocs.has("brush_next") and Controls.GROUPS.Blocs.has("size_up"), "F1, F3, F4, brush and gesture size are changeable (no F2 since 0.0.5.11)")
 	# Attributs de vol rapide.
 	for key in ["fly_run_forward", "fly_run_side", "fly_run_back"]:
 		check(key in Settings.ATTRIBUTE_KEYS and Settings.SPECS[key].default == 15.0, "attribute 15 m/s: " + key)

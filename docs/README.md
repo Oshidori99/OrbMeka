@@ -1,6 +1,20 @@
-# OrbMeka™ — prototype 0.0.5.10
+# OrbMeka™ — prototype 0.0.5.11
 
 Godot 4.7 / GDScript. Formes et couleurs simples ; assets externes seulement sous licence vérifiée (sons CC0, assets/sounds/CREDITS.txt).
+
+## 0.0.5.11 — Gravité de la terre et du sable
+- Un point de terre ou de sable sans rien juste dessous tombe, 50 cm à la fois (on le voit descendre).
+- Talus : le sable glisse sur le côté dès qu'il dépasse son voisin de 50 cm (pentes de 45° au plus),
+  il s'étale en tas bas ; la terre tient en petites piles (jusqu'à 1 m de haut sur 50 cm de large).
+  Le sol de départ se comporte comme la terre : creuser un puits de plus d'1 m fait s'ébouler les bords.
+- Un vide plus loin (pas juste dessous ni à côté) ne fait rien tomber.
+- Avant d'enregistrer, ce qui tombe encore est posé à sa place.
+- Plus de page Comment jouer (ni de touche F2) : la pause garde Paramètres et Informations du monde.
+
+Tests : smooth_terrain (gravité : chute, sable qui s'étale, pile de terre, trou dessous ou plus loin) ;
+pause, shortcuts_selection, appearance, world_info, menu_style, controls_groups mis à jour ;
+tests choisis réussis. Capture PC : tas de sable et de terre après la chute.
+À tester manuellement : voir tomber la terre et le sable, creuser sous une pile, FPS sur le Web.
 
 ## 0.0.5.10 — Touches modifiables et corrections des pinceaux
 - Paramètres → Contrôles → Blocs : « Pinceau suivant » (B + T), « Geste plus grand » (B + molette bas)

@@ -3,6 +3,9 @@ Du plus récent au plus ancien. Ce fichier est mis à jour à chaque version.
 
 === Thème « Monde » (0.0.5 et suivantes) ===
 
+0.0.5.11 — Gravité de la terre et du sable
+Ce qui n'a rien dessous tombe ; le sable s'étale, la terre tient en petites piles ; plus de page Comment jouer.
+
 0.0.5.10 — Touches modifiables et corrections des pinceaux
 Pinceau, taille du geste et F1 à F4 modifiables ; aplanir et lisser n'ajoutent plus de matière ; terre posée visible sur la plage.
 

@@ -396,6 +396,15 @@ func _apply_terrain(updates: Dictionary) -> bool:
 	var tiles := {}
 	for point: Vector3i in updates:
 		terrain.set_density(point, updates[point][0], updates[point][1])
+		terrain.wake(point)
+	_refresh_terrain(updates.keys())
+	return true
+
+# Points changés (geste ou chute) : zones à enregistrer, pièces et herbe autour recalculées une fois.
+func _refresh_terrain(points: Array) -> void:
+	var zones := {}
+	var tiles := {}
+	for point: Vector3i in points:
 		terrain_dirty[SmoothTerrain.point_zone(point)] = true
 		for zone in SmoothTerrain.zones_using(point):
 			if zone.x >= BASE_ZONES_LOW.x and zone.x <= BASE_ZONES_HIGH.x and zone.z >= BASE_ZONES_LOW.y and zone.z <= BASE_ZONES_HIGH.y:
@@ -407,7 +416,32 @@ func _apply_terrain(updates: Dictionary) -> bool:
 		rebuild_terrain_piece(zone)
 	for tile: Vector2i in tiles:
 		_rebuild_lawn_tile(tile)
-	return true
+
+# 0.0.5.11 : la terre et le sable tombent peu à peu (un cran de 50 cm toutes les FALL_SECONDS).
+const FALL_SECONDS := 0.06
+var fall_time := 0.0
+
+func _settle_terrain(delta: float) -> void:
+	if terrain.unstable.is_empty():
+		fall_time = 0.0
+		return
+	fall_time += delta
+	if fall_time < FALL_SECONDS:
+		return
+	fall_time = 0.0
+	var moved := terrain.settle_step()
+	if not moved.is_empty():
+		_refresh_terrain(moved)
+
+# Tout laisser retomber d'un coup (tests, et avant d'enregistrer en quittant).
+func settle_all(limit: int = 2000) -> void:
+	var moved := {}
+	while not terrain.unstable.is_empty() and limit > 0:
+		limit -= 1
+		for point in terrain.settle_step():
+			moved[point] = true
+	if not moved.is_empty():
+		_refresh_terrain(moved.keys())
 
 
 func spawn_position() -> Vector3:
@@ -654,6 +688,8 @@ func save_now() -> bool:
 	autosave_time = 0.0
 	if save_folder.is_empty() or not is_instance_valid(player):
 		return true
+	# 0.0.5.11 : ce qui tombe encore est posé à sa place avant d'enregistrer.
+	settle_all()
 	var ok := Store.write_json(save_folder.path_join(Store.PLAYER_FILE), player_data())
 	for zone: Vector3i in dirty_zones.keys():
 		if loaded_zones.has(zone) and not _save_zone(zone):
@@ -901,10 +937,12 @@ func _process(delta: float) -> void:
 	if Zones.zone_of(here) != zone_center:
 		update_zones(here)
 	process_zone_queue()
+	_settle_terrain(delta)
 	hint.text = notice if notice_time > 0.0 else ""
 	_update_coordinates()
 
 # level : 0 = −, 1 = Par défaut, 2 = + (textes complets d'avant 0.0.3.3), selon Synthèse des textes.
+# 0.0.5.11 : plus affiché (page Comment jouer retirée) ; gardé comme résumé des commandes, vérifié par les tests.
 static func get_help_text(level: int = 2) -> String:
 	if level == 0:
 		return "ZQSD : marcher. ↑ ↓ + A : vitesse (⌫ ⌫ : défaut). Espace : sauter ; deux fois : voler. Clic gauche : creuser ; droit : poser, aplanir ou lisser (B + T).
@@ -917,7 +955,7 @@ Y : se baisser. R : courir (mode dans Contrôles).
 Espace deux fois : voler (Espace monte, Y descend) ; encore deux fois : arrêter.
 Clic gauche : creuser ; clic droit : pinceau (B + T : poser, aplanir, lisser).
 B + molette : taille du geste (1/8, 1/4, 1/2 bloc). Molette : sable ou terre.
-Échap : pause. F1 : liste des mondes. F2 : Comment jouer. F3 : Informations.
+Échap : pause. F1 : liste des mondes. F3 : Informations.
 F4 : vue (première personne, de derrière, de devant).
 Portée : %d blocs. Maximum : %d blocs, hauteur %d (Y 0 sur le sol plat).
 Constructions et position sauvegardées (pause, retour, fermeture, toutes les 45 s).
@@ -949,7 +987,7 @@ Le sable reste immobile, même sans support.
 
 Échap : pause et souris libre. Reprendre / Échap : retour direct au jeu.
 Le clic de capture ne casse ni ne pose. F1 : liste des mondes.
-F2 : Comment jouer. F3 : Informations du monde (jeu en pause).
+F3 : Informations du monde (jeu en pause).
 F4 : changer de vue, première personne, de derrière, puis de devant (on voit son personnage).
 
 Portée : %d blocs. Base protégée. Maximum : %d blocs présents.

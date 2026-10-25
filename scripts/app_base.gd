@@ -231,9 +231,6 @@ var attributes_gate_button: Button
 var attributes_gate_confirm: Button
 var attributes_gate_cancel: Button
 var attributes_scroll: ScrollContainer
-var how_button: Button
-var help_back_button: Button
-var help_text: RichTextLabel
 var home_version: RichTextLabel
 var pause_version: RichTextLabel
 var info_button: Button

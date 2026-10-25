@@ -256,3 +256,64 @@ static func flat_mesh() -> ArrayMesh:
 	var mesh := ArrayMesh.new()
 	mesh.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arrays)
 	return mesh
+
+# 0.0.5.11 : gravité de la terre et du sable. Un point plein sans rien dessous tombe d'un cran ; posé
+# mais trop en hauteur par rapport au côté, il glisse en bas sur le côté (talus). Le sable glisse dès
+# 1 m de dénivelé sur 50 cm (talus de 45° au plus) : on peut en faire une petite pile qui s'étale ;
+# la terre tient mieux (1,5 m : talus plus raide). Le sol de la graine se comporte comme la terre.
+# Un vide plus loin (pas juste dessous ni à côté) ne fait rien tomber. Points à vérifier : unstable.
+var unstable: Dictionary = {}
+const SIDES := [Vector3i(1, 0, 0), Vector3i(-1, 0, 0), Vector3i(0, 0, 1), Vector3i(0, 0, -1)]
+
+func solid(point: Vector3i) -> bool:
+	# La base indestructible porte tout, sous la profondeur qu'on peut creuser.
+	return point.y < LOW_POINT or density(point) > 0.0
+
+# Après un changement : le point, ceux au-dessus et autour sont à vérifier.
+func wake(point: Vector3i) -> void:
+	for dx in range(-1, 2):
+		for dy in range(-1, 2):
+			for dz in range(-1, 2):
+				unstable[point + Vector3i(dx, dy, dz)] = true
+
+# Où tombe ou glisse ce point (lui-même s'il tient).
+func fall_target(point: Vector3i) -> Vector3i:
+	if point.y <= LOW_POINT or not solid(point):
+		return point
+	var below := point + Vector3i.DOWN
+	if not solid(below):
+		return below
+	# Talus : un côté libre, et assez de vide en dessous de ce côté.
+	var drop := 2 if materials.get(point, DIRT) == SAND else 3
+	var first := absi(hash(point)) % 4
+	for turn in range(4):
+		var side: Vector3i = point + SIDES[(first + turn) % 4]
+		if solid(side):
+			continue
+		var free := true
+		for depth in range(1, drop):
+			free = free and not solid(side + Vector3i.DOWN * depth)
+		if free:
+			return side + Vector3i.DOWN
+	return point
+
+# Un pas de chute : au plus « limit » points vérifiés, du plus bas au plus haut ; renvoie les points changés.
+func settle_step(limit: int = 96) -> Array[Vector3i]:
+	var moved: Array[Vector3i] = []
+	if unstable.is_empty():
+		return moved
+	var points: Array = unstable.keys()
+	points.sort_custom(func(a: Vector3i, b: Vector3i): return a.y < b.y)
+	for point: Vector3i in points.slice(0, limit):
+		unstable.erase(point)
+		var target := fall_target(point)
+		if target == point or absi(target.x) > 2 * 57 or absi(target.z) > 2 * 57:
+			continue
+		var value := density(point)
+		var kind: int = materials.get(point, DIRT)
+		set_density(target, maxf(value, ADDED), kind)
+		set_density(point, DUG)
+		moved.append_array([point, target])
+		wake(point)
+		wake(target)
+	return moved

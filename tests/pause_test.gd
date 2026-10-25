@@ -50,16 +50,8 @@ func _run() -> void:
 	await create_timer(0.15, true).timeout
 	check(player.position == saved_position and player.velocity == saved_velocity, "physics remains frozen while paused")
 	check(world.blocks.size() == count and player.actions.place_remaining == 0 and player.actions.break_remaining == 0, "no block action or countdown while paused")
-	app.how_button.pressed.emit()
-	await process_frame
-	check(app.page == "help" and paused, "Comment jouer opens while game stays paused")
-	for text in ["Molette", "Paramètres", "25 blocs", "5 blocs", "1200", "sauvegard"]:
-		check(app.help_text.text.contains(text), "help retains information: " + text)
-	app._unhandled_key_input(escape)
-	check(app.page == "pause" and paused, "Escape from help returns to pause without resuming")
-	app.how_button.pressed.emit()
-	app.help_back_button.pressed.emit()
-	check(app.page == "pause" and paused, "help Back button returns to pause")
+	# 0.0.5.11 : plus de page Comment jouer.
+	check(not app.pages.has("help"), "no Comment jouer page in pause (0.0.5.11)")
 	await process_frame
 	await process_frame
 	var panel: Control = app.menu_panel
@@ -88,7 +80,6 @@ func _run() -> void:
 		root.push_input(escape.duplicate())
 		check(app.page == "playing" and not paused and not player.actions.breaking and not player.actions.placing, "Escape cycle %d resumes exactly once without residual interaction" % index)
 	app.pause_game()
-	app.open_help()
 	var key := InputEventKey.new()
 	key.keycode = KEY_F1
 	key.physical_keycode = KEY_F1

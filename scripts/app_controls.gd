@@ -431,7 +431,7 @@ func _capture_control(event: InputEvent) -> void:
 	else:
 		part = Controls.from_event(event)
 		if part.is_empty():
-			settings_message.text = "Touche réservée (Échap, F1, F2, F3) : choisissez-en une autre."
+			settings_message.text = "Touche réservée (Échap) : choisissez-en une autre."
 			return
 	# 0.0.4.20 : la touche va dans la case choisie ; Échap la vide (case retirée, sauf la seule de l'action :
 	# plus aucune touche). Les autres touches restent.

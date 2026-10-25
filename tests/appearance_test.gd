@@ -77,18 +77,14 @@ func _run() -> void:
 	check(not hidden.is_empty() and hidden.all(func(label): return not label.visible), "empty − texts are hidden")
 	app.show_page("worlds")
 	app.open_world(item.id)
-	var help := []
 	for level in range(3):
 		app.settings.values.text_detail = app.DETAIL_LEVELS[level]
 		app.pause_game()
-		app.open_help()
-		help.append(app.help_text.text.length())
 		app.show_page("pause")
 		app.open_world_info()
 		check(app.info_text.text.contains("Mode : Par défaut"), "world info always shows the mode: " + app.DETAIL_LEVELS[level])
 		app.show_page("pause")
 		app.resume_game()
-	check(help[0] < help[1] and help[1] < help[2], "help text follows synthesis level")
 	app.return_to_worlds()
 	app.refresh_world_list(item.id)
 	app.world_settings_button.pressed.emit()

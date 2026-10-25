@@ -58,8 +58,6 @@ func _run() -> void:
 			escape.pressed = true
 			root.push_input(escape)
 		check(app.page == "pause" and paused, "Back or Escape returns only to pause")
-		app.open_help()
-		check(not app.help_text.text.contains("Collines générées") and not app.help_text.text.contains("Graine :") and not app.help_text.text.contains("Zone de génération"), "command help does not duplicate world details")
 		app.show_page("pause")
 		var escape := InputEventKey.new()
 		escape.keycode = KEY_ESCAPE

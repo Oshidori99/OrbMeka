@@ -400,22 +400,9 @@ La graine et le terrain initial sont conservés." % Catalog.MAX_NAME_LENGTH])
 	resume_button = _button("Reprendre", pause_page, resume_game)
 	# 0.0.3.9 : Paramètres aussi en pause, juste sous Reprendre (sans Attributs dans un monde par défaut).
 	pause_settings_button = _button("Paramètres", pause_page, open_pause_settings)
-	how_button = _button("Comment jouer", pause_page, open_help)
 	info_button = _button("Informations du monde", pause_page, open_world_info)
 	_button("Retour aux mondes", pause_page, return_to_worlds)
-	var help_page := _page(stack, "Comment jouer")
-	pages.help = _page_root(help_page)
-	var scroll := ScrollContainer.new()
-	scroll.custom_minimum_size = Vector2(0, 350)
-	menu_reserved_heights[scroll] = 300.0
-	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
-	help_page.add_child(scroll)
-	help_text = _text_label()
-	help_text.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	help_text.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	_font_size(help_text, 17)
-	scroll.add_child(help_text)
-	help_back_button = _button("Retour à la pause", help_page, func(): show_page("pause"))
+	# 0.0.5.11 : plus de page Comment jouer (demande de l'utilisateur) : pause, Paramètres, Informations.
 	var info_page := _page(stack, "Informations du monde")
 	pages.world_info = _page_root(info_page)
 	info_text = _text_label()
@@ -426,7 +413,6 @@ La graine et le terrain initial sont conservés." % Catalog.MAX_NAME_LENGTH])
 	shortcut_hints = Label.new()
 	shortcut_hints.name = "ShortcutHints"
 	shortcut_hints.text = "F1 : Retour aux mondes
-F2 : Comment jouer
 F3 : Informations du monde
 F4 : Changer de vue"
 	layer.add_child(shortcut_hints)
@@ -514,8 +500,6 @@ func show_page(next_page: String) -> void:
 		resume_button.grab_focus()
 	elif page == "world_info":
 		info_back_button.grab_focus()
-	elif page == "help":
-		help_back_button.grab_focus()
 	elif page == "delete":
 		cancel_delete_button.grab_focus()
 	else:
@@ -775,14 +759,6 @@ func _process(_delta: float) -> void:
 		launcher_status.text = ""
 		fill_launcher()
 
-func open_help() -> void:
-	if page != "pause" or not is_instance_valid(active_world):
-		return
-	help_text.text = WorldRules.get_help_text(DETAIL_LEVELS.find(settings.values.text_detail)) + "
-
-Bloc choisi : %s · %d blocs présents." % [WorldRules.BLOCK_NAMES[active_world.player.selected_type], active_world.blocks.size()]
-	show_page("help")
-
 func open_world_info() -> void:
 	if page != "pause" or not is_instance_valid(active_world):
 		return
@@ -812,22 +788,19 @@ func _unhandled_input(event: InputEvent) -> void:
 	if event is InputEventAction and event.is_pressed():
 		_menu_shortcut(event)
 
-# F1 à F3 par défaut, modifiables depuis 0.0.5.10 (Contrôles → Raccourcis) ; Échap reste réservé.
+# F1 et F3 par défaut, modifiables depuis 0.0.5.10 (Contrôles → Raccourcis) ; Échap reste réservé.
 func _menu_shortcut(event: InputEvent) -> void:
-	# Paramètres ouverts depuis la pause comptent comme une page de la partie (F1, F2, F3).
-	var in_game_pages := ["playing", "pause", "help", "world_info", "settings"] if is_instance_valid(active_world) else ["playing", "pause", "help", "world_info"]
+	# Paramètres ouverts depuis la pause comptent comme une page de la partie (F1, F3).
+	var in_game_pages := ["playing", "pause", "world_info", "settings"] if is_instance_valid(active_world) else ["playing", "pause", "world_info"]
 	if page in in_game_pages and event.is_action_pressed("worlds_menu"):
 		return_to_worlds()
 		get_viewport().set_input_as_handled()
-	elif is_instance_valid(active_world) and page in in_game_pages and (event.is_action_pressed("help_page") or event.is_action_pressed("world_info_page")):
+	elif is_instance_valid(active_world) and page in in_game_pages and event.is_action_pressed("world_info_page"):
 		if page == "playing":
 			pause_game()
 		else:
 			show_page("pause")
-		if event.is_action_pressed("help_page"):
-			open_help()
-		else:
-			open_world_info()
+		open_world_info()
 		get_viewport().set_input_as_handled()
 	elif event is InputEventKey and event.is_action_pressed("ui_cancel"):
 		_cancel_page()
@@ -848,7 +821,7 @@ func _input(event: InputEvent) -> void:
 func _cancel_page() -> void:
 	if page == "playing":
 		pause_game()
-	elif page in ["help", "world_info"]:
+	elif page == "world_info":
 		show_page("pause")
 	elif page == "pause":
 		resume_game()

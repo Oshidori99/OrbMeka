@@ -153,8 +153,43 @@ func _run() -> void:
 	player.brush_size = 0
 	world.notice_time = 0.0
 	check(SmoothTerrain.HIGH_POINT * SmoothTerrain.STEP == 4.0, "placing limited to 4 blocks above the ground")
-	var changed: Dictionary = world.terrain.changes.duplicate()
+	# 0.0.5.11 : gravité. Un point de terre en l'air tombe jusqu'au sol.
+	var floating: Vector3i = SmoothTerrain.point_of(Vector3(40.25, 2.0, 40.25))
+	world.terrain.set_density(floating, 0.5, SmoothTerrain.DIRT)
+	world.terrain.wake(floating)
+	world.settle_all()
+	var landed := Vector3i(floating.x, 0, floating.z)
+	check(world.terrain.density(floating) <= 0.0 and world.terrain.density(landed) > 0.0 and world.terrain.material(landed) == SmoothTerrain.DIRT, "dirt with nothing below falls onto the ground")
+	# Une colonne de sable s'étale (talus), une petite pile de terre tient.
+	var sand_base: Vector3i = SmoothTerrain.point_of(Vector3(45.25, 0.0, 45.25))
+	for height in range(3):
+		world.terrain.set_density(sand_base + Vector3i(0, height, 0), 0.5, SmoothTerrain.SAND)
+		world.terrain.wake(sand_base + Vector3i(0, height, 0))
+	world.settle_all()
+	check(world.terrain.density(sand_base + Vector3i(0, 2, 0)) <= 0.0 and world.terrain.density(sand_base + Vector3i(0, 1, 0)) <= 0.0, "a sand column spreads out instead of standing")
+	var spread := 0
+	for side in SmoothTerrain.SIDES:
+		if world.terrain.density(sand_base + side) > 0.0:
+			spread += 1
+	check(spread == 2 and world.terrain.density(sand_base) > 0.0, "the sand slid to the sides, nothing lost")
+	var dirt_base: Vector3i = SmoothTerrain.point_of(Vector3(50.25, 0.0, 45.25))
+	for height in range(2):
+		world.terrain.set_density(dirt_base + Vector3i(0, height, 0), 0.5, SmoothTerrain.DIRT)
+		world.terrain.wake(dirt_base + Vector3i(0, height, 0))
+	world.settle_all()
+	check(world.terrain.density(dirt_base + Vector3i(0, 1, 0)) > 0.0, "a small dirt pile (1 m) holds")
+	# Creuser sous de la terre posée la fait tomber ; un vide plus loin ne fait rien tomber.
+	world.terrain.set_density(dirt_base + Vector3i(0, -1, 0), SmoothTerrain.DUG)
+	world.terrain.wake(dirt_base + Vector3i(0, -1, 0))
+	world.settle_all()
+	check(world.terrain.density(dirt_base + Vector3i(0, -1, 0)) > 0.0 and world.terrain.density(dirt_base + Vector3i(0, 1, 0)) <= 0.0, "digging under the pile makes it fall into the hole")
+	var far_hole: Vector3i = dirt_base + Vector3i(4, -2, 0)
+	world.terrain.set_density(far_hole, SmoothTerrain.DUG)
+	world.terrain.wake(far_hole)
+	world.settle_all()
+	check(world.terrain.density(dirt_base) > 0.0 and world.terrain.density(dirt_base + Vector3i(0, -1, 0)) > 0.0, "a hole 2 m away (not right below) does not make the pile fall")
 	check(world.save_now(), "saved")
+	var changed: Dictionary = world.terrain.changes.duplicate()
 	var zone_file := FOLDER.path_join(Zones.zone_file(SmoothTerrain.point_zone(point)))
 	var saved: Dictionary = Zones.read_zone(zone_file)
 	check(saved.has("data") and saved.data.format == Zones.FORMAT and saved.data.densite.size() >= 1, "zone file stores only changed points (format 3)")
