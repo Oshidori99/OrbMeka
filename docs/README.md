@@ -1,6 +1,23 @@
-# OrbMeka™ — prototype 0.0.5.17
+# OrbMeka™ — prototype 0.0.5.18
 
 Godot 4.7 / GDScript. Formes et couleurs simples ; assets externes seulement sous licence vérifiée (sons CC0, assets/sounds/CREDITS.txt).
+
+## 0.0.5.18 — Monde plus grand, déserts et rochers (#121)
+- **Mondes de 20 × 20 zones** (160 m, X et Z de −80 à 79 ; construction de −73 à 73), anciens mondes compris
+  (leur terrain d'origine ne change pas, il s'agrandit autour).
+- **Génération version 3** (nouveaux mondes) : déserts sur environ 12 % du sol, tailles 1, 3 à 4 et 6 à 7 zones,
+  plus de grands que de petits (petits 1 chance sur 133 par zone, moyens 1 sur 100, grands 1 sur 80) ;
+  3 ou 4 trous énormes pour 256 zones (1 sur 72), jusque dans la pierre. Curseurs : de 1 sur 1 à 1 sur 400.
+- **Roche-mère** : noire, teintée de rouge (au fond d'un puits creusé à la pioche).
+- **Rochers (essai)** : une norme de 7 tailles (minuscule 40 cm, petit, plutôt petit, moyen, plutôt grand,
+  grand, énorme 4 m) et 7 formes (rond, plat, dressé, anguleux, allongé, bosselé, en coin), faits dans le jeu
+  (scripts/rocks.gd). Monde **TestTailleRocher** créé avec les 49 rochers et leurs étiquettes (objets.json).
+  Les plus petits rochers restent plus gros qu'un gros caillou (les cailloux viendront à part).
+- **Vitrine de l'accueil** : vrai terrain (collines, herbe dessus, brume), graine 20612.
+
+Tests : smooth_terrain (Roche-mère, rochers), custom_generation et custom_world_menu (version 3, 1 sur 400),
+world_consistency et interface_info (160 m) ; tests choisis réussis. Captures : rochers, vitrine.
+À tester manuellement : TestTailleRocher, trous énormes, FPS du monde plus grand sur le Web.
 
 ## 0.0.5.17 — Distance d'affichage et relief version 2 (#121)
 - **Distance d'affichage** (Vidéo → Jeu) : 8 zones de 8 m par défaut, de 1 à 32, comptée à l'horizontale.

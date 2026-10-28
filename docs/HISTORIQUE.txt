@@ -3,6 +3,9 @@ Du plus récent au plus ancien. Ce fichier est mis à jour à chaque version.
 
 === Thème « Monde » (0.0.5 et suivantes) ===
 
+0.0.5.18 — Monde plus grand, déserts et rochers
+Mondes de 20 × 20 zones ; déserts 12 % (1, 3-4, 6-7 zones), trous énormes, Roche-mère noire-rouge ; essai de rochers ; vitrine.
+
 0.0.5.17 — Distance d'affichage et relief version 2
 Vue réglable de 1 à 32 zones (8), comptée à l'horizontale ; relief moins plat, déserts plus rares ; Génération du monde.
 

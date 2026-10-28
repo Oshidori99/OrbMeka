@@ -9,6 +9,8 @@ extends RefCounted
 const ROOT := "user://mondes"
 const BASE_FILE := "monde.json"
 const PLAYER_FILE := "joueur.json"
+# 0.0.5.18 : objets posés dans le monde (rochers pour l'instant ; monde d'essai TestTailleRocher).
+const OBJECTS_FILE := "objets.json"
 const ZONES_DIR := "zones"
 const CHANGES_FILE := "zones/modifications.json"
 const FORMAT := 1

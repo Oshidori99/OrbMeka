@@ -44,7 +44,7 @@ func _run() -> void:
 	check(app.page == "home", "Escape returns from settings to home")
 	app.information_button.pressed.emit()
 	check(app.page == "information" and app.pages.information.get_child(0).text == "Informations" and app.fold_entries.has("information:generation") and app.home_generation_text.text.contains("Chances par zone"), "home Informations has a foldable Génération du monde (0.0.5.17)")
-	for text in ["largeur 128 × longueur 128", "hauteur maximale 25", "plage de sable d'environ 21 m²", "Graine choisie à la création", "constructions et position sauvegardés"]:
+	for text in ["largeur 160 × longueur 160", "hauteur maximale 25", "plage de sable d'environ 21 m²", "Graine choisie à la création", "constructions et position sauvegardés"]:
 		check(app.generation_info.text.contains(text), "general information includes: " + text)
 	check(not app.generation_info.text.contains("Monde privé") and not app.generation_info.text.contains("123456789"), "home information contains no specific world name or seed")
 	check(not is_instance_valid(app.active_world) and not paused and Input.mouse_mode == Input.MOUSE_MODE_VISIBLE, "home screens do not start gameplay or capture pointer")

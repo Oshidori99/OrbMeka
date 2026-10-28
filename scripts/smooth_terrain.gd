@@ -204,9 +204,13 @@ var materials: Dictionary = {}
 const SAND := 0
 const DIRT := 2
 const STONE := 1
+# 0.0.5.18 : la Roche-mère a sa matière (noire teintée de rouge), pour la voir au fond d'un puits.
+const BEDROCK := 3
 
 # Matière du sol de la graine : terre (-1, aspect du sol avec herbe), sable des déserts, pierre ou Roche-mère.
 func natural_kind(point: Vector3i) -> int:
+	if point.y <= BEDROCK_TOP:
+		return BEDROCK
 	if point.y <= STONE_TOP:
 		return STONE
 	# 0.0.5.15 : sable sous les déserts, sur DESERT_SAND mètres, puis la terre.
@@ -401,17 +405,17 @@ func zone_mesh(zone: Vector3i) -> Array:
 					corners[4] + corners[5] + corners[6] + corners[7] - corners[0] - corners[1] - corners[2] - corners[3])
 				cell_normal[cell] = (-slope).normalized() if slope.length_squared() > 0.000001 else Vector3.UP
 				# Couleur des sommets (0.0.5.9) : alpha 0 = sable posé, bleu 0 = terre nue posée, blanc = sol de la graine ;
-				# 0.0.5.12 : vert 0 = pierre.
-				var paint := Vector3.ZERO
+				# 0.0.5.12 : vert 0 = pierre ; 0.0.5.18 : rouge 0 (avec vert 0) = Roche-mère.
+				var paint := Vector4.ZERO
 				var weight := 0
 				for index in range(8):
 					if corners[index] > 0.0:
 						var corner: Vector3i = cell + corner_at[index]
 						var kind: int = kinds.get(corner, natural_kind(start + corner))
-						paint += Vector3(1.0 if kind == SAND else 0.0, 1.0 if kind == DIRT else 0.0, 1.0 if kind == STONE else 0.0)
+						paint += Vector4(1.0 if kind == SAND else 0.0, 1.0 if kind == DIRT else 0.0, 1.0 if kind == STONE or kind == BEDROCK else 0.0, 1.0 if kind == BEDROCK else 0.0)
 						weight += 1
 				paint /= maxf(weight, 1)
-				cell_color[cell] = Color(1.0, 1.0 - paint.z, 1.0 - paint.y, 1.0 - paint.x)
+				cell_color[cell] = Color(1.0 - paint.w, 1.0 - paint.z, 1.0 - paint.y, 1.0 - paint.x)
 	# Une face par arête traversée, entre les 4 sous-cellules qui la partagent ; la zone garde les arêtes
 	# qui partent de ses propres points (pas de double avec la zone voisine).
 	var axes := [Vector3i(1, 0, 0), Vector3i(0, 1, 0), Vector3i(0, 0, 1)]
@@ -483,6 +487,8 @@ static func flat_mesh() -> ArrayMesh:
 # la terre tient mieux (1,5 m : talus plus raide). Le sol de la graine se comporte comme la terre.
 # Un vide plus loin (pas juste dessous ni à côté) ne fait rien tomber. Points à vérifier : unstable.
 var unstable: Dictionary = {}
+# Limite (m) où la terre et le sable peuvent tomber : celle de la construction (world.gd, BUILD_LIMIT).
+const FALL_LIMIT := 73
 const SIDES := [Vector3i(1, 0, 0), Vector3i(-1, 0, 0), Vector3i(0, 0, 1), Vector3i(0, 0, -1)]
 
 # Pierre en place (de la graine) : ne tombe jamais.
@@ -531,7 +537,7 @@ func settle_step(limit: int = 96) -> Array[Vector3i]:
 	for point: Vector3i in points.slice(0, limit):
 		unstable.erase(point)
 		var target := fall_target(point)
-		if target == point or absi(target.x) > 2 * 57 or absi(target.z) > 2 * 57:
+		if target == point or absi(target.x) > 2 * FALL_LIMIT or absi(target.z) > 2 * FALL_LIMIT:
 			continue
 		var value := density(point)
 		var kind: int = materials.get(point, natural_kind(point))

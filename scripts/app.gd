@@ -906,8 +906,8 @@ func _build_custom_world(stack: Node) -> void:
 	category.theme_type_variation = "OrbSection"
 	form.add_child(category)
 	var explanation := _text_label()
-	explanation.text = "Chaque réglage est une chance par zone de 8 × 8 m (le monde en compte 256), pas un nombre maximum.
-Plus à droite : plus fréquent (1 sur 1 : dans chaque zone ; 1 sur 64 : rare). Les reliefs peuvent se superposer.
+	explanation.text = "Chaque réglage est une chance par zone de 8 × 8 m (le monde en compte 400 : 20 × 20), pas un nombre maximum.
+Plus à droite : plus fréquent (1 sur 1 : dans chaque zone ; 1 sur 400 : très rare). Les reliefs peuvent se superposer.
 Sous chaque réglage : ce que ça donne à peu près dans le monde."
 	explanation.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	form.add_child(explanation)
@@ -926,16 +926,16 @@ Sous chaque réglage : ce que ça donne à peu près dans le monde."
 		row.add_child(enabled)
 		custom_enabled[key] = enabled
 		enabled.toggled.connect(func(on: bool):
-			custom_draft[key] = (int(spec.default) if spec.default > 0 else 64) if on else 0
+			custom_draft[key] = (int(spec.default) if spec.default > 0 else Generation.MAX_CHANCE) if on else 0
 			_sync_custom_option(key))
 		var rare := _text_label()
-		rare.text = "1/64"
+		rare.text = "1/%d" % Generation.MAX_CHANCE
 		row.add_child(rare)
 		_size_frequency_endpoint(rare)
 		rare.theme_changed.connect(func(): _size_frequency_endpoint(rare))
 		var slider := HSlider.new()
 		slider.min_value = 1
-		slider.max_value = 64
+		slider.max_value = Generation.MAX_CHANCE
 		slider.step = 1
 		slider.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		slider.custom_minimum_size.x = 140
@@ -956,7 +956,7 @@ Sous chaque réglage : ce que ça donne à peu près dans le monde."
 		_min_size(reset,Vector2(42,0))
 		reset.tooltip_text = "Rétablir la valeur par défaut : " + Generation.default_text(key)
 		slider.value_changed.connect(func(amount: float):
-			custom_draft[key] = 65 - int(amount)
+			custom_draft[key] = Generation.MAX_CHANCE + 1 - int(amount)
 			_refresh_custom_labels(key))
 	custom_apply_button = _button("Appliquer",form,func():
 		custom_generation = {} if custom_draft == Generation.defaults() else custom_draft.duplicate(true)
@@ -991,7 +991,7 @@ func _size_frequency_endpoint(label: RichTextLabel) -> void:
 
 func _sync_custom_option(key: String) -> void:
 	var n: int = custom_draft[key]
-	custom_sliders[key].set_value_no_signal(65 - (n if n > 0 else 64))
+	custom_sliders[key].set_value_no_signal(Generation.MAX_CHANCE + 1 - (n if n > 0 else Generation.MAX_CHANCE))
 	custom_sliders[key].editable = n > 0
 	custom_enabled[key].set_pressed_no_signal(n > 0)
 	_refresh_custom_labels(key)

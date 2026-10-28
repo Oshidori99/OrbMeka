@@ -66,6 +66,11 @@ void fragment() {
 			vec3 rock = mix(vec3(0.17,0.165,0.16), vec3(0.36,0.345,0.32), fbm(p*1.4));
 			rock = mix(rock, vec3(0.11,0.105,0.10), veins*0.55);
 			rock *= 0.88 + noise3(p*40.0)*0.24;
+			// 0.0.5.18 : Roche-mère (rouge du sommet à 0) : presque noire, teintée de rouge, veines plus rouges.
+			float bedrock = smoothstep(0.3, 0.7, 1.0 - tint.r);
+			vec3 deep = mix(vec3(0.035,0.012,0.012), vec3(0.09,0.025,0.02), fbm(p*1.7));
+			deep = mix(deep, vec3(0.16,0.03,0.025), veins*0.6);
+			rock = mix(rock, deep * (0.9 + noise3(p*40.0)*0.2), bedrock);
 			albedo = mix(albedo, rock, stone);
 			height = mix(height, (fbm(p*9.0)*0.01 + grains*0.001)*detail_fade, stone);
 		}

@@ -659,8 +659,8 @@ func step_flight(delta: float, direction: Vector2, vertical: float) -> void:
 	velocity = Vector3(movement.x, (fly_up if vertical > 0.0 else fly_down) * vertical * speed_scale, movement.z)
 	move_and_slide()
 	velocity.y = 0.0
-	position.x = clampf(position.x, -58.0, 58.0)
-	position.z = clampf(position.z, -58.0, 58.0)
+	position.x = clampf(position.x, -world.BUILD_LIMIT - 1.0, world.BUILD_LIMIT + 1.0)
+	position.z = clampf(position.z, -world.BUILD_LIMIT - 1.0, world.BUILD_LIMIT + 1.0)
 	position.y = minf(position.y, FLY_CEILING)
 
 # The same movement step is used by gameplay and windowless physics tests.
@@ -700,8 +700,8 @@ func step_movement(delta: float, direction: Vector2, jump_requested: bool) -> vo
 	velocity.z = movement.z
 	move_and_slide()
 	velocity.y = 0.0 if is_on_floor() or is_on_ceiling() else end_speed
-	position.x = clampf(position.x, -58.0, 58.0)
-	position.z = clampf(position.z, -58.0, 58.0)
+	position.x = clampf(position.x, -world.BUILD_LIMIT - 1.0, world.BUILD_LIMIT + 1.0)
+	position.z = clampf(position.z, -world.BUILD_LIMIT - 1.0, world.BUILD_LIMIT + 1.0)
 	if position.y < -10.0:
 		actions.cancel()
 		position = world.spawn_position()

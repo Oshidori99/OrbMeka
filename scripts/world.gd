@@ -9,14 +9,16 @@ const Zones = preload("res://scripts/world_zones.gd")
 const TerrainMaterials = preload("res://scripts/terrain_materials.gd")
 const WorldMetadata = preload("res://scripts/world_metadata.gd")
 const SmoothTerrain = preload("res://scripts/smooth_terrain.gd")
+const Rocks = preload("res://scripts/rocks.gd")
 const DIRT := 2
 const BLOCK_COLORS := [Color("#d8c291"), Color("#888b90"), Color("#855332")]
 const BLOCK_NAMES := ["Sable", "Pierre", "Terre"]
 const MAX_BLOCKS := 1200
-const BASE_SIZE := Vector3(128, 1, 128)
+# 0.0.5.18 : monde de 20 × 20 zones de 8 m (160 m ; 16 × 16 avant).
+const BASE_SIZE := Vector3(160, 1, 160)
 const MAX_BUILD_HEIGHT := 25
-# Construction permise de X et Z −57 à 57 (115 × 115 blocs), à l'intérieur de la base.
-const BUILD_LIMIT := 57
+# Construction permise de X et Z −73 à 73 (147 × 147 blocs), à l'intérieur de la base (−57 à 57 avant 0.0.5.18).
+const BUILD_LIMIT := 73
 
 var generated_hill_count := 0
 var generated_max_height := 0
@@ -94,6 +96,7 @@ func _ready() -> void:
 	if not saved_player.is_empty():
 		start_at = Vector3(float(saved_player.position[0]), 0.0, float(saved_player.position[2]))
 	_create_terrain(start_at)
+	_load_objects()
 	_create_blocks()
 	_migrate_step1()
 	# Ouverture : zones autour du point d'arrivée chargées tout de suite (ensuite, étalées sur les images).
@@ -299,11 +302,11 @@ func _update_fog() -> void:
 	environment.fog_depth_end = reach
 	environment.fog_sky_affect = 0.0
 
-# 0.0.5.8 : terrain lisse sur toute la base (zones de X et Z −64 à 63) ; base indestructible en dessous.
+# 0.0.5.8 : terrain lisse sur toute la base (0.0.5.18 : zones de X et Z −80 à 79) ; base indestructible en dessous.
 # 0.0.5.12 : la base (« Roche-mère », incassable) commence à 8 m sous le sol, sous 4 m de terre et 4 m de pierre.
 const BASE_TOP := SmoothTerrain.BEDROCK_TOP * SmoothTerrain.STEP
-const BASE_ZONES_LOW := Vector2i(-8, -8)
-const BASE_ZONES_HIGH := Vector2i(7, 7)
+const BASE_ZONES_LOW := Vector2i(-10, -10)
+const BASE_ZONES_HIGH := Vector2i(9, 9)
 
 # Points changés de tous les fichiers de zone (lus une fois à l'ouverture ; les blocs restent lus par zone).
 func _read_terrain_changes() -> void:
@@ -592,7 +595,7 @@ func player_coordinates() -> Vector3i:
 	var feet: Vector3 = player.position
 	return Vector3i(floori(feet.x), floori(feet.y + 0.001), floori(feet.z))
 
-# Bornes des cases (min, max) d'une étendue centrée sur 0, ex. base de 128 : −64 à 63.
+# Bornes des cases (min, max) d'une étendue centrée sur 0, ex. base de 160 : −80 à 79.
 static func cell_range(size: int) -> Vector2i:
 	var low := -floori(size / 2.0)
 	return Vector2i(low, low + size - 1)
@@ -1238,3 +1241,56 @@ func set_grass_distance(distance: float) -> void:
 	TerrainMaterials.grass_range = grass_distance
 	for patch in find_children("GrassDetail","MultiMeshInstance3D",true,false):
 		patch.visibility_range_end = grass_distance
+
+# 0.0.5.18 : objets du monde (objets.json, dans son dossier) : rochers (taille et forme 1 à 7, position X Z,
+# rotation) et étiquettes (textes flottants, pour les mondes d'essai). Posés sur le sol de la graine.
+var rocks_node: Node3D
+
+static func valid_objects(data: Dictionary) -> bool:
+	if data.get("format") != 1.0 and data.get("format") != 1:
+		return false
+	for rock in data.get("rochers", []):
+		if not rock is Dictionary or not int(rock.get("taille", 0)) in range(1, 8) or not int(rock.get("forme", 0)) in range(1, 8):
+			return false
+		if not (rock.get("x") is float or rock.get("x") is int) or not (rock.get("z") is float or rock.get("z") is int):
+			return false
+	for label in data.get("etiquettes", []):
+		if not label is Dictionary or not label.get("texte") is String:
+			return false
+	return true
+
+func _load_objects() -> void:
+	if save_folder.is_empty() or not FileAccess.file_exists(save_folder.path_join(Store.OBJECTS_FILE)):
+		return
+	var saved := Store.read_json(save_folder.path_join(Store.OBJECTS_FILE), valid_objects)
+	if saved.has("error"):
+		_notify(saved.error)
+		notice_time = 8.0
+		return
+	place_objects(saved.get("data", {}))
+
+func place_objects(data: Dictionary) -> void:
+	rocks_node = Node3D.new()
+	rocks_node.name = "Rocks"
+	add_child(rocks_node)
+	var stone := TerrainMaterials.surface(true)
+	for rock in data.get("rochers", []):
+		var size := int(rock.taille)
+		var shape := int(rock.forme)
+		var body := Rocks.rock_body(size, shape, stone)
+		var x := float(rock.x)
+		var z := float(rock.z)
+		body.position = Vector3(x, terrain.height_at(x, z) + Rocks.bottom_offset(size, shape), z)
+		body.rotation.y = deg_to_rad(float(rock.get("rotation", 0.0)))
+		rocks_node.add_child(body)
+	for label in data.get("etiquettes", []):
+		var text := Label3D.new()
+		text.text = label.texte
+		text.billboard = BaseMaterial3D.BILLBOARD_ENABLED
+		text.font_size = 64
+		text.pixel_size = 0.006
+		text.outline_size = 12
+		var x := float(label.get("x", 0.0))
+		var z := float(label.get("z", 0.0))
+		text.position = Vector3(x, terrain.height_at(x, z) + float(label.get("hauteur", 1.5)), z)
+		rocks_node.add_child(text)

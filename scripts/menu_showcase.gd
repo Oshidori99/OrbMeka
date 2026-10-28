@@ -1,6 +1,6 @@
 extends Node3D
-# Fond 3D de l'accueil : un petit monde plat, généré en code, avec une caméra qui tourne lentement.
-# Règle : n'y montrer que ce qui existe déjà dans le jeu (sol plat, gazon, plage de sable, ciel,
+# Fond 3D de l'accueil : un petit monde (0.0.5.18 : collines du jeu), généré en code, avec une caméra qui tourne lentement.
+# Règle : n'y montrer que ce qui existe déjà dans le jeu (collines, gazon, plage de sable, ciel,
 # personnages du menu Personnage). Les idées pas encore dans le jeu sont gardées en image dans docs/idees/.
 #
 # ===== VITRINE DE LA VERSION (à modifier à chaque mise à jour) =====
@@ -12,9 +12,9 @@ extends Node3D
 # 2 ou 3, choisis parmi les nouveautés : liste NEWS_RUNNERS ([id, peau], peau vide pour un animal).
 # Chacun prend son modèle Blender, sinon une forme simple (character_model.gd, partagé avec le jeu).
 # Le reste du fichier (sol, gazon, plage, ciel, caméra) ne change pas d'une version à l'autre.
-const NEWS_VERSION := "0.0.5.17"
-const NEWS_TEXT := "Nouveau : relief plus vivant et vue réglable !
-Distance d'affichage de 1 à 32 zones (8 par défaut)."
+const NEWS_VERSION := "0.0.5.18"
+const NEWS_TEXT := "Nouveau : mondes plus grands (20 × 20 zones) !
+Trous énormes, déserts plus grands, Roche-mère noire et rouge."
 
 # 0.0.3.25 : les trois nouveautés de 0.0.3.23 en aller-retour au-dessus de l'herbe libre, devant la place
 # de sable et pierre (sous le panneau des menus, vers la droite), chacune sur sa rangée.
@@ -127,13 +127,20 @@ func _setup_environment() -> void:
 	sky_material.sky_top_color = Color("#4f63c4")
 	sky_material.sky_horizon_color = Color("#e7c3d6")
 	sky_material.ground_horizon_color = Color("#e7c3d6")
-	sky_material.ground_bottom_color = Color("#759a65")
+	sky_material.ground_bottom_color = Color("#e7c3d6")
 	sky.sky_material = sky_material
 	environment.sky = sky
 	environment.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
 	environment.ambient_light_color = Color("#e6dcff")
 	environment.ambient_light_energy = 0.6
 	environment.tonemap_mode = Environment.TONE_MAPPER_FILMIC
+	# 0.0.5.18 : brume au bord du terrain de la vitrine (comme la distance d'affichage en partie).
+	environment.fog_enabled = true
+	environment.fog_mode = Environment.FOG_MODE_DEPTH
+	environment.fog_light_color = Color("#e7c3d6")
+	environment.fog_depth_begin = 30.0
+	environment.fog_depth_end = 58.0
+	environment.fog_sky_affect = 0.0
 	var world_environment := WorldEnvironment.new()
 	world_environment.environment = environment
 	add_child(world_environment)
@@ -146,25 +153,43 @@ func _setup_environment() -> void:
 	WorldRules.apply_compat_light(environment, sun)
 	add_child(sun)
 
+# 0.0.5.18 : sol de la vitrine comme en partie : terrain lisse de la génération standard (collines douces,
+# parfois un désert), plat sous la caméra et la plage des personnages ; herbe posée dessus ; brume au loin.
+const Terrain = preload("res://scripts/smooth_terrain.gd")
+const Generation = preload("res://scripts/world_generation.gd")
+const SHOWCASE_ZONES := Vector2i(-5, 2)
+var terrain := Terrain.new()
+
 func _build_ground() -> void:
-	var ground := MeshInstance3D.new()
-	var box := BoxMesh.new()
-	box.size = Vector3(240, 1, 240)
-	ground.mesh = box
-	ground.position = Vector3(0, -0.5, 0)
+	terrain.setup(SCENE_SEED, [[Vector2(TOWER_CELL) + Vector2(1.5, 1.5), 5.0], [BEACH_CENTER, BEACH_RADIUS + 4.0]], Generation.defaults())
 	var ground_material := TerrainMaterials.surface(true)
 	ground_material.set_shader_parameter("sand_center", BEACH_CENTER)
 	ground_material.set_shader_parameter("sand_radius", BEACH_RADIUS)
-	ground.material_override = ground_material
-	add_child(ground)
+	for x in range(SHOWCASE_ZONES.x, SHOWCASE_ZONES.y + 1):
+		for z in range(SHOWCASE_ZONES.x, SHOWCASE_ZONES.y + 1):
+			for y in [-1, 0]:
+				var surface: Array = terrain.zone_mesh(Vector3i(x, y, z))
+				if surface[0].is_empty():
+					continue
+				var arrays := []
+				arrays.resize(Mesh.ARRAY_MAX)
+				arrays[Mesh.ARRAY_VERTEX] = surface[0]
+				arrays[Mesh.ARRAY_NORMAL] = surface[1]
+				arrays[Mesh.ARRAY_COLOR] = surface[2]
+				var mesh := ArrayMesh.new()
+				mesh.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arrays)
+				var piece := MeshInstance3D.new()
+				piece.mesh = mesh
+				piece.material_override = ground_material
+				add_child(piece)
 
 func _build_scene() -> void:
-	# 0.0.5.5 : comme dans le jeu, tout plat : gazon réaliste et plage de sable plate (plus de collines
-	# ni de blocs). La plage est sous les personnages, entre la caméra et l'orbe.
+	# 0.0.5.5 : gazon réaliste et plage de sable plate ; 0.0.5.18 : sur les collines (pas dans les déserts).
 	# Herbe moins dense qu'en partie : l'accueil reste fluide derrière les menus flous.
 	TerrainMaterials.density = "low"
-	var lawn := TerrainMaterials.ground_grass({}, SCENE_SEED, BEACH_CENTER, BEACH_RADIUS)
+	var lawn := TerrainMaterials.ground_grass({}, SCENE_SEED, BEACH_CENTER, BEACH_RADIUS, func(at: Vector3): return terrain.is_desert(Vector2(at.x, at.z)), terrain.height_at)
 	add_child(lawn)
+
 
 func _build_orb() -> void:
 	# L'orbe de OrbMeka : une sphère lumineuse qui flotte au-dessus de la vitrine.

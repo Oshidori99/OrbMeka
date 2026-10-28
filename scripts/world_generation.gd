@@ -5,30 +5,36 @@ extends RefCounted
 # partout, déserts aux bords irréguliers) ; déserts moyens de 2 à 4 zones, grands de 4 à 6 (demande de
 # l'utilisateur), plus rares par défaut (environ 1/6 du sol en désert, contre 1/3 avant). Les mondes sans
 # paramètres (avant 0.0.5.16) gardent la génération de 0.0.5.15.
-const VERSION := 2
-const VERSIONS := [1, 2]
+# Version 3 (0.0.5.18) : monde de 20 × 20 zones ; déserts moyens de 3 à 4 zones, grands de 6 à 7, environ 12 %
+# du sol, plus de grands que de petits ; 3 ou 4 trous énormes jusque dans la pierre pour 256 zones.
+const VERSION := 3
+const VERSIONS := [1, 2, 3]
+# Chance la plus rare qu'on peut régler : 1 sur MAX_CHANCE par zone (64 avant 0.0.5.18).
+const MAX_CHANCE := 400
 const STANDARD_SMALL_DENOMINATOR := 8
 const STANDARD_GROUP_DENOMINATOR := 12
 const STANDARD_FEATURE_DENOMINATOR := 9
 const STANDARD_HILL_HEIGHT := 3.0
 const SPECS := [
-	{"key":"small_deserts", "label":"Petits déserts (1 zone)", "default":32},
-	{"key":"medium_deserts", "label":"Déserts moyens (2 à 4 zones)", "default":48},
-	{"key":"large_deserts", "label":"Grands déserts (4 à 6 zones)", "default":64},
+	{"key":"small_deserts", "label":"Petits déserts (1 zone)", "default":133},
+	{"key":"medium_deserts", "label":"Déserts moyens (3 à 4 zones)", "default":100},
+	{"key":"large_deserts", "label":"Grands déserts (6 à 7 zones)", "default":80},
 	{"key":"low_hills", "label":"Collines douces de 1 bloc", "default":6},
 	{"key":"high_hills", "label":"Collines douces de 2 à 3 blocs", "default":12},
 	{"key":"steep_hills", "label":"Crêtes abruptes", "default":9},
 	{"key":"smooth_holes", "label":"Trous aux bords doux", "default":12},
 	{"key":"steep_holes", "label":"Trous aux bords abrupts", "default":18},
 	{"key":"deep_holes", "label":"Trous bien profonds", "default":0},
-	{"key":"stone_holes", "label":"Grands trous : 2 à 3 blocs dans la pierre", "default":0},
+	{"key":"stone_holes", "label":"Trous énormes : 2 à 3 blocs dans la pierre", "default":72},
 ]
 # Taille des déserts (nombre de zones, et case où ils tiennent) selon la version.
 const DESERT_SIZES := {
 	1: {"medium_desert": [4, 6, 3, 2], "big_desert": [8, 11, 4, 3]},
 	2: {"medium_desert": [2, 4, 2, 2], "big_desert": [4, 6, 3, 2]},
+	3: {"medium_desert": [3, 4, 2, 2], "big_desert": [6, 7, 3, 3]},
 }
-const WORLD_ZONES := 256
+# 0.0.5.18 : monde de 20 × 20 zones (16 × 16 avant).
+const WORLD_ZONES := 400
 
 static func defaults() -> Dictionary:
 	var result := {"version": VERSION}
@@ -47,7 +53,7 @@ static func valid(value: Variant) -> bool:
 		return false
 	for spec in SPECS:
 		var n: Variant = value.get(spec.key)
-		if not (n is int or n is float) or not is_finite(float(n)) or n != int(n) or n < 0 or n > 64:
+		if not (n is int or n is float) or not is_finite(float(n)) or n != int(n) or n < 0 or n > MAX_CHANCE:
 			return false
 	return true
 
@@ -60,7 +66,7 @@ static func normalized(value: Dictionary) -> Dictionary:
 		result[spec.key] = int(value[spec.key])
 	return result
 
-# 0.0.5.17 : estimations affichées dans l'écran Monde personnalisé (moyennes, pour le monde de 256 zones).
+# 0.0.5.17 : estimations affichées dans l'écran Monde personnalisé (moyennes, pour le monde de WORLD_ZONES zones).
 static func average_size(key: String, version: int = VERSION) -> float:
 	if key == "small_deserts":
 		return 1.0
@@ -137,7 +143,7 @@ static func default_text(key: String) -> String:
 			return "jamais dans le monde standard" if spec.default == 0 else "1 chance sur %d par zone (monde standard)" % spec.default
 	return ""
 
-# Ce que donne une chance sur n, en clair : combien de zones sur les 256 du monde, ou quelle part du sol.
+# Ce que donne une chance sur n, en clair : combien de zones sur les WORLD_ZONES du monde, ou quelle part du sol.
 static func estimate_text(key: String, n: int, version: int = VERSION) -> String:
 	if n <= 0:
 		return "Jamais"

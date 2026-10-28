@@ -36,26 +36,26 @@ func _run() -> void:
 	root.size = Vector2i(1280,720)
 	var slider: HSlider = app.custom_sliders.small_deserts
 	check(slider.get_parent().get_child(1).size.x > 20 and slider.get_parent().get_child(3).size.x > 15, "frequency endpoint labels are visible")
-	check(app.custom_draft.small_deserts == 32 and int(slider.value) == 33, "slider starts at the standard 1/32 chance per zone")
-	check(app.custom_labels.small_deserts.text.contains("Valeur par défaut : 1 chance sur 32 par zone") and app.custom_labels.small_deserts.text.contains("% du sol"), "default and estimated share of the ground shown")
+	check(app.custom_draft.small_deserts == 133 and int(slider.value) == 268, "slider starts at the standard 1/133 chance per zone")
+	check(app.custom_labels.small_deserts.text.contains("Valeur par défaut : 1 chance sur 133 par zone") and app.custom_labels.small_deserts.text.contains("% du sol"), "default and estimated share of the ground shown")
 	slider.value = 1
-	check(app.custom_draft.small_deserts == 64 and app.custom_labels.small_deserts.text.contains("64"), "left endpoint is 1/64")
-	slider.value = 64
+	check(app.custom_draft.small_deserts == 400 and app.custom_labels.small_deserts.text.contains("400"), "left endpoint is 1/400")
+	slider.value = 400
 	check(app.custom_draft.small_deserts == 1 and app.custom_labels.small_deserts.text.begins_with("Dans chaque zone"), "right endpoint is 1/1")
 	app.reset_custom_option("small_deserts")
-	check(app.custom_draft.small_deserts == 32 and int(slider.value) == 33, "per-slider reset restores the standard value")
-	check(not app.custom_sliders.stone_holes.editable and app.custom_labels.stone_holes.text.contains("jamais dans le monde standard"), "absent category has no invented active frequency")
-	app.custom_enabled.stone_holes.button_pressed = true
-	check(app.custom_sliders.stone_holes.editable and app.custom_draft.stone_holes == 64, "new category can be enabled at 1/64")
-	app.reset_custom_option("stone_holes")
-	check(app.custom_draft.stone_holes == 0 and not app.custom_sliders.stone_holes.editable, "reset disables a category absent from the standard world")
-	slider.value = 34
+	check(app.custom_draft.small_deserts == 133 and int(slider.value) == 268, "per-slider reset restores the standard value")
+	check(not app.custom_sliders.deep_holes.editable and app.custom_labels.deep_holes.text.contains("jamais dans le monde standard"), "absent category has no invented active frequency")
+	app.custom_enabled.deep_holes.button_pressed = true
+	check(app.custom_sliders.deep_holes.editable and app.custom_draft.deep_holes == 400, "absent category can be enabled at 1/400")
+	app.reset_custom_option("deep_holes")
+	check(app.custom_draft.deep_holes == 0 and not app.custom_sliders.deep_holes.editable, "reset disables a category absent from the standard world")
+	slider.value = 370
 	check(app.custom_draft.small_deserts == 31, "slider supports every intermediate integer")
 	app.custom_apply_button.pressed.emit()
 	check(app.page == "create" and app.name_field.text == "Personnalisé" and app.seed_field.text == "123", "applying preserves name and seed")
 	check(app.custom_generation.small_deserts == 31, "applying retains chosen settings")
 	app.open_custom_world()
-	slider.value = 64
+	slider.value = 400
 	app._cancel_page()
 	check(app.page == "create" and app.custom_generation.small_deserts == 31, "Escape cancels draft without discarding applied options")
 	check(app.GENERAL_CATEGORIES.video.Jeu.keys.has("grass_zones") and app.GENERAL_CATEGORIES.video.Jeu.keys.has("view_distance"), "grass and view distances are under Video / Jeu")

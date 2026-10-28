@@ -16,10 +16,10 @@ func _run() -> void:
 	for source in ["res://scripts/world_generation.gd.uid","res://tests/custom_generation_test.gd.uid","res://tests/custom_world_menu_test.gd.uid"]:
 		check(ResourceUID.text_to_id(FileAccess.get_file_as_string(source).strip_edges()) > 0, "new script UID is valid")
 	var options := Generation.defaults()
-	check(options.version == 2 and options.small_deserts == 32 and options.medium_deserts == 48 and options.large_deserts == 64, "0.0.5.17 standard: fewer deserts (version 2)")
-	check(options.deep_holes == 0 and options.stone_holes == 0 and absf(Generation.desert_share(options) - 0.16) < 0.03, "deep pits absent by default; deserts cover about a sixth of the ground")
+	check(options.version == 3 and options.small_deserts == 133 and options.medium_deserts == 100 and options.large_deserts == 80, "0.0.5.18 standard (version 3): small deserts rarer than big ones")
+	check(options.deep_holes == 0 and absf(256.0 / options.stone_holes - 3.5) < 0.6 and absf(Generation.desert_share(options) - 0.12) < 0.015, "3 or 4 huge holes per 256 zones; deserts cover about 12 % of the ground")
 	check(Generation.valid({}) and Generation.valid(options), "legacy and custom options accepted")
-	for invalid in [-1,65,1.5,"24",null]:
+	for invalid in [-1,401,1.5,"24",null]:
 		var bad := options.duplicate()
 		bad.small_deserts = invalid
 		check(not Generation.valid(bad), "invalid frequency rejected")
@@ -31,7 +31,7 @@ func _run() -> void:
 		check(info.small_desert and info.landforms.size() == 7, "1/1 produces each feature at every zone")
 		for key in ["medium_desert","big_desert"]:
 			var cells: Array = info[key]
-			check(cells.size() >= (2 if key == "medium_desert" else 4) and cells.size() <= (4 if key == "medium_desert" else 6), "desert has the requested number of zones (version 2)")
+			check(cells.size() >= (3 if key == "medium_desert" else 6) and cells.size() <= (4 if key == "medium_desert" else 7), "desert has the requested number of zones (version 3 : 3-4 and 6-7)")
 			var unique := {}
 			for cell in cells:
 				unique[cell] = true
@@ -48,8 +48,8 @@ func _run() -> void:
 	old.version = 1
 	var old_info := Generation.zone_info(42, Vector2i(2, 3), old)
 	check(old_info.medium_desert.size() >= 4 and old_info.medium_desert.size() <= 6 and old_info.big_desert.size() >= 8 and old_info.big_desert.size() <= 11, "version 1 worlds keep their desert sizes")
-	check(Generation.valid(old) and not Generation.valid({"version": 3}), "versions 1 and 2 accepted, others refused")
-	check(Generation.estimate_text("medium_deserts", 24).contains("environ 11 désert") and Generation.estimate_text("steep_hills", 9).contains("environ 28 dans le monde"), "estimates in plain words")
+	check(Generation.valid(old) and not Generation.valid({"version": 4}), "versions 1 to 3 accepted, others refused")
+	check(Generation.estimate_text("medium_deserts", 25).contains("environ 16 désert") and Generation.estimate_text("steep_hills", 8).contains("environ 50 dans le monde"), "estimates in plain words (400 zones)")
 	var rare := options.duplicate()
 	for spec in Generation.SPECS:
 		rare[spec.key] = 64
@@ -91,7 +91,7 @@ func _run() -> void:
 	var copy: Dictionary = reopened.duplicate_world(item.id)
 	check(copy.id != item.id and copy.generation == options, "duplicate retains seed options with distinct identity")
 	var standard: Dictionary = reopened.create_world("Standard","123")
-	check(standard.generation == Generation.defaults(), "a new standard world saves the version 2 settings")
+	check(standard.generation == Generation.defaults(), "a new standard world saves the version 3 settings")
 	var legacy: Dictionary = reopened.create_world("Ancien","124","default",false,{})
 	check(legacy.generation.is_empty(), "worlds without settings keep the 0.0.5.15 generation")
 	Store.delete_folder(catalog.worlds_root)

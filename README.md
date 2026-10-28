@@ -1,7 +1,8 @@
-# OrbMeka™ 0.0.5.17
+# OrbMeka™ 0.0.5.18
 
 Dans Godot, ouvrez **project.godot**, puis **F5** pour lancer le jeu.
 
+0.0.5.18 : mondes de 20 × 20 zones, déserts 12 % (1, 3-4, 6-7 zones), trous énormes, Roche-mère noire-rouge, essai de rochers (7 tailles × 7 formes), vitrine avec collines.
 0.0.5.17 : distance d'affichage horizontale (8 zones, 1 à 32), relief moins plat, moins de déserts, écran Monde personnalisé plus clair, Génération du monde dans Informations.
 0.0.5.16 : Monde personnalisé à la création : dix fréquences de déserts, collines et trous.
 Les options sont sauvegardées avec le monde ; distance de l'herbe réglable dans Vidéo → Jeu.

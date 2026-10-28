@@ -24,7 +24,7 @@ func open(folder: String) -> Node3D:
 	var world: Node3D = WorldScene.instantiate()
 	world.terrain_seed = 4321
 	world.save_folder = folder
-	world.load_distance = 16
+	world.load_distance = 20
 	world.relief = false
 	root.add_child(world)
 	world.player.set_physics_process(false)
@@ -79,7 +79,7 @@ func _run() -> void:
 	print("Zone lisse recalculée en %.1f ms" % ((Time.get_ticks_usec() - started) / 1000.0))
 	# Monde : toute la base couverte de terrain plat, la base indestructible dessous.
 	var world := open(FOLDER)
-	check(world.terrain_pieces.size() == 16 * 16, "flat smooth ground covers the 128 m base, one piece per zone")
+	check(world.terrain_pieces.size() == 20 * 20, "flat smooth ground covers the 160 m base (0.0.5.18 : 20 × 20 zones), one piece per zone")
 	check(is_equal_approx(world.get_node("Ground").position.y + 0.5, -8.0), "Roche-mère (indestructible base) starts 8 m below the grass (0.0.5.12)")
 	check(SmoothTerrain.LOW_POINT * SmoothTerrain.STEP == -3.5 and SmoothTerrain.STONE_TOP * SmoothTerrain.STEP == -4.0 and SmoothTerrain.BEDROCK_TOP * SmoothTerrain.STEP == -8.0, "layers: 4 m of dirt, then 4 m of stone, then Roche-mère")
 	check(SmoothTerrain.new().natural_kind(Vector3i(0, -7, 0)) == -1 and SmoothTerrain.new().natural_kind(Vector3i(0, -8, 0)) == SmoothTerrain.STONE and SmoothTerrain.new().natural_kind(Vector3i(0, -15, 0)) == SmoothTerrain.STONE, "dirt down to 4 m, stone below")
@@ -118,6 +118,23 @@ func _run() -> void:
 		rocky = rocky or color.g < 0.5
 	check(rocky, "the bottom of a 4 m shaft shows stone")
 	check(shaft.fall_target(Vector3i(4, SmoothTerrain.STONE_TOP, 4)) == Vector3i(4, SmoothTerrain.STONE_TOP, 4) and shaft.solid(Vector3i(4, SmoothTerrain.BEDROCK_TOP - 3, 4)), "stone never falls; Roche-mère holds everything")
+	# 0.0.5.18 : la Roche-mère a sa propre couleur (noire, teintée de rouge) au fond d'un puits creusé à la pioche.
+	var to_bedrock := SmoothTerrain.new()
+	for y in range(SmoothTerrain.BEDROCK_TOP + 1, 0):
+		to_bedrock.set_density(Vector3i(4, y, 4), SmoothTerrain.DUG)
+	var bedrock_seen := false
+	for color in to_bedrock.zone_mesh(Vector3i(0, -1, 0))[2]:
+		bedrock_seen = bedrock_seen or (color.r < 0.5 and color.g < 0.5)
+	check(bedrock_seen and to_bedrock.natural_kind(Vector3i(0, SmoothTerrain.BEDROCK_TOP, 0)) == SmoothTerrain.BEDROCK, "Roche-mère painted black-red at the bottom of a shaft")
+	# 0.0.5.18 : rochers, 7 tailles × 7 formes ; monde d'essai TestTailleRocher.
+	var Rocks = load("res://scripts/rocks.gd")
+	var grid: Dictionary = Rocks.size_shape_grid()
+	check(grid.rochers.size() == 49 and Rocks.SIZES.size() == 7 and Rocks.SHAPES.size() == 7 and Rocks.SIZE_NAMES[0] == "minuscule" and Rocks.SIZE_NAMES[6] == "énorme", "7 sizes (minuscule to énorme) × 7 shapes")
+	var growing := true
+	for size in range(2, 8):
+		growing = growing and Rocks.rock_mesh(size, 1).get_aabb().size.x > Rocks.rock_mesh(size - 1, 1).get_aabb().size.x
+	var shapes_differ: bool = Rocks.rock_mesh(4, 2).get_aabb().size.y < Rocks.rock_mesh(4, 3).get_aabb().size.y * 0.5
+	check(growing and shapes_differ and world.valid_objects(grid), "sizes grow from 1 to 7; a flat rock is lower than an upright one; layout file valid")
 	# 0.0.5.14 : petites collines de terre selon la graine, plates autour de l'apparition.
 	var hills := SmoothTerrain.new()
 	hills.setup(4321, [[Vector2(0.5, 0.5), 9.0]])
