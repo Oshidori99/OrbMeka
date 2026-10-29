@@ -120,3 +120,39 @@ static func size_text(bytes: int) -> String:
 	if bytes < 1024:
 		return "%d o" % bytes
 	return ("%.1f Ko" % (bytes / 1024.0)).replace(".", ",")
+
+# 0.0.5.20 : dossier d'un monde nommé comme le monde (demande de l'utilisateur), nettoyé pour rester sûr :
+# lettres, chiffres, espaces et - _ ( ) . ' gardés, le reste remplacé par « _ » ; pas de point ni d'espace
+# au bout, pas de nom réservé de Windows, 48 caractères au plus ; « (2) », « (3) »… si déjà pris.
+const RESERVED_NAMES := ["CON", "PRN", "AUX", "NUL", "COM1", "COM2", "COM3", "COM4", "COM5", "COM6", "COM7", "COM8", "COM9", "LPT1", "LPT2", "LPT3", "LPT4", "LPT5", "LPT6", "LPT7", "LPT8", "LPT9"]
+
+static func clean_folder_name(name: String) -> String:
+	var result := ""
+	for character in name:
+		var code := character.unicode_at(0)
+		var allowed := character in " -_().'" or (code >= 48 and code <= 57) or (code >= 65 and code <= 90) or (code >= 97 and code <= 122) or code >= 192
+		result += character if allowed else "_"
+	result = result.strip_edges()
+	while result.ends_with(".") or result.ends_with(" "):
+		result = result.left(result.length() - 1)
+	while result.begins_with("."):
+		result = result.substr(1)
+	if result.is_empty():
+		result = "Monde"
+	if result.to_upper() in RESERVED_NAMES or result.get_slice(".", 0).to_upper() in RESERVED_NAMES:
+		result += "_"
+	return result.left(48)
+
+static func valid_folder_name(folder: String) -> bool:
+	return not folder.is_empty() and clean_folder_name(folder) == folder
+
+static func unique_folder_name(name: String, taken: Array) -> String:
+	var base := clean_folder_name(name)
+	var lowered := taken.map(func(each: String): return each.to_lower())
+	var candidate := base
+	var number := 2
+	while candidate.to_lower() in lowered:
+		var suffix := " (%d)" % number
+		candidate = base.left(48 - suffix.length()) + suffix
+		number += 1
+	return candidate

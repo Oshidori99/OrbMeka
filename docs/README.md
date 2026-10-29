@@ -1,6 +1,25 @@
-# OrbMeka™ — prototype 0.0.5.19
+# OrbMeka™ — prototype 0.0.5.20
 
 Godot 4.7 / GDScript. Formes et couleurs simples ; assets externes seulement sous licence vérifiée (sons CC0, assets/sounds/CREDITS.txt).
+
+## 0.0.5.20 — Grand monde, argile, boue et lacs allongés (#121, #122, #124, #128)
+- **Monde de 48 × 48 zones** (384 m, X et Z de −192 à 191 ; construction de −189 à 189), pour préparer les
+  niveaux de détail (#128). Seules les zones à portée sont préparées : l'ouverture reste rapide (environ 0,5 s sur PC).
+- **Génération version 5** (nouveaux mondes) : **lacs allongés** sur 1 × 2 zones (1 chance sur 48) en plus des
+  petits lacs d'une zone (1 sur 24), tous deux réglables dans Monde personnalisé ; **boue** au fond et au bord
+  des lacs (1 m), **argile** dessous (jusqu'à 2,5 m) et en **poches** dans la terre (1 chance sur 10 par zone,
+  0,5 à 1 m sous l'herbe), réglable aussi.
+- **Argile et boue** : nouvelles matières, avec leur aspect (argile orangée à grain fin, boue sombre et mouillée),
+  sans herbe ; la boue glisse comme le sable, l'argile tient comme la terre. On peut les poser : molette
+  (Sable, Terre, Argile, Boue, Pioche) ou touches 4 (argile) et 5 (boue).
+- **Dossiers des mondes au nom du monde** (ex. mondes/Test12) : les mondes existants sont renommés à la prochaine
+  ouverture du jeu ; renommer un monde renomme son dossier. Nom nettoyé (caractères interdits remplacés,
+  pas de « .. », pas de nom réservé de Windows, « (2) » si déjà pris).
+
+Tests : smooth_terrain (lacs 1 et 1 × 2 zones, boue, argile, poches, boue qui glisse, monde 48 × 48),
+world_save (dossiers nommés, renommage, noms sûrs), custom_generation, custom_world_menu, world_consistency,
+interface_info, menu, shortcuts_selection ; tests choisis réussis. Capture : lac allongé.
+À tester manuellement : argile et boue (aspect, pose), lacs, dossiers renommés, FPS sur le Web.
 
 ## 0.0.5.19 — Rochers à miner et petits lacs (#121, #124)
 - **Rochers plus gros** : de 60 cm (minuscule) à 5,4 m (énorme). Monde TestTailleRocher mis à jour.

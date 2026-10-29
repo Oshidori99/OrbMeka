@@ -43,7 +43,7 @@ func _run() -> void:
 		key(pair[0])
 		check(world.selected_block_label.text == "Bloc sélectionné : " + pair[1], "number key immediately updates " + pair[1])
 	# Same cycling function called by the wheel handler; no OS mouse input.
-	for expected in ["Terre", "Pioche", "Sable"]:
+	for expected in ["Terre", "Argile", "Boue", "Pioche", "Sable"]:
 		player.cycle_block(1)
 		check(world.selected_block_label.text == "Bloc sélectionné : " + expected, "wheel forward cycle updates " + expected)
 	player.cycle_block(-1)

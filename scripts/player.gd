@@ -195,6 +195,13 @@ func _unhandled_input(event: InputEvent) -> void:
 		elif event.keycode == KEY_3 or event.physical_keycode == KEY_3:
 			selected_type = world.PICKAXE
 			world.show_choice(world.choice_text(selected_type))
+		# 0.0.5.20 : 4 : argile, 5 : boue.
+		elif event.keycode == KEY_4 or event.physical_keycode == KEY_4:
+			selected_type = world.SmoothTerrain.CLAY
+			world.show_choice(world.choice_text(selected_type))
+		elif event.keycode == KEY_5 or event.physical_keycode == KEY_5:
+			selected_type = world.SmoothTerrain.MUD
+			world.show_choice(world.choice_text(selected_type))
 		elif event.is_action_pressed("change_view", false, true):
 			cycle_view()
 	if event is InputEventMouseMotion and Input.mouse_mode == Input.MOUSE_MODE_CAPTURED:
@@ -237,7 +244,8 @@ func turn_view(motion: Vector2) -> void:
 	rotate_y(-motion.x * sensitivity)
 	camera.rotation.x = clampf(camera.rotation.x - motion.y * sensitivity, deg_to_rad(-89.0), deg_to_rad(89.0))
 
-# 0.0.5.13 : sélection Sable → Terre → Pioche (plus la pierre à poser) ; 1 : sable, 2 : terre, 3 : pioche.
+# 0.0.5.13 : sélection Sable → Terre → Pioche (plus la pierre à poser) ; 0.0.5.20 : + Argile et Boue (molette :
+# Sable, Terre, Argile, Boue, Pioche ; touches 1 sable, 2 terre, 3 pioche, 4 argile, 5 boue).
 func cycle_block(direction: int) -> void:
 	var order: Array = world.SELECTION
 	selected_type = order[wrapi(maxi(order.find(selected_type), 0) + direction, 0, order.size())]

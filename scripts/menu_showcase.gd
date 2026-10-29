@@ -12,9 +12,9 @@ extends Node3D
 # 2 ou 3, choisis parmi les nouveautés : liste NEWS_RUNNERS ([id, peau], peau vide pour un animal).
 # Chacun prend son modèle Blender, sinon une forme simple (character_model.gd, partagé avec le jeu).
 # Le reste du fichier (sol, gazon, plage, ciel, caméra) ne change pas d'une version à l'autre.
-const NEWS_VERSION := "0.0.5.19"
-const NEWS_TEXT := "Nouveau : rochers et petits lacs !
-Les rochers se cassent à la pioche."
+const NEWS_VERSION := "0.0.5.20"
+const NEWS_TEXT := "Nouveau : argile, boue et lacs allongés !
+Et un monde de 48 × 48 zones."
 
 # 0.0.3.25 : les trois nouveautés de 0.0.3.23 en aller-retour au-dessus de l'herbe libre, devant la place
 # de sable et pierre (sous le panneau des menus, vers la droite), chacune sur sa rangée.
@@ -176,6 +176,7 @@ func _build_ground() -> void:
 				arrays[Mesh.ARRAY_VERTEX] = surface[0]
 				arrays[Mesh.ARRAY_NORMAL] = surface[1]
 				arrays[Mesh.ARRAY_COLOR] = surface[2]
+				arrays[Mesh.ARRAY_TEX_UV] = surface[3]
 				var mesh := ArrayMesh.new()
 				mesh.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arrays)
 				var piece := MeshInstance3D.new()

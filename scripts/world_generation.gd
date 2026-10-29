@@ -8,8 +8,9 @@ extends RefCounted
 # Version 3 (0.0.5.18) : monde de 20 × 20 zones ; déserts moyens de 3 à 4 zones, grands de 6 à 7, environ 12 %
 # du sol, plus de grands que de petits ; 3 ou 4 trous énormes jusque dans la pierre pour 256 zones.
 # Version 4 (0.0.5.19) : rochers au hasard (7 tailles, plus de petits que de gros) et petits lacs.
-const VERSION := 4
-const VERSIONS := [1, 2, 3, 4]
+# Version 5 (0.0.5.20) : lacs allongés (1 × 2 zones), boue au bord et au fond des lacs, argile dessous et en poches.
+const VERSION := 5
+const VERSIONS := [1, 2, 3, 4, 5]
 # Chance la plus rare qu'on peut régler : 1 sur MAX_CHANCE par zone (64 avant 0.0.5.18).
 const MAX_CHANCE := 400
 const STANDARD_SMALL_DENOMINATOR := 8
@@ -28,7 +29,9 @@ const SPECS := [
 	{"key":"deep_holes", "label":"Trous bien profonds", "default":0},
 	{"key":"stone_holes", "label":"Trous énormes : 2 à 3 blocs dans la pierre", "default":72},
 	{"key":"rocks", "label":"Rochers (tailles 1 à 7)", "default":2, "since":4},
-	{"key":"lakes", "label":"Petits lacs", "default":24, "since":4},
+	{"key":"lakes", "label":"Petits lacs (1 zone)", "default":24, "since":4},
+	{"key":"long_lakes", "label":"Lacs allongés (1 × 2 zones)", "default":48, "since":5},
+	{"key":"clay", "label":"Poches d'argile dans la terre", "default":10, "since":5},
 ]
 # Taille des déserts (nombre de zones, et case où ils tiennent) selon la version.
 const DESERT_SIZES := {
@@ -36,9 +39,10 @@ const DESERT_SIZES := {
 	2: {"medium_desert": [2, 4, 2, 2], "big_desert": [4, 6, 3, 2]},
 	3: {"medium_desert": [3, 4, 2, 2], "big_desert": [6, 7, 3, 3]},
 	4: {"medium_desert": [3, 4, 2, 2], "big_desert": [6, 7, 3, 3]},
+	5: {"medium_desert": [3, 4, 2, 2], "big_desert": [6, 7, 3, 3]},
 }
-# 0.0.5.18 : monde de 20 × 20 zones (16 × 16 avant).
-const WORLD_ZONES := 400
+# 0.0.5.20 : monde de 48 × 48 zones (20 × 20 en 0.0.5.18, 16 × 16 avant).
+const WORLD_ZONES := 2304
 
 # Réglages d'une version (0.0.5.19 : rochers et lacs seulement dès la version 4).
 static func specs_for(version: int) -> Array:
@@ -129,6 +133,14 @@ static func zone_info(terrain_seed: int, zone: Vector2i, options: Dictionary) ->
 			"lakes":
 				# Petit lac : cuvette de 3,5 à 6 m de rayon, 0,8 à 1,8 m de fond, au milieu de la zone.
 				info.lake = {"center": Vector2(zone) * 8.0 + Vector2(rng.randf_range(3, 5), rng.randf_range(3, 5)), "radius": rng.randf_range(3.5, 6.0), "depth": rng.randf_range(0.8, 1.8)}
+			"long_lakes":
+				# 0.0.5.20 : lac allongé sur deux zones (vers +X ou +Z) : bande arrondie de 2,5 à 3,5 m de demi-largeur.
+				var start := Vector2(zone) * 8.0 + Vector2(rng.randf_range(3.5, 4.5), rng.randf_range(3.5, 4.5))
+				var along := Vector2(1, 0) if rng.randf() < 0.5 else Vector2(0, 1)
+				info.long_lake = {"start": start, "end": start + along * rng.randf_range(7.0, 9.0), "radius": rng.randf_range(2.5, 3.5), "depth": rng.randf_range(1.0, 2.0)}
+			"clay":
+				# 0.0.5.20 : poche d'argile dans la terre, de 0,5 à 1 m sous l'herbe, 1 à 2 m d'épaisseur.
+				info.clay = {"center": Vector2(zone) * 8.0 + Vector2(rng.randf_range(1, 7), rng.randf_range(1, 7)), "radius": rng.randf_range(2.0, 4.0), "top": rng.randf_range(0.5, 1.0), "thickness": rng.randf_range(1.0, 2.0)}
 			_:
 				var form := {"kind":spec.key, "center":Vector2(zone)*8.0 + Vector2(rng.randf_range(1,7),rng.randf_range(1,7)), "direction":Vector2.from_angle(rng.randf()*TAU)}
 				match spec.key:

@@ -29,8 +29,30 @@ func _init(path: String = "user://worlds.json") -> void:
 	if load_error.is_empty():
 		_migrate_folders()
 
+# 0.0.5.20 : dossier au nom du monde (« folder », nettoyé par world_store.gd) ; anciens mondes : identifiant.
 func world_folder(id: String) -> String:
-	return Store.folder(worlds_root, id) if Store.valid_id(id) else ""
+	if not Store.valid_id(id):
+		return ""
+	for item in worlds:
+		if item.id == id:
+			return _item_folder(item)
+	return Store.folder(worlds_root, id)
+
+func _item_folder(item: Dictionary) -> String:
+	return worlds_root.path_join(item.get("folder", item.id))
+
+# Dossiers déjà pris : ceux des mondes et ceux présents sur le disque (jamais réutilisés ni effacés).
+func _taken_folders(except_id: String = "") -> Array:
+	var taken: Array = []
+	if DirAccess.dir_exists_absolute(worlds_root):
+		taken.append_array(Array(DirAccess.get_directories_at(worlds_root)))
+	for item in worlds:
+		if item.id != except_id:
+			taken.append(item.get("folder", item.id))
+		else:
+			taken.erase(item.get("folder", item.id))
+	return taken
+
 
 # Migration (0.0.5) : un monde sans dossier reçoit son monde.json, sans rien perdre de l'index.
 func _migrate_folders() -> void:
@@ -46,9 +68,41 @@ func _migrate_folders() -> void:
 			continue
 		# Ancien monde sans date : conserver l'inconnu, jamais la date de migration.
 		_write_base(item)
+	_name_folders()
+
+# 0.0.5.20 : les dossiers des mondes (identifiant avant) prennent le nom du monde ; si le renommage du dossier
+# échoue, le monde garde son ancien dossier (rien n'est perdu).
+func _name_folders() -> void:
+	var changed := false
+	for item in worlds:
+		if not Store.valid_id(item.id) or item.has("folder"):
+			continue
+		var wanted := Store.unique_folder_name(item.name, _taken_folders(item.id))
+		var from := _item_folder(item)
+		var to := worlds_root.path_join(wanted)
+		if DirAccess.dir_exists_absolute(from) and not DirAccess.dir_exists_absolute(to):
+			if DirAccess.rename_absolute(ProjectSettings.globalize_path(from), ProjectSettings.globalize_path(to)) != OK:
+				continue
+		elif DirAccess.dir_exists_absolute(to):
+			continue
+		item.folder = wanted
+		changed = true
+	if changed:
+		_save_worlds()
+
+# Change le dossier d'un monde renommé (même nettoyage) ; garde l'ancien si c'est impossible.
+func _rename_folder(item: Dictionary) -> void:
+	var wanted := Store.unique_folder_name(item.name, _taken_folders(item.id))
+	var from := _item_folder(item)
+	if wanted == item.get("folder", item.id):
+		return
+	var to := worlds_root.path_join(wanted)
+	if DirAccess.dir_exists_absolute(from) and DirAccess.rename_absolute(ProjectSettings.globalize_path(from), ProjectSettings.globalize_path(to)) != OK:
+		return
+	item.folder = wanted
 
 func _write_base(item: Dictionary) -> bool:
-	return Store.valid_id(item.id) and Store.write_json(world_folder(item.id).path_join(Store.BASE_FILE), Store.base_data(item))
+	return Store.valid_id(item.id) and Store.write_json(_item_folder(item).path_join(Store.BASE_FILE), Store.base_data(item))
 
 func _write_base_for(id: String) -> void:
 	for item in worlds:
@@ -101,7 +155,14 @@ func _load_worlds() -> void:
 		names.append(clean_name.to_lower())
 		# Avant 0.0.4.10 (sans developer_used) : utilisé si le monde est en mode développeur.
 		var used: bool = item.get("developer_used", mode == MODE_DEVELOPER) == true or mode == MODE_DEVELOPER
-		loaded.append({"id": item.id, "name": clean_name, "seed": int(seed_value), "mode": mode, "developer_used": used, "created": str(item.get("created", "")), "generation": Generation.normalized(item.get("generation", {}))})
+		var entry := {"id": item.id, "name": clean_name, "seed": int(seed_value), "mode": mode, "developer_used": used, "created": str(item.get("created", "")), "generation": Generation.normalized(item.get("generation", {}))}
+		# 0.0.5.20 : dossier au nom du monde, refusé s'il n'est pas propre (jamais de chemin dangereux).
+		if item.has("folder"):
+			if not item.folder is String or not Store.valid_folder_name(item.folder):
+				load_error = "Le dossier d'un monde est invalide ; le fichier est conservé."
+				return
+			entry.folder = item.folder
+		loaded.append(entry)
 	worlds = loaded
 
 func _save_worlds() -> bool:
@@ -163,15 +224,15 @@ func create_world(raw_name: String, raw_seed: String = "", mode: String = MODE_D
 	while used_ids.has(world_id):
 		world_id = str(rng.randi())
 	var item := {"id": world_id, "name": world_name, "seed": terrain_seed, "mode": mode, "developer_used": developer_used or mode == MODE_DEVELOPER, "created": Time.get_datetime_string_from_system(), "generation": Generation.normalized(generation)}
-	# Un reste de dossier au même identifiant (essai interrompu) ne doit rien apporter au nouveau monde.
-	Store.delete_folder(world_folder(world_id))
+	# 0.0.5.20 : dossier au nom du monde, jamais un dossier déjà présent (rien à effacer, rien de repris).
+	item.folder = Store.unique_folder_name(world_name, _taken_folders())
 	if not _write_base(item):
 		last_error = "Impossible de créer le dossier du monde."
 		return {}
 	worlds.append(item)
 	if not _save_worlds():
 		worlds.pop_back()
-		Store.delete_folder(world_folder(world_id))
+		Store.delete_folder(_item_folder(item))
 		return {}
 	return item.duplicate()
 
@@ -197,6 +258,8 @@ func rename_world(id: String, raw_name: String) -> bool:
 		if worlds[index].id == id:
 			var old_name: String = worlds[index].name
 			worlds[index].name = clean_name
+			# 0.0.5.20 : le dossier suit le nom du monde.
+			_rename_folder(worlds[index])
 			if not _save_worlds():
 				worlds[index].name = old_name
 				return false
@@ -253,13 +316,14 @@ func delete_world(id: String) -> bool:
 	for index in range(worlds.size()):
 		if worlds[index].id == id:
 			var removed: Dictionary = worlds[index]
+			var removed_folder := _item_folder(removed)
 			worlds.remove_at(index)
 			# Only rewrite this catalog; never derive a file path from a world name.
 			if not _save_worlds():
 				worlds.insert(index, removed)
 				return false
 			# 0.0.5 : dossier du monde supprimé (chemin tiré de l'identifiant, jamais du nom).
-			Store.delete_folder(world_folder(id))
+			Store.delete_folder(removed_folder)
 			return true
 	last_error = "Ce monde n'existe plus."
 	return false

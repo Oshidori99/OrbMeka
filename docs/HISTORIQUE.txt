@@ -3,6 +3,9 @@ Du plus récent au plus ancien. Ce fichier est mis à jour à chaque version.
 
 === Thème « Monde » (0.0.5 et suivantes) ===
 
+0.0.5.20 — Grand monde, argile, boue et lacs allongés
+Monde de 48 × 48 zones ; argile et boue (naturelles et à poser) ; lacs de 1 et 1 × 2 zones ; dossiers des mondes à leur nom.
+
 0.0.5.19 — Rochers à miner et petits lacs
 Rochers plus gros ; rochers au hasard dans les nouveaux mondes, cassés à la pioche ; petits lacs à l'eau calme.
 

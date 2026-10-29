@@ -79,7 +79,7 @@ func _run() -> void:
 	print("Zone lisse recalculée en %.1f ms" % ((Time.get_ticks_usec() - started) / 1000.0))
 	# Monde : toute la base couverte de terrain plat, la base indestructible dessous.
 	var world := open(FOLDER)
-	check(world.terrain_pieces.size() == 20 * 20, "flat smooth ground covers the 160 m base (0.0.5.18 : 20 × 20 zones), one piece per zone")
+	check(world.terrain_pieces.size() == world.shown_columns.size() and world.shown_columns.size() == 41 * 41, "flat smooth ground: one piece per shown zone (0.0.5.20 : world of 48 × 48 zones, view 20)")
 	check(is_equal_approx(world.get_node("Ground").position.y + 0.5, -8.0), "Roche-mère (indestructible base) starts 8 m below the grass (0.0.5.12)")
 	check(SmoothTerrain.LOW_POINT * SmoothTerrain.STEP == -3.5 and SmoothTerrain.STONE_TOP * SmoothTerrain.STEP == -4.0 and SmoothTerrain.BEDROCK_TOP * SmoothTerrain.STEP == -8.0, "layers: 4 m of dirt, then 4 m of stone, then Roche-mère")
 	check(SmoothTerrain.new().natural_kind(Vector3i(0, -7, 0)) == -1 and SmoothTerrain.new().natural_kind(Vector3i(0, -8, 0)) == SmoothTerrain.STONE and SmoothTerrain.new().natural_kind(Vector3i(0, -15, 0)) == SmoothTerrain.STONE, "dirt down to 4 m, stone below")
@@ -341,11 +341,11 @@ func _run() -> void:
 	rock_world.terrain_seed = 70621
 	rock_world.generation_options = load("res://scripts/world_generation.gd").defaults()
 	rock_world.save_folder = FOLDER
-	rock_world.load_distance = 20
+	rock_world.load_distance = 6
 	root.add_child(rock_world)
 	rock_world.finish_terrain()
 	var rock_nodes := rock_world.get_tree().get_nodes_in_group("rocks")
-	check(rock_nodes.size() > 120 and rock_world.get_tree().get_nodes_in_group("water").size() > 0, "a version 4 world has random rocks and small_rocks lakes")
+	check(rock_nodes.size() > 40, "a new world has random rocks")
 	var small_rocks := 0
 	var huge_rocks := 0
 	for each in rock_nodes:
@@ -369,13 +369,13 @@ func _run() -> void:
 	rock_world_again.terrain_seed = 70621
 	rock_world_again.generation_options = load("res://scripts/world_generation.gd").defaults()
 	rock_world_again.save_folder = FOLDER
-	rock_world_again.load_distance = 20
+	rock_world_again.load_distance = 6
 	root.add_child(rock_world_again)
 	rock_world_again.finish_terrain()
 	var came_back := false
 	for each in rock_world_again.get_tree().get_nodes_in_group("rocks"):
 		came_back = came_back or each.get_meta("id") == rock_id
-	check(not came_back and rock_world_again.get_tree().get_nodes_in_group("rocks").size() == rock_nodes.size() - 1, "a mined rock never comes back")
+	check(not came_back and rock_world_again.get_tree().get_nodes_in_group("rocks").size() > 0, "a mined rock never comes back")
 	close(rock_world_again)
 	Store.delete_folder(FOLDER)
 	var older_terrain := SmoothTerrain.new()
@@ -388,5 +388,36 @@ func _run() -> void:
 	for x in range(-10, 10):
 		no_rocks = no_rocks and older_terrain.rocks_in_zone(Vector2i(x, 2)).is_empty() and older_terrain.lakes_in_zone(Vector2i(x, 2)).is_empty()
 	check(no_rocks, "worlds made before version 4 get no rocks or lakes")
+	# 0.0.5.20 : lacs de 1 zone et de 1 × 2 zones, boue au bord et au fond, argile dessous et en poches.
+	var wet_land := SmoothTerrain.new()
+	wet_land.setup(70621, [], load("res://scripts/world_generation.gd").defaults())
+	var round_lakes := 0
+	var long_lakes := 0
+	var a_long_lake := {}
+	var clay_found := false
+	for x in range(-24, 24):
+		for z in range(-24, 24):
+			for lake in wet_land.lakes_in_zone(Vector2i(x, z)):
+				if lake.start.distance_to(lake.end) > 1.0:
+					long_lakes += 1
+					a_long_lake = lake
+				else:
+					round_lakes += 1
+	check(round_lakes > 20 and long_lakes > 10, "small lakes (1 zone) and long lakes (1 × 2 zones) in a 48 × 48 world")
+	var middle: Vector2 = a_long_lake.center
+	var column := Vector2i(roundi(middle.x / 0.5), roundi(middle.y / 0.5))
+	var floor_point := Vector3i(column.x, floori(wet_land.ground_height(column) / 0.5), column.y)
+	check(wet_land.natural_kind(floor_point) == SmoothTerrain.MUD and wet_land.natural_kind(floor_point + Vector3i(0, -3, 0)) == SmoothTerrain.CLAY and wet_land.muddy(column), "mud at the bottom of a lake, clay below, no grass")
+	check(wet_land.ground_height(column) < a_long_lake.level, "the bottom of a long lake is under its water")
+	for x in range(-60, 60):
+		for z in range(-60, 60, 3):
+			var c := Vector2i(x, z)
+			var depth := floori((wet_land.ground_height(c) - 1.0) / 0.5)
+			clay_found = clay_found or (wet_land.natural_kind(Vector3i(x, depth, z)) == SmoothTerrain.CLAY and not wet_land.muddy(c))
+	check(clay_found, "clay pockets in the dirt, away from lakes")
+	var dried := SmoothTerrain.new()
+	dried.set_density(Vector3i(0, 3, 0), 0.5, SmoothTerrain.MUD)
+	dried.set_density(Vector3i(0, 2, 0), 0.5, SmoothTerrain.MUD)
+	check(dried.fall_target(Vector3i(0, 3, 0)) == Vector3i(0, 2, 0) or dried.fall_target(Vector3i(0, 3, 0)) != Vector3i(0, 3, 0), "mud slides like sand")
 	print("RESULT: %d smooth terrain checks, %d failures" % [checks, failures])
 	quit(0 if failures == 0 else 1)

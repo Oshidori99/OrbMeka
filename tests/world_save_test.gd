@@ -93,7 +93,8 @@ func _run() -> void:
 	var copied := open(copy_folder, copy.seed)
 	check(copied.blocks.has(PLACED) and not copied.blocks.has(removed), "duplicate opens with the same constructions")
 	close(copied)
-	check(catalog.rename_world(copy.id, "Renommé") and read(copy_folder.path_join(Store.BASE_FILE)).nom == "Renommé", "rename updates monde.json")
+	check(catalog.rename_world(copy.id, "Renommé") and read(catalog.world_folder(copy.id).path_join(Store.BASE_FILE)).nom == "Renommé" and catalog.world_folder(copy.id).get_file() == "Renommé" and not DirAccess.dir_exists_absolute(copy_folder), "rename updates monde.json and the folder name (0.0.5.20)")
+	copy_folder = catalog.world_folder(copy.id)
 	check(catalog.delete_world(copy.id) and not DirAccess.dir_exists_absolute(copy_folder), "delete removes the world folder")
 	check(DirAccess.dir_exists_absolute(folder), "delete leaves other worlds' folders")
 	# Fichiers illisibles : pas de plantage, rien n'est écrasé, le fichier est gardé de côté.
@@ -123,6 +124,8 @@ func _run() -> void:
 	var old_base: Variant = read(migrated.world_folder("777").path_join(Store.BASE_FILE))
 	check(migrated.load_error.is_empty() and migrated.worlds.size() == 2 and old_base.nom == "Ancien" and int(old_base.graine) == 42 and old_base.mode == "developer", "old worlds migrate with id, name, seed and mode")
 	check(read(migrated.world_folder("778").path_join(Store.BASE_FILE)).mode == "default", "world without mode migrates as default")
+	check(migrated.world_folder("777").get_file() == "Ancien" and migrated.world_folder("778").get_file() == "Sans mode", "old world folders take the world name (0.0.5.20)")
+	check(Store.clean_folder_name("a/..\\b:c*") == "a_.._b_c_" and Store.clean_folder_name("CON") == "CON_" and Store.clean_folder_name(" .x. ") == "x" and Store.unique_folder_name("Test", ["test"]) == "Test (2)", "folder names stay safe and unique")
 	check(Catalog.new(OLD_PATH).find_world("777").seed == 42, "index stays readable after migration")
 	clean(PATH)
 	clean(OLD_PATH)

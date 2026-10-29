@@ -14,11 +14,12 @@ const DIRT := 2
 const BLOCK_COLORS := [Color("#d8c291"), Color("#888b90"), Color("#855332")]
 const BLOCK_NAMES := ["Sable", "Pierre", "Terre"]
 const MAX_BLOCKS := 1200
-# 0.0.5.18 : monde de 20 × 20 zones de 8 m (160 m ; 16 × 16 avant).
-const BASE_SIZE := Vector3(160, 1, 160)
+# 0.0.5.20 : monde de 48 × 48 zones de 8 m (384 m ; 20 × 20 en 0.0.5.18, 16 × 16 avant).
+# (Préparation des niveaux de détail, #128 : on ne charge que les zones autour du joueur.)
+const BASE_SIZE := Vector3(384, 1, 384)
 const MAX_BUILD_HEIGHT := 25
-# Construction permise de X et Z −73 à 73 (147 × 147 blocs), à l'intérieur de la base (−57 à 57 avant 0.0.5.18).
-const BUILD_LIMIT := 73
+# Construction permise de X et Z −189 à 189, à l'intérieur de la base (−73 à 73 en 0.0.5.18, −57 à 57 avant).
+const BUILD_LIMIT := 189
 
 var generated_hill_count := 0
 var generated_max_height := 0
@@ -238,7 +239,10 @@ func update_terrain_view(force: bool = false, center: Vector2i = view_center) ->
 		if not wanted.has(column):
 			_hide_column(column)
 	var by_column := {}
-	for zone: Vector3i in terrain.surface_zones(BASE_ZONES_LOW, BASE_ZONES_HIGH):
+	# 0.0.5.20 : seulement les colonnes à portée (monde de 48 × 48 zones : jamais tout le monde d'un coup).
+	var near_low := Vector2i(maxi(BASE_ZONES_LOW.x, center.x - load_distance), maxi(BASE_ZONES_LOW.y, center.y - load_distance))
+	var near_high := Vector2i(mini(BASE_ZONES_HIGH.x, center.x + load_distance), mini(BASE_ZONES_HIGH.y, center.y + load_distance))
+	for zone: Vector3i in terrain.surface_zones(near_low, near_high):
 		var column := Vector2i(zone.x, zone.z)
 		if wanted.has(column) and not shown_columns.has(column):
 			if not by_column.has(column):
@@ -308,8 +312,8 @@ func _update_fog() -> void:
 # 0.0.5.8 : terrain lisse sur toute la base (0.0.5.18 : zones de X et Z −80 à 79) ; base indestructible en dessous.
 # 0.0.5.12 : la base (« Roche-mère », incassable) commence à 8 m sous le sol, sous 4 m de terre et 4 m de pierre.
 const BASE_TOP := SmoothTerrain.BEDROCK_TOP * SmoothTerrain.STEP
-const BASE_ZONES_LOW := Vector2i(-10, -10)
-const BASE_ZONES_HIGH := Vector2i(9, 9)
+const BASE_ZONES_LOW := Vector2i(-24, -24)
+const BASE_ZONES_HIGH := Vector2i(23, 23)
 
 # Points changés de tous les fichiers de zone (lus une fois à l'ouverture ; les blocs restent lus par zone).
 func _read_terrain_changes() -> void:
@@ -359,6 +363,7 @@ func rebuild_terrain_piece(zone: Vector3i, flat_for_now: bool = false) -> void:
 		arrays[Mesh.ARRAY_VERTEX] = surface[0]
 		arrays[Mesh.ARRAY_NORMAL] = surface[1]
 		arrays[Mesh.ARRAY_COLOR] = surface[2]
+		arrays[Mesh.ARRAY_TEX_UV] = surface[3]
 		var mesh := ArrayMesh.new()
 		mesh.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arrays)
 		instance.mesh = mesh
@@ -375,7 +380,9 @@ func rebuild_terrain_piece(zone: Vector3i, flat_for_now: bool = false) -> void:
 # Herbe écartée là où le terrain a été sculpté (colonne de 50 cm et ses voisines) et dans les déserts.
 func _grass_skipped(at: Vector3) -> bool:
 	# 0.0.5.15 : pas d'herbe dans les déserts.
-	return terrain.column_changed(Vector2i(roundi(at.x / SmoothTerrain.STEP), roundi(at.z / SmoothTerrain.STEP))) or terrain.is_desert(Vector2(at.x, at.z))
+	# 0.0.5.20 : ni sur la boue au bord des lacs.
+	var column := Vector2i(roundi(at.x / SmoothTerrain.STEP), roundi(at.z / SmoothTerrain.STEP))
+	return terrain.column_changed(column) or terrain.is_desert(Vector2(at.x, at.z)) or terrain.muddy(column)
 
 func _rebuild_lawn_tile(tile: Vector2i) -> void:
 	for child in lawn.get_children():
@@ -391,12 +398,17 @@ const BRUSH_NAMES := ["Poser", "Aplanir", "Lisser"]
 const SIZE_NAMES := ["1/8 de bloc", "1/4 de bloc", "1/2 bloc"]
 const SIZE_CELLS := [1, 2, 4]
 # Matières qu'on peut poser pour l'instant (0.0.5.9 : plus la pierre).
-const PLACEABLE := [0, 2]
+const PLACEABLE := [0, 2, SmoothTerrain.CLAY, SmoothTerrain.MUD]
 # 0.0.5.13 : la pioche, dans la même sélection (molette : Sable, Terre, Pioche ; touches 1, 2, 3).
 const PICKAXE := 3
-const SELECTION := [0, 2, PICKAXE]
+# 0.0.5.20 : argile (touche 4) et boue (touche 5) avant la pioche.
+const SELECTION := [0, 2, SmoothTerrain.CLAY, SmoothTerrain.MUD, PICKAXE]
 
 func choice_name(kind: int) -> String:
+	if kind == SmoothTerrain.CLAY:
+		return "Argile"
+	if kind == SmoothTerrain.MUD:
+		return "Boue"
 	return "Pioche" if kind == PICKAXE else BLOCK_NAMES[kind]
 
 func choice_text(kind: int) -> String:
@@ -1105,7 +1117,7 @@ func _process(delta: float) -> void:
 static func get_help_text(level: int = 2) -> String:
 	if level == 0:
 		return "ZQSD : marcher. ↑ ↓ + A : vitesse (⌫ ⌫ : défaut). Espace : sauter ; deux fois : voler. Clic gauche : creuser ; droit : poser, aplanir ou lisser (B + T).
-Molette : sable, terre ou pioche ; B + molette : taille. Échap : pause. F1 : mondes. F4 : vue."
+Molette : sable, terre, argile, boue ou pioche ; B + molette : taille. Échap : pause. F1 : mondes. F4 : vue."
 	if level == 1:
 		return "ZQSD / WASD : marcher (← → : de côté). Souris : regarder. Espace : sauter.
 Y : se baisser. R : courir (mode dans Contrôles).
@@ -1113,7 +1125,7 @@ Y : se baisser. R : courir (mode dans Contrôles).
 ⌫ + touche : par défaut ; ⌫ deux fois : tout.
 Espace deux fois : voler (Espace monte, Y descend) ; encore deux fois : arrêter.
 Clic gauche : creuser ; clic droit : pinceau (B + T : poser, aplanir, lisser).
-B + molette : taille du geste (1/8, 1/4, 1/2 bloc). Molette : sable, terre ou pioche.
+B + molette : taille du geste (1/8, 1/4, 1/2 bloc). Molette : sable, terre, argile, boue ou pioche.
 Échap : pause. F1 : liste des mondes. F3 : Informations.
 F4 : vue (première personne, de derrière, de devant).
 Portée : %d blocs. Maximum : %d blocs, hauteur %d (Y 0 sur le sol plat).
@@ -1141,7 +1153,7 @@ Le choix s'affiche en bas quand on le change. Poser : jusqu'à 4 blocs au-dessus
 Sous le gazon : 4 m de terre qu'on peut creuser, puis 4 m de pierre (à la pioche), puis la Roche-mère, incassable.
 Les blocs posés avant sont conservés ; plus de casse ni de pose de blocs pour l'instant.
 
-Molette (ou 1, 2, 3) : sable, terre ou pioche. Avec la pioche, le clic gauche casse aussi la pierre.
+Molette (ou 1 à 5) : sable, terre, pioche (3), argile (4), boue (5). Avec la pioche, le clic gauche casse aussi la pierre.
 Le sable reste immobile, même sans support.
 
 Échap : pause et souris libre. Reprendre / Échap : retour direct au jeu.
@@ -1353,7 +1365,7 @@ func _show_column_objects(column: Vector2i) -> void:
 	for lake in terrain.lakes_in_zone(column):
 		var water := MeshInstance3D.new()
 		water.name = "Lac"
-		water.mesh = _water_disc(lake.radius + 0.25)
+		water.mesh = _water_disc(lake.radius + 0.25, (lake.end - lake.start) / 2.0)
 		if _water_material == null:
 			_water_material = ShaderMaterial.new()
 			_water_material.shader = preload("res://shaders/water.gdshader")
@@ -1371,15 +1383,19 @@ func _hide_column_objects(column: Vector2i) -> void:
 		if child.get_meta("column", Vector2i(999999, 0)) == column:
 			child.free()
 
-# Disque d'eau (surface plate, vue de dessus et de dessous).
-static func _water_disc(radius: float) -> ArrayMesh:
+# Disque d'eau (surface plate, vue de dessus et de dessous) ; 0.0.5.20 : allongé (half : demi-segment du lac).
+static func _water_disc(radius: float, half: Vector2 = Vector2.ZERO) -> ArrayMesh:
 	var tool := SurfaceTool.new()
 	tool.begin(Mesh.PRIMITIVE_TRIANGLES)
-	var sides := 40
+	var sides := 48
+	var edge := func(angle: float) -> Vector3:
+		var direction := Vector2(cos(angle), sin(angle))
+		var at := direction * radius + (half if direction.dot(half) >= 0.0 else -half)
+		return Vector3(at.x, 0, at.y)
 	for index in range(sides):
 		var a := TAU * index / sides
 		var b := TAU * (index + 1) / sides
-		for at in [Vector3.ZERO, Vector3(cos(b), 0, sin(b)) * radius, Vector3(cos(a), 0, sin(a)) * radius]:
+		for at in [Vector3.ZERO, edge.call(b), edge.call(a)]:
 			tool.set_normal(Vector3.UP)
 			tool.add_vertex(at)
 	return tool.commit()

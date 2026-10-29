@@ -113,9 +113,22 @@ void fragment() {
 			sand = beach > 0.5;
 		}
 	}
+	// 0.0.5.20 : argile (UV.x) et boue (UV.y) du terrain lisse : argile orangée, grain fin et lits clairs ;
+	// boue sombre et mouillée (plus brillante).
+	float clay = clamp(UV.x, 0.0, 1.0);
+	float mud = clamp(UV.y, 0.0, 1.0);
+	if (clay + mud > 0.01) {
+		vec3 clay_color = mix(vec3(0.36,0.20,0.13), vec3(0.52,0.32,0.21), fbm(p*1.6)) * (0.9 + noise3(p*55.0)*0.15);
+		clay_color = mix(clay_color, vec3(0.58,0.40,0.28), smoothstep(0.6,0.7,noise3(p*vec3(3.0,14.0,3.0)))*0.35);
+		vec3 mud_color = mix(vec3(0.065,0.045,0.03), vec3(0.13,0.09,0.055), fbm(p*2.3));
+		mud_color *= 0.85 + smoothstep(0.55,0.8,fbm(p*0.9))*0.25;
+		albedo = mix(albedo, clay_color, clay);
+		albedo = mix(albedo, mud_color, mud);
+		height *= 1.0 - mud * 0.7;
+	}
 	ALBEDO = albedo;
-	ROUGHNESS = earth ? 0.96 : (sand ? 0.93 : 0.86);
-	SPECULAR = earth ? 0.12 : (sand ? 0.18 + step(0.985,noise3(p*240.0))*0.6 : 0.25);
+	ROUGHNESS = mix(earth ? 0.96 : (sand ? 0.93 : 0.86), 0.3, mud);
+	SPECULAR = mix(earth ? 0.12 : (sand ? 0.18 + step(0.985,noise3(p*240.0))*0.6 : 0.25), 0.45, mud);
 	vec3 r1 = cross(dFdy(world_position),n);
 	vec3 r2 = cross(n,dFdx(world_position));
 	float determinant = dot(dFdx(world_position),r1);

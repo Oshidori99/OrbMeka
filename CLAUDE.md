@@ -18,7 +18,8 @@ Guide complet : docs/README.md. Fichiers techniques : docs/ORGANISATION.txt.
 - Garder les .gd.uid avec leurs scripts. Ne pas toucher à .godot/ (cache) ni au contenu existant des archives (dossier voisin « ..\Archives OrbMeka », hors du dépôt) ; on y ajoute seulement l'archive de chaque **nouvelle série** (0.0.x).
 - Données joueur dans user://, jamais dans les sources :
   - réglages dans user://parametres/ : parametres-generaux.json, video.json, controles.json, personnage.json, attributs.json, menus.json ;
-  - mondes : worlds.json (index) et un dossier par monde mondes/<id>/ : monde.json (nom, **graine**, mode),
+  - mondes : worlds.json (index) et un dossier par monde mondes/<nom du monde>/ (0.0.5.20 ; nom nettoyé, identifiant
+    pour les mondes non migrés) : monde.json (nom, **graine**, mode, génération), objets.json (rochers),
     joueur.json (position, regard), zones/zone_X_Y_Z.bin (seulement les changements, format versionné) ;
   - launcher : launcher/.
 
@@ -54,7 +55,8 @@ Ordre obligatoire de 1 à 4, ensuite libre :
    0.0.5.17 : génération version 2 enregistrée avec chaque nouveau monde (relief moins plat, déserts plus rares),
    distance d'affichage horizontale ; 0.0.5.18 : version 3, monde 20 × 20 zones, déserts 12 % (1, 3-4, 6-7 zones),
    3-4 trous énormes pour 256 zones ; rochers en essai (scripts/rocks.gd, 7 tailles × 7 formes) ; 0.0.5.19 : version 4,
-   rochers au hasard (minés à la pioche, objets.json) et petits lacs à l'eau calme ; grottes à faire)
+   rochers au hasard (minés à la pioche, objets.json) et petits lacs à l'eau calme ; 0.0.5.20 : version 5, monde
+   48 × 48 zones, lacs 1 × 2 zones, boue (lacs) et argile (sous les lacs, en poches) ; grottes à faire)
    (ne pas reprendre le nom anglais courant d'un autre jeu).
 5. Matières (#122) · 6. Structures (#123) · 7. Créatif/Survie (#73) · Inventaire (milestone HUD) ·
    Eau réaliste (#124 : lacs-réservoirs à volume, rivières en hauteur d'eau).

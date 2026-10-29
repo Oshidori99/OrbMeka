@@ -906,7 +906,7 @@ func _build_custom_world(stack: Node) -> void:
 	category.theme_type_variation = "OrbSection"
 	form.add_child(category)
 	var explanation := _text_label()
-	explanation.text = "Chaque réglage est une chance par zone de 8 × 8 m (le monde en compte 400 : 20 × 20), pas un nombre maximum.
+	explanation.text = "Chaque réglage est une chance par zone de 8 × 8 m (le monde en compte 2304 : 48 × 48), pas un nombre maximum.
 Plus à droite : plus fréquent (1 sur 1 : dans chaque zone ; 1 sur 400 : très rare). Les reliefs peuvent se superposer.
 Sous chaque réglage : ce que ça donne à peu près dans le monde."
 	explanation.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
