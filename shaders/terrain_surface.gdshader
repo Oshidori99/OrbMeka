@@ -114,21 +114,32 @@ void fragment() {
 		}
 	}
 	// 0.0.5.20 : argile (UV.x) et boue (UV.y) du terrain lisse ; 0.0.5.21 : argile grise (comme en vrai), grain fin, lits clairs ;
-	// boue sombre et mouillée (plus brillante).
+	// 0.0.5.22 : boue plus liquide : mate et gorgée d'eau, avec de petites flaques (eau en surface, seules un peu
+	// brillantes), coulures lisses ; plus du tout « vernie ».
 	float clay = clamp(UV.x, 0.0, 1.0);
 	float mud = clamp(UV.y, 0.0, 1.0);
+	float puddle = 0.0;
+	float clay_wet = 0.0;
 	if (clay + mud > 0.01) {
-		vec3 clay_color = mix(vec3(0.17,0.17,0.165), vec3(0.27,0.265,0.25), fbm(p*1.6)) * (0.92 + noise3(p*55.0)*0.12);
-		clay_color = mix(clay_color, vec3(0.32,0.31,0.29), smoothstep(0.6,0.7,noise3(p*vec3(3.0,14.0,3.0)))*0.3);
-		vec3 mud_color = mix(vec3(0.065,0.045,0.03), vec3(0.13,0.09,0.055), fbm(p*2.3));
+		// 0.0.5.22 : argile plus vraie : lisse et un peu humide (grain presque invisible), fines craquelures sombres.
+		vec3 clay_color = mix(vec3(0.19,0.19,0.18), vec3(0.28,0.275,0.26), fbm(p*1.1)) * (0.97 + noise3(p*55.0)*0.04);
+		float cracks = (1.0 - smoothstep(0.0, 0.035, abs(noise3(p*vec3(2.6,1.0,2.6)) - 0.5))) * smoothstep(0.6,0.9,n.y);
+		clay_color = mix(clay_color, vec3(0.1,0.1,0.095), cracks * 0.6);
+		clay_color = mix(clay_color, vec3(0.31,0.3,0.285), smoothstep(0.6,0.7,noise3(p*vec3(3.0,14.0,3.0)))*0.2);
+		clay_wet = clay;
+		vec3 mud_color = mix(vec3(0.075,0.052,0.035), vec3(0.15,0.105,0.065), fbm(p*2.3));
 		mud_color *= 0.85 + smoothstep(0.55,0.8,fbm(p*0.9))*0.25;
+		puddle = mud * smoothstep(0.6,0.7,fbm(p*0.55 + 7.0)) * smoothstep(0.75,0.95,n.y);
+		mud_color = mix(mud_color, vec3(0.05,0.045,0.04), puddle * 0.8);
 		albedo = mix(albedo, clay_color, clay);
 		albedo = mix(albedo, mud_color, mud);
-		height *= 1.0 - mud * 0.7;
+		// Coulures lisses (boue molle), plates dans les flaques.
+		height = mix(height, fbm(p*vec3(1.5,4.0,1.5))*0.012, mud) * (1.0 - puddle);
+		height = mix(height, fbm(p*0.8)*0.006, clay);
 	}
 	ALBEDO = albedo;
-	ROUGHNESS = mix(earth ? 0.96 : (sand ? 0.93 : 0.86), 0.3, mud);
-	SPECULAR = mix(earth ? 0.12 : (sand ? 0.18 + step(0.985,noise3(p*240.0))*0.6 : 0.25), 0.45, mud);
+	ROUGHNESS = mix(mix(mix(earth ? 0.96 : (sand ? 0.93 : 0.86), 0.62, clay_wet), 0.72, mud), 0.12, puddle);
+	SPECULAR = mix(mix(earth ? 0.12 : (sand ? 0.18 + step(0.985,noise3(p*240.0))*0.6 : 0.25), 0.22, mud), 0.5, puddle);
 	vec3 r1 = cross(dFdy(world_position),n);
 	vec3 r2 = cross(n,dFdx(world_position));
 	float determinant = dot(dFdx(world_position),r1);

@@ -731,6 +731,7 @@ func open_world(id: String) -> void:
 	active_world.grass_density = settings.values.grass_density
 	active_world.grass_distance = float(settings.values.grass_zones) * 8.0
 	active_world.load_distance = int(settings.values.view_distance)
+	active_world.far_distance = int(settings.values.far_distance)
 	var developer: bool = item.get("mode", Catalog.MODE_DEFAULT) == Catalog.MODE_DEVELOPER
 	active_world.developer_mode = developer
 	active_world.developer_used = item.get("developer_used", developer)

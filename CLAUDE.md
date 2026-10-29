@@ -59,6 +59,7 @@ Ordre obligatoire de 1 à 4, ensuite libre :
    48 × 48 zones, lacs 1 × 2 zones, boue (lacs) et argile (sous les lacs, en poches) ; 0.0.5.21 : version 6,
    lacs de 2 et 4 zones irréguliers, bandes de 4-5 m (argile grise, boue, herbe), régions de boue, grands déserts
    seulement (7-9 zones, 8 %) ; grottes à faire)
+   Niveaux de détail (#128) : commencés en 0.0.5.22 (scripts/far_terrain.gd, relief simplifié par carrés de 4 × 4 zones).
    (ne pas reprendre le nom anglais courant d'un autre jeu).
 5. Matières (#122) · 6. Structures (#123) · 7. Créatif/Survie (#73) · Inventaire (milestone HUD) ·
    Eau réaliste (#124 : lacs-réservoirs à volume, rivières en hauteur d'eau).

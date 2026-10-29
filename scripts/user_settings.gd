@@ -72,6 +72,8 @@ const SPECS := {
 	"grass_zones": {"label": "Distance d’affichage de l’herbe", "unit": "zones de 8 m", "default": 4.0, "min": 1.0, "max": 12.0, "step": 1.0},
 	# 0.0.5.17 : distance d'affichage, comptée à l'horizontale (8 par défaut, 1 à 32) ; remplace load_distance (4, 1 à 8).
 	"view_distance": {"label": "Distance d’affichage", "unit": "zones de 8 m", "default": 8.0, "min": 1.0, "max": 32.0, "step": 1.0},
+	# 0.0.5.22 (#128) : terrain lointain simplifié jusqu'à cette distance (0 : aucun), au-delà du terrain détaillé.
+	"far_distance": {"label": "Distance lointaine (relief simplifié)", "unit": "zones de 8 m", "default": 24.0, "min": 0.0, "max": 48.0, "step": 1.0},
 }
 # Réglages à choix (0.0.3.4 ; profondeur 0.0.3.5), affichés en boutons ; options dans l'ordre d'affichage.
 const CHOICES := {

@@ -1,6 +1,21 @@
-# OrbMeka™ — prototype 0.0.5.21
+# OrbMeka™ — prototype 0.0.5.22
 
 Godot 4.7 / GDScript. Formes et couleurs simples ; assets externes seulement sous licence vérifiée (sons CC0, assets/sounds/CREDITS.txt).
+
+## 0.0.5.22 — Voir loin : niveaux de détail (#128)
+- **Niveaux de détail** (notre propre méthode) : au-delà de la distance d'affichage (terrain détaillé), le terrain
+  lointain est un relief simplifié par carrés de 4 × 4 zones (32 m), un point tous les 2 m, coloré selon ce
+  qu'on y verrait (herbe, sable, argile, boue, eau des lacs) ; ni herbe, ni collision, ni changements du joueur.
+  Il passe juste sous le bord du terrain détaillé (pas de fente) et se refait peu à peu en marchant.
+- Nouveau réglage **Distance lointaine** (Vidéo → Jeu) : 24 zones par défaut, de 0 (aucune) à 48. La brume va
+  jusqu'au bout du relief simplifié.
+- **Boue** plus liquide : mate et gorgée d'eau, petites flaques (seules un peu brillantes), coulures lisses.
+- **Argile** plus vraie : lisse, un peu humide, fines craquelures.
+
+Tests : smooth_terrain (carrés lointains autour du terrain détaillé, jamais dessous, bord sous le terrain
+détaillé, brume, distance 0), interface_info (réglage en plus) ; tests choisis réussis.
+Captures PC (vue d'en haut) et Web (au sol, 4 ms par image).
+À tester manuellement : marcher et voler loin, Distance lointaine de 0 à 48, FPS sur le Web.
 
 ## 0.0.5.21 — Lacs irréguliers, boue et argile grise (#121, #122, #124)
 - **Génération version 6** (nouveaux mondes) : plus de lacs d'une zone ; **lacs d'environ 2 zones** (1 chance

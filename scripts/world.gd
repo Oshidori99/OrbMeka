@@ -9,6 +9,7 @@ const Zones = preload("res://scripts/world_zones.gd")
 const TerrainMaterials = preload("res://scripts/terrain_materials.gd")
 const WorldMetadata = preload("res://scripts/world_metadata.gd")
 const SmoothTerrain = preload("res://scripts/smooth_terrain.gd")
+const FarTerrain = preload("res://scripts/far_terrain.gd")
 const Rocks = preload("res://scripts/rocks.gd")
 const DIRT := 2
 const BLOCK_COLORS := [Color("#d8c291"), Color("#888b90"), Color("#855332")]
@@ -260,6 +261,7 @@ func update_terrain_view(force: bool = false, center: Vector2i = view_center) ->
 			later.append(column)
 	terrain_queue = terrain_queue.filter(func(column: Vector2i): return wanted.has(column)) + later
 	terrain_queue.sort_custom(func(a: Vector2i, b: Vector2i): return maxi(absi(a.x - center.x), absi(a.y - center.y)) < maxi(absi(b.x - center.x), absi(b.y - center.y)))
+	_update_far(center, Rect2(Vector2(near_low) * SmoothTerrain.ZONE_SIZE, Vector2(near_high - near_low + Vector2i.ONE) * SmoothTerrain.ZONE_SIZE))
 
 # Colonne affichée : ses zones de surface et son herbe.
 func _show_column(column: Vector2i) -> void:
@@ -295,12 +297,15 @@ func finish_terrain() -> void:
 		var column: Vector2i = terrain_queue.pop_front()
 		if shown_columns.has(column):
 			_show_column(column)
+	while not far_queue.is_empty():
+		_build_far_tile(far_queue.pop_front())
 
 # Brume au loin, au bord de la distance d'affichage : le terrain ne s'arrête pas d'un coup.
 func _update_fog() -> void:
 	if not is_instance_valid(environment):
 		return
-	var reach := float(load_distance * SmoothTerrain.ZONE_SIZE)
+	# 0.0.5.22 : jusqu'au bout du terrain lointain (niveaux de détail) s'il va plus loin.
+	var reach := float(maxi(load_distance, far_distance if relief else 0) * SmoothTerrain.ZONE_SIZE)
 	environment.fog_enabled = true
 	environment.fog_mode = Environment.FOG_MODE_DEPTH
 	environment.fog_light_color = Color("#b9e2fa")
@@ -1109,6 +1114,7 @@ func _process(delta: float) -> void:
 	_settle_terrain(delta)
 	update_terrain_view(false, Vector2i(floori(player.position.x / SmoothTerrain.ZONE_SIZE), floori(player.position.z / SmoothTerrain.ZONE_SIZE)))
 	_process_terrain_queue()
+	_process_far_queue()
 	hint.text = notice if notice_time > 0.0 else ""
 	_update_coordinates()
 
@@ -1427,3 +1433,64 @@ func _save_objects() -> bool:
 	if ok:
 		objects_dirty = false
 	return ok
+
+# 0.0.5.22 (#128) : terrain lointain simplifié (far_terrain.gd), au-delà de la distance d'affichage, jusqu'à la
+# distance lointaine (Paramètres → Vidéo, en zones ; 0 : rien au-delà). Carrés de 4 × 4 zones refaits peu à peu.
+var far_distance := 24
+var far_node: Node3D
+var far_tiles: Dictionary = {}
+var far_queue: Array = []
+var near_area := Rect2()
+const FAR_BUDGET_USEC := 2500
+
+func _update_far(center: Vector2i, area: Rect2) -> void:
+	var old_area := near_area
+	near_area = area
+	if not is_instance_valid(far_node):
+		far_node = Node3D.new()
+		far_node.name = "FarTerrain"
+		add_child(far_node)
+	var wanted := {}
+	if far_distance > load_distance and relief:
+		var here := FarTerrain.tile_of(center)
+		var reach := ceili(far_distance / float(FarTerrain.TILE_ZONES))
+		var low := FarTerrain.tile_of(BASE_ZONES_LOW)
+		var high := FarTerrain.tile_of(BASE_ZONES_HIGH)
+		for x in range(maxi(low.x, here.x - reach), mini(high.x, here.x + reach) + 1):
+			for z in range(maxi(low.y, here.y - reach), mini(high.y, here.y + reach) + 1):
+				var tile_area := Rect2(Vector2(x, z) * FarTerrain.TILE_METERS, Vector2.ONE * FarTerrain.TILE_METERS)
+				if not area.encloses(tile_area):
+					wanted[Vector2i(x, z)] = tile_area
+	for tile: Vector2i in far_tiles.keys():
+		if not wanted.has(tile):
+			far_tiles[tile].free()
+			far_tiles.erase(tile)
+	far_queue = far_queue.filter(func(tile: Vector2i): return wanted.has(tile))
+	for tile: Vector2i in wanted:
+		var tile_area: Rect2 = wanted[tile]
+		# Nouveau carré, ou carré au bord du terrain détaillé (avant ou maintenant) : à refaire.
+		if (not far_tiles.has(tile) or tile_area.intersects(area) or tile_area.intersects(old_area)) and not tile in far_queue:
+			far_queue.append(tile)
+	var center_tile := FarTerrain.tile_of(center)
+	far_queue.sort_custom(func(a: Vector2i, b: Vector2i): return maxi(absi(a.x - center_tile.x), absi(a.y - center_tile.y)) < maxi(absi(b.x - center_tile.x), absi(b.y - center_tile.y)))
+
+func _build_far_tile(tile: Vector2i) -> void:
+	if far_tiles.has(tile):
+		far_tiles[tile].free()
+		far_tiles.erase(tile)
+	# Le terrain lointain passe 2 m sous le bord du terrain détaillé : pas de fente entre les deux.
+	var mesh := FarTerrain.build(terrain, tile, near_area.grow(-2.0))
+	if mesh == null:
+		return
+	var piece := MeshInstance3D.new()
+	piece.name = "Lointain_%d_%d" % [tile.x, tile.y]
+	piece.mesh = mesh
+	piece.material_override = FarTerrain.material()
+	piece.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	far_node.add_child(piece)
+	far_tiles[tile] = piece
+
+func _process_far_queue() -> void:
+	var started := Time.get_ticks_usec()
+	while not far_queue.is_empty() and Time.get_ticks_usec() - started < FAR_BUDGET_USEC:
+		_build_far_tile(far_queue.pop_front())

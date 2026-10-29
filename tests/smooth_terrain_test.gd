@@ -431,5 +431,25 @@ func _run() -> void:
 	dried.set_density(Vector3i(0, 3, 0), 0.5, SmoothTerrain.MUD)
 	dried.set_density(Vector3i(0, 2, 0), 0.5, SmoothTerrain.MUD)
 	check(dried.fall_target(Vector3i(0, 3, 0)) == Vector3i(0, 2, 0) or dried.fall_target(Vector3i(0, 3, 0)) != Vector3i(0, 3, 0), "mud slides like sand")
+	# 0.0.5.22 (#128) : niveaux de détail : relief simplifié au-delà de la distance d'affichage, jusqu'à la distance lointaine.
+	var far_world: Node3D = WorldScene.instantiate()
+	far_world.generation_options = load("res://scripts/world_generation.gd").defaults()
+	far_world.load_distance = 3
+	far_world.far_distance = 16
+	root.add_child(far_world)
+	far_world.finish_terrain()
+	var none_inside := true
+	for tile in far_world.far_tiles:
+		none_inside = none_inside and not far_world.near_area.encloses(Rect2(Vector2(tile) * 32.0, Vector2.ONE * 32.0))
+	check(far_world.far_tiles.size() > 20 and none_inside, "far terrain tiles around the detailed area, none hidden inside it")
+	var far_mesh: ArrayMesh = far_world.far_tiles.values()[0].mesh
+	var far_ok := far_mesh.get_faces().size() > 0
+	for vertex in far_mesh.get_faces():
+		far_ok = far_ok and not far_world.near_area.grow(-2.1).has_point(Vector2(vertex.x, vertex.z))
+	check(far_ok and far_world.environment.fog_depth_end == 16 * 8.0, "far terrain stops under the edge of the detailed terrain; mist at the far distance")
+	far_world.far_distance = 0
+	far_world.update_terrain_view(true)
+	check(far_world.far_tiles.is_empty(), "far distance 0: no far terrain")
+	close(far_world)
 	print("RESULT: %d smooth terrain checks, %d failures" % [checks, failures])
 	quit(0 if failures == 0 else 1)

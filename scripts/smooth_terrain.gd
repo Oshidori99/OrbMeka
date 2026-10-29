@@ -851,3 +851,16 @@ func _overlaps_earlier(area: Vector2i, lake: Dictionary) -> bool:
 				if gap < lake.radius + other.radius + 2.0 * (1.6 + LAKE_SHORE) + 2.6:
 					return true
 	return false
+
+# 0.0.5.22 (niveaux de détail) : niveau de l'eau d'un lac à ce point (sinon très bas), et matière en surface.
+func water_level_at(at: Vector2) -> float:
+	if _noise == null or int(generation_options.get("version", 0)) < 4:
+		return -INF
+	for lake in _lakes_near(at):
+		if _lake_distance(at, lake) < lake.radius:
+			return lake_level(lake)
+	return -INF
+
+func surface_kind(column: Vector2i) -> int:
+	var top := Vector3i(column.x, floori(ground_height(column) / STEP), column.y)
+	return natural_kind(top)

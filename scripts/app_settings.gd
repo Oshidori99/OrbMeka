@@ -374,6 +374,7 @@ func _apply_to_game() -> void:
 	# Distance d'affichage changée en pause : zones (et terrain, 0.0.5.17) mises à jour peu à peu.
 	active_world.set_grass_distance(float(settings.values.grass_zones) * 8.0)
 	active_world.load_distance = int(settings.values.view_distance)
+	active_world.far_distance = int(settings.values.far_distance)
 	active_world.update_terrain_view(true)
 	active_world.update_zones(active_world.player_coordinates())
 	active_world.player.crouch_toggle = settings.control_options.crouch_mode == "toggle"
