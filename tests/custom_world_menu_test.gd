@@ -24,7 +24,7 @@ func _run() -> void:
 	app.name_field.text = "Personnalisé"
 	app.seed_field.text = "123"
 	app.custom_world_button.pressed.emit()
-	check(app.page == "custom_world" and app.custom_sliders.size() == 13, "custom menu offers the thirteen settings of version 6")
+	check(app.page == "custom_world" and app.custom_sliders.size() == 15, "custom menu offers the fifteen settings of version 7")
 	for size in [Vector2i(1280,720),Vector2i(800,600)]:
 		root.size = size
 		app.fit_menus_to_window()
@@ -36,26 +36,26 @@ func _run() -> void:
 	root.size = Vector2i(1280,720)
 	var slider: HSlider = app.custom_sliders.large_deserts
 	check(slider.get_parent().get_child(1).size.x > 20 and slider.get_parent().get_child(3).size.x > 15, "frequency endpoint labels are visible")
-	check(app.custom_draft.large_deserts == 110 and int(slider.value) == 291, "slider starts at the standard 1/110 chance per zone")
-	check(app.custom_labels.large_deserts.text.contains("Valeur par défaut : 1 chance sur 110 par zone") and app.custom_labels.large_deserts.text.contains("% du sol"), "default and estimated share of the ground shown")
+	check(app.custom_draft.large_deserts == 200 and int(slider.value) == 1801, "slider starts at the standard 1/200 chance per zone")
+	check(app.custom_labels.large_deserts.text.contains("Valeur par défaut : 1 chance sur 200 par zone") and app.custom_labels.large_deserts.text.contains("% du sol"), "default and estimated share of the ground shown")
 	slider.value = 1
-	check(app.custom_draft.large_deserts == 400 and app.custom_labels.large_deserts.text.contains("400"), "left endpoint is 1/400")
-	slider.value = 400
+	check(app.custom_draft.large_deserts == 2000 and app.custom_labels.large_deserts.text.contains("2000"), "left endpoint is 1/2000")
+	slider.value = 2000
 	check(app.custom_draft.large_deserts == 1 and app.custom_labels.large_deserts.text.begins_with("Dans chaque zone"), "right endpoint is 1/1")
 	app.reset_custom_option("large_deserts")
-	check(app.custom_draft.large_deserts == 110 and int(slider.value) == 291, "per-slider reset restores the standard value")
+	check(app.custom_draft.large_deserts == 200 and int(slider.value) == 1801, "per-slider reset restores the standard value")
 	check(not app.custom_sliders.deep_holes.editable and app.custom_labels.deep_holes.text.contains("jamais dans le monde standard"), "absent category has no invented active frequency")
 	app.custom_enabled.deep_holes.button_pressed = true
-	check(app.custom_sliders.deep_holes.editable and app.custom_draft.deep_holes == 400, "absent category can be enabled at 1/400")
+	check(app.custom_sliders.deep_holes.editable and app.custom_draft.deep_holes == 2000, "absent category can be enabled at 1/2000")
 	app.reset_custom_option("deep_holes")
 	check(app.custom_draft.deep_holes == 0 and not app.custom_sliders.deep_holes.editable, "reset disables a category absent from the standard world")
-	slider.value = 370
+	slider.value = 1970
 	check(app.custom_draft.large_deserts == 31, "slider supports every intermediate integer")
 	app.custom_apply_button.pressed.emit()
 	check(app.page == "create" and app.name_field.text == "Personnalisé" and app.seed_field.text == "123", "applying preserves name and seed")
 	check(app.custom_generation.large_deserts == 31, "applying retains chosen settings")
 	app.open_custom_world()
-	slider.value = 400
+	slider.value = 2000
 	app._cancel_page()
 	check(app.page == "create" and app.custom_generation.large_deserts == 31, "Escape cancels draft without discarding applied options")
 	check(app.GENERAL_CATEGORIES.video.Jeu.keys.has("grass_zones") and app.GENERAL_CATEGORIES.video.Jeu.keys.has("view_distance"), "grass and view distances are under Video / Jeu")

@@ -12,10 +12,13 @@ extends RefCounted
 # Version 6 (0.0.5.21) : plus de petits ni de moyens déserts, grands de 7 à 9 zones (environ 8 % du sol) ;
 # plus de lacs d'une zone : lacs de 2 zones et grands lacs d'environ 4 zones, bords irréguliers, entourés
 # de boue et d'argile variées ; régions de boue d'environ 2 zones. Formes irrégulières, jamais de carrés.
-const VERSION := 6
-const VERSIONS := [1, 2, 3, 4, 5, 6]
-# Chance la plus rare qu'on peut régler : 1 sur MAX_CHANCE par zone (64 avant 0.0.5.18).
-const MAX_CHANCE := 400
+# Version 7 (0.0.5.23) : moins de lacs et de déserts, mais plus grands : petits lacs de 2 à 3 zones (rares), moyens
+# d'environ 10 zones (les plus courants), grands d'environ 16 zones (rares) ; grands déserts de 14 à 20 zones
+# (environ 9 à 10 % du sol). Formes irrégulières. Montagnes (environ 7 % du sol), cœur de pierre et sommets rocheux.
+const VERSION := 7
+const VERSIONS := [1, 2, 3, 4, 5, 6, 7]
+# Chance la plus rare qu'on peut régler : 1 sur MAX_CHANCE par zone (64 avant 0.0.5.18, 400 avant 0.0.5.23).
+const MAX_CHANCE := 2000
 const STANDARD_SMALL_DENOMINATOR := 8
 const STANDARD_GROUP_DENOMINATOR := 12
 const STANDARD_FEATURE_DENOMINATOR := 9
@@ -23,7 +26,7 @@ const STANDARD_HILL_HEIGHT := 3.0
 const SPECS := [
 	{"key":"small_deserts", "label":"Petits déserts (1 zone)", "default":133, "until":5},
 	{"key":"medium_deserts", "label":"Déserts moyens (3 à 4 zones)", "default":100, "until":5},
-	{"key":"large_deserts", "label":"Grands déserts (7 à 9 zones)", "default":110},
+	{"key":"large_deserts", "label":"Grands déserts (14 à 20 zones)", "default":200},
 	{"key":"low_hills", "label":"Collines douces de 1 bloc", "default":6},
 	{"key":"high_hills", "label":"Collines douces de 2 à 3 blocs", "default":12},
 	{"key":"steep_hills", "label":"Crêtes abruptes", "default":9},
@@ -34,8 +37,12 @@ const SPECS := [
 	{"key":"rocks", "label":"Rochers (tailles 1 à 7)", "default":2, "since":4},
 	{"key":"lakes", "label":"Petits lacs (1 zone)", "default":24, "since":4, "until":5},
 	{"key":"long_lakes", "label":"Lacs allongés (1 × 2 zones)", "default":48, "since":5, "until":5},
-	{"key":"lakes_2", "label":"Lacs (environ 2 zones)", "default":26, "since":6},
-	{"key":"lakes_4", "label":"Grands lacs (environ 4 zones)", "default":55, "since":6},
+	{"key":"lakes_2", "label":"Lacs (environ 2 zones)", "default":26, "since":6, "until":6},
+	{"key":"lakes_4", "label":"Grands lacs (environ 4 zones)", "default":55, "since":6, "until":6},
+	{"key":"lakes_small", "label":"Petits lacs (2 à 3 zones)", "default":500, "since":7},
+	{"key":"lakes_medium", "label":"Lacs moyens (environ 10 zones)", "default":180, "since":7},
+	{"key":"lakes_large", "label":"Grands lacs (environ 16 zones)", "default":450, "since":7},
+	{"key":"mountains", "label":"Montagnes (20 à 32 blocs de haut, environ 50 zones)", "default":700, "since":7},
 	{"key":"mud_regions", "label":"Régions de boue (environ 2 zones)", "default":70, "since":6},
 	{"key":"clay", "label":"Poches d'argile dans la terre", "default":10, "since":5},
 ]
@@ -47,6 +54,7 @@ const DESERT_SIZES := {
 	4: {"medium_desert": [3, 4, 2, 2], "big_desert": [6, 7, 3, 3]},
 	5: {"medium_desert": [3, 4, 2, 2], "big_desert": [6, 7, 3, 3]},
 	6: {"medium_desert": [3, 4, 2, 2], "big_desert": [7, 9, 3, 3]},
+	7: {"medium_desert": [3, 4, 2, 2], "big_desert": [14, 20, 5, 5]},
 }
 # 0.0.5.20 : monde de 48 × 48 zones (20 × 20 en 0.0.5.18, 16 × 16 avant).
 const WORLD_ZONES := 2304
@@ -115,6 +123,21 @@ static func cluster(rng: RandomNumberGenerator, count: int, width: int, height: 
 				frontier.append(next)
 	return result
 
+# 0.0.5.23 : montagne (version 7), environ 8 à 10 fois une colline : 20 à 32 m de haut, 32 à 46 m de rayon,
+# un peu allongée. Tirée seule (sans le reste de la zone) pour trouver vite les montagnes voisines.
+static func mountain(rng: RandomNumberGenerator, zone: Vector2i) -> Dictionary:
+	return {"center": Vector2(zone) * 8.0 + Vector2(rng.randf_range(0.0, 8.0), rng.randf_range(0.0, 8.0)), "height": rng.randf_range(20.0, 32.0), "radius": rng.randf_range(32.0, 46.0), "stretch": rng.randf_range(1.0, 1.35), "turn": rng.randf() * TAU}
+
+static func zone_mountain(terrain_seed: int, zone: Vector2i, options: Dictionary) -> Dictionary:
+	var denominator: int = options.get("mountains", 0)
+	if denominator == 0:
+		return {}
+	var rng := RandomNumberGenerator.new()
+	rng.seed = hash([int(options.version), terrain_seed, zone.x, zone.y, "mountains"])
+	if rng.randf() >= 1.0 / denominator:
+		return {}
+	return mountain(rng, zone)
+
 static func zone_info(terrain_seed: int, zone: Vector2i, options: Dictionary) -> Dictionary:
 	var info := {"small_desert":false, "landforms":[]}
 	for spec in specs_for(int(options.version)):
@@ -157,6 +180,14 @@ static func zone_info(terrain_seed: int, zone: Vector2i, options: Dictionary) ->
 				# 0.0.5.21 : grand lac d'environ 4 zones (8 m de rayon environ), bords irréguliers.
 				var middle := Vector2(zone) * 8.0 + Vector2(rng.randf_range(2.0, 6.0), rng.randf_range(2.0, 6.0))
 				info.lake4 = {"start": middle, "end": middle + Vector2.from_angle(rng.randf() * TAU) * rng.randf_range(0.0, 3.0), "radius": rng.randf_range(6.5, 8.0), "depth": rng.randf_range(1.5, 2.6), "soils": rng.randi_range(0, 2), "turn": rng.randf() * TAU}
+			"lakes_small", "lakes_medium", "lakes_large":
+				# 0.0.5.23 : rayon, longueur du milieu et fond selon la taille (2 à 3, environ 10, environ 16 zones).
+				var sizes := {"lakes_small": [4.5, 5.5, 3.0, 6.0, 1.5, 2.5], "lakes_medium": [11.0, 13.0, 0.0, 8.0, 2.5, 3.5], "lakes_large": [14.0, 16.0, 4.0, 12.0, 3.0, 4.0]}
+				var size: Array = sizes[spec.key]
+				var middle := Vector2(zone) * 8.0 + Vector2(rng.randf_range(1.0, 7.0), rng.randf_range(1.0, 7.0))
+				info[spec.key] = {"start": middle, "end": middle + Vector2.from_angle(rng.randf() * TAU) * rng.randf_range(size[2], size[3]), "radius": rng.randf_range(size[0], size[1]), "depth": rng.randf_range(size[4], size[5]), "soils": rng.randi_range(0, 2), "turn": rng.randf() * TAU}
+			"mountains":
+				info.mountain = mountain(rng, zone)
 			"mud_regions":
 				# 0.0.5.21 : région de boue d'environ 2 zones (forme irrégulière), seule, hors des lacs.
 				info.mud = {"center": Vector2(zone) * 8.0 + Vector2(rng.randf_range(1, 7), rng.randf_range(1, 7)), "radius": rng.randf_range(5.0, 7.0)}

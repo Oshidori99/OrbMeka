@@ -246,7 +246,7 @@ func _run() -> void:
 	player.brush = 0
 	player.brush_size = 0
 	world.notice_time = 0.0
-	check(SmoothTerrain.HIGH_POINT * SmoothTerrain.STEP == 4.0, "placing limited to 4 blocks above the ground")
+	check(SmoothTerrain.HIGH_POINT * SmoothTerrain.STEP == 40.0, "placing limited to 40 blocks high (mountains)")
 	# 0.0.5.11 : gravité. Un point de terre en l'air tombe jusqu'au sol.
 	var floating: Vector3i = SmoothTerrain.point_of(Vector3(40.25, 2.0, 40.25))
 	world.terrain.set_density(floating, 0.5, SmoothTerrain.DIRT)
@@ -398,16 +398,30 @@ func _run() -> void:
 	for x in range(-24, 24):
 		for z in range(-24, 24):
 			for lake in wet_land.lakes_in_zone(Vector2i(x, z)):
-				if lake.radius < 5.0:
+				if lake.radius > 10.5:
 					long_lakes += 1
 					a_long_lake = lake
 				else:
 					round_lakes += 1
-	check(round_lakes > 5 and long_lakes > 15, "lakes of about 2 zones and big lakes of about 4 zones (version 6) in a 48 × 48 world")
+	# 0.0.5.23 (version 7) : peu de petits lacs, des moyens (environ 10 zones), quelques grands (environ 16).
+	check(round_lakes >= 1 and round_lakes < 12 and long_lakes > 4 and long_lakes < 20, "few small lakes, more medium and large ones (version 7) in a 48 × 48 world")
+	# Montagnes : hautes (20 m et plus), cœur de pierre au sommet, jamais au départ.
+	var summit := Vector2.ZERO
+	var summit_height := 0.0
+	for x in range(-24, 24):
+		for z in range(-24, 24):
+			var found: Dictionary = wet_land._zone_mountain(Vector2i(x, z))
+			if not found.is_empty() and wet_land.mountain_lift(found.center) > summit_height:
+				summit = found.center
+				summit_height = wet_land.mountain_lift(found.center)
+	var top_column := Vector2i(roundi(summit.x / 0.5), roundi(summit.y / 0.5))
+	var top_point := Vector3i(top_column.x, floori(wet_land.ground_height(top_column) / 0.5), top_column.y)
+	check(summit_height > 18.0 and wet_land.natural_kind(top_point) == SmoothTerrain.STONE, "mountains of about 20 to 30 m with a stone summit")
+	check(wet_land.mountain_lift(Vector2(0.5, 0.5)) == 0.0 and wet_land.surface_zones(Vector2i(floori(top_column.x / 16.0), floori(top_column.y / 16.0)), Vector2i(floori(top_column.x / 16.0), floori(top_column.y / 16.0))).has(Vector3i(floori(top_column.x / 16.0), 2, floori(top_column.y / 16.0))), "no mountain at the start; high zones of a mountain are drawn")
 	var middle: Vector2 = a_long_lake.center
 	var column := Vector2i(roundi(middle.x / 0.5), roundi(middle.y / 0.5))
 	var floor_point := Vector3i(column.x, floori(wet_land.ground_height(column) / 0.5), column.y)
-	check(wet_land.natural_kind(floor_point) in [SmoothTerrain.MUD, SmoothTerrain.CLAY] and wet_land.natural_kind(floor_point + Vector3i(0, -3, 0)) == SmoothTerrain.CLAY and wet_land.muddy(column), "mud or clay at the bottom of a lake, clay below, no grass")
+	check(wet_land.natural_kind(floor_point) in [SmoothTerrain.MUD, SmoothTerrain.CLAY] and wet_land.natural_kind(floor_point + Vector3i(0, -3, 0)) in [SmoothTerrain.CLAY, SmoothTerrain.STONE] and wet_land.muddy(column), "mud or clay at the bottom of a lake, clay (or stone under deep lakes) below, no grass")
 	check(wet_land.ground_height(column) < a_long_lake.level, "the bottom of a lake is under its water")
 	for x in range(-60, 60):
 		for z in range(-60, 60, 3):
@@ -447,6 +461,10 @@ func _run() -> void:
 	for vertex in far_mesh.get_faces():
 		far_ok = far_ok and not far_world.near_area.grow(-2.1).has_point(Vector2(vertex.x, vertex.z))
 	check(far_ok and far_world.environment.fog_depth_end == 16 * 8.0, "far terrain stops under the edge of the detailed terrain; mist at the far distance")
+	var cells := {}
+	for tile in far_world.far_tiles:
+		cells[far_world.far_tiles[tile].get_meta("cell")] = true
+	check(cells.has(2.0) and cells.has(4.0), "far terrain: a point every 2 m near the player, every 4 m further (faster)")
 	far_world.far_distance = 0
 	far_world.update_terrain_view(true)
 	check(far_world.far_tiles.is_empty(), "far distance 0: no far terrain")

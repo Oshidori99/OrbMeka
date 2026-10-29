@@ -12,9 +12,9 @@ extends Node3D
 # 2 ou 3, choisis parmi les nouveautés : liste NEWS_RUNNERS ([id, peau], peau vide pour un animal).
 # Chacun prend son modèle Blender, sinon une forme simple (character_model.gd, partagé avec le jeu).
 # Le reste du fichier (sol, gazon, plage, ciel, caméra) ne change pas d'une version à l'autre.
-const NEWS_VERSION := "0.0.5.22"
-const NEWS_TEXT := "Nouveau : on voit bien plus loin !
-Relief simplifié au loin, boue plus liquide."
+const NEWS_VERSION := "0.0.5.23"
+const NEWS_TEXT := "Nouveau : montagnes, grands lacs et grands déserts !
+Le lointain se charge plus vite."
 
 # 0.0.3.25 : les trois nouveautés de 0.0.3.23 en aller-retour au-dessus de l'herbe libre, devant la place
 # de sable et pierre (sous le panneau des menus, vers la droite), chacune sur sa rangée.
@@ -71,7 +71,8 @@ const CharacterPreview = preload("res://scripts/character_preview.gd")
 
 const TerrainMaterials = preload("res://scripts/terrain_materials.gd")
 const WorldRules = preload("res://scripts/world.gd")
-const SCENE_SEED := 20612
+# 0.0.5.23 : vraie graine (monde standard) avec une montagne et un lac moyen face à la caméra.
+const SCENE_SEED := 719
 # Point de vue : un joueur debout sur le sol plat (0.0.5.5 : plus de tour de pierre).
 # Il tourne lentement la tête ; la vitrine reste sur le côté, hors du panneau des menus.
 const TOWER_CELL := Vector2i(12, 12)
@@ -138,8 +139,8 @@ func _setup_environment() -> void:
 	environment.fog_enabled = true
 	environment.fog_mode = Environment.FOG_MODE_DEPTH
 	environment.fog_light_color = Color("#e7c3d6")
-	environment.fog_depth_begin = 30.0
-	environment.fog_depth_end = 58.0
+	environment.fog_depth_begin = 45.0
+	environment.fog_depth_end = 190.0
 	environment.fog_sky_affect = 0.0
 	var world_environment := WorldEnvironment.new()
 	world_environment.environment = environment
@@ -165,24 +166,52 @@ func _build_ground() -> void:
 	var ground_material := TerrainMaterials.surface(true)
 	ground_material.set_shader_parameter("sand_center", BEACH_CENTER)
 	ground_material.set_shader_parameter("sand_radius", BEACH_RADIUS)
-	for x in range(SHOWCASE_ZONES.x, SHOWCASE_ZONES.y + 1):
-		for z in range(SHOWCASE_ZONES.x, SHOWCASE_ZONES.y + 1):
-			for y in [-1, 0]:
-				var surface: Array = terrain.zone_mesh(Vector3i(x, y, z))
-				if surface[0].is_empty():
-					continue
-				var arrays := []
-				arrays.resize(Mesh.ARRAY_MAX)
-				arrays[Mesh.ARRAY_VERTEX] = surface[0]
-				arrays[Mesh.ARRAY_NORMAL] = surface[1]
-				arrays[Mesh.ARRAY_COLOR] = surface[2]
-				arrays[Mesh.ARRAY_TEX_UV] = surface[3]
-				var mesh := ArrayMesh.new()
-				mesh.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arrays)
-				var piece := MeshInstance3D.new()
-				piece.mesh = mesh
-				piece.material_override = ground_material
-				add_child(piece)
+	var near_low := Vector2i(SHOWCASE_ZONES.x, SHOWCASE_ZONES.x)
+	var near_high := Vector2i(SHOWCASE_ZONES.y, SHOWCASE_ZONES.y)
+	for zone: Vector3i in terrain.surface_zones(near_low, near_high):
+		var surface: Array = terrain.zone_mesh(zone)
+		if surface[0].is_empty():
+			continue
+		var arrays := []
+		arrays.resize(Mesh.ARRAY_MAX)
+		arrays[Mesh.ARRAY_VERTEX] = surface[0]
+		arrays[Mesh.ARRAY_NORMAL] = surface[1]
+		arrays[Mesh.ARRAY_COLOR] = surface[2]
+		arrays[Mesh.ARRAY_TEX_UV] = surface[3]
+		var mesh := ArrayMesh.new()
+		mesh.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arrays)
+		var piece := MeshInstance3D.new()
+		piece.mesh = mesh
+		piece.material_override = ground_material
+		add_child(piece)
+	_build_far(Rect2(Vector2(near_low) * 8.0, Vector2(near_high - near_low + Vector2i.ONE) * 8.0))
+
+# 0.0.5.23 : au loin, comme en partie : terrain simplifié (seulement vers où regarde la caméra) et eau des lacs.
+const FarTerrain = preload("res://scripts/far_terrain.gd")
+const FAR_TILES := Rect2i(-6, -4, 7, 6)
+
+func _build_far(near: Rect2) -> void:
+	for x in range(FAR_TILES.position.x, FAR_TILES.end.x):
+		for z in range(FAR_TILES.position.y, FAR_TILES.end.y):
+			var mesh := FarTerrain.build(terrain, Vector2i(x, z), near.grow(-2.0), FarTerrain.CELL * 2.0)
+			if mesh == null:
+				continue
+			var piece := MeshInstance3D.new()
+			piece.mesh = mesh
+			piece.material_override = FarTerrain.material()
+			piece.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+			add_child(piece)
+	var water_material := ShaderMaterial.new()
+	water_material.shader = preload("res://shaders/water.gdshader")
+	for x in range(FAR_TILES.position.x * 4, FAR_TILES.end.x * 4):
+		for z in range(FAR_TILES.position.y * 4, FAR_TILES.end.y * 4):
+			for lake in terrain.lakes_in_zone(Vector2i(x, z)):
+				var water := MeshInstance3D.new()
+				water.mesh = WorldRules._water_disc(lake.radius + lake.get("bank", 0.0) + (lake.wobble if lake.has("wobble_scale") else 0.0) + 0.25, (lake.end - lake.start) / 2.0)
+				water.material_override = water_material
+				water.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+				water.position = Vector3(lake.center.x, lake.level, lake.center.y)
+				add_child(water)
 
 func _build_scene() -> void:
 	# 0.0.5.5 : gazon réaliste et plage de sable plate ; 0.0.5.18 : sur les collines (pas dans les déserts).

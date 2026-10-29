@@ -464,7 +464,7 @@ func sculpt(hit: Dictionary, add: bool, kind: int = SmoothTerrain.DIRT, cells: i
 			if point.y <= SmoothTerrain.BEDROCK_TOP:
 				message = "Roche-mère : incassable."
 			elif point.y > SmoothTerrain.HIGH_POINT:
-				message = "Hauteur maximale atteinte : 4 blocs au-dessus du sol."
+				message = "Hauteur maximale atteinte : 40 blocs."
 			else:
 				message = "Limite de construction atteinte."
 			continue
@@ -1155,7 +1155,7 @@ Y maintenu descend ; Espace deux fois à nouveau : on retombe. Vitesses dans Att
 Terrain lisse (sous-cellules de 50 cm, 8 par bloc de 1 m) : clic gauche creuse ; clic droit utilise le pinceau
 choisi avec B + T : Poser (sable ou terre, molette ou 1 et 2), Aplanir (sol mis à la hauteur visée)
 ou Lisser (formes adoucies). B + molette : taille du geste, 1/8, 1/4 ou 1/2 bloc (1, 2 ou 4 sous-cellules).
-Le choix s'affiche en bas quand on le change. Poser : jusqu'à 4 blocs au-dessus du sol.
+Le choix s'affiche en bas quand on le change. Poser : jusqu'à 40 blocs de haut.
 Sous le gazon : 4 m de terre qu'on peut creuser, puis 4 m de pierre (à la pioche), puis la Roche-mère, incassable.
 Les blocs posés avant sont conservés ; plus de casse ni de pose de blocs pour l'instant.
 
@@ -1371,7 +1371,7 @@ func _show_column_objects(column: Vector2i) -> void:
 	for lake in terrain.lakes_in_zone(column):
 		var water := MeshInstance3D.new()
 		water.name = "Lac"
-		water.mesh = _water_disc(lake.radius + lake.get("bank", 0.0) + 0.25, (lake.end - lake.start) / 2.0)
+		water.mesh = _water_disc(lake.radius + lake.get("bank", 0.0) + (lake.wobble if lake.has("wobble_scale") else 0.0) + 0.25, (lake.end - lake.start) / 2.0)
 		if _water_material == null:
 			_water_material = ShaderMaterial.new()
 			_water_material.shader = preload("res://shaders/water.gdshader")
@@ -1444,6 +1444,7 @@ var near_area := Rect2()
 const FAR_BUDGET_USEC := 2500
 
 func _update_far(center: Vector2i, area: Rect2) -> void:
+	far_center = center
 	var old_area := near_area
 	near_area = area
 	if not is_instance_valid(far_node):
@@ -1469,22 +1470,32 @@ func _update_far(center: Vector2i, area: Rect2) -> void:
 	for tile: Vector2i in wanted:
 		var tile_area: Rect2 = wanted[tile]
 		# Nouveau carré, ou carré au bord du terrain détaillé (avant ou maintenant) : à refaire.
-		if (not far_tiles.has(tile) or tile_area.intersects(area) or tile_area.intersects(old_area)) and not tile in far_queue:
+		# 0.0.5.23 : ou carré dont la finesse change (2 m près du joueur, 4 m plus loin).
+		var changed: bool = far_tiles.has(tile) and far_tiles[tile].get_meta("cell") != _far_cell(tile)
+		if (not far_tiles.has(tile) or changed or tile_area.intersects(area) or tile_area.intersects(old_area)) and not tile in far_queue:
 			far_queue.append(tile)
 	var center_tile := FarTerrain.tile_of(center)
 	far_queue.sort_custom(func(a: Vector2i, b: Vector2i): return maxi(absi(a.x - center_tile.x), absi(a.y - center_tile.y)) < maxi(absi(b.x - center_tile.x), absi(b.y - center_tile.y)))
+
+var far_center := Vector2i.ZERO
+
+func _far_cell(tile: Vector2i) -> float:
+	var here := FarTerrain.tile_of(far_center)
+	return FarTerrain.CELL if maxi(absi(tile.x - here.x), absi(tile.y - here.y)) <= 2 else FarTerrain.CELL * 2.0
 
 func _build_far_tile(tile: Vector2i) -> void:
 	if far_tiles.has(tile):
 		far_tiles[tile].free()
 		far_tiles.erase(tile)
 	# Le terrain lointain passe 2 m sous le bord du terrain détaillé : pas de fente entre les deux.
-	var mesh := FarTerrain.build(terrain, tile, near_area.grow(-2.0))
+	var cell := _far_cell(tile)
+	var mesh := FarTerrain.build(terrain, tile, near_area.grow(-2.0), cell)
 	if mesh == null:
 		return
 	var piece := MeshInstance3D.new()
 	piece.name = "Lointain_%d_%d" % [tile.x, tile.y]
 	piece.mesh = mesh
+	piece.set_meta("cell", cell)
 	piece.material_override = FarTerrain.material()
 	piece.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	far_node.add_child(piece)

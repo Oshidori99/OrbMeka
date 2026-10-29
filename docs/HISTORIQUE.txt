@@ -3,6 +3,9 @@ Du plus récent au plus ancien. Ce fichier est mis à jour à chaque version.
 
 === Thème « Monde » (0.0.5 et suivantes) ===
 
+0.0.5.23 — Montagnes, grands lacs et grands déserts
+Montagnes à cœur de pierre (7 % du sol) ; lacs et déserts moins nombreux mais plus grands ; lointain plus rapide.
+
 0.0.5.22 — Voir loin : niveaux de détail
 Relief simplifié au-delà de la distance d'affichage (Distance lointaine, 24 zones) ; boue plus liquide, argile plus vraie.
 

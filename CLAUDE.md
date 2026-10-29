@@ -58,8 +58,9 @@ Ordre obligatoire de 1 à 4, ensuite libre :
    rochers au hasard (minés à la pioche, objets.json) et petits lacs à l'eau calme ; 0.0.5.20 : version 5, monde
    48 × 48 zones, lacs 1 × 2 zones, boue (lacs) et argile (sous les lacs, en poches) ; 0.0.5.21 : version 6,
    lacs de 2 et 4 zones irréguliers, bandes de 4-5 m (argile grise, boue, herbe), régions de boue, grands déserts
-   seulement (7-9 zones, 8 %) ; grottes à faire)
-   Niveaux de détail (#128) : commencés en 0.0.5.22 (scripts/far_terrain.gd, relief simplifié par carrés de 4 × 4 zones).
+   seulement (7-9 zones, 8 %) ; 0.0.5.23 : version 7, montagnes 20-32 m à cœur de pierre (7 %), lacs 2-3 / 10 / 16 zones,
+   déserts 14-20 zones (9-10 %), hauteur max 40 m ; grottes à faire)
+   Niveaux de détail (#128) : commencés en 0.0.5.22 (scripts/far_terrain.gd, relief simplifié par carrés de 4 × 4 zones ; 2 m près, 4 m loin en 0.0.5.23).
    (ne pas reprendre le nom anglais courant d'un autre jeu).
 5. Matières (#122) · 6. Structures (#123) · 7. Créatif/Survie (#73) · Inventaire (milestone HUD) ·
    Eau réaliste (#124 : lacs-réservoirs à volume, rivières en hauteur d'eau).

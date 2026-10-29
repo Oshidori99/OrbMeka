@@ -1,6 +1,24 @@
-# OrbMeka™ — prototype 0.0.5.22
+# OrbMeka™ — prototype 0.0.5.23
 
 Godot 4.7 / GDScript. Formes et couleurs simples ; assets externes seulement sous licence vérifiée (sons CC0, assets/sounds/CREDITS.txt).
+
+## 0.0.5.23 — Montagnes, grands lacs et grands déserts (#121, #124, #128)
+- **Génération version 7** (nouveaux mondes ; les anciens mondes ne changent pas).
+- **Montagnes** (notre propre forme) : 20 à 32 m de haut, environ 50 zones chacune, environ 7 % du sol (1 chance
+  sur 700 par zone) ; pied doux, crêtes, bord irrégulier ; **cœur de pierre** qui monte vers le sommet (sommets
+  rocheux) et quelques plaques de pierre sur les pentes. Jamais au départ, pas de lac ni de sable dessus.
+  Les petites collines restent. On peut poser et creuser jusqu'à 40 blocs de haut (4 avant).
+- **Lacs** : petits de 2 à 3 zones (rares, 1 sur 500), moyens d'environ 10 zones (les plus courants, 1 sur 180),
+  grands d'environ 16 zones (rares, 1 sur 450) ; environ 5 % du sol en eau, comme avant ; bords irréguliers.
+- **Déserts** : grands de 14 à 20 zones (1 sur 200), environ 9 à 10 % du sol.
+- **Lointain plus rapide** : un point tous les 4 m au-delà de 2 carrés (2 m plus près), une seule hauteur par point,
+  lacs proches rangés par zone ; une petite jupe cache les fentes. Curseurs des réglages : jusqu'à 1 sur 2000.
+- **Vitrine** : vraie graine (719) avec deux montagnes au loin et un lac moyen.
+
+Tests : custom_generation, custom_world_menu (15 réglages), smooth_terrain (tailles de lacs, montagnes à sommet
+de pierre, zones hautes dessinées, lointain 2 m / 4 m) ; tests choisis réussis. Mesures sur 3 graines : déserts
+9,6 %, eau 4,9 %, montagnes 6,9 %. Captures PC et Web d'une montagne, vitrine.
+À tester manuellement : monter sur une montagne, creuser la pierre du sommet, vitesse du lointain sur le Web.
 
 ## 0.0.5.22 — Voir loin : niveaux de détail (#128)
 - **Niveaux de détail** (notre propre méthode) : au-delà de la distance d'affichage (terrain détaillé), le terrain

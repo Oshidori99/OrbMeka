@@ -11,14 +11,15 @@ var generation_options: Dictionary = {}
 const STEP := 0.5
 const POINTS := 16
 const ZONE_SIZE := 8
-# Profondeur et hauteur qu'on peut sculpter, en points (−3,5 m à +4 m).
+# Profondeur et hauteur qu'on peut sculpter, en points (−3,5 m à +40 m).
 # 0.0.5.12 : sous le gazon, 4 m de terre (points −1 à −7), puis 4 m de pierre (STONE_TOP à −15),
 # puis la Roche-mère (dès BEDROCK_TOP, à 8 m sous le sol), incassable, qui porte le monde.
 # La pierre ne tombe jamais ; 0.0.5.13 : elle se casse avec la pioche (sélection), jusqu'à la Roche-mère.
 const LOW_POINT := -7
 const STONE_TOP := -8
 const BEDROCK_TOP := -16
-const HIGH_POINT := 8
+# 0.0.5.23 : 40 m (80 points) : les montagnes (jusqu'à environ 36 m) se dessinent et se sculptent ; 4 m avant.
+const HIGH_POINT := 80
 const MAX_CHANGES := 20000
 # Valeurs posées par un geste : une sous-cellule creusée ou ajoutée.
 const DUG := -0.5
@@ -77,6 +78,10 @@ func setup(terrain_seed: int, flat_spots: Array = [], options: Dictionary = {}) 
 	_deserts.clear()
 	_soils.clear()
 	_lake_cache.clear()
+	_near_cache.clear()
+	_mountain_zones.clear()
+	_mountains_near_cache.clear()
+	_lifts.clear()
 
 # Ce que la graine met dans une zone de 8 m : crête, trou, désert (toujours pareil pour une graine).
 func _zone_info(area: Vector2i) -> Dictionary:
@@ -135,7 +140,8 @@ func is_desert(at: Vector2) -> bool:
 	if _noise == null:
 		return false
 	if not generation_options.is_empty():
-		return _custom_desert(at)
+		# 0.0.5.23 : pas de sable sur les montagnes (seulement à leur pied).
+		return _custom_desert(at) and mountain_lift(at) < 2.5
 	var key := Vector2i(floori(at.x * 2.0), floori(at.y * 2.0))
 	if _deserts.has(key):
 		return _deserts[key]
@@ -159,7 +165,7 @@ func ground_height(column: Vector2i) -> float:
 		return _heights[column]
 	var at := Vector2(column) * STEP
 	if not generation_options.is_empty():
-		var custom_height := clampf(_custom_height(at), -7.0, 3.0) * _away_from_spots(at, 8.0)
+		var custom_height := (clampf(_custom_height(at), -7.0, 3.0) + mountain_lift(at)) * _away_from_spots(at, 8.0)
 		_heights[column] = roundf(custom_height * 1000.0) / 1000.0
 		return _heights[column]
 	var hill := clampf(_noise.get_noise_2d(at.x, at.y) * 1.6 - 0.15, 0.0, 1.0)
@@ -216,6 +222,8 @@ func natural_kind(point: Vector3i) -> int:
 	if point.y <= STONE_TOP:
 		return STONE
 	var column := Vector2i(point.x, point.z)
+	if point.y * STEP <= mountain_stone(column):
+		return STONE
 	# 0.0.5.20 : boue des lacs, puis argile dessous ou en poche (profondeur sous le sol de la graine).
 	var soil := _soil(column)
 	if not soil.is_empty():
@@ -326,6 +334,9 @@ func surface_zones(low_zone: Vector2i, high_zone: Vector2i) -> Dictionary:
 			# 0.0.5.19 : relief continu (version 2 et plus) : des collines presque partout, pas de calcul à l'ouverture.
 			if _noise != null and (int(generation_options.get("version", 0)) >= 2 or zone_heights(Vector3i(x, 0, z)).y > 0.0):
 				result[Vector3i(x, 0, z)] = true
+				# 0.0.5.23 : zones en hauteur des montagnes (version 7).
+				for y in range(1, floori((mountain_top(Vector2i(x, z)) + 3.5) / ZONE_METERS) + 1):
+					result[Vector3i(x, y, z)] = true
 	for point: Vector3i in changes:
 		for zone in zones_using(point):
 			if zone.x >= low_zone.x and zone.x <= high_zone.x and zone.z >= low_zone.y and zone.z <= high_zone.y:
@@ -583,8 +594,9 @@ func _custom_desert(at: Vector2) -> bool:
 	if _zone_info(area).small_desert:
 		_deserts[area] = true
 		return true
-	for dx in range(-3,1):
-		for dz in range(-2,1):
+	var wide := int(generation_options.version) >= 7
+	for dx in range(-4 if wide else -3, 1):
+		for dz in range(-4 if wide else -2, 1):
 			var info := _zone_info(area + Vector2i(dx,dz))
 			var offset := Vector2i(-dx,-dz)
 			if offset in info.get("medium_desert",[]) or offset in info.get("big_desert",[]):
@@ -657,12 +669,7 @@ func _zone_lakes(area: Vector2i) -> Array:
 		result.append({"start": info.lake.center, "end": info.lake.center, "radius": info.lake.radius, "depth": info.lake.depth})
 	if info.has("long_lake"):
 		result.append(info.long_lake)
-	for key in ["lake2", "lake4"]:
-		if info.has(key):
-			var lake: Dictionary = info[key].duplicate()
-			lake.wobble = 1.3
-			lake.bank = 1.6
-			result.append(lake)
+	result.append_array(_raw_zone_lakes(area))
 	result = result.filter(func(lake): return _lake_ok(lake))
 	# 0.0.5.21 : un lac qui chevaucherait celui d'une zone voisine plus « petite » (ordre X puis Z) n'est pas fait :
 	# jamais deux eaux à des niveaux différents l'une sur l'autre.
@@ -674,6 +681,10 @@ func _zone_lakes(area: Vector2i) -> Array:
 func _lake_ok(lake: Dictionary) -> bool:
 	for spot in _flat_spots:
 		if _segment_distance(spot[0], lake) < spot[1] + lake.radius + lake.get("bank", 0.0) + LAKE_SHORE + 6.0:
+			return false
+	# 0.0.5.23 : pas de lac sur une montagne (son eau serait sous la pente).
+	for found in _mountains_near(lake.start):
+		if _segment_distance(found.center, lake) < found.radius * (found.stretch + 0.2) + lake.radius + LAKE_SHORE:
 			return false
 	return true
 
@@ -690,21 +701,33 @@ func _lake_distance(at: Vector2, lake: Dictionary) -> float:
 	var distance := _segment_distance(at, lake)
 	var wobble: float = lake.get("wobble", 0.0)
 	if wobble > 0.0:
-		distance += _warp.get_noise_2d(at.x * 1.3 + 51.0, at.y * 1.3 - 17.0) * wobble
+		var scale: float = lake.get("wobble_scale", 1.3)
+		distance += _warp.get_noise_2d(at.x * scale + 51.0, at.y * scale - 17.0) * wobble
 	return distance
 
 func lake_level(lake: Dictionary) -> float:
 	return roundf(_rolling((lake.start + lake.end) / 2.0) * 1000.0) / 1000.0
 
 # Lacs qui peuvent toucher ce point (les allongés débordent jusqu'à deux zones plus loin, les grands trois).
+# 0.0.5.23 : liste gardée par zone (seulement les lacs assez proches) : bien plus rapide, surtout au loin (LOD).
+var _near_cache: Dictionary = {}
+
 func _lakes_near(at: Vector2) -> Array:
 	var here := Vector2i(floori(at.x / ZONE_METERS), floori(at.y / ZONE_METERS))
+	if _near_cache.has(here):
+		return _near_cache[here]
 	var version := int(generation_options.get("version", 0))
-	var reach := 3 if version >= 6 else (2 if version >= 5 else 1)
+	var reach := 6 if version >= 7 else (3 if version >= 6 else (2 if version >= 5 else 1))
+	var middle := (Vector2(here) + Vector2(0.5, 0.5)) * ZONE_METERS
 	var result := []
 	for dx in range(-reach, reach + 1):
 		for dz in range(-reach, reach + 1):
-			result.append_array(_zone_lakes(here + Vector2i(dx, dz)))
+			for lake in _zone_lakes(here + Vector2i(dx, dz)):
+				# Bord, bande de boue et d'argile (9 m) et demi-diagonale de la zone (5,7 m) compris.
+				var margin: float = lake.radius + lake.get("bank", 0.0) + lake.get("wobble", 0.0) + LAKE_SHORE + 15.0
+				if _segment_distance(middle, lake) < margin:
+					result.append(lake)
+	_near_cache[here] = result
 	return result
 
 func _with_lakes(at: Vector2, height: float) -> float:
@@ -712,13 +735,15 @@ func _with_lakes(at: Vector2, height: float) -> float:
 		var distance := _lake_distance(at, lake)
 		var radius: float = lake.radius
 		var bank: float = lake.get("bank", 0.0)
-		if distance >= radius + bank + LAKE_SHORE:
+		# Rive plus large pour les grands bords irréguliers (l'eau ne déborde jamais).
+		var shore: float = LAKE_SHORE + (lake.wobble if lake.has("wobble_scale") else 0.0)
+		if distance >= radius + bank + shore:
 			continue
 		var level := lake_level(lake)
 		if distance < radius:
 			height = minf(height, level - 0.15 - lake.depth * (1.0 - smoothstep(radius * 0.3, radius, distance)))
 		else:
-			height = maxf(height, lerpf(level + LAKE_BANK, height, smoothstep(radius + bank, radius + bank + LAKE_SHORE, distance)))
+			height = maxf(height, lerpf(level + LAKE_BANK, height, smoothstep(radius + bank, radius + bank + shore, distance)))
 	return height
 
 # Lacs qui commencent dans cette zone de 8 m (pour poser l'eau), avec leur niveau.
@@ -829,26 +854,114 @@ func rocks_in_zone(area: Vector2i) -> Array:
 
 # Boue en surface (bord et fond d'un lac, version 5) ; argile ou boue en surface (version 6) : pas d'herbe.
 func muddy(column: Vector2i) -> bool:
-	return _soil(column).has("mud") or _soil(column).has("top")
+	return _soil(column).has("mud") or _soil(column).has("top") or mountain_stone(column) >= ground_height(column) - 0.01
+
+# 0.0.5.23 (version 7) : montagnes, demandées par l'utilisateur (environ 7 % du sol ; les petites collines restent).
+# Forme : pente douce au pied, plus raide au milieu, crêtes ; bord irrégulier. Jamais près de l'apparition.
+var _mountain_zones: Dictionary = {}
+var _mountains_near_cache: Dictionary = {}
+var _lifts: Dictionary = {}
+const MOUNTAIN_REACH := 8
+
+func _zone_mountain(area: Vector2i) -> Dictionary:
+	if not _mountain_zones.has(area):
+		var found := Generation.zone_mountain(_seed, area, generation_options)
+		if not found.is_empty():
+			for spot in _flat_spots:
+				if found.center.distance_to(spot[0]) < spot[1] + found.radius * found.stretch + 10.0:
+					found = {}
+					break
+		_mountain_zones[area] = found
+	return _mountain_zones[area]
+
+func _mountains_near(at: Vector2) -> Array:
+	var here := Vector2i(floori(at.x / ZONE_METERS), floori(at.y / ZONE_METERS))
+	if _mountains_near_cache.has(here):
+		return _mountains_near_cache[here]
+	var result := []
+	if int(generation_options.get("version", 0)) >= 7:
+		var middle := (Vector2(here) + Vector2(0.5, 0.5)) * ZONE_METERS
+		for dx in range(-MOUNTAIN_REACH, MOUNTAIN_REACH + 1):
+			for dz in range(-MOUNTAIN_REACH, MOUNTAIN_REACH + 1):
+				var found := _zone_mountain(here + Vector2i(dx, dz))
+				if not found.is_empty() and middle.distance_to(found.center) < found.radius * (found.stretch + 0.2) + 6.0:
+					result.append(found)
+	_mountains_near_cache[here] = result
+	return result
+
+# Hauteur ajoutée par les montagnes à ce point (0 ailleurs).
+func mountain_lift(at: Vector2) -> float:
+	if _noise == null or generation_options.is_empty():
+		return 0.0
+	var lift := 0.0
+	for found in _mountains_near(at):
+		var offset: Vector2 = (at - found.center).rotated(-found.turn)
+		offset.x /= found.stretch
+		var radius: float = found.radius
+		var distance := offset.length() + _noise.get_noise_2d(at.x * 0.7 + 613.0, at.y * 0.7 - 211.0) * radius * 0.2
+		if distance >= radius:
+			continue
+		var profile := 1.0 - smoothstep(0.0, 1.0, distance / radius)
+		var ridge := 1.0 - absf(_noise.get_noise_2d(at.x * 1.6 - 401.0, at.y * 1.6 + 97.0))
+		lift = maxf(lift, found.height * maxf(0.0, pow(profile, 1.3) + 0.3 * profile * (ridge - 0.6)))
+	return lift
+
+# Hauteur (m) jusqu'où monte la pierre dans une montagne : le cœur de pierre monte vers le sommet (sommets
+# rocheux), et parfois une plaque de pierre sur la pente. Très bas hors des montagnes.
+func mountain_stone(column: Vector2i) -> float:
+	if _lifts.has(column):
+		return _lifts[column]
+	var at := Vector2(column) * STEP
+	var lift := mountain_lift(at)
+	var top := -INF
+	if lift > 0.0:
+		top = STONE_TOP * STEP + maxf(0.0, lift * 1.3 - 3.0)
+		if lift > 4.0 and _warp.get_noise_2d(at.x * 2.3 + 400.0, at.y * 2.3 - 50.0) > 0.42:
+			top = INF
+	_lifts[column] = top
+	return top
+
+# Plus haut point possible dans une zone (pour savoir quelles zones de 8 m dessiner en hauteur).
+func mountain_top(area: Vector2i) -> float:
+	var highest := 0.0
+	if _mountains_near((Vector2(area) + Vector2(0.5, 0.5)) * ZONE_METERS).is_empty():
+		return highest
+	for i in range(5):
+		for j in range(5):
+			highest = maxf(highest, mountain_lift((Vector2(area) + Vector2(i, j) / 4.0) * ZONE_METERS))
+	return highest
 
 func _raw_zone_lakes(area: Vector2i) -> Array:
 	var info := _zone_info(area)
 	var result := []
 	for key in ["lake2", "lake4"]:
 		if info.has(key):
-			result.append(info[key])
+			var lake: Dictionary = info[key].duplicate()
+			lake.wobble = 1.3
+			lake.bank = 1.6
+			result.append(lake)
+	# 0.0.5.23 (version 7) : petits lacs (2-3 zones), moyens (environ 10) et grands (environ 16) ; bord irrégulier
+	# à l'échelle du lac (plus large et plus lent pour les grands).
+	for key in ["lakes_small", "lakes_medium", "lakes_large"]:
+		if info.has(key):
+			var lake: Dictionary = info[key].duplicate()
+			lake.wobble = lake.radius * 0.18
+			lake.wobble_scale = 1.3 * 5.0 / lake.radius
+			lake.bank = 1.6
+			result.append(lake)
 	return result
 
 func _overlaps_earlier(area: Vector2i, lake: Dictionary) -> bool:
-	for dx in range(-3, 4):
-		for dz in range(-3, 4):
+	var reach := 8 if int(generation_options.get("version", 0)) >= 7 else 3
+	for dx in range(-reach, reach + 1):
+		for dz in range(-reach, reach + 1):
 			var other_area := area + Vector2i(dx, dz)
 			if other_area.x > area.x or (other_area.x == area.x and other_area.y >= area.y):
 				continue
 			for other in _raw_zone_lakes(other_area):
 				var gap := minf(_segment_distance(other.start, lake), _segment_distance(other.end, lake))
 				gap = minf(gap, minf(_segment_distance(lake.start, other), _segment_distance(lake.end, other)))
-				if gap < lake.radius + other.radius + 2.0 * (1.6 + LAKE_SHORE) + 2.6:
+				if gap < lake.radius + other.radius + 2.0 * (1.6 + LAKE_SHORE) + maxf(2.6, lake.get("wobble", 0.0) + other.get("wobble", 0.0)):
 					return true
 	return false
 
