@@ -58,7 +58,7 @@ func _run() -> void:
 	for invalid in [null, 123, "", "2024-02-30T12:00:00", "2023-02-29T12:00:00", "2024-01-01T24:00:00", "2024-01-01", "nonsense"]:
 		check(World.format_creation_date(invalid) == "Création : inconnue", "missing or invalid date is never invented")
 	check(catalog.rename_world(item.id,"Nouveau nom"), "world can be renamed")
-	check(JSON.parse_string(FileAccess.get_file_as_string(base_path)).creation == metadata.creation, "rename keeps creation date")
+	check(JSON.parse_string(FileAccess.get_file_as_string(catalog.world_folder(item.id).path_join(Store.BASE_FILE))).creation == metadata.creation, "rename keeps creation date (the folder follows the name, 0.0.5.20)")
 	var copy: Dictionary = catalog.duplicate_world(item.id)
 	var copy_metadata: Dictionary = JSON.parse_string(FileAccess.get_file_as_string(catalog.world_folder(copy.id).path_join(Store.BASE_FILE)))
 	check(copy.id != item.id and copy_metadata.creation != metadata.creation and not str(copy_metadata.creation).is_empty(), "duplicate receives its own creation date")
