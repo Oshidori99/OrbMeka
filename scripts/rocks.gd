@@ -4,7 +4,8 @@ extends RefCounted
 # plutôt grand, grand, énorme ; diamètre moyen en mètres ci-dessous. Plus tard : des cailloux à travailler.
 # Les rochers d'un monde sont dans son dossier : objets.json (voir world.gd, _load_objects).
 # Demande de l'utilisateur : le plus petit rocher reste plus gros qu'un gros caillou (les cailloux viendront à part).
-const SIZES := [0.4, 0.6, 0.9, 1.3, 1.9, 2.8, 4.0]
+# 0.0.5.19 : encore plus gros (40 cm à 4 m avant).
+const SIZES := [0.6, 0.9, 1.3, 1.9, 2.7, 3.8, 5.4]
 const SIZE_NAMES := ["minuscule", "petit", "plutôt petit", "moyen", "plutôt grand", "grand", "énorme"]
 # Formes : proportions (largeur, hauteur, profondeur), relief de la surface, faces nettes, coin coupé.
 const SHAPES := [
@@ -19,6 +20,7 @@ const SHAPES := [
 # Part du rocher enfoncée dans le sol (il ne flotte pas sur les pentes).
 const SINK := 0.18
 static var _meshes := {}
+static var _shapes := {}
 
 # Sphère de triangles (icosaèdre subdivisé) : sommets de longueur 1.
 static func _sphere(subdivisions: int) -> Array:
@@ -89,7 +91,10 @@ static func rock_body(size: int, shape: int, material: Material) -> StaticBody3D
 	instance.material_override = material
 	body.add_child(instance)
 	var collision := CollisionShape3D.new()
-	collision.shape = instance.mesh.create_convex_shape(true, true)
+	# Forme de collision calculée une fois par taille et forme (coûteuse).
+	if not _shapes.has(Vector2i(size, shape)):
+		_shapes[Vector2i(size, shape)] = instance.mesh.create_convex_shape(true, false)
+	collision.shape = _shapes[Vector2i(size, shape)]
 	body.add_child(collision)
 	return body
 
@@ -110,7 +115,7 @@ static func size_shape_grid() -> Dictionary:
 		widths.append(SIZES[size - 1] * 1.7 + 1.0)
 		total += widths[-1]
 	for shape in range(1, 8):
-		var z := -7.0 - (shape - 1) * 7.5
+		var z := -8.0 - (shape - 1) * 10.0
 		var x := -total / 2.0
 		for size in range(1, 8):
 			x += widths[size - 1] / 2.0

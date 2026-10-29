@@ -7,8 +7,9 @@ extends RefCounted
 # paramètres (avant 0.0.5.16) gardent la génération de 0.0.5.15.
 # Version 3 (0.0.5.18) : monde de 20 × 20 zones ; déserts moyens de 3 à 4 zones, grands de 6 à 7, environ 12 %
 # du sol, plus de grands que de petits ; 3 ou 4 trous énormes jusque dans la pierre pour 256 zones.
-const VERSION := 3
-const VERSIONS := [1, 2, 3]
+# Version 4 (0.0.5.19) : rochers au hasard (7 tailles, plus de petits que de gros) et petits lacs.
+const VERSION := 4
+const VERSIONS := [1, 2, 3, 4]
 # Chance la plus rare qu'on peut régler : 1 sur MAX_CHANCE par zone (64 avant 0.0.5.18).
 const MAX_CHANCE := 400
 const STANDARD_SMALL_DENOMINATOR := 8
@@ -26,15 +27,22 @@ const SPECS := [
 	{"key":"steep_holes", "label":"Trous aux bords abrupts", "default":18},
 	{"key":"deep_holes", "label":"Trous bien profonds", "default":0},
 	{"key":"stone_holes", "label":"Trous énormes : 2 à 3 blocs dans la pierre", "default":72},
+	{"key":"rocks", "label":"Rochers (tailles 1 à 7)", "default":2, "since":4},
+	{"key":"lakes", "label":"Petits lacs", "default":24, "since":4},
 ]
 # Taille des déserts (nombre de zones, et case où ils tiennent) selon la version.
 const DESERT_SIZES := {
 	1: {"medium_desert": [4, 6, 3, 2], "big_desert": [8, 11, 4, 3]},
 	2: {"medium_desert": [2, 4, 2, 2], "big_desert": [4, 6, 3, 2]},
 	3: {"medium_desert": [3, 4, 2, 2], "big_desert": [6, 7, 3, 3]},
+	4: {"medium_desert": [3, 4, 2, 2], "big_desert": [6, 7, 3, 3]},
 }
 # 0.0.5.18 : monde de 20 × 20 zones (16 × 16 avant).
 const WORLD_ZONES := 400
+
+# Réglages d'une version (0.0.5.19 : rochers et lacs seulement dès la version 4).
+static func specs_for(version: int) -> Array:
+	return SPECS.filter(func(spec): return spec.get("since", 1) <= version)
 
 static func defaults() -> Dictionary:
 	var result := {"version": VERSION}
@@ -49,9 +57,9 @@ static func valid(value: Variant) -> bool:
 		return true
 	var version: Variant = value.get("version")
 	# JSON relit les nombres en décimaux (2.0) : comparer en entier.
-	if value.size() != SPECS.size() + 1 or not (version is int or version is float) or float(version) != int(version) or not int(version) in VERSIONS:
+	if not (version is int or version is float) or float(version) != int(version) or not int(version) in VERSIONS or value.size() != specs_for(int(version)).size() + 1:
 		return false
-	for spec in SPECS:
+	for spec in specs_for(int(value.version)):
 		var n: Variant = value.get(spec.key)
 		if not (n is int or n is float) or not is_finite(float(n)) or n != int(n) or n < 0 or n > MAX_CHANCE:
 			return false
@@ -62,7 +70,7 @@ static func normalized(value: Dictionary) -> Dictionary:
 	if value.is_empty():
 		return {}
 	var result := {"version": int(value.version)}
-	for spec in SPECS:
+	for spec in specs_for(int(value.version)):
 		result[spec.key] = int(value[spec.key])
 	return result
 
@@ -98,7 +106,7 @@ static func cluster(rng: RandomNumberGenerator, count: int, width: int, height: 
 
 static func zone_info(terrain_seed: int, zone: Vector2i, options: Dictionary) -> Dictionary:
 	var info := {"small_desert":false, "landforms":[]}
-	for spec in SPECS:
+	for spec in specs_for(int(options.version)):
 		var rng := RandomNumberGenerator.new()
 		rng.seed = hash([int(options.version), terrain_seed, zone.x, zone.y, spec.key])
 		var denominator: int = options[spec.key]
@@ -113,6 +121,14 @@ static func zone_info(terrain_seed: int, zone: Vector2i, options: Dictionary) ->
 			"large_deserts":
 				var size: Array = DESERT_SIZES[int(options.version)].big_desert
 				info.big_desert = cluster(rng, rng.randi_range(size[0], size[1]), size[2], size[3])
+			"rocks":
+				# Un rocher (parfois deux), plutôt petit : tailles tirées avec plus de chances pour les petites.
+				info.rocks = []
+				for index in range(2 if rng.randf() < 0.25 else 1):
+					info.rocks.append({"taille": _rock_size(rng), "forme": rng.randi_range(1, 7), "x": zone.x * 8.0 + rng.randf_range(0.5, 7.5), "z": zone.y * 8.0 + rng.randf_range(0.5, 7.5), "rotation": rng.randf_range(0.0, 360.0)})
+			"lakes":
+				# Petit lac : cuvette de 3,5 à 6 m de rayon, 0,8 à 1,8 m de fond, au milieu de la zone.
+				info.lake = {"center": Vector2(zone) * 8.0 + Vector2(rng.randf_range(3, 5), rng.randf_range(3, 5)), "radius": rng.randf_range(3.5, 6.0), "depth": rng.randf_range(0.8, 1.8)}
 			_:
 				var form := {"kind":spec.key, "center":Vector2(zone)*8.0 + Vector2(rng.randf_range(1,7),rng.randf_range(1,7)), "direction":Vector2.from_angle(rng.randf()*TAU)}
 				match spec.key:
@@ -164,9 +180,23 @@ static func describe(options: Dictionary) -> String:
 	if version >= 2:
 		lines.append("Relief continu : collines douces jusqu'à 3 m, longues ondulations, petites bosses ; les trous se creusent dedans.")
 	lines.append("Chances par zone de 8 m (le monde en compte %d) :" % WORLD_ZONES)
-	for spec in SPECS:
+	for spec in specs_for(version):
 		var n: int = options.get(spec.key, 0)
 		lines.append("· %s : %s" % [spec.label, "jamais" if n == 0 else ("dans chaque zone" if n == 1 else estimate_text(spec.key, n, version))])
 	lines.append("Déserts en tout : environ %d %% du sol (sable sur 2 m, puis la terre ; il tombe et glisse)." % roundi(desert_share(options) * 100.0))
 	lines.append(layers)
 	return "\n".join(lines)
+
+# Taille d'un rocher au hasard : 1 (minuscule) bien plus souvent que 7 (énorme).
+const ROCK_WEIGHTS := [30, 24, 18, 12, 8, 5, 3]
+
+static func _rock_size(rng: RandomNumberGenerator) -> int:
+	var total := 0
+	for weight in ROCK_WEIGHTS:
+		total += weight
+	var pick := rng.randi_range(1, total)
+	for index in range(ROCK_WEIGHTS.size()):
+		pick -= ROCK_WEIGHTS[index]
+		if pick <= 0:
+			return index + 1
+	return 1

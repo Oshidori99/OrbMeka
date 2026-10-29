@@ -195,6 +195,7 @@ func _create_terrain(start_at: Vector3 = Vector3.ZERO) -> void:
 	if relief:
 		terrain.setup(terrain_seed, [[Vector2(0.5, 0.5), 9.0], [SAND_CENTER, SAND_RADIUS + 2.0]], generation_options)
 	_read_terrain_changes()
+	_read_objects()
 	terrain_node = Node3D.new()
 	terrain_node.name = "Terrain"
 	add_child(terrain_node)
@@ -261,9 +262,11 @@ func _show_column(column: Vector2i) -> void:
 	for zone: Vector3i in shown_columns.get(column, []):
 		rebuild_terrain_piece(zone)
 	_rebuild_lawn_tile(column)
+	_show_column_objects(column)
 
 func _hide_column(column: Vector2i) -> void:
 	shown_columns.erase(column)
+	_hide_column_objects(column)
 	for zone: Vector3i in terrain_pieces.keys():
 		if zone.x == column.x and zone.z == column.y:
 			terrain_pieces[zone].free()
@@ -827,6 +830,8 @@ func save_now() -> bool:
 	# 0.0.5.11 : ce qui tombe encore est posé à sa place avant d'enregistrer.
 	settle_all()
 	var ok := Store.write_json(save_folder.path_join(Store.PLAYER_FILE), player_data())
+	# 0.0.5.19 : rochers minés.
+	ok = _save_objects() and ok
 	for zone: Vector3i in dirty_zones.keys():
 		if loaded_zones.has(zone) and not _save_zone(zone):
 			ok = false
@@ -860,10 +865,18 @@ func _valid_hit(hit: Dictionary, reach: float) -> bool:
 		return false
 	if player.camera.global_position.distance_to(hit.position) > reach + 0.01:
 		return false
-	return hit.collider.is_in_group("blocks") or hit.collider.is_in_group("ground")
+	return hit.collider.is_in_group("blocks") or hit.collider.is_in_group("ground") or hit.collider.is_in_group("rocks")
 
 # 0.0.5.8 : clic gauche : creuser le terrain lisse (les blocs posés avant restent, sans casse ni pose).
 func break_target(hit: Dictionary) -> bool:
+	# 0.0.5.19 : un rocher se mine à la pioche (sinon un message).
+	if not hit.is_empty() and is_instance_valid(hit.get("collider")) and hit.collider.is_in_group("rocks"):
+		if not _valid_hit(hit, player.break_reach):
+			return false
+		if player.selected_type != PICKAXE:
+			_notify("Les rochers se cassent avec la pioche (molette ou touche 3).")
+			return false
+		return mine_rock(hit.collider)
 	var pickaxe: bool = player.selected_type == PICKAXE
 	var stone := not hit.is_empty() and terrain.is_stone(SmoothTerrain.point_of(hit.position - hit.normal * 0.3))
 	var done := sculpt(hit, false, -1, SIZE_CELLS[player.brush_size], pickaxe)
@@ -1244,7 +1257,14 @@ func set_grass_distance(distance: float) -> void:
 
 # 0.0.5.18 : objets du monde (objets.json, dans son dossier) : rochers (taille et forme 1 à 7, position X Z,
 # rotation) et étiquettes (textes flottants, pour les mondes d'essai). Posés sur le sol de la graine.
+# 0.0.5.19 : rochers de la graine (génération version 4), affichés avec leur colonne ; rochers minés à la pioche
+# gardés dans objets.json (« rochers_mines » : identifiants), jamais recréés.
 var rocks_node: Node3D
+var objects_data: Dictionary = {}
+var mined_rocks: Dictionary = {}
+var objects_dirty := false
+var _rock_material: ShaderMaterial
+var _water_material: ShaderMaterial
 
 static func valid_objects(data: Dictionary) -> bool:
 	if data.get("format") != 1.0 and data.get("format") != 1:
@@ -1257,9 +1277,13 @@ static func valid_objects(data: Dictionary) -> bool:
 	for label in data.get("etiquettes", []):
 		if not label is Dictionary or not label.get("texte") is String:
 			return false
+	for id in data.get("rochers_mines", []):
+		if not id is String:
+			return false
 	return true
 
-func _load_objects() -> void:
+# Lu avant d'afficher le terrain : les rochers minés ne doivent pas réapparaître avec leur colonne.
+func _read_objects() -> void:
 	if save_folder.is_empty() or not FileAccess.file_exists(save_folder.path_join(Store.OBJECTS_FILE)):
 		return
 	var saved := Store.read_json(save_folder.path_join(Store.OBJECTS_FILE), valid_objects)
@@ -1267,22 +1291,47 @@ func _load_objects() -> void:
 		_notify(saved.error)
 		notice_time = 8.0
 		return
-	place_objects(saved.get("data", {}))
+	objects_data = saved.get("data", {})
+	for id in objects_data.get("rochers_mines", []):
+		mined_rocks[id] = true
+
+# Objets de la liste du monde (rochers et étiquettes des mondes d'essai), une fois le terrain prêt.
+func _load_objects() -> void:
+	if not objects_data.is_empty():
+		place_objects(objects_data)
+
+func _rocks_parent() -> Node3D:
+	if not is_instance_valid(rocks_node):
+		rocks_node = Node3D.new()
+		rocks_node.name = "Rocks"
+		add_child(rocks_node)
+	return rocks_node
+
+func _make_rock(rock: Dictionary, id: String) -> StaticBody3D:
+	if _rock_material == null:
+		_rock_material = TerrainMaterials.surface(true)
+	var size := int(rock.taille)
+	var shape := int(rock.forme)
+	var body := Rocks.rock_body(size, shape, _rock_material)
+	var x := float(rock.x)
+	var z := float(rock.z)
+	body.position = Vector3(x, terrain.height_at(x, z) + Rocks.bottom_offset(size, shape), z)
+	body.rotation.y = deg_to_rad(float(rock.get("rotation", 0.0)))
+	body.set_meta("id", id)
+	body.set_meta("hits", 0)
+	_rocks_parent().add_child(body)
+	return body
 
 func place_objects(data: Dictionary) -> void:
-	rocks_node = Node3D.new()
-	rocks_node.name = "Rocks"
-	add_child(rocks_node)
-	var stone := TerrainMaterials.surface(true)
+	objects_data = data
+	for id in data.get("rochers_mines", []):
+		mined_rocks[id] = true
+	var index := 0
 	for rock in data.get("rochers", []):
-		var size := int(rock.taille)
-		var shape := int(rock.forme)
-		var body := Rocks.rock_body(size, shape, stone)
-		var x := float(rock.x)
-		var z := float(rock.z)
-		body.position = Vector3(x, terrain.height_at(x, z) + Rocks.bottom_offset(size, shape), z)
-		body.rotation.y = deg_to_rad(float(rock.get("rotation", 0.0)))
-		rocks_node.add_child(body)
+		var id := "liste_%d" % index
+		index += 1
+		if not mined_rocks.has(id):
+			_make_rock(rock, id)
 	for label in data.get("etiquettes", []):
 		var text := Label3D.new()
 		text.text = label.texte
@@ -1293,4 +1342,72 @@ func place_objects(data: Dictionary) -> void:
 		var x := float(label.get("x", 0.0))
 		var z := float(label.get("z", 0.0))
 		text.position = Vector3(x, terrain.height_at(x, z) + float(label.get("hauteur", 1.5)), z)
-		rocks_node.add_child(text)
+		_rocks_parent().add_child(text)
+
+# Rochers et lacs de la graine d'une colonne (affichés et retirés avec elle).
+func _show_column_objects(column: Vector2i) -> void:
+	_hide_column_objects(column)
+	for rock in terrain.rocks_in_zone(column):
+		if not mined_rocks.has(rock.id):
+			_make_rock(rock, rock.id).set_meta("column", column)
+	for lake in terrain.lakes_in_zone(column):
+		var water := MeshInstance3D.new()
+		water.name = "Lac"
+		water.mesh = _water_disc(lake.radius + 0.25)
+		if _water_material == null:
+			_water_material = ShaderMaterial.new()
+			_water_material.shader = preload("res://shaders/water.gdshader")
+		water.material_override = _water_material
+		water.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		water.position = Vector3(lake.center.x, lake.level, lake.center.y)
+		water.set_meta("column", column)
+		water.add_to_group("water")
+		_rocks_parent().add_child(water)
+
+func _hide_column_objects(column: Vector2i) -> void:
+	if not is_instance_valid(rocks_node):
+		return
+	for child in rocks_node.get_children():
+		if child.get_meta("column", Vector2i(999999, 0)) == column:
+			child.free()
+
+# Disque d'eau (surface plate, vue de dessus et de dessous).
+static func _water_disc(radius: float) -> ArrayMesh:
+	var tool := SurfaceTool.new()
+	tool.begin(Mesh.PRIMITIVE_TRIANGLES)
+	var sides := 40
+	for index in range(sides):
+		var a := TAU * index / sides
+		var b := TAU * (index + 1) / sides
+		for at in [Vector3.ZERO, Vector3(cos(b), 0, sin(b)) * radius, Vector3(cos(a), 0, sin(a)) * radius]:
+			tool.set_normal(Vector3.UP)
+			tool.add_vertex(at)
+	return tool.commit()
+
+# Coup de pioche sur un rocher : il se fend un peu à chaque coup ; au bout d'autant de coups que sa taille, il casse.
+func mine_rock(body: StaticBody3D) -> bool:
+	var size: int = body.get_meta("rock").x
+	var hits: int = body.get_meta("hits") + 1
+	body.set_meta("hits", hits)
+	_debris(body.global_position + Vector3.UP * 0.3, Color("#6f6b66"))
+	if hits < size:
+		body.scale = Vector3.ONE * (1.0 - 0.06 * hits)
+		show_choice("Rocher : %d / %d coups" % [hits, size])
+		return true
+	mined_rocks[body.get_meta("id")] = true
+	objects_dirty = true
+	body.queue_free()
+	show_choice("Rocher cassé")
+	return true
+
+func _save_objects() -> bool:
+	if save_folder.is_empty() or not objects_dirty:
+		return true
+	var data := objects_data.duplicate(true)
+	if data.is_empty():
+		data = {"format": 1}
+	data.rochers_mines = mined_rocks.keys()
+	var ok := Store.write_json(save_folder.path_join(Store.OBJECTS_FILE), data)
+	if ok:
+		objects_dirty = false
+	return ok

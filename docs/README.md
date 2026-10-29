@@ -1,6 +1,22 @@
-# OrbMeka™ — prototype 0.0.5.18
+# OrbMeka™ — prototype 0.0.5.19
 
 Godot 4.7 / GDScript. Formes et couleurs simples ; assets externes seulement sous licence vérifiée (sons CC0, assets/sounds/CREDITS.txt).
+
+## 0.0.5.19 — Rochers à miner et petits lacs (#121, #124)
+- **Rochers plus gros** : de 60 cm (minuscule) à 5,4 m (énorme). Monde TestTailleRocher mis à jour.
+- **Génération version 4** (nouveaux mondes) : rochers au hasard (1 chance sur 2 par zone, parfois deux ;
+  bien plus de petits que de gros), et **petits lacs** (1 chance sur 24 par zone) : cuvette de 3,5 à 6 m de rayon,
+  petit bord autour, eau calme bleu-vert un peu transparente avec des rides. Pas près de l'apparition ni de la plage.
+  Réglables dans Monde personnalisé (Rochers, Petits lacs). Les mondes plus anciens n'en ont pas.
+- **Miner un rocher** : pioche en main, clic gauche ; il se fend à chaque coup et casse au bout d'autant de coups
+  que sa taille (1 à 7). Sans la pioche, un message. Les rochers cassés sont gardés (objets.json) et ne reviennent pas.
+- L'eau ne coule pas encore et on ne nage pas : ce sera l'eau réaliste (#124).
+- Ouverture d'un monde : environ 1,2 s sur PC (le reste du terrain arrive peu à peu).
+
+Tests : smooth_terrain (rochers au hasard, plus de petits, minage, sauvegarde, pas de retour, lacs, anciens mondes
+sans rochers), custom_generation et custom_world_menu (version 4, 12 réglages) ; tests choisis réussis.
+Captures PC et Web : lac et rochers.
+À tester manuellement : miner à la pioche, lacs, FPS sur le Web.
 
 ## 0.0.5.18 — Monde plus grand, déserts et rochers (#121)
 - **Mondes de 20 × 20 zones** (160 m, X et Z de −80 à 79 ; construction de −73 à 73), anciens mondes compris

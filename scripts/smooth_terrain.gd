@@ -311,7 +311,8 @@ func surface_zones(low_zone: Vector2i, high_zone: Vector2i) -> Dictionary:
 	for x in range(low_zone.x, high_zone.x + 1):
 		for z in range(low_zone.y, high_zone.y + 1):
 			result[Vector3i(x, -1, z)] = true
-			if _noise != null and zone_heights(Vector3i(x, 0, z)).y > 0.0:
+			# 0.0.5.19 : relief continu (version 2 et plus) : des collines presque partout, pas de calcul à l'ouverture.
+			if _noise != null and (int(generation_options.get("version", 0)) >= 2 or zone_heights(Vector3i(x, 0, z)).y > 0.0):
 				result[Vector3i(x, 0, z)] = true
 	for point: Vector3i in changes:
 		for zone in zones_using(point):
@@ -602,7 +603,7 @@ func _custom_height(at: Vector2) -> float:
 					dig = minf(dig, form.height * profile)
 	# Version 2 : les trous se creusent dans le relief (en dessous de la colline ou de la bosse où ils sont).
 	if continuous:
-		return hill + dig
+		return _with_lakes(at, hill + dig)
 	return minf(hill,hole)
 
 # 0.0.5.17 : relief continu de la version 2, moins plat (demande de l'utilisateur) : collines douces plus
@@ -614,3 +615,67 @@ func _rolling(at: Vector2) -> float:
 	var hill := clampf(_noise.get_noise_2d(at.x, at.y) * 1.3 + 0.1, 0.0, 1.0)
 	var swell := _noise.get_noise_2d(at.x * HILL_SIZE / ROLLING_SIZE + 311.0, at.y * HILL_SIZE / ROLLING_SIZE - 173.0)
 	return HILL_HEIGHT * pow(hill, 1.3) + (swell * 0.5 + 0.5) * ROLLING_HEIGHT + _bumps.get_noise_2d(at.x, at.y) * BUMP_HEIGHT
+
+# 0.0.5.19 : petits lacs (version 4) : cuvette sous le niveau de l'eau, petit bord au-dessus, autour ;
+# niveau = relief continu au centre. Jamais près de l'apparition ni de la plage.
+const LAKE_BANK := 0.3
+const LAKE_SHORE := 3.0
+
+func _lake_ok(lake: Dictionary) -> bool:
+	for spot in _flat_spots:
+		if lake.center.distance_to(spot[0]) < spot[1] + lake.radius + LAKE_SHORE + 6.0:
+			return false
+	return true
+
+func lake_level(lake: Dictionary) -> float:
+	return roundf(_rolling(lake.center) * 1000.0) / 1000.0
+
+func _with_lakes(at: Vector2, height: float) -> float:
+	var here := Vector2i(floori(at.x / ZONE_METERS), floori(at.y / ZONE_METERS))
+	for dx in range(-1, 2):
+		for dz in range(-1, 2):
+			var lake: Dictionary = _zone_info(here + Vector2i(dx, dz)).get("lake", {})
+			if lake.is_empty() or not _lake_ok(lake):
+				continue
+			var distance: float = at.distance_to(lake.center)
+			var radius: float = lake.radius
+			if distance >= radius + LAKE_SHORE:
+				continue
+			var level := lake_level(lake)
+			if distance < radius:
+				height = minf(height, level - 0.15 - lake.depth * (1.0 - smoothstep(radius * 0.3, radius, distance)))
+			else:
+				height = maxf(height, lerpf(level + LAKE_BANK, height, smoothstep(radius, radius + LAKE_SHORE, distance)))
+	return height
+
+# Lacs dont le centre est dans cette zone de 8 m (pour poser l'eau), avec leur niveau.
+func lakes_in_zone(area: Vector2i) -> Array:
+	if _noise == null or generation_options.is_empty():
+		return []
+	var lake: Dictionary = _zone_info(area).get("lake", {})
+	if lake.is_empty() or not _lake_ok(lake):
+		return []
+	return [{"center": lake.center, "radius": lake.radius, "level": lake_level(lake)}]
+
+# Rochers de la graine dans cette zone (version 4), sauf près de l'apparition, de la plage et dans un lac.
+func rocks_in_zone(area: Vector2i) -> Array:
+	if _noise == null or generation_options.is_empty():
+		return []
+	var result := []
+	var index := 0
+	for rock in _zone_info(area).get("rocks", []):
+		var at := Vector2(rock.x, rock.z)
+		var near_spot := false
+		for spot in _flat_spots:
+			near_spot = near_spot or at.distance_to(spot[0]) < spot[1] + 2.0
+		var wet := false
+		for dx in range(-1, 2):
+			for dz in range(-1, 2):
+				var lake: Dictionary = _zone_info(area + Vector2i(dx, dz)).get("lake", {})
+				wet = wet or (not lake.is_empty() and _lake_ok(lake) and at.distance_to(lake.center) < lake.radius + 1.5)
+		if not near_spot and not wet:
+			var entry: Dictionary = rock.duplicate()
+			entry.id = "%d_%d_%d" % [area.x, area.y, index]
+			result.append(entry)
+		index += 1
+	return result

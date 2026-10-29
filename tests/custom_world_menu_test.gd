@@ -24,7 +24,7 @@ func _run() -> void:
 	app.name_field.text = "Personnalisé"
 	app.seed_field.text = "123"
 	app.custom_world_button.pressed.emit()
-	check(app.page == "custom_world" and app.custom_sliders.size() == 10, "custom menu offers ten generation sliders")
+	check(app.page == "custom_world" and app.custom_sliders.size() == 12, "custom menu offers twelve generation sliders (rocks and lakes since 0.0.5.19)")
 	for size in [Vector2i(1280,720),Vector2i(800,600)]:
 		root.size = size
 		app.fit_menus_to_window()

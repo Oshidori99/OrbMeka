@@ -16,7 +16,7 @@ func _run() -> void:
 	for source in ["res://scripts/world_generation.gd.uid","res://tests/custom_generation_test.gd.uid","res://tests/custom_world_menu_test.gd.uid"]:
 		check(ResourceUID.text_to_id(FileAccess.get_file_as_string(source).strip_edges()) > 0, "new script UID is valid")
 	var options := Generation.defaults()
-	check(options.version == 3 and options.small_deserts == 133 and options.medium_deserts == 100 and options.large_deserts == 80, "0.0.5.18 standard (version 3): small deserts rarer than big ones")
+	check(options.version == 4 and options.rocks == 2 and options.lakes == 24 and options.small_deserts == 133 and options.medium_deserts == 100 and options.large_deserts == 80, "0.0.5.18 standard (version 3): small deserts rarer than big ones")
 	check(options.deep_holes == 0 and absf(256.0 / options.stone_holes - 3.5) < 0.6 and absf(Generation.desert_share(options) - 0.12) < 0.015, "3 or 4 huge holes per 256 zones; deserts cover about 12 % of the ground")
 	check(Generation.valid({}) and Generation.valid(options), "legacy and custom options accepted")
 	for invalid in [-1,401,1.5,"24",null]:
@@ -46,9 +46,11 @@ func _run() -> void:
 	# Version 1 (0.0.5.16) : mêmes tailles qu'avant, pour les mondes déjà créés avec elle.
 	var old := all.duplicate()
 	old.version = 1
+	old.erase("rocks")
+	old.erase("lakes")
 	var old_info := Generation.zone_info(42, Vector2i(2, 3), old)
 	check(old_info.medium_desert.size() >= 4 and old_info.medium_desert.size() <= 6 and old_info.big_desert.size() >= 8 and old_info.big_desert.size() <= 11, "version 1 worlds keep their desert sizes")
-	check(Generation.valid(old) and not Generation.valid({"version": 4}), "versions 1 to 3 accepted, others refused")
+	check(Generation.valid(old) and not Generation.valid({"version": 5}), "versions 1 to 4 accepted, others refused")
 	check(Generation.estimate_text("medium_deserts", 25).contains("environ 16 désert") and Generation.estimate_text("steep_hills", 8).contains("environ 50 dans le monde"), "estimates in plain words (400 zones)")
 	var rare := options.duplicate()
 	for spec in Generation.SPECS:
@@ -71,13 +73,14 @@ func _run() -> void:
 		check(all_desert.is_desert(Vector2(x,0)), "1/1 is desert even near spawn")
 	var pits := rare.duplicate()
 	pits.stone_holes = 1
+	pits.lakes = 0
 	var deep := Terrain.new()
 	deep.setup(123,[],pits)
 	var info := deep._zone_info(Vector2i(5,6))
 	for form in info.landforms:
 		if form.kind == "stone_holes":
 			var at := Vector2i(roundi(form.center.x*2),roundi(form.center.y*2))
-			check(deep.ground_height(at) >= -7.0 and deep.ground_height(at) <= -6.0, "large pit reaches 2-3 blocks into stone")
+			check(deep.ground_height(at) >= -7.0 and deep.ground_height(at) <= -4.0, "huge pit goes down into the stone (2 to 3 blocks under the local relief, version 2 and later)")
 			check(deep.density(Vector3i(at.x,-10,at.y)) <= 0.0 and deep.solid(Vector3i(at.x,-16,at.y)), "stone exposed, bedrock remains solid")
 	var path := "res://.godot/custom-generation-%d.json" % Time.get_ticks_usec()
 	var catalog := Catalog.new(path)
@@ -91,7 +94,7 @@ func _run() -> void:
 	var copy: Dictionary = reopened.duplicate_world(item.id)
 	check(copy.id != item.id and copy.generation == options, "duplicate retains seed options with distinct identity")
 	var standard: Dictionary = reopened.create_world("Standard","123")
-	check(standard.generation == Generation.defaults(), "a new standard world saves the version 3 settings")
+	check(standard.generation == Generation.defaults(), "a new standard world saves the version 4 settings")
 	var legacy: Dictionary = reopened.create_world("Ancien","124","default",false,{})
 	check(legacy.generation.is_empty(), "worlds without settings keep the 0.0.5.15 generation")
 	Store.delete_folder(catalog.worlds_root)

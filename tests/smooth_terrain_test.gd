@@ -335,5 +335,58 @@ func _run() -> void:
 	check(under and viewer.environment.fog_enabled and is_equal_approx(viewer.environment.fog_depth_end, 16.0), "the ground under a flying player is there; mist at the edge of the view")
 	check(WorldScene.instantiate().load_distance == 8, "view distance 8 zones by default")
 	close(viewer)
+	# 0.0.5.19 : rochers au hasard et petits lacs dans les nouveaux mondes (génération version 4), minés à la pioche.
+	Store.delete_folder(FOLDER)
+	var rock_world: Node3D = WorldScene.instantiate()
+	rock_world.terrain_seed = 70621
+	rock_world.generation_options = load("res://scripts/world_generation.gd").defaults()
+	rock_world.save_folder = FOLDER
+	rock_world.load_distance = 20
+	root.add_child(rock_world)
+	rock_world.finish_terrain()
+	var rock_nodes := rock_world.get_tree().get_nodes_in_group("rocks")
+	check(rock_nodes.size() > 120 and rock_world.get_tree().get_nodes_in_group("water").size() > 0, "a version 4 world has random rocks and small_rocks lakes")
+	var small_rocks := 0
+	var huge_rocks := 0
+	for each in rock_nodes:
+		small_rocks += 1 if each.get_meta("rock").x <= 2 else 0
+		huge_rocks += 1 if each.get_meta("rock").x == 7 else 0
+	check(small_rocks > huge_rocks * 3, "more small_rocks rocks than huge_rocks ones")
+	var mined_target: StaticBody3D = rock_nodes[0]
+	var rock_size: int = mined_target.get_meta("rock").x
+	var rock_id: String = mined_target.get_meta("id")
+	rock_world.player.global_position = mined_target.global_position + Vector3(1.0, 0.0, 1.0)
+	var rock_hit := {"collider": mined_target, "position": mined_target.global_position, "normal": Vector3.UP}
+	rock_world.player.selected_type = 0
+	check(not rock_world.break_target(rock_hit) and rock_world.notice.begins_with("Les rochers se cassent avec la pioche"), "without the pickaxe, a rock does not break")
+	rock_world.player.selected_type = rock_world.PICKAXE
+	for hit_index in range(rock_size):
+		rock_world.break_target(rock_hit)
+	check(rock_world.mined_rocks.has(rock_id) and mined_target.is_queued_for_deletion(), "a rock breaks after as many pickaxe hits as its size")
+	check(rock_world.save_now() and FileAccess.get_file_as_string(FOLDER.path_join(Store.OBJECTS_FILE)).contains(rock_id), "mined rocks saved in objets.json")
+	close(rock_world)
+	var rock_world_again: Node3D = WorldScene.instantiate()
+	rock_world_again.terrain_seed = 70621
+	rock_world_again.generation_options = load("res://scripts/world_generation.gd").defaults()
+	rock_world_again.save_folder = FOLDER
+	rock_world_again.load_distance = 20
+	root.add_child(rock_world_again)
+	rock_world_again.finish_terrain()
+	var came_back := false
+	for each in rock_world_again.get_tree().get_nodes_in_group("rocks"):
+		came_back = came_back or each.get_meta("id") == rock_id
+	check(not came_back and rock_world_again.get_tree().get_nodes_in_group("rocks").size() == rock_nodes.size() - 1, "a mined rock never comes back")
+	close(rock_world_again)
+	Store.delete_folder(FOLDER)
+	var older_terrain := SmoothTerrain.new()
+	var v3_options: Dictionary = load("res://scripts/world_generation.gd").defaults()
+	v3_options.erase("rocks")
+	v3_options.erase("lakes")
+	v3_options.version = 3
+	older_terrain.setup(70621, [], v3_options)
+	var no_rocks := true
+	for x in range(-10, 10):
+		no_rocks = no_rocks and older_terrain.rocks_in_zone(Vector2i(x, 2)).is_empty() and older_terrain.lakes_in_zone(Vector2i(x, 2)).is_empty()
+	check(no_rocks, "worlds made before version 4 get no rocks or lakes")
 	print("RESULT: %d smooth terrain checks, %d failures" % [checks, failures])
 	quit(0 if failures == 0 else 1)

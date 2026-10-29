@@ -53,7 +53,8 @@ Ordre obligatoire de 1 à 4, ensuite libre :
    (1 sur 8) et grands (1 sur 12, 3 ou 4 zones) ; 0.0.5.16 : mondes personnalisés (chances par zone) ;
    0.0.5.17 : génération version 2 enregistrée avec chaque nouveau monde (relief moins plat, déserts plus rares),
    distance d'affichage horizontale ; 0.0.5.18 : version 3, monde 20 × 20 zones, déserts 12 % (1, 3-4, 6-7 zones),
-   3-4 trous énormes pour 256 zones ; rochers en essai (scripts/rocks.gd, 7 tailles × 7 formes) ; grottes à faire)
+   3-4 trous énormes pour 256 zones ; rochers en essai (scripts/rocks.gd, 7 tailles × 7 formes) ; 0.0.5.19 : version 4,
+   rochers au hasard (minés à la pioche, objets.json) et petits lacs à l'eau calme ; grottes à faire)
    (ne pas reprendre le nom anglais courant d'un autre jeu).
 5. Matières (#122) · 6. Structures (#123) · 7. Créatif/Survie (#73) · Inventaire (milestone HUD) ·
    Eau réaliste (#124 : lacs-réservoirs à volume, rivières en hauteur d'eau).
