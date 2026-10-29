@@ -398,23 +398,35 @@ func _run() -> void:
 	for x in range(-24, 24):
 		for z in range(-24, 24):
 			for lake in wet_land.lakes_in_zone(Vector2i(x, z)):
-				if lake.start.distance_to(lake.end) > 1.0:
+				if lake.radius < 5.0:
 					long_lakes += 1
 					a_long_lake = lake
 				else:
 					round_lakes += 1
-	check(round_lakes > 20 and long_lakes > 10, "small lakes (1 zone) and long lakes (1 × 2 zones) in a 48 × 48 world")
+	check(round_lakes > 5 and long_lakes > 15, "lakes of about 2 zones and big lakes of about 4 zones (version 6) in a 48 × 48 world")
 	var middle: Vector2 = a_long_lake.center
 	var column := Vector2i(roundi(middle.x / 0.5), roundi(middle.y / 0.5))
 	var floor_point := Vector3i(column.x, floori(wet_land.ground_height(column) / 0.5), column.y)
-	check(wet_land.natural_kind(floor_point) == SmoothTerrain.MUD and wet_land.natural_kind(floor_point + Vector3i(0, -3, 0)) == SmoothTerrain.CLAY and wet_land.muddy(column), "mud at the bottom of a lake, clay below, no grass")
-	check(wet_land.ground_height(column) < a_long_lake.level, "the bottom of a long lake is under its water")
+	check(wet_land.natural_kind(floor_point) in [SmoothTerrain.MUD, SmoothTerrain.CLAY] and wet_land.natural_kind(floor_point + Vector3i(0, -3, 0)) == SmoothTerrain.CLAY and wet_land.muddy(column), "mud or clay at the bottom of a lake, clay below, no grass")
+	check(wet_land.ground_height(column) < a_long_lake.level, "the bottom of a lake is under its water")
 	for x in range(-60, 60):
 		for z in range(-60, 60, 3):
 			var c := Vector2i(x, z)
 			var depth := floori((wet_land.ground_height(c) - 1.0) / 0.5)
 			clay_found = clay_found or (wet_land.natural_kind(Vector3i(x, depth, z)) == SmoothTerrain.CLAY and not wet_land.muddy(c))
 	check(clay_found, "clay pockets in the dirt, away from lakes")
+	# 0.0.5.21 : bandes de 4 à 5 m autour des lacs (argile ; boue et argile ; argile, herbe et boue) et régions de boue.
+	var patterns := {}
+	var mud_region_found := false
+	for x in range(-24, 24):
+		for z in range(-24, 24):
+			for lake in wet_land.lakes_in_zone(Vector2i(x, z)):
+				patterns[int(lake.soils)] = true
+			var region: Dictionary = wet_land._zone_info(Vector2i(x, z)).get("mud", {})
+			if not region.is_empty() and not mud_region_found:
+				var inside := Vector2i(roundi(region.center.x / 0.5), roundi(region.center.y / 0.5))
+				mud_region_found = wet_land._soil(inside).get("top", -1) == SmoothTerrain.MUD
+	check(patterns.size() == 3 and mud_region_found, "three kinds of lake shores, and mud regions of about 2 zones")
 	var dried := SmoothTerrain.new()
 	dried.set_density(Vector3i(0, 3, 0), 0.5, SmoothTerrain.MUD)
 	dried.set_density(Vector3i(0, 2, 0), 0.5, SmoothTerrain.MUD)

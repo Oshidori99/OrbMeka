@@ -1365,7 +1365,7 @@ func _show_column_objects(column: Vector2i) -> void:
 	for lake in terrain.lakes_in_zone(column):
 		var water := MeshInstance3D.new()
 		water.name = "Lac"
-		water.mesh = _water_disc(lake.radius + 0.25, (lake.end - lake.start) / 2.0)
+		water.mesh = _water_disc(lake.radius + lake.get("bank", 0.0) + 0.25, (lake.end - lake.start) / 2.0)
 		if _water_material == null:
 			_water_material = ShaderMaterial.new()
 			_water_material.shader = preload("res://shaders/water.gdshader")

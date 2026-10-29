@@ -56,7 +56,9 @@ Ordre obligatoire de 1 à 4, ensuite libre :
    distance d'affichage horizontale ; 0.0.5.18 : version 3, monde 20 × 20 zones, déserts 12 % (1, 3-4, 6-7 zones),
    3-4 trous énormes pour 256 zones ; rochers en essai (scripts/rocks.gd, 7 tailles × 7 formes) ; 0.0.5.19 : version 4,
    rochers au hasard (minés à la pioche, objets.json) et petits lacs à l'eau calme ; 0.0.5.20 : version 5, monde
-   48 × 48 zones, lacs 1 × 2 zones, boue (lacs) et argile (sous les lacs, en poches) ; grottes à faire)
+   48 × 48 zones, lacs 1 × 2 zones, boue (lacs) et argile (sous les lacs, en poches) ; 0.0.5.21 : version 6,
+   lacs de 2 et 4 zones irréguliers, bandes de 4-5 m (argile grise, boue, herbe), régions de boue, grands déserts
+   seulement (7-9 zones, 8 %) ; grottes à faire)
    (ne pas reprendre le nom anglais courant d'un autre jeu).
 5. Matières (#122) · 6. Structures (#123) · 7. Créatif/Survie (#73) · Inventaire (milestone HUD) ·
    Eau réaliste (#124 : lacs-réservoirs à volume, rivières en hauteur d'eau).

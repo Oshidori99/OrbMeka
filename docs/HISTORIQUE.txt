@@ -3,6 +3,9 @@ Du plus récent au plus ancien. Ce fichier est mis à jour à chaque version.
 
 === Thème « Monde » (0.0.5 et suivantes) ===
 
+0.0.5.21 — Lacs irréguliers, boue et argile grise
+Lacs de 2 et 4 zones aux bords irréguliers, bandes de boue et d'argile grise, régions de boue ; grands déserts seulement.
+
 0.0.5.20 — Grand monde, argile, boue et lacs allongés
 Monde de 48 × 48 zones ; argile et boue (naturelles et à poser) ; lacs de 1 et 1 × 2 zones ; dossiers des mondes à leur nom.
 

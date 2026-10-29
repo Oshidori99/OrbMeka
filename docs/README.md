@@ -1,6 +1,22 @@
-# OrbMeka™ — prototype 0.0.5.20
+# OrbMeka™ — prototype 0.0.5.21
 
 Godot 4.7 / GDScript. Formes et couleurs simples ; assets externes seulement sous licence vérifiée (sons CC0, assets/sounds/CREDITS.txt).
+
+## 0.0.5.21 — Lacs irréguliers, boue et argile grise (#121, #122, #124)
+- **Génération version 6** (nouveaux mondes) : plus de lacs d'une zone ; **lacs d'environ 2 zones** (1 chance
+  sur 26) et **grands lacs d'environ 4 zones** (1 sur 55), bords irréguliers, jamais l'un sur l'autre.
+- **Bandes de 4 à 5 m autour des lacs**, irrégulières, selon le lac : tout argile ; moitié boue, moitié argile ;
+  ou un tiers argile, un tiers herbe, un tiers boue. Fond : boue (ou argile).
+- **Régions de boue** d'environ 2 zones, de forme irrégulière (1 chance sur 70 par zone).
+- **Argile grise** (comme en vrai) au lieu d'orangée.
+- **Déserts** : plus de petits ni de moyens, seulement des grands de 7 à 9 zones (1 sur 110), environ 8 % du sol.
+- Mesures sur 3 graines : désert 7,8 %, eau 5,1 %, boue 6,3 %, argile en surface 8,7 % ; environ 39 lacs de
+  2 zones et 18 grands lacs par monde.
+- Les mondes déjà créés gardent leur génération.
+
+Tests : smooth_terrain (lacs 2 et 4 zones, trois sortes de bords, régions de boue), custom_generation et
+custom_world_menu (version 6, 13 réglages) ; tests choisis réussis. Captures PC et Web : grand lac et argile.
+À tester manuellement : bords des lacs, couleur de l'argile, FPS sur le Web.
 
 ## 0.0.5.20 — Grand monde, argile, boue et lacs allongés (#121, #122, #124, #128)
 - **Monde de 48 × 48 zones** (384 m, X et Z de −192 à 191 ; construction de −189 à 189), pour préparer les

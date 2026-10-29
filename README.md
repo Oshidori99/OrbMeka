@@ -1,7 +1,8 @@
-# OrbMeka™ 0.0.5.20
+# OrbMeka™ 0.0.5.21
 
 Dans Godot, ouvrez **project.godot**, puis **F5** pour lancer le jeu.
 
+0.0.5.21 : lacs de 2 et 4 zones aux bords irréguliers, bandes de boue et d'argile grise, régions de boue, grands déserts seulement (8 %).
 0.0.5.20 : monde de 48 × 48 zones, argile et boue, lacs de 1 zone et de 1 × 2 zones, dossiers des mondes à leur nom.
 0.0.5.19 : rochers plus gros, rochers au hasard dans les nouveaux mondes, minés à la pioche ; petits lacs.
 0.0.5.18 : mondes de 20 × 20 zones, déserts 12 % (1, 3-4, 6-7 zones), trous énormes, Roche-mère noire-rouge, essai de rochers (7 tailles × 7 formes), vitrine avec collines.

@@ -533,7 +533,7 @@ func show_page(next_page: String) -> void:
 		else:
 			name_field.grab_focus()
 	elif page == "custom_world":
-		custom_sliders[Generation.SPECS[0].key].grab_focus()
+		custom_sliders[Generation.specs_for(Generation.VERSION)[0].key].grab_focus()
 	elif page == "world_settings":
 		world_settings_back_button.grab_focus()
 	elif page == "developer_confirm":
@@ -911,7 +911,7 @@ Plus à droite : plus fréquent (1 sur 1 : dans chaque zone ; 1 sur 400 : très 
 Sous chaque réglage : ce que ça donne à peu près dans le monde."
 	explanation.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	form.add_child(explanation)
-	for spec in Generation.SPECS:
+	for spec in Generation.specs_for(Generation.VERSION):
 		var key: String = spec.key
 		var title := _text_label()
 		title.text = spec.label
@@ -968,7 +968,7 @@ Sous chaque réglage : ce que ça donne à peu près dans le monde."
 
 func open_custom_world() -> void:
 	custom_draft = Generation.defaults() if custom_generation.is_empty() else custom_generation.duplicate(true)
-	for spec in Generation.SPECS:
+	for spec in Generation.specs_for(Generation.VERSION):
 		_sync_custom_option(spec.key)
 	show_page("custom_world")
 
@@ -1000,14 +1000,14 @@ func _sync_custom_option(key: String) -> void:
 func _refresh_custom_labels(key: String) -> void:
 	var keys: Array = [key]
 	if key.ends_with("deserts"):
-		keys = ["small_deserts", "medium_deserts", "large_deserts"]
+		keys = ["small_deserts", "medium_deserts", "large_deserts"].filter(func(each): return custom_draft.has(each))
 	elif key in ["low_hills", "high_hills"]:
 		keys = ["low_hills", "high_hills"]
 	for each in keys:
 		_update_custom_label(each)
 
 func reset_custom_option(key: String) -> void:
-	for spec in Generation.SPECS:
+	for spec in Generation.specs_for(Generation.VERSION):
 		if spec.key == key:
 			custom_draft[key] = spec.default
 			_sync_custom_option(key)

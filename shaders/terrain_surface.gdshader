@@ -113,13 +113,13 @@ void fragment() {
 			sand = beach > 0.5;
 		}
 	}
-	// 0.0.5.20 : argile (UV.x) et boue (UV.y) du terrain lisse : argile orangée, grain fin et lits clairs ;
+	// 0.0.5.20 : argile (UV.x) et boue (UV.y) du terrain lisse ; 0.0.5.21 : argile grise (comme en vrai), grain fin, lits clairs ;
 	// boue sombre et mouillée (plus brillante).
 	float clay = clamp(UV.x, 0.0, 1.0);
 	float mud = clamp(UV.y, 0.0, 1.0);
 	if (clay + mud > 0.01) {
-		vec3 clay_color = mix(vec3(0.36,0.20,0.13), vec3(0.52,0.32,0.21), fbm(p*1.6)) * (0.9 + noise3(p*55.0)*0.15);
-		clay_color = mix(clay_color, vec3(0.58,0.40,0.28), smoothstep(0.6,0.7,noise3(p*vec3(3.0,14.0,3.0)))*0.35);
+		vec3 clay_color = mix(vec3(0.17,0.17,0.165), vec3(0.27,0.265,0.25), fbm(p*1.6)) * (0.92 + noise3(p*55.0)*0.12);
+		clay_color = mix(clay_color, vec3(0.32,0.31,0.29), smoothstep(0.6,0.7,noise3(p*vec3(3.0,14.0,3.0)))*0.3);
 		vec3 mud_color = mix(vec3(0.065,0.045,0.03), vec3(0.13,0.09,0.055), fbm(p*2.3));
 		mud_color *= 0.85 + smoothstep(0.55,0.8,fbm(p*0.9))*0.25;
 		albedo = mix(albedo, clay_color, clay);
