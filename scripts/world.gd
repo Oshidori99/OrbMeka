@@ -449,7 +449,7 @@ static func gesture_points(center: Vector3i, normal: Vector3, cells: int) -> Arr
 
 # 0.0.5.13 : jusqu'à la pierre juste au-dessus de la Roche-mère (la pierre : seulement à la pioche).
 func _in_terrain_limits(point: Vector3i) -> bool:
-	return point.y > terrain.bedrock_top and point.y <= SmoothTerrain.HIGH_POINT and absi(point.x) <= BUILD_LIMIT * 2 and absi(point.z) <= BUILD_LIMIT * 2
+	return point.y > terrain.mother_rock_top and point.y <= SmoothTerrain.HIGH_POINT and absi(point.x) <= BUILD_LIMIT * 2 and absi(point.z) <= BUILD_LIMIT * 2
 
 func _inside_player(point: Vector3i) -> bool:
 	return AABB(player.global_position + Vector3(-0.33, 0.01, -0.33), Vector3(0.66, 1.78, 0.66)).intersects(AABB(Vector3(point) * SmoothTerrain.STEP - Vector3.ONE * 0.25, Vector3.ONE * 0.5))
@@ -463,7 +463,7 @@ func sculpt(hit: Dictionary, add: bool, kind: int = SmoothTerrain.DIRT, cells: i
 	var message := ""
 	for point in gesture_points(center, hit.normal, cells):
 		if not _in_terrain_limits(point):
-			if point.y <= terrain.bedrock_top:
+			if point.y <= terrain.mother_rock_top:
 				message = "Roche-mère : incassable."
 			elif point.y > SmoothTerrain.HIGH_POINT:
 				message = "Hauteur maximale atteinte : 40 blocs."

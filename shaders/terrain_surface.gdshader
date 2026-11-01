@@ -71,7 +71,7 @@ void fragment() {
 			rock *= 1.0 - 0.42 * smoothstep(0.15, 0.4, 1.0 - tint.r);
 			// 0.0.5.27 : Roche-mère (rouge à 0) : aucune couleur principale, toute la surface en taches irrégulières
 			// et franches, de toutes tailles : noir, gris foncé, gris clair, un peu de bleu et de rouge (motif à nous).
-			float bedrock = smoothstep(0.6, 0.85, 1.0 - tint.r);
+			float mother_rock = smoothstep(0.6, 0.85, 1.0 - tint.r);
 			vec3 warped = p + (vec3(noise3(p*11.0), noise3(p*11.0 + 17.0), noise3(p*11.0 + 41.0)) - 0.5) * 0.3
 				+ (vec3(noise3(p*29.0 + 5.0), noise3(p*29.0 + 23.0), noise3(p*29.0 + 57.0)) - 0.5) * 0.09;
 			// Deux tailles de taches, couleur tirée au hasard pour chacune : gris clair, gris foncé, noir, bleu, rouge.
@@ -84,7 +84,7 @@ void fragment() {
 			else if (pick > 0.72) { deep = vec3(0.025,0.055,0.2); }
 			else if (pick > 0.48) { deep = vec3(0.3,0.3,0.31); }
 			else if (pick > 0.24) { deep = vec3(0.1,0.1,0.11); }
-			rock = mix(rock, deep, bedrock);
+			rock = mix(rock, deep, mother_rock);
 			albedo = mix(albedo, rock, stone);
 			height = mix(height, (fbm(p*9.0)*0.01 + grains*0.001)*detail_fade, stone);
 		}

@@ -387,7 +387,16 @@ func open_pause_settings() -> void:
 
 # Retour de Paramètres : vers la pause en partie, sinon vers l'accueil.
 func leave_settings() -> void:
+	if licences_from_information:
+		licences_from_information = false
+		show_page("information")
+		return
 	show_page("pause" if is_instance_valid(active_world) else "home")
+
+func open_licences() -> void:
+	show_page("settings")
+	show_settings_section("licences")
+	licences_from_information = true
 
 func show_settings_section(section: String) -> void:
 	# Changer de section ne change rien : chaque réglage est déjà enregistré (0.0.3.8).

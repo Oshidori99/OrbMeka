@@ -45,7 +45,7 @@ F3 : "), "menus share one theme; in-game shortcuts F1, F3 are plain text (no F2 
 	check(showcase.find_children("*", "MultiMeshInstance3D", true, false).size() >= 3, "showcase shows the game's flat lawn (0.0.5.5)")
 	# 0.0.3.23 : trois nouveautés (trop de personnages pour les montrer tous) ; 0.0.3.25 : elles courent.
 	check(showcase.runners.size() >= 2 and showcase.runners.size() <= 3 and showcase.runner_ids.all(func(id): return CharacterPreview.CHARACTERS.has(id)), "showcase shows 2 or 3 characters of the menu")
-	check(showcase.runner_ids == ["girl9", "fox", "rabbit"] and showcase.runners.all(func(runner): return not runner.find_children("*", "MeshInstance3D", true, false).is_empty()), "new characters run with their Blender models")
+	check(showcase.runner_ids == ["fox", "rabbit"] and showcase.runners.all(func(runner): return not runner.find_children("*", "MeshInstance3D", true, false).is_empty()), "new characters run with their Blender models")
 	var start_x: float = showcase.runners[0].position.x
 	showcase._process(0.4)
 	check(not is_equal_approx(showcase.runners[0].position.x, start_x), "characters run")

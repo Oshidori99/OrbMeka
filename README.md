@@ -1,8 +1,8 @@
-# OrbMeka™ 0.0.5.27
+# OrbMeka™ 0.0.5.28
 
 Dans Godot, ouvrez **project.godot**, puis **F5** pour lancer le jeu.
 
-0.0.5.27 : Roche-mère toute irrégulière (noir, gris, gris clair, bleu, rouge), sous 5 m de terre, 10 m de pierre, 10 m de pierre sombre.
+0.0.5.28 : bouton Licences dans Informations ; vitrine avec le renard et le lapin.
 0.0.5.21 : lacs de 2 et 4 zones aux bords irréguliers, bandes de boue et d'argile grise, régions de boue, grands déserts seulement (8 %).
 0.0.5.20 : monde de 48 × 48 zones, argile et boue, lacs de 1 zone et de 1 × 2 zones, dossiers des mondes à leur nom.
 0.0.5.19 : rochers plus gros, rochers au hasard dans les nouveaux mondes, minés à la pioche ; petits lacs.
@@ -65,3 +65,4 @@ Objectif : aucun risque juridique, ni en droit suisse ou européen, ni vis-à-vi
 - Licence du dépôt : tous droits réservés (fichier LICENSE) ; lire le code et jouer est permis, pas le
   copier ni le réutiliser. Les éléments de tiers gardent leur licence.
 - Données personnelles : aucune collecte sans nécessité (protection des données suisse / RGPD).
+  Le jeu n'envoie aucune donnée ; le launcher Windows lit seulement la liste des versions sur GitHub (adresse IP visible par GitHub, comme toute visite). Sauvegardes : sur l'appareil du joueur.

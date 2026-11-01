@@ -1,6 +1,13 @@
-# OrbMeka™ — prototype 0.0.5.27
+# OrbMeka™ — prototype 0.0.5.28
 
 Godot 4.7 / GDScript. Formes et couleurs simples ; assets externes seulement sous licence vérifiée (sons CC0, assets/sounds/CREDITS.txt).
+
+## 0.0.5.28 — Licences dans Informations
+- **Informations** : bouton **Licences**, qui ouvre la page existante (Retour et Échap reviennent à Informations).
+- **Vitrine** : seulement le renard et le lapin.
+- Vérification avant publication : mentions, licences, pas de secret ni de donnée personnelle dans le dépôt. Code : « Roche-mère » partout.
+
+Tests : licences, menu_style, tests choisis réussis. À revérifier avant un lancement public : le nom « OrbMeka » (TMview).
 
 ## 0.0.5.27 — Roche-mère irrégulière
 - **Roche-mère** : plus de fond avec des points : toute la surface en petites taches irrégulières (noir, gris foncé,

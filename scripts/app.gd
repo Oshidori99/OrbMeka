@@ -287,6 +287,8 @@ F1 : revenir à la liste des mondes depuis la partie." % [sizes[0], sizes[1], Wo
 	home_generation_text.text = "Un nouveau monde utilise la génération standard ci-dessous (ou ses réglages de « Monde personnalisé… »), enregistrée avec lui.\n" + Generation.describe(Generation.defaults())
 	home_generation_body.add_child(home_generation_text)
 	_make_foldable(home_generation_title, home_generation_body, "information:generation")
+	# 0.0.5.28 : la page Licences (Paramètres), aussi depuis Informations ; Retour revient ici.
+	information_licences_button = _button("Licences", information_page, open_licences)
 	information_back_button = _button("Retour", information_page, func(): show_page("home"))
 	var list_page := _page(stack, "Mes mondes")
 	pages.worlds = _page_root(list_page)
@@ -879,9 +881,9 @@ func _cancel_page() -> void:
 		cancel_world_action()
 	elif page == "developer_confirm":
 		open_world_settings_for_pending()
-	elif page == "settings" and is_instance_valid(active_world):
+	elif page == "settings":
 		leave_settings()
-	elif page in ["settings", "information", "history", "launcher"]:
+	elif page in ["information", "history", "launcher"]:
 		show_page("home")
 	elif page == "create":
 		show_page("worlds")

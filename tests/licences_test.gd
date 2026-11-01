@@ -42,6 +42,16 @@ func _run() -> void:
 	app.show_page("settings")
 	app.settings_tabs.licences.pressed.emit()
 	check(app.settings_sections.licences.visible and app.licences_text.text == summary and app.licences_text.is_visible_in_tree(), "Licences tab shows the notices")
+	# 0.0.5.28 : aussi depuis Informations ; Retour et Échap y reviennent.
+	app.show_page("information")
+	app.information_licences_button.pressed.emit()
+	check(app.page == "settings" and app.settings_sections.licences.visible and app.licences_text.is_visible_in_tree(), "Informations opens the Licences page")
+	app.settings_back_button.pressed.emit()
+	check(app.page == "information", "back from Licences returns to Informations")
+	app.information_licences_button.pressed.emit()
+	app._cancel_page()
+	check(app.page == "information" and not app.licences_from_information, "Escape from Licences returns to Informations")
+	app.show_page("home")
 	check(summary.contains("DejaVu Sans") and summary.contains("Noto Emoji") and file_text.contains("--- Police Noto Emoji ---") and file_text.contains("SIL OPEN FONT LICENSE"), "fonts credited, licence texts included")
 	# Polices de secours : seulement dans un navigateur (ici forcées pour le test).
 	UiTheme.use_web_fonts(true)

@@ -222,6 +222,8 @@ var history_text: RichTextLabel
 var history_scroll: ScrollContainer
 var settings_back_button: Button
 var information_back_button: Button
+var information_licences_button: Button
+var licences_from_information := false
 var generation_info: RichTextLabel
 var home_generation_text: RichTextLabel
 var world_generation_text: RichTextLabel

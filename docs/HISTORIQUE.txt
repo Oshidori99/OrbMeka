@@ -3,6 +3,9 @@ Du plus récent au plus ancien. Ce fichier est mis à jour à chaque version.
 
 === Thème « Monde » (0.0.5 et suivantes) ===
 
+0.0.5.28 — Licences dans Informations
+Bouton Licences dans Informations ; vitrine avec le renard et le lapin.
+
 0.0.5.27 — Roche-mère irrégulière
 Toute la surface en taches irrégulières de noir, gris, gris clair, bleu et rouge, sans couleur principale.
 

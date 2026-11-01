@@ -88,7 +88,7 @@ func _run() -> void:
 		if form.kind == "stone_holes":
 			var at := Vector2i(roundi(form.center.x*2),roundi(form.center.y*2))
 			check(deep.ground_height(at) >= -7.0 and deep.ground_height(at) <= -4.0, "huge pit goes down into the stone (2 to 3 blocks under the local relief, version 2 and later)")
-			check(deep.density(Vector3i(at.x,-10,at.y)) <= 0.0 and deep.solid(Vector3i(at.x,-16,at.y)), "stone exposed, bedrock remains solid")
+			check(deep.density(Vector3i(at.x,-10,at.y)) <= 0.0 and deep.solid(Vector3i(at.x,-16,at.y)), "stone exposed, mother_rock remains solid")
 	var path := "res://.godot/custom-generation-%d.json" % Time.get_ticks_usec()
 	var catalog := Catalog.new(path)
 	var item: Dictionary = catalog.create_world("Personnalisé","123","default",false,options)

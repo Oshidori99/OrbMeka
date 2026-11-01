@@ -12,24 +12,24 @@ extends Node3D
 # 2 ou 3, choisis parmi les nouveautés : liste NEWS_RUNNERS ([id, peau], peau vide pour un animal).
 # Chacun prend son modèle Blender, sinon une forme simple (character_model.gd, partagé avec le jeu).
 # Le reste du fichier (sol, gazon, plage, ciel, caméra) ne change pas d'une version à l'autre.
-const NEWS_VERSION := "0.0.5.27"
-const NEWS_TEXT := "Nouveau : un sous-sol bien plus profond !
-Pierre sombre, et Roche-mère à 25 m, toute irrégulière."
+const NEWS_VERSION := "0.0.5.28"
+const NEWS_TEXT := "Nouveau : les licences dans Informations.
+Le renard et le lapin vous accueillent."
 
 # 0.0.3.25 : les trois nouveautés de 0.0.3.23 en aller-retour au-dessus de l'herbe libre, devant la place
 # de sable et pierre (sous le panneau des menus, vers la droite), chacune sur sa rangée.
 # 0.0.4.5 (gardé ensuite) : elles volent, montent et descendent en avançant (FLY_LOW à FLY_HIGH, cycle FLY_CYCLE s,
 # décalé par rangée). Pas encore d'animation de vol : le modèle glisse, tourné vers où il va.
-const NEWS_RUNNERS := [["girl9", "brown"], ["fox", ""], ["rabbit", ""]]
-const NEWS_Z := [5.5, 6.3, 7.1]
+const NEWS_RUNNERS := [["fox", ""], ["rabbit", ""]]
+const NEWS_Z := [6.3, 7.1]
 const RUN_FROM := 5.4
 const RUN_TO := 9.2
-const RUN_SPEEDS := [2.6, 3.0, 2.8]
-# 0.0.4.2 et suivantes : le renard (rangée du milieu) accélère peu à peu jusqu'à FOX_TOP puis ralentit,
+const RUN_SPEEDS := [3.0, 2.8]
+# 0.0.4.2 et suivantes : le renard (première rangée) accélère peu à peu jusqu'à FOX_TOP puis ralentit,
 # comme ↑ puis ↓ maintenus ; cycle de FOX_CYCLE secondes.
 const FOX_TOP := 7.5
 const FOX_CYCLE := 6.0
-var travelled_by := [0.0, 3.1, 6.2]
+var travelled_by := [3.1, 6.2]
 const GROUND_TOP := 0.0
 const NEWS_HEIGHT := 1
 const FLY_LOW := 0.6
@@ -55,7 +55,7 @@ func _animate_news(delta: float) -> void:
 	var length := RUN_TO - RUN_FROM
 	for index in range(runners.size()):
 		var speed: float = RUN_SPEEDS[index]
-		if index == 1:
+		if index == 0:
 			speed = lerpf(speed, FOX_TOP, pingpong(elapsed * 2.0 / FOX_CYCLE, 1.0))
 		travelled_by[index] += delta * speed
 		var travelled: float = travelled_by[index]

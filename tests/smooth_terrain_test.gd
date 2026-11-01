@@ -81,12 +81,12 @@ func _run() -> void:
 	var world := open(FOLDER)
 	check(world.terrain_pieces.size() == world.shown_columns.size() and world.shown_columns.size() == 41 * 41, "flat smooth ground: one piece per shown zone (0.0.5.20 : world of 48 × 48 zones, view 20)")
 	check(is_equal_approx(world.get_node("Ground").position.y + 0.5, -8.0), "Roche-mère (indestructible base) starts 8 m below the grass (0.0.5.12)")
-	check(SmoothTerrain.LOW_POINT * SmoothTerrain.STEP == -3.5 and SmoothTerrain.STONE_TOP * SmoothTerrain.STEP == -4.0 and SmoothTerrain.BEDROCK_TOP * SmoothTerrain.STEP == -8.0, "layers: 4 m of dirt, then 4 m of stone, then Roche-mère")
+	check(SmoothTerrain.LOW_POINT * SmoothTerrain.STEP == -3.5 and SmoothTerrain.STONE_TOP * SmoothTerrain.STEP == -4.0 and SmoothTerrain.MOTHER_ROCK_TOP * SmoothTerrain.STEP == -8.0, "layers: 4 m of dirt, then 4 m of stone, then Roche-mère")
 	# 0.0.5.26 (version 9) : 5 m de terre, 10 m de pierre, 10 m de pierre sombre, puis seulement la Roche-mère.
 	var deep_land := SmoothTerrain.new()
 	deep_land.setup(7, [], load("res://scripts/world_generation.gd").defaults())
 	var far_column := func(y: int) -> int: return deep_land.natural_kind(Vector3i(0, y, 0))
-	check(far_column.call(-9) != SmoothTerrain.STONE and far_column.call(-10) == SmoothTerrain.STONE and far_column.call(-29) == SmoothTerrain.STONE and far_column.call(-30) == SmoothTerrain.DARK_STONE and far_column.call(-49) == SmoothTerrain.DARK_STONE and far_column.call(-50) == SmoothTerrain.BEDROCK and far_column.call(-200) == SmoothTerrain.BEDROCK, "version 9: 5 m of dirt, 10 m of stone, 10 m of dark stone, then only Roche-mère")
+	check(far_column.call(-9) != SmoothTerrain.STONE and far_column.call(-10) == SmoothTerrain.STONE and far_column.call(-29) == SmoothTerrain.STONE and far_column.call(-30) == SmoothTerrain.DARK_STONE and far_column.call(-49) == SmoothTerrain.DARK_STONE and far_column.call(-50) == SmoothTerrain.MOTHER_ROCK and far_column.call(-200) == SmoothTerrain.MOTHER_ROCK, "version 9: 5 m of dirt, 10 m of stone, 10 m of dark stone, then only Roche-mère")
 	check(deep_land.solid(Vector3i(0, -50, 0)) and deep_land.fall_target(Vector3i(0, -50, 0)) == Vector3i(0, -50, 0), "Roche-mère carries everything at 25 m")
 	deep_land.set_density(Vector3i(0, -35, 0), 0.5)
 	check(deep_land.is_stone(Vector3i(0, -35, 0)), "dark stone needs the pickaxe, like stone")
@@ -128,15 +128,15 @@ func _run() -> void:
 	for color in stone_colors:
 		rocky = rocky or color.g < 0.5
 	check(rocky, "the bottom of a 4 m shaft shows stone")
-	check(shaft.fall_target(Vector3i(4, SmoothTerrain.STONE_TOP, 4)) == Vector3i(4, SmoothTerrain.STONE_TOP, 4) and shaft.solid(Vector3i(4, SmoothTerrain.BEDROCK_TOP - 3, 4)), "stone never falls; Roche-mère holds everything")
+	check(shaft.fall_target(Vector3i(4, SmoothTerrain.STONE_TOP, 4)) == Vector3i(4, SmoothTerrain.STONE_TOP, 4) and shaft.solid(Vector3i(4, SmoothTerrain.MOTHER_ROCK_TOP - 3, 4)), "stone never falls; Roche-mère holds everything")
 	# 0.0.5.18 : la Roche-mère a sa propre couleur (noire, teintée de rouge) au fond d'un puits creusé à la pioche.
-	var to_bedrock := SmoothTerrain.new()
-	for y in range(SmoothTerrain.BEDROCK_TOP + 1, 0):
-		to_bedrock.set_density(Vector3i(4, y, 4), SmoothTerrain.DUG)
-	var bedrock_seen := false
-	for color in to_bedrock.zone_mesh(Vector3i(0, -1, 0))[2]:
-		bedrock_seen = bedrock_seen or (color.r < 0.5 and color.g < 0.5)
-	check(bedrock_seen and to_bedrock.natural_kind(Vector3i(0, SmoothTerrain.BEDROCK_TOP, 0)) == SmoothTerrain.BEDROCK, "Roche-mère painted black-red at the bottom of a shaft")
+	var to_mother_rock := SmoothTerrain.new()
+	for y in range(SmoothTerrain.MOTHER_ROCK_TOP + 1, 0):
+		to_mother_rock.set_density(Vector3i(4, y, 4), SmoothTerrain.DUG)
+	var mother_rock_seen := false
+	for color in to_mother_rock.zone_mesh(Vector3i(0, -1, 0))[2]:
+		mother_rock_seen = mother_rock_seen or (color.r < 0.5 and color.g < 0.5)
+	check(mother_rock_seen and to_mother_rock.natural_kind(Vector3i(0, SmoothTerrain.MOTHER_ROCK_TOP, 0)) == SmoothTerrain.MOTHER_ROCK, "Roche-mère painted black-red at the bottom of a shaft")
 	# 0.0.5.18 : rochers, 7 tailles × 7 formes ; monde d'essai TestTailleRocher.
 	var Rocks = load("res://scripts/rocks.gd")
 	var grid: Dictionary = Rocks.size_shape_grid()
