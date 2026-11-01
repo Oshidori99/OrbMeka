@@ -15,10 +15,11 @@ extends RefCounted
 # Version 7 (0.0.5.23) : moins de lacs et de déserts, mais plus grands : petits lacs de 2 à 3 zones (rares), moyens
 # d'environ 10 zones (les plus courants), grands d'environ 16 zones (rares) ; grands déserts de 14 à 20 zones
 # (environ 9 à 10 % du sol). Formes irrégulières. Montagnes (environ 7 % du sol), cœur de pierre et sommets rocheux.
-const VERSION := 7
-const VERSIONS := [1, 2, 3, 4, 5, 6, 7]
-# Chance la plus rare qu'on peut régler : 1 sur MAX_CHANCE par zone (64 avant 0.0.5.18, 400 avant 0.0.5.23).
-const MAX_CHANCE := 2000
+# Version 8 (0.0.5.24) : un peu plus de montagnes, la plupart assez douces pour y monter, 20 à 25 % trop raides.
+const VERSION := 8
+const VERSIONS := [1, 2, 3, 4, 5, 6, 7, 8]
+# Chance la plus rare qu'on peut régler : 1 sur MAX_CHANCE par zone (64 avant 0.0.5.18, 400 avant 0.0.5.23, 2000 avant 0.0.5.24).
+const MAX_CHANCE := 4000
 const STANDARD_SMALL_DENOMINATOR := 8
 const STANDARD_GROUP_DENOMINATOR := 12
 const STANDARD_FEATURE_DENOMINATOR := 9
@@ -42,7 +43,9 @@ const SPECS := [
 	{"key":"lakes_small", "label":"Petits lacs (2 à 3 zones)", "default":500, "since":7},
 	{"key":"lakes_medium", "label":"Lacs moyens (environ 10 zones)", "default":180, "since":7},
 	{"key":"lakes_large", "label":"Grands lacs (environ 16 zones)", "default":450, "since":7},
-	{"key":"mountains", "label":"Montagnes (20 à 32 blocs de haut, environ 50 zones)", "default":700, "since":7},
+	{"key":"mountains", "label":"Montagnes (20 à 32 blocs de haut, environ 50 zones)", "default":700, "since":7, "until":7},
+	{"key":"mountains", "label":"Montagnes où l'on peut monter (20 à 32 blocs de haut)", "default":850, "since":8},
+	{"key":"steep_mountains", "label":"Montagnes raides, trop raides pour y monter", "default":2800, "since":8},
 	{"key":"mud_regions", "label":"Régions de boue (environ 2 zones)", "default":70, "since":6},
 	{"key":"clay", "label":"Poches d'argile dans la terre", "default":10, "since":5},
 ]
@@ -55,6 +58,7 @@ const DESERT_SIZES := {
 	5: {"medium_desert": [3, 4, 2, 2], "big_desert": [6, 7, 3, 3]},
 	6: {"medium_desert": [3, 4, 2, 2], "big_desert": [7, 9, 3, 3]},
 	7: {"medium_desert": [3, 4, 2, 2], "big_desert": [14, 20, 5, 5]},
+	8: {"medium_desert": [3, 4, 2, 2], "big_desert": [14, 20, 5, 5]},
 }
 # 0.0.5.20 : monde de 48 × 48 zones (20 × 20 en 0.0.5.18, 16 × 16 avant).
 const WORLD_ZONES := 2304
@@ -125,18 +129,29 @@ static func cluster(rng: RandomNumberGenerator, count: int, width: int, height: 
 
 # 0.0.5.23 : montagne (version 7), environ 8 à 10 fois une colline : 20 à 32 m de haut, 32 à 46 m de rayon,
 # un peu allongée. Tirée seule (sans le reste de la zone) pour trouver vite les montagnes voisines.
-static func mountain(rng: RandomNumberGenerator, zone: Vector2i) -> Dictionary:
-	return {"center": Vector2(zone) * 8.0 + Vector2(rng.randf_range(0.0, 8.0), rng.randf_range(0.0, 8.0)), "height": rng.randf_range(20.0, 32.0), "radius": rng.randf_range(32.0, 46.0), "stretch": rng.randf_range(1.0, 1.35), "turn": rng.randf() * TAU}
+# Version 8 : le rayon suit la hauteur, pour une pente qu'on peut monter à pied.
+static func mountain(rng: RandomNumberGenerator, zone: Vector2i, version: int = 7) -> Dictionary:
+	var center := Vector2(zone) * 8.0 + Vector2(rng.randf_range(0.0, 8.0), rng.randf_range(0.0, 8.0))
+	var height := rng.randf_range(20.0, 32.0)
+	var radius := height * rng.randf_range(1.9, 2.2) if version >= 8 else rng.randf_range(32.0, 46.0)
+	return {"center": center, "height": height, "radius": radius, "stretch": rng.randf_range(1.0, 1.35), "turn": rng.randf() * TAU}
+
+# Version 8 : montagne raide : aussi haute, bien moins large (pente trop forte pour monter).
+static func steep_mountain(rng: RandomNumberGenerator, zone: Vector2i) -> Dictionary:
+	var center := Vector2(zone) * 8.0 + Vector2(rng.randf_range(0.0, 8.0), rng.randf_range(0.0, 8.0))
+	return {"center": center, "height": rng.randf_range(24.0, 32.0), "radius": rng.randf_range(20.0, 25.0), "stretch": rng.randf_range(1.0, 1.15), "turn": rng.randf() * TAU}
 
 static func zone_mountain(terrain_seed: int, zone: Vector2i, options: Dictionary) -> Dictionary:
-	var denominator: int = options.get("mountains", 0)
-	if denominator == 0:
-		return {}
-	var rng := RandomNumberGenerator.new()
-	rng.seed = hash([int(options.version), terrain_seed, zone.x, zone.y, "mountains"])
-	if rng.randf() >= 1.0 / denominator:
-		return {}
-	return mountain(rng, zone)
+	var version := int(options.version)
+	for key in ["mountains", "steep_mountains"]:
+		var denominator: int = options.get(key, 0)
+		if denominator == 0:
+			continue
+		var rng := RandomNumberGenerator.new()
+		rng.seed = hash([version, terrain_seed, zone.x, zone.y, key])
+		if rng.randf() < 1.0 / denominator:
+			return mountain(rng, zone, version) if key == "mountains" else steep_mountain(rng, zone)
+	return {}
 
 static func zone_info(terrain_seed: int, zone: Vector2i, options: Dictionary) -> Dictionary:
 	var info := {"small_desert":false, "landforms":[]}
@@ -187,7 +202,9 @@ static func zone_info(terrain_seed: int, zone: Vector2i, options: Dictionary) ->
 				var middle := Vector2(zone) * 8.0 + Vector2(rng.randf_range(1.0, 7.0), rng.randf_range(1.0, 7.0))
 				info[spec.key] = {"start": middle, "end": middle + Vector2.from_angle(rng.randf() * TAU) * rng.randf_range(size[2], size[3]), "radius": rng.randf_range(size[0], size[1]), "depth": rng.randf_range(size[4], size[5]), "soils": rng.randi_range(0, 2), "turn": rng.randf() * TAU}
 			"mountains":
-				info.mountain = mountain(rng, zone)
+				info.mountain = mountain(rng, zone, int(options.version))
+			"steep_mountains":
+				info.steep_mountain = steep_mountain(rng, zone)
 			"mud_regions":
 				# 0.0.5.21 : région de boue d'environ 2 zones (forme irrégulière), seule, hors des lacs.
 				info.mud = {"center": Vector2(zone) * 8.0 + Vector2(rng.randf_range(1, 7), rng.randf_range(1, 7)), "radius": rng.randf_range(5.0, 7.0)}
@@ -216,7 +233,7 @@ static func zone_info(terrain_seed: int, zone: Vector2i, options: Dictionary) ->
 	return info
 
 static func default_text(key: String) -> String:
-	for spec in SPECS:
+	for spec in specs_for(VERSION):
 		if spec.key == key:
 			return "jamais dans le monde standard" if spec.default == 0 else "1 chance sur %d par zone (monde standard)" % spec.default
 	return ""

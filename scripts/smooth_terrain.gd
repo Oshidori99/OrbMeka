@@ -81,6 +81,8 @@ func setup(terrain_seed: int, flat_spots: Array = [], options: Dictionary = {}) 
 	_near_cache.clear()
 	_mountain_zones.clear()
 	_mountains_near_cache.clear()
+	_mountain_list.clear()
+	_mountain_list_ready = false
 	_lifts.clear()
 
 # Ce que la graine met dans une zone de 8 m : crête, trou, désert (toujours pareil pour une graine).
@@ -683,7 +685,8 @@ func _lake_ok(lake: Dictionary) -> bool:
 		if _segment_distance(spot[0], lake) < spot[1] + lake.radius + lake.get("bank", 0.0) + LAKE_SHORE + 6.0:
 			return false
 	# 0.0.5.23 : pas de lac sur une montagne (son eau serait sous la pente).
-	for found in _mountains_near(lake.start):
+	var mountains := _all_mountains() if int(generation_options.get("version", 0)) >= 8 else _mountains_near(lake.start)
+	for found in mountains:
 		if _segment_distance(found.center, lake) < found.radius * (found.stretch + 0.2) + lake.radius + LAKE_SHORE:
 			return false
 	return true
@@ -874,13 +877,31 @@ func _zone_mountain(area: Vector2i) -> Dictionary:
 		_mountain_zones[area] = found
 	return _mountain_zones[area]
 
+# Version 8 : montagnes plus larges : toutes trouvées une fois pour le monde (bien plus rapide que zone par zone).
+var _mountain_list: Array = []
+var _mountain_list_ready := false
+
+func _all_mountains() -> Array:
+	if not _mountain_list_ready:
+		_mountain_list_ready = true
+		for x in range(-40, 40):
+			for z in range(-40, 40):
+				var found := _zone_mountain(Vector2i(x, z))
+				if not found.is_empty():
+					_mountain_list.append(found)
+	return _mountain_list
+
 func _mountains_near(at: Vector2) -> Array:
 	var here := Vector2i(floori(at.x / ZONE_METERS), floori(at.y / ZONE_METERS))
 	if _mountains_near_cache.has(here):
 		return _mountains_near_cache[here]
 	var result := []
-	if int(generation_options.get("version", 0)) >= 7:
-		var middle := (Vector2(here) + Vector2(0.5, 0.5)) * ZONE_METERS
+	var middle := (Vector2(here) + Vector2(0.5, 0.5)) * ZONE_METERS
+	if int(generation_options.get("version", 0)) >= 8:
+		for found in _all_mountains():
+			if middle.distance_to(found.center) < found.radius * (found.stretch + 0.3) + 6.0:
+				result.append(found)
+	elif int(generation_options.get("version", 0)) >= 7:
 		for dx in range(-MOUNTAIN_REACH, MOUNTAIN_REACH + 1):
 			for dz in range(-MOUNTAIN_REACH, MOUNTAIN_REACH + 1):
 				var found := _zone_mountain(here + Vector2i(dx, dz))

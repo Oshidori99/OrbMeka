@@ -3,6 +3,9 @@ Du plus récent au plus ancien. Ce fichier est mis à jour à chaque version.
 
 === Thème « Monde » (0.0.5 et suivantes) ===
 
+0.0.5.24 — Montagnes où l'on peut monter
+Un peu plus de montagnes, la plupart gravissables, 20 à 25 % trop raides ; deux curseurs dans le monde personnalisé.
+
 0.0.5.23 — Montagnes, grands lacs et grands déserts
 Montagnes à cœur de pierre (7 % du sol) ; lacs et déserts moins nombreux mais plus grands ; lointain plus rapide.
 

@@ -12,9 +12,9 @@ extends Node3D
 # 2 ou 3, choisis parmi les nouveautés : liste NEWS_RUNNERS ([id, peau], peau vide pour un animal).
 # Chacun prend son modèle Blender, sinon une forme simple (character_model.gd, partagé avec le jeu).
 # Le reste du fichier (sol, gazon, plage, ciel, caméra) ne change pas d'une version à l'autre.
-const NEWS_VERSION := "0.0.5.23"
-const NEWS_TEXT := "Nouveau : montagnes, grands lacs et grands déserts !
-Le lointain se charge plus vite."
+const NEWS_VERSION := "0.0.5.24"
+const NEWS_TEXT := "Nouveau : plus de montagnes, et on peut y monter !
+Quelques-unes restent trop raides."
 
 # 0.0.3.25 : les trois nouveautés de 0.0.3.23 en aller-retour au-dessus de l'herbe libre, devant la place
 # de sable et pierre (sous le panneau des menus, vers la droite), chacune sur sa rangée.
@@ -72,7 +72,7 @@ const CharacterPreview = preload("res://scripts/character_preview.gd")
 const TerrainMaterials = preload("res://scripts/terrain_materials.gd")
 const WorldRules = preload("res://scripts/world.gd")
 # 0.0.5.23 : vraie graine (monde standard) avec une montagne et un lac moyen face à la caméra.
-const SCENE_SEED := 719
+const SCENE_SEED := 2171
 # Point de vue : un joueur debout sur le sol plat (0.0.5.5 : plus de tour de pierre).
 # Il tourne lentement la tête ; la vitrine reste sur le côté, hors du panneau des menus.
 const TOWER_CELL := Vector2i(12, 12)

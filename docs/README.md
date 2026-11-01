@@ -1,6 +1,18 @@
-# OrbMeka™ — prototype 0.0.5.23
+# OrbMeka™ — prototype 0.0.5.24
 
 Godot 4.7 / GDScript. Formes et couleurs simples ; assets externes seulement sous licence vérifiée (sons CC0, assets/sounds/CREDITS.txt).
+
+## 0.0.5.24 — Montagnes où l'on peut monter (#121)
+- **Génération version 8** (nouveaux mondes ; les anciens ne changent pas) : un peu plus de montagnes (environ
+  9 % du sol, 7 % avant). La plupart sont plus larges : on peut monter à pied jusqu'au sommet (toutes les montagnes
+  douces mesurées). Quelques-unes (20 à 25 % au plus) sont **trop raides** pour y monter.
+- **Monde personnalisé** : deux curseurs, « Montagnes où l'on peut monter » (1 sur 850) et « Montagnes raides »
+  (1 sur 2800) ; réglage jusqu'à 1 sur 4000.
+- **Vitrine** : nouvelle vraie graine (2171).
+
+Tests : custom_generation, custom_world_menu (16 réglages), smooth_terrain ; tests choisis réussis.
+Mesure à pied sur 12 graines (pente de moins de 45°, sans sauter), avant le dernier petit réglage des chances.
+À tester manuellement : monter sur une montagne douce, essayer une raide, FPS sur le Web.
 
 ## 0.0.5.23 — Montagnes, grands lacs et grands déserts (#121, #124, #128)
 - **Génération version 7** (nouveaux mondes ; les anciens mondes ne changent pas).
