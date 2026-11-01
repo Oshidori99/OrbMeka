@@ -26,8 +26,8 @@ Guide complet : docs/README.md. Fichiers techniques : docs/ORGANISATION.txt.
 ## Tests
 Depuis PowerShell, à la racine du projet, en parallèle (4 à la fois) :
 
-    .\tests\run_all.ps1 -Only fly,controls   # toujours : seulement les plus pertinents (≈ 65 %), même avant une version
-    .\tests\run_all.ps1                      # tous : seulement sur demande (l'Action Dev les lance tous à chaque envoi)
+    .\tests\run_all.ps1 -Only fly,controls   # versions non publiées : seulement les tests de ce qui a changé
+    .\tests\run_all.ps1                      # tous : avant une publication ou sur demande (l'Action Dev les relance à chaque envoi)
 
 Les tests juridiques (licences, aucun autre jeu cité) passent **toujours**, même avec -Only.
 **Sécurité du PC** (planté le 24.10.2026, mémoire à 99 %) : run_all.ps1 ne lance plus de test au-delà de 85 % de mémoire,
@@ -62,14 +62,25 @@ Ordre obligatoire de 1 à 4, ensuite libre :
    déserts 14-20 zones (9-10 %), hauteur max 40 m ; 0.0.5.24 : version 8, montagnes 9 %, gravissables sauf 20-25 % raides ; 0.0.5.26 : version 9, 5 m de terre, 10 m de pierre, 10 m de pierre sombre, Roche-mère à 25 m ; 0.0.5.32 : version 10, trous de boue ; 0.0.5.33 : version 11, 6 grands déserts (10 %), montagnes de sable, boue dans un trou sur 3 ; 0.0.5.34 : version 12, lacs sur des replats des montagnes, moins de trous ; 0.0.5.35 : version 13, lacs doublés, chaînes de montagnes ; version 14, grottes (entrées 6 %, vide 12 %), crevasses en éclair ; rivières à faire)
    Niveaux de détail (#128) : commencés en 0.0.5.22 (scripts/far_terrain.gd, relief simplifié par carrés de 4 × 4 zones ; 2 m près, 4 m puis 8 m loin, relevés gardés et étalés sur les images en 0.0.5.25).
    (ne pas reprendre le nom anglais courant d'un autre jeu).
-5. Matières (#122) · 6. Structures (#123) · 7. Créatif/Survie (#73) · Inventaire (milestone HUD) ·
-   Eau réaliste (#124 : lacs-réservoirs à volume, rivières en hauteur d'eau).
+5. Suite : voir « Série 0.0.6 — Monde 2 » plus bas. Grottes faites en 0.0.5.37 (génération version 14, crevasses comprises) ;
+   sous-sol actuel : 5 m de terre, 10 m de pierre, 10 m de pierre sombre, puis la Roche-mère à 25 m.
    Note pour plus tard (gravité réaliste, demandée par l'utilisateur ; 0.0.5.11 n'en fait qu'une première version) :
    sable : glisse au-delà d'environ 34° et ne tient jamais en plafond ; terre : pentes raides possibles
    et petit plafond d'environ 1 m au plus, au-delà elle s'effondre ; pierre : ne tombe pas. Plus tard,
    des poutres pourront soutenir la terre. Pierre : cassée à la pioche depuis 0.0.5.13 (animation simple, à améliorer).
 Règles : même graine = même monde ; mondes légers (seulement les changements, compressés) ;
 mesurer les performances sur PC et sur le Web à chaque étape.
+
+## Série 0.0.6 — Monde 2 (milestone du même nom)
+Seulement le monde : arbres et fruitiers (#138), matières (#122), minerais (#134), lave (#137), lacs (#131),
+eau et rivières (#124), dunes (#125), taille du monde (#135), structures (#123).
+Pas d'inventaire, de récolte ni de modes créatif/survie (#73) sans demande de l'utilisateur.
+Une génération qui change = un nouveau numéro de version : les mondes existants ne changent jamais.
+
+## Rythme de publication
+Publier une version sur 4, ou dès que l'utilisateur dit « publie », puis remettre le compteur à zéro.
+Entre-temps : commit local sur `dev`, sans push (chaque push lance l'Action et met à jour la page d'essais).
+Les étapes de « Nouvelle version » se font seulement au moment de publier.
 
 ## Branches et builds
 - `dev` : travail en cours. `main` : seulement les versions validées.
