@@ -3,6 +3,9 @@ Du plus récent au plus ancien. Ce fichier est mis à jour à chaque version.
 
 === Thème « Monde » (0.0.5 et suivantes) ===
 
+0.0.5.36 — Lointain plus net
+Moins de brume, plus de blocs gris au loin, eau sans double couche, distances plus courtes sur le Web.
+
 0.0.5.35 — Grands lacs et chaînes de montagnes
 Lacs deux fois plus grands, environ 10 % d'eau, moins de petits lacs ; chaînes de montagnes, environ 18 % du sol.
 

@@ -1,6 +1,14 @@
-# OrbMeka™ — prototype 0.0.5.35
+# OrbMeka™ — prototype 0.0.5.36
 
 Godot 4.7 / GDScript. Formes et couleurs simples ; assets externes seulement sous licence vérifiée (sons CC0, assets/sounds/CREDITS.txt).
+
+## 0.0.5.36 — Lointain plus net
+- **Lointain** : plus de blocs gris (seuls les sommets rocheux restent gris), boue et argile moins sombres, brume seulement tout au bout.
+- **Eau** : plus de double couche entre l'eau proche et l'eau lointaine.
+- **Web** : distances plus courtes par défaut (affichage 6 zones, lointain 16, herbe 3), réglables dans Vidéo (#128).
+- **Publication** : les envois sur `dev` vont sur une page d'essais privée (`ITCH_TARGET_DEV`) ; seules les versions avec un tag vont sur la page principale.
+
+Tests choisis réussis. À tester manuellement : FPS et aspect dans un navigateur, page d'essais.
 
 ## 0.0.5.35 — Grands lacs et chaînes de montagnes
 - **Génération version 13** (nouveaux mondes) : lacs deux fois plus grands en surface (petits 4 à 6 zones, moyens environ 20, grands environ 32), moins de petits lacs ; les plus grands sont choisis en premier sur tout le monde. Environ 10 % d'eau.
