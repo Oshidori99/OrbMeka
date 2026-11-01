@@ -12,9 +12,9 @@ extends Node3D
 # 2 ou 3, choisis parmi les nouveautés : liste NEWS_RUNNERS ([id, peau], peau vide pour un animal).
 # Chacun prend son modèle Blender, sinon une forme simple (character_model.gd, partagé avec le jeu).
 # Le reste du fichier (sol, gazon, plage, ciel, caméra) ne change pas d'une version à l'autre.
-const NEWS_VERSION := "0.0.5.36"
-const NEWS_TEXT := "Nouveau : un lointain plus net !
-Moins de brume, et le Web allégé."
+const NEWS_VERSION := "0.0.5.37"
+const NEWS_TEXT := "Nouveau : des grottes et de grandes crevasses !
+Descendez jusqu'à la Roche-mère."
 
 # 0.0.3.25 : les trois nouveautés de 0.0.3.23 en aller-retour au-dessus de l'herbe libre, devant la place
 # de sable et pierre (sous le panneau des menus, vers la droite), chacune sur sa rangée.
@@ -92,8 +92,8 @@ var elapsed := 0.0
 
 func _ready() -> void:
 	_setup_environment()
-	_build_ground()
-	_build_scene()
+	_plan_ground()
+
 	_build_orb()
 	_build_news()
 	camera = Camera3D.new()
@@ -106,6 +106,7 @@ func _process(delta: float) -> void:
 	_place_camera()
 	orb.position.y = NEWS_HEIGHT + 1.6 + sin(elapsed * 1.3) * 0.25
 	_animate_news(delta)
+	_continue_building()
 
 func _place_camera() -> void:
 	camera.position = Vector3(TOWER_CELL.x + 1.5, TOWER_HEIGHT + EYE_HEIGHT, TOWER_CELL.y + 1.5)
@@ -161,65 +162,106 @@ const Generation = preload("res://scripts/world_generation.gd")
 const SHOWCASE_ZONES := Vector2i(-5, 2)
 var terrain := Terrain.new()
 
-func _build_ground() -> void:
+# 0.0.5.37 : construit petit à petit, les morceaux les plus proches d'abord : le menu s'affiche tout de suite et
+# reste fluide (surtout sur le Web, qui n'a qu'un seul fil de calcul).
+const BUILD_BUDGET_USEC := 6000
+var build_queue: Array[Callable] = []
+var ground_material: ShaderMaterial
+var water_material: ShaderMaterial
+
+func _plan_ground() -> void:
 	terrain.setup(SCENE_SEED, [[Vector2(TOWER_CELL) + Vector2(1.5, 1.5), 5.0], [BEACH_CENTER, BEACH_RADIUS + 4.0]], Generation.defaults())
-	var ground_material := TerrainMaterials.surface(true)
+	ground_material = TerrainMaterials.surface(true)
 	ground_material.set_shader_parameter("sand_center", BEACH_CENTER)
 	ground_material.set_shader_parameter("sand_radius", BEACH_RADIUS)
+	water_material = ShaderMaterial.new()
+	water_material.shader = preload("res://shaders/water.gdshader")
+	TerrainMaterials.density = "low"
 	var near_low := Vector2i(SHOWCASE_ZONES.x, SHOWCASE_ZONES.x)
 	var near_high := Vector2i(SHOWCASE_ZONES.y, SHOWCASE_ZONES.y)
-	for zone: Vector3i in terrain.surface_zones(near_low, near_high):
-		var surface: Array = terrain.zone_mesh(zone)
-		if surface[0].is_empty():
-			continue
-		var arrays := []
-		arrays.resize(Mesh.ARRAY_MAX)
-		arrays[Mesh.ARRAY_VERTEX] = surface[0]
-		arrays[Mesh.ARRAY_NORMAL] = surface[1]
-		arrays[Mesh.ARRAY_COLOR] = surface[2]
-		arrays[Mesh.ARRAY_TEX_UV] = surface[3]
-		var mesh := ArrayMesh.new()
-		mesh.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arrays)
-		var piece := MeshInstance3D.new()
-		piece.mesh = mesh
-		piece.material_override = ground_material
-		add_child(piece)
-	_build_far(Rect2(Vector2(near_low) * 8.0, Vector2(near_high - near_low + Vector2i.ONE) * 8.0))
+	var eye := Vector2(TOWER_CELL) / 8.0
+	var zones: Array = terrain.surface_zones(near_low, near_high).keys()
+	zones.sort_custom(func(a: Vector3i, b: Vector3i): return Vector2(a.x, a.z).distance_to(eye) < Vector2(b.x, b.z).distance_to(eye))
+	for zone: Vector3i in zones:
+		build_queue.append(_build_zone.bind(zone))
+	var near_area := Rect2(Vector2(near_low) * 8.0, Vector2(near_high - near_low + Vector2i.ONE) * 8.0)
+	var tiles: Array[Vector2i] = []
+	for x in range(FAR_TILES.position.x, FAR_TILES.end.x):
+		for z in range(FAR_TILES.position.y, FAR_TILES.end.y):
+			tiles.append(Vector2i(x, z))
+	tiles.sort_custom(func(a: Vector2i, b: Vector2i): return Vector2(a).distance_to(eye / 4.0) < Vector2(b).distance_to(eye / 4.0))
+	for tile in tiles:
+		build_queue.append(_build_far_tile.bind(tile, near_area))
+	for x in range(FAR_TILES.position.x * 4, FAR_TILES.end.x * 4):
+		for z in range(FAR_TILES.position.y * 4, FAR_TILES.end.y * 4):
+			build_queue.append(_build_water.bind(Vector2i(x, z)))
+	# 0.0.5.5 : gazon réaliste ; seulement les carrés assez proches pour être vus (avant : 4 fois trop).
+	var lawn_node := Node3D.new()
+	lawn_node.name = "Lawn"
+	add_child(lawn_node)
+	var grass: Array[Vector2i] = []
+	for x in range(-12, 12):
+		for z in range(-12, 12):
+			if (Vector2(x, z) + Vector2(0.5, 0.5)).distance_to(eye) * 8.0 < TerrainMaterials.GRASS_RANGE:
+				grass.append(Vector2i(x, z))
+	grass.sort_custom(func(a: Vector2i, b: Vector2i): return Vector2(a).distance_to(eye) < Vector2(b).distance_to(eye))
+	for tile in grass:
+		build_queue.append(_build_grass.bind(tile, lawn_node))
+
+func _continue_building() -> void:
+	var deadline := Time.get_ticks_usec() + BUILD_BUDGET_USEC
+	while not build_queue.is_empty() and Time.get_ticks_usec() < deadline:
+		build_queue.pop_front().call()
+
+# Tout d'un coup (tests, captures).
+func finish_building() -> void:
+	while not build_queue.is_empty():
+		build_queue.pop_front().call()
+
+func _build_zone(zone: Vector3i) -> void:
+	var surface: Array = terrain.zone_mesh(zone)
+	if surface[0].is_empty():
+		return
+	var arrays := []
+	arrays.resize(Mesh.ARRAY_MAX)
+	arrays[Mesh.ARRAY_VERTEX] = surface[0]
+	arrays[Mesh.ARRAY_NORMAL] = surface[1]
+	arrays[Mesh.ARRAY_COLOR] = surface[2]
+	arrays[Mesh.ARRAY_TEX_UV] = surface[3]
+	var mesh := ArrayMesh.new()
+	mesh.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arrays)
+	var piece := MeshInstance3D.new()
+	piece.mesh = mesh
+	piece.material_override = ground_material
+	add_child(piece)
+
+func _build_grass(tile: Vector2i, parent: Node3D) -> void:
+	var node := TerrainMaterials.lawn_tile(tile, {}, SCENE_SEED, BEACH_CENTER, BEACH_RADIUS, func(at: Vector3): return terrain.muddy(Vector2i(roundi(at.x * 2.0), roundi(at.z * 2.0))) or terrain.is_desert(Vector2(at.x, at.z)), terrain.height_at)
+	if node != null:
+		parent.add_child(node)
 
 # 0.0.5.23 : au loin, comme en partie : terrain simplifié (seulement vers où regarde la caméra) et eau des lacs.
 const FarTerrain = preload("res://scripts/far_terrain.gd")
 const FAR_TILES := Rect2i(-6, -4, 7, 6)
 
-func _build_far(near: Rect2) -> void:
-	for x in range(FAR_TILES.position.x, FAR_TILES.end.x):
-		for z in range(FAR_TILES.position.y, FAR_TILES.end.y):
-			var mesh := FarTerrain.build(terrain, Vector2i(x, z), near.grow(-2.0), FarTerrain.CELL * 2.0)
-			if mesh == null:
-				continue
-			var piece := MeshInstance3D.new()
-			piece.mesh = mesh
-			piece.material_override = FarTerrain.material()
-			piece.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-			add_child(piece)
-	var water_material := ShaderMaterial.new()
-	water_material.shader = preload("res://shaders/water.gdshader")
-	for x in range(FAR_TILES.position.x * 4, FAR_TILES.end.x * 4):
-		for z in range(FAR_TILES.position.y * 4, FAR_TILES.end.y * 4):
-			for lake in terrain.lakes_in_zone(Vector2i(x, z)):
-				var water := MeshInstance3D.new()
-				water.mesh = WorldRules.lake_water_mesh(terrain, lake)
-				water.material_override = water_material
-				water.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-				water.position = Vector3(lake.center.x, lake.level, lake.center.y)
-				add_child(water)
+func _build_far_tile(tile: Vector2i, near: Rect2) -> void:
+	var mesh := FarTerrain.build(terrain, tile, near.grow(-2.0), FarTerrain.CELL * 2.0)
+	if mesh == null:
+		return
+	var piece := MeshInstance3D.new()
+	piece.mesh = mesh
+	piece.material_override = FarTerrain.material()
+	piece.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	add_child(piece)
 
-func _build_scene() -> void:
-	# 0.0.5.5 : gazon réaliste et plage de sable plate ; 0.0.5.18 : sur les collines (pas dans les déserts).
-	# Herbe moins dense qu'en partie : l'accueil reste fluide derrière les menus flous.
-	TerrainMaterials.density = "low"
-	var lawn := TerrainMaterials.ground_grass({}, SCENE_SEED, BEACH_CENTER, BEACH_RADIUS, func(at: Vector3): return terrain.is_desert(Vector2(at.x, at.z)), terrain.height_at)
-	add_child(lawn)
-
+func _build_water(zone: Vector2i) -> void:
+	for lake in terrain.lakes_in_zone(zone):
+		var water := MeshInstance3D.new()
+		water.mesh = WorldRules.lake_water_mesh(terrain, lake)
+		water.material_override = water_material
+		water.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		water.position = Vector3(lake.center.x, lake.level, lake.center.y)
+		add_child(water)
 
 func _build_orb() -> void:
 	# L'orbe de OrbMeka : une sphère lumineuse qui flotte au-dessus de la vitrine.

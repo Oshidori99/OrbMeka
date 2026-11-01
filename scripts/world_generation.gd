@@ -181,7 +181,7 @@ static func mountain_chain(terrain_seed: int, zone: Vector2i, options: Dictionar
 	var denominator: int = options.get("mountain_chains", 0)
 	if denominator == 0:
 		return []
-	var rng := RandomNumberGenerator.new()
+	var rng := _scan_rng
 	rng.seed = hash([terrain_seed, zone.x, zone.y, "mountain_chains"])
 	if rng.randf() >= 1.0 / denominator:
 		return []
@@ -196,13 +196,16 @@ static func mountain_chain(terrain_seed: int, zone: Vector2i, options: Dictionar
 		at += Vector2.from_angle(heading) * radius * 0.85
 	return peaks
 
+# 0.0.5.37 : un seul tirage réutilisé pour parcourir tout le monde (mêmes résultats, bien plus rapide).
+static var _scan_rng := RandomNumberGenerator.new()
+
 static func zone_mountain(terrain_seed: int, zone: Vector2i, options: Dictionary) -> Dictionary:
 	var version := int(options.version)
 	for key in ["mountains", "steep_mountains", "sand_mountains"]:
 		var denominator: int = options.get(key, 0)
 		if denominator == 0:
 			continue
-		var rng := RandomNumberGenerator.new()
+		var rng := _scan_rng
 		rng.seed = hash([mini(version, 8), terrain_seed, zone.x, zone.y, key])
 		if rng.randf() < 1.0 / denominator:
 			if key == "sand_mountains":

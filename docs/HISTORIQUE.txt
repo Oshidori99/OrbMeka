@@ -3,6 +3,9 @@ Du plus récent au plus ancien. Ce fichier est mis à jour à chaque version.
 
 === Thème « Monde » (0.0.5 et suivantes) ===
 
+0.0.5.37 — Grottes et crevasses
+Grottes jusqu'à la Roche-mère, crevasses en éclair, liste des mondes protégée, accueil plus rapide.
+
 0.0.5.36 — Lointain plus net
 Moins de brume, plus de blocs gris au loin, eau sans double couche, distances plus courtes sur le Web.
 

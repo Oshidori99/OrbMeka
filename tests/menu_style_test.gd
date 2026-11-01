@@ -42,6 +42,7 @@ F3 : "), "menus share one theme; in-game shortcuts F1, F3 are plain text (no F2 
 	# Fond 3D de l'accueil.
 	var showcase: Node3D = app.showcase
 	check(showcase.is_inside_tree() and showcase.camera.is_current(), "home shows the 3D showcase with its own camera")
+	showcase.finish_building()
 	check(showcase.find_children("*", "MultiMeshInstance3D", true, false).size() >= 3, "showcase shows the game's flat lawn (0.0.5.5)")
 	# 0.0.3.23 : trois nouveautés (trop de personnages pour les montrer tous) ; 0.0.3.25 : elles courent.
 	check(showcase.runners.size() >= 2 and showcase.runners.size() <= 3 and showcase.runner_ids.all(func(id): return CharacterPreview.CHARACTERS.has(id)), "showcase shows 2 or 3 characters of the menu")

@@ -1,6 +1,15 @@
-# OrbMeka™ — prototype 0.0.5.36
+# OrbMeka™ — prototype 0.0.5.37
 
 Godot 4.7 / GDScript. Formes et couleurs simples ; assets externes seulement sous licence vérifiée (sons CC0, assets/sounds/CREDITS.txt).
+
+## 0.0.5.37 — Grottes et crevasses
+- **Génération version 14** (nouveaux mondes) : **grottes** (entrées dans environ 6 % des zones, environ 13 % de vide sous terre), certaines jusqu'à la Roche-mère, jamais creusée ; **crevasses en éclair** (environ 8 par monde), peu profondes à un bout, très profondes à l'autre. Curseurs dans le monde personnalisé.
+- Plus de retour au départ dans les grottes : seulement sous le monde.
+- **Liste des mondes** : un monde illisible est signalé et conservé, sans cacher les autres.
+- **Optimisation** : accueil construit petit à petit (menu tout de suite disponible, 1,7 s de calcul contre 5 s), moins de grottes chargées depuis la surface, maillage et calcul plus rapides, même monde (empreintes identiques).
+- **Vitrine** : vue en hauteur sur une grande crevasse.
+
+Tests : tous réussis. Mesures PC, rendu PC et Web : images lentes en vol 13 ms, 400 à 600 FPS à vide sur ce PC. À tester manuellement : descendre une crevasse, entrer dans une grotte, fluidité dans un navigateur.
 
 ## 0.0.5.36 — Lointain plus net
 - **Lointain** : plus de blocs gris (seuls les sommets rocheux restent gris), boue et argile moins sombres, brume seulement tout au bout.
