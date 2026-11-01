@@ -12,9 +12,9 @@ extends Node3D
 # 2 ou 3, choisis parmi les nouveautés : liste NEWS_RUNNERS ([id, peau], peau vide pour un animal).
 # Chacun prend son modèle Blender, sinon une forme simple (character_model.gd, partagé avec le jeu).
 # Le reste du fichier (sol, gazon, plage, ciel, caméra) ne change pas d'une version à l'autre.
-const NEWS_VERSION := "0.0.5.24"
-const NEWS_TEXT := "Nouveau : plus de montagnes, et on peut y monter !
-Quelques-unes restent trop raides."
+const NEWS_VERSION := "0.0.5.25"
+const NEWS_TEXT := "Nouveau : le jeu est plus fluide !
+Le lointain se charge bien plus vite."
 
 # 0.0.3.25 : les trois nouveautés de 0.0.3.23 en aller-retour au-dessus de l'herbe libre, devant la place
 # de sable et pierre (sous le panneau des menus, vers la droite), chacune sur sa rangée.
@@ -207,7 +207,7 @@ func _build_far(near: Rect2) -> void:
 		for z in range(FAR_TILES.position.y * 4, FAR_TILES.end.y * 4):
 			for lake in terrain.lakes_in_zone(Vector2i(x, z)):
 				var water := MeshInstance3D.new()
-				water.mesh = WorldRules._water_disc(lake.radius + lake.get("bank", 0.0) + (lake.wobble if lake.has("wobble_scale") else 0.0) + 0.25, (lake.end - lake.start) / 2.0)
+				water.mesh = WorldRules.lake_water_mesh(terrain, lake)
 				water.material_override = water_material
 				water.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 				water.position = Vector3(lake.center.x, lake.level, lake.center.y)

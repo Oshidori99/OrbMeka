@@ -17,23 +17,27 @@ const PATCH := 0.5
 const BLADES := {"low": 80, "medium": 200, "high": 440}
 # Herbe visible jusqu'à cette distance (m) ; au-delà, la surface verte du sol suffit.
 const GRASS_RANGE := 36.0
+const GRASS_NEAR := 16.0
 static var grass_range := GRASS_RANGE
 static var density := "medium"
 static var _patches := {}
 static var _blade_material: ShaderMaterial
 
 # Carré de 50 cm rempli de brins : un triangle effilé par brin, penché au hasard (toujours le même).
-static func grass_mesh() -> ArrayMesh:
-	if _patches.has(density):
-		return _patches[density]
+static func grass_mesh(far := false) -> ArrayMesh:
+	var key := density + ("_loin" if far else "")
+	if _patches.has(key):
+		return _patches[key]
 	var rng := RandomNumberGenerator.new()
 	rng.seed = 5_000_004
 	var tool := SurfaceTool.new()
 	tool.begin(Mesh.PRIMITIVE_TRIANGLES)
-	for index in range(BLADES.get(density, BLADES.medium)):
+	# 0.0.5.25 : version lointaine : 3 fois moins de brins, plus larges (on voit la même herbe, pour bien moins de calcul).
+	var blades: int = BLADES.get(density, BLADES.medium)
+	for index in range(blades / 3 if far else blades):
 		var base := Vector3(rng.randf_range(-PATCH, PATCH) * 0.5, 0.0, rng.randf_range(-PATCH, PATCH) * 0.5)
 		var facing := rng.randf() * TAU
-		var side := Vector3(cos(facing), 0.0, sin(facing)) * rng.randf_range(0.004, 0.008)
+		var side := Vector3(cos(facing), 0.0, sin(facing)) * rng.randf_range(0.004, 0.008) * (1.8 if far else 1.0)
 		var lean := Vector3(-sin(facing), 0.0, cos(facing)) * rng.randf_range(-0.15, 0.15)
 		var tip := base + lean + Vector3(0.0, rng.randf_range(0.24, 0.56), 0.0)
 		var normal := Vector3(-sin(facing), 0.4, cos(facing)).normalized()
@@ -41,8 +45,8 @@ static func grass_mesh() -> ArrayMesh:
 			tool.set_normal(normal)
 			tool.set_uv(Vector2(0.5, point[1]))
 			tool.add_vertex(point[0])
-	_patches[density] = tool.commit()
-	return _patches[density]
+	_patches[key] = tool.commit()
+	return _patches[key]
 
 static func grass_instance(points: Array[Vector3], terrain_seed: int) -> MultiMeshInstance3D:
 	if points.is_empty():
@@ -61,16 +65,35 @@ static func grass_instance(points: Array[Vector3], terrain_seed: int) -> MultiMe
 		multi.set_instance_transform(index, Transform3D(Basis(Vector3.UP, rng.randf() * TAU).scaled(Vector3(1.0, size, 1.0)), points[index]))
 		var tint := rng.randf_range(0.85, 1.1)
 		multi.set_instance_color(index, Color(tint, tint, tint, 1))
-	node.multimesh = multi
 	if _blade_material == null:
 		_blade_material = ShaderMaterial.new()
 		_blade_material.shader = GRASS_SHADER
+	# 0.0.5.25 : herbe complète de près (GrassNear) ; plus loin, mêmes carrés avec moins de brins (GrassDetail).
+	var far_multi := MultiMesh.new()
+	far_multi.transform_format = MultiMesh.TRANSFORM_3D
+	far_multi.use_colors = true
+	far_multi.mesh = grass_mesh(true)
+	far_multi.instance_count = points.size()
+	if multi.buffer.size() == far_multi.buffer.size():
+		far_multi.buffer = multi.buffer
+	node.multimesh = far_multi
 	node.material_override = _blade_material
 	node.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-	node.visibility_range_end = grass_range
 	node.visibility_range_end_margin = 4.0
 	node.visibility_range_fade_mode = GeometryInstance3D.VISIBILITY_RANGE_FADE_SELF
+	var near := MultiMeshInstance3D.new()
+	near.name = "GrassNear"
+	near.multimesh = multi
+	near.material_override = _blade_material
+	near.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	node.add_child(near)
+	set_patch_range(node, grass_range)
 	return node
+
+static func set_patch_range(node: MultiMeshInstance3D, distance: float) -> void:
+	node.visibility_range_begin = GRASS_NEAR
+	node.visibility_range_end = maxf(distance, GRASS_NEAR)
+	node.get_node("GrassNear").visibility_range_end = minf(distance, GRASS_NEAR)
 
 # Carrés de 50 cm sur une case de 1 m (sommet de bloc ou sol), un peu décalés pour éviter une grille visible.
 static func _cell_patches(points: Array[Vector3], corner: Vector3, rng: RandomNumberGenerator) -> void:

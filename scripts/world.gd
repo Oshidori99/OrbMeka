@@ -162,6 +162,9 @@ func _setup_environment() -> void:
 	sun.light_energy = 1.1
 	sun.light_color = Color("#fff1d8")
 	sun.shadow_enabled = true
+	# 0.0.5.25 : ombres jusqu'à 64 m, en 2 niveaux (moitié moins de dessins, presque rien ne change à l'œil).
+	sun.directional_shadow_max_distance = 64.0
+	sun.directional_shadow_mode = DirectionalLight3D.SHADOW_PARALLEL_2_SPLITS
 	apply_compat_light(environment, sun)
 	add_child(sun)
 
@@ -1113,8 +1116,8 @@ func _process(delta: float) -> void:
 	process_zone_queue()
 	_settle_terrain(delta)
 	update_terrain_view(false, Vector2i(floori(player.position.x / SmoothTerrain.ZONE_SIZE), floori(player.position.z / SmoothTerrain.ZONE_SIZE)))
-	_process_terrain_queue()
 	_process_far_queue()
+	_process_terrain_queue()
 	hint.text = notice if notice_time > 0.0 else ""
 	_update_coordinates()
 
@@ -1271,7 +1274,7 @@ func set_grass_distance(distance: float) -> void:
 	grass_distance = clampf(distance,8.0,96.0)
 	TerrainMaterials.grass_range = grass_distance
 	for patch in find_children("GrassDetail","MultiMeshInstance3D",true,false):
-		patch.visibility_range_end = grass_distance
+		TerrainMaterials.set_patch_range(patch, grass_distance)
 
 # 0.0.5.18 : objets du monde (objets.json, dans son dossier) : rochers (taille et forme 1 à 7, position X Z,
 # rotation) et étiquettes (textes flottants, pour les mondes d'essai). Posés sur le sol de la graine.
@@ -1371,7 +1374,7 @@ func _show_column_objects(column: Vector2i) -> void:
 	for lake in terrain.lakes_in_zone(column):
 		var water := MeshInstance3D.new()
 		water.name = "Lac"
-		water.mesh = _water_disc(lake.radius + lake.get("bank", 0.0) + (lake.wobble if lake.has("wobble_scale") else 0.0) + 0.25, (lake.end - lake.start) / 2.0)
+		water.mesh = lake_water_mesh(terrain, lake)
 		if _water_material == null:
 			_water_material = ShaderMaterial.new()
 			_water_material.shader = preload("res://shaders/water.gdshader")
@@ -1390,6 +1393,26 @@ func _hide_column_objects(column: Vector2i) -> void:
 			child.free()
 
 # Disque d'eau (surface plate, vue de dessus et de dessous) ; 0.0.5.20 : allongé (half : demi-segment du lac).
+# 0.0.5.25 : lacs irréguliers (version 7 et plus) : l'eau suit le contour du lac, jamais par-dessus la rive.
+static func lake_water_mesh(terrain, lake: Dictionary) -> ArrayMesh:
+	if not lake.has("wobble_scale"):
+		return _water_disc(lake.radius + lake.get("bank", 0.0) + 0.25, (lake.end - lake.start) / 2.0)
+	var outline: PackedVector2Array = terrain.lake_outline(lake)
+	var vertices := PackedVector3Array()
+	var normals := PackedVector3Array()
+	for index in range(outline.size()):
+		var a := outline[index]
+		var b := outline[(index + 1) % outline.size()]
+		vertices.append_array([Vector3.ZERO, Vector3(b.x, 0, b.y), Vector3(a.x, 0, a.y)])
+		normals.append_array([Vector3.UP, Vector3.UP, Vector3.UP])
+	var arrays := []
+	arrays.resize(Mesh.ARRAY_MAX)
+	arrays[Mesh.ARRAY_VERTEX] = vertices
+	arrays[Mesh.ARRAY_NORMAL] = normals
+	var mesh := ArrayMesh.new()
+	mesh.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arrays)
+	return mesh
+
 static func _water_disc(radius: float, half: Vector2 = Vector2.ZERO) -> ArrayMesh:
 	var tool := SurfaceTool.new()
 	tool.begin(Mesh.PRIMITIVE_TRIANGLES)
@@ -1441,7 +1464,8 @@ var far_node: Node3D
 var far_tiles: Dictionary = {}
 var far_queue: Array = []
 var near_area := Rect2()
-const FAR_BUDGET_USEC := 2500
+const FAR_BUDGET_USEC := 4000
+const FAR_NO_LIMIT := 9223372036854775807
 
 func _update_far(center: Vector2i, area: Rect2) -> void:
 	far_center = center
@@ -1469,10 +1493,11 @@ func _update_far(center: Vector2i, area: Rect2) -> void:
 	far_queue = far_queue.filter(func(tile: Vector2i): return wanted.has(tile))
 	for tile: Vector2i in wanted:
 		var tile_area: Rect2 = wanted[tile]
-		# Nouveau carré, ou carré au bord du terrain détaillé (avant ou maintenant) : à refaire.
-		# 0.0.5.23 : ou carré dont la finesse change (2 m près du joueur, 4 m plus loin).
+		# Nouveau carré, finesse changée (2 m près du joueur, 4 m, puis 8 m au loin), ou trou du terrain détaillé
+		# déplacé dans ce carré : à refaire (0.0.5.25 : sinon, rien à faire).
 		var changed: bool = far_tiles.has(tile) and far_tiles[tile].get_meta("cell") != _far_cell(tile)
-		if (not far_tiles.has(tile) or changed or tile_area.intersects(area) or tile_area.intersects(old_area)) and not tile in far_queue:
+		var hole_moved := tile_area.intersection(area) != tile_area.intersection(old_area)
+		if (not far_tiles.has(tile) or changed or hole_moved) and not tile in far_queue:
 			far_queue.append(tile)
 	var center_tile := FarTerrain.tile_of(center)
 	far_queue.sort_custom(func(a: Vector2i, b: Vector2i): return maxi(absi(a.x - center_tile.x), absi(a.y - center_tile.y)) < maxi(absi(b.x - center_tile.x), absi(b.y - center_tile.y)))
@@ -1480,28 +1505,48 @@ func _update_far(center: Vector2i, area: Rect2) -> void:
 var far_center := Vector2i.ZERO
 
 func _far_cell(tile: Vector2i) -> float:
+	# Au bord du terrain détaillé : toujours fin (pas de relief grossier qui dépasse).
+	if Rect2(Vector2(tile) * FarTerrain.TILE_METERS, Vector2.ONE * FarTerrain.TILE_METERS).intersects(near_area):
+		return FarTerrain.CELL
 	var here := FarTerrain.tile_of(far_center)
-	return FarTerrain.CELL if maxi(absi(tile.x - here.x), absi(tile.y - here.y)) <= 2 else FarTerrain.CELL * 2.0
+	var ring := maxi(absi(tile.x - here.x), absi(tile.y - here.y))
+	return FarTerrain.CELL if ring <= 2 else (FarTerrain.CELL * 2.0 if ring <= 4 else FarTerrain.CELL * 4.0)
 
-func _build_far_tile(tile: Vector2i) -> void:
+# 0.0.5.25 : relevés gardés (finesse comprise) : ne recalcule jamais un carré déjà vu.
+var far_surveys: Dictionary = {}
+
+func _far_survey(tile: Vector2i) -> Dictionary:
+	var cell := _far_cell(tile)
+	var key := Vector3i(tile.x, tile.y, int(cell))
+	if not far_surveys.has(key):
+		far_surveys[key] = FarTerrain.new_survey(tile, cell)
+	return far_surveys[key]
+
+func _build_far_tile(tile: Vector2i, deadline: int = FAR_NO_LIMIT) -> bool:
+	var survey := _far_survey(tile)
+	if not FarTerrain.advance(terrain, survey, deadline):
+		return false
 	if far_tiles.has(tile):
 		far_tiles[tile].free()
 		far_tiles.erase(tile)
 	# Le terrain lointain passe 2 m sous le bord du terrain détaillé : pas de fente entre les deux.
-	var cell := _far_cell(tile)
-	var mesh := FarTerrain.build(terrain, tile, near_area.grow(-2.0), cell)
+	var mesh := FarTerrain.mesh_of(survey, near_area.grow(-2.0))
 	if mesh == null:
-		return
+		return true
 	var piece := MeshInstance3D.new()
 	piece.name = "Lointain_%d_%d" % [tile.x, tile.y]
 	piece.mesh = mesh
-	piece.set_meta("cell", cell)
+	piece.set_meta("cell", survey.cell)
 	piece.material_override = FarTerrain.material()
 	piece.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	far_node.add_child(piece)
 	far_tiles[tile] = piece
+	return true
 
 func _process_far_queue() -> void:
-	var started := Time.get_ticks_usec()
-	while not far_queue.is_empty() and Time.get_ticks_usec() - started < FAR_BUDGET_USEC:
-		_build_far_tile(far_queue.pop_front())
+	# Beaucoup de carrés à faire (ouverture du monde) : deux fois plus de temps par image.
+	var deadline := Time.get_ticks_usec() + (FAR_BUDGET_USEC * 2 if far_queue.size() > 20 else FAR_BUDGET_USEC)
+	while not far_queue.is_empty() and Time.get_ticks_usec() < deadline:
+		if not _build_far_tile(far_queue[0], deadline):
+			return
+		far_queue.pop_front()

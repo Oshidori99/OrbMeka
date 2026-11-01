@@ -1,8 +1,8 @@
-# OrbMeka™ 0.0.5.24
+# OrbMeka™ 0.0.5.25
 
 Dans Godot, ouvrez **project.godot**, puis **F5** pour lancer le jeu.
 
-0.0.5.24 : un peu plus de montagnes, la plupart gravissables, 20 à 25 % trop raides ; deux curseurs dans le monde personnalisé.
+0.0.5.25 : jeu plus fluide : lointain bien plus rapide, moins d'à-coups, herbe et ombres allégées ; eau des lacs corrigée.
 0.0.5.21 : lacs de 2 et 4 zones aux bords irréguliers, bandes de boue et d'argile grise, régions de boue, grands déserts seulement (8 %).
 0.0.5.20 : monde de 48 × 48 zones, argile et boue, lacs de 1 zone et de 1 × 2 zones, dossiers des mondes à leur nom.
 0.0.5.19 : rochers plus gros, rochers au hasard dans les nouveaux mondes, minés à la pioche ; petits lacs.

@@ -1,6 +1,19 @@
-# OrbMeka™ — prototype 0.0.5.24
+# OrbMeka™ — prototype 0.0.5.25
 
 Godot 4.7 / GDScript. Formes et couleurs simples ; assets externes seulement sous licence vérifiée (sons CC0, assets/sounds/CREDITS.txt).
+
+## 0.0.5.25 — Jeu plus fluide, lointain plus rapide (#128)
+- **Lointain (niveaux de détail)** : réécrit. Sommets partagés (bien moins de calcul pour la carte graphique), un sommet
+  tous les 2 m, 4 m puis 8 m selon la distance ; relevé étalé sur plusieurs images (plus d'à-coup) et gardé
+  (repasser au même endroit ne recalcule rien) ; calculé avant le terrain détaillé à l'ouverture.
+- **Terrain détaillé** : maillage plus rapide, exactement le même terrain (empreinte vérifiée, génération 0 à 8).
+- **Herbe** : complète jusqu'à 16 m, 3 fois moins de brins (plus larges) au-delà. **Ombres** : jusqu'à 64 m, 2 niveaux.
+- **Eau des lacs** (version 7 et plus) : suit le contour du lac ; ne déborde plus sur la rive (défaut de 0.0.5.23).
+- Tests : limite de mémoire par test à 3 Go (2 avant).
+
+Mesures sur ce PC (vol à 12 m/s) : images lentes (95 %) de 16 à 3-5 ms ; triangles de 1343 k à 735 k.
+Tests choisis réussis. À tester manuellement : fluidité sur le Web, aspect de l'herbe à 16 m, petits traits clairs
+parfois visibles à la limite du terrain détaillé et du lointain (déjà là avant).
 
 ## 0.0.5.24 — Montagnes où l'on peut monter (#121)
 - **Génération version 8** (nouveaux mondes ; les anciens ne changent pas) : un peu plus de montagnes (environ

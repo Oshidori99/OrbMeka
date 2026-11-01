@@ -77,6 +77,9 @@ func setup(terrain_seed: int, flat_spots: Array = [], options: Dictionary = {}) 
 	_zone_infos.clear()
 	_deserts.clear()
 	_soils.clear()
+	_desert_columns.clear()
+	_forms_near.clear()
+	_regions_near.clear()
 	_lake_cache.clear()
 	_near_cache.clear()
 	_mountain_zones.clear()
@@ -218,6 +221,10 @@ const STONE := 1
 const BEDROCK := 3
 
 # Matière du sol de la graine : terre (-1, aspect du sol avec herbe), sable des déserts, pierre ou Roche-mère.
+var _desert_columns: Dictionary = {}
+const UNKNOWN_KIND := -9
+const EDGE_AXES: Array[int] = [1, 2, 4]
+
 func natural_kind(point: Vector3i) -> int:
 	if point.y <= BEDROCK_TOP:
 		return BEDROCK
@@ -237,7 +244,9 @@ func natural_kind(point: Vector3i) -> int:
 		if below >= soil.get("clay_top", soil.get("mud", 0.0)) and below < soil.get("clay_bottom", -1.0):
 			return CLAY
 	# 0.0.5.15 : sable sous les déserts, sur DESERT_SAND mètres, puis la terre.
-	if is_desert(Vector2(column) * STEP) and point.y * STEP > ground_height(column) - DESERT_SAND:
+	if not _desert_columns.has(column):
+		_desert_columns[column] = is_desert(Vector2(column) * STEP)
+	if _desert_columns[column] and point.y * STEP > ground_height(column) - DESERT_SAND:
 		return SAND
 	return -1
 
@@ -377,9 +386,12 @@ func zone_mesh(zone: Vector3i) -> Array:
 	var start := Vector3i(origin.x - 1, y_low, origin.z - 1)
 	var values := PackedFloat32Array()
 	values.resize(size * height * size)
+	var tops := PackedFloat32Array()
+	tops.resize(size * size)
 	for x in range(size):
 		for z in range(size):
 			var top := ground_height(Vector2i(start.x + x, start.z + z))
+			tops[x * size + z] = top
 			for y in range(height):
 				values[(x * height + y) * size + z] = clampf(top - (y_low + y) * STEP, -1.0, 1.0)
 	var kinds := {}
@@ -401,9 +413,42 @@ func zone_mesh(zone: Vector3i) -> Array:
 	var cell_uv := {}
 	var corners := PackedFloat32Array()
 	corners.resize(8)
+	# 0.0.5.25 : sans point changé, la surface ne passe qu'entre les hauteurs des 4 coins de chaque colonne :
+	# on ne regarde que celles-là (même résultat, bien plus rapide). Matière de chaque point gardée une seule fois.
+	var free := nearby.is_empty()
+	var low_cells := PackedInt32Array()
+	var high_cells := PackedInt32Array()
+	low_cells.resize((size - 1) * (size - 1))
+	high_cells.resize((size - 1) * (size - 1))
+	var slab_low := PackedInt32Array()
+	var slab_high := PackedInt32Array()
+	slab_low.resize(size - 1)
+	slab_high.resize(size - 1)
 	for x in range(size - 1):
-		for y in range(height - 1):
-			for z in range(size - 1):
+		var slab_min := height
+		var slab_max := -1
+		for z in range(size - 1):
+			var lowest_y := 0
+			var highest_y := height - 2
+			if free:
+				var a := tops[x * size + z]
+				var b := tops[x * size + z + 1]
+				var c := tops[(x + 1) * size + z]
+				var d := tops[(x + 1) * size + z + 1]
+				lowest_y = maxi(0, floori(minf(minf(a, b), minf(c, d)) / STEP) - y_low - 2)
+				highest_y = mini(height - 2, ceili(maxf(maxf(a, b), maxf(c, d)) / STEP) - y_low + 1)
+			low_cells[x * (size - 1) + z] = lowest_y
+			high_cells[x * (size - 1) + z] = highest_y
+			slab_min = mini(slab_min, lowest_y)
+			slab_max = maxi(slab_max, highest_y)
+		slab_low[x] = slab_min
+		slab_high[x] = slab_max
+	var known_kinds := PackedInt32Array()
+	known_kinds.resize(size * height * size)
+	known_kinds.fill(UNKNOWN_KIND)
+	for x in range(size - 1):
+		for z in range(size - 1):
+			for y in range(low_cells[x * (size - 1) + z], high_cells[x * (size - 1) + z] + 1):
 				var base := (x * height + y) * size + z
 				var solid := 0
 				for index in range(8):
@@ -416,7 +461,7 @@ func zone_mesh(zone: Vector3i) -> Array:
 				var sum := Vector3.ZERO
 				var count := 0
 				for index in range(8):
-					for axis in [1, 2, 4]:
+					for axis: int in EDGE_AXES:
 						if index & axis:
 							continue
 						var a := corners[index]
@@ -440,7 +485,11 @@ func zone_mesh(zone: Vector3i) -> Array:
 				for index in range(8):
 					if corners[index] > 0.0:
 						var corner: Vector3i = cell + corner_at[index]
-						var kind: int = kinds.get(corner, natural_kind(start + corner))
+						var kind_at: int = base + offsets[index]
+						var kind: int = known_kinds[kind_at]
+						if kind == UNKNOWN_KIND:
+							kind = kinds[corner] if kinds.has(corner) else natural_kind(start + corner)
+							known_kinds[kind_at] = kind
 						var soft := kind == CLAY or kind == MUD
 						paint += Vector4(1.0 if kind == SAND else 0.0, 1.0 if kind == DIRT or soft else 0.0, 1.0 if kind == STONE or kind == BEDROCK else 0.0, 1.0 if kind == BEDROCK else 0.0)
 						# 0.0.5.20 : argile (U) et boue (V), terres nues de couleur à part.
@@ -458,10 +507,12 @@ func zone_mesh(zone: Vector3i) -> Array:
 		var side_b: Vector3i = axes[(axis_index + 2) % 3]
 		var step := (axis.x * height + axis.y) * size + axis.z
 		for x in range(1, size - 1):
-			for y in range(maxi(1, origin.y - y_low), mini(height - 1, origin.y + POINTS - y_low)):
+			for y in range(maxi(maxi(1, origin.y - y_low), slab_low[x]), mini(mini(height - 1, origin.y + POINTS - y_low), slab_high[x] + 1)):
 				if y + axis.y >= height:
 					continue
 				for z in range(1, size - 1):
+					if y < low_cells[x * (size - 1) + z] or y > high_cells[x * (size - 1) + z]:
+						continue
 					var index := (x * height + y) * size + z
 					var first := values[index]
 					if (first > 0.0) == (values[index + step] > 0.0):
@@ -607,6 +658,33 @@ func _custom_desert(at: Vector2) -> bool:
 	_deserts[area] = false
 	return false
 
+# 0.0.5.25 : reliefs, boue et poches d'argile des 9 zones autour, gardés par zone (calculés une fois).
+var _forms_near: Dictionary = {}
+var _regions_near: Dictionary = {}
+
+func _landforms_near(here: Vector2i) -> Array:
+	if not _forms_near.has(here):
+		var result := []
+		for dx in range(-1, 2):
+			for dz in range(-1, 2):
+				result.append_array(_zone_info(here + Vector2i(dx, dz)).landforms)
+		_forms_near[here] = result
+	return _forms_near[here]
+
+func _soil_regions_near(here: Vector2i) -> Array:
+	if not _regions_near.has(here):
+		var muds := []
+		var pockets := []
+		for dx in range(-1, 2):
+			for dz in range(-1, 2):
+				var info := _zone_info(here + Vector2i(dx, dz))
+				if info.has("mud"):
+					muds.append(info.mud)
+				if info.has("clay"):
+					pockets.append(info.clay)
+		_regions_near[here] = [muds, pockets]
+	return _regions_near[here]
+
 func _custom_height(at: Vector2) -> float:
 	var here := Vector2i(floori(at.x/ZONE_METERS),floori(at.y/ZONE_METERS))
 	var hill := 0.0
@@ -617,25 +695,23 @@ func _custom_height(at: Vector2) -> float:
 		hill = clampf(_noise.get_noise_2d(at.x, at.y) * 1.6 - 0.15, 0.0, 1.0) * HILL_HEIGHT + _bumps.get_noise_2d(at.x, at.y) * BUMP_HEIGHT
 	var hole := 3.0
 	var dig := 0.0
-	for dx in range(-1,2):
-		for dz in range(-1,2):
-			for form in _zone_info(here + Vector2i(dx,dz)).landforms:
-				var offset: Vector2 = at - form.center
-				var distance: float = offset.length()
-				var radius: float = form.radius
-				if distance >= radius:
-					continue
-				var profile := 1.0 - smoothstep(radius*0.15,radius,distance)
-				if form.kind == "steep_hills":
-					var along: float = offset.dot(form.direction)
-					profile *= 1.0 - smoothstep(-0.35,0.35,along)
-				elif form.kind == "steep_holes":
-					profile = 1.0 - smoothstep(radius-0.3,radius,distance)
-				if form.height > 0:
-					hill = maxf(hill,form.height*profile)
-				else:
-					hole = minf(hole,lerpf(3.0,form.height,profile))
-					dig = minf(dig, form.height * profile)
+	for form in _landforms_near(here):
+		var offset: Vector2 = at - form.center
+		var distance: float = offset.length()
+		var radius: float = form.radius
+		if distance >= radius:
+			continue
+		var profile := 1.0 - smoothstep(radius*0.15,radius,distance)
+		if form.kind == "steep_hills":
+			var along: float = offset.dot(form.direction)
+			profile *= 1.0 - smoothstep(-0.35,0.35,along)
+		elif form.kind == "steep_holes":
+			profile = 1.0 - smoothstep(radius-0.3,radius,distance)
+		if form.height > 0:
+			hill = maxf(hill,form.height*profile)
+		else:
+			hole = minf(hole,lerpf(3.0,form.height,profile))
+			dig = minf(dig, form.height * profile)
 	# Version 2 : les trous se creusent dans le relief (en dessous de la colline ou de la bosse où ils sont).
 	if continuous:
 		return _with_lakes(at, hill + dig)
@@ -708,6 +784,20 @@ func _lake_distance(at: Vector2, lake: Dictionary) -> float:
 		distance += _warp.get_noise_2d(at.x * scale + 51.0, at.y * scale - 17.0) * wobble
 	return distance
 
+# Contour de l'eau autour du milieu du lac : s'arrête dans le petit bord plat, toujours au-dessus de l'eau.
+func lake_outline(lake: Dictionary, sides: int = 72) -> PackedVector2Array:
+	var center: Vector2 = (lake.start + lake.end) / 2.0
+	var limit: float = lake.radius + lake.start.distance_to(lake.end) + lake.wobble * 2.0 + lake.bank
+	var edge: float = lake.radius + lake.bank * 0.4
+	var result := PackedVector2Array()
+	for index in range(sides):
+		var direction := Vector2.from_angle(TAU * index / sides)
+		var reach := 0.0
+		while reach < limit and _lake_distance(center + direction * reach, lake) < edge:
+			reach += 0.75
+		result.append(direction * reach)
+	return result
+
 func lake_level(lake: Dictionary) -> float:
 	return roundf(_rolling((lake.start + lake.end) / 2.0) * 1000.0) / 1000.0
 
@@ -778,26 +868,20 @@ func _soil(column: Vector2i) -> Dictionary:
 	var at := Vector2(column) * STEP
 	if version >= 6:
 		_lake_soils(at, soil)
-		var here := Vector2i(floori(at.x / ZONE_METERS), floori(at.y / ZONE_METERS))
-		for dx in range(-1, 2):
-			for dz in range(-1, 2):
-				var mud: Dictionary = _zone_info(here + Vector2i(dx, dz)).get("mud", {})
-				if not soil.has("top") and not mud.is_empty() and at.distance_to(mud.center) + _warp.get_noise_2d(at.x * 0.9, at.y * 0.9) * 2.0 < mud.radius:
-					soil.top = MUD
-					soil.top_depth = 1.0
+		for mud in _soil_regions_near(Vector2i(floori(at.x / ZONE_METERS), floori(at.y / ZONE_METERS)))[0]:
+			if not soil.has("top") and at.distance_to(mud.center) + _warp.get_noise_2d(at.x * 0.9, at.y * 0.9) * 2.0 < mud.radius:
+				soil.top = MUD
+				soil.top_depth = 1.0
 	elif version >= 5:
 		for lake in _lakes_near(at):
 			if _segment_distance(at, lake) < lake.radius + 1.0:
 				soil.mud = 1.0
 				soil.clay_bottom = 2.5
 	if version >= 5:
-		var here := Vector2i(floori(at.x / ZONE_METERS), floori(at.y / ZONE_METERS))
-		for dx in range(-1, 2):
-			for dz in range(-1, 2):
-				var pocket: Dictionary = _zone_info(here + Vector2i(dx, dz)).get("clay", {})
-				if not pocket.is_empty() and at.distance_to(pocket.center) < pocket.radius:
-					soil.clay_top = minf(soil.get("clay_top", 99.0), pocket.top)
-					soil.clay_bottom = maxf(soil.get("clay_bottom", 0.0), pocket.top + pocket.thickness)
+		for pocket in _soil_regions_near(Vector2i(floori(at.x / ZONE_METERS), floori(at.y / ZONE_METERS)))[1]:
+			if at.distance_to(pocket.center) < pocket.radius:
+				soil.clay_top = minf(soil.get("clay_top", 99.0), pocket.top)
+				soil.clay_bottom = maxf(soil.get("clay_bottom", 0.0), pocket.top + pocket.thickness)
 	_soils[column] = soil
 	return soil
 

@@ -465,6 +465,29 @@ func _run() -> void:
 	for tile in far_world.far_tiles:
 		cells[far_world.far_tiles[tile].get_meta("cell")] = true
 	check(cells.has(2.0) and cells.has(4.0), "far terrain: a point every 2 m near the player, every 4 m further (faster)")
+	# 0.0.5.25 : relevé en plusieurs fois, identique à d'un coup ; gardé ; eau jamais au-dessus de la rive.
+	var far_terrain_script = load("res://scripts/far_terrain.gd")
+	var cut_survey: Dictionary = far_terrain_script.new_survey(Vector2i(2, -3), 4.0)
+	var whole_survey: Dictionary = far_terrain_script.new_survey(Vector2i(2, -3), 4.0)
+	var steps := 0
+	while not far_terrain_script.advance(far_world.terrain, cut_survey, 0):
+		steps += 1
+	far_terrain_script.advance(far_world.terrain, whole_survey, far_world.FAR_NO_LIMIT)
+	check(steps > 3 and cut_survey.heights == whole_survey.heights, "far survey spread over several frames gives the same relief")
+	var kept: int = far_world.far_surveys.size()
+	far_world.update_terrain_view(true)
+	far_world.finish_terrain()
+	check(far_world.far_surveys.size() == kept, "going over the same far tiles recomputes nothing")
+	var dry_shore := true
+	var lakes_seen := 0
+	for x in range(-24, 24):
+		for z in range(-24, 24):
+			for lake in wet_land.lakes_in_zone(Vector2i(x, z)):
+				lakes_seen += 1
+				for outline_point: Vector2 in wet_land.lake_outline(lake):
+					var on_shore: Vector2 = lake.center + outline_point
+					dry_shore = dry_shore and wet_land.height_at(on_shore.x, on_shore.y) >= lake.level - 0.05
+	check(lakes_seen > 0 and dry_shore, "water outline always ends on the shore, never over dry ground")
 	far_world.far_distance = 0
 	far_world.update_terrain_view(true)
 	check(far_world.far_tiles.is_empty(), "far distance 0: no far terrain")

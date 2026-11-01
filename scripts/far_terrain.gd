@@ -24,7 +24,6 @@ static func material() -> StandardMaterial3D:
 		_material.vertex_color_use_as_albedo = true
 		_material.roughness = 1.0
 		_material.specular_mode = BaseMaterial3D.SPECULAR_DISABLED
-		_material.cull_mode = BaseMaterial3D.CULL_DISABLED
 	return _material
 
 static func tile_of(zone: Vector2i) -> Vector2i:
@@ -50,52 +49,119 @@ static func _sample(terrain, at: Vector2) -> Array:
 		color = SAND
 	return [height, color]
 
-# Carré lointain ; « hole » : la partie couverte par le terrain détaillé (rien n'y est dessiné). Vide : null.
-# 0.0.5.23 : « cell » : un sommet tous les 2 m près du joueur, tous les 4 m plus loin (4 fois moins de calcul) ;
-# une petite jupe le long des bords cache les fentes entre carrés de finesse différente.
-static func build(terrain, tile: Vector2i, hole: Rect2, cell := CELL) -> ArrayMesh:
-	var origin := Vector2(tile) * TILE_METERS
-	var cells := int(TILE_METERS / cell)
-	var samples := []
-	for i in range(cells + 1):
-		for j in range(cells + 1):
-			samples.append(_sample(terrain, origin + Vector2(i, j) * cell))
-	var tool := SurfaceTool.new()
-	tool.begin(Mesh.PRIMITIVE_TRIANGLES)
-	var count := 0
-	for i in range(cells):
-		for j in range(cells):
+# 0.0.5.25 : relevé d'un carré en plusieurs fois (quelques colonnes par image, jamais d'à-coup) et gardé : refaire le
+# trou du terrain détaillé ou revenir sur ses pas ne recalcule rien. « cell » : 2, 4 ou 8 m entre deux sommets.
+static func new_survey(tile: Vector2i, cell: float) -> Dictionary:
+	var side := int(TILE_METERS / cell) + 1
+	var heights := PackedFloat32Array()
+	heights.resize(side * side)
+	var colors := PackedColorArray()
+	colors.resize(side * side)
+	return {"origin": Vector2(tile) * TILE_METERS, "cell": cell, "side": side, "next": 0, "heights": heights, "colors": colors}
+
+# Avance le relevé jusqu'à l'heure limite (µs) ; vrai quand il est fini.
+static func advance(terrain, survey: Dictionary, deadline: int) -> bool:
+	var side: int = survey.side
+	var origin: Vector2 = survey.origin
+	var cell: float = survey.cell
+	var heights: PackedFloat32Array = survey.heights
+	var colors: PackedColorArray = survey.colors
+	while survey.next < side:
+		var i: int = survey.next
+		for j in range(side):
+			var sample := _sample(terrain, origin + Vector2(i, j) * cell)
+			heights[i * side + j] = sample[0]
+			colors[i * side + j] = sample[1]
+		survey.next = i + 1
+		survey.heights = heights
+		survey.colors = colors
+		if Time.get_ticks_usec() >= deadline:
+			break
+	return survey.next >= side
+
+# Sommets, normales (pente du relief), couleurs ; la jupe (mêmes sommets, plus bas) à la suite. Une fois par relevé.
+static func _prepare(survey: Dictionary) -> void:
+	var side: int = survey.side
+	var cell: float = survey.cell
+	var origin: Vector2 = survey.origin
+	var heights: PackedFloat32Array = survey.heights
+	var colors: PackedColorArray = survey.colors
+	var vertices := PackedVector3Array()
+	var normals := PackedVector3Array()
+	vertices.resize(side * side)
+	normals.resize(side * side)
+	for i in range(side):
+		for j in range(side):
+			var at := origin + Vector2(i, j) * cell
+			vertices[i * side + j] = Vector3(at.x, heights[i * side + j] - SINK, at.y)
+			var left := maxi(i - 1, 0)
+			var right := mini(i + 1, side - 1)
+			var back := maxi(j - 1, 0)
+			var front := mini(j + 1, side - 1)
+			var slope_x := (heights[right * side + j] - heights[left * side + j]) / ((right - left) * cell)
+			var slope_z := (heights[i * side + front] - heights[i * side + back]) / ((front - back) * cell)
+			normals[i * side + j] = Vector3(-slope_x, 1.0, -slope_z).normalized()
+	var lower := PackedInt32Array()
+	lower.resize(side * side)
+	var skirt_colors := colors.duplicate()
+	for i in range(side):
+		for j in range(side):
+			if i == 0 or j == 0 or i == side - 1 or j == side - 1:
+				var index := i * side + j
+				lower[index] = vertices.size()
+				vertices.append(vertices[index] - Vector3(0.0, SKIRT, 0.0))
+				normals.append(normals[index])
+				skirt_colors.append(colors[index])
+	survey.vertices = vertices
+	survey.normals = normals
+	survey.all_colors = skirt_colors
+	survey.lower = lower
+
+# Maillage d'un relevé fini ; « hole » : la partie couverte par le terrain détaillé (rien n'y est dessiné). Vide : null.
+static func mesh_of(survey: Dictionary, hole: Rect2) -> ArrayMesh:
+	if not survey.has("vertices"):
+		_prepare(survey)
+	var side: int = survey.side
+	var cell: float = survey.cell
+	var origin: Vector2 = survey.origin
+	var lower: PackedInt32Array = survey.lower
+	var indices := PackedInt32Array()
+	for i in range(side - 1):
+		for j in range(side - 1):
 			if hole.has_point(origin + (Vector2(i, j) + Vector2(0.5, 0.5)) * cell):
 				continue
-			var corners := [Vector2i(i, j), Vector2i(i + 1, j), Vector2i(i + 1, j + 1), Vector2i(i, j + 1)]
+			var a := i * side + j
+			var b := (i + 1) * side + j
+			var c := (i + 1) * side + j + 1
+			var d := i * side + j + 1
 			# Sens des aiguilles d'une montre vu d'en haut, comme le terrain détaillé.
-			tool.set_smooth_group(0)
-			for index in [0, 1, 2, 0, 2, 3]:
-				var corner: Vector2i = corners[index]
-				var sample: Array = samples[corner.x * (cells + 1) + corner.y]
-				tool.set_color(sample[1])
-				var at := origin + Vector2(corner) * cell
-				tool.add_vertex(Vector3(at.x, sample[0] - SINK, at.y))
-			count += 1
-			# Jupe : les côtés de la cellule au bord du carré descendent de quelques mètres (matière visible des deux côtés).
-			for side in range(4):
-				var a: Vector2i = corners[side]
-				var b: Vector2i = corners[(side + 1) % 4]
-				if not ((side == 0 and j == 0) or (side == 1 and i == cells - 1) or (side == 2 and j == cells - 1) or (side == 3 and i == 0)):
-					continue
-				var sa: Array = samples[a.x * (cells + 1) + a.y]
-				var sb: Array = samples[b.x * (cells + 1) + b.y]
-				var pa := origin + Vector2(a) * cell
-				var pb := origin + Vector2(b) * cell
-				var top_a := Vector3(pa.x, sa[0] - SINK, pa.y)
-				var top_b := Vector3(pb.x, sb[0] - SINK, pb.y)
-				var low_a := top_a - Vector3(0, SKIRT, 0)
-				var low_b := top_b - Vector3(0, SKIRT, 0)
-				tool.set_smooth_group(1)
-				for vertex in [top_a, top_b, low_b, top_a, low_b, low_a]:
-					tool.set_color(sa[1])
-					tool.add_vertex(vertex)
-	if count == 0:
+			indices.append_array([a, b, c, a, c, d])
+			# Jupe sur les bords du carré, visible des deux côtés : cache les fentes entre carrés de finesse différente.
+			if j == 0:
+				_skirt(indices, a, b, lower)
+			if i == side - 2:
+				_skirt(indices, b, c, lower)
+			if j == side - 2:
+				_skirt(indices, c, d, lower)
+			if i == 0:
+				_skirt(indices, d, a, lower)
+	if indices.is_empty():
 		return null
-	tool.generate_normals()
-	return tool.commit()
+	var arrays := []
+	arrays.resize(Mesh.ARRAY_MAX)
+	arrays[Mesh.ARRAY_VERTEX] = survey.vertices
+	arrays[Mesh.ARRAY_NORMAL] = survey.normals
+	arrays[Mesh.ARRAY_COLOR] = survey.all_colors
+	arrays[Mesh.ARRAY_INDEX] = indices
+	var mesh := ArrayMesh.new()
+	mesh.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arrays)
+	return mesh
+
+static func _skirt(indices: PackedInt32Array, a: int, b: int, lower: PackedInt32Array) -> void:
+	indices.append_array([a, b, lower[b], a, lower[b], lower[a], a, lower[b], b, a, lower[a], lower[b]])
+
+# Carré entier, d'un coup (vitrine, tests).
+static func build(terrain, tile: Vector2i, hole: Rect2, cell := CELL) -> ArrayMesh:
+	var survey := new_survey(tile, cell)
+	advance(terrain, survey, 9223372036854775807)
+	return mesh_of(survey, hole)

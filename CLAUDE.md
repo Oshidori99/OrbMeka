@@ -31,7 +31,7 @@ Depuis PowerShell, à la racine du projet, en parallèle (4 à la fois) :
 
 Les tests juridiques (licences, aucun autre jeu cité) passent **toujours**, même avec -Only.
 **Sécurité du PC** (planté le 24.10.2026, mémoire à 99 %) : run_all.ps1 ne lance plus de test au-delà de 85 % de mémoire,
-arrête tout au-delà de 90 % et coupe un test qui dépasse 2 Go. Ne jamais lancer de tests depuis deux sessions à la fois ;
+arrête tout au-delà de 90 % et coupe un test qui dépasse 3 Go. Ne jamais lancer de tests depuis deux sessions à la fois ;
 utiliser -Jobs 2 si le PC est en mode économie d'énergie ou si d'autres gros programmes tournent (Blender, éditeur Godot).
 Godot console : C:\Users\Dev\Desktop\Godot_v4.7.2-stable_win64.exe\Godot_v4.7.2-stable_win64_console.exe
 Un seul test : `& '<Godot console>' --headless --path . --script res://tests/<nom>_test.gd`.
@@ -60,7 +60,7 @@ Ordre obligatoire de 1 à 4, ensuite libre :
    lacs de 2 et 4 zones irréguliers, bandes de 4-5 m (argile grise, boue, herbe), régions de boue, grands déserts
    seulement (7-9 zones, 8 %) ; 0.0.5.23 : version 7, montagnes 20-32 m à cœur de pierre (7 %), lacs 2-3 / 10 / 16 zones,
    déserts 14-20 zones (9-10 %), hauteur max 40 m ; 0.0.5.24 : version 8, montagnes 9 %, gravissables sauf 20-25 % raides ; grottes à faire)
-   Niveaux de détail (#128) : commencés en 0.0.5.22 (scripts/far_terrain.gd, relief simplifié par carrés de 4 × 4 zones ; 2 m près, 4 m loin en 0.0.5.23).
+   Niveaux de détail (#128) : commencés en 0.0.5.22 (scripts/far_terrain.gd, relief simplifié par carrés de 4 × 4 zones ; 2 m près, 4 m puis 8 m loin, relevés gardés et étalés sur les images en 0.0.5.25).
    (ne pas reprendre le nom anglais courant d'un autre jeu).
 5. Matières (#122) · 6. Structures (#123) · 7. Créatif/Survie (#73) · Inventaire (milestone HUD) ·
    Eau réaliste (#124 : lacs-réservoirs à volume, rivières en hauteur d'eau).

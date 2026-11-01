@@ -6,7 +6,7 @@ param(
  [ValidateRange(1,85)][int]$MaxMemoryPercent = 80,
  [ValidateRange(1,85)][int]$AbortMemoryPercent = 85,
  [ValidateRange(1,85)][int]$AbortCpuPercent = 85,
- [int]$MaxTestMemoryMB = 2048,
+ [int]$MaxTestMemoryMB = 3072,
  [string]$Godot = 'C:\Users\Dev\Desktop\Godot_v4.7.2-stable_win64.exe\Godot_v4.7.2-stable_win64.exe'
 )
 $ErrorActionPreference = 'Stop'
