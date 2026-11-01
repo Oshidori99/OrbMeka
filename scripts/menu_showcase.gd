@@ -71,12 +71,12 @@ const CharacterPreview = preload("res://scripts/character_preview.gd")
 
 const TerrainMaterials = preload("res://scripts/terrain_materials.gd")
 const WorldRules = preload("res://scripts/world.gd")
-# 0.0.5.23 : vraie graine (monde standard) avec une montagne et un lac moyen face à la caméra.
-const SCENE_SEED := 2171
-# Point de vue : un joueur debout sur le sol plat (0.0.5.5 : plus de tour de pierre).
+# 0.0.5.37 : vraie graine (monde standard) avec une grande crevasse en éclair, vue depuis une hauteur.
+const SCENE_SEED := 1
+# Point de vue : en hauteur (0.0.5.37), pour voir la crevasse ; à hauteur d'homme, le relief la cache.
 # Il tourne lentement la tête ; la vitrine reste sur le côté, hors du panneau des menus.
 const TOWER_CELL := Vector2i(12, 12)
-const TOWER_HEIGHT := 0
+const TOWER_HEIGHT := 14
 # Plage de sable de la vitrine (même matière que dans le jeu), sous les personnages.
 const BEACH_CENTER := Vector2(6.5, 6.0)
 const BEACH_RADIUS := 3.2
@@ -84,7 +84,7 @@ const EYE_HEIGHT := 1.62
 const SIDE_TURN := 0.42
 const PAN_RANGE := 0.15
 const PAN_SPEED := 0.12
-const LOOK_DOWN := 0.12
+const LOOK_DOWN := 0.42
 
 var camera: Camera3D
 var orb: MeshInstance3D
@@ -139,8 +139,8 @@ func _setup_environment() -> void:
 	environment.fog_enabled = true
 	environment.fog_mode = Environment.FOG_MODE_DEPTH
 	environment.fog_light_color = Color("#e7c3d6")
-	environment.fog_depth_begin = 45.0
-	environment.fog_depth_end = 190.0
+	environment.fog_depth_begin = 80.0
+	environment.fog_depth_end = 240.0
 	environment.fog_sky_affect = 0.0
 	var world_environment := WorldEnvironment.new()
 	world_environment.environment = environment

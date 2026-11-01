@@ -57,7 +57,7 @@ F3 : "), "menus share one theme; in-game shortcuts F1, F3 are plain text (no F2 
 	check(not showcase.camera.basis.is_equal_approx(start_basis), "showcase camera turns slowly")
 	check(showcase.camera.position.is_equal_approx(start_position), "showcase viewpoint stays in place (no flying)")
 	var feet: float = showcase.camera.position.y - showcase.EYE_HEIGHT
-	check(is_equal_approx(feet, 0.0), "viewpoint stands on the flat ground (no tower since 0.0.5.5)")
+	check(is_equal_approx(feet, showcase.TOWER_HEIGHT), "viewpoint high enough to show the crevasse (0.0.5.37)")
 	check(showcase.find_children("*", "MeshInstance3D", true, false).filter(func(mesh): return mesh.material_override is BaseMaterial3D and mesh.material_override.transparency != BaseMaterial3D.TRANSPARENCY_DISABLED).is_empty(), "showcase shows no glass (not in the game yet)")
 	# Boutons-icônes de Mes mondes.
 	for button in [app.new_world_button, app.rename_button, app.duplicate_button, app.world_settings_button, app.delete_button]:
