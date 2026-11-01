@@ -18,8 +18,9 @@ extends RefCounted
 # Version 8 (0.0.5.24) : un peu plus de montagnes, la plupart assez douces pour y monter, 20 à 25 % trop raides.
 # Version 9 (0.0.5.26) : même relief que la version 8 pour une même graine, sous-sol plus épais (voir smooth_terrain.gd).
 # Version 10 (0.0.5.32) : même relief que la 8 et la 9, plus parfois un trou de boue.
-const VERSION := 10
-const VERSIONS := [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
+# Version 11 (0.0.5.33) : même relief, environ 6 déserts par monde de 40 à 48 zones (10 % du sol) ; un trou sur 3 rempli de boue.
+const VERSION := 11
+const VERSIONS := [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]
 # Chance la plus rare qu'on peut régler : 1 sur MAX_CHANCE par zone (64 avant 0.0.5.18, 400 avant 0.0.5.23, 2000 avant 0.0.5.24).
 const MAX_CHANCE := 4000
 const STANDARD_SMALL_DENOMINATOR := 8
@@ -29,7 +30,8 @@ const STANDARD_HILL_HEIGHT := 3.0
 const SPECS := [
 	{"key":"small_deserts", "label":"Petits déserts (1 zone)", "default":133, "until":5},
 	{"key":"medium_deserts", "label":"Déserts moyens (3 à 4 zones)", "default":100, "until":5},
-	{"key":"large_deserts", "label":"Grands déserts (14 à 20 zones)", "default":200},
+	{"key":"large_deserts", "label":"Grands déserts (14 à 20 zones)", "default":200, "until":10},
+	{"key":"large_deserts", "label":"Grands déserts (40 à 48 zones)", "default":340, "since":11},
 	{"key":"low_hills", "label":"Collines douces de 1 bloc", "default":6},
 	{"key":"high_hills", "label":"Collines douces de 2 à 3 blocs", "default":12},
 	{"key":"steep_hills", "label":"Crêtes abruptes", "default":9},
@@ -48,6 +50,7 @@ const SPECS := [
 	{"key":"mountains", "label":"Montagnes (20 à 32 blocs de haut, environ 50 zones)", "default":700, "since":7, "until":7},
 	{"key":"mountains", "label":"Montagnes où l'on peut monter (20 à 32 blocs de haut)", "default":850, "since":8},
 	{"key":"steep_mountains", "label":"Montagnes raides, trop raides pour y monter", "default":2800, "since":8},
+	{"key":"sand_mountains", "label":"Montagnes de sable (10 à 16 blocs, seulement dans les déserts)", "default":15, "since":11},
 	{"key":"mud_regions", "label":"Régions de boue (environ 2 zones)", "default":70, "since":6},
 	{"key":"mud_pits", "label":"Trous de boue (2 à 4 m de rayon)", "default":40, "since":10},
 	{"key":"clay", "label":"Poches d'argile dans la terre", "default":10, "since":5},
@@ -64,6 +67,7 @@ const DESERT_SIZES := {
 	8: {"medium_desert": [3, 4, 2, 2], "big_desert": [14, 20, 5, 5]},
 	9: {"medium_desert": [3, 4, 2, 2], "big_desert": [14, 20, 5, 5]},
 	10: {"medium_desert": [3, 4, 2, 2], "big_desert": [14, 20, 5, 5]},
+	11: {"medium_desert": [3, 4, 2, 2], "big_desert": [40, 48, 8, 8]},
 }
 # 0.0.5.20 : monde de 48 × 48 zones (20 × 20 en 0.0.5.18, 16 × 16 avant).
 const WORLD_ZONES := 2304
@@ -146,15 +150,23 @@ static func steep_mountain(rng: RandomNumberGenerator, zone: Vector2i) -> Dictio
 	var center := Vector2(zone) * 8.0 + Vector2(rng.randf_range(0.0, 8.0), rng.randf_range(0.0, 8.0))
 	return {"center": center, "height": rng.randf_range(24.0, 32.0), "radius": rng.randf_range(20.0, 25.0), "stretch": rng.randf_range(1.0, 1.15), "turn": rng.randf() * TAU}
 
+# 0.0.5.33 (version 11) : montagne de sable : plus petite que celles de terre, pente d'environ 30 degrés, sans pierre.
+static func sand_mountain(rng: RandomNumberGenerator, zone: Vector2i) -> Dictionary:
+	var center := Vector2(zone) * 8.0 + Vector2(rng.randf_range(0.0, 8.0), rng.randf_range(0.0, 8.0))
+	var height := rng.randf_range(10.0, 16.0)
+	return {"center": center, "height": height, "radius": height * rng.randf_range(2.1, 2.3), "stretch": rng.randf_range(1.0, 1.2), "turn": rng.randf() * TAU, "sand": true}
+
 static func zone_mountain(terrain_seed: int, zone: Vector2i, options: Dictionary) -> Dictionary:
 	var version := int(options.version)
-	for key in ["mountains", "steep_mountains"]:
+	for key in ["mountains", "steep_mountains", "sand_mountains"]:
 		var denominator: int = options.get(key, 0)
 		if denominator == 0:
 			continue
 		var rng := RandomNumberGenerator.new()
 		rng.seed = hash([mini(version, 8), terrain_seed, zone.x, zone.y, key])
 		if rng.randf() < 1.0 / denominator:
+			if key == "sand_mountains":
+				return sand_mountain(rng, zone)
 			return mountain(rng, zone, version) if key == "mountains" else steep_mountain(rng, zone)
 	return {}
 
@@ -210,6 +222,8 @@ static func zone_info(terrain_seed: int, zone: Vector2i, options: Dictionary) ->
 				info.mountain = mountain(rng, zone, int(options.version))
 			"mud_pits":
 				info.mud_pit = {"center": Vector2(zone) * 8.0 + Vector2(rng.randf_range(1.0, 7.0), rng.randf_range(1.0, 7.0)), "radius": rng.randf_range(2.0, 4.0), "depth": rng.randf_range(0.6, 1.2)}
+			"sand_mountains":
+				info.sand_mountain = sand_mountain(rng, zone)
 			"steep_mountains":
 				info.steep_mountain = steep_mountain(rng, zone)
 			"mud_regions":

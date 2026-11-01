@@ -162,7 +162,8 @@ func is_desert(at: Vector2) -> bool:
 		return false
 	if not generation_options.is_empty():
 		# 0.0.5.23 : pas de sable sur les montagnes (seulement à leur pied).
-		return _custom_desert(at) and mountain_lift(at) < 2.5
+		# 0.0.5.33 : le sable couvre les montagnes de sable, même si elles dépassent du désert.
+		return (_custom_desert(at) and mountain_lift(at, MOUNTAINS_ROCK) < 2.5) or mountain_lift(at, MOUNTAINS_SAND) > 0.3
 	var key := Vector2i(floori(at.x * 2.0), floori(at.y * 2.0))
 	if _deserts.has(key):
 		return _deserts[key]
@@ -668,9 +669,9 @@ func _custom_desert(at: Vector2) -> bool:
 	if _zone_info(area).small_desert:
 		_deserts[area] = true
 		return true
-	var wide := int(generation_options.version) >= 7
-	for dx in range(-4 if wide else -3, 1):
-		for dz in range(-4 if wide else -2, 1):
+	var reach_back := 7 if int(generation_options.version) >= 11 else (4 if int(generation_options.version) >= 7 else -1)
+	for dx in range(-reach_back if reach_back > 0 else -3, 1):
+		for dz in range(-reach_back if reach_back > 0 else -2, 1):
 			var info := _zone_info(area + Vector2i(dx,dz))
 			var offset := Vector2i(-dx,-dz)
 			if offset in info.get("medium_desert",[]) or offset in info.get("big_desert",[]):
@@ -706,7 +707,13 @@ func _soil_regions_near(here: Vector2i) -> Array:
 					pits.append(info.mud_pit)
 				if info.has("clay"):
 					pockets.append(info.clay)
-		_regions_near[here] = [muds, pockets, pits]
+		var muddy_holes := []
+		if int(generation_options.get("version", 0)) >= 11:
+			for form in _landforms_near(here):
+				# 0.0.5.33 : un trou sur 3, choisi par la graine, a de la boue au fond.
+				if form.kind in ["smooth_holes", "steep_holes"] and hash([_seed, form.center]) % 3 == 0:
+					muddy_holes.append(form)
+		_regions_near[here] = [muds, pockets, pits, muddy_holes]
 	return _regions_near[here]
 
 # 0.0.5.32 (version 10) : trous de boue : petite cuvette irrégulière, sans eau, dont on peut sortir.
@@ -911,6 +918,10 @@ func _soil(column: Vector2i) -> Dictionary:
 			if _pit_reach(at, pit) < pit.radius + 0.6:
 				soil.top = MUD
 				soil.top_depth = 1.5
+		for form in _soil_regions_near(Vector2i(floori(at.x / ZONE_METERS), floori(at.y / ZONE_METERS)))[3]:
+			if at.distance_to(form.center) + _warp.get_noise_2d(at.x * 0.9 + 37.0, at.y * 0.9) * 0.4 < form.radius * 0.9:
+				soil.top = MUD
+				soil.top_depth = 1.5
 	elif version >= 5:
 		for lake in _lakes_near(at):
 			if _segment_distance(at, lake) < lake.radius + 1.0:
@@ -990,10 +1001,24 @@ var _mountain_zones: Dictionary = {}
 var _mountains_near_cache: Dictionary = {}
 var _lifts: Dictionary = {}
 const MOUNTAIN_REACH := 8
+const MOUNTAINS_ALL := 0
+const MOUNTAINS_ROCK := 1
+const MOUNTAINS_SAND := 2
+
+func _well_inside_desert(found: Dictionary) -> bool:
+	if not _custom_desert(found.center):
+		return false
+	for index in range(8):
+		if not _custom_desert(found.center + Vector2.from_angle(TAU * index / 8.0) * found.radius * 0.4):
+			return false
+	return true
 
 func _zone_mountain(area: Vector2i) -> Dictionary:
 	if not _mountain_zones.has(area):
 		var found := Generation.zone_mountain(_seed, area, generation_options)
+		# Montagne de sable : seulement si son centre est dans un désert.
+		if found.get("sand", false) and not _well_inside_desert(found):
+			found = {}
 		if not found.is_empty():
 			for spot in _flat_spots:
 				if found.center.distance_to(spot[0]) < spot[1] + found.radius * found.stretch + 10.0:
@@ -1014,6 +1039,9 @@ func _all_mountains() -> Array:
 				var found := _zone_mountain(Vector2i(x, z))
 				if not found.is_empty():
 					_mountain_list.append(found)
+		# Jamais une montagne de sable sur une montagne de terre (elle la recouvrirait de sable).
+		var rocks := _mountain_list.filter(func(found): return not found.get("sand", false))
+		_mountain_list = _mountain_list.filter(func(found): return not found.get("sand", false) or rocks.all(func(rock): return rock.center.distance_to(found.center) > (rock.radius * rock.stretch + found.radius * found.stretch) * 1.1))
 	return _mountain_list
 
 func _mountains_near(at: Vector2) -> Array:
@@ -1036,11 +1064,13 @@ func _mountains_near(at: Vector2) -> Array:
 	return result
 
 # Hauteur ajoutée par les montagnes à ce point (0 ailleurs).
-func mountain_lift(at: Vector2) -> float:
+func mountain_lift(at: Vector2, kind := MOUNTAINS_ALL) -> float:
 	if _noise == null or generation_options.is_empty():
 		return 0.0
 	var lift := 0.0
 	for found in _mountains_near(at):
+		if (kind == MOUNTAINS_ROCK and found.get("sand", false)) or (kind == MOUNTAINS_SAND and not found.get("sand", false)):
+			continue
 		var offset: Vector2 = (at - found.center).rotated(-found.turn)
 		offset.x /= found.stretch
 		var radius: float = found.radius
@@ -1058,7 +1088,7 @@ func mountain_stone(column: Vector2i) -> float:
 	if _lifts.has(column):
 		return _lifts[column]
 	var at := Vector2(column) * STEP
-	var lift := mountain_lift(at)
+	var lift := mountain_lift(at, MOUNTAINS_ROCK)
 	var top := -INF
 	if lift > 0.0:
 		top = stone_top * STEP + maxf(0.0, lift * 1.3 - 3.0)

@@ -1,8 +1,8 @@
-# OrbMeka™ 0.0.5.32
+# OrbMeka™ 0.0.5.33
 
 Dans Godot, ouvrez **project.godot**, puis **F5** pour lancer le jeu.
 
-0.0.5.32 : parfois des trous de boue dans les nouveaux mondes.
+0.0.5.33 : environ 6 très grands déserts par monde, avec des montagnes de sable ; de la boue au fond de certains trous.
 0.0.5.21 : lacs de 2 et 4 zones aux bords irréguliers, bandes de boue et d'argile grise, régions de boue, grands déserts seulement (8 %).
 0.0.5.20 : monde de 48 × 48 zones, argile et boue, lacs de 1 zone et de 1 × 2 zones, dossiers des mondes à leur nom.
 0.0.5.19 : rochers plus gros, rochers au hasard dans les nouveaux mondes, minés à la pioche ; petits lacs.

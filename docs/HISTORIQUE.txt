@@ -3,6 +3,9 @@ Du plus récent au plus ancien. Ce fichier est mis à jour à chaque version.
 
 === Thème « Monde » (0.0.5 et suivantes) ===
 
+0.0.5.33 — Très grands déserts
+Environ 6 déserts par monde, 10 % du sol, avec des montagnes de sable ; de la boue au fond de certains trous.
+
 0.0.5.32 — Trous de boue
 Parfois un trou de boue dans les nouveaux mondes, réglable dans le monde personnalisé.
 

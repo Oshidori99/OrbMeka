@@ -422,7 +422,7 @@ func _run() -> void:
 	for x in range(-24, 24):
 		for z in range(-24, 24):
 			var found: Dictionary = wet_land._zone_mountain(Vector2i(x, z))
-			if not found.is_empty() and wet_land.mountain_lift(found.center) > summit_height:
+			if not found.is_empty() and not found.get("sand", false) and wet_land.mountain_lift(found.center) > summit_height:
 				summit = found.center
 				summit_height = wet_land.mountain_lift(found.center)
 	var top_column := Vector2i(roundi(summit.x / 0.5), roundi(summit.y / 0.5))
@@ -486,6 +486,20 @@ func _run() -> void:
 	var pit_column := Vector2i(roundi(pit_found.center.x / 0.5), roundi(pit_found.center.y / 0.5))
 	var pit_top := Vector3i(pit_column.x, floori(wet_land.ground_height(pit_column) / 0.5), pit_column.y)
 	check(wet_land.natural_kind(pit_top) == SmoothTerrain.MUD and wet_land.muddy(pit_column) and wet_land._mud_pit_depth(pit_found.center) >= 0.5, "mud pit: a hollow of mud, no grass")
+	# 0.0.5.33 (version 11) : montagnes de sable dans les déserts, plus petites, en sable et sans pierre.
+	var dune := {}
+	var dune_land := SmoothTerrain.new()
+	for dune_seed in range(1, 30):
+		if not dune.is_empty():
+			break
+		dune_land = SmoothTerrain.new()
+		dune_land.setup(dune_seed, [], load("res://scripts/world_generation.gd").defaults())
+		for found in dune_land._all_mountains():
+			if found.get("sand", false):
+				dune = found
+	var dune_column := Vector2i(roundi(dune.center.x / 0.5), roundi(dune.center.y / 0.5))
+	var dune_top := Vector3i(dune_column.x, floori(dune_land.ground_height(dune_column) / 0.5), dune_column.y)
+	check(dune.height <= 16.0 and dune_land.mountain_lift(dune.center) > 5.0 and dune_land.natural_kind(dune_top) == SmoothTerrain.SAND, "sand mountains: smaller, covered with sand")
 	# 0.0.5.31 : boue et argile un peu glissantes, surtout en descente ; l'argile moins que la boue.
 	var player_script: Script = far_world.player.get_script()
 	var slope := Vector3(0.5, 0.866, 0.0)

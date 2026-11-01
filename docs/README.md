@@ -1,6 +1,13 @@
-# OrbMeka™ — prototype 0.0.5.32
+# OrbMeka™ — prototype 0.0.5.33
 
 Godot 4.7 / GDScript. Formes et couleurs simples ; assets externes seulement sous licence vérifiée (sons CC0, assets/sounds/CREDITS.txt).
+
+## 0.0.5.33 — Très grands déserts, montagnes de sable
+- **Génération version 11** (nouveaux mondes) : environ 6 déserts par monde, de 40 à 48 zones, environ 10 % du sol en moyenne (de 3 à 17 % selon la graine).
+- **Montagnes de sable**, dans les déserts : 10 à 16 m, pente d'environ 30°, sans pierre, 1 à 2 par monde en moyenne (curseur dans le monde personnalisé).
+- **Trous** : un sur 3 environ a de la boue au fond. Les trous de boue restent.
+
+Tests : smooth_terrain, custom_generation, custom_world_menu ; tests choisis réussis. Empreinte : anciennes générations inchangées. À tester manuellement : monter sur une montagne de sable.
 
 ## 0.0.5.32 — Trous de boue
 - **Génération version 10** (nouveaux mondes) : parfois un trou de boue, 2 à 4 m de rayon, 60 cm à 1,2 m de fond, sans eau (1 chance sur 40 par zone, réglable dans le monde personnalisé). Même relief que la version 9 ailleurs.
