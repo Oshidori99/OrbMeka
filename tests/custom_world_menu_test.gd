@@ -24,7 +24,7 @@ func _run() -> void:
 	app.name_field.text = "Personnalisé"
 	app.seed_field.text = "123"
 	app.custom_world_button.pressed.emit()
-	check(app.page == "custom_world" and app.custom_sliders.size() == 18 and app.custom_sliders.has("mountains") and app.custom_sliders.has("steep_mountains"), "custom menu offers the eighteen settings of version 12, with both kinds of mountains")
+	check(app.page == "custom_world" and app.custom_sliders.size() == 19 and app.custom_sliders.has("mountains") and app.custom_sliders.has("steep_mountains"), "custom menu offers the nineteen settings of version 13, with both kinds of mountains")
 	for size in [Vector2i(1280,720),Vector2i(800,600)]:
 		root.size = size
 		app.fit_menus_to_window()

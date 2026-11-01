@@ -1,6 +1,13 @@
-# OrbMeka™ — prototype 0.0.5.34
+# OrbMeka™ — prototype 0.0.5.35
 
 Godot 4.7 / GDScript. Formes et couleurs simples ; assets externes seulement sous licence vérifiée (sons CC0, assets/sounds/CREDITS.txt).
+
+## 0.0.5.35 — Grands lacs et chaînes de montagnes
+- **Génération version 13** (nouveaux mondes) : lacs deux fois plus grands en surface (petits 4 à 6 zones, moyens environ 20, grands environ 32), moins de petits lacs ; les plus grands sont choisis en premier sur tout le monde. Environ 10 % d'eau.
+- **Chaînes de montagnes** : 3 à 5 sommets à la suite (curseur dans le monde personnalisé). Environ 18 % du sol en montagnes.
+- Les rivières restent à faire.
+
+Mesures sur 10 graines : eau 9,7 %, montagnes 17,7 %, déserts 10,9 %. Tests choisis réussis. À tester manuellement : aspect et fluidité sur le Web.
 
 ## 0.0.5.34 — Lacs de montagne
 - **Génération version 12** (nouveaux mondes) : petits lacs (1 à 3 par montagne de terre douce) sur des replats, pas à flanc de pente.

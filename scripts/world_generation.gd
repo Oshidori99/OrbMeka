@@ -20,8 +20,9 @@ extends RefCounted
 # Version 10 (0.0.5.32) : même relief que la 8 et la 9, plus parfois un trou de boue.
 # Version 11 (0.0.5.33) : même relief, environ 6 déserts par monde de 40 à 48 zones (10 % du sol) ; un trou sur 3 rempli de boue.
 # Version 12 (0.0.5.34) : même relief, petits lacs sur des replats des montagnes de terre, plus de lacs, moins de trous et moins ronds.
-const VERSION := 12
-const VERSIONS := [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]
+# Version 13 (0.0.5.35) : même relief de base, lacs deux fois plus grands (surface), moins de petits, plus d'eau ; chaînes de montagnes.
+const VERSION := 13
+const VERSIONS := [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13]
 # Chance la plus rare qu'on peut régler : 1 sur MAX_CHANCE par zone (64 avant 0.0.5.18, 400 avant 0.0.5.23, 2000 avant 0.0.5.24).
 const MAX_CHANCE := 4000
 const STANDARD_SMALL_DENOMINATOR := 8
@@ -47,14 +48,18 @@ const SPECS := [
 	{"key":"long_lakes", "label":"Lacs allongés (1 × 2 zones)", "default":48, "since":5, "until":5},
 	{"key":"lakes_2", "label":"Lacs (environ 2 zones)", "default":26, "since":6, "until":6},
 	{"key":"lakes_4", "label":"Grands lacs (environ 4 zones)", "default":55, "since":6, "until":6},
-	{"key":"lakes_small", "label":"Petits lacs (2 à 3 zones)", "default":500, "since":7},
+	{"key":"lakes_small", "label":"Petits lacs (2 à 3 zones)", "default":500, "since":7, "until":12},
+	{"key":"lakes_small", "label":"Petits lacs (4 à 6 zones)", "default":900, "since":13},
 	{"key":"lakes_medium", "label":"Lacs moyens (environ 10 zones)", "default":180, "since":7, "until":11},
-	{"key":"lakes_medium", "label":"Lacs moyens (environ 10 zones)", "default":90, "since":12},
+	{"key":"lakes_medium", "label":"Lacs moyens (environ 10 zones)", "default":90, "since":12, "until":12},
+	{"key":"lakes_medium", "label":"Lacs moyens (environ 20 zones)", "default":40, "since":13},
 	{"key":"lakes_large", "label":"Grands lacs (environ 16 zones)", "default":450, "since":7, "until":11},
-	{"key":"lakes_large", "label":"Grands lacs (environ 16 zones)", "default":260, "since":12},
+	{"key":"lakes_large", "label":"Grands lacs (environ 16 zones)", "default":260, "since":12, "until":12},
+	{"key":"lakes_large", "label":"Grands lacs (environ 32 zones)", "default":90, "since":13},
 	{"key":"mountains", "label":"Montagnes (20 à 32 blocs de haut, environ 50 zones)", "default":700, "since":7, "until":7},
 	{"key":"mountains", "label":"Montagnes où l'on peut monter (20 à 32 blocs de haut)", "default":850, "since":8},
 	{"key":"steep_mountains", "label":"Montagnes raides, trop raides pour y monter", "default":2800, "since":8},
+	{"key":"mountain_chains", "label":"Chaînes de montagnes (3 à 5 sommets)", "default":1400, "since":13},
 	{"key":"sand_mountains", "label":"Montagnes de sable (10 à 16 blocs, seulement dans les déserts)", "default":15, "since":11},
 	{"key":"mud_regions", "label":"Régions de boue (environ 2 zones)", "default":70, "since":6},
 	{"key":"mud_pits", "label":"Trous de boue (2 à 4 m de rayon)", "default":40, "since":10},
@@ -74,6 +79,7 @@ const DESERT_SIZES := {
 	10: {"medium_desert": [3, 4, 2, 2], "big_desert": [14, 20, 5, 5]},
 	11: {"medium_desert": [3, 4, 2, 2], "big_desert": [40, 48, 8, 8]},
 	12: {"medium_desert": [3, 4, 2, 2], "big_desert": [40, 48, 8, 8]},
+	13: {"medium_desert": [3, 4, 2, 2], "big_desert": [40, 48, 8, 8]},
 }
 # 0.0.5.20 : monde de 48 × 48 zones (20 × 20 en 0.0.5.18, 16 × 16 avant).
 const WORLD_ZONES := 2304
@@ -162,6 +168,26 @@ static func sand_mountain(rng: RandomNumberGenerator, zone: Vector2i) -> Diction
 	var height := rng.randf_range(10.0, 16.0)
 	return {"center": center, "height": height, "radius": height * rng.randf_range(2.1, 2.3), "stretch": rng.randf_range(1.0, 1.2), "turn": rng.randf() * TAU, "sand": true}
 
+# 0.0.5.35 (version 13) : chaîne de montagnes : 3 à 5 sommets douces les uns à la suite des autres, tracé un peu sinueux.
+static func mountain_chain(terrain_seed: int, zone: Vector2i, options: Dictionary) -> Array:
+	var denominator: int = options.get("mountain_chains", 0)
+	if denominator == 0:
+		return []
+	var rng := RandomNumberGenerator.new()
+	rng.seed = hash([terrain_seed, zone.x, zone.y, "mountain_chains"])
+	if rng.randf() >= 1.0 / denominator:
+		return []
+	var at := Vector2(zone) * 8.0 + Vector2(rng.randf_range(0.0, 8.0), rng.randf_range(0.0, 8.0))
+	var heading := rng.randf() * TAU
+	var peaks := []
+	for index in range(rng.randi_range(3, 5)):
+		var height := rng.randf_range(16.0, 26.0)
+		var radius := height * rng.randf_range(1.9, 2.1)
+		peaks.append({"center": at, "height": height, "radius": radius, "stretch": rng.randf_range(1.0, 1.2), "turn": heading})
+		heading += rng.randf_range(-0.35, 0.35)
+		at += Vector2.from_angle(heading) * radius * 0.85
+	return peaks
+
 static func zone_mountain(terrain_seed: int, zone: Vector2i, options: Dictionary) -> Dictionary:
 	var version := int(options.version)
 	for key in ["mountains", "steep_mountains", "sand_mountains"]:
@@ -222,14 +248,17 @@ static func zone_info(terrain_seed: int, zone: Vector2i, options: Dictionary) ->
 				# 0.0.5.23 : rayon, longueur du milieu et fond selon la taille (2 à 3, environ 10, environ 16 zones).
 				var sizes := {"lakes_small": [4.5, 5.5, 3.0, 6.0, 1.5, 2.5], "lakes_medium": [11.0, 13.0, 0.0, 8.0, 2.5, 3.5], "lakes_large": [14.0, 16.0, 4.0, 12.0, 3.0, 4.0]}
 				var size: Array = sizes[spec.key]
+				var grow := 1.41 if int(options.version) >= 13 else 1.0
 				var middle := Vector2(zone) * 8.0 + Vector2(rng.randf_range(1.0, 7.0), rng.randf_range(1.0, 7.0))
-				info[spec.key] = {"start": middle, "end": middle + Vector2.from_angle(rng.randf() * TAU) * rng.randf_range(size[2], size[3]), "radius": rng.randf_range(size[0], size[1]), "depth": rng.randf_range(size[4], size[5]), "soils": rng.randi_range(0, 2), "turn": rng.randf() * TAU}
+				info[spec.key] = {"start": middle, "end": middle + Vector2.from_angle(rng.randf() * TAU) * rng.randf_range(size[2], size[3]) * grow, "radius": rng.randf_range(size[0], size[1]) * grow, "depth": rng.randf_range(size[4], size[5]), "soils": rng.randi_range(0, 2), "turn": rng.randf() * TAU}
 			"mountains":
 				info.mountain = mountain(rng, zone, int(options.version))
 			"mud_pits":
 				info.mud_pit = {"center": Vector2(zone) * 8.0 + Vector2(rng.randf_range(1.0, 7.0), rng.randf_range(1.0, 7.0)), "radius": rng.randf_range(2.0, 4.0), "depth": rng.randf_range(0.6, 1.2)}
 			"sand_mountains":
 				info.sand_mountain = sand_mountain(rng, zone)
+			"mountain_chains":
+				pass
 			"steep_mountains":
 				info.steep_mountain = steep_mountain(rng, zone)
 			"mud_regions":

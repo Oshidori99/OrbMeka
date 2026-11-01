@@ -13,7 +13,7 @@ const GRASS := Color(0.2, 0.32, 0.08)
 const SAND := Color(0.56, 0.43, 0.25)
 const CLAY := Color(0.24, 0.235, 0.22)
 const MUD := Color(0.1, 0.07, 0.045)
-const WATER := Color(0.1, 0.3, 0.36)
+const WATER := Color(0.06, 0.17, 0.3)
 const STONE := Color(0.3, 0.29, 0.27)
 
 static var _material: ShaderMaterial

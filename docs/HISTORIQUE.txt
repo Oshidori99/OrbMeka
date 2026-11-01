@@ -3,6 +3,9 @@ Du plus récent au plus ancien. Ce fichier est mis à jour à chaque version.
 
 === Thème « Monde » (0.0.5 et suivantes) ===
 
+0.0.5.35 — Grands lacs et chaînes de montagnes
+Lacs deux fois plus grands, environ 10 % d'eau, moins de petits lacs ; chaînes de montagnes, environ 18 % du sol.
+
 0.0.5.34 — Lacs de montagne
 Petits lacs sur des replats des montagnes, plus de lacs, moins de trous et moins ronds.
 

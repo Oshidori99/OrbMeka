@@ -98,6 +98,8 @@ func setup(terrain_seed: int, flat_spots: Array = [], options: Dictionary = {}) 
 	_regions_near.clear()
 	_lake_cache.clear()
 	_near_cache.clear()
+	_lakes_chosen.clear()
+	_lakes_chosen_ready = false
 	_mountain_lake_zones.clear()
 	_mountain_lakes_ready = false
 	_mountain_zones.clear()
@@ -786,9 +788,50 @@ const LAKE_SHORE := 3.0
 # (« bank ») sous l'eau débordante ; « soils » : 0 argile, 1 boue et argile, 2 boue, argile et terre.
 var _lake_cache: Dictionary = {}
 
+# 0.0.5.35 (version 13) : choix des lacs sur tout le monde, une seule fois : les plus grands d'abord, les autres là où
+# il reste de la place (jamais deux eaux l'une sur l'autre). Même graine = même choix.
+var _lakes_chosen: Dictionary = {}
+var _lakes_chosen_ready := false
+
+func _lake_choice() -> Dictionary:
+	if _lakes_chosen_ready:
+		return _lakes_chosen
+	_lakes_chosen_ready = true
+	var candidates := []
+	for x in range(-32, 32):
+		for z in range(-32, 32):
+			for lake in _raw_zone_lakes(Vector2i(x, z)):
+				if _lake_ok(lake):
+					candidates.append([lake, Vector2i(x, z)])
+	candidates.sort_custom(func(a, b):
+		if a[0].radius != b[0].radius:
+			return a[0].radius > b[0].radius
+		return a[1].x < b[1].x or (a[1].x == b[1].x and a[1].y < b[1].y))
+	var kept := []
+	for candidate in candidates:
+		var lake: Dictionary = candidate[0]
+		var free := true
+		for other in kept:
+			var gap := minf(_segment_distance(other.start, lake), _segment_distance(other.end, lake))
+			gap = minf(gap, minf(_segment_distance(lake.start, other), _segment_distance(lake.end, other)))
+			if gap < lake.radius + other.radius + 2.0 * (1.6 + LAKE_SHORE) + lake.wobble + other.wobble:
+				free = false
+				break
+		if free:
+			kept.append(lake)
+			if not _lakes_chosen.has(candidate[1]):
+				_lakes_chosen[candidate[1]] = []
+			_lakes_chosen[candidate[1]].append(lake)
+	return _lakes_chosen
+
 func _zone_lakes(area: Vector2i) -> Array:
 	if _lake_cache.has(area):
 		return _lake_cache[area]
+	if int(generation_options.get("version", 0)) >= 13:
+		var chosen: Array = _lake_choice().get(area, []).duplicate()
+		chosen.append_array(_mountain_lakes_of(area))
+		_lake_cache[area] = chosen
+		return chosen
 	var info := _zone_info(area)
 	var result := []
 	if info.has("lake"):
@@ -863,7 +906,7 @@ func _lakes_near(at: Vector2) -> Array:
 	if _near_cache.has(here):
 		return _near_cache[here]
 	var version := int(generation_options.get("version", 0))
-	var reach := 6 if version >= 7 else (3 if version >= 6 else (2 if version >= 5 else 1))
+	var reach := 9 if version >= 13 else (6 if version >= 7 else (3 if version >= 6 else (2 if version >= 5 else 1)))
 	var middle := (Vector2(here) + Vector2(0.5, 0.5)) * ZONE_METERS
 	var result := []
 	for dx in range(-reach, reach + 1):
@@ -1108,6 +1151,15 @@ func _all_mountains() -> Array:
 				var found := _zone_mountain(Vector2i(x, z))
 				if not found.is_empty():
 					_mountain_list.append(found)
+		# 0.0.5.35 (version 13) : chaînes de montagnes, jamais près de l'apparition ni de la plage.
+		for x in range(-40, 40):
+			for z in range(-40, 40):
+				for peak in Generation.mountain_chain(_seed, Vector2i(x, z), generation_options):
+					var clear := true
+					for spot in _flat_spots:
+						clear = clear and peak.center.distance_to(spot[0]) >= spot[1] + peak.radius * peak.stretch + 10.0
+					if clear:
+						_mountain_list.append(peak)
 		# Jamais une montagne de sable sur une montagne de terre (elle la recouvrirait de sable).
 		var rocks := _mountain_list.filter(func(found): return not found.get("sand", false))
 		_mountain_list = _mountain_list.filter(func(found): return not found.get("sand", false) or rocks.all(func(rock): return rock.center.distance_to(found.center) > (rock.radius * rock.stretch + found.radius * found.stretch) * 1.1))
@@ -1197,7 +1249,8 @@ func _raw_zone_lakes(area: Vector2i) -> Array:
 	return result
 
 func _overlaps_earlier(area: Vector2i, lake: Dictionary) -> bool:
-	var reach := 8 if int(generation_options.get("version", 0)) >= 7 else 3
+	var lake_version := int(generation_options.get("version", 0))
+	var reach := 12 if lake_version >= 13 else (8 if lake_version >= 7 else 3)
 	for dx in range(-reach, reach + 1):
 		for dz in range(-reach, reach + 1):
 			var other_area := area + Vector2i(dx, dz)
