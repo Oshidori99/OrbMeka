@@ -54,6 +54,13 @@ func _run() -> void:
 	var old_info := Generation.zone_info(42, Vector2i(2, 3), old)
 	check(old_info.medium_desert.size() >= 4 and old_info.medium_desert.size() <= 6 and old_info.big_desert.size() >= 8 and old_info.big_desert.size() <= 11, "version 1 worlds keep their desert sizes")
 	check(Generation.valid(old) and not Generation.valid({"version": 15}), "versions 1 to 14 accepted, others refused")
+	# Mondes créés avant l'ajout des crevasses : toujours valides, sans crevasses ; un réglage obligatoire manquant reste refusé.
+	var before_cracks := options.duplicate()
+	before_cracks.erase("crevasses")
+	check(Generation.valid(before_cracks) and Generation.normalized(before_cracks).crevasses == 0, "a world saved before the crevasses setting stays valid, without crevasses")
+	var missing_setting := options.duplicate()
+	missing_setting.erase("clay")
+	check(not Generation.valid(missing_setting), "a missing required setting is still refused")
 	check(Generation.estimate_text("medium_deserts", 24).contains("environ 96 désert") and Generation.estimate_text("steep_hills", 8).contains("environ 288 dans le monde"), "estimates in plain words (2304 zones)")
 	var rare := options.duplicate()
 	for spec in Generation.specs_for(Generation.VERSION):

@@ -65,7 +65,7 @@ const SPECS := [
 	{"key":"mud_regions", "label":"Régions de boue (environ 2 zones)", "default":70, "since":6},
 	{"key":"cave_entrances", "label":"Entrées de grottes", "default":24, "since":14},
 	{"key":"cave_systems", "label":"Réseaux de grottes sous terre", "default":20, "since":14},
-	{"key":"crevasses", "label":"Crevasses en éclair", "default":30, "since":14},
+	{"key":"crevasses", "label":"Crevasses en éclair", "default":30, "since":14, "optional":true},
 	{"key":"mud_pits", "label":"Trous de boue (2 à 4 m de rayon)", "default":40, "since":10},
 	{"key":"clay", "label":"Poches d'argile dans la terre", "default":10, "since":5},
 ]
@@ -106,9 +106,12 @@ static func valid(value: Variant) -> bool:
 		return true
 	var version: Variant = value.get("version")
 	# JSON relit les nombres en décimaux (2.0) : comparer en entier.
-	if not (version is int or version is float) or float(version) != int(version) or not int(version) in VERSIONS or value.size() != specs_for(int(version)).size() + 1:
+	if not (version is int or version is float) or float(version) != int(version) or not int(version) in VERSIONS or value.size() > specs_for(int(version)).size() + 1:
 		return false
 	for spec in specs_for(int(value.version)):
+		# Réglage ajouté après la création de certains mondes de cette version : absent, il vaut 0 (jamais).
+		if spec.get("optional", false) and not value.has(spec.key):
+			continue
 		var n: Variant = value.get(spec.key)
 		if not (n is int or n is float) or not is_finite(float(n)) or n != int(n) or n < 0 or n > MAX_CHANCE:
 			return false
@@ -120,7 +123,7 @@ static func normalized(value: Dictionary) -> Dictionary:
 		return {}
 	var result := {"version": int(value.version)}
 	for spec in specs_for(int(value.version)):
-		result[spec.key] = int(value[spec.key])
+		result[spec.key] = int(value.get(spec.key, 0))
 	return result
 
 # 0.0.5.17 : estimations affichées dans l'écran Monde personnalisé (moyennes, pour le monde de WORLD_ZONES zones).
