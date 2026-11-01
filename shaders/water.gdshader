@@ -4,6 +4,8 @@ shader_type spatial;
 render_mode blend_mix, cull_disabled, depth_draw_opaque, specular_schlick_ggx;
 uniform vec3 water_color : source_color = vec3(0.09, 0.30, 0.36);
 uniform vec3 sky_tint : source_color = vec3(0.55, 0.75, 0.85);
+// 0.0.5.36 : l'eau détaillée s'arrête où commence le terrain lointain (qui a sa propre eau) : pas de double couche.
+uniform vec4 near_rect = vec4(-100000.0, -100000.0, 100000.0, 100000.0);
 varying vec3 world_position;
 
 void vertex() {
@@ -12,6 +14,9 @@ void vertex() {
 
 void fragment() {
 	vec2 p = world_position.xz;
+	if (p.x < near_rect.x || p.y < near_rect.y || p.x > near_rect.z || p.y > near_rect.w) {
+		discard;
+	}
 	float t = TIME;
 	float wave_a = sin(p.x * 1.7 + t * 1.3) * cos(p.y * 1.3 - t * 0.9);
 	float wave_b = sin((p.x + p.y) * 3.1 - t * 2.1);

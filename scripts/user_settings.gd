@@ -75,6 +75,10 @@ const SPECS := {
 	# 0.0.5.22 (#128) : terrain lointain simplifié jusqu'à cette distance (0 : aucun), au-delà du terrain détaillé.
 	"far_distance": {"label": "Distance lointaine (relief simplifié)", "unit": "zones de 8 m", "default": 24.0, "min": 0.0, "max": 48.0, "step": 1.0},
 }
+# 0.0.5.36 (#128) : sur le Web, distances plus courtes par défaut (le joueur peut les changer dans Vidéo).
+const WEB_DEFAULTS := {"grass_zones": 3.0, "view_distance": 6.0, "far_distance": 16.0}
+static func default_of(key: String, web: bool = OS.has_feature("web")) -> float:
+	return WEB_DEFAULTS[key] if web and WEB_DEFAULTS.has(key) else SPECS[key].default
 # Réglages à choix (0.0.3.4 ; profondeur 0.0.3.5), affichés en boutons ; options dans l'ordre d'affichage.
 const CHOICES := {
 	"text_detail": {"label": "Synthèse des textes", "options": {"minus": "−", "default": "Par défaut", "plus": "+"}, "default": "default"},
@@ -312,7 +316,7 @@ func _read(path: String) -> void:
 static func default_values() -> Dictionary:
 	var result := {}
 	for key in SPECS:
-		result[key] = SPECS[key].default
+		result[key] = default_of(key)
 	for key in CHOICES:
 		result[key] = CHOICES[key].default
 	return result
@@ -323,7 +327,7 @@ func world_values(developer: bool) -> Dictionary:
 	var result := values.duplicate()
 	if not developer:
 		for key in ATTRIBUTE_KEYS:
-			result[key] = SPECS[key].default
+			result[key] = default_of(key)
 	return result
 
 static func number_text(value: float) -> String:
@@ -334,7 +338,7 @@ func apply_texts(texts: Dictionary) -> bool:
 	var candidate := {}
 	for key in SPECS:
 		var text: String = str(texts.get(key, "")).strip_edges().replace(",", ".")
-		var value: float = SPECS[key].default
+		var value: float = default_of(key)
 		if not text.is_empty():
 			if text.to_lower().contains("e") or not text.is_valid_float():
 				last_error = "%s : saisissez un nombre." % SPECS[key].label

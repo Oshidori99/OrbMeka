@@ -11,8 +11,9 @@ const SINK := 0.2
 const SKIRT := 3.0
 const GRASS := Color(0.2, 0.32, 0.08)
 const SAND := Color(0.56, 0.43, 0.25)
-const CLAY := Color(0.24, 0.235, 0.22)
-const MUD := Color(0.1, 0.07, 0.045)
+const CLAY := Color(0.27, 0.27, 0.22)
+# Vus de loin, boue et argile restent proches du sol autour (plus de traînées presque noires).
+const MUD := Color(0.19, 0.15, 0.09)
 const WATER := Color(0.06, 0.17, 0.3)
 const STONE := Color(0.3, 0.29, 0.27)
 
@@ -41,7 +42,8 @@ static func _sample(terrain, at: Vector2) -> Array:
 		color = MUD
 	elif top == terrain.CLAY:
 		color = CLAY
-	elif top == terrain.STONE:
+	# Seulement les sommets rocheux : les petites plaques de pierre feraient des blocs gris au loin.
+	elif top == terrain.STONE and terrain.mountain_stone(column) != INF:
 		color = STONE
 	elif terrain.is_desert(at):
 		color = SAND

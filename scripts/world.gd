@@ -320,7 +320,8 @@ func _update_fog() -> void:
 	environment.fog_mode = Environment.FOG_MODE_DEPTH
 	environment.fog_light_color = Color("#b9e2fa")
 	environment.fog_density = 1.0
-	environment.fog_depth_begin = reach * 0.65
+	# Brume seulement tout au bout : les montagnes lointaines gardent leurs couleurs.
+	environment.fog_depth_begin = reach * 0.82
 	environment.fog_depth_end = reach
 	environment.fog_sky_affect = 0.0
 
@@ -1395,6 +1396,7 @@ func _show_column_objects(column: Vector2i) -> void:
 		if _water_material == null:
 			_water_material = ShaderMaterial.new()
 			_water_material.shader = preload("res://shaders/water.gdshader")
+			_clip_water()
 		water.material_override = _water_material
 		water.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 		water.position = Vector3(lake.center.x, lake.level, lake.center.y)
@@ -1488,6 +1490,7 @@ func _update_far(center: Vector2i, area: Rect2) -> void:
 	far_center = center
 	var old_area := near_area
 	near_area = area
+	_clip_water()
 	if not is_instance_valid(far_node):
 		far_node = Node3D.new()
 		far_node.name = "FarTerrain"
@@ -1520,6 +1523,12 @@ func _update_far(center: Vector2i, area: Rect2) -> void:
 	far_queue.sort_custom(func(a: Vector2i, b: Vector2i): return maxi(absi(a.x - center_tile.x), absi(a.y - center_tile.y)) < maxi(absi(b.x - center_tile.x), absi(b.y - center_tile.y)))
 
 var far_center := Vector2i.ZERO
+
+func _clip_water() -> void:
+	if _water_material == null:
+		return
+	var inner := near_area.grow(-2.0) if far_distance > load_distance and relief else Rect2(-100000.0, -100000.0, 200000.0, 200000.0)
+	_water_material.set_shader_parameter("near_rect", Vector4(inner.position.x, inner.position.y, inner.end.x, inner.end.y))
 
 func _far_cell(tile: Vector2i) -> float:
 	# Au bord du terrain détaillé : toujours fin (pas de relief grossier qui dépasse).
