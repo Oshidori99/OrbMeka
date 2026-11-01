@@ -476,6 +476,16 @@ func _run() -> void:
 	for tile in far_world.far_tiles:
 		cells[far_world.far_tiles[tile].get_meta("cell")] = true
 	check(cells.has(2.0) and cells.has(4.0), "far terrain: a point every 2 m near the player, every 4 m further (faster)")
+	# 0.0.5.32 (version 10) : parfois un trou de boue, plus bas que ses bords, sans eau.
+	var pit_found := {}
+	for x in range(-24, 24):
+		for z in range(-24, 24):
+			var pit_info: Dictionary = wet_land._zone_info(Vector2i(x, z))
+			if pit_info.has("mud_pit") and wet_land.water_level_at(pit_info.mud_pit.center) == -INF and wet_land.mountain_lift(pit_info.mud_pit.center) == 0.0:
+				pit_found = pit_info.mud_pit
+	var pit_column := Vector2i(roundi(pit_found.center.x / 0.5), roundi(pit_found.center.y / 0.5))
+	var pit_top := Vector3i(pit_column.x, floori(wet_land.ground_height(pit_column) / 0.5), pit_column.y)
+	check(wet_land.natural_kind(pit_top) == SmoothTerrain.MUD and wet_land.muddy(pit_column) and wet_land._mud_pit_depth(pit_found.center) >= 0.5, "mud pit: a hollow of mud, no grass")
 	# 0.0.5.31 : boue et argile un peu glissantes, surtout en descente ; l'argile moins que la boue.
 	var player_script: Script = far_world.player.get_script()
 	var slope := Vector3(0.5, 0.866, 0.0)

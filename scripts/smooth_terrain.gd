@@ -696,15 +696,29 @@ func _soil_regions_near(here: Vector2i) -> Array:
 	if not _regions_near.has(here):
 		var muds := []
 		var pockets := []
+		var pits := []
 		for dx in range(-1, 2):
 			for dz in range(-1, 2):
 				var info := _zone_info(here + Vector2i(dx, dz))
 				if info.has("mud"):
 					muds.append(info.mud)
+				if info.has("mud_pit"):
+					pits.append(info.mud_pit)
 				if info.has("clay"):
 					pockets.append(info.clay)
-		_regions_near[here] = [muds, pockets]
+		_regions_near[here] = [muds, pockets, pits]
 	return _regions_near[here]
+
+# 0.0.5.32 (version 10) : trous de boue : petite cuvette irrégulière, sans eau, dont on peut sortir.
+func _pit_reach(at: Vector2, pit: Dictionary) -> float:
+	return at.distance_to(pit.center) + _warp.get_noise_2d(at.x * 0.9 + 37.0, at.y * 0.9) * 0.8
+
+func _mud_pit_depth(at: Vector2) -> float:
+	var depth := 0.0
+	if int(generation_options.version) >= 10:
+		for pit in _soil_regions_near(Vector2i(floori(at.x / ZONE_METERS), floori(at.y / ZONE_METERS)))[2]:
+			depth = maxf(depth, pit.depth * (1.0 - smoothstep(pit.radius * 0.3, pit.radius, _pit_reach(at, pit))))
+	return depth
 
 func _custom_height(at: Vector2) -> float:
 	var here := Vector2i(floori(at.x/ZONE_METERS),floori(at.y/ZONE_METERS))
@@ -735,7 +749,7 @@ func _custom_height(at: Vector2) -> float:
 			dig = minf(dig, form.height * profile)
 	# Version 2 : les trous se creusent dans le relief (en dessous de la colline ou de la bosse où ils sont).
 	if continuous:
-		return _with_lakes(at, hill + dig)
+		return _with_lakes(at, hill + dig - _mud_pit_depth(at))
 	return minf(hill,hole)
 
 # 0.0.5.17 : relief continu de la version 2, moins plat (demande de l'utilisateur) : collines douces plus
@@ -893,6 +907,10 @@ func _soil(column: Vector2i) -> Dictionary:
 			if not soil.has("top") and at.distance_to(mud.center) + _warp.get_noise_2d(at.x * 0.9, at.y * 0.9) * 2.0 < mud.radius:
 				soil.top = MUD
 				soil.top_depth = 1.0
+		for pit in _soil_regions_near(Vector2i(floori(at.x / ZONE_METERS), floori(at.y / ZONE_METERS)))[2]:
+			if _pit_reach(at, pit) < pit.radius + 0.6:
+				soil.top = MUD
+				soil.top_depth = 1.5
 	elif version >= 5:
 		for lake in _lakes_near(at):
 			if _segment_distance(at, lake) < lake.radius + 1.0:
@@ -953,6 +971,8 @@ func rocks_in_zone(area: Vector2i) -> Array:
 		var wet := false
 		for lake in _lakes_near(at):
 			wet = wet or _lake_distance(at, lake) < lake.radius + lake.get("bank", 0.0) + 1.5
+		# 0.0.5.32 : pas de rocher dans un trou de boue.
+		wet = wet or _mud_pit_depth(at) > 0.0
 		if not near_spot and not wet:
 			var entry: Dictionary = rock.duplicate()
 			entry.id = "%d_%d_%d" % [area.x, area.y, index]

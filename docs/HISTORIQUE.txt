@@ -3,6 +3,9 @@ Du plus récent au plus ancien. Ce fichier est mis à jour à chaque version.
 
 === Thème « Monde » (0.0.5 et suivantes) ===
 
+0.0.5.32 — Trous de boue
+Parfois un trou de boue dans les nouveaux mondes, réglable dans le monde personnalisé.
+
 0.0.5.31 — Boue et argile glissantes
 Boue un peu glissante, surtout en descente ; argile encore moins.
 

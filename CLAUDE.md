@@ -59,7 +59,7 @@ Ordre obligatoire de 1 à 4, ensuite libre :
    48 × 48 zones, lacs 1 × 2 zones, boue (lacs) et argile (sous les lacs, en poches) ; 0.0.5.21 : version 6,
    lacs de 2 et 4 zones irréguliers, bandes de 4-5 m (argile grise, boue, herbe), régions de boue, grands déserts
    seulement (7-9 zones, 8 %) ; 0.0.5.23 : version 7, montagnes 20-32 m à cœur de pierre (7 %), lacs 2-3 / 10 / 16 zones,
-   déserts 14-20 zones (9-10 %), hauteur max 40 m ; 0.0.5.24 : version 8, montagnes 9 %, gravissables sauf 20-25 % raides ; 0.0.5.26 : version 9, 5 m de terre, 10 m de pierre, 10 m de pierre sombre, Roche-mère à 25 m ; grottes à faire)
+   déserts 14-20 zones (9-10 %), hauteur max 40 m ; 0.0.5.24 : version 8, montagnes 9 %, gravissables sauf 20-25 % raides ; 0.0.5.26 : version 9, 5 m de terre, 10 m de pierre, 10 m de pierre sombre, Roche-mère à 25 m ; 0.0.5.32 : version 10, trous de boue ; grottes à faire)
    Niveaux de détail (#128) : commencés en 0.0.5.22 (scripts/far_terrain.gd, relief simplifié par carrés de 4 × 4 zones ; 2 m près, 4 m puis 8 m loin, relevés gardés et étalés sur les images en 0.0.5.25).
    (ne pas reprendre le nom anglais courant d'un autre jeu).
 5. Matières (#122) · 6. Structures (#123) · 7. Créatif/Survie (#73) · Inventaire (milestone HUD) ·

@@ -17,8 +17,9 @@ extends RefCounted
 # (environ 9 à 10 % du sol). Formes irrégulières. Montagnes (environ 7 % du sol), cœur de pierre et sommets rocheux.
 # Version 8 (0.0.5.24) : un peu plus de montagnes, la plupart assez douces pour y monter, 20 à 25 % trop raides.
 # Version 9 (0.0.5.26) : même relief que la version 8 pour une même graine, sous-sol plus épais (voir smooth_terrain.gd).
-const VERSION := 9
-const VERSIONS := [1, 2, 3, 4, 5, 6, 7, 8, 9]
+# Version 10 (0.0.5.32) : même relief que la 8 et la 9, plus parfois un trou de boue.
+const VERSION := 10
+const VERSIONS := [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
 # Chance la plus rare qu'on peut régler : 1 sur MAX_CHANCE par zone (64 avant 0.0.5.18, 400 avant 0.0.5.23, 2000 avant 0.0.5.24).
 const MAX_CHANCE := 4000
 const STANDARD_SMALL_DENOMINATOR := 8
@@ -48,6 +49,7 @@ const SPECS := [
 	{"key":"mountains", "label":"Montagnes où l'on peut monter (20 à 32 blocs de haut)", "default":850, "since":8},
 	{"key":"steep_mountains", "label":"Montagnes raides, trop raides pour y monter", "default":2800, "since":8},
 	{"key":"mud_regions", "label":"Régions de boue (environ 2 zones)", "default":70, "since":6},
+	{"key":"mud_pits", "label":"Trous de boue (2 à 4 m de rayon)", "default":40, "since":10},
 	{"key":"clay", "label":"Poches d'argile dans la terre", "default":10, "since":5},
 ]
 # Taille des déserts (nombre de zones, et case où ils tiennent) selon la version.
@@ -61,6 +63,7 @@ const DESERT_SIZES := {
 	7: {"medium_desert": [3, 4, 2, 2], "big_desert": [14, 20, 5, 5]},
 	8: {"medium_desert": [3, 4, 2, 2], "big_desert": [14, 20, 5, 5]},
 	9: {"medium_desert": [3, 4, 2, 2], "big_desert": [14, 20, 5, 5]},
+	10: {"medium_desert": [3, 4, 2, 2], "big_desert": [14, 20, 5, 5]},
 }
 # 0.0.5.20 : monde de 48 × 48 zones (20 × 20 en 0.0.5.18, 16 × 16 avant).
 const WORLD_ZONES := 2304
@@ -205,6 +208,8 @@ static func zone_info(terrain_seed: int, zone: Vector2i, options: Dictionary) ->
 				info[spec.key] = {"start": middle, "end": middle + Vector2.from_angle(rng.randf() * TAU) * rng.randf_range(size[2], size[3]), "radius": rng.randf_range(size[0], size[1]), "depth": rng.randf_range(size[4], size[5]), "soils": rng.randi_range(0, 2), "turn": rng.randf() * TAU}
 			"mountains":
 				info.mountain = mountain(rng, zone, int(options.version))
+			"mud_pits":
+				info.mud_pit = {"center": Vector2(zone) * 8.0 + Vector2(rng.randf_range(1.0, 7.0), rng.randf_range(1.0, 7.0)), "radius": rng.randf_range(2.0, 4.0), "depth": rng.randf_range(0.6, 1.2)}
 			"steep_mountains":
 				info.steep_mountain = steep_mountain(rng, zone)
 			"mud_regions":

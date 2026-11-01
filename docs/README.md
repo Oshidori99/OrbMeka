@@ -1,6 +1,11 @@
-# OrbMeka™ — prototype 0.0.5.31
+# OrbMeka™ — prototype 0.0.5.32
 
 Godot 4.7 / GDScript. Formes et couleurs simples ; assets externes seulement sous licence vérifiée (sons CC0, assets/sounds/CREDITS.txt).
+
+## 0.0.5.32 — Trous de boue
+- **Génération version 10** (nouveaux mondes) : parfois un trou de boue, 2 à 4 m de rayon, 60 cm à 1,2 m de fond, sans eau (1 chance sur 40 par zone, réglable dans le monde personnalisé). Même relief que la version 9 ailleurs.
+
+Tests : smooth_terrain, custom_generation, custom_world_menu ; tests choisis réussis. À tester manuellement : entrer dans un trou et en sortir.
 
 ## 0.0.5.31 — Boue et argile glissantes
 - **Boue** : un peu glissante, surtout dans les pentes. **Argile** : encore moins. Sur le plat, on ne glisse pas tout seul : le pas réagit juste un peu moins vite.
