@@ -100,8 +100,12 @@ static func default_for(action: String) -> Dictionary:
 						part.key = physical_for_letter(part.key)
 	return binding
 
+# 0.0.5.29 : ni sans fenêtre ni sur le Web on ne peut lire la disposition du clavier (sur le Web : une erreur à chaque appel).
+static func _keyboard_layout_known() -> bool:
+	return DisplayServer.get_name() != "headless" and not OS.has_feature("web")
+
 static func physical_for_letter(letter: int) -> int:
-	if DisplayServer.get_name() == "headless":
+	if not _keyboard_layout_known():
 		return letter
 	for code in range(KEY_A, KEY_Z + 1):
 		if DisplayServer.keyboard_get_keycode_from_physical(code) == letter:
@@ -285,7 +289,7 @@ static func part_label(binding: Dictionary) -> String:
 	if binding.has("mouse"):
 		return MOUSE_NAMES.get(binding.mouse, "Souris")
 	if binding.has("key"):
-		var local: int = DisplayServer.keyboard_get_keycode_from_physical(binding.key) if DisplayServer.get_name() != "headless" else binding.key
+		var local: int = DisplayServer.keyboard_get_keycode_from_physical(binding.key) if _keyboard_layout_known() else binding.key
 		var name := OS.get_keycode_string(local if local != 0 else binding.key)
 		# Flèches en symboles (0.0.4.3 : ↑ ↓ par défaut pour la vitesse).
 		return {"Space": "Espace", "Up": "↑", "Down": "↓", "Left": "←", "Right": "→", "Backspace": "⌫"}.get(name, name)

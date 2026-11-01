@@ -1,6 +1,12 @@
-# OrbMeka™ — prototype 0.0.5.28
+# OrbMeka™ — prototype 0.0.5.29
 
 Godot 4.7 / GDScript. Formes et couleurs simples ; assets externes seulement sous licence vérifiée (sons CC0, assets/sounds/CREDITS.txt).
+
+## 0.0.5.29 — Erreur clavier du Web
+- **Web** : le jeu ne demande plus la disposition du clavier, que le navigateur ne donne pas (erreur en boucle dans la console).
+  Sur le Web, les noms de touches restent ceux d'un clavier QWERTY.
+
+Tests choisis réussis. À tester manuellement : fluidité dans un navigateur, noms des touches sur clavier AZERTY.
 
 ## 0.0.5.28 — Licences dans Informations
 - **Informations** : bouton **Licences**, qui ouvre la page existante (Retour et Échap reviennent à Informations).
