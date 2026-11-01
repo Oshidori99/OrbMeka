@@ -98,6 +98,8 @@ func setup(terrain_seed: int, flat_spots: Array = [], options: Dictionary = {}) 
 	_regions_near.clear()
 	_lake_cache.clear()
 	_near_cache.clear()
+	_mountain_lake_zones.clear()
+	_mountain_lakes_ready = false
 	_mountain_zones.clear()
 	_mountains_near_cache.clear()
 	_mountain_list.clear()
@@ -187,7 +189,7 @@ func ground_height(column: Vector2i) -> float:
 		return _heights[column]
 	var at := Vector2(column) * STEP
 	if not generation_options.is_empty():
-		var custom_height := (clampf(_custom_height(at), -7.0, 3.0) + mountain_lift(at)) * _away_from_spots(at, 8.0)
+		var custom_height := _with_mountain_lakes(at, clampf(_custom_height(at), -7.0, 3.0) + mountain_lift(at)) * _away_from_spots(at, 8.0)
 		_heights[column] = roundf(custom_height * 1000.0) / 1000.0
 		return _heights[column]
 	var hill := clampf(_noise.get_noise_2d(at.x, at.y) * 1.6 - 0.15, 0.0, 1.0)
@@ -737,9 +739,13 @@ func _custom_height(at: Vector2) -> float:
 		hill = clampf(_noise.get_noise_2d(at.x, at.y) * 1.6 - 0.15, 0.0, 1.0) * HILL_HEIGHT + _bumps.get_noise_2d(at.x, at.y) * BUMP_HEIGHT
 	var hole := 3.0
 	var dig := 0.0
+	var irregular_holes := int(generation_options.version) >= 12
 	for form in _landforms_near(here):
 		var offset: Vector2 = at - form.center
 		var distance: float = offset.length()
+		# 0.0.5.34 (version 12) : trous moins ronds.
+		if form.height < 0 and irregular_holes:
+			distance += _warp.get_noise_2d(at.x * 0.8 + 11.0, at.y * 0.8 - 23.0) * form.radius * 0.3
 		var radius: float = form.radius
 		if distance >= radius:
 			continue
@@ -795,6 +801,7 @@ func _zone_lakes(area: Vector2i) -> Array:
 	# jamais deux eaux à des niveaux différents l'une sur l'autre.
 	if int(generation_options.get("version", 0)) >= 6:
 		result = result.filter(func(lake): return not _overlaps_earlier(area, lake))
+	result.append_array(_mountain_lakes_of(area))
 	_lake_cache[area] = result
 	return result
 
@@ -841,6 +848,10 @@ func lake_outline(lake: Dictionary, sides: int = 72) -> PackedVector2Array:
 	return result
 
 func lake_level(lake: Dictionary) -> float:
+	if lake.has("on_mountain"):
+		if not lake.has("fixed_level"):
+			lake.fixed_level = roundf((clampf(_custom_height(lake.start), -7.0, 3.0) + mountain_lift(lake.start)) * 1000.0) / 1000.0
+		return lake.fixed_level
 	return roundf(_rolling((lake.start + lake.end) / 2.0) * 1000.0) / 1000.0
 
 # Lacs qui peuvent toucher ce point (les allongés débordent jusqu'à deux zones plus loin, les grands trois).
@@ -865,8 +876,66 @@ func _lakes_near(at: Vector2) -> Array:
 	_near_cache[here] = result
 	return result
 
+# 0.0.5.34 (version 12) : petits lacs sur des replats des montagnes de terre douces, pas à flanc de pente : le sol s'aplanit
+# autour, creusé côté montagne et remonté côté pente. Niveau : le sol au milieu du lac.
+var _mountain_lake_zones: Dictionary = {}
+var _mountain_lakes_ready := false
+const TERRACE := 7.0
+
+func _mountain_lakes_of(area: Vector2i) -> Array:
+	if int(generation_options.get("version", 0)) < 12:
+		return []
+	if not _mountain_lakes_ready:
+		_mountain_lakes_ready = true
+		for found in _all_mountains():
+			if found.get("sand", false) or found.radius < found.height * 1.5:
+				continue
+			var rng := RandomNumberGenerator.new()
+			rng.seed = hash([_seed, found.center, "lacs"])
+			var count := rng.randi_range(1, 3)
+			var turn := rng.randf() * TAU
+			for index in range(count):
+				var angle: float = turn + TAU * index / count + rng.randf_range(-0.4, 0.4)
+				var along: Vector2 = Vector2.from_angle(angle) * found.radius * rng.randf_range(0.3, 0.6)
+				along.x *= found.stretch
+				var middle: Vector2 = found.center + along.rotated(found.turn)
+				var radius := rng.randf_range(3.5, 6.0)
+				var lake := {"start": middle, "end": middle, "radius": radius, "depth": rng.randf_range(1.0, 2.0), "soils": rng.randi_range(0, 2), "turn": rng.randf() * TAU, "wobble": radius * 0.18, "wobble_scale": 1.3 * 5.0 / radius, "bank": 3.0, "on_mountain": true}
+				if _lake_on_flat_spot(lake):
+					continue
+				var zone := Vector2i(floori(middle.x / ZONE_METERS), floori(middle.y / ZONE_METERS))
+				if not _mountain_lake_zones.has(zone):
+					_mountain_lake_zones[zone] = []
+				_mountain_lake_zones[zone].append(lake)
+	return _mountain_lake_zones.get(area, [])
+
+func _lake_on_flat_spot(lake: Dictionary) -> bool:
+	for spot in _flat_spots:
+		if _segment_distance(spot[0], lake) < spot[1] + lake.radius + TERRACE + 6.0:
+			return true
+	return false
+
+func _with_mountain_lakes(at: Vector2, height: float) -> float:
+	if int(generation_options.get("version", 0)) < 12:
+		return height
+	for lake in _lakes_near(at):
+		if not lake.has("on_mountain"):
+			continue
+		var distance := _lake_distance(at, lake)
+		var radius: float = lake.radius
+		if distance >= radius + lake.bank + TERRACE:
+			continue
+		var level := lake_level(lake)
+		if distance < radius:
+			height = level - 0.15 - lake.depth * (1.0 - smoothstep(radius * 0.3, radius, distance))
+		else:
+			height = lerpf(level + LAKE_BANK, height, smoothstep(radius + lake.bank, radius + lake.bank + TERRACE, distance))
+	return height
+
 func _with_lakes(at: Vector2, height: float) -> float:
 	for lake in _lakes_near(at):
+		if lake.has("on_mountain"):
+			continue
 		var distance := _lake_distance(at, lake)
 		var radius: float = lake.radius
 		var bank: float = lake.get("bank", 0.0)

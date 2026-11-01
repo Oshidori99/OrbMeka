@@ -19,8 +19,9 @@ extends RefCounted
 # Version 9 (0.0.5.26) : même relief que la version 8 pour une même graine, sous-sol plus épais (voir smooth_terrain.gd).
 # Version 10 (0.0.5.32) : même relief que la 8 et la 9, plus parfois un trou de boue.
 # Version 11 (0.0.5.33) : même relief, environ 6 déserts par monde de 40 à 48 zones (10 % du sol) ; un trou sur 3 rempli de boue.
-const VERSION := 11
-const VERSIONS := [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]
+# Version 12 (0.0.5.34) : même relief, petits lacs sur des replats des montagnes de terre, plus de lacs, moins de trous et moins ronds.
+const VERSION := 12
+const VERSIONS := [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]
 # Chance la plus rare qu'on peut régler : 1 sur MAX_CHANCE par zone (64 avant 0.0.5.18, 400 avant 0.0.5.23, 2000 avant 0.0.5.24).
 const MAX_CHANCE := 4000
 const STANDARD_SMALL_DENOMINATOR := 8
@@ -35,8 +36,10 @@ const SPECS := [
 	{"key":"low_hills", "label":"Collines douces de 1 bloc", "default":6},
 	{"key":"high_hills", "label":"Collines douces de 2 à 3 blocs", "default":12},
 	{"key":"steep_hills", "label":"Crêtes abruptes", "default":9},
-	{"key":"smooth_holes", "label":"Trous aux bords doux", "default":12},
-	{"key":"steep_holes", "label":"Trous aux bords abrupts", "default":18},
+	{"key":"smooth_holes", "label":"Trous aux bords doux", "default":12, "until":11},
+	{"key":"smooth_holes", "label":"Trous aux bords doux", "default":30, "since":12},
+	{"key":"steep_holes", "label":"Trous aux bords abrupts", "default":18, "until":11},
+	{"key":"steep_holes", "label":"Trous aux bords abrupts", "default":45, "since":12},
 	{"key":"deep_holes", "label":"Trous bien profonds", "default":0},
 	{"key":"stone_holes", "label":"Trous énormes : 2 à 3 blocs dans la pierre", "default":72},
 	{"key":"rocks", "label":"Rochers (tailles 1 à 7)", "default":2, "since":4},
@@ -45,8 +48,10 @@ const SPECS := [
 	{"key":"lakes_2", "label":"Lacs (environ 2 zones)", "default":26, "since":6, "until":6},
 	{"key":"lakes_4", "label":"Grands lacs (environ 4 zones)", "default":55, "since":6, "until":6},
 	{"key":"lakes_small", "label":"Petits lacs (2 à 3 zones)", "default":500, "since":7},
-	{"key":"lakes_medium", "label":"Lacs moyens (environ 10 zones)", "default":180, "since":7},
-	{"key":"lakes_large", "label":"Grands lacs (environ 16 zones)", "default":450, "since":7},
+	{"key":"lakes_medium", "label":"Lacs moyens (environ 10 zones)", "default":180, "since":7, "until":11},
+	{"key":"lakes_medium", "label":"Lacs moyens (environ 10 zones)", "default":90, "since":12},
+	{"key":"lakes_large", "label":"Grands lacs (environ 16 zones)", "default":450, "since":7, "until":11},
+	{"key":"lakes_large", "label":"Grands lacs (environ 16 zones)", "default":260, "since":12},
 	{"key":"mountains", "label":"Montagnes (20 à 32 blocs de haut, environ 50 zones)", "default":700, "since":7, "until":7},
 	{"key":"mountains", "label":"Montagnes où l'on peut monter (20 à 32 blocs de haut)", "default":850, "since":8},
 	{"key":"steep_mountains", "label":"Montagnes raides, trop raides pour y monter", "default":2800, "since":8},
@@ -68,6 +73,7 @@ const DESERT_SIZES := {
 	9: {"medium_desert": [3, 4, 2, 2], "big_desert": [14, 20, 5, 5]},
 	10: {"medium_desert": [3, 4, 2, 2], "big_desert": [14, 20, 5, 5]},
 	11: {"medium_desert": [3, 4, 2, 2], "big_desert": [40, 48, 8, 8]},
+	12: {"medium_desert": [3, 4, 2, 2], "big_desert": [40, 48, 8, 8]},
 }
 # 0.0.5.20 : monde de 48 × 48 zones (20 × 20 en 0.0.5.18, 16 × 16 avant).
 const WORLD_ZONES := 2304

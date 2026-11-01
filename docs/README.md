@@ -1,6 +1,12 @@
-# OrbMeka™ — prototype 0.0.5.33
+# OrbMeka™ — prototype 0.0.5.34
 
 Godot 4.7 / GDScript. Formes et couleurs simples ; assets externes seulement sous licence vérifiée (sons CC0, assets/sounds/CREDITS.txt).
+
+## 0.0.5.34 — Lacs de montagne
+- **Génération version 12** (nouveaux mondes) : petits lacs (1 à 3 par montagne de terre douce) sur des replats, pas à flanc de pente.
+- **Plus de lacs** ailleurs (moyens 1 sur 90, grands 1 sur 260) ; **moins de trous** (1 sur 30 et 1 sur 45) et bords moins ronds.
+
+Tests : smooth_terrain, custom_generation ; tests choisis réussis. À tester manuellement : marcher autour d'un lac de montagne.
 
 ## 0.0.5.33 — Très grands déserts, montagnes de sable
 - **Génération version 11** (nouveaux mondes) : environ 6 déserts par monde, de 40 à 48 zones, environ 10 % du sol en moyenne (de 3 à 17 % selon la graine).

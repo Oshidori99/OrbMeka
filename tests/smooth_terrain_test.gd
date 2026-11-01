@@ -500,6 +500,26 @@ func _run() -> void:
 	var dune_column := Vector2i(roundi(dune.center.x / 0.5), roundi(dune.center.y / 0.5))
 	var dune_top := Vector3i(dune_column.x, floori(dune_land.ground_height(dune_column) / 0.5), dune_column.y)
 	check(dune.height <= 16.0 and dune_land.mountain_lift(dune.center) > 5.0 and dune_land.natural_kind(dune_top) == SmoothTerrain.SAND, "sand mountains: smaller, covered with sand")
+	# 0.0.5.34 (version 12) : petits lacs sur des replats : fond sous l'eau, terrasse tout autour au-dessus de l'eau.
+	var slope_lakes := 0
+	var slope_ok := true
+	for x in range(-24, 24):
+		for z in range(-24, 24):
+			for lake in wet_land.lakes_in_zone(Vector2i(x, z)):
+				if lake.has("on_mountain"):
+					slope_lakes += 1
+					slope_ok = slope_ok and wet_land.height_at(lake.center.x, lake.center.y) < lake.level
+					for outline_point: Vector2 in wet_land.lake_outline(lake):
+						var rim: Vector2 = lake.center + outline_point
+						slope_ok = slope_ok and wet_land.height_at(rim.x, rim.y) >= lake.level - 0.05
+	var flat_shelf := true
+	for x in range(-24, 24):
+		for z in range(-24, 24):
+			for lake in wet_land.lakes_in_zone(Vector2i(x, z)):
+				if lake.has("on_mountain"):
+					var side: Vector2 = lake.center + Vector2.RIGHT * (lake.radius + lake.wobble + 1.5)
+					flat_shelf = flat_shelf and absf(wet_land.height_at(side.x, side.y) - lake.level) < 0.5
+	check(slope_lakes > 0 and slope_ok and flat_shelf, "mountain lakes: on a flat shelf, water never spilling down the slope")
 	# 0.0.5.31 : boue et argile un peu glissantes, surtout en descente ; l'argile moins que la boue.
 	var player_script: Script = far_world.player.get_script()
 	var slope := Vector3(0.5, 0.866, 0.0)
