@@ -20,6 +20,17 @@ const STONE_TOP := -8
 const BEDROCK_TOP := -16
 # 0.0.5.23 : 40 m (80 points) : les montagnes (jusqu'à environ 36 m) se dessinent et se sculptent ; 4 m avant.
 const HIGH_POINT := 80
+# 0.0.5.26 (génération version 9) : 5 m de terre, 10 m de pierre, 10 m de pierre sombre, puis seulement la Roche-mère.
+# Les mondes plus anciens gardent leurs couches (constantes ci-dessus). [plus bas creusable, pierre, pierre sombre, Roche-mère]
+var low_point := LOW_POINT
+var stone_top := STONE_TOP
+var deep_top := BEDROCK_TOP
+var bedrock_top := BEDROCK_TOP
+
+static func layers_of(options: Dictionary) -> Array:
+	if int(options.get("version", 0)) >= 9:
+		return [-9, -10, -30, -50]
+	return [LOW_POINT, STONE_TOP, BEDROCK_TOP + 1, BEDROCK_TOP]
 const MAX_CHANGES := 20000
 # Valeurs posées par un geste : une sous-cellule creusée ou ajoutée.
 const DUG := -0.5
@@ -60,6 +71,11 @@ var _deserts: Dictionary = {}
 func setup(terrain_seed: int, flat_spots: Array = [], options: Dictionary = {}) -> void:
 	generation_options = Generation.normalized(options) if Generation.valid(options) else {}
 	_seed = terrain_seed
+	var layers := layers_of(generation_options)
+	low_point = layers[0]
+	stone_top = layers[1]
+	deep_top = layers[2] if int(generation_options.get("version", 0)) >= 9 else layers[3]
+	bedrock_top = layers[3]
 	_noise = FastNoiseLite.new()
 	_noise.seed = terrain_seed
 	_noise.noise_type = FastNoiseLite.TYPE_SIMPLEX_SMOOTH
@@ -219,6 +235,8 @@ const DIRT := 2
 const STONE := 1
 # 0.0.5.18 : la Roche-mère a sa matière (noire teintée de rouge), pour la voir au fond d'un puits.
 const BEDROCK := 3
+# 0.0.5.26 : pierre sombre, entre la pierre et la Roche-mère (se casse comme la pierre).
+const DARK_STONE := 6
 
 # Matière du sol de la graine : terre (-1, aspect du sol avec herbe), sable des déserts, pierre ou Roche-mère.
 var _desert_columns: Dictionary = {}
@@ -226,9 +244,11 @@ const UNKNOWN_KIND := -9
 const EDGE_AXES: Array[int] = [1, 2, 4]
 
 func natural_kind(point: Vector3i) -> int:
-	if point.y <= BEDROCK_TOP:
+	if point.y <= bedrock_top:
 		return BEDROCK
-	if point.y <= STONE_TOP:
+	if point.y <= deep_top:
+		return DARK_STONE
+	if point.y <= stone_top:
 		return STONE
 	var column := Vector2i(point.x, point.z)
 	if point.y * STEP <= mountain_stone(column):
@@ -377,7 +397,7 @@ func zone_mesh(zone: Vector3i) -> Array:
 	var ground := zone_heights(zone)
 	lowest = minf(lowest, floorf(ground.x / STEP))
 	highest = maxf(highest, ceilf(ground.y / STEP))
-	var y_low := maxi(maxi(origin.y - 1, int(lowest) - 2), BEDROCK_TOP - 2)
+	var y_low := maxi(maxi(origin.y - 1, int(lowest) - 2), bedrock_top - 2)
 	var y_high := mini(mini(origin.y + POINTS, int(highest) + 2), HIGH_POINT + 2)
 	if y_low >= y_high:
 		return [vertices, normals, colors, uvs]
@@ -491,7 +511,7 @@ func zone_mesh(zone: Vector3i) -> Array:
 							kind = kinds[corner] if kinds.has(corner) else natural_kind(start + corner)
 							known_kinds[kind_at] = kind
 						var soft := kind == CLAY or kind == MUD
-						paint += Vector4(1.0 if kind == SAND else 0.0, 1.0 if kind == DIRT or soft else 0.0, 1.0 if kind == STONE or kind == BEDROCK else 0.0, 1.0 if kind == BEDROCK else 0.0)
+						paint += Vector4(1.0 if kind == SAND else 0.0, 1.0 if kind == DIRT or soft else 0.0, 1.0 if kind == STONE or kind == BEDROCK or kind == DARK_STONE else 0.0, 1.0 if kind == BEDROCK else (0.5 if kind == DARK_STONE else 0.0))
 						# 0.0.5.20 : argile (U) et boue (V), terres nues de couleur à part.
 						wet += Vector2(1.0 if kind == CLAY else 0.0, 1.0 if kind == MUD else 0.0)
 						weight += 1
@@ -578,11 +598,12 @@ const SIDES := [Vector3i(1, 0, 0), Vector3i(-1, 0, 0), Vector3i(0, 0, 1), Vector
 
 # Pierre en place (de la graine) : ne tombe jamais.
 func is_stone(point: Vector3i) -> bool:
-	return density(point) > 0.0 and materials.get(point, natural_kind(point)) == STONE
+	var kind: int = materials.get(point, natural_kind(point))
+	return density(point) > 0.0 and (kind == STONE or kind == DARK_STONE)
 
 func solid(point: Vector3i) -> bool:
 	# La Roche-mère porte tout (jamais changée : on ne casse que jusqu'à la pierre au-dessus).
-	return point.y <= BEDROCK_TOP or density(point) > 0.0
+	return point.y <= bedrock_top or density(point) > 0.0
 
 # Après un changement : le point, ceux au-dessus et autour sont à vérifier.
 func wake(point: Vector3i) -> void:
@@ -593,7 +614,7 @@ func wake(point: Vector3i) -> void:
 
 # Où tombe ou glisse ce point (lui-même s'il tient).
 func fall_target(point: Vector3i) -> Vector3i:
-	if point.y <= BEDROCK_TOP or not solid(point) or is_stone(point):
+	if point.y <= bedrock_top or not solid(point) or is_stone(point):
 		return point
 	var below := point + Vector3i.DOWN
 	if not solid(below):
@@ -1020,7 +1041,7 @@ func mountain_stone(column: Vector2i) -> float:
 	var lift := mountain_lift(at)
 	var top := -INF
 	if lift > 0.0:
-		top = STONE_TOP * STEP + maxf(0.0, lift * 1.3 - 3.0)
+		top = stone_top * STEP + maxf(0.0, lift * 1.3 - 3.0)
 		if lift > 4.0 and _warp.get_noise_2d(at.x * 2.3 + 400.0, at.y * 2.3 - 50.0) > 0.42:
 			top = INF
 	_lifts[column] = top

@@ -67,10 +67,25 @@ void fragment() {
 			rock = mix(rock, vec3(0.11,0.105,0.10), veins*0.55);
 			rock *= 0.88 + noise3(p*40.0)*0.24;
 			// 0.0.5.18 : Roche-mère (rouge du sommet à 0) : presque noire, teintée de rouge, veines plus rouges.
-			float bedrock = smoothstep(0.3, 0.7, 1.0 - tint.r);
-			vec3 deep = mix(vec3(0.035,0.012,0.012), vec3(0.09,0.025,0.02), fbm(p*1.7));
-			deep = mix(deep, vec3(0.16,0.03,0.025), veins*0.6);
-			rock = mix(rock, deep * (0.9 + noise3(p*40.0)*0.2), bedrock);
+			// 0.0.5.26 : pierre sombre (rouge à moitié) : la même pierre, un peu noircie.
+			rock *= 1.0 - 0.42 * smoothstep(0.15, 0.4, 1.0 - tint.r);
+			// 0.0.5.26 : Roche-mère (rouge à 0) : fond gris-noir semé de points noirs, gris foncé, gris clair, bleus et rouges.
+			float bedrock = smoothstep(0.6, 0.85, 1.0 - tint.r);
+			vec3 deep = mix(vec3(0.035,0.035,0.04), vec3(0.085,0.085,0.09), fbm(p*1.7));
+			for (int layer = 0; layer < 2; layer++) {
+				vec3 g = p * (layer == 0 ? 11.0 : 26.0) + float(layer) * 19.3;
+				vec3 cell = floor(g);
+				float pick = hash3(cell + 3.7);
+				float size = 0.1 + hash3(cell + 9.1) * 0.19;
+				vec3 middle = vec3(hash3(cell + 1.3), hash3(cell + 5.9), hash3(cell + 7.7)) * 0.4 + 0.3;
+				vec3 speck = vec3(0.012);
+				if (pick > 0.8) { speck = vec3(0.17,0.025,0.022); }
+				else if (pick > 0.6) { speck = vec3(0.025,0.05,0.2); }
+				else if (pick > 0.4) { speck = vec3(0.27,0.27,0.28); }
+				else if (pick > 0.2) { speck = vec3(0.11,0.11,0.12); }
+				deep = mix(deep, speck, 1.0 - smoothstep(size - 0.05, size, length(fract(g) - middle)));
+			}
+			rock = mix(rock, deep, bedrock);
 			albedo = mix(albedo, rock, stone);
 			height = mix(height, (fbm(p*9.0)*0.01 + grains*0.001)*detail_fade, stone);
 		}

@@ -82,6 +82,17 @@ func _run() -> void:
 	check(world.terrain_pieces.size() == world.shown_columns.size() and world.shown_columns.size() == 41 * 41, "flat smooth ground: one piece per shown zone (0.0.5.20 : world of 48 × 48 zones, view 20)")
 	check(is_equal_approx(world.get_node("Ground").position.y + 0.5, -8.0), "Roche-mère (indestructible base) starts 8 m below the grass (0.0.5.12)")
 	check(SmoothTerrain.LOW_POINT * SmoothTerrain.STEP == -3.5 and SmoothTerrain.STONE_TOP * SmoothTerrain.STEP == -4.0 and SmoothTerrain.BEDROCK_TOP * SmoothTerrain.STEP == -8.0, "layers: 4 m of dirt, then 4 m of stone, then Roche-mère")
+	# 0.0.5.26 (version 9) : 5 m de terre, 10 m de pierre, 10 m de pierre sombre, puis seulement la Roche-mère.
+	var deep_land := SmoothTerrain.new()
+	deep_land.setup(7, [], load("res://scripts/world_generation.gd").defaults())
+	var far_column := func(y: int) -> int: return deep_land.natural_kind(Vector3i(0, y, 0))
+	check(far_column.call(-9) != SmoothTerrain.STONE and far_column.call(-10) == SmoothTerrain.STONE and far_column.call(-29) == SmoothTerrain.STONE and far_column.call(-30) == SmoothTerrain.DARK_STONE and far_column.call(-49) == SmoothTerrain.DARK_STONE and far_column.call(-50) == SmoothTerrain.BEDROCK and far_column.call(-200) == SmoothTerrain.BEDROCK, "version 9: 5 m of dirt, 10 m of stone, 10 m of dark stone, then only Roche-mère")
+	check(deep_land.solid(Vector3i(0, -50, 0)) and deep_land.fall_target(Vector3i(0, -50, 0)) == Vector3i(0, -50, 0), "Roche-mère carries everything at 25 m")
+	deep_land.set_density(Vector3i(0, -35, 0), 0.5)
+	check(deep_land.is_stone(Vector3i(0, -35, 0)), "dark stone needs the pickaxe, like stone")
+	deep_land.set_density(Vector3i(0, -35, 0), -0.5)
+	deep_land.set_density(Vector3i(0, -50, 0), -0.5)
+	check(deep_land.zone_mesh(SmoothTerrain.point_zone(Vector3i(0, -50, 0)))[0].size() > 0 or deep_land.zone_mesh(SmoothTerrain.point_zone(Vector3i(0, -49, 0)))[0].size() > 0, "deep zones are drawn when dug")
 	check(SmoothTerrain.new().natural_kind(Vector3i(0, -7, 0)) == -1 and SmoothTerrain.new().natural_kind(Vector3i(0, -8, 0)) == SmoothTerrain.STONE and SmoothTerrain.new().natural_kind(Vector3i(0, -15, 0)) == SmoothTerrain.STONE, "dirt down to 4 m, stone below")
 	var spot := Vector3(20.25, 0.0, 20.25)
 	var grass_before := 0

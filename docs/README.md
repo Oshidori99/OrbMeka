@@ -1,6 +1,15 @@
-# OrbMeka™ — prototype 0.0.5.25
+# OrbMeka™ — prototype 0.0.5.26
 
 Godot 4.7 / GDScript. Formes et couleurs simples ; assets externes seulement sous licence vérifiée (sons CC0, assets/sounds/CREDITS.txt).
+
+## 0.0.5.26 — Sous-sol plus profond (#130)
+- **Génération version 9** (nouveaux mondes) : 5 m de terre, 10 m de pierre, 10 m de **pierre sombre** (un peu noircie,
+  à la pioche aussi), puis seulement la **Roche-mère**, à 25 m. Même relief que la version 8 pour une même graine.
+  Les mondes déjà créés gardent leurs couches.
+- **Roche-mère** : nouvel aspect, fond gris-noir semé de points noirs, gris foncés, gris clairs, bleus et rouges.
+
+Tests : smooth_terrain (couches, pioche, zones profondes), custom_generation ; tests choisis réussis. Empreinte : anciennes
+générations inchangées. Captures PC d'un puits. À tester manuellement : creuser jusqu'en bas, aspect sur le Web.
 
 ## 0.0.5.25 — Jeu plus fluide, lointain plus rapide (#128)
 - **Lointain (niveaux de détail)** : réécrit. Sommets partagés (bien moins de calcul pour la carte graphique), un sommet

@@ -3,6 +3,9 @@ Du plus récent au plus ancien. Ce fichier est mis à jour à chaque version.
 
 === Thème « Monde » (0.0.5 et suivantes) ===
 
+0.0.5.26 — Sous-sol plus profond
+5 m de terre, 10 m de pierre, 10 m de pierre sombre, puis la Roche-mère à 25 m, tachetée de noir, gris, bleu et rouge.
+
 0.0.5.25 — Jeu plus fluide, lointain plus rapide
 Lointain réécrit (étalé sur les images, gardé), maillage plus rapide, herbe et ombres allégées, eau des lacs corrigée.
 

@@ -16,8 +16,9 @@ extends RefCounted
 # d'environ 10 zones (les plus courants), grands d'environ 16 zones (rares) ; grands déserts de 14 à 20 zones
 # (environ 9 à 10 % du sol). Formes irrégulières. Montagnes (environ 7 % du sol), cœur de pierre et sommets rocheux.
 # Version 8 (0.0.5.24) : un peu plus de montagnes, la plupart assez douces pour y monter, 20 à 25 % trop raides.
-const VERSION := 8
-const VERSIONS := [1, 2, 3, 4, 5, 6, 7, 8]
+# Version 9 (0.0.5.26) : même relief que la version 8 pour une même graine, sous-sol plus épais (voir smooth_terrain.gd).
+const VERSION := 9
+const VERSIONS := [1, 2, 3, 4, 5, 6, 7, 8, 9]
 # Chance la plus rare qu'on peut régler : 1 sur MAX_CHANCE par zone (64 avant 0.0.5.18, 400 avant 0.0.5.23, 2000 avant 0.0.5.24).
 const MAX_CHANCE := 4000
 const STANDARD_SMALL_DENOMINATOR := 8
@@ -59,6 +60,7 @@ const DESERT_SIZES := {
 	6: {"medium_desert": [3, 4, 2, 2], "big_desert": [7, 9, 3, 3]},
 	7: {"medium_desert": [3, 4, 2, 2], "big_desert": [14, 20, 5, 5]},
 	8: {"medium_desert": [3, 4, 2, 2], "big_desert": [14, 20, 5, 5]},
+	9: {"medium_desert": [3, 4, 2, 2], "big_desert": [14, 20, 5, 5]},
 }
 # 0.0.5.20 : monde de 48 × 48 zones (20 × 20 en 0.0.5.18, 16 × 16 avant).
 const WORLD_ZONES := 2304
@@ -148,7 +150,7 @@ static func zone_mountain(terrain_seed: int, zone: Vector2i, options: Dictionary
 		if denominator == 0:
 			continue
 		var rng := RandomNumberGenerator.new()
-		rng.seed = hash([version, terrain_seed, zone.x, zone.y, key])
+		rng.seed = hash([mini(version, 8), terrain_seed, zone.x, zone.y, key])
 		if rng.randf() < 1.0 / denominator:
 			return mountain(rng, zone, version) if key == "mountains" else steep_mountain(rng, zone)
 	return {}
@@ -157,7 +159,7 @@ static func zone_info(terrain_seed: int, zone: Vector2i, options: Dictionary) ->
 	var info := {"small_desert":false, "landforms":[]}
 	for spec in specs_for(int(options.version)):
 		var rng := RandomNumberGenerator.new()
-		rng.seed = hash([int(options.version), terrain_seed, zone.x, zone.y, spec.key])
+		rng.seed = hash([mini(int(options.version), 8), terrain_seed, zone.x, zone.y, spec.key])
 		var denominator: int = options[spec.key]
 		if denominator == 0 or rng.randf() >= 1.0 / denominator:
 			continue
@@ -250,7 +252,8 @@ static func estimate_text(key: String, n: int, version: int = VERSION) -> String
 
 # 0.0.5.17 : comment un monde a été généré, en clair (Informations du monde → Génération du monde).
 static func describe(options: Dictionary) -> String:
-	var layers := "Sous-sol : 4 m de terre, 4 m de pierre (à la pioche), puis la Roche-mère incassable.\nToujours plat autour de l'apparition et de la plage. Même graine et mêmes réglages : même monde."
+	var underground := "5 m de terre, 10 m de pierre et 10 m de pierre sombre (à la pioche)" if int(options.get("version", 0)) >= 9 else "4 m de terre, 4 m de pierre (à la pioche)"
+	var layers := "Sous-sol : " + underground + ", puis la Roche-mère incassable.\nToujours plat autour de l'apparition et de la plage. Même graine et mêmes réglages : même monde."
 	if options.is_empty():
 		return "Génération d'avant 0.0.5.16 (monde ancien, gardée telle quelle) :\ncollines douces jusqu'à 3 m, petites bosses ; par zone de 8 m : crête abrupte 1 chance sur 9, trou 1 sur 9,\npetit désert 1 sur 8, grand désert (3 ou 4 zones) 1 sur 12.\n" + layers
 	var version := int(options.get("version", VERSION))

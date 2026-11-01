@@ -174,7 +174,7 @@ func _create_ground() -> void:
 	ground.add_to_group("ground")
 	# 0.0.5.8 : la base indestructible (Roche-mère depuis 0.0.5.12) est sous la terre et la pierre ; le sol visible au-dessus
 	# est le terrain lisse (pièces par zone, _create_terrain).
-	ground.position = Vector3(0, BASE_TOP - 0.5, 0)
+	ground.position = Vector3(0, SmoothTerrain.layers_of(generation_options)[3] * SmoothTerrain.STEP - 0.5, 0)
 	var mesh := MeshInstance3D.new()
 	var box := BoxMesh.new()
 	box.size = BASE_SIZE
@@ -319,7 +319,6 @@ func _update_fog() -> void:
 
 # 0.0.5.8 : terrain lisse sur toute la base (0.0.5.18 : zones de X et Z −80 à 79) ; base indestructible en dessous.
 # 0.0.5.12 : la base (« Roche-mère », incassable) commence à 8 m sous le sol, sous 4 m de terre et 4 m de pierre.
-const BASE_TOP := SmoothTerrain.BEDROCK_TOP * SmoothTerrain.STEP
 const BASE_ZONES_LOW := Vector2i(-24, -24)
 const BASE_ZONES_HIGH := Vector2i(23, 23)
 
@@ -450,7 +449,7 @@ static func gesture_points(center: Vector3i, normal: Vector3, cells: int) -> Arr
 
 # 0.0.5.13 : jusqu'à la pierre juste au-dessus de la Roche-mère (la pierre : seulement à la pioche).
 func _in_terrain_limits(point: Vector3i) -> bool:
-	return point.y > SmoothTerrain.BEDROCK_TOP and point.y <= SmoothTerrain.HIGH_POINT and absi(point.x) <= BUILD_LIMIT * 2 and absi(point.z) <= BUILD_LIMIT * 2
+	return point.y > terrain.bedrock_top and point.y <= SmoothTerrain.HIGH_POINT and absi(point.x) <= BUILD_LIMIT * 2 and absi(point.z) <= BUILD_LIMIT * 2
 
 func _inside_player(point: Vector3i) -> bool:
 	return AABB(player.global_position + Vector3(-0.33, 0.01, -0.33), Vector3(0.66, 1.78, 0.66)).intersects(AABB(Vector3(point) * SmoothTerrain.STEP - Vector3.ONE * 0.25, Vector3.ONE * 0.5))
@@ -464,7 +463,7 @@ func sculpt(hit: Dictionary, add: bool, kind: int = SmoothTerrain.DIRT, cells: i
 	var message := ""
 	for point in gesture_points(center, hit.normal, cells):
 		if not _in_terrain_limits(point):
-			if point.y <= SmoothTerrain.BEDROCK_TOP:
+			if point.y <= terrain.bedrock_top:
 				message = "Roche-mère : incassable."
 			elif point.y > SmoothTerrain.HIGH_POINT:
 				message = "Hauteur maximale atteinte : 40 blocs."
@@ -489,7 +488,7 @@ func sculpt(hit: Dictionary, add: bool, kind: int = SmoothTerrain.DIRT, cells: i
 func flatten(hit: Dictionary, cells: int = 1) -> bool:
 	if not _aimed_ground(hit, player.place_reach):
 		return false
-	var level := clampf(hit.position.y, SmoothTerrain.LOW_POINT * SmoothTerrain.STEP, SmoothTerrain.HIGH_POINT * SmoothTerrain.STEP)
+	var level := clampf(hit.position.y, terrain.low_point * SmoothTerrain.STEP, SmoothTerrain.HIGH_POINT * SmoothTerrain.STEP)
 	var center := SmoothTerrain.point_of(hit.position)
 	var radius: int = [1, 2, 3][SIZE_CELLS.find(cells)]
 	var updates := {}
@@ -1159,7 +1158,7 @@ Terrain lisse (sous-cellules de 50 cm, 8 par bloc de 1 m) : clic gauche creuse ;
 choisi avec B + T : Poser (sable ou terre, molette ou 1 et 2), Aplanir (sol mis à la hauteur visée)
 ou Lisser (formes adoucies). B + molette : taille du geste, 1/8, 1/4 ou 1/2 bloc (1, 2 ou 4 sous-cellules).
 Le choix s'affiche en bas quand on le change. Poser : jusqu'à 40 blocs de haut.
-Sous le gazon : 4 m de terre qu'on peut creuser, puis 4 m de pierre (à la pioche), puis la Roche-mère, incassable.
+Sous le gazon : 5 m de terre qu'on peut creuser, 10 m de pierre et 10 m de pierre sombre (à la pioche), puis la Roche-mère, incassable.
 Les blocs posés avant sont conservés ; plus de casse ni de pose de blocs pour l'instant.
 
 Molette (ou 1 à 5) : sable, terre, pioche (3), argile (4), boue (5). Avec la pioche, le clic gauche casse aussi la pierre.
@@ -1236,7 +1235,7 @@ Graine : %d
 Relief selon la graine : collines jusqu'à 3 m, petites bosses, parfois une crête abrupte ou un trou,
 petits et grands déserts de sable ; plat autour de l'apparition ; en herbe ;
 une plage de sable d'environ %d m² à une dizaine de mètres de l'apparition.
-Sous-sol : 4 m de terre, 4 m de pierre (à casser à la pioche), puis la Roche-mère incassable.
+Sous-sol : 5 m de terre, 10 m de pierre et 10 m de pierre sombre (à casser à la pioche), puis la Roche-mère incassable.
 
 Base plate : largeur %d × longueur %d blocs (%s), sol à Y 0
 Construction : hauteur maximale %d blocs au-dessus du sol plat (sommet à Y %d), %s.
