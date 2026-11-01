@@ -1,6 +1,11 @@
-# OrbMeka™ — prototype 0.0.5.30
+# OrbMeka™ — prototype 0.0.5.31
 
 Godot 4.7 / GDScript. Formes et couleurs simples ; assets externes seulement sous licence vérifiée (sons CC0, assets/sounds/CREDITS.txt).
+
+## 0.0.5.31 — Boue et argile glissantes
+- **Boue** : un peu glissante, surtout dans les pentes. **Argile** : encore moins. Sur le plat, on ne glisse pas tout seul : le pas réagit juste un peu moins vite.
+
+Tests : smooth_terrain ; tests choisis réussis. À tester manuellement : le ressenti en marchant sur les pentes.
 
 ## 0.0.5.30 — Mêmes couleurs sur PC et sur le Web
 - **Couleurs** : PC et Web rapprochés, herbe plus sombre que l'ancien PC et plus claire que l'ancien Web : même tonemap, lumière

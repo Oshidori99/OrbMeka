@@ -671,6 +671,22 @@ func step_flight(delta: float, direction: Vector2, vertical: float) -> void:
 	position.z = clampf(position.z, -world.BUILD_LIMIT - 1.0, world.BUILD_LIMIT + 1.0)
 	position.y = minf(position.y, FLY_CEILING)
 
+# 0.0.5.31 : boue et argile un peu glissantes, surtout en descente ; l'argile moins que la boue.
+# [vitesse du glissement vers le bas d'une pente, réaction aux pas : plus c'est grand, moins ça glisse]
+const SLIP := {5: [4.0, 10.0], 4: [1.8, 16.0]}
+const SLIP_FLAT := 0.12
+
+# Déplacement voulu sur ce sol. Sur plat : presque normal, juste un petit retard ; en pente : on est tiré vers le bas.
+static func slip_motion(kind: int, normal: Vector3, wanted: Vector2, current: Vector2, delta: float) -> Vector2:
+	if not SLIP.has(kind):
+		return wanted
+	var downhill := Vector2(normal.x, normal.z)
+	var steep := downhill.length()
+	var target := wanted
+	if steep > SLIP_FLAT:
+		target += downhill * SLIP[kind][0]
+	return current.lerp(target, clampf(SLIP[kind][1] * delta, 0.0, 1.0))
+
 # The same movement step is used by gameplay and windowless physics tests.
 func step_movement(delta: float, direction: Vector2, jump_requested: bool) -> void:
 	if actions.tick_jump(delta, is_on_floor(), jump_requested):
@@ -704,6 +720,10 @@ func step_movement(delta: float, direction: Vector2, jump_requested: bool) -> vo
 	var eye := maxf(0.2, eye_height - CROUCH_DROP) if crouching else eye_height
 	camera.position.y = move_toward(camera.position.y, eye, 4.0 * delta)
 	var movement := global_transform.basis * local
+	if is_on_floor() and is_instance_valid(world) and world.has_method("ground_kind_under"):
+		var slip := slip_motion(world.ground_kind_under(position), get_floor_normal(), Vector2(movement.x, movement.z), Vector2(velocity.x, velocity.z), delta)
+		movement.x = slip.x
+		movement.z = slip.y
 	velocity.x = movement.x
 	velocity.z = movement.z
 	move_and_slide()

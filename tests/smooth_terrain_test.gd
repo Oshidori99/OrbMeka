@@ -476,6 +476,51 @@ func _run() -> void:
 	for tile in far_world.far_tiles:
 		cells[far_world.far_tiles[tile].get_meta("cell")] = true
 	check(cells.has(2.0) and cells.has(4.0), "far terrain: a point every 2 m near the player, every 4 m further (faster)")
+	# 0.0.5.31 : boue et argile un peu glissantes, surtout en descente ; l'argile moins que la boue.
+	var player_script: Script = far_world.player.get_script()
+	var slope := Vector3(0.5, 0.866, 0.0)
+	var mud_slide: Vector2 = player_script.slip_motion(SmoothTerrain.MUD, slope, Vector2.ZERO, Vector2.ZERO, 1.0)
+	var clay_slide: Vector2 = player_script.slip_motion(SmoothTerrain.CLAY, slope, Vector2.ZERO, Vector2.ZERO, 1.0)
+	check(mud_slide.x > clay_slide.x and clay_slide.x > 0.0 and mud_slide.x <= 2.0, "on a slope mud slides downhill a little, clay less")
+	check(player_script.slip_motion(SmoothTerrain.DIRT, slope, Vector2(3, 0), Vector2.ZERO, 0.016) == Vector2(3, 0), "other ground does not slide")
+	check(player_script.slip_motion(SmoothTerrain.MUD, Vector3.UP, Vector2.ZERO, Vector2.ZERO, 1.0) == Vector2.ZERO, "standing on flat mud: no slide")
+	var early: Vector2 = player_script.slip_motion(SmoothTerrain.MUD, Vector3.UP, Vector2(3, 0), Vector2.ZERO, 0.016)
+	check(early.x > 0.0 and early.x < 3.0, "on flat mud the step only lags a little")
+	far_world.terrain.set_density(Vector3i(100, 2, 100), 0.5, SmoothTerrain.MUD)
+	check(far_world.ground_kind_under(Vector3(50.0, 1.3, 50.0)) == SmoothTerrain.MUD, "player finds the mud under the feet")
+	# Dans le vrai déplacement : le joueur immobile sur une pente de boue descend, sur la même pente de terre non.
+	var slide_distance := func(kind: int) -> float:
+		var ramp := StaticBody3D.new()
+		var ramp_shape := CollisionShape3D.new()
+		var ramp_box := BoxShape3D.new()
+		ramp_box.size = Vector3(60, 1, 60)
+		ramp_shape.shape = ramp_box
+		ramp.add_child(ramp_shape)
+		ramp.position = Vector3(50, 40, 50)
+		ramp.rotation_degrees = Vector3(0, 0, -25)
+		far_world.add_child(ramp)
+		far_world.player.global_position = Vector3(50, 42, 50)
+		far_world.player.velocity = Vector3.ZERO
+		var old_kind: Callable = far_world.get("test_ground_kind")
+		far_world.set("test_ground_kind", func(): return kind)
+		for frame in range(60):
+			far_world.player.step_movement(1.0 / 60.0, Vector2.ZERO, false)
+			await physics_frame
+		var start: Vector3 = far_world.player.global_position
+		for frame in range(120):
+			far_world.player.step_movement(1.0 / 60.0, Vector2.ZERO, false)
+			await physics_frame
+		far_world.set("test_ground_kind", old_kind)
+		var moved: float = absf(far_world.player.global_position.x - start.x)
+		ramp.free()
+		return moved
+	far_world.player.set_physics_process(false)
+	var on_dirt: float = await slide_distance.call(SmoothTerrain.DIRT)
+	var on_clay: float = await slide_distance.call(SmoothTerrain.CLAY)
+	var on_mud: float = await slide_distance.call(SmoothTerrain.MUD)
+	print("glisse : terre %.2f, argile %.2f, boue %.2f m en 2 s" % [on_dirt, on_clay, on_mud])
+	check(on_dirt < 0.05 and on_clay > 0.2 and on_mud > on_clay and on_mud < 8.0, "standing on a slope: mud slides a little, clay less, dirt not at all")
+	far_world.player.set_physics_process(true)
 	# 0.0.5.25 : relevé en plusieurs fois, identique à d'un coup ; gardé ; eau jamais au-dessus de la rive.
 	var far_terrain_script = load("res://scripts/far_terrain.gd")
 	var cut_survey: Dictionary = far_terrain_script.new_survey(Vector2i(2, -3), 4.0)

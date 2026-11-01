@@ -454,6 +454,17 @@ static func gesture_points(center: Vector3i, normal: Vector3, cells: int) -> Arr
 		result.append_array([center + side_b, center + side_a + side_b])
 	return result
 
+# 0.0.5.31 : matière du sol sous les pieds (boue et argile : un peu glissantes).
+var test_ground_kind := Callable()
+
+func ground_kind_under(at: Vector3) -> int:
+	if test_ground_kind.is_valid():
+		return test_ground_kind.call()
+	var point := SmoothTerrain.point_of(at + Vector3.DOWN * 0.3)
+	if terrain.density(point) <= 0.0:
+		point += Vector3i.DOWN
+	return terrain.materials.get(point, terrain.natural_kind(point))
+
 # 0.0.5.13 : jusqu'à la pierre juste au-dessus de la Roche-mère (la pierre : seulement à la pioche).
 func _in_terrain_limits(point: Vector3i) -> bool:
 	return point.y > terrain.mother_rock_top and point.y <= SmoothTerrain.HIGH_POINT and absi(point.x) <= BUILD_LIMIT * 2 and absi(point.z) <= BUILD_LIMIT * 2
