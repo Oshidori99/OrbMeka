@@ -67,10 +67,14 @@ var _flat_spots: Array = []
 var _heights: Dictionary = {}
 var _zone_infos: Dictionary = {}
 var _deserts: Dictionary = {}
+# 0.0.6 : demi-largeur du monde, en zones (selon la version de génération).
+var half_zones := 24
 
 func setup(terrain_seed: int, flat_spots: Array = [], options: Dictionary = {}) -> void:
 	generation_options = Generation.normalized(options) if Generation.valid(options) else {}
 	_seed = terrain_seed
+	half_zones = Generation.half_zones(int(generation_options.get("version", 0)))
+	fall_limit = half_zones * int(ZONE_METERS) - 3
 	var layers := layers_of(generation_options)
 	low_point = layers[0]
 	stone_top = layers[1]
@@ -353,8 +357,8 @@ func caves_in_zone(zone: Vector3i) -> Array:
 		return []
 	if not _caves_ready:
 		_caves_ready = true
-		for x in range(-24, 24):
-			for z in range(-24, 24):
+		for x in range(-half_zones, half_zones):
+			for z in range(-half_zones, half_zones):
 				_zone_caves(Vector2i(x, z), "cave_entrances", true)
 				_zone_caves(Vector2i(x, z), "cave_systems", false)
 	return _cave_zones.get(zone, [])
@@ -383,7 +387,7 @@ func _zone_caves(area: Vector2i, key: String, entrance: bool) -> void:
 		for spot in _flat_spots:
 			if xz.distance_to(spot[0]) < spot[1] + radius + 6.0 and y + radius > -3.0:
 				carve = false
-		if absf(xz.x) > 190.0 or absf(xz.y) > 190.0:
+		if absf(xz.x) > half_zones * ZONE_METERS - 2.0 or absf(xz.y) > half_zones * ZONE_METERS - 2.0:
 			carve = false
 		# Fond des lacs et sol jamais sous ces profondeurs : rien à calculer plus bas (bien plus rapide).
 		for lake in (_lakes_near(xz) if y + radius > -8.0 else []):
@@ -451,8 +455,8 @@ func _crevasses_near(area: Vector2i) -> Array:
 		_crevasses_ready = true
 		var chance: int = generation_options.get("crevasses", 0)
 		if chance > 0:
-			for x in range(-24, 24):
-				for z in range(-24, 24):
+			for x in range(-half_zones, half_zones):
+				for z in range(-half_zones, half_zones):
 					_make_crevasse(Vector2i(x, z), chance)
 	return _crevasse_zones.get(area, [])
 
@@ -844,8 +848,8 @@ static func flat_mesh() -> ArrayMesh:
 # la terre tient mieux (1,5 m : talus plus raide). Le sol de la graine se comporte comme la terre.
 # Un vide plus loin (pas juste dessous ni à côté) ne fait rien tomber. Points à vérifier : unstable.
 var unstable: Dictionary = {}
-# Limite (m) où la terre et le sable peuvent tomber : celle de la construction (world.gd, BUILD_LIMIT).
-const FALL_LIMIT := 189
+# Limite (m) où la terre et le sable peuvent tomber : celle de la construction (world.gd, build_limit).
+var fall_limit := 189
 const SIDES := [Vector3i(1, 0, 0), Vector3i(-1, 0, 0), Vector3i(0, 0, 1), Vector3i(0, 0, -1)]
 
 # Pierre en place (de la graine) : ne tombe jamais.
@@ -896,7 +900,7 @@ func settle_step(limit: int = 96) -> Array[Vector3i]:
 	for point: Vector3i in points.slice(0, limit):
 		unstable.erase(point)
 		var target := fall_target(point)
-		if target == point or absi(target.x) > 2 * FALL_LIMIT or absi(target.z) > 2 * FALL_LIMIT:
+		if target == point or absi(target.x) > 2 * fall_limit or absi(target.z) > 2 * fall_limit:
 			continue
 		var value := density(point)
 		var kind: int = materials.get(point, natural_kind(point))

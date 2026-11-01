@@ -667,8 +667,8 @@ func step_flight(delta: float, direction: Vector2, vertical: float) -> void:
 	velocity = Vector3(movement.x, (fly_up if vertical > 0.0 else fly_down) * vertical * speed_scale, movement.z)
 	move_and_slide()
 	velocity.y = 0.0
-	position.x = clampf(position.x, -world.BUILD_LIMIT - 1.0, world.BUILD_LIMIT + 1.0)
-	position.z = clampf(position.z, -world.BUILD_LIMIT - 1.0, world.BUILD_LIMIT + 1.0)
+	position.x = clampf(position.x, -world.build_limit - 1.0, world.build_limit + 1.0)
+	position.z = clampf(position.z, -world.build_limit - 1.0, world.build_limit + 1.0)
 	position.y = minf(position.y, FLY_CEILING)
 
 # 0.0.5.31 : boue et argile un peu glissantes, surtout en descente ; l'argile moins que la boue.
@@ -728,8 +728,8 @@ func step_movement(delta: float, direction: Vector2, jump_requested: bool) -> vo
 	velocity.z = movement.z
 	move_and_slide()
 	velocity.y = 0.0 if is_on_floor() or is_on_ceiling() else end_speed
-	position.x = clampf(position.x, -world.BUILD_LIMIT - 1.0, world.BUILD_LIMIT + 1.0)
-	position.z = clampf(position.z, -world.BUILD_LIMIT - 1.0, world.BUILD_LIMIT + 1.0)
+	position.x = clampf(position.x, -world.build_limit - 1.0, world.build_limit + 1.0)
+	position.z = clampf(position.z, -world.build_limit - 1.0, world.build_limit + 1.0)
 	# 0.0.5.37 : retour au départ seulement sous le monde (les grottes descendent jusqu'à la Roche-mère).
 	if position.y < world.terrain.mother_rock_top * world.SmoothTerrain.STEP - 3.0:
 		actions.cancel()

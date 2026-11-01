@@ -76,6 +76,7 @@ Seulement le monde : arbres et fruitiers (#138), matières (#122), minerais (#13
 eau et rivières (#124), dunes (#125), taille du monde (#135), structures (#123).
 Pas d'inventaire, de récolte ni de modes créatif/survie (#73) sans demande de l'utilisateur.
 Une génération qui change = un nouveau numéro de version : les mondes existants ne changent jamais.
+Taille du monde : génération version 15, 64 × 64 zones (512 m) ; les versions d'avant restent à 48 × 48 (Generation.half_zones).
 
 ## Rythme de publication
 Publier une version sur 4, ou dès que l'utilisateur dit « publie », puis remettre le compteur à zéro.

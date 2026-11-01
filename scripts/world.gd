@@ -9,18 +9,19 @@ const Zones = preload("res://scripts/world_zones.gd")
 const TerrainMaterials = preload("res://scripts/terrain_materials.gd")
 const WorldMetadata = preload("res://scripts/world_metadata.gd")
 const SmoothTerrain = preload("res://scripts/smooth_terrain.gd")
+const Generation = preload("res://scripts/world_generation.gd")
 const FarTerrain = preload("res://scripts/far_terrain.gd")
 const Rocks = preload("res://scripts/rocks.gd")
 const DIRT := 2
 const BLOCK_COLORS := [Color("#d8c291"), Color("#888b90"), Color("#855332")]
 const BLOCK_NAMES := ["Sable", "Pierre", "Terre"]
 const MAX_BLOCKS := 1200
-# 0.0.5.20 : monde de 48 × 48 zones de 8 m (384 m ; 20 × 20 en 0.0.5.18, 16 × 16 avant).
+# 0.0.6 : monde de 64 × 64 zones de 8 m (512 m, génération version 15) ; 48 × 48 pour les mondes d'avant (384 m ; 20 × 20 en 0.0.5.18, 16 × 16 avant).
 # (Préparation des niveaux de détail, #128 : on ne charge que les zones autour du joueur.)
-const BASE_SIZE := Vector3(384, 1, 384)
+var base_size := Vector3(384, 1, 384)
 const MAX_BUILD_HEIGHT := 25
-# Construction permise de X et Z −189 à 189, à l'intérieur de la base (−73 à 73 en 0.0.5.18, −57 à 57 avant).
-const BUILD_LIMIT := 189
+# Construction permise jusqu'à 3 m du bord de la base (−253 à 253, ou −189 à 189 pour les mondes d'avant).
+var build_limit := 189
 
 var generated_hill_count := 0
 var generated_max_height := 0
@@ -83,7 +84,15 @@ var flat_ground_shape: BoxShape3D
 const AUTOSAVE_SECONDS := 45.0
 var save_error := ""
 
+func _half_zones() -> int:
+	return Generation.half_zones(int(generation_options.get("version", 0)))
+
 func _ready() -> void:
+	# 0.0.6 : taille du monde selon sa version de génération.
+	base_size = Vector3(base_side(_half_zones()), 1, base_side(_half_zones()))
+	build_limit = base_side(_half_zones()) / 2 - 3
+	base_zones_low = Vector2i(-_half_zones(), -_half_zones())
+	base_zones_high = Vector2i(_half_zones() - 1, _half_zones() - 1)
 	_read_creation_date()
 	_setup_inputs()
 	_setup_environment()
@@ -184,7 +193,7 @@ func _create_ground() -> void:
 	ground.position = Vector3(0, SmoothTerrain.layers_of(generation_options)[3] * SmoothTerrain.STEP - 0.5, 0)
 	var mesh := MeshInstance3D.new()
 	var box := BoxMesh.new()
-	box.size = BASE_SIZE
+	box.size = base_size
 	mesh.mesh = box
 	ground_material = TerrainMaterials.surface(true)
 	ground_material.set_shader_parameter("sand_center", SAND_CENTER)
@@ -235,8 +244,8 @@ var view_center := Vector2i(999999, 0)
 
 func wanted_columns(center: Vector2i) -> Dictionary:
 	var result := {}
-	for x in range(maxi(BASE_ZONES_LOW.x, center.x - load_distance), mini(BASE_ZONES_HIGH.x, center.x + load_distance) + 1):
-		for z in range(maxi(BASE_ZONES_LOW.y, center.y - load_distance), mini(BASE_ZONES_HIGH.y, center.y + load_distance) + 1):
+	for x in range(maxi(base_zones_low.x, center.x - load_distance), mini(base_zones_high.x, center.x + load_distance) + 1):
+		for z in range(maxi(base_zones_low.y, center.y - load_distance), mini(base_zones_high.y, center.y + load_distance) + 1):
 			result[Vector2i(x, z)] = true
 	return result
 
@@ -251,8 +260,8 @@ func update_terrain_view(force: bool = false, center: Vector2i = view_center) ->
 			_hide_column(column)
 	var by_column := {}
 	# 0.0.5.20 : seulement les colonnes à portée (monde de 48 × 48 zones : jamais tout le monde d'un coup).
-	var near_low := Vector2i(maxi(BASE_ZONES_LOW.x, center.x - load_distance), maxi(BASE_ZONES_LOW.y, center.y - load_distance))
-	var near_high := Vector2i(mini(BASE_ZONES_HIGH.x, center.x + load_distance), mini(BASE_ZONES_HIGH.y, center.y + load_distance))
+	var near_low := Vector2i(maxi(base_zones_low.x, center.x - load_distance), maxi(base_zones_low.y, center.y - load_distance))
+	var near_high := Vector2i(mini(base_zones_high.x, center.x + load_distance), mini(base_zones_high.y, center.y + load_distance))
 	for zone: Vector3i in terrain.surface_zones(near_low, near_high):
 		var column := Vector2i(zone.x, zone.z)
 		if wanted.has(column) and not shown_columns.has(column):
@@ -362,8 +371,8 @@ func _update_fog() -> void:
 
 # 0.0.5.8 : terrain lisse sur toute la base (0.0.5.18 : zones de X et Z −80 à 79) ; base indestructible en dessous.
 # 0.0.5.12 : la base (« Roche-mère », incassable) commence à 8 m sous le sol, sous 4 m de terre et 4 m de pierre.
-const BASE_ZONES_LOW := Vector2i(-24, -24)
-const BASE_ZONES_HIGH := Vector2i(23, 23)
+var base_zones_low := Vector2i(-24, -24)
+var base_zones_high := Vector2i(23, 23)
 
 # Points changés de tous les fichiers de zone (lus une fois à l'ouverture ; les blocs restent lus par zone).
 func _read_terrain_changes() -> void:
@@ -503,7 +512,7 @@ func ground_kind_under(at: Vector3) -> int:
 
 # 0.0.5.13 : jusqu'à la pierre juste au-dessus de la Roche-mère (la pierre : seulement à la pioche).
 func _in_terrain_limits(point: Vector3i) -> bool:
-	return point.y > terrain.mother_rock_top and point.y <= SmoothTerrain.HIGH_POINT and absi(point.x) <= BUILD_LIMIT * 2 and absi(point.z) <= BUILD_LIMIT * 2
+	return point.y > terrain.mother_rock_top and point.y <= SmoothTerrain.HIGH_POINT and absi(point.x) <= build_limit * 2 and absi(point.z) <= build_limit * 2
 
 func _inside_player(point: Vector3i) -> bool:
 	return AABB(player.global_position + Vector3(-0.33, 0.01, -0.33), Vector3(0.66, 1.78, 0.66)).intersects(AABB(Vector3(point) * SmoothTerrain.STEP - Vector3.ONE * 0.25, Vector3.ONE * 0.5))
@@ -612,7 +621,7 @@ func _refresh_terrain(points: Array) -> void:
 	for point: Vector3i in points:
 		terrain_dirty[SmoothTerrain.point_zone(point)] = true
 		for zone in SmoothTerrain.zones_using(point):
-			if zone.x >= BASE_ZONES_LOW.x and zone.x <= BASE_ZONES_HIGH.x and zone.z >= BASE_ZONES_LOW.y and zone.z <= BASE_ZONES_HIGH.y:
+			if zone.x >= base_zones_low.x and zone.x <= base_zones_high.x and zone.z >= base_zones_low.y and zone.z <= base_zones_high.y:
 				zones[zone] = true
 		for dx in [-1, 0, 1]:
 			for dz in [-1, 0, 1]:
@@ -680,15 +689,18 @@ static func cell_range(size: int) -> Vector2i:
 # Informations du monde (F3) et Accueil → Informations.
 const COORDINATES_NOTE := "Coordonnées en blocs (1 bloc = 1 m) : X largeur, Y hauteur des pieds (Y 0 sur le sol plat), Z longueur."
 
-static func base_range_text() -> String:
-	var base := cell_range(int(BASE_SIZE.x))
+static func base_side(half_zones: int = Generation.half_zones()) -> int:
+	return half_zones * 16
+
+static func base_range_text(half_zones: int = Generation.half_zones()) -> String:
+	var base := cell_range(base_side(half_zones))
 	return "X et Z de %d à %d" % [base.x, base.y]
 
 static func generation_range_text() -> String:
 	return "X et Z de %d à %d" % [TerrainGenerator.MIN_CELL, TerrainGenerator.MAX_CELL]
 
-static func build_range_text() -> String:
-	return "X et Z de %d à %d" % [-BUILD_LIMIT, BUILD_LIMIT]
+static func build_range_text(half_zones: int = Generation.half_zones()) -> String:
+	return "X et Z de %d à %d" % [3 - base_side(half_zones) / 2, base_side(half_zones) / 2 - 3]
 
 # 0.0.5.5 : monde tout plat, sans bloc au départ (demande de l'utilisateur, le terrain deviendra lisse) ;
 # une plage de sable plate d'environ 21 m², au niveau de l'herbe, à une dizaine de mètres de l'apparition.
@@ -763,8 +775,8 @@ func _migrate_step1() -> void:
 func wanted_zones(center: Vector3i) -> Dictionary:
 	var result := {}
 	var here := Zones.zone_of(center)
-	var low := Zones.zone_of(Vector3i(-BUILD_LIMIT, 0, -BUILD_LIMIT))
-	var high := Zones.zone_of(Vector3i(BUILD_LIMIT, MAX_BUILD_HEIGHT - 1, BUILD_LIMIT))
+	var low := Zones.zone_of(Vector3i(-build_limit, 0, -build_limit))
+	var high := Zones.zone_of(Vector3i(build_limit, MAX_BUILD_HEIGHT - 1, build_limit))
 	for x in range(maxi(low.x, here.x - load_distance), mini(high.x, here.x + load_distance) + 1):
 		for y in range(maxi(low.y, here.y - load_distance), mini(high.y, here.y + load_distance) + 1):
 			for z in range(maxi(low.z, here.z - load_distance), mini(high.z, here.z + load_distance) + 1):
@@ -999,7 +1011,7 @@ func _edit_place_target(hit: Dictionary, kind: int) -> bool:
 		return false
 	var point: Vector3 = hit.position + hit.normal * 0.02
 	var cell := Vector3i(floori(point.x), floori(point.y), floori(point.z))
-	if cell.y < 0 or cell.y >= MAX_BUILD_HEIGHT or absi(cell.x) > BUILD_LIMIT or absi(cell.z) > BUILD_LIMIT:
+	if cell.y < 0 or cell.y >= MAX_BUILD_HEIGHT or absi(cell.x) > build_limit or absi(cell.z) > build_limit:
 		_notify("Limite de construction atteinte.")
 		return false
 	if player.overlaps_cell(cell):
@@ -1279,7 +1291,7 @@ Mode : %s" % [world_name, terrain_seed, world_mode_text] + _used_note()
 Graine : %d
 Mode : %s
 Base %d × %d, plage de sable d'environ %d m².
-Constructions sauvegardées." % [world_name, terrain_seed, world_mode_text, int(BASE_SIZE.x), int(BASE_SIZE.z), sand_area()] + _used_note()
+Constructions sauvegardées." % [world_name, terrain_seed, world_mode_text, int(base_size.x), int(base_size.z), sand_area()] + _used_note()
 	var mode_line := "Mode : %s — %s" % [world_mode_text, "attributs de Paramètres → Attributs" if developer_mode else "attributs par défaut, non modifiables"]
 	mode_line += _used_note()
 	return "Monde : %s
@@ -1295,7 +1307,7 @@ Base plate : largeur %d × longueur %d blocs (%s), sol à Y 0
 Construction : hauteur maximale %d blocs au-dessus du sol plat (sommet à Y %d), %s.
 %s
 
-Nom, graine, mode, constructions et position sauvegardés." % [world_name, terrain_seed, mode_line, sand_area(), int(BASE_SIZE.x), int(BASE_SIZE.z), base_range_text(), MAX_BUILD_HEIGHT, MAX_BUILD_HEIGHT, build_range_text(), COORDINATES_NOTE]
+Nom, graine, mode, constructions et position sauvegardés." % [world_name, terrain_seed, mode_line, sand_area(), int(base_size.x), int(base_size.z), base_range_text(_half_zones()), MAX_BUILD_HEIGHT, MAX_BUILD_HEIGHT, build_range_text(_half_zones()), COORDINATES_NOTE]
 
 # 0.0.5.13 : éclats de terre ou de pierre là où l'on vient de creuser (animation simple, une fois).
 func _debris(at: Vector3, color: Color) -> void:
@@ -1534,8 +1546,8 @@ func _update_far(center: Vector2i, area: Rect2) -> void:
 	if far_distance > load_distance and relief:
 		var here := FarTerrain.tile_of(center)
 		var reach := ceili(far_distance / float(FarTerrain.TILE_ZONES))
-		var low := FarTerrain.tile_of(BASE_ZONES_LOW)
-		var high := FarTerrain.tile_of(BASE_ZONES_HIGH)
+		var low := FarTerrain.tile_of(base_zones_low)
+		var high := FarTerrain.tile_of(base_zones_high)
 		for x in range(maxi(low.x, here.x - reach), mini(high.x, here.x + reach) + 1):
 			for z in range(maxi(low.y, here.y - reach), mini(high.y, here.y + reach) + 1):
 				var tile_area := Rect2(Vector2(x, z) * FarTerrain.TILE_METERS, Vector2.ONE * FarTerrain.TILE_METERS)

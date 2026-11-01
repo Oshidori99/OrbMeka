@@ -22,8 +22,9 @@ extends RefCounted
 # Version 12 (0.0.5.34) : même relief, petits lacs sur des replats des montagnes de terre, plus de lacs, moins de trous et moins ronds.
 # Version 13 (0.0.5.35) : même relief de base, lacs deux fois plus grands (surface), moins de petits, plus d'eau ; chaînes de montagnes.
 # Version 14 (0.0.5.37) : même relief, grottes : entrées dans environ 6 % des zones, environ 12 % de vide sous terre.
-const VERSION := 14
-const VERSIONS := [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14]
+# Version 15 (0.0.6) : même génération, monde de 64 × 64 zones (512 m) ; les versions d'avant restent à 48 × 48.
+const VERSION := 15
+const VERSIONS := [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]
 # Chance la plus rare qu'on peut régler : 1 sur MAX_CHANCE par zone (64 avant 0.0.5.18, 400 avant 0.0.5.23, 2000 avant 0.0.5.24).
 const MAX_CHANCE := 4000
 const STANDARD_SMALL_DENOMINATOR := 8
@@ -85,9 +86,14 @@ const DESERT_SIZES := {
 	12: {"medium_desert": [3, 4, 2, 2], "big_desert": [40, 48, 8, 8]},
 	13: {"medium_desert": [3, 4, 2, 2], "big_desert": [40, 48, 8, 8]},
 	14: {"medium_desert": [3, 4, 2, 2], "big_desert": [40, 48, 8, 8]},
+	15: {"medium_desert": [3, 4, 2, 2], "big_desert": [40, 48, 8, 8]},
 }
-# 0.0.5.20 : monde de 48 × 48 zones (20 × 20 en 0.0.5.18, 16 × 16 avant).
-const WORLD_ZONES := 2304
+# 0.0.6 (version 15) : monde de 64 × 64 zones ; 48 × 48 pour les versions d'avant (0.0.5.20 ; 20 × 20 en 0.0.5.18, 16 × 16 avant).
+static func half_zones(version: int = VERSION) -> int:
+	return 32 if version >= 15 else 24
+
+static func world_zones(version: int = VERSION) -> int:
+	return 4 * half_zones(version) * half_zones(version)
 
 # Réglages d'une version (0.0.5.19 : rochers et lacs seulement dès la version 4).
 static func specs_for(version: int) -> Array:
@@ -126,7 +132,7 @@ static func normalized(value: Dictionary) -> Dictionary:
 		result[spec.key] = int(value.get(spec.key, 0))
 	return result
 
-# 0.0.5.17 : estimations affichées dans l'écran Monde personnalisé (moyennes, pour le monde de WORLD_ZONES zones).
+# 0.0.5.17 : estimations affichées dans l'écran Monde personnalisé (moyennes, pour le monde de world_zones() zones).
 static func average_size(key: String, version: int = VERSION) -> float:
 	if key == "small_deserts":
 		return 1.0
@@ -307,15 +313,15 @@ static func default_text(key: String) -> String:
 			return "jamais dans le monde standard" if spec.default == 0 else "1 chance sur %d par zone (monde standard)" % spec.default
 	return ""
 
-# Ce que donne une chance sur n, en clair : combien de zones sur les WORLD_ZONES du monde, ou quelle part du sol.
+# Ce que donne une chance sur n, en clair : combien de zones sur toutes celles du monde, ou quelle part du sol.
 static func estimate_text(key: String, n: int, version: int = VERSION) -> String:
 	if n <= 0:
 		return "Jamais"
-	var starts := WORLD_ZONES / float(n)
+	var starts := world_zones(version) / float(n)
 	if key.ends_with("deserts"):
 		var share := 1.0 - pow(1.0 - 1.0 / n, average_size(key, version))
 		return "1 chance sur %d par zone : environ %d désert(s) dans le monde, %d %% du sol" % [n, roundi(starts), roundi(share * 100.0)]
-	return "1 chance sur %d par zone : environ %d dans le monde (%d zones)" % [n, roundi(starts), WORLD_ZONES]
+	return "1 chance sur %d par zone : environ %d dans le monde (%d zones)" % [n, roundi(starts), world_zones(version)]
 
 # 0.0.5.17 : comment un monde a été généré, en clair (Informations du monde → Génération du monde).
 static func describe(options: Dictionary) -> String:
@@ -328,7 +334,7 @@ static func describe(options: Dictionary) -> String:
 	var lines := ["%s (génération version %d)." % ["Génération standard" if standard else "Génération personnalisée", version]]
 	if version >= 2:
 		lines.append("Relief continu : collines douces jusqu'à 3 m, longues ondulations, petites bosses ; les trous se creusent dedans.")
-	lines.append("Chances par zone de 8 m (le monde en compte %d) :" % WORLD_ZONES)
+	lines.append("Chances par zone de 8 m (le monde en compte %d) :" % world_zones(version))
 	for spec in specs_for(version):
 		var n: int = options.get(spec.key, 0)
 		lines.append("· %s : %s" % [spec.label, "jamais" if n == 0 else ("dans chaque zone" if n == 1 else estimate_text(spec.key, n, version))])
