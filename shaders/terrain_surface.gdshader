@@ -8,6 +8,20 @@ uniform float sand_radius = 0.0;
 varying vec3 world_position;
 varying vec3 world_normal;
 varying vec4 tint;
+float zone_hash(vec2 p) {
+	return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453);
+}
+float zone_noise(vec2 p) {
+	vec2 i = floor(p);
+	vec2 f = fract(p);
+	f = f*f*(3.0-2.0*f);
+	return mix(mix(zone_hash(i), zone_hash(i+vec2(1,0)), f.x), mix(zone_hash(i+vec2(0,1)), zone_hash(i+vec2(1,1)), f.x), f.y);
+}
+// 0.0.5.30 : grandes zones d'herbe plus claires et plus sombres (même formule dans les 3 shaders du sol).
+float zone_shade(vec2 xz) {
+	float n = zone_noise(xz / 26.0) * 0.6 + zone_noise(xz / 61.0 + 9.0) * 0.4;
+	return mix(0.72, 1.3, smoothstep(0.25, 0.75, n));
+}
 
 float hash3(vec3 p) {
 	p = fract(p * 0.1031);
@@ -55,7 +69,7 @@ void fragment() {
 		// 0.0.5.7 : sol plat plus clair (il paraissait noir sur le Web), proche de la couleur des brins.
 		// 0.0.5.9 : terre posée (bleu du sommet à 0) : nue, sans herbe.
 		// 0.0.5.12 : pas d'herbe sur la pierre (vert du sommet à 0).
-		if (ground_surface) { cover = top * tint.b * tint.g; grass = mix(grass * 1.25, vec3(0.16,0.27,0.06), 0.35); }
+		if (ground_surface) { cover = top * tint.b * tint.g; grass = mix(grass * 1.25, vec3(0.16,0.27,0.06), 0.35) * zone_shade(p.xz); }
 		albedo = mix(soil,grass,cover);
 		float detail_fade = 1.0-smoothstep(8.0,35.0,length(VERTEX));
 		height = mix(clods*0.004+grains*0.0006,fibers*0.0015,cover)*detail_fade;

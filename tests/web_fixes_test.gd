@@ -19,7 +19,7 @@ func check(ok: bool, label: String) -> void:
 
 func _run() -> void:
 	root.size = Vector2i(1280, 720)
-	check(WorldRules.COMPAT_SUN <= 0.8 and WorldRules.COMPAT_SUN >= 0.6 and WorldRules.COMPAT_AMBIENT <= 0.7 and WorldRules.COMPAT_AMBIENT >= 0.5, "web renderer: sun and ambient light corrected (0.0.5.8 values, brighter)")
+	check(WorldRules.COMPAT_SUN == 0.8 and WorldRules.COMPAT_AMBIENT == 1.3 and WorldRules.PC_SUN == 0.42 and WorldRules.PC_AMBIENT == 0.42, "web renderer: sun and ambient light corrected (0.0.5.8 values, brighter)")
 	check(not WorldRules.is_compat() or RenderingServer.get_current_rendering_method() == "gl_compatibility", "compatibility renderer detected by its name")
 	var showcase := FileAccess.get_file_as_string("res://scripts/menu_showcase.gd")
 	check(showcase.contains("WorldRules.apply_compat_light(environment, sun)"), "home showcase uses the same correction")

@@ -1,6 +1,14 @@
-# OrbMeka™ — prototype 0.0.5.29
+# OrbMeka™ — prototype 0.0.5.30
 
 Godot 4.7 / GDScript. Formes et couleurs simples ; assets externes seulement sous licence vérifiée (sons CC0, assets/sounds/CREDITS.txt).
+
+## 0.0.5.30 — Mêmes couleurs sur PC et sur le Web
+- **Couleurs** : PC et Web rapprochés, herbe plus sombre que l'ancien PC et plus claire que l'ancien Web : même tonemap, lumière
+  réglée pour chacun, saturation un peu baissée sur le Web. Tout change un peu, pas seulement l'herbe.
+- **Zones d'herbe** : grandes zones plus claires et plus sombres, les mêmes dans les brins, le sol et le lointain.
+
+Mesures sur captures, herbe proche : PC #97b06b → #6d8452, Web #344f21 → #4a682f. Tests choisis réussis.
+À tester manuellement : aspect dans un vrai navigateur (le rendu du navigateur peut différer un peu des captures).
 
 ## 0.0.5.29 — Erreur clavier du Web
 - **Web** : le jeu ne demande plus la disposition du clavier, que le navigateur ne donne pas (erreur en boucle dans la console).

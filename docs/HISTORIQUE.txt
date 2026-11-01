@@ -3,6 +3,9 @@ Du plus récent au plus ancien. Ce fichier est mis à jour à chaque version.
 
 === Thème « Monde » (0.0.5 et suivantes) ===
 
+0.0.5.30 — Mêmes couleurs sur PC et sur le Web
+Couleurs rapprochées entre les deux versions ; zones d'herbe plus claires et plus sombres.
+
 0.0.5.29 — Erreur clavier du Web
 Le jeu ne demande plus au navigateur la disposition du clavier (erreur en boucle).
 

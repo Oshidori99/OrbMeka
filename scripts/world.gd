@@ -123,15 +123,22 @@ func _setup_inputs() -> void:
 # couleurs délavées (sable et pierre blancs). 0.0.4.19 : réglé en comparant des captures des deux rendus :
 # conversion des couleurs simple (tonemap linéaire). 0.0.5.8 : le Web paraissait trop sombre (herbe, soleil) :
 # soleil × 0,75 (avant 0,48), lumière ambiante × 0,6 (avant 0,38).
-const COMPAT_SUN := 0.75
-const COMPAT_AMBIENT := 0.6
+# 0.0.5.30 : PC et Web rapprochés, herbe entre les deux aspects d'avant : même tonemap filmique, lumière propre à chacun,
+# saturation 0,8 sur le Web (mesuré sur captures : herbe proche #6d8452 PC, #4a682f Web ; avant #97b06b et #344f21).
+const COMPAT_SUN := 0.8
+const PC_SUN := 0.42
+const COMPAT_AMBIENT := 1.3
+const PC_AMBIENT := 0.42
 
 static func apply_compat_light(environment: Environment, sun: DirectionalLight3D) -> void:
 	if not is_compat():
+		sun.light_energy *= PC_SUN
+		environment.ambient_light_energy *= PC_AMBIENT
 		return
-	environment.tonemap_mode = Environment.TONE_MAPPER_LINEAR
 	sun.light_energy *= COMPAT_SUN
 	environment.ambient_light_energy *= COMPAT_AMBIENT
+	environment.adjustment_enabled = true
+	environment.adjustment_saturation = 0.8
 
 static func is_compat() -> bool:
 	return RenderingServer.get_current_rendering_method() == "gl_compatibility"

@@ -16,14 +16,12 @@ const MUD := Color(0.1, 0.07, 0.045)
 const WATER := Color(0.1, 0.3, 0.36)
 const STONE := Color(0.3, 0.29, 0.27)
 
-static var _material: StandardMaterial3D
+static var _material: ShaderMaterial
 
-static func material() -> StandardMaterial3D:
+static func material() -> ShaderMaterial:
 	if _material == null:
-		_material = StandardMaterial3D.new()
-		_material.vertex_color_use_as_albedo = true
-		_material.roughness = 1.0
-		_material.specular_mode = BaseMaterial3D.SPECULAR_DISABLED
+		_material = ShaderMaterial.new()
+		_material.shader = preload("res://shaders/far_terrain.gdshader")
 	return _material
 
 static func tile_of(zone: Vector2i) -> Vector2i:
