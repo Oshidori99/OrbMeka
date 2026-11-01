@@ -14,6 +14,10 @@ const MODE_NAMES := {MODE_DEFAULT: "Par défaut", MODE_DEVELOPER: "Mode dévelop
 var worlds: Array[Dictionary] = []
 var last_error := ""
 var load_error := ""
+# 0.0.5.37 : mondes illisibles (par exemple créés par une version plus récente) : gardés tels quels dans le fichier,
+# sans bloquer les autres ; leurs dossiers ne sont jamais touchés.
+var unreadable_worlds: Array = []
+var load_notice := ""
 var storage_path: String
 # Dossier des mondes : user://mondes ; à côté de l'index pour les tests (ex. « …-test-mondes »).
 var worlds_root: String
@@ -113,6 +117,10 @@ func world_size(id: String) -> int:
 	var path := world_folder(id)
 	return 0 if path.is_empty() else Store.folder_size(path)
 
+# Tous les noms pris, ceux des mondes illisibles compris (pas de conflit quand une version plus récente les relira).
+func _named_worlds() -> Array:
+	return worlds + unreadable_worlds.filter(func(item): return item is Dictionary and item.get("id") is String and item.get("name") is String)
+
 func _load_worlds() -> void:
 	if not FileAccess.file_exists(storage_path):
 		return
@@ -133,24 +141,24 @@ func _load_worlds() -> void:
 	var names: Array[String] = []
 	for item in data.worlds:
 		if not item is Dictionary or not item.get("id") is String or not item.get("name") is String:
-			load_error = "La liste contient un monde invalide ; le fichier est conservé."
-			return
+			unreadable_worlds.append(item)
+			continue
 		var seed_value: Variant = item.get("seed")
 		if not (seed_value is int or seed_value is float):
-			load_error = "Une graine est invalide ; le fichier est conservé."
-			return
+			unreadable_worlds.append(item)
+			continue
 		# Monde d'avant 0.0.3 (sans mode) : par défaut.
 		var mode: Variant = item.get("mode", MODE_DEFAULT)
 		if not MODE_NAMES.has(mode):
-			load_error = "Le mode d'un monde est invalide ; le fichier est conservé."
-			return
+			unreadable_worlds.append(item)
+			continue
 		var clean_name: String = item.name.strip_edges()
 		if item.id.is_empty() or clean_name.is_empty() or clean_name.length() > MAX_NAME_LENGTH or ids.has(item.id) or names.has(clean_name.to_lower()) or float(seed_value) != float(int(seed_value)) or seed_value < 0 or seed_value > 4294967295:
-			load_error = "La liste contient un monde invalide ; le fichier est conservé."
-			return
+			unreadable_worlds.append(item)
+			continue
 		if not Generation.valid(item.get("generation", {})):
-			load_error = "Paramètres de génération invalides ; fichier conservé."
-			return
+			unreadable_worlds.append(item)
+			continue
 		ids.append(item.id)
 		names.append(clean_name.to_lower())
 		# Avant 0.0.4.10 (sans developer_used) : utilisé si le monde est en mode développeur.
@@ -159,11 +167,13 @@ func _load_worlds() -> void:
 		# 0.0.5.20 : dossier au nom du monde, refusé s'il n'est pas propre (jamais de chemin dangereux).
 		if item.has("folder"):
 			if not item.folder is String or not Store.valid_folder_name(item.folder):
-				load_error = "Le dossier d'un monde est invalide ; le fichier est conservé."
-				return
+				unreadable_worlds.append(item)
+				continue
 			entry.folder = item.folder
 		loaded.append(entry)
 	worlds = loaded
+	if not unreadable_worlds.is_empty():
+		load_notice = "%d monde(s) illisible(s) par cette version : conservé(s), mais pas affiché(s)." % unreadable_worlds.size()
 
 func _save_worlds() -> bool:
 	var temporary := storage_path + ".tmp"
@@ -171,7 +181,7 @@ func _save_worlds() -> bool:
 	if file == null:
 		last_error = "Impossible d'enregistrer la liste des mondes."
 		return false
-	file.store_string(JSON.stringify({"version": 1, "worlds": worlds}, "	"))
+	file.store_string(JSON.stringify({"version": 1, "worlds": worlds + unreadable_worlds}, "	", true, true))
 	file.flush()
 	var write_error := file.get_error()
 	file.close()
@@ -204,7 +214,7 @@ func create_world(raw_name: String, raw_seed: String = "", mode: String = MODE_D
 	if world_name.length() > MAX_NAME_LENGTH:
 		last_error = "Le nom doit contenir au maximum 48 caractères."
 		return {}
-	for item in worlds:
+	for item in _named_worlds():
 		if item.name.nocasecmp_to(world_name) == 0:
 			last_error = "Un monde porte déjà ce nom."
 			return {}
@@ -250,7 +260,7 @@ func rename_world(id: String, raw_name: String) -> bool:
 	if clean_name.is_empty() or clean_name.length() > MAX_NAME_LENGTH:
 		last_error = "Saisissez un nom de 1 à 48 caractères."
 		return false
-	for item in worlds:
+	for item in _named_worlds():
 		if item.id != id and item.name.nocasecmp_to(clean_name) == 0:
 			last_error = "Un monde porte déjà ce nom."
 			return false

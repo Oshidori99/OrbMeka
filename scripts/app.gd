@@ -560,9 +560,9 @@ func refresh_world_list(preferred_id: String = "") -> void:
 	if not catalog.load_error.is_empty():
 		list_message.text = catalog.load_error
 	elif world_list.item_count == 0:
-		list_message.text = "Aucun monde. Créez votre premier monde."
+		list_message.text = catalog.load_notice if not catalog.load_notice.is_empty() else "Aucun monde. Créez votre premier monde."
 	else:
-		list_message.text = "Choisissez un monde à ouvrir."
+		list_message.text = "Choisissez un monde à ouvrir." if catalog.load_notice.is_empty() else catalog.load_notice
 		world_list.select(0)
 		open_button.disabled = false
 		for index in range(world_list.item_count):
