@@ -272,6 +272,7 @@ func update_terrain_view(force: bool = false, center: Vector2i = view_center) ->
 	terrain_queue = terrain_queue.filter(func(column: Vector2i): return wanted.has(column)) + later
 	terrain_queue.sort_custom(func(a: Vector2i, b: Vector2i): return maxi(absi(a.x - center.x), absi(a.y - center.y)) < maxi(absi(b.x - center.x), absi(b.y - center.y)))
 	_update_far(center, Rect2(Vector2(near_low) * SmoothTerrain.ZONE_SIZE, Vector2(near_high - near_low + Vector2i.ONE) * SmoothTerrain.ZONE_SIZE))
+	_update_caves(center)
 
 # Colonne affichée : ses zones de surface et son herbe.
 func _show_column(column: Vector2i) -> void:
@@ -279,6 +280,29 @@ func _show_column(column: Vector2i) -> void:
 		rebuild_terrain_piece(zone)
 	_rebuild_lawn_tile(column)
 	_show_column_objects(column)
+
+# 0.0.5.37 : sous terre, seulement les grottes autour du joueur : invisibles de la surface, elles ne coûtent rien de loin.
+const CAVE_REACH := 4
+var cave_queue: Array = []
+var cave_pieces: Dictionary = {}
+
+func _update_caves(center: Vector2i) -> void:
+	var wanted := {}
+	for zone: Vector3i in terrain.cave_zones_near(center, CAVE_REACH):
+		wanted[zone] = true
+	for zone: Vector3i in cave_pieces.keys():
+		if not wanted.has(zone):
+			cave_pieces.erase(zone)
+			if terrain_pieces.has(zone) and not terrain.by_zone.has(zone):
+				terrain_pieces[zone].free()
+				terrain_pieces.erase(zone)
+	cave_queue = wanted.keys().filter(func(zone: Vector3i): return not cave_pieces.has(zone))
+	cave_queue.sort_custom(func(a: Vector3i, b: Vector3i): return maxi(absi(a.x - center.x), absi(a.z - center.y)) < maxi(absi(b.x - center.x), absi(b.z - center.y)))
+
+func _show_cave_zone(zone: Vector3i) -> void:
+	cave_pieces[zone] = true
+	if not terrain_pieces.has(zone):
+		rebuild_terrain_piece(zone)
 
 func _hide_column(column: Vector2i) -> void:
 	shown_columns.erase(column)
@@ -295,6 +319,8 @@ func column_shown(column: Vector2i) -> bool:
 	return shown_columns.has(column)
 
 func _process_terrain_queue() -> void:
+	if not cave_queue.is_empty():
+		_show_cave_zone(cave_queue.pop_front())
 	var started := Time.get_ticks_usec()
 	while not terrain_queue.is_empty() and Time.get_ticks_usec() - started < TERRAIN_BUDGET_USEC:
 		var column: Vector2i = terrain_queue.pop_front()
@@ -303,6 +329,8 @@ func _process_terrain_queue() -> void:
 
 # Tout le terrain en attente, d'un coup (tests, captures).
 func finish_terrain() -> void:
+	while not cave_queue.is_empty():
+		_show_cave_zone(cave_queue.pop_front())
 	while not terrain_queue.is_empty():
 		var column: Vector2i = terrain_queue.pop_front()
 		if shown_columns.has(column):

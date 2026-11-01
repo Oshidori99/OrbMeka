@@ -520,6 +520,24 @@ func _run() -> void:
 					var side: Vector2 = lake.center + Vector2.RIGHT * (lake.radius + lake.wobble + 1.5)
 					flat_shelf = flat_shelf and absf(wet_land.height_at(side.x, side.y) - lake.level) < 0.5
 	check(slope_lakes > 0 and slope_ok and flat_shelf, "mountain lakes: on a flat shelf, water never spilling down the slope")
+	# 0.0.5.37 (version 14) : grottes : du vide sous terre, des entrées, la Roche-mère jamais creusée.
+	var cave_land := SmoothTerrain.new()
+	cave_land.setup(70621, [[Vector2(0.5, 0.5), 9.0]], load("res://scripts/world_generation.gd").defaults())
+	cave_land.caves_in_zone(Vector3i.ZERO)
+	var a_node: Dictionary = {}
+	var reaches_floor := false
+	for zone: Vector3i in cave_land._cave_zones:
+		for node in cave_land._cave_zones[zone]:
+			a_node = node
+			reaches_floor = reaches_floor or node.at.y - node.radius <= SmoothTerrain.layers_of(cave_land.generation_options)[3] * 0.5
+	check(not a_node.is_empty() and cave_land.density(SmoothTerrain.point_of(a_node.at)) < 0.0 and reaches_floor, "caves carve the ground, some down to Roche-mère")
+	var rock_ok := true
+	for x in range(-100, 100, 3):
+		for z in range(-100, 100, 3):
+			rock_ok = rock_ok and cave_land.density(Vector3i(x, cave_land.mother_rock_top, z)) > 0.0
+	check(rock_ok and cave_land.cave_open(Vector2i(1, 1)) == false, "Roche-mère never carved, no cave at the start")
+	var cave_zone: Vector3i = cave_land._cave_zones.keys().filter(func(zone: Vector3i): return zone.y < -1)[0]
+	check(cave_land.zone_mesh(cave_zone)[0].size() > 0 or cave_land.zone_mesh(cave_zone + Vector3i.UP)[0].size() > 0, "cave walls are drawn underground")
 	# 0.0.5.31 : boue et argile un peu glissantes, surtout en descente ; l'argile moins que la boue.
 	var player_script: Script = far_world.player.get_script()
 	var slope := Vector3(0.5, 0.866, 0.0)

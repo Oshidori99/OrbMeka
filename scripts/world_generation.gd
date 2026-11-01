@@ -21,8 +21,9 @@ extends RefCounted
 # Version 11 (0.0.5.33) : même relief, environ 6 déserts par monde de 40 à 48 zones (10 % du sol) ; un trou sur 3 rempli de boue.
 # Version 12 (0.0.5.34) : même relief, petits lacs sur des replats des montagnes de terre, plus de lacs, moins de trous et moins ronds.
 # Version 13 (0.0.5.35) : même relief de base, lacs deux fois plus grands (surface), moins de petits, plus d'eau ; chaînes de montagnes.
-const VERSION := 13
-const VERSIONS := [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13]
+# Version 14 (0.0.5.37) : même relief, grottes : entrées dans environ 6 % des zones, environ 12 % de vide sous terre.
+const VERSION := 14
+const VERSIONS := [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14]
 # Chance la plus rare qu'on peut régler : 1 sur MAX_CHANCE par zone (64 avant 0.0.5.18, 400 avant 0.0.5.23, 2000 avant 0.0.5.24).
 const MAX_CHANCE := 4000
 const STANDARD_SMALL_DENOMINATOR := 8
@@ -62,6 +63,8 @@ const SPECS := [
 	{"key":"mountain_chains", "label":"Chaînes de montagnes (3 à 5 sommets)", "default":1400, "since":13},
 	{"key":"sand_mountains", "label":"Montagnes de sable (10 à 16 blocs, seulement dans les déserts)", "default":15, "since":11},
 	{"key":"mud_regions", "label":"Régions de boue (environ 2 zones)", "default":70, "since":6},
+	{"key":"cave_entrances", "label":"Entrées de grottes", "default":24, "since":14},
+	{"key":"cave_systems", "label":"Réseaux de grottes sous terre", "default":20, "since":14},
 	{"key":"mud_pits", "label":"Trous de boue (2 à 4 m de rayon)", "default":40, "since":10},
 	{"key":"clay", "label":"Poches d'argile dans la terre", "default":10, "since":5},
 ]
@@ -80,6 +83,7 @@ const DESERT_SIZES := {
 	11: {"medium_desert": [3, 4, 2, 2], "big_desert": [40, 48, 8, 8]},
 	12: {"medium_desert": [3, 4, 2, 2], "big_desert": [40, 48, 8, 8]},
 	13: {"medium_desert": [3, 4, 2, 2], "big_desert": [40, 48, 8, 8]},
+	14: {"medium_desert": [3, 4, 2, 2], "big_desert": [40, 48, 8, 8]},
 }
 # 0.0.5.20 : monde de 48 × 48 zones (20 × 20 en 0.0.5.18, 16 × 16 avant).
 const WORLD_ZONES := 2304
@@ -258,6 +262,8 @@ static func zone_info(terrain_seed: int, zone: Vector2i, options: Dictionary) ->
 			"sand_mountains":
 				info.sand_mountain = sand_mountain(rng, zone)
 			"mountain_chains":
+				pass
+			"cave_entrances", "cave_systems":
 				pass
 			"steep_mountains":
 				info.steep_mountain = steep_mountain(rng, zone)

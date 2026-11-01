@@ -16,7 +16,7 @@ func _run() -> void:
 	for source in ["res://scripts/world_generation.gd.uid","res://tests/custom_generation_test.gd.uid","res://tests/custom_world_menu_test.gd.uid"]:
 		check(ResourceUID.text_to_id(FileAccess.get_file_as_string(source).strip_edges()) > 0, "new script UID is valid")
 	var options := Generation.defaults()
-	check(options.version == 13 and options.mountain_chains == 1400 and options.smooth_holes == 30 and options.steep_holes == 45 and options.mud_pits == 40 and options.sand_mountains == 15 and not options.has("small_deserts") and not options.has("lakes_2") and not options.has("lakes_4") and options.large_deserts == 340 and options.lakes_small == 900 and options.lakes_medium == 40 and options.lakes_large == 90 and options.mountains == 850 and options.steep_mountains == 2800 and options.mud_regions == 70, "standard (version 13): big deserts, small, medium and large lakes, climbable and steep mountains")
+	check(options.version == 14 and options.cave_entrances == 24 and options.cave_systems == 20 and options.mountain_chains == 1400 and options.smooth_holes == 30 and options.steep_holes == 45 and options.mud_pits == 40 and options.sand_mountains == 15 and not options.has("small_deserts") and not options.has("lakes_2") and not options.has("lakes_4") and options.large_deserts == 340 and options.lakes_small == 900 and options.lakes_medium == 40 and options.lakes_large == 90 and options.mountains == 850 and options.steep_mountains == 2800 and options.mud_regions == 70, "standard (version 14): big deserts, small, medium and large lakes, climbable and steep mountains")
 	check(options.deep_holes == 0 and absf(256.0 / options.stone_holes - 3.5) < 0.6 and absf(Generation.desert_share(options) - 0.12) < 0.02, "3 or 4 huge holes per 256 zones; about 6 big deserts")
 	check(Generation.valid({}) and Generation.valid(options), "legacy and custom options accepted")
 	for invalid in [-1,4001,1.5,"24",null]:
@@ -53,7 +53,7 @@ func _run() -> void:
 	old.erase("clay")
 	var old_info := Generation.zone_info(42, Vector2i(2, 3), old)
 	check(old_info.medium_desert.size() >= 4 and old_info.medium_desert.size() <= 6 and old_info.big_desert.size() >= 8 and old_info.big_desert.size() <= 11, "version 1 worlds keep their desert sizes")
-	check(Generation.valid(old) and not Generation.valid({"version": 14}), "versions 1 to 13 accepted, others refused")
+	check(Generation.valid(old) and not Generation.valid({"version": 15}), "versions 1 to 14 accepted, others refused")
 	check(Generation.estimate_text("medium_deserts", 24).contains("environ 96 désert") and Generation.estimate_text("steep_hills", 8).contains("environ 288 dans le monde"), "estimates in plain words (2304 zones)")
 	var rare := options.duplicate()
 	for spec in Generation.specs_for(Generation.VERSION):
@@ -62,7 +62,7 @@ func _run() -> void:
 	for x in range(512):
 		if Generation.zone_info(42,Vector2i(x,9),rare).has("big_desert"):
 			rare_count += 1
-	check(rare_count > 0 and rare_count < 24, "1/64 really reduces generated desert frequency (big deserts, version 13)")
+	check(rare_count > 0 and rare_count < 24, "1/64 really reduces generated desert frequency (big deserts, version 14)")
 	var a := Terrain.new()
 	var b := Terrain.new()
 	a.setup(123,[],options)
@@ -82,6 +82,8 @@ func _run() -> void:
 	pits.mountains = 0
 	pits.steep_mountains = 0
 	pits.mud_pits = 0
+	pits.cave_entrances = 0
+	pits.cave_systems = 0
 	pits.mountain_chains = 0
 	pits.sand_mountains = 0
 	var deep := Terrain.new()
@@ -104,7 +106,7 @@ func _run() -> void:
 	var copy: Dictionary = reopened.duplicate_world(item.id)
 	check(copy.id != item.id and copy.generation == options, "duplicate retains seed options with distinct identity")
 	var standard: Dictionary = reopened.create_world("Standard","123")
-	check(standard.generation == Generation.defaults(), "a new standard world saves the version 13 settings")
+	check(standard.generation == Generation.defaults(), "a new standard world saves the version 14 settings")
 	var legacy: Dictionary = reopened.create_world("Ancien","124","default",false,{})
 	check(legacy.generation.is_empty(), "worlds without settings keep the 0.0.5.15 generation")
 	Store.delete_folder(catalog.worlds_root)

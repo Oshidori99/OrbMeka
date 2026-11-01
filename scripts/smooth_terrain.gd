@@ -101,6 +101,8 @@ func setup(terrain_seed: int, flat_spots: Array = [], options: Dictionary = {}) 
 	_lakes_chosen.clear()
 	_lakes_chosen_ready = false
 	_mountain_lake_zones.clear()
+	_cave_zones.clear()
+	_caves_ready = false
 	_mountain_lakes_ready = false
 	_mountain_zones.clear()
 	_mountains_near_cache.clear()
@@ -213,7 +215,8 @@ func height_at(x: float, z: float) -> float:
 
 # Sol de la graine : plein sous la hauteur du sol, air au-dessus (densité en mètres, bornée à ±1).
 func base_density(point: Vector3i) -> float:
-	return clampf(ground_height(Vector2i(point.x, point.z)) - point.y * STEP, -1.0, 1.0)
+	var value := clampf(ground_height(Vector2i(point.x, point.z)) - point.y * STEP, -1.0, 1.0)
+	return minf(value, _cave_density(point)) if int(generation_options.get("version", 0)) >= 14 else value
 
 func density(point: Vector3i) -> float:
 	return changes.get(point, base_density(point))
@@ -335,8 +338,102 @@ func zone_heights(zone: Vector3i) -> Vector2:
 			high = maxf(high, height)
 	return Vector2(low, high)
 
+# 0.0.5.37 (version 14) : grottes : chapelets de boules creusées dans le sol de la graine, avec ou sans entrée,
+# dont certaines descendent jusqu'à la Roche-mère, jamais creusée. Calculées une fois pour tout le monde.
+var _cave_zones: Dictionary = {}
+var _caves_ready := false
+const CAVE_ENTRANCE_NODES := 8
+
+func caves_in_zone(zone: Vector3i) -> Array:
+	if int(generation_options.get("version", 0)) < 14 or _noise == null:
+		return []
+	if not _caves_ready:
+		_caves_ready = true
+		for x in range(-24, 24):
+			for z in range(-24, 24):
+				_zone_caves(Vector2i(x, z), "cave_entrances", true)
+				_zone_caves(Vector2i(x, z), "cave_systems", false)
+	return _cave_zones.get(zone, [])
+
+func _zone_caves(area: Vector2i, key: String, entrance: bool) -> void:
+	var chance: int = generation_options.get(key, 0)
+	if chance == 0:
+		return
+	var rng := RandomNumberGenerator.new()
+	rng.seed = hash([_seed, area.x, area.y, key])
+	if rng.randf() >= 1.0 / chance:
+		return
+	var floor_y := mother_rock_top * STEP
+	var xz := Vector2(area) * ZONE_METERS + Vector2(rng.randf_range(1.0, 7.0), rng.randf_range(1.0, 7.0))
+	var y := ground_height(Vector2i(roundi(xz.x / STEP), roundi(xz.y / STEP))) + 1.0 if entrance else rng.randf_range(floor_y + 3.0, -8.0)
+	# Une sur 4 descend jusqu'à la Roche-mère.
+	var target := floor_y + 1.0 if rng.randf() < 0.25 else rng.randf_range(floor_y + 3.0, -9.0)
+	var heading := rng.randf() * TAU
+	var nodes := []
+	for index in range(rng.randi_range(24, 44)):
+		var radius := rng.randf_range(1.6, 2.6)
+		if not entrance and rng.randf() < 0.12:
+			radius = rng.randf_range(5.0, 8.0)
+		var column := Vector2i(roundi(xz.x / STEP), roundi(xz.y / STEP))
+		var carve := true
+		for spot in _flat_spots:
+			if xz.distance_to(spot[0]) < spot[1] + radius + 6.0 and y + radius > -3.0:
+				carve = false
+		if absf(xz.x) > 190.0 or absf(xz.y) > 190.0:
+			carve = false
+		for lake in _lakes_near(xz):
+			if _lake_distance(xz, lake) < lake.radius + lake.get("bank", 0.0) + radius + 2.0 and y + radius > lake_level(lake) - lake.depth - 2.0:
+				carve = false
+		if entrance and index < CAVE_ENTRANCE_NODES and not carve:
+			return
+		var ground := ground_height(column)
+		if not (entrance and index < CAVE_ENTRANCE_NODES):
+			y = minf(y, ground - radius - 3.0)
+		if carve:
+			nodes.append({"at": Vector3(xz.x, y, xz.y), "radius": radius})
+		heading += rng.randf_range(-0.5, 0.5)
+		xz += Vector2.from_angle(heading) * radius * 0.8
+		y = maxf(y + clampf(target - y, -radius * 0.6, radius * 0.6), floor_y + radius * 0.5)
+	for node in nodes:
+		var reach: Vector3 = Vector3.ONE * (node.radius + 1.0)
+		var low: Vector3i = point_zone(point_of(node.at - reach))
+		var high: Vector3i = point_zone(point_of(node.at + reach))
+		for x in range(low.x, high.x + 1):
+			for y2 in range(low.y, high.y + 1):
+				for z in range(low.z, high.z + 1):
+					var zone := Vector3i(x, y2, z)
+					if not _cave_zones.has(zone):
+						_cave_zones[zone] = []
+					_cave_zones[zone].append(node)
+
+func _cave_density(point: Vector3i) -> float:
+	if point.y <= mother_rock_top:
+		return 1.0
+	var result := 1.0
+	var at := Vector3(point) * STEP
+	for node in caves_in_zone(point_zone(point)):
+		result = minf(result, clampf(at.distance_to(node.at) - node.radius, -1.0, 1.0))
+	return result
+
+# Le sol de la graine est-il creusé par une grotte ici (entrée) ? Pas d'herbe ni de rocher en l'air.
+func cave_open(column: Vector2i) -> bool:
+	if int(generation_options.get("version", 0)) < 14:
+		return false
+	return _cave_density(Vector3i(column.x, floori(ground_height(column) / STEP), column.y)) <= 0.0
+
+# Zones souterraines creusées autour d'une colonne.
+func cave_zones_near(center: Vector2i, reach: int) -> Array:
+	caves_in_zone(Vector3i.ZERO)
+	var result := []
+	for zone: Vector3i in _cave_zones:
+		if zone.y < -1 and maxi(absi(zone.x - center.x), absi(zone.z - center.y)) <= reach:
+			result.append(zone)
+	return result
+
 # Zone plate : aucun point changé parmi ceux qu'elle lit, et pas de colline (0.0.5.14).
 func is_flat(zone: Vector3i) -> bool:
+	if not caves_in_zone(zone).is_empty():
+		return false
 	var low := zone * POINTS - Vector3i.ONE
 	var high := zone * POINTS + Vector3i.ONE * POINTS
 	for dx in range(-1, 2):
@@ -402,6 +499,10 @@ func zone_mesh(zone: Vector3i) -> Array:
 	var ground := zone_heights(zone)
 	lowest = minf(lowest, floorf(ground.x / STEP))
 	highest = maxf(highest, ceilf(ground.y / STEP))
+	var cave_nodes := caves_in_zone(zone)
+	if not cave_nodes.is_empty():
+		lowest = minf(lowest, origin.y - 1)
+		highest = maxf(highest, origin.y + POINTS + 1)
 	var y_low := maxi(maxi(origin.y - 1, int(lowest) - 2), mother_rock_top - 2)
 	var y_high := mini(mini(origin.y + POINTS, int(highest) + 2), HIGH_POINT + 2)
 	if y_low >= y_high:
@@ -419,6 +520,17 @@ func zone_mesh(zone: Vector3i) -> Array:
 			tops[x * size + z] = top
 			for y in range(height):
 				values[(x * height + y) * size + z] = clampf(top - (y_low + y) * STEP, -1.0, 1.0)
+	# 0.0.5.37 : grottes : seulement les points autour de chaque boule (bien plus rapide que tous les points).
+	for node in cave_nodes:
+		var middle: Vector3 = node.at / STEP - Vector3(start)
+		var around: int = ceili(node.radius / STEP) + 2
+		var lift := middle.round()
+		for x in range(maxi(0, int(lift.x) - around), mini(size, int(lift.x) + around + 1)):
+			for z in range(maxi(0, int(lift.z) - around), mini(size, int(lift.z) + around + 1)):
+				for y in range(maxi(0, int(lift.y) - around), mini(height, int(lift.y) + around + 1)):
+					if y_low + y > mother_rock_top:
+						var index := (x * height + y) * size + z
+						values[index] = minf(values[index], clampf(Vector3(x, y, z).distance_to(middle) * STEP - node.radius, -1.0, 1.0))
 	var kinds := {}
 	for point: Vector3i in nearby:
 		var local := point - start
@@ -440,7 +552,7 @@ func zone_mesh(zone: Vector3i) -> Array:
 	corners.resize(8)
 	# 0.0.5.25 : sans point changé, la surface ne passe qu'entre les hauteurs des 4 coins de chaque colonne :
 	# on ne regarde que celles-là (même résultat, bien plus rapide). Matière de chaque point gardée une seule fois.
-	var free := nearby.is_empty()
+	var free := nearby.is_empty() and cave_nodes.is_empty()
 	var low_cells := PackedInt32Array()
 	var high_cells := PackedInt32Array()
 	low_cells.resize((size - 1) * (size - 1))
@@ -1096,6 +1208,7 @@ func rocks_in_zone(area: Vector2i) -> Array:
 			wet = wet or _lake_distance(at, lake) < lake.radius + lake.get("bank", 0.0) + 1.5
 		# 0.0.5.32 : pas de rocher dans un trou de boue.
 		wet = wet or _mud_pit_depth(at) > 0.0
+		wet = wet or cave_open(Vector2i(roundi(at.x / STEP), roundi(at.y / STEP)))
 		if not near_spot and not wet:
 			var entry: Dictionary = rock.duplicate()
 			entry.id = "%d_%d_%d" % [area.x, area.y, index]
@@ -1105,6 +1218,8 @@ func rocks_in_zone(area: Vector2i) -> Array:
 
 # Boue en surface (bord et fond d'un lac, version 5) ; argile ou boue en surface (version 6) : pas d'herbe.
 func muddy(column: Vector2i) -> bool:
+	if cave_open(column):
+		return true
 	return _soil(column).has("mud") or _soil(column).has("top") or mountain_stone(column) >= ground_height(column) - 0.01
 
 # 0.0.5.23 (version 7) : montagnes, demandées par l'utilisateur (environ 7 % du sol ; les petites collines restent).
