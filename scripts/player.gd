@@ -730,7 +730,8 @@ func step_movement(delta: float, direction: Vector2, jump_requested: bool) -> vo
 	velocity.y = 0.0 if is_on_floor() or is_on_ceiling() else end_speed
 	position.x = clampf(position.x, -world.BUILD_LIMIT - 1.0, world.BUILD_LIMIT + 1.0)
 	position.z = clampf(position.z, -world.BUILD_LIMIT - 1.0, world.BUILD_LIMIT + 1.0)
-	if position.y < -10.0:
+	# 0.0.5.37 : retour au départ seulement sous le monde (les grottes descendent jusqu'à la Roche-mère).
+	if position.y < world.terrain.mother_rock_top * world.SmoothTerrain.STEP - 3.0:
 		actions.cancel()
 		position = world.spawn_position()
 		velocity = Vector3.ZERO

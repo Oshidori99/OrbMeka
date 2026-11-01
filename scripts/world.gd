@@ -283,17 +283,21 @@ func _show_column(column: Vector2i) -> void:
 
 # 0.0.5.37 : sous terre, seulement les grottes autour du joueur : invisibles de la surface, elles ne coûtent rien de loin.
 const CAVE_REACH := 4
+const CAVE_REACH_SURFACE := 2
+var cave_underground := false
+const CAVE_DEEP := -2.0
 var cave_queue: Array = []
 var cave_pieces: Dictionary = {}
 
 func _update_caves(center: Vector2i) -> void:
 	var wanted := {}
-	for zone: Vector3i in terrain.cave_zones_near(center, CAVE_REACH):
+	cave_underground = is_instance_valid(player) and player.position.y < CAVE_DEEP
+	for zone: Vector3i in terrain.cave_zones_near(center, CAVE_REACH if cave_underground else CAVE_REACH_SURFACE):
 		wanted[zone] = true
 	for zone: Vector3i in cave_pieces.keys():
 		if not wanted.has(zone):
 			cave_pieces.erase(zone)
-			if terrain_pieces.has(zone) and not terrain.by_zone.has(zone):
+			if terrain_pieces.has(zone) and not terrain.by_zone.has(zone) and not zone in shown_columns.get(Vector2i(zone.x, zone.z), []):
 				terrain_pieces[zone].free()
 				terrain_pieces.erase(zone)
 	cave_queue = wanted.keys().filter(func(zone: Vector3i): return not cave_pieces.has(zone))
@@ -319,7 +323,10 @@ func column_shown(column: Vector2i) -> bool:
 	return shown_columns.has(column)
 
 func _process_terrain_queue() -> void:
-	if not cave_queue.is_empty():
+	# Sous terre, les grottes d'abord ; en surface, seulement quand le reste du terrain est prêt.
+	if is_instance_valid(player) and (player.position.y < CAVE_DEEP) != cave_underground:
+		_update_caves(view_center)
+	if not cave_queue.is_empty() and (cave_underground or terrain_queue.is_empty()):
 		_show_cave_zone(cave_queue.pop_front())
 	var started := Time.get_ticks_usec()
 	while not terrain_queue.is_empty() and Time.get_ticks_usec() - started < TERRAIN_BUDGET_USEC:

@@ -65,6 +65,7 @@ const SPECS := [
 	{"key":"mud_regions", "label":"Régions de boue (environ 2 zones)", "default":70, "since":6},
 	{"key":"cave_entrances", "label":"Entrées de grottes", "default":24, "since":14},
 	{"key":"cave_systems", "label":"Réseaux de grottes sous terre", "default":20, "since":14},
+	{"key":"crevasses", "label":"Crevasses en éclair", "default":30, "since":14},
 	{"key":"mud_pits", "label":"Trous de boue (2 à 4 m de rayon)", "default":40, "since":10},
 	{"key":"clay", "label":"Poches d'argile dans la terre", "default":10, "since":5},
 ]
@@ -263,7 +264,7 @@ static func zone_info(terrain_seed: int, zone: Vector2i, options: Dictionary) ->
 				info.sand_mountain = sand_mountain(rng, zone)
 			"mountain_chains":
 				pass
-			"cave_entrances", "cave_systems":
+			"cave_entrances", "cave_systems", "crevasses":
 				pass
 			"steep_mountains":
 				info.steep_mountain = steep_mountain(rng, zone)

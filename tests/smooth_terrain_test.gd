@@ -538,6 +538,31 @@ func _run() -> void:
 	check(rock_ok and cave_land.cave_open(Vector2i(1, 1)) == false, "Roche-mère never carved, no cave at the start")
 	var cave_zone: Vector3i = cave_land._cave_zones.keys().filter(func(zone: Vector3i): return zone.y < -1)[0]
 	check(cave_land.zone_mesh(cave_zone)[0].size() > 0 or cave_land.zone_mesh(cave_zone + Vector3i.UP)[0].size() > 0, "cave walls are drawn underground")
+	# 0.0.5.37 : crevasses en éclair : un bout à peine creusé, l'autre très profond, zones basses dessinées.
+	cave_land.caves_in_zone(Vector3i.ZERO)
+	var last_piece := {}
+	for x in range(-24, 24):
+		for z in range(-24, 24):
+			for crack in cave_land._crevasses_near(Vector2i(x, z)):
+				if crack.to > 0.999:
+					last_piece = crack
+	var deep_end: Vector2 = last_piece.b
+	var deep_column := Vector2i(roundi(deep_end.x / 0.5), roundi(deep_end.y / 0.5))
+	var deep_area := Vector2i(floori(deep_end.x / 8.0), floori(deep_end.y / 8.0))
+	check(cave_land.ground_height(deep_column) < -8.0 and cave_land.in_crevasse(deep_end) and cave_land.muddy(deep_column), "crevasse: very deep at its far end, no grass inside")
+	check(cave_land.surface_zones(deep_area, deep_area).has(Vector3i(deep_area.x, floori(cave_land.ground_height(deep_column) / 8.0), deep_area.y)), "low zones of a crevasse are drawn")
+	# Plus de retour au départ dans une grotte : seulement sous le monde.
+	var deep_world: Node3D = WorldScene.instantiate()
+	deep_world.generation_options = load("res://scripts/world_generation.gd").defaults()
+	root.add_child(deep_world)
+	deep_world.player.set_physics_process(false)
+	deep_world.player.global_position = Vector3(40, -20, 40)
+	deep_world.player.step_movement(1.0 / 60.0, Vector2.ZERO, false)
+	check(deep_world.player.global_position.y < -19.0, "going down a cave does not send the player back to the start")
+	deep_world.player.global_position = Vector3(40, -40, 40)
+	deep_world.player.step_movement(1.0 / 60.0, Vector2.ZERO, false)
+	check(deep_world.player.global_position.y > -10.0, "falling under the world still returns to the start")
+	close(deep_world)
 	# 0.0.5.31 : boue et argile un peu glissantes, surtout en descente ; l'argile moins que la boue.
 	var player_script: Script = far_world.player.get_script()
 	var slope := Vector3(0.5, 0.866, 0.0)

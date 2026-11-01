@@ -102,6 +102,9 @@ func setup(terrain_seed: int, flat_spots: Array = [], options: Dictionary = {}) 
 	_lakes_chosen_ready = false
 	_mountain_lake_zones.clear()
 	_cave_zones.clear()
+	_crevasse_zones.clear()
+	_crevasses_ready = false
+	_cave_columns.clear()
 	_caves_ready = false
 	_mountain_lakes_ready = false
 	_mountain_zones.clear()
@@ -193,7 +196,7 @@ func ground_height(column: Vector2i) -> float:
 		return _heights[column]
 	var at := Vector2(column) * STEP
 	if not generation_options.is_empty():
-		var custom_height := _with_mountain_lakes(at, clampf(_custom_height(at), -7.0, 3.0) + mountain_lift(at)) * _away_from_spots(at, 8.0)
+		var custom_height := _with_crevasses(at, _with_mountain_lakes(at, clampf(_custom_height(at), -7.0, 3.0) + mountain_lift(at))) * _away_from_spots(at, 8.0)
 		_heights[column] = roundf(custom_height * 1000.0) / 1000.0
 		return _heights[column]
 	var hill := clampf(_noise.get_noise_2d(at.x, at.y) * 1.6 - 0.15, 0.0, 1.0)
@@ -342,6 +345,7 @@ func zone_heights(zone: Vector3i) -> Vector2:
 # dont certaines descendent jusqu'à la Roche-mère, jamais creusée. Calculées une fois pour tout le monde.
 var _cave_zones: Dictionary = {}
 var _caves_ready := false
+var _cave_columns: Dictionary = {}
 const CAVE_ENTRANCE_NODES := 8
 
 func caves_in_zone(zone: Vector3i) -> Array:
@@ -381,13 +385,14 @@ func _zone_caves(area: Vector2i, key: String, entrance: bool) -> void:
 				carve = false
 		if absf(xz.x) > 190.0 or absf(xz.y) > 190.0:
 			carve = false
-		for lake in _lakes_near(xz):
+		# Fond des lacs et sol jamais sous ces profondeurs : rien à calculer plus bas (bien plus rapide).
+		for lake in (_lakes_near(xz) if y + radius > -8.0 else []):
 			if _lake_distance(xz, lake) < lake.radius + lake.get("bank", 0.0) + radius + 2.0 and y + radius > lake_level(lake) - lake.depth - 2.0:
 				carve = false
 		if entrance and index < CAVE_ENTRANCE_NODES and not carve:
 			return
-		var ground := ground_height(column)
-		if not (entrance and index < CAVE_ENTRANCE_NODES):
+		var ground := ground_height(column) if y > -10.0 - radius or index < CAVE_ENTRANCE_NODES else 0.0
+		if not (entrance and index < CAVE_ENTRANCE_NODES) and y > -10.0 - radius:
 			y = minf(y, ground - radius - 3.0)
 		if carve:
 			nodes.append({"at": Vector3(xz.x, y, xz.y), "radius": radius})
@@ -404,6 +409,10 @@ func _zone_caves(area: Vector2i, key: String, entrance: bool) -> void:
 					var zone := Vector3i(x, y2, z)
 					if not _cave_zones.has(zone):
 						_cave_zones[zone] = []
+						if y2 < -1:
+							if not _cave_columns.has(Vector2i(x, z)):
+								_cave_columns[Vector2i(x, z)] = []
+							_cave_columns[Vector2i(x, z)].append(zone)
 					_cave_zones[zone].append(node)
 
 func _cave_density(point: Vector3i) -> float:
@@ -425,10 +434,104 @@ func cave_open(column: Vector2i) -> bool:
 func cave_zones_near(center: Vector2i, reach: int) -> Array:
 	caves_in_zone(Vector3i.ZERO)
 	var result := []
-	for zone: Vector3i in _cave_zones:
-		if zone.y < -1 and maxi(absi(zone.x - center.x), absi(zone.z - center.y)) <= reach:
-			result.append(zone)
+	for x in range(center.x - reach, center.x + reach + 1):
+		for z in range(center.y - reach, center.y + reach + 1):
+			result.append_array(_cave_columns.get(Vector2i(x, z), []))
 	return result
+
+# 0.0.5.37 (version 14) : crevasses en éclair : grandes fentes ouvertes en zigzag, à peine creusées à un bout et de
+# plus en plus profondes et larges vers l'autre, jusqu'à la Roche-mère pour certaines. On y descend à pied.
+var _crevasse_zones: Dictionary = {}
+var _crevasses_ready := false
+
+func _crevasses_near(area: Vector2i) -> Array:
+	if int(generation_options.get("version", 0)) < 14 or _noise == null:
+		return []
+	if not _crevasses_ready:
+		_crevasses_ready = true
+		var chance: int = generation_options.get("crevasses", 0)
+		if chance > 0:
+			for x in range(-24, 24):
+				for z in range(-24, 24):
+					_make_crevasse(Vector2i(x, z), chance)
+	return _crevasse_zones.get(area, [])
+
+func _make_crevasse(area: Vector2i, chance: int) -> void:
+	var rng := RandomNumberGenerator.new()
+	rng.seed = hash([_seed, area.x, area.y, "crevasses"])
+	if rng.randf() >= 1.0 / chance:
+		return
+	var floor_y := mother_rock_top * STEP
+	var deepest := floor_y + 0.25 if rng.randf() < 0.35 else rng.randf_range(floor_y + 3.0, -11.0)
+	var widest := rng.randf_range(3.5, 5.5)
+	var at := Vector2(area) * ZONE_METERS + Vector2(rng.randf_range(0.0, 8.0), rng.randf_range(0.0, 8.0))
+	var heading := rng.randf() * TAU
+	var side := 1.0 if rng.randf() < 0.5 else -1.0
+	var points: Array[Vector2] = [at]
+	for index in range(rng.randi_range(7, 11)):
+		at += Vector2.from_angle(heading + side * rng.randf_range(0.5, 1.0)) * rng.randf_range(6.0, 11.0)
+		side = -side
+		points.append(at)
+	var total := 0.0
+	for index in range(points.size() - 1):
+		total += points[index].distance_to(points[index + 1])
+	var passed := 0.0
+	var pieces := []
+	for index in range(points.size() - 1):
+		var length := points[index].distance_to(points[index + 1])
+		pieces.append({"a": points[index], "b": points[index + 1], "from": passed / total, "to": (passed + length) / total, "deepest": deepest, "widest": widest})
+		passed += length
+	for point in points:
+		if absf(point.x) > 186.0 or absf(point.y) > 186.0:
+			return
+		for spot in _flat_spots:
+			if point.distance_to(spot[0]) < spot[1] + widest + 14.0:
+				return
+		for found in _all_mountains():
+			if point.distance_to(found.center) < found.radius * found.stretch + widest:
+				return
+		for lake in _lakes_near(point):
+			if _lake_distance(point, lake) < lake.radius + lake.get("bank", 0.0) + lake.get("wobble", 0.0) + widest + 4.0:
+				return
+	for piece in pieces:
+		var reach: float = piece.widest + 2.0
+		var low := Vector2i(floori((minf(piece.a.x, piece.b.x) - reach) / ZONE_METERS), floori((minf(piece.a.y, piece.b.y) - reach) / ZONE_METERS))
+		var high := Vector2i(floori((maxf(piece.a.x, piece.b.x) + reach) / ZONE_METERS), floori((maxf(piece.a.y, piece.b.y) + reach) / ZONE_METERS))
+		for x in range(low.x, high.x + 1):
+			for z in range(low.y, high.y + 1):
+				if not _crevasse_zones.has(Vector2i(x, z)):
+					_crevasse_zones[Vector2i(x, z)] = []
+				_crevasse_zones[Vector2i(x, z)].append(piece)
+
+# [distance au bord intérieur (négative : hors de la fente), fond ici, demi-largeur] pour une pièce.
+func _crevasse_at(at: Vector2, piece: Dictionary) -> Array:
+	var line: Vector2 = piece.b - piece.a
+	var along := clampf((at - piece.a).dot(line) / line.length_squared(), 0.0, 1.0)
+	var part: float = lerpf(piece.from, piece.to, along)
+	var width: float = lerpf(1.0, piece.widest, part)
+	var distance: float = at.distance_to(piece.a + line * along) + _warp.get_noise_2d(at.x * 0.9 - 71.0, at.y * 0.9 + 29.0) * width * 0.25
+	return [distance, lerpf(1.0, piece.deepest, part), width]
+
+func _with_crevasses(at: Vector2, height: float) -> float:
+	for piece in _crevasses_near(Vector2i(floori(at.x / ZONE_METERS), floori(at.y / ZONE_METERS))):
+		var there := _crevasse_at(at, piece)
+		if there[0] < there[2]:
+			height = minf(height, lerpf(height, there[1], 1.0 - smoothstep(there[2] * 0.6, there[2], there[0])))
+	return height
+
+func in_crevasse(at: Vector2) -> bool:
+	for piece in _crevasses_near(Vector2i(floori(at.x / ZONE_METERS), floori(at.y / ZONE_METERS))):
+		var there := _crevasse_at(at, piece)
+		if there[0] < there[2]:
+			return true
+	return false
+
+# Fond le plus bas d'une crevasse dans cette zone (0 : aucune).
+func _crevasse_floor(area: Vector2i) -> float:
+	var lowest := 0.0
+	for piece in _crevasses_near(area):
+		lowest = minf(lowest, lerpf(1.0, piece.deepest, piece.to))
+	return lowest
 
 # Zone plate : aucun point changé parmi ceux qu'elle lit, et pas de colline (0.0.5.14).
 func is_flat(zone: Vector3i) -> bool:
@@ -467,6 +570,8 @@ func surface_zones(low_zone: Vector2i, high_zone: Vector2i) -> Dictionary:
 			# 0.0.5.19 : relief continu (version 2 et plus) : des collines presque partout, pas de calcul à l'ouverture.
 			if _noise != null and (int(generation_options.get("version", 0)) >= 2 or zone_heights(Vector3i(x, 0, z)).y > 0.0):
 				result[Vector3i(x, 0, z)] = true
+				for y in range(floori(_crevasse_floor(Vector2i(x, z)) / ZONE_METERS) - 1, -1):
+					result[Vector3i(x, y, z)] = true
 				# 0.0.5.23 : zones en hauteur des montagnes (version 7).
 				for y in range(1, floori((mountain_top(Vector2i(x, z)) + 3.5) / ZONE_METERS) + 1):
 					result[Vector3i(x, y, z)] = true
@@ -520,17 +625,36 @@ func zone_mesh(zone: Vector3i) -> Array:
 			tops[x * size + z] = top
 			for y in range(height):
 				values[(x * height + y) * size + z] = clampf(top - (y_low + y) * STEP, -1.0, 1.0)
-	# 0.0.5.37 : grottes : seulement les points autour de chaque boule (bien plus rapide que tous les points).
+	# 0.0.5.37 : grottes : seulement les points de chaque boule, et on retient les hauteurs touchées par colonne.
+	var cave_low := PackedInt32Array()
+	var cave_high := PackedInt32Array()
+	cave_low.resize(size * size)
+	cave_high.resize(size * size)
+	cave_low.fill(height)
+	cave_high.fill(-1)
 	for node in cave_nodes:
 		var middle: Vector3 = node.at / STEP - Vector3(start)
-		var around: int = ceili(node.radius / STEP) + 2
-		var lift := middle.round()
-		for x in range(maxi(0, int(lift.x) - around), mini(size, int(lift.x) + around + 1)):
-			for z in range(maxi(0, int(lift.z) - around), mini(size, int(lift.z) + around + 1)):
-				for y in range(maxi(0, int(lift.y) - around), mini(height, int(lift.y) + around + 1)):
-					if y_low + y > mother_rock_top:
-						var index := (x * height + y) * size + z
-						values[index] = minf(values[index], clampf(Vector3(x, y, z).distance_to(middle) * STEP - node.radius, -1.0, 1.0))
+		var radius: float = node.radius
+		var reach: float = (radius + 1.0) / STEP
+		var reach2 := reach * reach
+		var around := ceili(reach) + 1
+		var near := middle.round()
+		for x in range(maxi(0, int(near.x) - around), mini(size, int(near.x) + around + 1)):
+			var dx := x - middle.x
+			for z in range(maxi(0, int(near.z) - around), mini(size, int(near.z) + around + 1)):
+				var dz := z - middle.z
+				var flat := dx * dx + dz * dz
+				if flat >= reach2:
+					continue
+				for y in range(maxi(0, int(near.y) - around), mini(height, int(near.y) + around + 1)):
+					var dy := y - middle.y
+					var far2 := flat + dy * dy
+					if far2 >= reach2 or y_low + y <= mother_rock_top:
+						continue
+					var index := (x * height + y) * size + z
+					values[index] = minf(values[index], clampf(Vector3(x, y, z).distance_to(middle) * STEP - radius, -1.0, 1.0))
+					cave_low[x * size + z] = mini(cave_low[x * size + z], y)
+					cave_high[x * size + z] = maxi(cave_high[x * size + z], y)
 	var kinds := {}
 	for point: Vector3i in nearby:
 		var local := point - start
@@ -552,7 +676,7 @@ func zone_mesh(zone: Vector3i) -> Array:
 	corners.resize(8)
 	# 0.0.5.25 : sans point changé, la surface ne passe qu'entre les hauteurs des 4 coins de chaque colonne :
 	# on ne regarde que celles-là (même résultat, bien plus rapide). Matière de chaque point gardée une seule fois.
-	var free := nearby.is_empty() and cave_nodes.is_empty()
+	var free := nearby.is_empty()
 	var low_cells := PackedInt32Array()
 	var high_cells := PackedInt32Array()
 	low_cells.resize((size - 1) * (size - 1))
@@ -574,6 +698,17 @@ func zone_mesh(zone: Vector3i) -> Array:
 				var d := tops[(x + 1) * size + z + 1]
 				lowest_y = maxi(0, floori(minf(minf(a, b), minf(c, d)) / STEP) - y_low - 2)
 				highest_y = mini(height - 2, ceili(maxf(maxf(a, b), maxf(c, d)) / STEP) - y_low + 1)
+				var hollow_low := mini(mini(cave_low[x * size + z], cave_low[x * size + z + 1]), mini(cave_low[(x + 1) * size + z], cave_low[(x + 1) * size + z + 1]))
+				var hollow_high := maxi(maxi(cave_high[x * size + z], cave_high[x * size + z + 1]), maxi(cave_high[(x + 1) * size + z], cave_high[(x + 1) * size + z + 1]))
+				if hollow_high >= 0:
+					hollow_low = maxi(0, hollow_low - 2)
+					hollow_high = mini(height - 2, hollow_high + 1)
+					if lowest_y > highest_y:
+						lowest_y = hollow_low
+						highest_y = hollow_high
+					else:
+						lowest_y = mini(lowest_y, hollow_low)
+						highest_y = maxi(highest_y, hollow_high)
 			low_cells[x * (size - 1) + z] = lowest_y
 			high_cells[x * (size - 1) + z] = highest_y
 			slab_min = mini(slab_min, lowest_y)
@@ -1209,6 +1344,7 @@ func rocks_in_zone(area: Vector2i) -> Array:
 		# 0.0.5.32 : pas de rocher dans un trou de boue.
 		wet = wet or _mud_pit_depth(at) > 0.0
 		wet = wet or cave_open(Vector2i(roundi(at.x / STEP), roundi(at.y / STEP)))
+		wet = wet or in_crevasse(at)
 		if not near_spot and not wet:
 			var entry: Dictionary = rock.duplicate()
 			entry.id = "%d_%d_%d" % [area.x, area.y, index]
@@ -1218,7 +1354,7 @@ func rocks_in_zone(area: Vector2i) -> Array:
 
 # Boue en surface (bord et fond d'un lac, version 5) ; argile ou boue en surface (version 6) : pas d'herbe.
 func muddy(column: Vector2i) -> bool:
-	if cave_open(column):
+	if cave_open(column) or in_crevasse(Vector2(column) * STEP):
 		return true
 	return _soil(column).has("mud") or _soil(column).has("top") or mountain_stone(column) >= ground_height(column) - 0.01
 
