@@ -1,6 +1,12 @@
-# OrbMeka™ — prototype 0.0.5.26
+# OrbMeka™ — prototype 0.0.5.27
 
 Godot 4.7 / GDScript. Formes et couleurs simples ; assets externes seulement sous licence vérifiée (sons CC0, assets/sounds/CREDITS.txt).
+
+## 0.0.5.27 — Roche-mère irrégulière
+- **Roche-mère** : plus de fond avec des points : toute la surface en petites taches irrégulières (noir, gris foncé,
+  gris clair, bleu et rouge), sans couleur principale. Notre propre motif, sans pixels.
+
+Tests choisis réussis ; captures PC. À tester manuellement : aspect en jeu et sur le Web.
 
 ## 0.0.5.26 — Sous-sol plus profond (#130)
 - **Génération version 9** (nouveaux mondes) : 5 m de terre, 10 m de pierre, 10 m de **pierre sombre** (un peu noircie,

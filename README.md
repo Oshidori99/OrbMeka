@@ -1,8 +1,8 @@
-# OrbMeka™ 0.0.5.26
+# OrbMeka™ 0.0.5.27
 
 Dans Godot, ouvrez **project.godot**, puis **F5** pour lancer le jeu.
 
-0.0.5.26 : sous-sol plus profond : 5 m de terre, 10 m de pierre, 10 m de pierre sombre, puis la Roche-mère tachetée.
+0.0.5.27 : Roche-mère toute irrégulière (noir, gris, gris clair, bleu, rouge), sous 5 m de terre, 10 m de pierre, 10 m de pierre sombre.
 0.0.5.21 : lacs de 2 et 4 zones aux bords irréguliers, bandes de boue et d'argile grise, régions de boue, grands déserts seulement (8 %).
 0.0.5.20 : monde de 48 × 48 zones, argile et boue, lacs de 1 zone et de 1 × 2 zones, dossiers des mondes à leur nom.
 0.0.5.19 : rochers plus gros, rochers au hasard dans les nouveaux mondes, minés à la pioche ; petits lacs.
