@@ -287,12 +287,38 @@ F1 : revenir à la liste des mondes depuis la partie." % [sizes[0], sizes[1], Wo
 	home_generation_text.text = "Un nouveau monde utilise la génération standard ci-dessous (ou ses réglages de « Monde personnalisé… »), enregistrée avec lui.\n" + Generation.describe(Generation.defaults())
 	home_generation_body.add_child(home_generation_text)
 	_make_foldable(home_generation_title, home_generation_body, "information:generation")
+	# 0.0.6 : dernières mises à jour du jeu, de la génération et des menus (version_news.gd).
+	_explanation(information_page, "Mises à jour")
+	information_page.get_child(-1).theme_type_variation = "OrbSection"
+	var news_title: Node = information_page.get_child(-1)
+	var news_body := _fold_body(information_page)
+	var news_text := _text_label()
+	news_text.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	news_text.text = VersionNews.text(str(ProjectSettings.get_setting("application/config/version")))
+	news_body.add_child(news_text)
+	_make_foldable(news_title, news_body, "information:news")
 	# 0.0.5.28 : la page Licences (Paramètres), aussi depuis Informations ; Retour revient ici.
 	information_licences_button = _button("Licences", information_page, open_licences)
 	information_back_button = _button("Retour", information_page, func(): show_page("home"))
 	var list_page := _page(stack, "Mes mondes")
 	pages.worlds = _page_root(list_page)
 	_sep(list_page, 10)
+	# 0.0.6 : les trois listes (Paramètres généraux → Mondes → Dossiers sécurisés), en onglets tout en haut.
+	list_tabs_row = HBoxContainer.new()
+	_sep(list_tabs_row, 8)
+	list_page.add_child(list_tabs_row)
+	var list_group := ButtonGroup.new()
+	for list in WorldShelves.LISTS:
+		var tab := _button(WorldShelves.ICONS[list] + " " + WorldShelves.NAMES[list], list_tabs_row, func(): show_world_list(list))
+		tab.theme_type_variation = "OrbTab"
+		tab.toggle_mode = true
+		tab.button_group = list_group
+		tab.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		tab.tooltip_text = WorldShelves.HELP[list]
+		list_tabs[list] = tab
+	list_help = _text_label()
+	list_help.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	list_page.add_child(list_help)
 	world_list = ItemList.new()
 	world_list.custom_minimum_size = Vector2(0, 144)
 	menu_reserved_heights[world_list] = 380.0
@@ -302,9 +328,16 @@ F1 : revenir à la liste des mondes depuis la partie." % [sizes[0], sizes[1], Wo
 	world_list.item_activated.connect(func(_index: int): open_selected_world())
 	# 0.0.6 : « ! » jaune à droite des mondes créés avec une ancienne génération.
 	world_list.draw.connect(_draw_old_world_marks)
+	# Sous la liste : message à gauche, + à droite pour créer un sous-dossier (un seul niveau).
+	var message_row := HBoxContainer.new()
+	_sep(message_row, 8)
+	list_page.add_child(message_row)
 	list_message = _text_label()
 	list_message.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	list_page.add_child(list_message)
+	list_message.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	message_row.add_child(list_message)
+	new_folder_button = _icon_button("+", "Créer un sous-dossier", message_row, request_new_folder)
+	new_folder_button.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
 	# Une seule rangée : Ouvrir en toutes lettres, les autres actions en icônes (nom au survol).
 	var actions_row := HBoxContainer.new()
 	_sep(actions_row, 8)
@@ -315,6 +348,7 @@ F1 : revenir à la liste des mondes depuis la partie." % [sizes[0], sizes[1], Wo
 	rename_button = _icon_button("✏️", "Renommer", actions_row, request_rename)
 	duplicate_button = _icon_button("📋", "Dupliquer (même graine)", actions_row, duplicate_selected_world)
 	world_settings_button = _icon_button("⚙️", "Paramètres du monde", actions_row, open_world_settings)
+	move_button = _icon_button("📦", "Déplacer (autre liste ou sous-dossier)", actions_row, request_move)
 	delete_button = _icon_button("🗑️", "Supprimer", actions_row, request_delete)
 	_button("Retour", list_page, func(): show_page("home"))
 	var form := _page(stack, "Créer un monde")
@@ -389,6 +423,27 @@ Nom, graine, mode, constructions et position sauvegardés." % Catalog.MAX_NAME_L
 	developer_page.add_child(developer_confirm_message)
 	developer_confirm_button = _button("Confirmer : mode développeur", developer_page, confirm_developer_mode)
 	developer_cancel_button = _button("Annuler", developer_page, open_world_settings_for_pending)
+	var move_page := _page(stack, "Déplacer le monde")
+	pages.move = _page_root(move_page)
+	move_message = _text_label()
+	move_message.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	move_page.add_child(move_message)
+	move_choices = VBoxContainer.new()
+	_sep(move_choices, 8)
+	move_page.add_child(move_choices)
+	move_cancel_button = _button("Annuler", move_page, cancel_world_action)
+	var folder_page := _page(stack, "Nouveau sous-dossier")
+	pages.new_folder = _page_root(folder_page)
+	new_folder_message = _text_label()
+	new_folder_message.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	folder_page.add_child(new_folder_message)
+	folder_name_field = LineEdit.new()
+	folder_name_field.max_length = WorldShelves.MAX_FOLDER_NAME
+	_min_size(folder_name_field, Vector2(0, 46))
+	folder_page.add_child(folder_name_field)
+	folder_name_field.text_submitted.connect(func(_text: String): confirm_new_folder())
+	_button("Créer le dossier", folder_page, confirm_new_folder)
+	_button("Annuler", folder_page, func(): show_page("worlds"))
 	var old_world_page := _page(stack, "Monde d'une ancienne version")
 	pages.old_world_confirm = _page_root(old_world_page)
 	old_world_message = _text_label()
@@ -551,6 +606,10 @@ func show_page(next_page: String) -> void:
 		developer_cancel_button.grab_focus()
 	elif page == "old_world_confirm":
 		old_world_cancel_button.grab_focus()
+	elif page == "move":
+		move_cancel_button.grab_focus()
+	elif page == "new_folder":
+		folder_name_field.grab_focus()
 	elif page == "rename":
 		rename_field.grab_focus()
 	elif page == "pause":
@@ -563,10 +622,43 @@ func show_page(next_page: String) -> void:
 		play_button.grab_focus()
 
 func refresh_world_list(preferred_id: String = "") -> void:
+	var shelf: RefCounted = _shelves()
+	var on := shelves_on()
+	if not on:
+		world_list_name = "default"
+		world_subfolder = ""
+	catalog = shelf.catalogs[world_list_name]
+	var notes: Array = []
+	if on and settings.values.get("auto_secure_old", "off") == "on":
+		var moved: int = shelf.auto_secure()
+		if moved > 0:
+			notes.append("%d ancien(s) monde(s) rangé(s) dans « Versions sécurisées »." % moved)
 	world_list.clear()
+	if on and not world_subfolder.is_empty():
+		_add_list_entry("↩ %s : revenir à « %s »" % [world_subfolder, WorldShelves.NAMES[world_list_name]], UP_ENTRY)
+	elif on:
+		for folder in shelf.folders[world_list_name]:
+			_add_list_entry("📁 %s (%d)" % [folder, shelf.worlds_in(world_list_name, folder).size()], FOLDER_ENTRY + folder)
+	var hidden := 0
 	for item in catalog.worlds:
-		world_list.add_item(item.name)
-		world_list.set_item_metadata(world_list.item_count - 1, item.id)
+		if on and shelf.folder_of(item.id) != world_subfolder:
+			continue
+		if world_list_name == "default" and settings.values.get("hide_old_worlds", "off") == "on" and is_old_world(item):
+			hidden += 1
+			continue
+		_add_list_entry(item.name, item.id)
+	if hidden > 0:
+		notes.append("%d monde(s) d'anciennes générations caché(s) (Paramètres → Mondes)." % hidden)
+	var secured: int = shelf.catalogs.secure.worlds.size() + shelf.catalogs.versions.worlds.size()
+	if not on and secured > 0:
+		notes.append("%d monde(s) en sécurité, visibles avec Paramètres → Mondes → Dossiers sécurisés." % secured)
+	list_tabs_row.visible = on
+	list_help.visible = on
+	new_folder_button.visible = on and world_subfolder.is_empty()
+	for list in list_tabs:
+		list_tabs[list].set_pressed_no_signal(list == world_list_name)
+		list_tabs[list].text = "%s %s (%d)" % [WorldShelves.ICONS[list], WorldShelves.NAMES[list], shelf.catalogs[list].worlds.size()]
+	list_help.text = WorldShelves.HELP[world_list_name] + ("" if world_subfolder.is_empty() else "\nSous-dossier : " + world_subfolder)
 	open_button.disabled = true
 	if not catalog.load_error.is_empty():
 		list_message.text = catalog.load_error
@@ -581,19 +673,98 @@ func refresh_world_list(preferred_id: String = "") -> void:
 				world_list.select(index)
 	if not catalog.repair_note.is_empty():
 		list_message.text += "\n" + catalog.repair_note
+	for note in notes:
+		list_message.text += "\n" + note
 	_update_world_actions()
 
-func _selected_world_id() -> String:
+func _add_list_entry(text: String, entry: String) -> void:
+	world_list.add_item(text)
+	world_list.set_item_metadata(world_list.item_count - 1, entry)
+
+func _selected_entry() -> String:
 	var selection := world_list.get_selected_items()
 	return "" if selection.is_empty() else str(world_list.get_item_metadata(selection[0]))
 
+# Identifiant du monde choisi ("" pour un sous-dossier ou le retour).
+func _selected_world_id() -> String:
+	var entry := _selected_entry()
+	return "" if entry.begins_with(FOLDER_ENTRY) or entry == UP_ENTRY else entry
+
 func _update_world_actions() -> void:
+	var entry := _selected_entry()
+	var folder := entry.trim_prefix(FOLDER_ENTRY) if entry.begins_with(FOLDER_ENTRY) else ""
 	var available: bool = not _selected_world_id().is_empty() and catalog.load_error.is_empty()
-	open_button.disabled = not available
+	open_button.disabled = not available and folder.is_empty() and entry != UP_ENTRY
+	open_button.text = "📂 Ouvrir le dossier" if not folder.is_empty() else ("↩ Revenir" if entry == UP_ENTRY else "▶ Ouvrir")
 	rename_button.disabled = not available
-	delete_button.disabled = not available
+	# Un sous-dossier vide se supprime avec la corbeille ; jamais un dossier qui contient des mondes.
+	delete_button.disabled = not available and (folder.is_empty() or not _shelves().worlds_in(world_list_name, folder).is_empty())
 	duplicate_button.disabled = not available
 	world_settings_button.disabled = not available
+	move_button.visible = shelves_on()
+	move_button.disabled = not available
+
+func _shelves() -> RefCounted:
+	if shelves == null or not catalog in shelves.catalogs.values():
+		shelves = WorldShelves.new(catalog)
+		world_list_name = "default"
+		world_subfolder = ""
+	return shelves
+
+func shelves_on() -> bool:
+	return settings.values.get("world_shelves", "off") == "on"
+
+func show_world_list(list: String) -> void:
+	world_list_name = list
+	world_subfolder = ""
+	refresh_world_list()
+
+func request_new_folder() -> void:
+	folder_name_field.text = ""
+	new_folder_message.text = "Nouveau sous-dossier dans « %s » (1 à %d caractères ; pas de dossier dans un sous-dossier)." % [WorldShelves.NAMES[world_list_name], WorldShelves.MAX_FOLDER_NAME]
+	show_page("new_folder")
+
+func confirm_new_folder() -> void:
+	if not _shelves().create_folder(world_list_name, folder_name_field.text):
+		new_folder_message.text = shelves.last_error
+		return
+	show_page("worlds")
+	refresh_world_list(FOLDER_ENTRY + folder_name_field.text.strip_edges())
+
+func request_move() -> void:
+	var item: Dictionary = catalog.find_world(_selected_world_id())
+	if item.is_empty():
+		return
+	pending_world_id = item.id
+	for child in move_choices.get_children():
+		move_choices.remove_child(child)
+		child.queue_free()
+	move_message.text = "« %s » est dans « %s »%s." % [item.name, WorldShelves.NAMES[world_list_name], "" if world_subfolder.is_empty() else ", sous-dossier « %s »" % world_subfolder]
+	for list in WorldShelves.LISTS:
+		if list != world_list_name:
+			_button("%s Vers « %s »" % [WorldShelves.ICONS[list], WorldShelves.NAMES[list]], move_choices, func(): move_pending_world(list))
+	if not world_subfolder.is_empty():
+		_button("↩ Hors du sous-dossier", move_choices, func(): put_pending_world_in(""))
+	for folder in _shelves().folders[world_list_name]:
+		if folder != world_subfolder:
+			_button("📁 Dans « %s »" % folder, move_choices, func(): put_pending_world_in(folder))
+	show_page("move")
+
+func move_pending_world(list: String) -> void:
+	var item: Dictionary = catalog.find_world(pending_world_id)
+	if not _shelves().move_world(pending_world_id, list):
+		move_message.text = shelves.last_error
+		return
+	pending_world_id = ""
+	show_page("worlds")
+	list_message.text = "« %s » déplacé dans « %s »." % [item.get("name", ""), WorldShelves.NAMES[list]]
+
+func put_pending_world_in(folder: String) -> void:
+	if not _shelves().put_in_folder(pending_world_id, folder):
+		move_message.text = shelves.last_error
+		return
+	pending_world_id = ""
+	show_page("worlds")
 
 func duplicate_selected_world() -> void:
 	var item: Dictionary = catalog.duplicate_world(_selected_world_id())
@@ -685,6 +856,14 @@ func confirm_rename() -> void:
 	cancel_world_action()
 
 func request_delete() -> void:
+	var entry := _selected_entry()
+	if entry.begins_with(FOLDER_ENTRY):
+		if not _shelves().delete_folder(world_list_name, entry.trim_prefix(FOLDER_ENTRY)):
+			list_message.text = shelves.last_error
+			return
+		refresh_world_list()
+		list_message.text = "Sous-dossier vide supprimé."
+		return
 	var item: Dictionary = catalog.find_world(_selected_world_id())
 	if item.is_empty():
 		return
@@ -706,6 +885,11 @@ func cancel_world_action() -> void:
 	refresh_world_list(previous_id)
 
 func create_named_world() -> void:
+	# 0.0.6 : un nouveau monde va toujours dans « Par défaut » (dans le sous-dossier ouvert, s'il y en a un).
+	var folder := world_subfolder if world_list_name == "default" else ""
+	catalog = _shelves().catalogs.default
+	world_list_name = "default"
+	world_subfolder = folder
 	var item: Dictionary = catalog.create_world(name_field.text, seed_field.text, create_mode, false, Generation.defaults() if custom_generation.is_empty() else custom_generation)
 	if item.is_empty():
 		form_error.text = catalog.last_error
@@ -714,13 +898,19 @@ func create_named_world() -> void:
 		else:
 			name_field.grab_focus()
 		return
+	if not folder.is_empty() and shelves_on():
+		shelves.put_in_folder(item.id, folder)
 	open_world(item.id)
 
 func open_selected_world() -> void:
 	var selection := world_list.get_selected_items()
 	if selection.is_empty():
 		return
-	var id := str(world_list.get_item_metadata(selection[0]))
+	var id := _selected_entry()
+	if id.begins_with(FOLDER_ENTRY) or id == UP_ENTRY:
+		world_subfolder = id.trim_prefix(FOLDER_ENTRY) if id != UP_ENTRY else ""
+		refresh_world_list()
+		return
 	var item: Dictionary = catalog.find_world(id)
 	if not is_old_world(item):
 		open_world(id)
@@ -733,7 +923,7 @@ Le monde reste tel qu'il a été créé : les nouveautés du monde n'y apparaît
 # 0.0.6 : monde créé avec une génération plus ancienne que celle de cette version du jeu.
 # Dans une ancienne version du jeu, les mondes de sa propre génération ne sont donc pas signalés.
 func is_old_world(item: Dictionary) -> bool:
-	return not item.is_empty() and int(item.get("generation", {}).get("version", 0)) < Generation.VERSION
+	return WorldShelves.is_old(item)
 
 func _draw_old_world_marks() -> void:
 	var font := world_list.get_theme_font("font")
@@ -915,8 +1105,10 @@ func _cancel_page() -> void:
 		cancel_world_action()
 	elif page == "developer_confirm":
 		open_world_settings_for_pending()
-	elif page == "old_world_confirm":
+	elif page in ["old_world_confirm", "new_folder"]:
 		show_page("worlds")
+	elif page == "move":
+		cancel_world_action()
 	elif page == "settings":
 		leave_settings()
 	elif page in ["information", "history", "launcher"]:

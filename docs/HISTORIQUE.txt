@@ -4,69 +4,91 @@ Du plus récent au plus ancien. Ce fichier est mis à jour à chaque version.
 === Thème « Monde » (0.0.5 et suivantes) ===
 
 0.0.5.37 — Grottes et crevasses
+Génération du terrain : version 14 (nouvelle) · Menus : version 1.
 Grottes jusqu'à la Roche-mère, crevasses en éclair, liste des mondes protégée, accueil plus rapide.
 
 0.0.5.36 — Lointain plus net
+Génération du terrain : version 13 · Menus : version 1.
 Moins de brume, plus de blocs gris au loin, eau sans double couche, distances plus courtes sur le Web.
 
 0.0.5.35 — Grands lacs et chaînes de montagnes
+Génération du terrain : version 13 (nouvelle) · Menus : version 1.
 Lacs deux fois plus grands, environ 10 % d'eau, moins de petits lacs ; chaînes de montagnes, environ 18 % du sol.
 
 0.0.5.34 — Lacs de montagne
+Génération du terrain : version 12 (nouvelle) · Menus : version 1.
 Petits lacs sur des replats des montagnes, plus de lacs, moins de trous et moins ronds.
 
 0.0.5.33 — Très grands déserts
+Génération du terrain : version 11 (nouvelle) · Menus : version 1.
 Environ 6 déserts par monde, 10 % du sol, avec des montagnes de sable ; de la boue au fond de certains trous.
 
 0.0.5.32 — Trous de boue
+Génération du terrain : version 10 (nouvelle) · Menus : version 1.
 Parfois un trou de boue dans les nouveaux mondes, réglable dans le monde personnalisé.
 
 0.0.5.31 — Boue et argile glissantes
+Génération du terrain : version 9 · Menus : version 1.
 Boue un peu glissante, surtout en descente ; argile encore moins.
 
 0.0.5.30 — Mêmes couleurs sur PC et sur le Web
+Génération du terrain : version 9 · Menus : version 1.
 Couleurs rapprochées entre les deux versions ; zones d'herbe plus claires et plus sombres.
 
 0.0.5.29 — Erreur clavier du Web
+Génération du terrain : version 9 · Menus : version 1.
 Le jeu ne demande plus au navigateur la disposition du clavier (erreur en boucle).
 
 0.0.5.28 — Licences dans Informations
+Génération du terrain : version 9 · Menus : version 1.
 Bouton Licences dans Informations ; vitrine avec le renard et le lapin.
 
 0.0.5.27 — Roche-mère irrégulière
+Génération du terrain : version 9 · Menus : version 1.
 Toute la surface en taches irrégulières de noir, gris, gris clair, bleu et rouge, sans couleur principale.
 
 0.0.5.26 — Sous-sol plus profond
+Génération du terrain : version 9 (nouvelle) · Menus : version 1.
 5 m de terre, 10 m de pierre, 10 m de pierre sombre, puis la Roche-mère à 25 m, tachetée de noir, gris, bleu et rouge.
 
 0.0.5.25 — Jeu plus fluide, lointain plus rapide
+Génération du terrain : version 8 · Menus : version 1.
 Lointain réécrit (étalé sur les images, gardé), maillage plus rapide, herbe et ombres allégées, eau des lacs corrigée.
 
 0.0.5.24 — Montagnes où l'on peut monter
+Génération du terrain : version 8 (nouvelle) · Menus : version 1.
 Un peu plus de montagnes, la plupart gravissables, 20 à 25 % trop raides ; deux curseurs dans le monde personnalisé.
 
 0.0.5.23 — Montagnes, grands lacs et grands déserts
+Génération du terrain : version 7 (nouvelle) · Menus : version 1.
 Montagnes à cœur de pierre (7 % du sol) ; lacs et déserts moins nombreux mais plus grands ; lointain plus rapide.
 
 0.0.5.22 — Voir loin : niveaux de détail
+Génération du terrain : version 6 · Menus : version 1.
 Relief simplifié au-delà de la distance d'affichage (Distance lointaine, 24 zones) ; boue plus liquide, argile plus vraie.
 
 0.0.5.21 — Lacs irréguliers, boue et argile grise
+Génération du terrain : version 6 (nouvelle) · Menus : version 1.
 Lacs de 2 et 4 zones aux bords irréguliers, bandes de boue et d'argile grise, régions de boue ; grands déserts seulement.
 
 0.0.5.20 — Grand monde, argile, boue et lacs allongés
+Génération du terrain : version 5 (nouvelle) · Menus : version 1.
 Monde de 48 × 48 zones ; argile et boue (naturelles et à poser) ; lacs de 1 et 1 × 2 zones ; dossiers des mondes à leur nom.
 
 0.0.5.19 — Rochers à miner et petits lacs
+Génération du terrain : version 4 (nouvelle) · Menus : version 1.
 Rochers plus gros ; rochers au hasard dans les nouveaux mondes, cassés à la pioche ; petits lacs à l'eau calme.
 
 0.0.5.18 — Monde plus grand, déserts et rochers
+Génération du terrain : version 3 (nouvelle) · Menus : version 1.
 Mondes de 20 × 20 zones ; déserts 12 % (1, 3-4, 6-7 zones), trous énormes, Roche-mère noire-rouge ; essai de rochers ; vitrine.
 
 0.0.5.17 — Distance d'affichage et relief version 2
+Génération du terrain : version 2 (nouvelle) · Menus : version 1.
 Vue réglable de 1 à 32 zones (8), comptée à l'horizontale ; relief moins plat, déserts plus rares ; Génération du monde.
 
 0.0.5.16 — Mondes personnalisés
+Génération du terrain : version 1 (nouvelle) · Menus : version 1.
 Dix fréquences de génération, repères du monde standard et ↻ ; réglages conservés par monde.
 Distance de l'herbe dans Vidéo → Jeu (36 m par défaut) ; compteur FPS moteur conservé.
 

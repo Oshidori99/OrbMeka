@@ -93,6 +93,10 @@ const CHOICES := {
 	"character": {"label": "Personnage", "options": {"boy9": "Garçon 9 ans", "girl9": "Fille 9 ans", "boy14": "Garçon 14 ans", "girl14": "Fille 14 ans", "man": "Homme", "woman": "Femme", "cat": "Chat", "brioche": "Brioche", "squirrel": "Écureuil", "fox": "Renard", "turtle": "Tortue", "rabbit": "Lapin bleu"}, "default": "boy14"},
 	# 0.0.3.22 : ton de peau des humains, même fichier ; absent (ancien fichier) : ton d'avant du personnage.
 	"skin": {"label": "Couleur de peau", "options": {"light": "Peau claire", "brown": "Peau brune", "dark": "Peau foncée"}, "default": "light"},
+	# 0.0.6 : liste des mondes : cacher les anciennes générations, listes sécurisées (world_shelves.gd), rangement automatique.
+	"hide_old_worlds": {"label": "Cacher les mondes d'anciennes générations", "options": {"on": "Oui", "off": "Non"}, "default": "off"},
+	"world_shelves": {"label": "Dossiers sécurisés", "options": {"on": "Oui", "off": "Non"}, "default": "off"},
+	"auto_secure_old": {"label": "Ranger les anciens mondes dans « Versions sécurisées »", "options": {"on": "Oui", "off": "Non"}, "default": "off"},
 }
 # Ton de chaque humain avant 0.0.3.22 (mêmes valeurs que former_skin dans character_preview.gd).
 const FORMER_SKINS := {"boy": "light", "girl": "brown", "man": "dark", "woman": "light"}
@@ -107,7 +111,7 @@ const DEFAULT_PATH := "user://settings.json"
 # Taille de référence du texte courant dans le thème : Taille du texte / 18 = facteur des polices.
 const BASE_TEXT_PX := 18.0
 const FILES := {"general": "parametres-generaux.json", "video": "video.json", "character": "personnage.json", "attributes": "attributs.json"}
-const GENERAL_KEYS := ["character_volume", "menu_volume", "mouse_sensitivity", "text_detail"]
+const GENERAL_KEYS := ["auto_secure_old", "character_volume", "hide_old_worlds", "menu_volume", "mouse_sensitivity", "text_detail", "world_shelves"]
 const CONTROLS_FILE := "controles.json"
 # 0.0.4.14 : titres réduits de Paramètres et choix à l'ouverture (last, expanded, collapsed).
 const MENUS_FILE := "menus.json"

@@ -21,6 +21,8 @@ Guide complet : docs/README.md. Fichiers techniques : docs/ORGANISATION.txt.
   - mondes : worlds.json (index) et un dossier par monde mondes/<nom du monde>/ (0.0.5.20 ; nom nettoyé, identifiant
     pour les mondes non migrés) : monde.json (nom, **graine**, mode, génération), objets.json (rochers),
     joueur.json (position, regard), zones/zone_X_Y_Z.bin (seulement les changements, format versionné) ;
+  - mondes en sécurité (0.0.6, scripts/world_shelves.gd) : mondes-securises.json + mondes-securises/, mondes-versions.json
+    + mondes-versions/ (jamais lus par les anciennes versions) ; sous-dossiers et exceptions dans mondes-dossiers.json ;
   - launcher : launcher/.
 
 ## Tests

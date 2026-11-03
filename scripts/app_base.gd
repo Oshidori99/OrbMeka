@@ -4,6 +4,8 @@ extends Control
 # ajustement à la fenêtre. Suite : app_controls.gd, app_launcher.gd, app_settings.gd, app.gd.
 
 const Catalog = preload("res://scripts/world_catalog.gd")
+const WorldShelves = preload("res://scripts/world_shelves.gd")
+const VersionNews = preload("res://scripts/version_news.gd")
 const WorldScene = preload("res://scenes/world.tscn")
 const WorldRules = preload("res://scripts/world.gd")
 const UserSettings = preload("res://scripts/user_settings.gd")
@@ -23,7 +25,7 @@ const MENU_BASE_SIZE := Vector2(1280, 720)
 const MENU_BASE_WIDTH := 560.0
 const MENU_MAX_WIDTH_RATIO := 0.7
 # Pages de contenu (paramètres, listes, textes) : plus larges, pour moins de lignes et de défilement.
-const COMPACT_PAGES := ["home", "pause", "delete", "developer_confirm", "old_world_confirm"]
+const COMPACT_PAGES := ["home", "pause", "delete", "developer_confirm", "old_world_confirm", "move", "new_folder"]
 # Pages larges : réglage Vidéo → Taille des panneaux (72 % par défaut). Les pages compactes
 # suivent dans la même proportion. Jamais plus de 95 % de la fenêtre.
 const WIDE_MAX_RATIO := 0.95
@@ -55,6 +57,7 @@ const GENERAL_CATEGORIES := {
 		"Souris": {"keys": ["mouse_sensitivity"], "help": ["", "Rotation de la vue.", "Vitesse de rotation de la vue."]},
 		"Son": {"keys": ["menu_volume", "character_volume"], "help": ["", "Volume des menus et des personnages.", "Volume des petits sons des menus (survol, clic, retour), et des voix et cris des personnages quand on les choisit ; 0 = muet. Voix : synthèse vocale de l'ordinateur (rien n'est enregistré)."]},
 		"Textes": {"keys": ["text_detail"], "help": ["", "Détail des explications.", "Quantité de détails dans les explications : − l'essentiel, + tout."]},
+		"Mondes": {"keys": ["hide_old_worlds", "world_shelves", "auto_secure_old"], "help": ["", "Liste des mondes : anciens mondes, dossiers sécurisés.", "Cacher : les mondes d'une génération plus ancienne que celle du jeu n'apparaissent plus dans « Par défaut ». Dossiers sécurisés : trois listes dans Mes mondes (Par défaut, Sécurisés, Versions sécurisées) et des sous-dossiers ; les mondes mis en sécurité sont rangés à part, hors de portée des anciennes versions du jeu. Ranger : avec les dossiers, les anciens mondes vont tout seuls dans « Versions sécurisées », sauf ceux ramenés dans « Par défaut » (exceptions)."]},
 	},
 	"video": {
 		# 0.0.5.8 : réglages du jeu en premier (demande de l'utilisateur).
@@ -188,6 +191,22 @@ var developer_cancel_button: Button
 var old_world_message: RichTextLabel
 var old_world_cancel_button: Button
 var pending_old_world := ""
+# 0.0.6 : listes et sous-dossiers des mondes (world_shelves.gd), entrées spéciales de la liste.
+const FOLDER_ENTRY := "dossier:"
+const UP_ENTRY := "retour:"
+var shelves: RefCounted
+var world_list_name := "default"
+var world_subfolder := ""
+var list_tabs := {}
+var list_tabs_row: HBoxContainer
+var list_help: RichTextLabel
+var new_folder_button: Button
+var move_button: Button
+var move_message: RichTextLabel
+var move_choices: VBoxContainer
+var move_cancel_button: Button
+var new_folder_message: RichTextLabel
+var folder_name_field: LineEdit
 var form_error: RichTextLabel
 var shortcut_hints: Label
 var play_button: Button

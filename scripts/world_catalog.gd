@@ -24,10 +24,13 @@ var worlds_root: String
 # Message de réparation (monde.json illisible mis de côté et recréé), affiché dans Mes mondes.
 var repair_note := ""
 var rng := RandomNumberGenerator.new()
+# 0.0.6 : les autres listes de mondes (world_shelves.gd) : un nom reste unique dans toutes.
+var siblings: Array = []
 
-func _init(path: String = "user://worlds.json") -> void:
+# 0.0.6 : root choisi pour les listes mises en sécurité (world_shelves.gd).
+func _init(path: String = "user://worlds.json", root: String = "") -> void:
 	storage_path = path
-	worlds_root = Store.ROOT if path == "user://worlds.json" else path.get_basename() + "-mondes"
+	worlds_root = root if not root.is_empty() else (Store.ROOT if path == "user://worlds.json" else path.get_basename() + "-mondes")
 	rng.randomize()
 	_load_worlds()
 	if load_error.is_empty():
@@ -119,7 +122,10 @@ func world_size(id: String) -> int:
 
 # Tous les noms pris, ceux des mondes illisibles compris (pas de conflit quand une version plus récente les relira).
 func _named_worlds() -> Array:
-	return worlds + unreadable_worlds.filter(func(item): return item is Dictionary and item.get("id") is String and item.get("name") is String)
+	var others: Array = []
+	for sibling in siblings:
+		others.append_array(sibling.worlds)
+	return worlds + others + unreadable_worlds.filter(func(item): return item is Dictionary and item.get("id") is String and item.get("name") is String)
 
 func _load_worlds() -> void:
 	if not FileAccess.file_exists(storage_path):
