@@ -23,7 +23,7 @@ const MENU_BASE_SIZE := Vector2(1280, 720)
 const MENU_BASE_WIDTH := 560.0
 const MENU_MAX_WIDTH_RATIO := 0.7
 # Pages de contenu (paramètres, listes, textes) : plus larges, pour moins de lignes et de défilement.
-const COMPACT_PAGES := ["home", "pause", "delete", "developer_confirm"]
+const COMPACT_PAGES := ["home", "pause", "delete", "developer_confirm", "old_world_confirm"]
 # Pages larges : réglage Vidéo → Taille des panneaux (72 % par défaut). Les pages compactes
 # suivent dans la même proportion. Jamais plus de 95 % de la fenêtre.
 const WIDE_MAX_RATIO := 0.95
@@ -185,6 +185,9 @@ var attributes_default_button: Button
 var developer_confirm_message: RichTextLabel
 var developer_confirm_button: Button
 var developer_cancel_button: Button
+var old_world_message: RichTextLabel
+var old_world_cancel_button: Button
+var pending_old_world := ""
 var form_error: RichTextLabel
 var shortcut_hints: Label
 var play_button: Button

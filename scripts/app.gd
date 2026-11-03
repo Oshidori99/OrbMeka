@@ -300,6 +300,8 @@ F1 : revenir à la liste des mondes depuis la partie." % [sizes[0], sizes[1], Wo
 	list_page.add_child(world_list)
 	world_list.item_selected.connect(func(_index: int): _update_world_actions())
 	world_list.item_activated.connect(func(_index: int): open_selected_world())
+	# 0.0.6 : « ! » jaune à droite des mondes créés avec une ancienne génération.
+	world_list.draw.connect(_draw_old_world_marks)
 	list_message = _text_label()
 	list_message.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	list_page.add_child(list_message)
@@ -387,6 +389,13 @@ Nom, graine, mode, constructions et position sauvegardés." % Catalog.MAX_NAME_L
 	developer_page.add_child(developer_confirm_message)
 	developer_confirm_button = _button("Confirmer : mode développeur", developer_page, confirm_developer_mode)
 	developer_cancel_button = _button("Annuler", developer_page, open_world_settings_for_pending)
+	var old_world_page := _page(stack, "Monde d'une ancienne version")
+	pages.old_world_confirm = _page_root(old_world_page)
+	old_world_message = _text_label()
+	old_world_message.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	old_world_page.add_child(old_world_message)
+	_button("Ouvrir quand même", old_world_page, func(): open_world(pending_old_world))
+	old_world_cancel_button = _button("Annuler", old_world_page, func(): show_page("worlds"))
 	var rename_page := _page(stack, "Renommer le monde")
 	pages.rename = _page_root(rename_page)
 	_explanation(rename_page, ["", "Seul le nom change.", "Seul le nom change (1 à %d caractères).
@@ -540,6 +549,8 @@ func show_page(next_page: String) -> void:
 		world_settings_back_button.grab_focus()
 	elif page == "developer_confirm":
 		developer_cancel_button.grab_focus()
+	elif page == "old_world_confirm":
+		old_world_cancel_button.grab_focus()
 	elif page == "rename":
 		rename_field.grab_focus()
 	elif page == "pause":
@@ -707,8 +718,31 @@ func create_named_world() -> void:
 
 func open_selected_world() -> void:
 	var selection := world_list.get_selected_items()
-	if not selection.is_empty():
-		open_world(str(world_list.get_item_metadata(selection[0])))
+	if selection.is_empty():
+		return
+	var id := str(world_list.get_item_metadata(selection[0]))
+	var item: Dictionary = catalog.find_world(id)
+	if not is_old_world(item):
+		open_world(id)
+		return
+	pending_old_world = id
+	old_world_message.text = "« %s » a été créé avec la génération version %d ; cette version du jeu utilise la version %d.
+Le monde reste tel qu'il a été créé : les nouveautés du monde n'y apparaîtront pas." % [item.name, int(item.get("generation", {}).get("version", 0)), Generation.VERSION]
+	show_page("old_world_confirm")
+
+# 0.0.6 : monde créé avec une génération plus ancienne que celle de cette version du jeu.
+# Dans une ancienne version du jeu, les mondes de sa propre génération ne sont donc pas signalés.
+func is_old_world(item: Dictionary) -> bool:
+	return not item.is_empty() and int(item.get("generation", {}).get("version", 0)) < Generation.VERSION
+
+func _draw_old_world_marks() -> void:
+	var font := world_list.get_theme_font("font")
+	var font_size := world_list.get_theme_font_size("font_size")
+	for index in range(world_list.item_count):
+		if is_old_world(catalog.find_world(str(world_list.get_item_metadata(index)))):
+			var rect := world_list.get_item_rect(index)
+			var y := rect.position.y - world_list.get_v_scroll_bar().value + (rect.size.y + font.get_ascent(font_size) - font.get_descent(font_size)) / 2.0
+			world_list.draw_string(font, Vector2(world_list.size.x - 30.0, y), "!", HORIZONTAL_ALIGNMENT_LEFT, -1, font_size, Color("#ffd23f"))
 
 func open_world(id: String) -> void:
 	var item: Dictionary = catalog.find_world(id)
@@ -881,6 +915,8 @@ func _cancel_page() -> void:
 		cancel_world_action()
 	elif page == "developer_confirm":
 		open_world_settings_for_pending()
+	elif page == "old_world_confirm":
+		show_page("worlds")
 	elif page == "settings":
 		leave_settings()
 	elif page in ["information", "history", "launcher"]:
