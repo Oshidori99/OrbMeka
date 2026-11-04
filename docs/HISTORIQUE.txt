@@ -3,6 +3,10 @@ Du plus récent au plus ancien. Ce fichier est mis à jour à chaque version.
 
 === Thème « Monde » (0.0.5 et suivantes) ===
 
+0.0.6 — Monde plus grand, mondes en sécurité
+Génération du terrain : version 15 (nouvelle) · Menus : version 2 (nouvelle).
+Mondes de 512 m ; anciens mondes signalés ; dossiers sécurisés et sous-dossiers ; mises à jour dans Informations.
+
 0.0.5.37 — Grottes et crevasses
 Génération du terrain : version 14 (nouvelle) · Menus : version 1.
 Grottes jusqu'à la Roche-mère, crevasses en éclair, liste des mondes protégée, accueil plus rapide.

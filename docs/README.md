@@ -1,6 +1,17 @@
-# OrbMeka™ — prototype 0.0.5.37
+# OrbMeka™ — prototype 0.0.6
 
 Godot 4.7 / GDScript. Formes et couleurs simples ; assets externes seulement sous licence vérifiée (sons CC0, assets/sounds/CREDITS.txt).
+
+## 0.0.6 — Monde plus grand, mondes en sécurité
+Début de la série « Monde 2 ».
+- **Génération version 15** (nouveaux mondes) : monde de **64 × 64 zones** (512 m, contre 384 m). Les mondes déjà créés gardent 48 × 48 zones (#135).
+- **Mes mondes** : « ! » jaune à droite des mondes d'une ancienne génération ; les ouvrir demande une confirmation.
+- **Paramètres généraux → Mondes** : cacher les anciens mondes ; **dossiers sécurisés** (onglets Par défaut, Sécurisés, Versions sécurisées), rangés à part et jamais lus par les anciennes versions du jeu ; rangement automatique des anciens mondes, avec exceptions ; sous-dossiers (+) et bouton Déplacer.
+- **Informations** : mises à jour du jeu, de la génération et des menus. **Historique** : version de génération et des menus de chaque version.
+- **Icône du jeu** : l'orbe au-dessus d'une crevasse.
+
+Tests : tous réussis (59). Mesures (rendu Web simulé sur PC) : à l'arrêt 210 FPS, en vol 63 FPS sur PC et 29 en rendu Web (34 avant) ; ouverture d'un monde 0,95 s (0,83 avant).
+À tester manuellement : bord du monde à 256 m, déplacer des mondes et ouvrir un sous-dossier, une ancienne version du jeu ne voit pas les mondes sécurisés, fluidité dans un navigateur.
 
 ## 0.0.5.37 — Grottes et crevasses
 - **Génération version 14** (nouveaux mondes) : **grottes** (entrées dans environ 6 % des zones, environ 13 % de vide sous terre), certaines jusqu'à la Roche-mère, jamais creusée ; **crevasses en éclair** (environ 8 par monde), peu profondes à un bout, très profondes à l'autre. Curseurs dans le monde personnalisé.
