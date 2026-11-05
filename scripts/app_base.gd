@@ -96,6 +96,7 @@ var layout_apply_button: Button
 # Contrôles (0.0.3.12) : bouton de touche et ↻ par action ; action en attente d'une touche.
 var control_buttons: Dictionary = {}
 var control_resets: Dictionary = {}
+var control_removes: Dictionary = {}
 var controls_reset_all_button: Button
 var capturing_action := ""
 # 0.0.3.27 : deuxième touche (bouton et ✕ par action), choix de la deuxième touche en cours,

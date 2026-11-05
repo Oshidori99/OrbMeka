@@ -22,7 +22,7 @@ func _build_controls_section(parent: Node) -> void:
 	var list := VBoxContainer.new()
 	_sep(list, 10)
 	inset.add_child(list)
-	_explanation(list, ["", "Cliquez une touche puis appuyez sur la nouvelle. Échap : aucune. + : options et combinaisons.", "Cliquez une touche, puis appuyez sur la touche ou le bouton de souris voulu (molette comprise). Échap : aucune touche. + : Nouvelle option (une autre façon de faire l'action), Simultanément (accolade sous les touches), Appuyer après (→ ; 0,5 s au plus entre deux, la même touche deux fois = double appui) ; 4 touches et 3 options au plus. ✕ retire une touche ou une option. Les flèches ← → restent toujours actives pour aller de côté. Seule Échap (Menus) est réservée ; F1 à F4 se changent dans Raccourcis."])
+	_explanation(list, ["", "Cliquez une touche puis appuyez sur la nouvelle. Échap : annuler. ✕ : aucune. + : options et combinaisons.", "Cliquez une touche, puis appuyez sur la touche voulue, ou cliquez sur la case avec le bouton de souris voulu (molette comprise). Échap ou un clic ailleurs : annuler, la touche reste. + : Nouvelle option (une autre façon de faire l'action), Simultanément (accolade sous les touches), Appuyer après (→ ; 0,5 s au plus entre deux, la même touche deux fois = double appui) ; 4 touches et 3 options au plus. ✕ retire une touche ou une option ; sur une touche seule, la désactive (Aucune). Les flèches ← → restent toujours actives pour aller de côté. Seule Échap (Menus) est réservée ; F1 à F4 se changent dans Raccourcis."])
 	# Parties (0.0.4.8) : Mouvements, Blocs, Vitesses, puis Menus (touches réservées).
 	for group in Controls.GROUPS:
 		_explanation(list, group)
@@ -164,6 +164,12 @@ func _build_control_action(action: String, filter: bool = true) -> void:
 			if chord.size() > 1:
 				_add_chord_brace(chord_box, chord_keys)
 		if index == 0:
+			# 0.0.6 : ✕ aussi sur la première option : une touche seule peut être désactivée (plus aucune touche).
+			var remove_first := _button("✕", row, func(): remove_control_option(action, 0))
+			_min_size(remove_first, Vector2(42, 0))
+			remove_first.tooltip_text = "Désactiver cette touche" if all.size() <= 1 else "Retirer cette option"
+			remove_first.disabled = all.is_empty()
+			control_removes[action] = remove_first
 			var reset := _button("↻", row, func(): reset_control(action))
 			_min_size(reset, Vector2(42, 0))
 			reset.tooltip_text = "Rétablir : " + Controls.label(Controls.default_for(action))

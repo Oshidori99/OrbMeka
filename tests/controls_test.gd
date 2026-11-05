@@ -72,6 +72,9 @@ func _run() -> void:
 	app.control_buttons.jump.pressed.emit()
 	press_mouse(MOUSE_BUTTON_LEFT, false)
 	check(app.capturing_action == "" and settings.controls.jump == jump_before and has_mouse("break_block", MOUSE_BUTTON_LEFT), "a click elsewhere cancels: nothing taken from Casser")
+	# 0.0.6 : ✕ sur une touche seule : désactivée, la case dit « Aucune ».
+	app.control_removes.jump.pressed.emit()
+	check(settings.controls.jump == Controls.normalize({}) and InputMap.action_get_events("jump").is_empty() and app.control_buttons.jump.text == "Aucune" and app.control_removes.jump.disabled, "✕ disables a single key: Aucune")
 	# 0.0.5.10 : F1 n'est plus réservée (seul Échap l'est) : elle peut être choisie.
 	app.control_buttons.jump.pressed.emit()
 	press_key(KEY_F1)
