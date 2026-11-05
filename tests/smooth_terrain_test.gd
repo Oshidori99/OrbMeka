@@ -5,6 +5,7 @@ const Store = preload("res://scripts/world_store.gd")
 const Zones = preload("res://scripts/world_zones.gd")
 const SmoothTerrain = preload("res://scripts/smooth_terrain.gd")
 const WorldScene = preload("res://scenes/world.tscn")
+const FarTerrain = preload("res://scripts/far_terrain.gd")
 const FOLDER := "res://.godot/terrain-lisse-test-monde"
 var checks := 0
 var failures := 0
@@ -463,19 +464,37 @@ func _run() -> void:
 	far_world.far_distance = 16
 	root.add_child(far_world)
 	far_world.finish_terrain()
-	var none_inside := true
+	check(far_world.far_tiles.size() > 20, "far terrain tiles around the detailed area")
+	# 0.0.6 : tout le détail affiché : plus rien du lointain dessous, sauf 2 m sous son bord (pas de fente).
+	var far_ok: bool = far_world.far_tiles.values()[0].mesh.get_faces().size() > 0
 	for tile in far_world.far_tiles:
-		none_inside = none_inside and not far_world.near_area.encloses(Rect2(Vector2(tile) * 32.0, Vector2.ONE * 32.0))
-	check(far_world.far_tiles.size() > 20 and none_inside, "far terrain tiles around the detailed area, none hidden inside it")
-	var far_mesh: ArrayMesh = far_world.far_tiles.values()[0].mesh
-	var far_ok := far_mesh.get_faces().size() > 0
-	for vertex in far_mesh.get_faces():
-		far_ok = far_ok and not far_world.near_area.grow(-2.1).has_point(Vector2(vertex.x, vertex.z))
+		for vertex in far_world.far_tiles[tile].mesh.get_faces():
+			far_ok = far_ok and not far_world.near_area.grow(-2.1).has_point(Vector2(vertex.x, vertex.z))
 	check(far_ok and far_world.environment.fog_depth_end == 16 * 8.0, "far terrain stops under the edge of the detailed terrain; mist at the far distance")
 	var cells := {}
 	for tile in far_world.far_tiles:
 		cells[far_world.far_tiles[tile].get_meta("cell")] = true
 	check(cells.has(2.0) and cells.has(4.0), "far terrain: a point every 2 m near the player, every 4 m further (faster)")
+	# 0.0.6 : une colonne à portée mais pas encore affichée garde le relief lointain (plus de montagne coupée en avançant).
+	var waiting := Vector2i(2, 1)
+	far_world.built_columns.erase(waiting)
+	far_world._far_follow_column(waiting)
+	far_world.finish_terrain()
+	var waiting_tile: Vector2i = FarTerrain.tile_of(waiting)
+	var covers := false
+	if far_world.far_tiles.has(waiting_tile):
+		for vertex in far_world.far_tiles[waiting_tile].mesh.get_faces():
+			covers = covers or Rect2(Vector2(waiting) * 8.0, Vector2.ONE * 8.0).grow(-1.0).has_point(Vector2(vertex.x, vertex.z))
+	check(covers, "far terrain stays over a column in range that is not shown yet")
+	far_world.built_columns[waiting] = true
+	far_world._far_follow_column(waiting)
+	far_world.finish_terrain()
+	var uncovered: bool = not far_world.far_tiles.has(waiting_tile)
+	if not uncovered:
+		uncovered = true
+		for vertex in far_world.far_tiles[waiting_tile].mesh.get_faces():
+			uncovered = uncovered and not Rect2(Vector2(waiting) * 8.0, Vector2.ONE * 8.0).grow(-2.1).has_point(Vector2(vertex.x, vertex.z))
+	check(uncovered, "once the column is shown, the far terrain leaves it")
 	# 0.0.5.32 (version 10) : parfois un trou de boue, plus bas que ses bords, sans eau.
 	var pit_found := {}
 	for x in range(-24, 24):

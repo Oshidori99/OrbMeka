@@ -118,7 +118,17 @@ static func _prepare(survey: Dictionary) -> void:
 	survey.lower = lower
 
 # Maillage d'un relevé fini ; « hole » : la partie couverte par le terrain détaillé (rien n'y est dessiné). Vide : null.
-static func mesh_of(survey: Dictionary, hole: Rect2) -> ArrayMesh:
+# 0.0.6 : trou aussi là où le terrain détaillé est vraiment affiché (shown : colonnes de zones finies) ; le lointain
+# reste ailleurs, même à portée, tant que le détail n'est pas prêt (plus de montagne coupée en avançant vite).
+static func _covered(at: Vector2, shown: Dictionary) -> bool:
+	var zone_meters := TILE_METERS / TILE_ZONES
+	for dx in [-2.0, 0.0, 2.0]:
+		for dz in [-2.0, 0.0, 2.0]:
+			if not shown.has(Vector2i(floori((at.x + dx) / zone_meters), floori((at.y + dz) / zone_meters))):
+				return false
+	return true
+
+static func mesh_of(survey: Dictionary, hole: Rect2, shown: Dictionary = {}) -> ArrayMesh:
 	if not survey.has("vertices"):
 		_prepare(survey)
 	var side: int = survey.side
@@ -128,7 +138,8 @@ static func mesh_of(survey: Dictionary, hole: Rect2) -> ArrayMesh:
 	var indices := PackedInt32Array()
 	for i in range(side - 1):
 		for j in range(side - 1):
-			if hole.has_point(origin + (Vector2(i, j) + Vector2(0.5, 0.5)) * cell):
+			var middle := origin + (Vector2(i, j) + Vector2(0.5, 0.5)) * cell
+			if hole.has_point(middle) or (not shown.is_empty() and _covered(middle, shown)):
 				continue
 			var a := i * side + j
 			var b := (i + 1) * side + j

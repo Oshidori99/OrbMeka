@@ -274,7 +274,8 @@ func update_terrain_view(force: bool = false, center: Vector2i = view_center) ->
 		if maxi(absi(column.x - center.x), absi(column.y - center.y)) <= NEAR_ZONES:
 			_show_column(column)
 		else:
-			for zone: Vector3i in by_column[column]:
+			# 0.0.6 : avec le lointain, c'est lui qui montre la colonne en attendant (pas de sol plat par-dessus).
+			for zone: Vector3i in by_column[column] if not _far_active() else []:
 				if SmoothTerrain.ground_zone(zone):
 					rebuild_terrain_piece(zone, true)
 			later.append(column)
@@ -289,6 +290,8 @@ func _show_column(column: Vector2i) -> void:
 		rebuild_terrain_piece(zone)
 	_rebuild_lawn_tile(column)
 	_show_column_objects(column)
+	built_columns[column] = true
+	_far_follow_column(column)
 
 # 0.0.5.37 : sous terre, seulement les grottes autour du joueur : invisibles de la surface, elles ne coûtent rien de loin.
 const CAVE_REACH := 4
@@ -327,6 +330,8 @@ func _hide_column(column: Vector2i) -> void:
 	for child in lawn.get_children():
 		if child.get_meta("tile", Vector2i(999, 999)) == column:
 			child.free()
+	if built_columns.erase(column):
+		_far_follow_column(column)
 
 func column_shown(column: Vector2i) -> bool:
 	return shown_columns.has(column)
@@ -1535,7 +1540,6 @@ const FAR_NO_LIMIT := 9223372036854775807
 
 func _update_far(center: Vector2i, area: Rect2) -> void:
 	far_center = center
-	var old_area := near_area
 	near_area = area
 	_clip_water()
 	if not is_instance_valid(far_node):
@@ -1550,26 +1554,43 @@ func _update_far(center: Vector2i, area: Rect2) -> void:
 		var high := FarTerrain.tile_of(base_zones_high)
 		for x in range(maxi(low.x, here.x - reach), mini(high.x, here.x + reach) + 1):
 			for z in range(maxi(low.y, here.y - reach), mini(high.y, here.y + reach) + 1):
-				var tile_area := Rect2(Vector2(x, z) * FarTerrain.TILE_METERS, Vector2.ONE * FarTerrain.TILE_METERS)
-				if not area.encloses(tile_area):
-					wanted[Vector2i(x, z)] = tile_area
-	for tile: Vector2i in far_tiles.keys():
+				# 0.0.6 : aussi les carrés à portée du terrain détaillé : ils restent tant que le détail n'est pas affiché.
+				wanted[Vector2i(x, z)] = true
+	for tile: Vector2i in far_cells.keys():
 		if not wanted.has(tile):
-			far_tiles[tile].free()
-			far_tiles.erase(tile)
+			if far_tiles.has(tile):
+				far_tiles[tile].free()
+				far_tiles.erase(tile)
+			far_cells.erase(tile)
 	far_queue = far_queue.filter(func(tile: Vector2i): return wanted.has(tile))
 	for tile: Vector2i in wanted:
-		var tile_area: Rect2 = wanted[tile]
-		# Nouveau carré, finesse changée (2 m près du joueur, 4 m, puis 8 m au loin), ou trou du terrain détaillé
-		# déplacé dans ce carré : à refaire (0.0.5.25 : sinon, rien à faire).
-		var changed: bool = far_tiles.has(tile) and far_tiles[tile].get_meta("cell") != _far_cell(tile)
-		var hole_moved := tile_area.intersection(area) != tile_area.intersection(old_area)
-		if (not far_tiles.has(tile) or changed or hole_moved) and not tile in far_queue:
+		# Nouveau carré ou finesse changée (2 m près du joueur, 4 m, puis 8 m au loin) : à refaire (0.0.5.25 : sinon,
+		# rien à faire ; le trou suit les colonnes affichées, _far_follow_column).
+		var changed: bool = far_cells.has(tile) and far_cells[tile] != _far_cell(tile)
+		if (not far_cells.has(tile) or changed) and not tile in far_queue:
 			far_queue.append(tile)
 	var center_tile := FarTerrain.tile_of(center)
 	far_queue.sort_custom(func(a: Vector2i, b: Vector2i): return maxi(absi(a.x - center_tile.x), absi(a.y - center_tile.y)) < maxi(absi(b.x - center_tile.x), absi(b.y - center_tile.y)))
 
 var far_center := Vector2i.ZERO
+# 0.0.6 : finesse de chaque carré lointain fait (même sans morceau : tout couvert par le détail).
+var far_cells: Dictionary = {}
+# Colonnes dont le terrain détaillé est vraiment affiché : le lointain s'efface seulement là.
+var built_columns: Dictionary = {}
+
+func _far_active() -> bool:
+	return far_distance > load_distance and relief
+
+# Une colonne affichée ou cachée : les carrés lointains autour refont leur trou en premier (relevé déjà fait),
+# dans le temps de chaque image (pas d'à-coup quand toute une rangée change).
+func _far_follow_column(column: Vector2i) -> void:
+	if not _far_active():
+		return
+	for dx in [-1, 0, 1]:
+		for dz in [-1, 0, 1]:
+			var tile := FarTerrain.tile_of(column + Vector2i(dx, dz))
+			if far_cells.has(tile) and not tile in far_queue:
+				far_queue.push_front(tile)
 
 func _clip_water() -> void:
 	if _water_material == null:
@@ -1602,8 +1623,10 @@ func _build_far_tile(tile: Vector2i, deadline: int = FAR_NO_LIMIT) -> bool:
 	if far_tiles.has(tile):
 		far_tiles[tile].free()
 		far_tiles.erase(tile)
+	far_cells[tile] = survey.cell
 	# Le terrain lointain passe 2 m sous le bord du terrain détaillé : pas de fente entre les deux.
-	var mesh := FarTerrain.mesh_of(survey, near_area.grow(-2.0))
+	# 0.0.6 : seulement sous les colonnes déjà affichées (built_columns), pas sous toute la distance d'affichage.
+	var mesh := FarTerrain.mesh_of(survey, Rect2(), built_columns)
 	if mesh == null:
 		return true
 	var piece := MeshInstance3D.new()
