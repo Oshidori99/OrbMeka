@@ -24,11 +24,12 @@ func press_key(code: int) -> void:
 	event.pressed = true
 	root.push_input(event)
 
-func press_mouse(button: int) -> void:
+# 0.0.6 : un bouton de souris se choisit en cliquant sur la case « Appuyez… » (ailleurs : annulé).
+func press_mouse(button: int, on_slot := true) -> void:
 	var event := InputEventMouseButton.new()
 	event.button_index = button
 	event.pressed = true
-	event.position = Vector2(5, 5)
+	event.position = current_scene._waiting_slot_rect().get_center() if on_slot else Vector2(5, 5)
 	root.push_input(event)
 
 func has_key(action: String, code: int) -> bool:
@@ -63,10 +64,14 @@ func _run() -> void:
 	press_key(KEY_K)
 	check(app.capturing_action == "" and settings.controls.move_forward == Controls.normalize({"key": KEY_K}) and has_key("move_forward", KEY_K) and not has_key("move_forward", KEY_W) and not has_key("move_forward", KEY_UP), "new key applied at once, no arrow (0.0.4.3)")
 	check(app.page == "settings", "the pressed key does nothing else")
-	# Échap : aucune touche ; le menu reste ouvert.
+	# 0.0.6 : Échap annule (la touche reste) ; un clic ailleurs aussi, sans rien retirer à une autre action.
+	var jump_before: Dictionary = settings.controls.jump.duplicate(true)
 	app.control_buttons.jump.pressed.emit()
 	press_key(KEY_ESCAPE)
-	check(app.page == "settings" and settings.controls.jump == Controls.normalize({}) and InputMap.action_get_events("jump").is_empty() and app.control_buttons.jump.text == "Aucune", "Escape leaves the action without any key")
+	check(app.page == "settings" and app.capturing_action == "" and settings.controls.jump == jump_before and not InputMap.action_get_events("jump").is_empty(), "Escape cancels: the key stays")
+	app.control_buttons.jump.pressed.emit()
+	press_mouse(MOUSE_BUTTON_LEFT, false)
+	check(app.capturing_action == "" and settings.controls.jump == jump_before and has_mouse("break_block", MOUSE_BUTTON_LEFT), "a click elsewhere cancels: nothing taken from Casser")
 	# 0.0.5.10 : F1 n'est plus réservée (seul Échap l'est) : elle peut être choisie.
 	app.control_buttons.jump.pressed.emit()
 	press_key(KEY_F1)

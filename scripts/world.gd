@@ -480,6 +480,13 @@ func choice_text(kind: int) -> String:
 
 func _aimed_ground(hit: Dictionary, reach: float) -> bool:
 	if not _valid_hit(hit, reach):
+		# 0.0.6 : jamais un clic sans réponse : on dit pourquoi rien ne se passe.
+		if hit.is_empty() or not is_instance_valid(hit.get("collider")):
+			_notify("Rien à portée : visez le sol à moins de %s m." % str(snappedf(reach, 0.1)).replace(".", ","))
+		elif player.camera.global_position.distance_to(hit.position) > reach + 0.01:
+			_notify("Trop loin : %s m au plus." % str(snappedf(reach, 0.1)).replace(".", ","))
+		else:
+			_notify("Visez le sol pour le sculpter.")
 		return false
 	if not hit.collider.is_in_group("ground"):
 		_notify("Visez le sol pour le sculpter.")
@@ -547,8 +554,8 @@ func sculpt(hit: Dictionary, add: bool, kind: int = SmoothTerrain.DIRT, cells: i
 			message = "Reculez un peu pour ajouter du terrain."
 			continue
 		updates[point] = [SmoothTerrain.ADDED if add else SmoothTerrain.DUG, kind if add else -1]
-	if updates.is_empty() and not message.is_empty():
-		_notify(message)
+	if updates.is_empty():
+		_notify(message if not message.is_empty() else ("Déjà plein ici." if add else "Rien à creuser ici."))
 	return _apply_terrain(updates)
 
 # Aplanir : bosses coupées à la hauteur visée, sur un disque autour. 0.0.5.10 : n'ajoute jamais de matière

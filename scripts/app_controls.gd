@@ -418,28 +418,46 @@ func start_control_capture(action: String, slot: Array = [0, 0, 0]) -> void:
 	capturing_action = action
 	capturing_slot = slot
 	_build_control_action(action)
-	settings_message.text = "%s : appuyez sur une touche ou un bouton de souris. Échap : aucune." % Controls.ACTIONS[action].label
+	settings_message.text = "%s : appuyez sur une touche, ou cliquez sur la case avec le bouton de souris voulu. Échap : annuler." % Controls.ACTIONS[action].label
 
 func _capture_control(event: InputEvent) -> void:
 	var pressed: bool = (event is InputEventKey and event.pressed and not event.echo) or (event is InputEventMouseButton and event.pressed)
 	if not pressed:
 		return
+	# 0.0.6 : un clic ailleurs que sur la case « Appuyez… » annule (il n'est plus pris comme touche, ni retiré
+	# d'une autre action sans le vouloir) ; il agit ensuite normalement (autre case, onglet…).
+	if event is InputEventMouseButton and not _waiting_slot_rect().has_point(event.position):
+		_cancel_control_capture("Annulé : pour un bouton de souris, cliquez avec lui sur la case « Appuyez… ».")
+		return
 	get_viewport().set_input_as_handled()
-	var part := {}
+	# 0.0.6 : Échap annule, la touche reste (avant : plus aucune touche, sans le vouloir). Retirer : ✕.
 	if event is InputEventKey and event.keycode == KEY_ESCAPE:
-		part = {}
-	else:
-		part = Controls.from_event(event)
-		if part.is_empty():
-			settings_message.text = "Touche réservée (Échap) : choisissez-en une autre."
-			return
-	# 0.0.4.20 : la touche va dans la case choisie ; Échap la vide (case retirée, sauf la seule de l'action :
-	# plus aucune touche). Les autres touches restent.
+		_cancel_control_capture("Annulé : touche inchangée.")
+		return
+	var part := Controls.from_event(event)
+	if part.is_empty():
+		settings_message.text = "Touche réservée (Échap) : choisissez-en une autre."
+		return
+	# 0.0.4.20 : la touche va dans la case choisie. Les autres touches restent.
 	var binding := _control_binding(capturing_action).duplicate(true)
 	if binding.options.is_empty():
 		binding.options.append({"steps": [[{}]]})
 	binding.options[capturing_slot[0]].steps[capturing_slot[1]][capturing_slot[2]] = part
 	set_control(capturing_action, _tidy_binding(binding))
+
+func _waiting_slot_rect() -> Rect2:
+	for entry in control_slot_buttons.get(capturing_action, []):
+		if entry[0] == capturing_slot and is_instance_valid(entry[1]):
+			return entry[1].get_global_rect()
+	return Rect2()
+
+func _cancel_control_capture(message: String) -> void:
+	var action := capturing_action
+	capturing_action = ""
+	capturing_slot = []
+	control_pending.erase(action)
+	_build_control_action(action)
+	settings_message.text = message
 
 func set_control(action: String, binding: Dictionary) -> void:
 	capturing_action = ""
