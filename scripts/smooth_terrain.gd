@@ -74,6 +74,7 @@ func setup(terrain_seed: int, flat_spots: Array = [], options: Dictionary = {}) 
 	generation_options = Generation.normalized(options) if Generation.valid(options) else {}
 	_seed = terrain_seed
 	half_zones = Generation.half_zones(int(generation_options.get("version", 0)))
+	_snow_on = int(generation_options.get("version", 0)) >= 16
 	fall_limit = half_zones * int(ZONE_METERS) - 3
 	var layers := layers_of(generation_options)
 	low_point = layers[0]
@@ -252,6 +253,11 @@ const STONE := 1
 const MOTHER_ROCK := 3
 # 0.0.5.26 : pierre sombre, entre la pierre et la Roche-mère (se casse comme la pierre).
 const DARK_STONE := 6
+# 0.0.6 (version 16) : neige sur environ 1 montagne sur 4 (haut des pentes), gravier au pied des montagnes et au bord
+# de certains lacs. Comme la boue : terre nue, sans herbe ; ils glissent comme le sable.
+const SNOW := 7
+const GRAVEL := 8
+const SNOW_DEPTH := 0.6
 
 # Matière du sol de la graine : terre (-1, aspect du sol avec herbe), sable des déserts, pierre ou Roche-mère.
 var _desert_columns: Dictionary = {}
@@ -266,6 +272,10 @@ func natural_kind(point: Vector3i) -> int:
 	if point.y <= stone_top:
 		return STONE
 	var column := Vector2i(point.x, point.z)
+	if _snow_on:
+		var snow := snow_depth(column)
+		if snow > 0.0 and point.y * STEP > ground_height(column) - snow:
+			return SNOW
 	if point.y * STEP <= mountain_stone(column):
 		return STONE
 	# 0.0.5.20 : boue des lacs, puis argile dessous ou en poche (profondeur sous le sol de la graine).
@@ -595,6 +605,7 @@ func zone_mesh(zone: Vector3i) -> Array:
 	var normals := PackedVector3Array()
 	var colors := PackedColorArray()
 	var uvs := PackedVector2Array()
+	var uvs2 := PackedVector2Array()
 	var nearby: Array = []
 	var lowest := INF
 	var highest := -INF
@@ -615,7 +626,7 @@ func zone_mesh(zone: Vector3i) -> Array:
 	var y_low := maxi(maxi(origin.y - 1, int(lowest) - 2), mother_rock_top - 2)
 	var y_high := mini(mini(origin.y + POINTS, int(highest) + 2), HIGH_POINT + 2)
 	if y_low >= y_high:
-		return [vertices, normals, colors, uvs]
+		return [vertices, normals, colors, uvs, uvs2]
 	var size := POINTS + 2
 	var height := y_high - y_low + 1
 	var start := Vector3i(origin.x - 1, y_low, origin.z - 1)
@@ -676,6 +687,7 @@ func zone_mesh(zone: Vector3i) -> Array:
 	var cell_normal := {}
 	var cell_color := {}
 	var cell_uv := {}
+	var cell_uv2 := {}
 	var corners := PackedFloat32Array()
 	corners.resize(8)
 	# 0.0.5.25 : sans point changé, la surface ne passe qu'entre les hauteurs des 4 coins de chaque colonne :
@@ -758,6 +770,7 @@ func zone_mesh(zone: Vector3i) -> Array:
 				var paint := Vector4.ZERO
 				var weight := 0
 				var wet := Vector2.ZERO
+				var cover := Vector2.ZERO
 				for index in range(8):
 					if corners[index] > 0.0:
 						var corner: Vector3i = cell + corner_at[index]
@@ -766,14 +779,17 @@ func zone_mesh(zone: Vector3i) -> Array:
 						if kind == UNKNOWN_KIND:
 							kind = kinds[corner] if kinds.has(corner) else natural_kind(start + corner)
 							known_kinds[kind_at] = kind
-						var soft := kind == CLAY or kind == MUD
+						var soft := kind == CLAY or kind == MUD or kind == SNOW or kind == GRAVEL
 						paint += Vector4(1.0 if kind == SAND else 0.0, 1.0 if kind == DIRT or soft else 0.0, 1.0 if kind == STONE or kind == MOTHER_ROCK or kind == DARK_STONE else 0.0, 1.0 if kind == MOTHER_ROCK else (0.5 if kind == DARK_STONE else 0.0))
 						# 0.0.5.20 : argile (U) et boue (V), terres nues de couleur à part.
 						wet += Vector2(1.0 if kind == CLAY else 0.0, 1.0 if kind == MUD else 0.0)
+						# 0.0.6 : neige (UV2.x) et gravier (UV2.y).
+						cover += Vector2(1.0 if kind == SNOW else 0.0, 1.0 if kind == GRAVEL else 0.0)
 						weight += 1
 				paint /= maxf(weight, 1)
 				cell_color[cell] = Color(1.0 - paint.w, 1.0 - paint.z, 1.0 - paint.y, 1.0 - paint.x)
 				cell_uv[cell] = wet / maxf(weight, 1)
+				cell_uv2[cell] = cover / maxf(weight, 1)
 	# Une face par arête traversée, entre les 4 sous-cellules qui la partagent ; la zone garde les arêtes
 	# qui partent de ses propres points (pas de double avec la zone voisine).
 	var axes := [Vector3i(1, 0, 0), Vector3i(0, 1, 0), Vector3i(0, 0, 1)]
@@ -823,7 +839,8 @@ func zone_mesh(zone: Vector3i) -> Array:
 							normals.append(cell_normal[cell])
 							colors.append(cell_color[cell])
 							uvs.append(cell_uv[cell])
-	return [vertices, normals, colors, uvs]
+							uvs2.append(cell_uv2[cell])
+	return [vertices, normals, colors, uvs, uvs2]
 
 # Carré plat d'une zone sans changement (8 m, du milieu de la sous-cellule −1 au bord suivant).
 static func flat_mesh() -> ArrayMesh:
@@ -877,7 +894,7 @@ func fall_target(point: Vector3i) -> Vector3i:
 		return below
 	# Talus : un côté libre, et assez de vide en dessous de ce côté.
 	# Sable et boue (0.0.5.20) glissent ; terre et argile tiennent mieux.
-	var drop := 2 if materials.get(point, natural_kind(point)) in [SAND, MUD] else 3
+	var drop := 2 if materials.get(point, natural_kind(point)) in [SAND, MUD, SNOW, GRAVEL] else 3
 	var first := absi(hash(point)) % 4
 	for turn in range(4):
 		var side: Vector3i = point + SIDES[(first + turn) % 4]
@@ -1295,6 +1312,22 @@ func _soil(column: Vector2i) -> Dictionary:
 			if at.distance_to(pocket.center) < pocket.radius:
 				soil.clay_top = minf(soil.get("clay_top", 99.0), pocket.top)
 				soil.clay_bottom = maxf(soil.get("clay_bottom", 0.0), pocket.top + pocket.thickness)
+	# 0.0.6 (version 16) : éboulis de gravier au pied des montagnes de pierre, par plaques irrégulières.
+	if version >= 16 and not soil.has("top"):
+		for found in _mountains_near(at):
+			if found.get("sand", false):
+				continue
+			# Tri rapide, sans bruit : loin du pied, rien à calculer.
+			var rough: Vector2 = (at - found.center).rotated(-found.turn)
+			rough.x /= found.stretch
+			var rough_ratio: float = rough.length() / found.radius
+			if rough_ratio < 0.4 or rough_ratio > 1.15:
+				continue
+			var ratio := _mountain_ratio(at, found)
+			if ratio > 0.62 and ratio < 0.92 and _warp.get_noise_2d(at.x * 0.6 + 211.0, at.y * 0.6 - 37.0) > 0.12:
+				soil.top = GRAVEL
+				soil.top_depth = 0.8
+				break
 	_soils[column] = soil
 	return soil
 
@@ -1322,6 +1355,9 @@ func _lake_soils(at: Vector2, soil: Dictionary) -> void:
 					kind = MUD if share < 0.5 else CLAY
 				2:
 					kind = CLAY if share < 1.0 / 3.0 else (-1 if share < 2.0 / 3.0 else MUD)
+			# 0.0.6 (version 16) : environ 1 lac sur 3 a une rive de gravier (une plage de petits cailloux).
+			if int(generation_options.get("version", 0)) >= 16 and absi(hash([_seed, roundi(center.x), roundi(center.y), "gravier"])) % 3 == 0:
+				kind = GRAVEL
 		# Fond du lac : boue si le lac en a, sinon argile.
 		if distance < radius:
 			kind = CLAY if int(lake.get("soils", 1)) == 0 else MUD
@@ -1360,7 +1396,7 @@ func rocks_in_zone(area: Vector2i) -> Array:
 func muddy(column: Vector2i) -> bool:
 	if cave_open(column) or in_crevasse(Vector2(column) * STEP):
 		return true
-	return _soil(column).has("mud") or _soil(column).has("top") or mountain_stone(column) >= ground_height(column) - 0.01
+	return _soil(column).has("mud") or _soil(column).has("top") or mountain_stone(column) >= ground_height(column) - 0.01 or snow_depth(column) > 0.0
 
 # 0.0.5.23 (version 7) : montagnes, demandées par l'utilisateur (environ 7 % du sol ; les petites collines restent).
 # Forme : pente douce au pied, plus raide au milieu, crêtes ; bord irrégulier. Jamais près de l'apparition.
@@ -1447,6 +1483,7 @@ func mountain_lift(at: Vector2, kind := MOUNTAINS_ALL) -> float:
 	for found in _mountains_near(at):
 		if (kind == MOUNTAINS_ROCK and found.get("sand", false)) or (kind == MOUNTAINS_SAND and not found.get("sand", false)):
 			continue
+		# Même calcul que _lift_of, écrit ici : appelé des milliers de fois, sans appel de fonction (plus rapide).
 		var offset: Vector2 = (at - found.center).rotated(-found.turn)
 		offset.x /= found.stretch
 		var radius: float = found.radius
@@ -1457,6 +1494,55 @@ func mountain_lift(at: Vector2, kind := MOUNTAINS_ALL) -> float:
 		var ridge := 1.0 - absf(_noise.get_noise_2d(at.x * 1.6 - 401.0, at.y * 1.6 + 97.0))
 		lift = maxf(lift, found.height * maxf(0.0, pow(profile, 1.3) + 0.3 * profile * (ridge - 0.6)))
 	return lift
+
+# Distance au centre d'une montagne, en part de son rayon (bord irrégulier) : 0 au sommet, 1 au pied.
+func _mountain_ratio(at: Vector2, found: Dictionary) -> float:
+	var offset: Vector2 = (at - found.center).rotated(-found.turn)
+	offset.x /= found.stretch
+	var radius: float = found.radius
+	return (offset.length() + _noise.get_noise_2d(at.x * 0.7 + 613.0, at.y * 0.7 - 211.0) * radius * 0.2) / radius
+
+# Hauteur ajoutée par une seule montagne à ce point.
+func _lift_of(at: Vector2, found: Dictionary) -> float:
+	var ratio := _mountain_ratio(at, found)
+	if ratio >= 1.0:
+		return 0.0
+	var profile := 1.0 - smoothstep(0.0, 1.0, ratio)
+	var ridge := 1.0 - absf(_noise.get_noise_2d(at.x * 1.6 - 401.0, at.y * 1.6 + 97.0))
+	return found.height * maxf(0.0, pow(profile, 1.3) + 0.3 * profile * (ridge - 0.6))
+
+# 0.0.6 (version 16) : environ 1 montagne sur 4 enneigée (jamais de sable), selon la graine.
+func _snowy(found: Dictionary) -> bool:
+	return not found.get("sand", false) and absi(hash([_seed, roundi(found.center.x), roundi(found.center.y), "neige"])) % 4 == 0
+
+var _snow: Dictionary = {}
+var _snowy_zones: Dictionary = {}
+# Neige possible (version 16 et plus), lu une fois : natural_kind est appelé pour chaque point.
+var _snow_on := false
+
+# Épaisseur de neige (m) sur cette colonne : le haut des montagnes enneigées, limite irrégulière, plus fine au bord.
+func snow_depth(column: Vector2i) -> float:
+	if not _snow_on:
+		return 0.0
+	if _snow.has(column):
+		return _snow[column]
+	var at := Vector2(column) * STEP
+	# Zone sans montagne enneigée proche : rien à calculer (la plupart du monde, bien plus rapide).
+	var zone := Vector2i(floori(at.x / ZONE_METERS), floori(at.y / ZONE_METERS))
+	if not _snowy_zones.has(zone):
+		_snowy_zones[zone] = _mountains_near(at).any(_snowy)
+	if not _snowy_zones[zone]:
+		return 0.0
+	var depth := 0.0
+	for found in _mountains_near(at):
+		if not _snowy(found):
+			continue
+		var line: float = found.height * (0.55 + _warp.get_noise_2d(at.x * 0.35 + 71.0, at.y * 0.35 - 19.0) * 0.12)
+		var lift := _lift_of(at, found)
+		if lift > line:
+			depth = maxf(depth, minf(SNOW_DEPTH, 0.15 + (lift - line) * 0.5))
+	_snow[column] = depth
+	return depth
 
 # Hauteur (m) jusqu'où monte la pierre dans une montagne : le cœur de pierre monte vers le sommet (sommets
 # rocheux), et parfois une plaque de pierre sur la pente. Très bas hors des montagnes.

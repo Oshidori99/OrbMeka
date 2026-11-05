@@ -654,5 +654,64 @@ func _run() -> void:
 	far_world.update_terrain_view(true)
 	check(far_world.far_tiles.is_empty(), "far distance 0: no far terrain")
 	close(far_world)
+	# 0.0.6 (version 16) : neige sur environ 1 montagne sur 4, gravier au pied des montagnes ; rien en version 15.
+	var snowy_count := 0
+	var rocky_count := 0
+	var snow_ok := true
+	var gravel_found := false
+	for seed_value in [42, 70621, 1040304241]:
+		var cold := SmoothTerrain.new()
+		cold.setup(seed_value, [], load("res://scripts/world_generation.gd").defaults())
+		for found in cold._all_mountains():
+			if found.get("sand", false):
+				continue
+			rocky_count += 1
+			if not cold._snowy(found):
+				continue
+			snowy_count += 1
+			var snow_top := Vector2i(roundi(found.center.x / 0.5), roundi(found.center.y / 0.5))
+			var foot := Vector2i(roundi((found.center.x + found.radius * found.stretch * 1.2) / 0.5), roundi(found.center.y / 0.5))
+			# Pied : sans neige (sauf si une autre montagne y monte, en chaîne).
+			if cold.mountain_lift(Vector2(foot) * 0.5) == 0.0:
+				snow_ok = snow_ok and cold.snow_depth(foot) == 0.0
+			if cold._lift_of(found.center, found) > found.height * 0.7:
+				snow_ok = snow_ok and cold.snow_depth(snow_top) > 0.0 and cold.surface_kind(snow_top) == SmoothTerrain.SNOW
+		for found in cold._all_mountains():
+			for angle in range(0, 360, 15):
+				var at: Vector2 = found.center + Vector2.from_angle(deg_to_rad(angle)) * found.radius * 0.78
+				gravel_found = gravel_found or cold.surface_kind(Vector2i(roundi(at.x / 0.5), roundi(at.y / 0.5))) == SmoothTerrain.GRAVEL
+	check(rocky_count > 10 and snowy_count > 0 and snowy_count < rocky_count * 0.45 and snow_ok, "snow on about 1 mountain in 4, on the upper slopes only (%d of %d)" % [snowy_count, rocky_count])
+	check(gravel_found, "gravel scree at the foot of mountains")
+	var older := SmoothTerrain.new()
+	var options_15: Dictionary = load("res://scripts/world_generation.gd").defaults()
+	options_15.version = 15
+	older.setup(42, [], options_15)
+	var none_older := true
+	for found in older._all_mountains():
+		none_older = none_older and older.snow_depth(Vector2i(roundi(found.center.x / 0.5), roundi(found.center.y / 0.5))) == 0.0
+	check(none_older, "worlds of version 15 never get snow (existing worlds never change)")
+	# 0.0.6 : sous l'eau : brume bleu-vert proche et voile ; en sortant, la brume normale revient.
+	var lake_world: Node3D = WorldScene.instantiate()
+	lake_world.generation_options = load("res://scripts/world_generation.gd").defaults()
+	lake_world.terrain_seed = 42
+	root.add_child(lake_world)
+	lake_world.player.set_physics_process(false)
+	var lake_spot := Vector2.INF
+	for r in range(10, 240, 4):
+		for angle in range(0, 360, 15):
+			var at := Vector2.from_angle(deg_to_rad(angle)) * r
+			if lake_spot == Vector2.INF and lake_world.terrain.water_level_at(at) > lake_world.terrain.height_at(at.x, at.y) + 1.5:
+				lake_spot = at
+	var surface: float = lake_world.terrain.water_level_at(lake_spot)
+	var dry_fog: float = lake_world.environment.fog_depth_end
+	lake_world.player.position = Vector3(lake_spot.x, surface - 2.6, lake_spot.y)
+	await process_frame
+	await process_frame
+	check(lake_world.underwater and lake_world.underwater_veil.visible and lake_world.environment.fog_depth_end < 20.0, "underwater: close blue-green mist and a tinted veil")
+	lake_world.player.position = Vector3(lake_spot.x, surface + 3.0, lake_spot.y)
+	await process_frame
+	await process_frame
+	check(not lake_world.underwater and not lake_world.underwater_veil.visible and lake_world.environment.fog_depth_end == dry_fog, "out of the water: normal mist again")
+	close(lake_world)
 	print("RESULT: %d smooth terrain checks, %d failures" % [checks, failures])
 	quit(0 if failures == 0 else 1)

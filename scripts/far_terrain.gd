@@ -16,6 +16,9 @@ const CLAY := Color(0.27, 0.27, 0.22)
 const MUD := Color(0.19, 0.15, 0.09)
 const WATER := Color(0.06, 0.17, 0.3)
 const STONE := Color(0.3, 0.29, 0.27)
+# 0.0.6 : neige et gravier vus de loin.
+const SNOW := Color(0.82, 0.85, 0.9)
+const GRAVEL := Color(0.31, 0.29, 0.26)
 
 static var _material: ShaderMaterial
 
@@ -38,7 +41,11 @@ static func _sample(terrain, at: Vector2) -> Array:
 		return [level, WATER]
 	var top: int = terrain.surface_kind(column)
 	var color := GRASS
-	if top == terrain.MUD:
+	if top == terrain.SNOW:
+		color = SNOW
+	elif top == terrain.GRAVEL:
+		color = GRAVEL
+	elif top == terrain.MUD:
 		color = MUD
 	elif top == terrain.CLAY:
 		color = CLAY

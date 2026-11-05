@@ -228,6 +228,7 @@ func _build_zone(zone: Vector3i) -> void:
 	arrays[Mesh.ARRAY_NORMAL] = surface[1]
 	arrays[Mesh.ARRAY_COLOR] = surface[2]
 	arrays[Mesh.ARRAY_TEX_UV] = surface[3]
+	arrays[Mesh.ARRAY_TEX_UV2] = surface[4]
 	var mesh := ArrayMesh.new()
 	mesh.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arrays)
 	var piece := MeshInstance3D.new()

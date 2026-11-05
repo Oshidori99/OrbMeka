@@ -360,8 +360,46 @@ func finish_terrain() -> void:
 		_build_far_tile(far_queue.pop_front())
 
 # Brume au loin, au bord de la distance d'affichage : le terrain ne s'arrête pas d'un coup.
+# 0.0.6 : sous l'eau (caméra plus basse que la surface d'un lac) : brume bleu-vert épaisse et voile teinté ; on ne
+# voit plus qu'à quelques mètres, la surface paraît claire au-dessus. En sortant : la brume normale revient.
+var underwater := false
+var underwater_veil: ColorRect
+const UNDERWATER_COLOR := Color(0.06, 0.24, 0.29)
+
+func _update_underwater() -> void:
+	var view := get_viewport().get_camera_3d() if is_inside_tree() else null
+	if view == null or terrain == null:
+		return
+	var at := view.global_position
+	var now: bool = at.y < terrain.water_level_at(Vector2(at.x, at.z)) - 0.05
+	if now == underwater:
+		return
+	underwater = now
+	if not is_instance_valid(underwater_veil):
+		var layer := CanvasLayer.new()
+		layer.layer = -1
+		add_child(layer)
+		underwater_veil = ColorRect.new()
+		underwater_veil.name = "UnderwaterVeil"
+		underwater_veil.color = Color(UNDERWATER_COLOR, 0.28)
+		underwater_veil.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		underwater_veil.set_anchors_preset(Control.PRESET_FULL_RECT)
+		layer.add_child(underwater_veil)
+	underwater_veil.visible = underwater
+	if underwater:
+		environment.fog_enabled = true
+		environment.fog_mode = Environment.FOG_MODE_DEPTH
+		environment.fog_light_color = UNDERWATER_COLOR
+		environment.fog_depth_begin = 0.5
+		environment.fog_depth_end = 12.0
+		environment.fog_sky_affect = 1.0
+	else:
+		_update_fog()
+
 func _update_fog() -> void:
 	if not is_instance_valid(environment):
+		return
+	if underwater:
 		return
 	# 0.0.5.22 : jusqu'au bout du terrain lointain (niveaux de détail) s'il va plus loin.
 	var reach := float(maxi(load_distance, far_distance if relief else 0) * SmoothTerrain.ZONE_SIZE)
@@ -428,6 +466,7 @@ func rebuild_terrain_piece(zone: Vector3i, flat_for_now: bool = false) -> void:
 		arrays[Mesh.ARRAY_NORMAL] = surface[1]
 		arrays[Mesh.ARRAY_COLOR] = surface[2]
 		arrays[Mesh.ARRAY_TEX_UV] = surface[3]
+		arrays[Mesh.ARRAY_TEX_UV2] = surface[4]
 		var mesh := ArrayMesh.new()
 		mesh.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arrays)
 		instance.mesh = mesh
@@ -1176,6 +1215,7 @@ func _process(delta: float) -> void:
 	if not is_instance_valid(player):
 		return
 	_update_fps(delta)
+	_update_underwater()
 	# Sauvegarde régulière (petits fichiers, seulement les zones modifiées : pas de saccade).
 	autosave_time += delta
 	if autosave_time >= AUTOSAVE_SECONDS:

@@ -165,9 +165,61 @@ void fragment() {
 		height = mix(height, fbm(p*vec3(1.5,4.0,1.5))*0.012, mud) * (1.0 - puddle);
 		height = mix(height, fbm(p*0.8)*0.006, clay);
 	}
+	// 0.0.6 : neige (UV2.x) : blanche un peu bleutée dans les creux, congères douces, quelques paillettes ;
+	// gravier (UV2.y) : petits cailloux arrondis de teintes variées, joints sombres entre eux.
+	float snow = clamp(UV2.x, 0.0, 1.0);
+	float gravel = clamp(UV2.y, 0.0, 1.0);
+	float sparkle = 0.0;
+	float gravel_fade = 1.0-smoothstep(8.0,30.0,length(VERTEX));
+	// Cailloux dessinés seulement de près (calcul plus lourd) ; au loin, une teinte unie.
+	if (gravel > 0.01 && gravel_fade <= 0.0) {
+		albedo = mix(albedo, vec3(0.29,0.27,0.24), gravel);
+	}
+	if (gravel > 0.01 && gravel_fade > 0.0) {
+		// Cailloux d'environ 6 à 12 cm, centres décalés au hasard, taille de chacun au hasard : bombés, joints sombres irréguliers.
+		vec3 q = p * 11.0 + (vec3(noise3(p * 3.0), noise3(p * 3.0 + 9.0), noise3(p * 3.0 + 21.0)) - 0.5) * 0.6;
+		vec3 cell = floor(q);
+		float best = 9.0;
+		vec3 pick = cell;
+		for (int i = -1; i <= 1; i++) {
+			for (int j = -1; j <= 1; j++) {
+				for (int k = -1; k <= 1; k++) {
+					vec3 c = cell + vec3(float(i), float(j), float(k));
+					vec3 centre = c + vec3(hash3(c), hash3(c + 13.1), hash3(c + 27.7));
+					float size = 0.45 + hash3(c + 41.3) * 0.4;
+					float d = length(q - centre) / size;
+					if (d < best) { best = d; pick = c; }
+				}
+			}
+		}
+		float dome = sqrt(clamp(1.0 - best * best, 0.0, 1.0));
+		float tone = hash3(pick);
+		vec3 pebble = mix(vec3(0.2,0.195,0.185), vec3(0.5,0.48,0.44), tone);
+		pebble = mix(pebble, vec3(0.4,0.31,0.22), step(0.78, hash3(pick + 5.0)) * 0.8);
+		pebble = mix(pebble, vec3(0.58,0.56,0.52), step(0.93, hash3(pick + 8.0)) * 0.7);
+		pebble *= 0.7 + dome * 0.38 + (noise3(p * 140.0) - 0.5) * 0.08;
+		// Entre les cailloux : grains plus fins et terre sombre.
+		vec3 grit = mix(vec3(0.07,0.06,0.05), vec3(0.24,0.22,0.19), noise3(p * 70.0));
+		vec3 gravel_color = mix(grit, pebble, smoothstep(0.0, 0.25, dome));
+		albedo = mix(albedo, mix(vec3(0.29,0.27,0.24), gravel_color, gravel_fade), gravel);
+		height = mix(height, dome * 0.01 * gravel_fade, gravel);
+	}
+	if (snow > 0.01) {
+		float drifts = fbm(p * vec3(0.7, 0.3, 0.7));
+		vec3 snow_color = mix(vec3(0.74,0.79,0.88), vec3(0.95,0.96,0.98), smoothstep(0.25, 0.75, drifts));
+		snow_color *= 0.96 + noise3(p * 60.0) * 0.05;
+		// Moins de neige sur les pentes raides : la roche dessous se devine.
+		float steep = 1.0 - smoothstep(0.35, 0.7, n.y);
+		float hold = snow * (1.0 - steep * 0.7);
+		sparkle = step(0.992, noise3(p * 260.0)) * hold;
+		albedo = mix(albedo, snow_color, hold);
+		// Relief léger, effacé au loin (pas de motif régulier vu de loin).
+		height = mix(height, drifts * 0.004 * (1.0 - smoothstep(10.0, 40.0, length(VERTEX))), hold);
+		snow = hold;
+	}
 	ALBEDO = albedo;
-	ROUGHNESS = mix(mix(mix(earth ? 0.96 : (sand ? 0.93 : 0.86), 0.62, clay_wet), 0.72, mud), 0.12, puddle);
-	SPECULAR = mix(mix(earth ? 0.12 : (sand ? 0.18 + step(0.985,noise3(p*240.0))*0.6 : 0.25), 0.22, mud), 0.5, puddle);
+	ROUGHNESS = mix(mix(mix(mix(mix(earth ? 0.96 : (sand ? 0.93 : 0.86), 0.62, clay_wet), 0.72, mud), 0.12, puddle), 0.55, snow), 0.9, gravel);
+	SPECULAR = mix(mix(mix(mix(earth ? 0.12 : (sand ? 0.18 + step(0.985,noise3(p*240.0))*0.6 : 0.25), 0.22, mud), 0.5, puddle), 0.35 + sparkle * 0.6, snow), 0.2, gravel);
 	vec3 r1 = cross(dFdy(world_position),n);
 	vec3 r2 = cross(n,dFdx(world_position));
 	float determinant = dot(dFdx(world_position),r1);

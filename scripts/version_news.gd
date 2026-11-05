@@ -13,6 +13,7 @@ const MENUS := [
 ]
 # Version de génération → version du jeu qui l'a apportée, et ce qu'elle change.
 const GENERATIONS := [
+	[16, "0.0.6", "neige sur 1 montagne sur 4, gravier"],
 	[15, "0.0.6", "monde de 64 × 64 zones (512 m)"],
 	[14, "0.0.5.37", "grottes et crevasses en éclair"],
 	[13, "0.0.5.35", "grands lacs, chaînes de montagnes"],
