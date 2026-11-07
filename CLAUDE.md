@@ -83,10 +83,11 @@ Génération version 16 : neige sur 1 montagne sur 4 (SNOW), gravier au pied des
 
 ## Rythme de publication
 Publier une version sur 4, ou dès que l'utilisateur dit « publie », puis remettre le compteur à zéro.
-Chaque version locale a son numéro (demande de l'utilisateur, 07.11.2026) : après 0.0.6.1, les suivantes sont 0.0.6.2, 0.0.6.3…
-(numéro dans le titre du commit) ; la version publiée porte le numéro de la dernière (ex. 0.0.6.5 si 4 versions locales).
-Entre-temps : commit local sur `dev`, sans push (chaque push lance l'Action et met à jour la page d'essais).
-Les étapes de « Nouvelle version » se font seulement au moment de publier.
+Chaque version locale est une vraie version (demande de l'utilisateur, 07.11.2026) : après 0.0.6.1, les suivantes sont
+0.0.6.2, 0.0.6.3… Pour chacune : « Nouvelle version » étapes 1 à 3 (numéro, vitrine, historique, README), puis commit local
+sur `dev` titré « X.Y.Z — Titre ». Seul ce qui est lourd attend la publication : tous les tests, push, fusion dans main, tag,
+Action, Project (étapes 4 et 5). La version publiée est donc la dernière version locale (ex. 0.0.6.5).
+Entre-temps : sans push (chaque push lance l'Action et met à jour la page d'essais) ; tests de ce qui a changé seulement.
 
 ## Branches et builds
 - `dev` : travail en cours. `main` : seulement les versions validées.
