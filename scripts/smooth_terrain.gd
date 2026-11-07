@@ -576,19 +576,27 @@ func is_flat(zone: Vector3i) -> bool:
 static func ground_zone(zone: Vector3i) -> bool:
 	return zone.y == -1
 
+var _surface_ys: Dictionary = {}
+
 func surface_zones(low_zone: Vector2i, high_zone: Vector2i) -> Dictionary:
 	var result := {}
 	for x in range(low_zone.x, high_zone.x + 1):
 		for z in range(low_zone.y, high_zone.y + 1):
-			result[Vector3i(x, -1, z)] = true
-			# 0.0.5.19 : relief continu (version 2 et plus) : des collines presque partout, pas de calcul à l'ouverture.
-			if _noise != null and (int(generation_options.get("version", 0)) >= 2 or zone_heights(Vector3i(x, 0, z)).y > 0.0):
-				result[Vector3i(x, 0, z)] = true
-				for y in range(floori(_crevasse_floor(Vector2i(x, z)) / ZONE_METERS) - 1, -1):
-					result[Vector3i(x, y, z)] = true
-				# 0.0.5.23 : zones en hauteur des montagnes (version 7).
-				for y in range(1, floori((mountain_top(Vector2i(x, z)) + 3.5) / ZONE_METERS) + 1):
-					result[Vector3i(x, y, z)] = true
+			# 0.0.6.2 : hauteurs des zones de la graine gardées par colonne (calculées une seule fois).
+			var column := Vector2i(x, z)
+			if not _surface_ys.has(column):
+				var ys := PackedInt32Array([-1])
+				# 0.0.5.19 : relief continu (version 2 et plus) : des collines presque partout, pas de calcul à l'ouverture.
+				if _noise != null and (int(generation_options.get("version", 0)) >= 2 or zone_heights(Vector3i(x, 0, z)).y > 0.0):
+					ys.append(0)
+					for y in range(floori(_crevasse_floor(column) / ZONE_METERS) - 1, -1):
+						ys.append(y)
+					# 0.0.5.23 : zones en hauteur des montagnes (version 7).
+					for y in range(1, floori((mountain_top(column) + 3.5) / ZONE_METERS) + 1):
+						ys.append(y)
+				_surface_ys[column] = ys
+			for y in _surface_ys[column]:
+				result[Vector3i(x, y, z)] = true
 	for point: Vector3i in changes:
 		for zone in zones_using(point):
 			if zone.x >= low_zone.x and zone.x <= high_zone.x and zone.z >= low_zone.y and zone.z <= high_zone.y:
@@ -683,11 +691,15 @@ func zone_mesh(zone: Vector3i) -> Array:
 	for corner: Vector3i in corner_at:
 		offsets.append((corner.x * height + corner.y) * size + corner.z)
 	# Un sommet par sous-cellule traversée : moyenne des passages sur ses 12 arêtes ; normale = pente de la densité.
-	var cell_vertex := {}
-	var cell_normal := {}
-	var cell_color := {}
-	var cell_uv := {}
-	var cell_uv2 := {}
+	# 0.0.6.2 : sommets des sous-cellules dans des tableaux simples (pas de dictionnaire) : plus rapide, même résultat.
+	var cell_slot := PackedInt32Array()
+	cell_slot.resize(size * height * size)
+	cell_slot.fill(-1)
+	var cell_vertex := PackedVector3Array()
+	var cell_normal := PackedVector3Array()
+	var cell_color := PackedColorArray()
+	var cell_uv := PackedVector2Array()
+	var cell_uv2 := PackedVector2Array()
 	var corners := PackedFloat32Array()
 	corners.resize(8)
 	# 0.0.5.25 : sans point changé, la surface ne passe qu'entre les hauteurs des 4 coins de chaque colonne :
@@ -759,12 +771,13 @@ func zone_mesh(zone: Vector3i) -> Array:
 						sum += Vector3(corner_at[index]).lerp(Vector3(corner_at[index | axis]), a / (a - b))
 						count += 1
 				var cell := Vector3i(x, y, z)
-				cell_vertex[cell] = (Vector3(start + cell) + sum / count) * STEP
+				cell_slot[base] = cell_vertex.size()
+				cell_vertex.append((Vector3(start + cell) + sum / count) * STEP)
 				var slope := Vector3(
 					corners[1] + corners[3] + corners[5] + corners[7] - corners[0] - corners[2] - corners[4] - corners[6],
 					corners[2] + corners[3] + corners[6] + corners[7] - corners[0] - corners[1] - corners[4] - corners[5],
 					corners[4] + corners[5] + corners[6] + corners[7] - corners[0] - corners[1] - corners[2] - corners[3])
-				cell_normal[cell] = (-slope).normalized() if slope.length_squared() > 0.000001 else Vector3.UP
+				cell_normal.append((-slope).normalized() if slope.length_squared() > 0.000001 else Vector3.UP)
 				# Couleur des sommets (0.0.5.9) : alpha 0 = sable posé, bleu 0 = terre nue posée, blanc = sol de la graine ;
 				# 0.0.5.12 : vert 0 = pierre ; 0.0.5.18 : rouge 0 (avec vert 0) = Roche-mère.
 				var paint := Vector4.ZERO
@@ -787,9 +800,9 @@ func zone_mesh(zone: Vector3i) -> Array:
 						cover += Vector2(1.0 if kind == SNOW else 0.0, 1.0 if kind == GRAVEL else 0.0)
 						weight += 1
 				paint /= maxf(weight, 1)
-				cell_color[cell] = Color(1.0 - paint.w, 1.0 - paint.z, 1.0 - paint.y, 1.0 - paint.x)
-				cell_uv[cell] = wet / maxf(weight, 1)
-				cell_uv2[cell] = cover / maxf(weight, 1)
+				cell_color.append(Color(1.0 - paint.w, 1.0 - paint.z, 1.0 - paint.y, 1.0 - paint.x))
+				cell_uv.append(wet / maxf(weight, 1))
+				cell_uv2.append(cover / maxf(weight, 1))
 	# Une face par arête traversée, entre les 4 sous-cellules qui la partagent ; la zone garde les arêtes
 	# qui partent de ses propres points (pas de double avec la zone voisine).
 	var axes := [Vector3i(1, 0, 0), Vector3i(0, 1, 0), Vector3i(0, 0, 1)]
@@ -798,6 +811,8 @@ func zone_mesh(zone: Vector3i) -> Array:
 		var side_a: Vector3i = axes[(axis_index + 1) % 3]
 		var side_b: Vector3i = axes[(axis_index + 2) % 3]
 		var step := (axis.x * height + axis.y) * size + axis.z
+		var step_a := (side_a.x * height + side_a.y) * size + side_a.z
+		var step_b := (side_b.x * height + side_b.y) * size + side_b.z
 		for x in range(1, size - 1):
 			for y in range(maxi(maxi(1, origin.y - y_low), slab_low[x]), mini(mini(height - 1, origin.y + POINTS - y_low), slab_high[x] + 1)):
 				if y + axis.y >= height:
@@ -809,9 +824,8 @@ func zone_mesh(zone: Vector3i) -> Array:
 					var first := values[index]
 					if (first > 0.0) == (values[index + step] > 0.0):
 						continue
-					var point := Vector3i(x, y, z)
-					var quad := [point, point - side_a, point - side_a - side_b, point - side_b]
-					if not (cell_vertex.has(quad[0]) and cell_vertex.has(quad[1]) and cell_vertex.has(quad[2]) and cell_vertex.has(quad[3])):
+					var quad := [cell_slot[index], cell_slot[index - step_a], cell_slot[index - step_a - step_b], cell_slot[index - step_b]]
+					if quad[0] < 0 or quad[1] < 0 or quad[2] < 0 or quad[3] < 0:
 						continue
 					var outward := Vector3(axis) if first > 0.0 else -Vector3(axis)
 					# 0.0.5.14 : face coupée selon la diagonale qui garde les deux triangles tournés vers dehors
@@ -834,12 +848,12 @@ func zone_mesh(zone: Vector3i) -> Array:
 						var order := [quad[triangle[0]], quad[triangle[1]], quad[triangle[2]]]
 						if (c - a).cross(b - a).dot(outward) < 0.0:
 							order = [order[0], order[2], order[1]]
-						for cell in order:
-							vertices.append(cell_vertex[cell])
-							normals.append(cell_normal[cell])
-							colors.append(cell_color[cell])
-							uvs.append(cell_uv[cell])
-							uvs2.append(cell_uv2[cell])
+						for slot: int in order:
+							vertices.append(cell_vertex[slot])
+							normals.append(cell_normal[slot])
+							colors.append(cell_color[slot])
+							uvs.append(cell_uv[slot])
+							uvs2.append(cell_uv2[slot])
 	return [vertices, normals, colors, uvs, uvs2]
 
 # Carré plat d'une zone sans changement (8 m, du milieu de la sous-cellule −1 au bord suivant).

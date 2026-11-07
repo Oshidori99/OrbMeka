@@ -95,6 +95,7 @@ func _run() -> void:
 	deep_land.set_density(Vector3i(0, -50, 0), -0.5)
 	check(deep_land.zone_mesh(SmoothTerrain.point_zone(Vector3i(0, -50, 0)))[0].size() > 0 or deep_land.zone_mesh(SmoothTerrain.point_zone(Vector3i(0, -49, 0)))[0].size() > 0, "deep zones are drawn when dug")
 	check(SmoothTerrain.new().natural_kind(Vector3i(0, -7, 0)) == -1 and SmoothTerrain.new().natural_kind(Vector3i(0, -8, 0)) == SmoothTerrain.STONE and SmoothTerrain.new().natural_kind(Vector3i(0, -15, 0)) == SmoothTerrain.STONE, "dirt down to 4 m, stone below")
+	world.finish_terrain()
 	var spot := Vector3(20.25, 0.0, 20.25)
 	var grass_before := 0
 	for tile in world.lawn.get_children():

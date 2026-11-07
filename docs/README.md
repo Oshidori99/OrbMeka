@@ -1,6 +1,16 @@
-# OrbMeka™ — prototype 0.0.6.1
+# OrbMeka™ — prototype 0.0.6.2
 
 Godot 4.7 / GDScript. Formes et couleurs simples ; assets externes seulement sous licence vérifiée (sons CC0, assets/sounds/CREDITS.txt).
+
+## 0.0.6.2 — Jeu plus fluide
+Version locale (pas encore publiée).
+- **Herbe** : envoyée d'un coup à la carte graphique (avant : deux appels par touffe, puis une relecture) : environ 0,3 ms par carré de 8 m au lieu de 27 ms. Même herbe.
+- **Terrain** : la file construit zone par zone (une colonne de montagne prenait jusqu'à 50 ms d'un coup) ; seule la colonne du joueur est faite tout de suite.
+- **Vue** : zones visibles gardées par colonne, morceaux, herbe et objets retrouvés par colonne (pire image de la mise à jour : 21 → 4 ms).
+- **Maillage** du terrain lisse : tableaux simples au lieu de dictionnaires (8 % plus rapide, même résultat vérifié sur 160 zones).
+
+Tests concernés réussis. Mesures (3 essais) : ouverture d'un monde 0,91 → 0,60 s ; vol rapide en rendu Web 86 → 113 FPS en moyenne, images de plus de 33 ms 45 → 2 ; sur PC, vol très variable selon l'essai (48 à 83 FPS, contre 46 avant).
+À tester manuellement : fluidité en volant et en marchant, sur PC et dans un navigateur.
 
 ## 0.0.6.1 — Neige, gravier et pioche
 - **Génération version 16** (nouveaux mondes) : neige en haut d'environ 1 montagne sur 4 ; gravier au pied des montagnes et sur la rive d'environ 1 lac sur 3 (#122). Ils glissent comme le sable.

@@ -236,7 +236,8 @@ func _create_terrain(start_at: Vector3 = Vector3.ZERO) -> void:
 # toutes les zones où passe la surface d'une colonne proche sont affichées, quelle que soit la hauteur du
 # joueur (en volant, on voit toujours le sol). Colonnes proches (NEAR_ZONES) faites tout de suite ; les autres
 # d'abord plates, puis refaites peu à peu (les plus proches d'abord). Hors distance : retirées (terrain, herbe).
-const NEAR_ZONES := 2
+# 0.0.6.2 : seulement la colonne du joueur tout de suite (les autres, juste après, par la file, les plus proches d'abord).
+const NEAR_ZONES := 0
 const TERRAIN_BUDGET_USEC := 5000
 var terrain_queue: Array = []
 var shown_columns: Dictionary = {}
@@ -288,6 +289,13 @@ func update_terrain_view(force: bool = false, center: Vector2i = view_center) ->
 func _show_column(column: Vector2i) -> void:
 	for zone: Vector3i in shown_columns.get(column, []):
 		rebuild_terrain_piece(zone)
+	column_pending.erase(column)
+	_finish_column(column)
+
+# Zones déjà faites : l’herbe, les objets, puis le lointain s’efface sous la colonne.
+var column_pending: Dictionary = {}
+
+func _finish_column(column: Vector2i) -> void:
 	_rebuild_lawn_tile(column)
 	_show_column_objects(column)
 	built_columns[column] = true
@@ -322,16 +330,24 @@ func _show_cave_zone(zone: Vector3i) -> void:
 
 func _hide_column(column: Vector2i) -> void:
 	shown_columns.erase(column)
+	column_pending.erase(column)
 	_hide_column_objects(column)
-	for zone: Vector3i in terrain_pieces.keys():
-		if zone.x == column.x and zone.z == column.y:
+	# 0.0.6.2 : morceaux, herbe et objets retrouvés par colonne (avant : tout le monde parcouru pour chaque colonne).
+	for zone: Vector3i in column_zones.get(column, {}):
+		if terrain_pieces.has(zone):
 			terrain_pieces[zone].free()
 			terrain_pieces.erase(zone)
-	for child in lawn.get_children():
-		if child.get_meta("tile", Vector2i(999, 999)) == column:
-			child.free()
+	column_zones.erase(column)
+	if is_instance_valid(lawn_tiles.get(column)):
+		lawn_tiles[column].free()
+	lawn_tiles.erase(column)
 	if built_columns.erase(column):
 		_far_follow_column(column)
+
+# 0.0.6.2 : index par colonne (zones affichées, carré d’herbe, rochers et eau).
+var column_zones: Dictionary = {}
+var lawn_tiles: Dictionary = {}
+var column_objects: Dictionary = {}
 
 func column_shown(column: Vector2i) -> bool:
 	return shown_columns.has(column)
@@ -343,10 +359,22 @@ func _process_terrain_queue() -> void:
 	if not cave_queue.is_empty() and (cave_underground or terrain_queue.is_empty()):
 		_show_cave_zone(cave_queue.pop_front())
 	var started := Time.get_ticks_usec()
+	# 0.0.6.2 : zone par zone (une colonne de montagne dépassait 40 ms d’un coup) ; l’herbe et les objets quand la colonne est finie.
 	while not terrain_queue.is_empty() and Time.get_ticks_usec() - started < TERRAIN_BUDGET_USEC:
-		var column: Vector2i = terrain_queue.pop_front()
-		if shown_columns.has(column):
-			_show_column(column)
+		var column: Vector2i = terrain_queue[0]
+		if not shown_columns.has(column):
+			terrain_queue.pop_front()
+			column_pending.erase(column)
+			continue
+		if not column_pending.has(column):
+			column_pending[column] = shown_columns[column].duplicate()
+		var pending: Array = column_pending[column]
+		if pending.is_empty():
+			terrain_queue.pop_front()
+			column_pending.erase(column)
+			_finish_column(column)
+		else:
+			rebuild_terrain_piece(pending.pop_back())
 
 # Tout le terrain en attente, d'un coup (tests, captures).
 func finish_terrain() -> void:
@@ -478,6 +506,10 @@ func rebuild_terrain_piece(zone: Vector3i, flat_for_now: bool = false) -> void:
 	body.add_child(collision)
 	terrain_node.add_child(body)
 	terrain_pieces[zone] = body
+	var column := Vector2i(zone.x, zone.z)
+	if not column_zones.has(column):
+		column_zones[column] = {}
+	column_zones[column][zone] = true
 	last_section_ms = (Time.get_ticks_usec() - started) / 1000.0
 
 # Herbe écartée là où le terrain a été sculpté (colonne de 50 cm et ses voisines) et dans les déserts.
@@ -488,12 +520,13 @@ func _grass_skipped(at: Vector3) -> bool:
 	return terrain.column_changed(column) or terrain.is_desert(Vector2(at.x, at.z)) or terrain.muddy(column)
 
 func _rebuild_lawn_tile(tile: Vector2i) -> void:
-	for child in lawn.get_children():
-		if child.get_meta("tile", Vector2i(999, 999)) == tile:
-			child.free()
+	if is_instance_valid(lawn_tiles.get(tile)):
+		lawn_tiles[tile].free()
+	lawn_tiles.erase(tile)
 	var node := TerrainMaterials.lawn_tile(tile, generated, terrain_seed, SAND_CENTER, SAND_RADIUS, _grass_skipped, terrain.height_at)
 	if node != null:
 		lawn.add_child(node)
+		lawn_tiles[tile] = node
 # Gestes de terrain (0.0.5.8, pinceaux en 0.0.5.9). Clic gauche : creuser ; clic droit : le pinceau
 # choisi avec B + T (poser, aplanir, lisser). Taille (B + molette) : 1/8, 1/4 ou 1/2 bloc, soit 1, 2 ou
 # 4 sous-cellules de 50 cm ; aplanir et lisser agissent autour, sur 50 cm, 1 m ou 1,5 m.
@@ -1513,6 +1546,7 @@ func _show_column_objects(column: Vector2i) -> void:
 			var made := _make_rock(rock, rock.id)
 			if made != null:
 				made.set_meta("column", column)
+				_column_object(column, made)
 	for lake in terrain.lakes_in_zone(column):
 		var water := MeshInstance3D.new()
 		water.name = "Lac"
@@ -1527,13 +1561,18 @@ func _show_column_objects(column: Vector2i) -> void:
 		water.set_meta("column", column)
 		water.add_to_group("water")
 		_rocks_parent().add_child(water)
+		_column_object(column, water)
+
+func _column_object(column: Vector2i, node: Node) -> void:
+	if not column_objects.has(column):
+		column_objects[column] = []
+	column_objects[column].append(node)
 
 func _hide_column_objects(column: Vector2i) -> void:
-	if not is_instance_valid(rocks_node):
-		return
-	for child in rocks_node.get_children():
-		if child.get_meta("column", Vector2i(999999, 0)) == column:
-			child.free()
+	for node in column_objects.get(column, []):
+		if is_instance_valid(node):
+			node.free()
+	column_objects.erase(column)
 
 # Disque d'eau (surface plate, vue de dessus et de dessous) ; 0.0.5.20 : allongé (half : demi-segment du lac).
 # 0.0.5.25 : lacs irréguliers (version 7 et plus) : l'eau suit le contour du lac, jamais par-dessus la rive.

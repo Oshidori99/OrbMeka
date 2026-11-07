@@ -60,11 +60,34 @@ static func grass_instance(points: Array[Vector3], terrain_seed: int) -> MultiMe
 	multi.instance_count = points.size()
 	var rng := RandomNumberGenerator.new()
 	rng.seed = terrain_seed
+	# 0.0.6.2 : toutes les données d'un coup (une seule copie vers la carte graphique, au lieu de deux appels par carré
+	# d'herbe puis d'une relecture) : bien plus rapide. Mêmes tirages, même herbe. Par carré : 3 lignes de 4 nombres
+	# (rotation et taille, puis position), puis la couleur.
+	var buffer := PackedFloat32Array()
+	buffer.resize(points.size() * 16)
 	for index in range(points.size()):
 		var size := rng.randf_range(0.85, 1.15)
-		multi.set_instance_transform(index, Transform3D(Basis(Vector3.UP, rng.randf() * TAU).scaled(Vector3(1.0, size, 1.0)), points[index]))
+		var basis := Basis(Vector3.UP, rng.randf() * TAU).scaled(Vector3(1.0, size, 1.0))
 		var tint := rng.randf_range(0.85, 1.1)
-		multi.set_instance_color(index, Color(tint, tint, tint, 1))
+		var at := points[index]
+		var base := index * 16
+		buffer[base] = basis.x.x
+		buffer[base + 1] = basis.y.x
+		buffer[base + 2] = basis.z.x
+		buffer[base + 3] = at.x
+		buffer[base + 4] = basis.x.y
+		buffer[base + 5] = basis.y.y
+		buffer[base + 6] = basis.z.y
+		buffer[base + 7] = at.y
+		buffer[base + 8] = basis.x.z
+		buffer[base + 9] = basis.y.z
+		buffer[base + 10] = basis.z.z
+		buffer[base + 11] = at.z
+		buffer[base + 12] = tint
+		buffer[base + 13] = tint
+		buffer[base + 14] = tint
+		buffer[base + 15] = 1.0
+	multi.buffer = buffer
 	if _blade_material == null:
 		_blade_material = ShaderMaterial.new()
 		_blade_material.shader = GRASS_SHADER
@@ -74,8 +97,7 @@ static func grass_instance(points: Array[Vector3], terrain_seed: int) -> MultiMe
 	far_multi.use_colors = true
 	far_multi.mesh = grass_mesh(true)
 	far_multi.instance_count = points.size()
-	if multi.buffer.size() == far_multi.buffer.size():
-		far_multi.buffer = multi.buffer
+	far_multi.buffer = buffer
 	node.multimesh = far_multi
 	node.material_override = _blade_material
 	node.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF

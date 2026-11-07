@@ -3,6 +3,10 @@ Du plus récent au plus ancien. Ce fichier est mis à jour à chaque version.
 
 === Thème « Monde » (0.0.5 et suivantes) ===
 
+0.0.6.2 — Jeu plus fluide
+Génération du terrain : version 16 · Menus : version 3.
+Herbe 100 fois plus rapide à construire, terrain construit zone par zone, moins d'à-coups en volant, ouverture plus rapide.
+
 0.0.6.1 — Neige, gravier et pioche
 Génération du terrain : version 16 (nouvelle) · Menus : version 3 (nouvelle).
 Neige sur 1 montagne sur 4, gravier, vue sous l'eau ; la pioche casse pierre et rochers par 50 cm ; lointain sans trou, contrôles corrigés.
