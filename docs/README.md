@@ -1,6 +1,16 @@
-# OrbMeka™ — prototype 0.0.6
+# OrbMeka™ — prototype 0.0.6.1
 
 Godot 4.7 / GDScript. Formes et couleurs simples ; assets externes seulement sous licence vérifiée (sons CC0, assets/sounds/CREDITS.txt).
+
+## 0.0.6.1 — Neige, gravier et pioche
+- **Génération version 16** (nouveaux mondes) : neige en haut d'environ 1 montagne sur 4 ; gravier au pied des montagnes et sur la rive d'environ 1 lac sur 3 (#122). Ils glissent comme le sable.
+- **Sous l'eau** : brume bleu-vert proche, voile teinté, surface claire vue de dessous. L'eau vue de dessus ne change pas.
+- **Pioche** : la pierre se casse une sous-cellule de 50 cm par coup (pierre sombre : 2 coups ; Roche-mère jamais) ; les rochers se creusent morceau par morceau, gardés dans objets.json. Éclats et petit son de choc fait dans le jeu.
+- **Lointain** : plus de trou en s'approchant d'une montagne (le relief lointain reste tant que le détail n'est pas affiché).
+- **Contrôles** : Échap et un clic ailleurs annulent le choix d'une touche (les touches ne changent plus toutes seules) ; ✕ pour désactiver une touche seule. Creuser sans effet : message.
+
+Tests : tous réussis (59). Mesures : vol rapide sur PC environ 47 FPS (56 avant la génération 16) ; coup de pioche : pierre 25 à 40 ms, plus gros rocher jusqu'à 80 ms.
+À tester manuellement : montagne enneigée, gravier, plongée dans un lac, casser en maintenant le clic, gros rocher creusé puis monde rouvert, fluidité dans un navigateur.
 
 ## 0.0.6 — Monde plus grand, mondes en sécurité
 Début de la série « Monde 2 ».

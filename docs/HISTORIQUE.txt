@@ -3,6 +3,10 @@ Du plus récent au plus ancien. Ce fichier est mis à jour à chaque version.
 
 === Thème « Monde » (0.0.5 et suivantes) ===
 
+0.0.6.1 — Neige, gravier et pioche
+Génération du terrain : version 16 (nouvelle) · Menus : version 3 (nouvelle).
+Neige sur 1 montagne sur 4, gravier, vue sous l'eau ; la pioche casse pierre et rochers par 50 cm ; lointain sans trou, contrôles corrigés.
+
 0.0.6 — Monde plus grand, mondes en sécurité
 Génération du terrain : version 15 (nouvelle) · Menus : version 2 (nouvelle).
 Mondes de 512 m ; anciens mondes signalés ; dossiers sécurisés et sous-dossiers ; mises à jour dans Informations.

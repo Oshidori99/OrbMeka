@@ -3,8 +3,9 @@ extends RefCounted
 # Les versions de la génération sont celles enregistrées avec chaque monde (world_generation.gd) ; la version des menus
 # compte les changements des menus depuis 0.0.6 (1 : menus de 0.0.5.37 et avant). À compléter à chaque version.
 const Generation = preload("res://scripts/world_generation.gd")
-const MENUS_VERSION := 2
+const MENUS_VERSION := 3
 const MENUS := [
+	{"menu": "Contrôles", "version": "0.0.6.1", "text": "Échap et un clic ailleurs annulent, ✕ pour désactiver une touche seule (Aucune)"},
 	{"menu": "Mes mondes", "version": "0.0.6", "text": "« ! » jaune des mondes d'anciennes générations, listes sécurisées en onglets, sous-dossiers, déplacement des mondes"},
 	{"menu": "Paramètres", "version": "0.0.6", "text": "Paramètres généraux → Mondes : cacher les anciens mondes, dossiers sécurisés, rangement automatique"},
 	{"menu": "Informations", "version": "0.0.6", "text": "mises à jour du jeu, des menus et de la génération"},

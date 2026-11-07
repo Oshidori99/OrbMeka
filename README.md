@@ -1,7 +1,8 @@
-# OrbMeka™ 0.0.6
+# OrbMeka™ 0.0.6.1
 
 Dans Godot, ouvrez **project.godot**, puis **F5** pour lancer le jeu.
 
+0.0.6.1 : neige et gravier (génération 16), vue sous l'eau, pioche qui casse la pierre et les rochers par morceaux de 50 cm, contrôles corrigés.
 0.0.6 : monde de 512 m (64 × 64 zones), anciens mondes signalés, mondes en sécurité et sous-dossiers, mises à jour dans Informations.
 0.0.5.21 : lacs de 2 et 4 zones aux bords irréguliers, bandes de boue et d'argile grise, régions de boue, grands déserts seulement (8 %).
 0.0.5.20 : monde de 48 × 48 zones, argile et boue, lacs de 1 zone et de 1 × 2 zones, dossiers des mondes à leur nom.
