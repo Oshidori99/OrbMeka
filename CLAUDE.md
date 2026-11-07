@@ -88,8 +88,10 @@ Génération version 19 : 5 m de terre, 20 m de pierre, 20 m de pierre sombre, R
 Publier une version sur 4, ou dès que l'utilisateur dit « publie », puis remettre le compteur à zéro.
 Chaque version locale est une vraie version (demande de l'utilisateur, 07.11.2026) : après 0.0.6.1, les suivantes sont
 0.0.6.2, 0.0.6.3… Pour chacune : « Nouvelle version » étapes 1 à 3 (numéro, vitrine, historique, README), puis commit local
-sur `dev` titré « X.Y.Z — Titre ». Seul ce qui est lourd attend la publication : tous les tests, push, fusion dans main, tag,
+sur `dev` titré « X.Y.Z — Titre ». Seul ce qui est lourd attend la publication : push, fusion dans main, tag,
 Action, Project (étapes 4 et 5). La version publiée est donc la dernière version locale (ex. 0.0.6.5).
+Pas de tous les tests en local avant de publier (demande de l'utilisateur, 07.11.2026) : l'Action Dev les lance après l'envoi ;
+s'ils échouent, corriger aussitôt.
 Entre-temps : sans push (chaque push lance l'Action et met à jour la page d'essais) ; tests de ce qui a changé seulement.
 
 ## Branches et builds
