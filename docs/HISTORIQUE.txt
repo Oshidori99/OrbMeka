@@ -3,6 +3,10 @@ Du plus récent au plus ancien. Ce fichier est mis à jour à chaque version.
 
 === Thème « Monde » (0.0.5 et suivantes) ===
 
+0.0.6.4 — Calcaire, charbon et silex
+Génération du terrain : version 18 (nouvelle) · Menus : version 3.
+Calcaire en poches (8 % de la pierre claire), filons de charbon (1,5 %), rognons de silex dans le calcaire ; silex en surface, 1 rocher sur 5 en calcaire.
+
 0.0.6.3 — Cailloux et lacs de montagne
 Génération du terrain : version 17 (nouvelle) · Menus : version 3.
 Cailloux sur le sol (7 tailles, jusqu'à 60 cm), surtout sur le gravier, au pied des montagnes et au bord des lacs ; plus d'eau en l'air dans les lacs de montagne.

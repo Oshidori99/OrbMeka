@@ -782,16 +782,110 @@ func _run() -> void:
 	var pebble_total := 0
 	var on_gravel := 0
 	var by_size := [0, 0, 0, 0, 0, 0, 0]
+	var flint_total := 0
+	var flint_gravel := 0
+	var flint_small := true
 	for x in range(-16, 16):
 		for z in range(-16, 16):
 			var list_a: Array = pebbles_a.pebbles_in_zone(Vector2i(x, z))
 			same_pebbles = same_pebbles and list_a == pebbles_b.pebbles_in_zone(Vector2i(x, z))
 			for pebble in list_a:
+				if pebble.get("silex", false):
+					flint_total += 1
+					flint_gravel += 1 if pebbles_a.surface_kind(Vector2i(roundi(pebble.x / 0.5), roundi(pebble.z / 0.5))) == SmoothTerrain.GRAVEL else 0
+					flint_small = flint_small and pebble.taille <= 4
+					continue
 				pebble_total += 1
 				by_size[pebble.taille - 1] += 1
 				on_gravel += 1 if pebbles_a.surface_kind(Vector2i(roundi(pebble.x / 0.5), roundi(pebble.z / 0.5))) == SmoothTerrain.GRAVEL else 0
 	check(same_pebbles and pebble_total > 1000, "same seed, same pebbles (%d)" % pebble_total)
 	check(by_size[0] > by_size[3] and by_size[3] > by_size[6] and on_gravel * 5 > pebble_total, "more small pebbles than big ones, many on the gravel")
+	# 0.0.6.4 (version 18) : silex en surface : 2 à 5 par zone en moyenne, jusqu'à 8 dans le gravier, petits.
+	var flint_per_zone := flint_total / 1024.0
+	check(flint_small and flint_per_zone >= 2.0 and flint_per_zone <= 5.0 and flint_gravel * 10 > flint_total, "surface flint: 2 to 5 per zone, more in the gravel (%.1f per zone)" % flint_per_zone)
+	# Minerais sous terre, comptés sur des zones entières (comme si toute la zone était de la pierre claire ou sombre).
+	var ore_land := SmoothTerrain.new()
+	ore_land.setup(42, [], load("res://scripts/world_generation.gd").defaults())
+	var lime_count := 0
+	var coal_light := 0
+	var coal_dark := 0
+	var flint_count := 0
+	var pocket_sizes := []
+	var vein_sizes := []
+	var ore_zones := 0
+	for zx in range(-3, 3):
+		for zz in range(-3, 3):
+			var ore_zone := Vector3i(zx, -2, zz)
+			ore_zones += 1
+			var ores: Dictionary = ore_land._ores_of(ore_zone)
+			for shape_list in [ores.lime, ores.coal]:
+				for shape in shape_list:
+					var inside := 0
+					for x in range(16):
+						for y in range(16):
+							for z in range(16):
+								inside += 1 if ore_land._in_ore(ore_zone * 16 + Vector3i(x, y, z), shape) else 0
+					(pocket_sizes if shape_list == ores.lime else vein_sizes).append(inside)
+			for x in range(16):
+				for y in range(16):
+					for z in range(16):
+						var ore_point := ore_zone * 16 + Vector3i(x, y, z)
+						var light_kind: int = ore_land._ore(ore_point, SmoothTerrain.STONE)
+						lime_count += 1 if light_kind == SmoothTerrain.LIMESTONE else 0
+						flint_count += 1 if light_kind == SmoothTerrain.FLINT else 0
+						coal_light += 1 if light_kind == SmoothTerrain.COAL else 0
+						coal_dark += 1 if ore_land._ore(ore_point, SmoothTerrain.DARK_STONE) == SmoothTerrain.COAL else 0
+	pocket_sizes.sort()
+	vein_sizes.sort()
+	var lime_share := 100.0 * (lime_count + flint_count) / (ore_zones * 4096.0)
+	var coal_share := 100.0 * coal_dark / (ore_zones * 4096.0)
+	check(lime_share > 7.0 and lime_share < 9.0 and pocket_sizes[pocket_sizes.size() / 2] >= 16 and pocket_sizes[pocket_sizes.size() / 2] <= 48, "limestone about 8 %% of light stone, in pockets of 16 to 48 sub-cells (%.1f %%, median %d)" % [lime_share, pocket_sizes[pocket_sizes.size() / 2]])
+	check(coal_share > 1.1 and coal_share < 2.0 and vein_sizes[vein_sizes.size() / 2] >= 4 and vein_sizes[vein_sizes.size() / 2] <= 12 and coal_light > 0, "coal about 1.5 %% of the stone, in veins of 4 to 12 sub-cells (%.1f %%, median %d)" % [coal_share, vein_sizes[vein_sizes.size() / 2]])
+	check(flint_count / float(ore_zones) >= 3.0 and flint_count / float(ore_zones) <= 18.0, "flint nodules inside the limestone (%.1f sub-cells per zone)" % (flint_count / float(ore_zones)))
+	var deep_kinds := {}
+	for y in [ore_land.mother_rock_top, ore_land.mother_rock_top - 5]:
+		for x in range(0, 64, 3):
+			deep_kinds[ore_land.natural_kind(Vector3i(x, y, 7))] = true
+	var dark_kinds := {}
+	for y in range(ore_land.mother_rock_top + 1, ore_land.deep_top + 1):
+		for x in range(0, 48):
+			dark_kinds[ore_land.natural_kind(Vector3i(x, y, 5))] = true
+	check(deep_kinds.keys() == [SmoothTerrain.MOTHER_ROCK] and not dark_kinds.has(SmoothTerrain.LIMESTONE) and not dark_kinds.has(SmoothTerrain.FLINT) and dark_kinds.has(SmoothTerrain.COAL), "never limestone or flint in the dark stone, nothing in the bedrock")
+	var options_17: Dictionary = load("res://scripts/world_generation.gd").defaults()
+	options_17.version = 17
+	var plain := SmoothTerrain.new()
+	plain.setup(42, [], options_17)
+	var plain_kinds := {}
+	for x in range(0, 64):
+		for y in range(ore_land.deep_top + 1, ore_land.stone_top + 1):
+			plain_kinds[plain.natural_kind(Vector3i(x, y, 9))] = true
+	var plain_flint := false
+	for x in range(-8, 8):
+		for pebble in plain.pebbles_in_zone(Vector2i(x, 2)):
+			plain_flint = plain_flint or pebble.get("silex", false)
+	check(plain_kinds.keys() == [SmoothTerrain.STONE] and not plain_flint, "version 17 worlds keep plain stone and no flint")
+	# Hors de la pierre (terre, sable, boue, argile…), rien ne change par rapport à la version 17.
+	var same_outside := true
+	for x in range(-40, 40, 3):
+		for z in range(-40, 40, 7):
+			for y in range(-12, 4):
+				var before_kind: int = plain.natural_kind(Vector3i(x, y, z))
+				if before_kind != SmoothTerrain.STONE and before_kind != SmoothTerrain.DARK_STONE:
+					same_outside = same_outside and ore_land.natural_kind(Vector3i(x, y, z)) == before_kind
+	check(same_outside, "no ore in the dirt, sand, mud or clay")
+	var limestone_rocks := 0
+	var flint_rocks := 0
+	var all_rocks := 0
+	for x in range(-24, 24):
+		for z in range(-24, 24):
+			for rock in ore_land.rocks_in_zone(Vector2i(x, z)):
+				all_rocks += 1
+				limestone_rocks += 1 if rock.get("calcaire", false) else 0
+				flint_rocks += 1 if rock.get("silex", false) else 0
+	check(all_rocks > 100 and absf(limestone_rocks / float(all_rocks) - 0.2) < 0.06 and flint_rocks > 0 and flint_rocks < limestone_rocks * 0.45, "about 1 rock in 5 is limestone, 1 in 4 of those hides flint (%d / %d / %d)" % [flint_rocks, limestone_rocks, all_rocks])
+	var hard_world: Node3D = WorldScene.instantiate()
+	check(hard_world.STONE_HITS[SmoothTerrain.LIMESTONE] == 1 and hard_world.STONE_HITS[SmoothTerrain.COAL] == 1 and hard_world.STONE_HITS[SmoothTerrain.FLINT] == 2 and ore_land.ROCKS.has(SmoothTerrain.LIMESTONE), "limestone and coal break in one hit, flint in two; they never fall")
+	hard_world.free()
 	# Casse à la pioche : les petits en 1 coup, les gros en 3 ; cassés, ils ne reviennent pas.
 	var pebble_folder := FOLDER + "-cailloux"
 	Store.delete_folder(pebble_folder)

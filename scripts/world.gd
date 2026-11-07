@@ -495,8 +495,10 @@ func rebuild_terrain_piece(zone: Vector3i, flat_for_now: bool = false) -> void:
 		arrays[Mesh.ARRAY_COLOR] = surface[2]
 		arrays[Mesh.ARRAY_TEX_UV] = surface[3]
 		arrays[Mesh.ARRAY_TEX_UV2] = surface[4]
+		# 0.0.6.4 : calcaire, charbon, silex (CUSTOM0).
+		arrays[Mesh.ARRAY_CUSTOM0] = surface[5]
 		var mesh := ArrayMesh.new()
-		mesh.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arrays)
+		mesh.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arrays, [], {}, Mesh.ARRAY_CUSTOM_RGBA_FLOAT << Mesh.ARRAY_FORMAT_CUSTOM0_SHIFT)
 		instance.mesh = mesh
 		var shape := ConcavePolygonShape3D.new()
 		shape.backface_collision = true
@@ -1521,6 +1523,18 @@ func _make_rock(rock: Dictionary, id: String) -> StaticBody3D:
 	body.rotation.y = deg_to_rad(float(rock.get("rotation", 0.0)))
 	body.set_meta("id", id)
 	body.set_meta("hits", 0)
+	# 0.0.6.4 : rocher de calcaire ; rognon de silex caché au milieu, visible quand on le creuse.
+	if rock.get("calcaire", false):
+		for child in body.get_children():
+			if child is MeshInstance3D:
+				child.material_override = _kind_material(1)
+	if rock.get("silex", false):
+		var nodule := MeshInstance3D.new()
+		nodule.name = "Silex"
+		nodule.mesh = Rocks.pebble_mesh(1)
+		nodule.scale = Vector3.ONE * minf(0.35, Rocks.SIZES[size - 1] * 0.3)
+		nodule.material_override = _kind_material(2)
+		body.add_child(nodule)
 	_rocks_parent().add_child(body)
 	if carved_rocks.has(id) and not _apply_carving(body):
 		body.free()
@@ -1594,6 +1608,16 @@ func _stone_material() -> ShaderMaterial:
 		_rock_material = TerrainMaterials.surface(true)
 	return _rock_material
 
+# 0.0.6.4 : calcaire (rochers) et silex (cailloux, rognons) : même matière, autre aspect (rock_kind 1 ou 2).
+var _kind_materials: Dictionary = {}
+
+func _kind_material(kind: int) -> ShaderMaterial:
+	if not _kind_materials.has(kind):
+		var made := TerrainMaterials.surface(true)
+		made.set_shader_parameter("rock_kind", kind)
+		_kind_materials[kind] = made
+	return _kind_materials[kind]
+
 func _show_column_pebbles(column: Vector2i) -> void:
 	_hide_column_pebbles(column)
 	var nodes := []
@@ -1607,9 +1631,11 @@ func _show_column_pebbles(column: Vector2i) -> void:
 		var shrink: float = 1.0 - 0.2 * pebble_hits.get(pebble.id, 0)
 		var diameter: float = Rocks.PEBBLE_SIZES[size - 1] * shrink
 		var at := Vector3(pebble.x, terrain.height_at(pebble.x, pebble.z) + Rocks.pebble_lift(size, shape) * shrink, pebble.z)
-		if not by_shape.has(shape):
-			by_shape[shape] = []
-		by_shape[shape].append(Transform3D(Basis(Vector3.UP, deg_to_rad(pebble.rotation)).scaled(Vector3.ONE * diameter), at))
+		# Silex à part (autre aspect).
+		var group := shape + (100 if pebble.get("silex", false) else 0)
+		if not by_shape.has(group):
+			by_shape[group] = []
+		by_shape[group].append(Transform3D(Basis(Vector3.UP, deg_to_rad(pebble.rotation)).scaled(Vector3.ONE * diameter), at))
 		var body := StaticBody3D.new()
 		body.name = "Caillou"
 		body.add_to_group("pebbles")
@@ -1626,18 +1652,18 @@ func _show_column_pebbles(column: Vector2i) -> void:
 		body.position = at
 		_rocks_parent().add_child(body)
 		nodes.append(body)
-	for shape: int in by_shape:
-		var placements: Array = by_shape[shape]
+	for group: int in by_shape:
+		var placements: Array = by_shape[group]
 		var multi := MultiMesh.new()
 		multi.transform_format = MultiMesh.TRANSFORM_3D
-		multi.mesh = Rocks.pebble_mesh(shape)
+		multi.mesh = Rocks.pebble_mesh(group % 100)
 		multi.instance_count = placements.size()
 		for index in range(placements.size()):
 			multi.set_instance_transform(index, placements[index])
 		var drawn := MultiMeshInstance3D.new()
 		drawn.name = "Cailloux"
 		drawn.multimesh = multi
-		drawn.material_override = _stone_material()
+		drawn.material_override = _kind_material(2) if group >= 100 else _stone_material()
 		_rocks_parent().add_child(drawn)
 		nodes.append(drawn)
 	column_pebbles[column] = nodes
@@ -1709,7 +1735,9 @@ static func _water_disc(radius: float, half: Vector2 = Vector2.ZERO) -> ArrayMes
 
 # Coup de pioche sur un rocher : il se fend un peu à chaque coup ; au bout d'autant de coups que sa taille, il casse.
 # Coups de pioche par sous-cellule selon la pierre (plus dure : plus de coups). Roche-mère : jamais (hors limites).
-const STONE_HITS := {SmoothTerrain.STONE: 1, SmoothTerrain.DARK_STONE: 2}
+const STONE_HITS := {SmoothTerrain.STONE: 1, SmoothTerrain.DARK_STONE: 2, SmoothTerrain.LIMESTONE: 1, SmoothTerrain.COAL: 1, SmoothTerrain.FLINT: 2}
+# 0.0.6.4 : éclats de la couleur de la matière frappée.
+const STONE_DEBRIS := {SmoothTerrain.DARK_STONE: Color("#4a4744"), SmoothTerrain.LIMESTONE: Color("#c4bca8"), SmoothTerrain.COAL: Color("#141416"), SmoothTerrain.FLINT: Color("#2a2a2e")}
 var stone_target := Vector3i(999999, 0, 0)
 var stone_hits := 0
 
@@ -1719,7 +1747,7 @@ func _strike_stone(point: Vector3i, at: Vector3) -> bool:
 		stone_target = point
 		stone_hits = 0
 	stone_hits += 1
-	_debris(at, Color("#4a4744") if kind == SmoothTerrain.DARK_STONE else Color("#6f6b66"))
+	_debris(at, STONE_DEBRIS.get(kind, Color("#6f6b66")))
 	_impact_sound(at)
 	if stone_hits < STONE_HITS.get(kind, 1):
 		return true
@@ -1789,7 +1817,7 @@ func _apply_carving(body: StaticBody3D) -> bool:
 	tool.index()
 	tool.generate_normals()
 	for child in body.get_children():
-		if child is MeshInstance3D:
+		if child is MeshInstance3D and child.name != "Silex":
 			child.mesh = tool.commit()
 		elif child is CollisionShape3D:
 			var shape := ConcavePolygonShape3D.new()

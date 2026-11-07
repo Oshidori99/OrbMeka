@@ -8,6 +8,9 @@ uniform float sand_radius = 0.0;
 varying vec3 world_position;
 varying vec3 world_normal;
 varying vec4 tint;
+// 0.0.6.4 : calcaire, charbon, silex (CUSTOM0 du terrain) ; rock_kind pour les rochers et cailloux : 1 calcaire, 2 silex.
+varying vec3 ore_share;
+uniform int rock_kind = 0;
 float zone_hash(vec2 p) {
 	return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453);
 }
@@ -44,6 +47,7 @@ void vertex() {
 	world_position = (MODEL_MATRIX*vec4(VERTEX,1.0)).xyz;
 	world_normal = normalize(MODEL_NORMAL_MATRIX*NORMAL);
 	tint = COLOR;
+	ore_share = CUSTOM0.rgb;
 }
 void fragment() {
 	vec3 p = world_position;
@@ -217,9 +221,40 @@ void fragment() {
 		height = mix(height, drifts * 0.004 * (1.0 - smoothstep(10.0, 40.0, length(VERTEX))), hold);
 		snow = hold;
 	}
+	vec3 ore = clamp(ore_share, 0.0, 1.0);
+	if (rock_kind == 1) { ore.x = 1.0; }
+	if (rock_kind == 2) { ore.z = 1.0; }
+	float coal_glint = 0.0;
+	float flint_gloss = 0.0;
+	if (ore.x > 0.01) {
+		// Calcaire : gris très clair à beige, mat, un peu granuleux, petits trous plus sombres.
+		vec3 lime = mix(vec3(0.62, 0.57, 0.46), vec3(0.82, 0.77, 0.64), fbm(p * 1.7));
+		lime *= 0.9 + noise3(p * 90.0) * 0.14;
+		lime = mix(lime, vec3(0.45, 0.43, 0.39), smoothstep(0.82, 0.95, noise3(p * 26.0)) * 0.5);
+		albedo = mix(albedo, lime, ore.x);
+		height = mix(height, noise3(p * 60.0) * 0.004, ore.x);
+	}
+	if (ore.y > 0.01) {
+		// Charbon : noir mat en couches, quelques éclats légèrement brillants.
+		float layers = smoothstep(0.35, 0.65, sin(p.y * 26.0 + fbm(p * 2.0) * 5.0) * 0.5 + 0.5);
+		vec3 coal = mix(vec3(0.022, 0.022, 0.026), vec3(0.06, 0.06, 0.066), layers);
+		coal_glint = step(0.9, noise3(p * 70.0)) * ore.y;
+		albedo = mix(albedo, coal, ore.y);
+		height = mix(height, layers * 0.004, ore.y);
+	}
+	if (ore.z > 0.01) {
+		// Silex : gris foncé à noir, lisse et un peu brillant ; croûte blanche crayeuse autour (bord du rognon,
+		// taches sur les cailloux).
+		vec3 core = mix(vec3(0.05, 0.05, 0.06), vec3(0.17, 0.17, 0.19), fbm(p * 3.5));
+		float crust = rock_kind == 2 ? smoothstep(0.45, 0.6, fbm(p * 16.0)) : 1.0 - smoothstep(0.55, 0.85, ore.z);
+		vec3 chalk = mix(vec3(0.74, 0.73, 0.68), vec3(0.86, 0.85, 0.8), noise3(p * 40.0));
+		albedo = mix(albedo, mix(core, chalk, crust), ore.z);
+		flint_gloss = ore.z * (1.0 - crust);
+		height = mix(height, crust * noise3(p * 50.0) * 0.004, ore.z);
+	}
 	ALBEDO = albedo;
-	ROUGHNESS = mix(mix(mix(mix(mix(earth ? 0.96 : (sand ? 0.93 : 0.86), 0.62, clay_wet), 0.72, mud), 0.12, puddle), 0.55, snow), 0.9, gravel);
-	SPECULAR = mix(mix(mix(mix(earth ? 0.12 : (sand ? 0.18 + step(0.985,noise3(p*240.0))*0.6 : 0.25), 0.22, mud), 0.5, puddle), 0.35 + sparkle * 0.6, snow), 0.2, gravel);
+	ROUGHNESS = mix(mix(mix(mix(mix(mix(mix(mix(mix(earth ? 0.96 : (sand ? 0.93 : 0.86), 0.62, clay_wet), 0.72, mud), 0.12, puddle), 0.55, snow), 0.9, gravel), 0.92, ore.x), 0.8 - coal_glint * 0.45, ore.y), 0.6, flint_gloss), 0.95, ore.z - flint_gloss);
+	SPECULAR = mix(mix(mix(mix(mix(mix(mix(earth ? 0.12 : (sand ? 0.18 + step(0.985,noise3(p*240.0))*0.6 : 0.25), 0.22, mud), 0.5, puddle), 0.35 + sparkle * 0.6, snow), 0.2, gravel), 0.15, ore.x), 0.25 + coal_glint * 0.55, ore.y), 0.25, flint_gloss);
 	vec3 r1 = cross(dFdy(world_position),n);
 	vec3 r2 = cross(n,dFdx(world_position));
 	float determinant = dot(dFdx(world_position),r1);

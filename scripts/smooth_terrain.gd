@@ -75,6 +75,7 @@ func setup(terrain_seed: int, flat_spots: Array = [], options: Dictionary = {}) 
 	_seed = terrain_seed
 	half_zones = Generation.half_zones(int(generation_options.get("version", 0)))
 	_snow_on = int(generation_options.get("version", 0)) >= 16
+	_ores_on = int(generation_options.get("version", 0)) >= 18
 	fall_limit = half_zones * int(ZONE_METERS) - 3
 	var layers := layers_of(generation_options)
 	low_point = layers[0]
@@ -258,6 +259,12 @@ const DARK_STONE := 6
 const SNOW := 7
 const GRAVEL := 8
 const SNOW_DEPTH := 0.6
+# 0.0.6.4 (version 18) : calcaire (poches dans la pierre claire), charbon (filons dans la pierre claire et sombre),
+# silex (rognons dans le calcaire). Ils se cassent à la pioche comme la pierre et ne tombent pas.
+const LIMESTONE := 9
+const COAL := 10
+const FLINT := 11
+const ROCKS := [STONE, DARK_STONE, LIMESTONE, COAL, FLINT]
 
 # Matière du sol de la graine : terre (-1, aspect du sol avec herbe), sable des déserts, pierre ou Roche-mère.
 var _desert_columns: Dictionary = {}
@@ -268,16 +275,16 @@ func natural_kind(point: Vector3i) -> int:
 	if point.y <= mother_rock_top:
 		return MOTHER_ROCK
 	if point.y <= deep_top:
-		return DARK_STONE
+		return _ore(point, DARK_STONE) if _ores_on else DARK_STONE
 	if point.y <= stone_top:
-		return STONE
+		return _ore(point, STONE) if _ores_on else STONE
 	var column := Vector2i(point.x, point.z)
 	if _snow_on:
 		var snow := snow_depth(column)
 		if snow > 0.0 and point.y * STEP > ground_height(column) - snow:
 			return SNOW
 	if point.y * STEP <= mountain_stone(column):
-		return STONE
+		return _ore(point, STONE) if _ores_on else STONE
 	# 0.0.5.20 : boue des lacs, puis argile dessous ou en poche (profondeur sous le sol de la graine).
 	var soil := _soil(column)
 	if not soil.is_empty():
@@ -614,6 +621,8 @@ func zone_mesh(zone: Vector3i) -> Array:
 	var colors := PackedColorArray()
 	var uvs := PackedVector2Array()
 	var uvs2 := PackedVector2Array()
+	# 0.0.6.4 : calcaire, charbon, silex (CUSTOM0 du maillage, 4 nombres par sommet).
+	var ore_colors := PackedColorArray()
 	var nearby: Array = []
 	var lowest := INF
 	var highest := -INF
@@ -634,7 +643,7 @@ func zone_mesh(zone: Vector3i) -> Array:
 	var y_low := maxi(maxi(origin.y - 1, int(lowest) - 2), mother_rock_top - 2)
 	var y_high := mini(mini(origin.y + POINTS, int(highest) + 2), HIGH_POINT + 2)
 	if y_low >= y_high:
-		return [vertices, normals, colors, uvs, uvs2]
+		return [vertices, normals, colors, uvs, uvs2, PackedFloat32Array()]
 	var size := POINTS + 2
 	var height := y_high - y_low + 1
 	var start := Vector3i(origin.x - 1, y_low, origin.z - 1)
@@ -700,6 +709,7 @@ func zone_mesh(zone: Vector3i) -> Array:
 	var cell_color := PackedColorArray()
 	var cell_uv := PackedVector2Array()
 	var cell_uv2 := PackedVector2Array()
+	var cell_ores := PackedColorArray()
 	var corners := PackedFloat32Array()
 	corners.resize(8)
 	# 0.0.5.25 : sans point changé, la surface ne passe qu'entre les hauteurs des 4 coins de chaque colonne :
@@ -784,6 +794,7 @@ func zone_mesh(zone: Vector3i) -> Array:
 				var weight := 0
 				var wet := Vector2.ZERO
 				var cover := Vector2.ZERO
+				var ore := Vector3.ZERO
 				for index in range(8):
 					if corners[index] > 0.0:
 						var corner: Vector3i = cell + corner_at[index]
@@ -793,16 +804,19 @@ func zone_mesh(zone: Vector3i) -> Array:
 							kind = kinds[corner] if kinds.has(corner) else natural_kind(start + corner)
 							known_kinds[kind_at] = kind
 						var soft := kind == CLAY or kind == MUD or kind == SNOW or kind == GRAVEL
-						paint += Vector4(1.0 if kind == SAND else 0.0, 1.0 if kind == DIRT or soft else 0.0, 1.0 if kind == STONE or kind == MOTHER_ROCK or kind == DARK_STONE else 0.0, 1.0 if kind == MOTHER_ROCK else (0.5 if kind == DARK_STONE else 0.0))
+						paint += Vector4(1.0 if kind == SAND else 0.0, 1.0 if kind == DIRT or soft else 0.0, 1.0 if kind == STONE or kind == MOTHER_ROCK or kind == DARK_STONE or kind == LIMESTONE or kind == COAL or kind == FLINT else 0.0, 1.0 if kind == MOTHER_ROCK else (0.5 if kind == DARK_STONE else 0.0))
 						# 0.0.5.20 : argile (U) et boue (V), terres nues de couleur à part.
 						wet += Vector2(1.0 if kind == CLAY else 0.0, 1.0 if kind == MUD else 0.0)
 						# 0.0.6 : neige (UV2.x) et gravier (UV2.y).
 						cover += Vector2(1.0 if kind == SNOW else 0.0, 1.0 if kind == GRAVEL else 0.0)
+						ore += Vector3(1.0 if kind == LIMESTONE else 0.0, 1.0 if kind == COAL else 0.0, 1.0 if kind == FLINT else 0.0)
 						weight += 1
 				paint /= maxf(weight, 1)
 				cell_color.append(Color(1.0 - paint.w, 1.0 - paint.z, 1.0 - paint.y, 1.0 - paint.x))
 				cell_uv.append(wet / maxf(weight, 1))
 				cell_uv2.append(cover / maxf(weight, 1))
+				var share := ore / maxf(weight, 1)
+				cell_ores.append(Color(share.x, share.y, share.z, 0.0))
 	# Une face par arête traversée, entre les 4 sous-cellules qui la partagent ; la zone garde les arêtes
 	# qui partent de ses propres points (pas de double avec la zone voisine).
 	var axes := [Vector3i(1, 0, 0), Vector3i(0, 1, 0), Vector3i(0, 0, 1)]
@@ -854,7 +868,9 @@ func zone_mesh(zone: Vector3i) -> Array:
 							colors.append(cell_color[slot])
 							uvs.append(cell_uv[slot])
 							uvs2.append(cell_uv2[slot])
-	return [vertices, normals, colors, uvs, uvs2]
+							ore_colors.append(cell_ores[slot])
+	# Une couleur par sommet, convertie d'un coup en 4 nombres (bien plus rapide qu'un petit tableau par sommet).
+	return [vertices, normals, colors, uvs, uvs2, ore_colors.to_byte_array().to_float32_array()]
 
 # Carré plat d'une zone sans changement (8 m, du milieu de la sous-cellule −1 au bord suivant).
 static func flat_mesh() -> ArrayMesh:
@@ -886,7 +902,7 @@ const SIDES := [Vector3i(1, 0, 0), Vector3i(-1, 0, 0), Vector3i(0, 0, 1), Vector
 # Pierre en place (de la graine) : ne tombe jamais.
 func is_stone(point: Vector3i) -> bool:
 	var kind: int = materials.get(point, natural_kind(point))
-	return density(point) > 0.0 and (kind == STONE or kind == DARK_STONE)
+	return density(point) > 0.0 and kind in ROCKS
 
 func solid(point: Vector3i) -> bool:
 	# La Roche-mère porte tout (jamais changée : on ne casse que jusqu'à la pierre au-dessus).
@@ -1394,6 +1410,77 @@ func _lake_soils(at: Vector2, soil: Dictionary) -> void:
 const PEBBLE_TRIES := 24
 const PEBBLE_SIZE_TOTAL := 100
 
+# 0.0.6.4 (version 18) : minerais de chaque zone de 8 m (en sous-cellules de 50 cm), tirés selon la graine, chacun
+# entièrement dans sa zone (on ne regarde jamais les voisines : rapide). Ils n'existent que là où le sol de la graine
+# est de la bonne pierre : dans une zone en partie seulement de pierre, il y en a donc moins (en proportion).
+# - Calcaire : 9 à 13 poches ou couches minces de 16 à 48 sous-cellules (≈ 8 % de la pierre claire ; un bord peut dépasser de la zone, coupé).
+# - Charbon : 6 à 10 filons de 4 à 12 sous-cellules, allongés (≈ 1,5 % de la pierre claire et sombre), jamais dans le calcaire.
+# - Silex : 3 à 6 rognons de 1 à 3 sous-cellules, au cœur de poches de calcaire.
+var _ores_on := false
+var _ores: Dictionary = {}
+
+func _ores_of(zone: Vector3i) -> Dictionary:
+	if _ores.has(zone):
+		return _ores[zone]
+	var rng := RandomNumberGenerator.new()
+	rng.seed = hash([_seed, zone.x, zone.y, zone.z, "minerais"])
+	var origin := Vector3(zone * POINTS)
+	var lime := []
+	for index in range(rng.randi_range(9, 13)):
+		# Couche mince : épaisse de 1 à 1,5 sous-cellule, étalée à l'horizontale, tournée au hasard.
+		var size := rng.randi_range(16, 48)
+		var thick := rng.randf_range(0.9, 1.4)
+		var stretch := rng.randf_range(1.0, 2.2)
+		var width := sqrt(size / (4.18879 * thick * stretch))
+		lime.append(_ore_shape(rng, origin, Vector3(width * stretch, thick, width)))
+	var coal := []
+	for index in range(rng.randi_range(6, 10)):
+		# Filon allongé dans une direction au hasard.
+		var size := rng.randi_range(4, 12)
+		var side := rng.randf_range(0.75, 0.95)
+		coal.append(_ore_shape(rng, origin, Vector3(size / (4.18879 * side * side), side, side), true))
+	var flint := {}
+	for index in range(mini(rng.randi_range(3, 6), lime.size())):
+		var pocket: Dictionary = lime[index]
+		var middle := Vector3i(pocket.center.round())
+		var count := rng.randi_range(1, 3)
+		for extra in [Vector3i.ZERO, Vector3i(1, 0, 0), Vector3i(0, 0, 1)].slice(0, count):
+			flint[middle + extra] = true
+	_ores[zone] = {"lime": lime, "coal": coal, "flint": flint}
+	return _ores[zone]
+
+# Ellipsoïde tourné (demi-axes en sous-cellules), centre n'importe où dans la zone : la partie qui dépasse est coupée.
+func _ore_shape(rng: RandomNumberGenerator, origin: Vector3, half: Vector3, any_direction := false) -> Dictionary:
+	var reach: float = maxf(half.x, maxf(half.y, half.z)) + 1.0
+	var center := origin + Vector3(rng.randf_range(1.0, 14.0), rng.randf_range(1.0, 14.0), rng.randf_range(1.0, 14.0))
+	var basis := Basis(Vector3.UP, rng.randf() * TAU)
+	if any_direction:
+		basis = Basis.from_euler(Vector3(rng.randf() * TAU, rng.randf() * TAU, rng.randf() * TAU))
+	return {"center": center, "inverse": basis.inverse(), "half": half, "reach": reach}
+
+func _in_ore(point: Vector3i, shape: Dictionary) -> bool:
+	var offset: Vector3 = Vector3(point) - shape.center
+	if absf(offset.x) > shape.reach or absf(offset.y) > shape.reach or absf(offset.z) > shape.reach:
+		return false
+	var local: Vector3 = (shape.inverse * offset) / shape.half
+	var inside := local.length_squared()
+	# Bord irrégulier : chaque sous-cellule du bord entre ou non selon la graine (tiré seulement près du bord : plus rapide).
+	if inside < 0.7 or inside > 1.3:
+		return inside < 0.7
+	var jitter := float(absi(hash([_seed, point.x, point.y, point.z])) % 1000) / 1000.0 - 0.5
+	return inside < 1.0 + jitter * 0.6
+
+func _ore(point: Vector3i, base: int) -> int:
+	var ores := _ores_of(point_zone(point))
+	if base == STONE:
+		for pocket: Dictionary in ores.lime:
+			if _in_ore(point, pocket):
+				return FLINT if ores.flint.has(point) else LIMESTONE
+	for vein: Dictionary in ores.coal:
+		if _in_ore(point, vein):
+			return COAL
+	return base
+
 func pebbles_in_zone(area: Vector2i) -> Array:
 	if int(generation_options.get("version", 0)) < 17 or _noise == null:
 		return []
@@ -1438,6 +1525,36 @@ func pebbles_in_zone(area: Vector2i) -> Array:
 				size = each + 1
 				break
 		result.append({"id": "c%d_%d_%d" % [area.x, area.y, index], "x": at.x, "z": at.y, "taille": size, "forme": shape, "rotation": turn})
+	# 0.0.6.4 (version 18) : silex en surface, petits (tailles 1 à 4) : environ 2 à 5 par zone, plus près de l'eau et
+	# sur les pentes, jusqu'à 8 dans le gravier.
+	if _ores_on:
+		for index in range(8):
+			var at := Vector2(area) * ZONE_METERS + Vector2(rng.randf_range(0.1, 7.9), rng.randf_range(0.1, 7.9))
+			var roll := rng.randf()
+			var pick := rng.randi_range(1, 100)
+			var shape := rng.randi_range(1, 7)
+			var turn := rng.randf_range(0.0, 360.0)
+			var column := Vector2i(roundi(at.x / STEP), roundi(at.y / STEP))
+			# Tirage d'abord : la pente et les lacs ne sont regardés que si le silex peut encore être gardé (plus rapide).
+			var chance := 0.3
+			if roll >= 0.3 and surface_kind(column) == GRAVEL:
+				chance = 1.0
+			elif roll >= 0.3 and roll < 0.6:
+				var slope := absf(ground_height(column + Vector2i(4, 0)) - ground_height(column - Vector2i(4, 0))) + absf(ground_height(column + Vector2i(0, 4)) - ground_height(column - Vector2i(0, 4)))
+				var wet := false
+				for lake in _lakes_near(at):
+					wet = wet or _lake_distance(at, lake) < lake.radius + lake.get("bank", 0.0) + 5.0
+				if slope > 1.2 or wet:
+					chance = 0.6
+			if roll >= chance or water_level_at(at) > ground_height(column) - 0.05 or in_crevasse(at) or cave_open(column):
+				continue
+			var near_spot := false
+			for spot in _flat_spots:
+				near_spot = near_spot or at.distance_to(spot[0]) < spot[1] + 1.0
+			if near_spot:
+				continue
+			var size := 1 if pick <= 40 else (2 if pick <= 70 else (3 if pick <= 90 else 4))
+			result.append({"id": "s%d_%d_%d" % [area.x, area.y, index], "x": at.x, "z": at.y, "taille": size, "forme": shape, "rotation": turn, "silex": true})
 	return result
 
 func rocks_in_zone(area: Vector2i) -> Array:
@@ -1460,6 +1577,10 @@ func rocks_in_zone(area: Vector2i) -> Array:
 		if not near_spot and not wet:
 			var entry: Dictionary = rock.duplicate()
 			entry.id = "%d_%d_%d" % [area.x, area.y, index]
+			# 0.0.6.4 (version 18) : environ 1 rocher sur 5 en calcaire ; 1 sur 4 de ceux-là cache un rognon de silex.
+			if _ores_on:
+				entry.calcaire = absi(hash([_seed, entry.id, "calcaire"])) % 5 == 0
+				entry.silex = entry.calcaire and absi(hash([_seed, entry.id, "silex"])) % 4 == 0
 			result.append(entry)
 		index += 1
 	return result

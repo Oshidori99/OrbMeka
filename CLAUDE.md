@@ -81,6 +81,7 @@ Une génération qui change = un nouveau numéro de version : les mondes existan
 Taille du monde : génération version 15, 64 × 64 zones (512 m) ; les versions d'avant restent à 48 × 48 (Generation.half_zones).
 Génération version 16 : neige sur 1 montagne sur 4 (SNOW), gravier au pied des montagnes et sur 1 rive de lac sur 3 (GRAVEL) ; UV2 du terrain = neige, gravier.
 Génération version 17 : lacs de montagne jamais collés (plus d'eau en l'air), cailloux (rocks.gd PEBBLE_SIZES, 8 à 60 cm ; smooth_terrain.gd pebbles_in_zone ; cassés : objets.json cailloux_casses).
+Génération version 18 : calcaire (LIMESTONE), charbon (COAL), silex (FLINT) dans la pierre (smooth_terrain.gd _ores_of, une liste de formes par zone) ; CUSTOM0 du terrain = calcaire, charbon, silex ; rock_kind 1 (calcaire) et 2 (silex) pour rochers et cailloux.
 
 ## Rythme de publication
 Publier une version sur 4, ou dès que l'utilisateur dit « publie », puis remettre le compteur à zéro.

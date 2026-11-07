@@ -1,7 +1,8 @@
-# OrbMeka™ 0.0.6.3
+# OrbMeka™ 0.0.6.4
 
 Dans Godot, ouvrez **project.godot**, puis **F5** pour lancer le jeu.
 
+0.0.6.4 : calcaire, charbon et silex dans la pierre (génération 18), silex en surface, rochers de calcaire.
 0.0.6.3 : cailloux posés sur le sol (7 tailles, jusqu'à 60 cm), cassés à la pioche ; plus d'eau en l'air dans les lacs de montagne (génération 17).
 0.0.6.2 : jeu plus fluide (herbe 100 fois plus rapide à construire, terrain construit zone par zone, ouverture d'un monde plus rapide).
 0.0.6.1 : neige et gravier (génération 16), vue sous l'eau, pioche qui casse la pierre et les rochers par morceaux de 50 cm, contrôles corrigés.

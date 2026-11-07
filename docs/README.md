@@ -1,6 +1,20 @@
-# OrbMeka™ — prototype 0.0.6.3
+# OrbMeka™ — prototype 0.0.6.4
 
 Godot 4.7 / GDScript. Formes et couleurs simples ; assets externes seulement sous licence vérifiée (sons CC0, assets/sounds/CREDITS.txt).
+
+## 0.0.6.4 — Calcaire, charbon et silex
+Version locale (pas encore publiée). Issues #143 et #134.
+- **Génération version 18** (nouveaux mondes), dans la pierre, en sous-cellules de 50 cm :
+  - **calcaire** : poches ou couches minces de 16 à 48 sous-cellules, seulement dans la pierre claire, environ 8 % (≈ 336 par zone de pierre claire) ; gris très clair à beige, mat, un peu granuleux ;
+  - **charbon** : filons allongés de 4 à 12 sous-cellules dans la pierre claire et sombre, environ 1,5 %, jamais dans le calcaire ; noir mat en couches, quelques éclats brillants ;
+  - **silex** : rognons de 1 à 3 sous-cellules au cœur du calcaire (3 à 6 par zone, environ 9 sous-cellules, un peu plus de 1 % du calcaire) ; gris foncé à noir, lisse, croûte blanche crayeuse autour.
+  Jamais dans la terre ni la Roche-mère. Dans une zone en partie seulement de pierre : en proportion.
+- **Surface** : silex parmi les cailloux (environ 3,5 par zone, plus près de l'eau et sur les pentes, jusqu'à 8 dans le gravier) ; environ 1 rocher sur 5 en calcaire, et 1 sur 4 de ceux-là cache un rognon de silex, visible en le creusant.
+- **Pioche** : calcaire et charbon en 1 coup par sous-cellule, silex en 2 ; ils ne tombent pas. Pas de récolte.
+- **Rendu** : une donnée de plus par sommet du terrain (CUSTOM0), vérifiée sur PC et en rendu Web.
+
+Tests concernés réussis (proportions sur des zones entières : calcaire 8,8 %, poches de 32 sous-cellules en médiane ; charbon 1,6 %, filons de 8 ; silex aux bons endroits ; anciens mondes et terre inchangés). Mesures (vol rapide, 3 essais) : PC environ 74 FPS (80 en 0.0.6.3), rendu Web environ 83 FPS (103 en 0.0.6.3) : le calcul des minerais quand de nouvelles zones apparaissent coûte environ 20 % de plus ; à l'arrêt, rien ne change.
+À tester manuellement : creuser dans la pierre pour voir le calcaire et le charbon, casser un rocher de calcaire, silex au bord de l'eau, fluidité dans un navigateur.
 
 ## 0.0.6.3 — Cailloux et lacs de montagne
 Version locale (pas encore publiée).
