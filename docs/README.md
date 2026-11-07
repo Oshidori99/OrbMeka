@@ -1,6 +1,15 @@
-# OrbMeka™ — prototype 0.0.6.4
+# OrbMeka™ — prototype 0.0.6.5
 
 Godot 4.7 / GDScript. Formes et couleurs simples ; assets externes seulement sous licence vérifiée (sons CC0, assets/sounds/CREDITS.txt).
+
+## 0.0.6.5 — Sous-sol plus profond, cailloux de calcaire et de silex
+- **Génération version 19** (nouveaux mondes) : 5 m de terre, **20 m de pierre** et **20 m de pierre sombre**, puis la Roche-mère à 45 m (avant : 10 m et 10 m, Roche-mère à 25 m). Grottes et crevasses descendent jusqu'à la nouvelle Roche-mère.
+- **Cailloux de calcaire** (nouveaux, environ 2 par zone, plus sur les pentes, au bord de l'eau et dans le gravier) et **cailloux de silex** : de toutes les tailles (8 à 60 cm), autant de gros que de petits. Les rochers de calcaire (1 sur 5) restent.
+- **Monde d'essai T35** : créé dans la liste des mondes (mode par défaut, génération standard, graine au hasard 3718082877) ; la vitrine de l'accueil montre ce monde. Un monde d'essai par version (T36 à la prochaine).
+- Test de casse rendu fiable (le terrain sous le joueur est construit avant de viser).
+
+Tests concernés réussis (couches de la version 19, cailloux de toutes tailles, anciens mondes inchangés). Mesures dans la même séance (PC plus lent qu'au début de la séance) : génération 18 et 19 à peu près pareilles, environ 50 FPS en vol rapide sur PC et en rendu Web.
+À tester manuellement : creuser jusqu'à la Roche-mère (45 m), cailloux de calcaire et de silex, monde T35, vitrine.
 
 ## 0.0.6.4 — Calcaire, charbon et silex
 Version locale (pas encore publiée). Issues #143 et #134.

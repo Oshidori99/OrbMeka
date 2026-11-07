@@ -3,6 +3,10 @@ Du plus récent au plus ancien. Ce fichier est mis à jour à chaque version.
 
 === Thème « Monde » (0.0.5 et suivantes) ===
 
+0.0.6.5 — Sous-sol plus profond, cailloux de calcaire et de silex
+Génération du terrain : version 19 (nouvelle) · Menus : version 3.
+20 m de pierre et 20 m de pierre sombre (Roche-mère à 45 m) ; cailloux de calcaire et de silex de toutes les tailles ; vitrine sur le monde d'essai T35.
+
 0.0.6.4 — Calcaire, charbon et silex
 Génération du terrain : version 18 (nouvelle) · Menus : version 3.
 Calcaire en poches (8 % de la pierre claire), filons de charbon (1,5 %), rognons de silex dans le calcaire ; silex en surface, 1 rocher sur 5 en calcaire.

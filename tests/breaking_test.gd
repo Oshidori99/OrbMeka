@@ -50,6 +50,9 @@ func _run() -> void:
 	# Isoler les actions des chargements de zones déclenchés par le déplacement de la fixture.
 	world.set_process(false)
 	player.position = Vector3(30.5, 0.0, 30.5)
+	# 0.0.6.5 : le terrain sous le joueur d'abord (depuis 0.0.6.2, seule la colonne de départ est faite tout de suite).
+	world.update_terrain_view(true, Vector2i(3, 3))
+	world.finish_terrain()
 	player.camera.rotation.x = 0
 	for z in [28, 27, 26]:
 		world.add_block(Vector3i(30, 1, z), 2)

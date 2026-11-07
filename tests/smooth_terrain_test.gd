@@ -85,7 +85,15 @@ func _run() -> void:
 	check(SmoothTerrain.LOW_POINT * SmoothTerrain.STEP == -3.5 and SmoothTerrain.STONE_TOP * SmoothTerrain.STEP == -4.0 and SmoothTerrain.MOTHER_ROCK_TOP * SmoothTerrain.STEP == -8.0, "layers: 4 m of dirt, then 4 m of stone, then Roche-mère")
 	# 0.0.5.26 (version 9) : 5 m de terre, 10 m de pierre, 10 m de pierre sombre, puis seulement la Roche-mère.
 	var deep_land := SmoothTerrain.new()
-	deep_land.setup(7, [], load("res://scripts/world_generation.gd").defaults())
+	var options_18: Dictionary = load("res://scripts/world_generation.gd").defaults()
+	options_18.version = 18
+	deep_land.setup(7, [], options_18)
+	# 0.0.6.5 (version 19) : 5 m de terre, 20 m de pierre, 20 m de pierre sombre, Roche-mère à 45 m.
+	var deeper := SmoothTerrain.new()
+	deeper.setup(7, [], load("res://scripts/world_generation.gd").defaults())
+	var light := [SmoothTerrain.STONE, SmoothTerrain.LIMESTONE, SmoothTerrain.COAL, SmoothTerrain.FLINT]
+	var dark := [SmoothTerrain.DARK_STONE, SmoothTerrain.COAL]
+	check(deeper.stone_top == -10 and deeper.deep_top == -50 and deeper.mother_rock_top == -90 and deeper.natural_kind(Vector3i(0, -10, 0)) in light and deeper.natural_kind(Vector3i(0, -49, 0)) in light and deeper.natural_kind(Vector3i(0, -50, 0)) in dark and deeper.natural_kind(Vector3i(0, -89, 0)) in dark and deeper.natural_kind(Vector3i(0, -90, 0)) == SmoothTerrain.MOTHER_ROCK, "version 19: 5 m of dirt, 20 m of stone, 20 m of dark stone, Roche-mère at 45 m")
 	var far_column := func(y: int) -> int: return deep_land.natural_kind(Vector3i(0, y, 0))
 	check(far_column.call(-9) != SmoothTerrain.STONE and far_column.call(-10) == SmoothTerrain.STONE and far_column.call(-29) == SmoothTerrain.STONE and far_column.call(-30) == SmoothTerrain.DARK_STONE and far_column.call(-49) == SmoothTerrain.DARK_STONE and far_column.call(-50) == SmoothTerrain.MOTHER_ROCK and far_column.call(-200) == SmoothTerrain.MOTHER_ROCK, "version 9: 5 m of dirt, 10 m of stone, 10 m of dark stone, then only Roche-mère")
 	check(deep_land.solid(Vector3i(0, -50, 0)) and deep_land.fall_target(Vector3i(0, -50, 0)) == Vector3i(0, -50, 0), "Roche-mère carries everything at 25 m")
@@ -637,7 +645,7 @@ func _run() -> void:
 	deep_world.player.global_position = Vector3(40, -20, 40)
 	deep_world.player.step_movement(1.0 / 60.0, Vector2.ZERO, false)
 	check(deep_world.player.global_position.y < -19.0, "going down a cave does not send the player back to the start")
-	deep_world.player.global_position = Vector3(40, -40, 40)
+	deep_world.player.global_position = Vector3(40, deep_world.terrain.mother_rock_top * 0.5 - 5.0, 40)
 	deep_world.player.step_movement(1.0 / 60.0, Vector2.ZERO, false)
 	check(deep_world.player.global_position.y > -10.0, "falling under the world still returns to the start")
 	close(deep_world)
@@ -783,17 +791,23 @@ func _run() -> void:
 	var on_gravel := 0
 	var by_size := [0, 0, 0, 0, 0, 0, 0]
 	var flint_total := 0
+	var flint_sizes := [0, 0, 0, 0, 0, 0, 0]
+	var lime_pebbles := 0
+	var lime_sizes := [0, 0, 0, 0, 0, 0, 0]
 	var flint_gravel := 0
-	var flint_small := true
 	for x in range(-16, 16):
 		for z in range(-16, 16):
 			var list_a: Array = pebbles_a.pebbles_in_zone(Vector2i(x, z))
 			same_pebbles = same_pebbles and list_a == pebbles_b.pebbles_in_zone(Vector2i(x, z))
 			for pebble in list_a:
+				if pebble.get("calcaire", false):
+					lime_pebbles += 1
+					lime_sizes[pebble.taille - 1] += 1
+					continue
 				if pebble.get("silex", false):
 					flint_total += 1
+					flint_sizes[pebble.taille - 1] += 1
 					flint_gravel += 1 if pebbles_a.surface_kind(Vector2i(roundi(pebble.x / 0.5), roundi(pebble.z / 0.5))) == SmoothTerrain.GRAVEL else 0
-					flint_small = flint_small and pebble.taille <= 4
 					continue
 				pebble_total += 1
 				by_size[pebble.taille - 1] += 1
@@ -802,7 +816,10 @@ func _run() -> void:
 	check(by_size[0] > by_size[3] and by_size[3] > by_size[6] and on_gravel * 5 > pebble_total, "more small pebbles than big ones, many on the gravel")
 	# 0.0.6.4 (version 18) : silex en surface : 2 à 5 par zone en moyenne, jusqu'à 8 dans le gravier, petits.
 	var flint_per_zone := flint_total / 1024.0
-	check(flint_small and flint_per_zone >= 2.0 and flint_per_zone <= 5.0 and flint_gravel * 10 > flint_total, "surface flint: 2 to 5 per zone, more in the gravel (%.1f per zone)" % flint_per_zone)
+	check(flint_per_zone >= 2.0 and flint_per_zone <= 5.0 and flint_gravel * 10 > flint_total, "surface flint: 2 to 5 per zone, more in the gravel (%.1f per zone)" % flint_per_zone)
+	# 0.0.6.5 (version 19) : silex et calcaire de toutes les tailles, autant de gros que de petits.
+	check(flint_sizes.min() > 0 and flint_sizes[6] > flint_sizes[0] * 0.6 and lime_sizes.min() > 0 and lime_sizes[6] > lime_sizes[0] * 0.6, "flint and limestone pebbles of every size, as many big as small (%s, %s)" % [flint_sizes, lime_sizes])
+	check(lime_pebbles / 1024.0 > 1.0 and lime_pebbles / 1024.0 < 4.0, "limestone pebbles: about 2 per zone (%.1f)" % (lime_pebbles / 1024.0))
 	# Minerais sous terre, comptés sur des zones entières (comme si toute la zone était de la pierre claire ou sombre).
 	var ore_land := SmoothTerrain.new()
 	ore_land.setup(42, [], load("res://scripts/world_generation.gd").defaults())
@@ -857,7 +874,7 @@ func _run() -> void:
 	plain.setup(42, [], options_17)
 	var plain_kinds := {}
 	for x in range(0, 64):
-		for y in range(ore_land.deep_top + 1, ore_land.stone_top + 1):
+		for y in range(plain.deep_top + 1, plain.stone_top + 1):
 			plain_kinds[plain.natural_kind(Vector3i(x, y, 9))] = true
 	var plain_flint := false
 	for x in range(-8, 8):

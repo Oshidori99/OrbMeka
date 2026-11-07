@@ -1401,13 +1401,13 @@ Graine : %d
 Relief selon la graine : collines jusqu'à 3 m, petites bosses, parfois une crête abrupte ou un trou,
 petits et grands déserts de sable ; plat autour de l'apparition ; en herbe ;
 une plage de sable d'environ %d m² à une dizaine de mètres de l'apparition.
-Sous-sol : 5 m de terre, 10 m de pierre et 10 m de pierre sombre (à casser à la pioche), puis la Roche-mère incassable.
+Sous-sol : %s (à casser à la pioche), puis la Roche-mère incassable.
 
 Base plate : largeur %d × longueur %d blocs (%s), sol à Y 0
 Construction : hauteur maximale %d blocs au-dessus du sol plat (sommet à Y %d), %s.
 %s
 
-Nom, graine, mode, constructions et position sauvegardés." % [world_name, terrain_seed, mode_line, sand_area(), int(base_size.x), int(base_size.z), base_range_text(_half_zones()), MAX_BUILD_HEIGHT, MAX_BUILD_HEIGHT, build_range_text(_half_zones()), COORDINATES_NOTE]
+Nom, graine, mode, constructions et position sauvegardés." % [world_name, terrain_seed, mode_line, sand_area(), ("5 m de terre, 20 m de pierre et 20 m de pierre sombre" if int(generation_options.get("version", 0)) >= 19 else "5 m de terre, 10 m de pierre et 10 m de pierre sombre"), int(base_size.x), int(base_size.z), base_range_text(_half_zones()), MAX_BUILD_HEIGHT, MAX_BUILD_HEIGHT, build_range_text(_half_zones()), COORDINATES_NOTE]
 
 # 0.0.5.13 : éclats de terre ou de pierre là où l'on vient de creuser (animation simple, une fois).
 func _debris(at: Vector3, color: Color) -> void:
@@ -1632,7 +1632,7 @@ func _show_column_pebbles(column: Vector2i) -> void:
 		var diameter: float = Rocks.PEBBLE_SIZES[size - 1] * shrink
 		var at := Vector3(pebble.x, terrain.height_at(pebble.x, pebble.z) + Rocks.pebble_lift(size, shape) * shrink, pebble.z)
 		# Silex à part (autre aspect).
-		var group := shape + (100 if pebble.get("silex", false) else 0)
+		var group := shape + (100 if pebble.get("silex", false) else (200 if pebble.get("calcaire", false) else 0))
 		if not by_shape.has(group):
 			by_shape[group] = []
 		by_shape[group].append(Transform3D(Basis(Vector3.UP, deg_to_rad(pebble.rotation)).scaled(Vector3.ONE * diameter), at))
@@ -1663,7 +1663,8 @@ func _show_column_pebbles(column: Vector2i) -> void:
 		var drawn := MultiMeshInstance3D.new()
 		drawn.name = "Cailloux"
 		drawn.multimesh = multi
-		drawn.material_override = _kind_material(2) if group >= 100 else _stone_material()
+		# Formes 1 à 7 ; + 100 : silex, + 200 : calcaire.
+		drawn.material_override = _kind_material(2) if group >= 100 and group < 200 else (_kind_material(1) if group >= 200 else _stone_material())
 		_rocks_parent().add_child(drawn)
 		nodes.append(drawn)
 	column_pebbles[column] = nodes

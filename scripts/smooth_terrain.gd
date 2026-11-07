@@ -28,6 +28,10 @@ var deep_top := MOTHER_ROCK_TOP
 var mother_rock_top := MOTHER_ROCK_TOP
 
 static func layers_of(options: Dictionary) -> Array:
+	# 0.0.6.5 (version 19) : 10 m de pierre et 10 m de pierre sombre de plus : 5 m de terre, 20 m de pierre, 20 m de
+	# pierre sombre, puis la Roche-mère à 45 m.
+	if int(options.get("version", 0)) >= 19:
+		return [-9, -10, -50, -90]
 	if int(options.get("version", 0)) >= 9:
 		return [-9, -10, -30, -50]
 	return [LOW_POINT, STONE_TOP, MOTHER_ROCK_TOP + 1, MOTHER_ROCK_TOP]
@@ -1554,7 +1558,36 @@ func pebbles_in_zone(area: Vector2i) -> Array:
 			if near_spot:
 				continue
 			var size := 1 if pick <= 40 else (2 if pick <= 70 else (3 if pick <= 90 else 4))
+			# 0.0.6.5 (version 19) : silex de toutes les tailles, autant de gros que de petits.
+			if int(generation_options.get("version", 0)) >= 19:
+				size = 1 + (pick - 1) % 7
 			result.append({"id": "s%d_%d_%d" % [area.x, area.y, index], "x": at.x, "z": at.y, "taille": size, "forme": shape, "rotation": turn, "silex": true})
+	# 0.0.6.5 (version 19) : cailloux de calcaire, de toutes les tailles (autant de gros que de petits) : environ 2 par
+	# zone, plus sur les pentes, au pied des montagnes, près de l'eau et dans le gravier.
+	if int(generation_options.get("version", 0)) >= 19:
+		for index in range(6):
+			var at := Vector2(area) * ZONE_METERS + Vector2(rng.randf_range(0.1, 7.9), rng.randf_range(0.1, 7.9))
+			var roll := rng.randf()
+			var size := rng.randi_range(1, 7)
+			var shape := rng.randi_range(1, 7)
+			var turn := rng.randf_range(0.0, 360.0)
+			var column := Vector2i(roundi(at.x / STEP), roundi(at.y / STEP))
+			var chance := 0.25
+			if roll >= 0.25 and roll < 0.55:
+				var steep := absf(ground_height(column + Vector2i(4, 0)) - ground_height(column - Vector2i(4, 0))) + absf(ground_height(column + Vector2i(0, 4)) - ground_height(column - Vector2i(0, 4))) > 1.2
+				var near := steep or surface_kind(column) == GRAVEL
+				for lake in _lakes_near(at):
+					near = near or _lake_distance(at, lake) < lake.radius + lake.get("bank", 0.0) + 5.0
+				if near:
+					chance = 0.55
+			if roll >= chance or water_level_at(at) > ground_height(column) - 0.05 or in_crevasse(at) or cave_open(column):
+				continue
+			var near_spot := false
+			for spot in _flat_spots:
+				near_spot = near_spot or at.distance_to(spot[0]) < spot[1] + 1.0
+			if near_spot:
+				continue
+			result.append({"id": "k%d_%d_%d" % [area.x, area.y, index], "x": at.x, "z": at.y, "taille": size, "forme": shape, "rotation": turn, "calcaire": true})
 	return result
 
 func rocks_in_zone(area: Vector2i) -> Array:

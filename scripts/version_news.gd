@@ -14,6 +14,7 @@ const MENUS := [
 ]
 # Version de génération → version du jeu qui l'a apportée, et ce qu'elle change.
 const GENERATIONS := [
+	[19, "0.0.6.5", "sous-sol plus profond, cailloux de calcaire et de silex"],
 	[18, "0.0.6.4", "calcaire, charbon et silex"],
 	[17, "0.0.6.3", "cailloux, lacs de montagne sans eau en l'air"],
 	[16, "0.0.6", "neige sur 1 montagne sur 4, gravier"],
