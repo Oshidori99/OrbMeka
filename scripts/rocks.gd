@@ -45,6 +45,41 @@ static func _sphere(subdivisions: int) -> Array:
 		faces = next
 	return [points, faces]
 
+# 0.0.6.3 (génération 17) : cailloux posés sur le sol, 7 tailles (diamètre en m) et les 7 formes des rochers ;
+# le plus gros (60 cm) ne dépasse pas le plus petit rocher (demande de l'utilisateur). Plus de petits que de gros.
+const PEBBLE_SIZES := [0.08, 0.12, 0.17, 0.24, 0.32, 0.45, 0.6]
+const PEBBLE_WEIGHTS := [30, 24, 18, 12, 8, 5, 3]
+# Coups de pioche : un pour les petits, jusqu'à 3 pour les plus gros (ils rapetissent entre deux coups).
+const PEBBLE_HITS := [1, 1, 1, 1, 2, 2, 3]
+static var _pebble_meshes := {}
+
+# Caillou de 1 m de diamètre, d'une forme (1 à 7), même style que les rochers, moins de facettes (ils sont nombreux).
+# Chaque caillou est ce maillage mis à sa taille (plusieurs cailloux dessinés d'un coup).
+static func pebble_mesh(shape: int) -> ArrayMesh:
+	if _pebble_meshes.has(shape):
+		return _pebble_meshes[shape]
+	var spec: Dictionary = SHAPES[shape - 1]
+	var noise := _noise_for(1, shape)
+	var sphere := _sphere(1)
+	var tool := SurfaceTool.new()
+	tool.begin(Mesh.PRIMITIVE_TRIANGLES)
+	tool.set_color(Color(1.0, 0.0, 1.0, 1.0))
+	if spec.get("facets", false):
+		tool.set_smooth_group(-1)
+	var points: Array = []
+	for direction: Vector3 in sphere[0]:
+		points.append(direction * (1.0 + spec.rough * noise.get_noise_3dv(direction * 2.0)) * spec.scale * 0.5)
+	for face in sphere[1]:
+		for index in [face[0], face[2], face[1]]:
+			tool.add_vertex(points[index])
+	tool.generate_normals()
+	_pebble_meshes[shape] = tool.commit()
+	return _pebble_meshes[shape]
+
+# Hauteur du centre d'un caillou au-dessus du sol : un peu enfoncé, comme les rochers.
+static func pebble_lift(size: int, shape: int) -> float:
+	return PEBBLE_SIZES[size - 1] / 2.0 * SHAPES[shape - 1].scale.y * (1.0 - 2.0 * SINK)
+
 # Maillage d'un rocher (taille 1 à 7, forme 1 à 7), toujours le même ; couleur de la pierre du terrain.
 static func rock_mesh(size: int, shape: int) -> ArrayMesh:
 	var key := Vector2i(size, shape)

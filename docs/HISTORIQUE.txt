@@ -3,6 +3,10 @@ Du plus récent au plus ancien. Ce fichier est mis à jour à chaque version.
 
 === Thème « Monde » (0.0.5 et suivantes) ===
 
+0.0.6.3 — Cailloux et lacs de montagne
+Génération du terrain : version 17 (nouvelle) · Menus : version 3.
+Cailloux sur le sol (7 tailles, jusqu'à 60 cm), surtout sur le gravier, au pied des montagnes et au bord des lacs ; plus d'eau en l'air dans les lacs de montagne.
+
 0.0.6.2 — Jeu plus fluide
 Génération du terrain : version 16 · Menus : version 3.
 Herbe 100 fois plus rapide à construire, terrain construit zone par zone, moins d'à-coups en volant, ouverture plus rapide.

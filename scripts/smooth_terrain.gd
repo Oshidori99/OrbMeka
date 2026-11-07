@@ -1212,6 +1212,7 @@ func _mountain_lakes_of(area: Vector2i) -> Array:
 		return []
 	if not _mountain_lakes_ready:
 		_mountain_lakes_ready = true
+		var placed := []
 		for found in _all_mountains():
 			if found.get("sand", false) or found.radius < found.height * 1.5:
 				continue
@@ -1228,6 +1229,11 @@ func _mountain_lakes_of(area: Vector2i) -> Array:
 				var lake := {"start": middle, "end": middle, "radius": radius, "depth": rng.randf_range(1.0, 2.0), "soils": rng.randi_range(0, 2), "turn": rng.randf() * TAU, "wobble": radius * 0.18, "wobble_scale": 1.3 * 5.0 / radius, "bank": 3.0, "on_mountain": true}
 				if _lake_on_flat_spot(lake):
 					continue
+				# 0.0.6.3 (version 17) : jamais deux lacs de montagne qui se touchent : le replat de l'un écrasait le bord de
+				# l'autre, et son eau restait en l'air d'un côté.
+				if int(generation_options.get("version", 0)) >= 17 and placed.any(func(other): return other.start.distance_to(middle) < other.radius + radius + 2.0 * (3.0 + TERRACE)):
+					continue
+				placed.append(lake)
 				var zone := Vector2i(floori(middle.x / ZONE_METERS), floori(middle.y / ZONE_METERS))
 				if not _mountain_lake_zones.has(zone):
 					_mountain_lake_zones[zone] = []
@@ -1382,6 +1388,58 @@ func _lake_soils(at: Vector2, soil: Dictionary) -> void:
 			soil.top_depth = depth
 			soil.clay_bottom = maxf(soil.get("clay_bottom", 0.0), 2.5)
 # Rochers de la graine dans cette zone (version 4), sauf près de l'apparition, de la plage et dans un lac.
+# 0.0.6.3 (version 17) : cailloux de la graine d'une zone : un peu partout, bien plus nombreux sur le gravier, au pied des
+# montagnes et au bord des lacs ; jamais dans l'eau, une crevasse, une entrée de grotte, ni près de l'apparition.
+# Taille 1 à 7 (rocks.gd, PEBBLE_SIZES), plus de petits que de gros ; forme 1 à 7. Même graine : mêmes cailloux.
+const PEBBLE_TRIES := 24
+const PEBBLE_SIZE_TOTAL := 100
+
+func pebbles_in_zone(area: Vector2i) -> Array:
+	if int(generation_options.get("version", 0)) < 17 or _noise == null:
+		return []
+	var rng := RandomNumberGenerator.new()
+	rng.seed = hash([_seed, area.x, area.y, "cailloux"])
+	var result := []
+	for index in range(PEBBLE_TRIES):
+		var at := Vector2(area) * ZONE_METERS + Vector2(rng.randf_range(0.1, 7.9), rng.randf_range(0.1, 7.9))
+		var roll := rng.randf()
+		var pick := rng.randi_range(1, PEBBLE_SIZE_TOTAL)
+		var shape := rng.randi_range(1, 7)
+		var turn := rng.randf_range(0.0, 360.0)
+		var column := Vector2i(roundi(at.x / STEP), roundi(at.y / STEP))
+		var chance := 0.06
+		if surface_kind(column) == GRAVEL:
+			chance = 0.6
+		else:
+			for found in _mountains_near(at):
+				if not found.get("sand", false):
+					var ratio := _mountain_ratio(at, found)
+					if ratio > 0.55 and ratio < 1.1:
+						chance = maxf(chance, 0.35)
+			for lake in _lakes_near(at):
+				var distance := _lake_distance(at, lake)
+				if distance > lake.radius and distance < lake.radius + lake.get("bank", 0.0) + 4.0:
+					chance = maxf(chance, 0.4)
+		if roll >= chance:
+			continue
+		if water_level_at(at) > ground_height(column) - 0.05 or in_crevasse(at) or cave_open(column):
+			continue
+		var near_spot := false
+		for spot in _flat_spots:
+			near_spot = near_spot or at.distance_to(spot[0]) < spot[1] + 1.0
+		if near_spot:
+			continue
+		# Taille tirée selon les poids (plus de petits).
+		var size := 1
+		var weight: int = 0
+		for each in range(7):
+			weight += [30, 24, 18, 12, 8, 5, 3][each]
+			if pick <= weight:
+				size = each + 1
+				break
+		result.append({"id": "c%d_%d_%d" % [area.x, area.y, index], "x": at.x, "z": at.y, "taille": size, "forme": shape, "rotation": turn})
+	return result
+
 func rocks_in_zone(area: Vector2i) -> Array:
 	if _noise == null or generation_options.is_empty():
 		return []

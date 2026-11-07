@@ -749,6 +749,105 @@ func _run() -> void:
 	for found in older._all_mountains():
 		none_older = none_older and older.snow_depth(Vector2i(roundi(found.center.x / 0.5), roundi(found.center.y / 0.5))) == 0.0
 	check(none_older, "worlds of version 15 never get snow (existing worlds never change)")
+	# 0.0.6.3 (version 17) : lacs de montagne jamais collés : l'eau ne dépasse plus du sol ; version 16 inchangée.
+	var floating_water := 0
+	var lakes_17 := 0
+	for seed_value in [42, 5, 1040304241]:
+		var tidy := SmoothTerrain.new()
+		tidy.setup(seed_value, [], load("res://scripts/world_generation.gd").defaults())
+		tidy._mountain_lakes_of(Vector2i.ZERO)
+		for zone in tidy._mountain_lake_zones:
+			for lake in tidy._mountain_lake_zones[zone]:
+				lakes_17 += 1
+				var tidy_level: float = tidy.lake_level(lake)
+				for p: Vector2 in tidy.lake_outline(lake):
+					floating_water += 1 if tidy.height_at(lake.start.x + p.x, lake.start.y + p.y) < tidy_level - 0.05 else 0
+	check(lakes_17 > 30 and floating_water == 0, "mountain lakes (version 17): water never floats past the ground (%d lakes)" % lakes_17)
+	var options_16: Dictionary = load("res://scripts/world_generation.gd").defaults()
+	options_16.version = 16
+	var older_lakes := SmoothTerrain.new()
+	older_lakes.setup(42, [], options_16)
+	older_lakes._mountain_lakes_of(Vector2i.ZERO)
+	var count_16 := 0
+	for zone in older_lakes._mountain_lake_zones:
+		count_16 += older_lakes._mountain_lake_zones[zone].size()
+	check(count_16 == 55 and older_lakes.pebbles_in_zone(Vector2i(3, 3)).is_empty(), "version 16 worlds keep their lakes and get no pebbles")
+	# 0.0.6.3 : cailloux : 7 tailles, le plus gros pas plus grand que le plus petit rocher ; même graine = mêmes cailloux.
+	check(Rocks.PEBBLE_SIZES.size() == 7 and Rocks.PEBBLE_SIZES[6] <= Rocks.SIZES[0] and Rocks.PEBBLE_SIZES[0] < Rocks.PEBBLE_SIZES[6], "7 pebble sizes, the biggest no larger than the smallest rock")
+	var pebbles_a := SmoothTerrain.new()
+	var pebbles_b := SmoothTerrain.new()
+	pebbles_a.setup(42, [], load("res://scripts/world_generation.gd").defaults())
+	pebbles_b.setup(42, [], load("res://scripts/world_generation.gd").defaults())
+	var same_pebbles := true
+	var pebble_total := 0
+	var on_gravel := 0
+	var by_size := [0, 0, 0, 0, 0, 0, 0]
+	for x in range(-16, 16):
+		for z in range(-16, 16):
+			var list_a: Array = pebbles_a.pebbles_in_zone(Vector2i(x, z))
+			same_pebbles = same_pebbles and list_a == pebbles_b.pebbles_in_zone(Vector2i(x, z))
+			for pebble in list_a:
+				pebble_total += 1
+				by_size[pebble.taille - 1] += 1
+				on_gravel += 1 if pebbles_a.surface_kind(Vector2i(roundi(pebble.x / 0.5), roundi(pebble.z / 0.5))) == SmoothTerrain.GRAVEL else 0
+	check(same_pebbles and pebble_total > 1000, "same seed, same pebbles (%d)" % pebble_total)
+	check(by_size[0] > by_size[3] and by_size[3] > by_size[6] and on_gravel * 5 > pebble_total, "more small pebbles than big ones, many on the gravel")
+	# Casse à la pioche : les petits en 1 coup, les gros en 3 ; cassés, ils ne reviennent pas.
+	var pebble_folder := FOLDER + "-cailloux"
+	Store.delete_folder(pebble_folder)
+	var pebble_world: Node3D = WorldScene.instantiate()
+	pebble_world.generation_options = load("res://scripts/world_generation.gd").defaults()
+	pebble_world.terrain_seed = 42
+	pebble_world.save_folder = pebble_folder
+	pebble_world.load_distance = 4
+	root.add_child(pebble_world)
+	pebble_world.finish_terrain()
+	var small_pebble: StaticBody3D = null
+	var big_pebble: StaticBody3D = null
+	for each in pebble_world.get_tree().get_nodes_in_group("pebbles"):
+		if each.get_meta("pebble").x <= 4 and small_pebble == null:
+			small_pebble = each
+		if each.get_meta("pebble").x >= 5 and (big_pebble == null or each.get_meta("pebble").x > big_pebble.get_meta("pebble").x):
+			big_pebble = each
+	var big_id: String = big_pebble.get_meta("id")
+	var needed: int = Rocks.PEBBLE_HITS[big_pebble.get_meta("pebble").x - 1]
+	pebble_world.player.selected_type = pebble_world.PICKAXE
+	var small_id: String = small_pebble.get_meta("id")
+	pebble_world.player.global_position = small_pebble.global_position + Vector3(1.0, 0.0, 0.0)
+	pebble_world.break_target({"collider": small_pebble, "position": small_pebble.global_position, "normal": Vector3.UP})
+	check(pebble_world.broken_pebbles.has(small_id) and not is_instance_valid(small_pebble), "a small pebble breaks in one pickaxe hit")
+	# Gros caillou : retrouvé par son identifiant (sa colonne de cailloux est refaite à chaque coup).
+	var strikes_done := 0
+	for each in pebble_world.get_tree().get_nodes_in_group("pebbles"):
+		if is_instance_valid(each) and each.get_meta("id") == big_id:
+			pebble_world.strike_pebble(each)
+			strikes_done += 1
+			break
+	check(not pebble_world.broken_pebbles.has(big_id) and pebble_world.pebble_hits.get(big_id, 0) == 1, "a big pebble needs more hits")
+	for more_hits in range(5):
+		if pebble_world.broken_pebbles.has(big_id):
+			break
+		for each in pebble_world.get_tree().get_nodes_in_group("pebbles"):
+			if is_instance_valid(each) and each.get_meta("id") == big_id:
+				pebble_world.strike_pebble(each)
+				strikes_done += 1
+				break
+	check(pebble_world.broken_pebbles.has(big_id) and strikes_done == needed and needed >= 2, "a big pebble breaks after its number of hits (%d)" % needed)
+	check(pebble_world.save_now() and FileAccess.get_file_as_string(pebble_folder.path_join(Store.OBJECTS_FILE)).contains(small_id), "broken pebbles saved in objets.json")
+	close(pebble_world)
+	var pebble_again: Node3D = WorldScene.instantiate()
+	pebble_again.generation_options = load("res://scripts/world_generation.gd").defaults()
+	pebble_again.terrain_seed = 42
+	pebble_again.save_folder = pebble_folder
+	pebble_again.load_distance = 4
+	root.add_child(pebble_again)
+	pebble_again.finish_terrain()
+	var back := false
+	for each in pebble_again.get_tree().get_nodes_in_group("pebbles"):
+		back = back or each.get_meta("id") == small_id
+	check(not back and pebble_again.get_tree().get_nodes_in_group("pebbles").size() > 50, "a broken pebble never comes back")
+	close(pebble_again)
+	Store.delete_folder(pebble_folder)
 	# 0.0.6 : sous l'eau : brume bleu-vert proche et voile ; en sortant, la brume normale revient.
 	var lake_world: Node3D = WorldScene.instantiate()
 	lake_world.generation_options = load("res://scripts/world_generation.gd").defaults()

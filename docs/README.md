@@ -1,6 +1,16 @@
-# OrbMeka™ — prototype 0.0.6.2
+# OrbMeka™ — prototype 0.0.6.3
 
 Godot 4.7 / GDScript. Formes et couleurs simples ; assets externes seulement sous licence vérifiée (sons CC0, assets/sounds/CREDITS.txt).
+
+## 0.0.6.3 — Cailloux et lacs de montagne
+Version locale (pas encore publiée).
+- **Génération version 17** (nouveaux mondes) : **cailloux** posés sur le sol, 7 tailles (8 à 60 cm : le plus gros ne dépasse pas le plus petit rocher) et les 7 formes des rochers ; un peu partout, bien plus nombreux sur le gravier, au pied des montagnes et au bord des lacs ; plus de petits que de gros (environ 4,6 par zone de 8 m).
+- **Pioche** : les petits cailloux partent en 1 coup, les plus gros en 2 ou 3 (ils rapetissent entre deux coups). Cassés, ils sont gardés dans objets.json (« cailloux_casses ») ; pas de récolte. Les petits ne gênent pas la marche, les deux plus grosses tailles arrêtent le joueur.
+- **Lacs de montagne** : jamais collés l'un à l'autre (le replat de l'un écrasait le bord de l'autre : de l'eau restait en l'air, parfois sur tout le bord). Plusieurs lacs par montagne restent possibles. Les mondes déjà créés gardent leurs lacs.
+- Tests du menu : le terrain est terminé avant de vérifier l'herbe (depuis 0.0.6.2, seule la colonne du joueur est faite tout de suite).
+
+Tests concernés réussis. Mesures : sur 5 graines, plus aucun lac de montagne avec de l'eau hors du sol (avant : 1 sur 10) ; vol rapide PC environ 80 FPS, rendu Web environ 100 FPS, sans image de plus de 33 ms ou presque.
+À tester manuellement : marcher sur le gravier parmi les cailloux, les casser à la pioche, lac de montagne vu de près, fluidité dans un navigateur.
 
 ## 0.0.6.2 — Jeu plus fluide
 Version locale (pas encore publiée).

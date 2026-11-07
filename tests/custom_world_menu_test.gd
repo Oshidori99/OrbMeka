@@ -24,7 +24,7 @@ func _run() -> void:
 	app.name_field.text = "Personnalisé"
 	app.seed_field.text = "123"
 	app.custom_world_button.pressed.emit()
-	check(app.page == "custom_world" and app.custom_sliders.size() == 22 and app.custom_sliders.has("mountains") and app.custom_sliders.has("steep_mountains"), "custom menu offers the twenty-two settings of version 16, with both kinds of mountains")
+	check(app.page == "custom_world" and app.custom_sliders.size() == 22 and app.custom_sliders.has("mountains") and app.custom_sliders.has("steep_mountains"), "custom menu offers the twenty-two settings of version 17, with both kinds of mountains")
 	for size in [Vector2i(1280,720),Vector2i(800,600)]:
 		root.size = size
 		app.fit_menus_to_window()
@@ -64,6 +64,7 @@ func _run() -> void:
 	var world: Node3D = app.active_world
 	check(app.page == "playing" and world.generation_options == app.custom_generation, "creation supplies chosen generation to the actual world")
 	check(world.grass_distance == 32, "actual world receives the grass distance (4 zones = 32 m)")
+	world.finish_terrain()
 	app.setting_sliders.grass_zones.value = 6
 	check(Settings.new(path.get_basename()+"-settings.json").values.grass_zones == 6, "grass distance saved through the real video slider")
 	var patches := world.find_children("GrassDetail","MultiMeshInstance3D",true,false)

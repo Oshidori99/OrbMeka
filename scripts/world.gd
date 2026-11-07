@@ -1034,11 +1034,19 @@ func _valid_hit(hit: Dictionary, reach: float) -> bool:
 		return false
 	if player.camera.global_position.distance_to(hit.position) > reach + 0.01:
 		return false
-	return hit.collider.is_in_group("blocks") or hit.collider.is_in_group("ground") or hit.collider.is_in_group("rocks")
+	return hit.collider.is_in_group("blocks") or hit.collider.is_in_group("ground") or hit.collider.is_in_group("rocks") or hit.collider.is_in_group("pebbles")
 
 # 0.0.5.8 : clic gauche : creuser le terrain lisse (les blocs posés avant restent, sans casse ni pose).
 func break_target(hit: Dictionary) -> bool:
 	# 0.0.5.19 : un rocher se mine à la pioche (sinon un message).
+	# 0.0.6.3 : un caillou se casse à la pioche, en 1 à 3 coups selon sa taille.
+	if not hit.is_empty() and is_instance_valid(hit.get("collider")) and hit.collider.is_in_group("pebbles"):
+		if not _valid_hit(hit, player.break_reach):
+			return false
+		if player.selected_type != PICKAXE:
+			_notify("Les cailloux se cassent avec la pioche (molette ou touche 3).")
+			return false
+		return strike_pebble(hit.collider)
 	if not hit.is_empty() and is_instance_valid(hit.get("collider")) and hit.collider.is_in_group("rocks"):
 		if not _valid_hit(hit, player.break_reach):
 			return false
@@ -1456,6 +1464,9 @@ static func valid_objects(data: Dictionary) -> bool:
 	for id in data.get("rochers_mines", []):
 		if not id is String:
 			return false
+	for id in data.get("cailloux_casses", []):
+		if not id is String:
+			return false
 	# 0.0.6 : cubes retirés des rochers entamés : [x, y, z] entiers (sous-cellules du terrain).
 	var carved: Variant = data.get("rochers_entames", {})
 	if not carved is Dictionary:
@@ -1480,6 +1491,8 @@ func _read_objects() -> void:
 	_read_carved(objects_data)
 
 func _read_carved(data: Dictionary) -> void:
+	for id in data.get("cailloux_casses", []):
+		broken_pebbles[id] = true
 	var carved: Dictionary = data.get("rochers_entames", {})
 	for id in carved:
 		carved_rocks[id] = carved[id].map(func(entry): return [int(entry[0]), int(entry[1]), int(entry[2])])
@@ -1541,6 +1554,7 @@ func place_objects(data: Dictionary) -> void:
 # Rochers et lacs de la graine d'une colonne (affichés et retirés avec elle).
 func _show_column_objects(column: Vector2i) -> void:
 	_hide_column_objects(column)
+	_show_column_pebbles(column)
 	for rock in terrain.rocks_in_zone(column):
 		if not mined_rocks.has(rock.id):
 			var made := _make_rock(rock, rock.id)
@@ -1568,11 +1582,93 @@ func _column_object(column: Vector2i, node: Node) -> void:
 		column_objects[column] = []
 	column_objects[column].append(node)
 
+# 0.0.6.3 : cailloux d'une colonne, dessinés d'un coup par forme ; chacun a une petite collision ronde pour la pioche,
+# sur la couche 2 : le joueur passe sur les petits sans buter, les deux plus gros (couches 1 et 2) l'arrêtent.
+# Cassés : objets.json, « cailloux_casses » (identifiants) ; coups déjà donnés : seulement pendant la partie.
+var broken_pebbles: Dictionary = {}
+var pebble_hits: Dictionary = {}
+var column_pebbles: Dictionary = {}
+
+func _stone_material() -> ShaderMaterial:
+	if _rock_material == null:
+		_rock_material = TerrainMaterials.surface(true)
+	return _rock_material
+
+func _show_column_pebbles(column: Vector2i) -> void:
+	_hide_column_pebbles(column)
+	var nodes := []
+	var by_shape := {}
+	for pebble in terrain.pebbles_in_zone(column):
+		if broken_pebbles.has(pebble.id):
+			continue
+		var size: int = pebble.taille
+		var shape: int = pebble.forme
+		# Rapetisse un peu à chaque coup déjà reçu.
+		var shrink: float = 1.0 - 0.2 * pebble_hits.get(pebble.id, 0)
+		var diameter: float = Rocks.PEBBLE_SIZES[size - 1] * shrink
+		var at := Vector3(pebble.x, terrain.height_at(pebble.x, pebble.z) + Rocks.pebble_lift(size, shape) * shrink, pebble.z)
+		if not by_shape.has(shape):
+			by_shape[shape] = []
+		by_shape[shape].append(Transform3D(Basis(Vector3.UP, deg_to_rad(pebble.rotation)).scaled(Vector3.ONE * diameter), at))
+		var body := StaticBody3D.new()
+		body.name = "Caillou"
+		body.add_to_group("pebbles")
+		body.set_meta("id", pebble.id)
+		body.set_meta("pebble", Vector2i(size, shape))
+		body.set_meta("column", column)
+		body.collision_layer = 3 if size >= 6 else 2
+		body.collision_mask = 0
+		var collision := CollisionShape3D.new()
+		var sphere := SphereShape3D.new()
+		sphere.radius = maxf(diameter * 0.42, 0.04)
+		collision.shape = sphere
+		body.add_child(collision)
+		body.position = at
+		_rocks_parent().add_child(body)
+		nodes.append(body)
+	for shape: int in by_shape:
+		var placements: Array = by_shape[shape]
+		var multi := MultiMesh.new()
+		multi.transform_format = MultiMesh.TRANSFORM_3D
+		multi.mesh = Rocks.pebble_mesh(shape)
+		multi.instance_count = placements.size()
+		for index in range(placements.size()):
+			multi.set_instance_transform(index, placements[index])
+		var drawn := MultiMeshInstance3D.new()
+		drawn.name = "Cailloux"
+		drawn.multimesh = multi
+		drawn.material_override = _stone_material()
+		_rocks_parent().add_child(drawn)
+		nodes.append(drawn)
+	column_pebbles[column] = nodes
+
+func _hide_column_pebbles(column: Vector2i) -> void:
+	for node in column_pebbles.get(column, []):
+		if is_instance_valid(node):
+			node.free()
+	column_pebbles.erase(column)
+
+func strike_pebble(body: StaticBody3D) -> bool:
+	var id: String = body.get_meta("id")
+	var kind: Vector2i = body.get_meta("pebble")
+	var column: Vector2i = body.get_meta("column")
+	var at := body.global_position
+	_debris(at, Color("#6f6b66"))
+	_impact_sound(at)
+	pebble_hits[id] = pebble_hits.get(id, 0) + 1
+	if pebble_hits[id] >= Rocks.PEBBLE_HITS[kind.x - 1]:
+		pebble_hits.erase(id)
+		broken_pebbles[id] = true
+		objects_dirty = true
+	_show_column_pebbles(column)
+	return true
+
 func _hide_column_objects(column: Vector2i) -> void:
 	for node in column_objects.get(column, []):
 		if is_instance_valid(node):
 			node.free()
 	column_objects.erase(column)
+	_hide_column_pebbles(column)
 
 # Disque d'eau (surface plate, vue de dessus et de dessous) ; 0.0.5.20 : allongé (half : demi-segment du lac).
 # 0.0.5.25 : lacs irréguliers (version 7 et plus) : l'eau suit le contour du lac, jamais par-dessus la rive.
@@ -1739,6 +1835,7 @@ func _save_objects() -> bool:
 		data = {"format": 1}
 	data.rochers_mines = mined_rocks.keys()
 	data.rochers_entames = carved_rocks.duplicate(true)
+	data.cailloux_casses = broken_pebbles.keys()
 	var ok := Store.write_json(save_folder.path_join(Store.OBJECTS_FILE), data)
 	if ok:
 		objects_dirty = false
