@@ -364,18 +364,70 @@ func _run() -> void:
 		small_rocks += 1 if each.get_meta("rock").x <= 2 else 0
 		huge_rocks += 1 if each.get_meta("rock").x == 7 else 0
 	check(small_rocks > huge_rocks * 3, "more small_rocks rocks than huge_rocks ones")
+	# 0.0.6 : un rocher se creuse une sous-cellule (cube de 50 cm) par coup, là où l'on frappe ; il disparaît vidé.
 	var mined_target: StaticBody3D = rock_nodes[0]
-	var rock_size: int = mined_target.get_meta("rock").x
+	var carved_target: StaticBody3D = null
+	for each in rock_nodes:
+		if each.get_meta("rock").x < mined_target.get_meta("rock").x:
+			mined_target = each
+	for each in rock_nodes:
+		if each != mined_target and each.get_meta("rock").x >= 3 and carved_target == null:
+			carved_target = each
 	var rock_id: String = mined_target.get_meta("id")
 	rock_world.player.global_position = mined_target.global_position + Vector3(1.0, 0.0, 1.0)
 	var rock_hit := {"collider": mined_target, "position": mined_target.global_position, "normal": Vector3.UP}
 	rock_world.player.selected_type = 0
 	check(not rock_world.break_target(rock_hit) and rock_world.notice.begins_with("Les rochers se cassent avec la pioche"), "without the pickaxe, a rock does not break")
 	rock_world.player.selected_type = rock_world.PICKAXE
-	for hit_index in range(rock_size):
-		rock_world.break_target(rock_hit)
-	check(rock_world.mined_rocks.has(rock_id) and mined_target.is_queued_for_deletion(), "a rock breaks after as many pickaxe hits as its size")
-	check(rock_world.save_now() and FileAccess.get_file_as_string(FOLDER.path_join(Store.OBJECTS_FILE)).contains(rock_id), "mined rocks saved in objets.json")
+	var faces_before: int = mined_target.get_child(0).mesh.get_faces().size()
+	rock_world.break_target(rock_hit)
+	check(rock_world.carved_rocks.get(rock_id, []).size() == 1 and is_instance_valid(mined_target) and not mined_target.is_queued_for_deletion() and mined_target.get_child(0).mesh.get_faces().size() != faces_before, "one pickaxe hit removes one 50 cm sub-cell of a rock; its shape changes")
+	# Frapper chaque sous-cellule du rocher : il finit vidé, puis disparaît.
+	var rock_center: Vector3 = mined_target.global_position
+	var low := SmoothTerrain.point_of(rock_center - Vector3.ONE * 2.0)
+	var high := SmoothTerrain.point_of(rock_center + Vector3.ONE * 2.0)
+	var strikes := 1
+	for x in range(low.x, high.x + 1):
+		for y in range(low.y, high.y + 1):
+			for z in range(low.z, high.z + 1):
+				if is_instance_valid(mined_target) and not mined_target.is_queued_for_deletion():
+					rock_world.mine_rock(mined_target, {"position": Vector3(x, y, z) * 0.5 + Vector3.UP * 0.15, "normal": Vector3.UP})
+					strikes += 1
+	check(rock_world.mined_rocks.has(rock_id) and not rock_world.carved_rocks.has(rock_id) and strikes > 2, "a rock emptied hit after hit disappears (%d hits)" % strikes)
+	var carved_id: String = carved_target.get_meta("id")
+	rock_world.mine_rock(carved_target, {"position": carved_target.global_position + Vector3.UP * 0.2, "normal": Vector3.UP})
+	rock_world.mine_rock(carved_target, {"position": carved_target.global_position + Vector3(0.5, 0.2, 0.0), "normal": Vector3.UP})
+	var carved_faces: int = carved_target.get_child(0).mesh.get_faces().size()
+	var carved_count: int = rock_world.carved_rocks.get(carved_id, []).size()
+	check(carved_count >= 1, "a bigger rock keeps its hollows")
+	# 0.0.6 : pierre du terrain : un coup = une sous-cellule ; pierre sombre : 2 coups ; Roche-mère : jamais.
+	# Points pleins (pas dans une grotte).
+	var stone_point := Vector3i(40, rock_world.terrain.stone_top - 2, 40)
+	var dark_point := Vector3i(44, rock_world.terrain.deep_top - 2, 40)
+	while rock_world.terrain.density(stone_point) <= 0.0:
+		stone_point.x += 1
+	while rock_world.terrain.density(dark_point) <= 0.0:
+		dark_point.x += 1
+	check(rock_world.terrain.natural_kind(stone_point) == SmoothTerrain.STONE and rock_world.terrain.natural_kind(dark_point) == SmoothTerrain.DARK_STONE, "stone and dark stone points found")
+	var changes_before: int = rock_world.terrain.changes.size()
+	rock_world._strike_stone(stone_point, Vector3(stone_point) * 0.5)
+	check(rock_world.terrain.density(stone_point) <= 0.0 and rock_world.terrain.changes.size() == changes_before + 1, "one pickaxe hit on stone removes exactly one sub-cell")
+	rock_world._strike_stone(dark_point, Vector3(dark_point) * 0.5)
+	var dark_after_one: float = rock_world.terrain.density(dark_point)
+	rock_world._strike_stone(dark_point, Vector3(dark_point) * 0.5)
+	check(dark_after_one > 0.0 and rock_world.terrain.density(dark_point) <= 0.0, "dark stone is harder: two hits per sub-cell")
+	check(not rock_world._in_terrain_limits(Vector3i(40, rock_world.terrain.mother_rock_top, 40)), "the bedrock never breaks")
+	# Par le vrai geste (visée du sol, pioche) : une seule sous-cellule, même avec un grand pinceau.
+	var ground_body: StaticBody3D = rock_world.terrain_pieces.values()[0]
+	var face_point := Vector3i(48, rock_world.terrain.stone_top - 2, 46)
+	while rock_world.terrain.density(face_point) <= 0.0 or not rock_world.terrain.is_stone(face_point):
+		face_point.x += 1
+	rock_world.player.global_position = Vector3(face_point) * 0.5 + Vector3(1.0, 0.0, 1.0)
+	rock_world.player.brush_size = 2
+	changes_before = rock_world.terrain.changes.size()
+	check(rock_world.break_target({"collider": ground_body, "position": Vector3(face_point) * 0.5 + Vector3.UP * 0.3, "normal": Vector3.UP}) and rock_world.terrain.changes.size() == changes_before + 1, "aiming at stone with the pickaxe digs one sub-cell, whatever the brush size")
+	rock_world.player.brush_size = 0
+	check(rock_world.save_now() and FileAccess.get_file_as_string(FOLDER.path_join(Store.OBJECTS_FILE)).contains(rock_id) and FileAccess.get_file_as_string(FOLDER.path_join(Store.OBJECTS_FILE)).contains("rochers_entames"), "mined and carved rocks saved in objets.json")
 	close(rock_world)
 	var rock_world_again: Node3D = WorldScene.instantiate()
 	rock_world_again.terrain_seed = 70621
@@ -388,6 +440,12 @@ func _run() -> void:
 	for each in rock_world_again.get_tree().get_nodes_in_group("rocks"):
 		came_back = came_back or each.get_meta("id") == rock_id
 	check(not came_back and rock_world_again.get_tree().get_nodes_in_group("rocks").size() > 0, "a mined rock never comes back")
+	var reloaded_faces := -1
+	for each in rock_world_again.get_tree().get_nodes_in_group("rocks"):
+		if each.get_meta("id") == carved_id:
+			reloaded_faces = each.get_child(0).mesh.get_faces().size()
+	check(rock_world_again.carved_rocks.get(carved_id, []).size() == carved_count and reloaded_faces == carved_faces, "a carved rock comes back with the same hollows")
+	check(rock_world_again.terrain.density(stone_point) <= 0.0 and rock_world_again.terrain.density(dark_point) <= 0.0, "dug stone sub-cells stay dug after reloading")
 	close(rock_world_again)
 	Store.delete_folder(FOLDER)
 	var older_terrain := SmoothTerrain.new()

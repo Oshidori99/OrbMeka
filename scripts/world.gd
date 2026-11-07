@@ -1012,8 +1012,13 @@ func break_target(hit: Dictionary) -> bool:
 		if player.selected_type != PICKAXE:
 			_notify("Les rochers se cassent avec la pioche (molette ou touche 3).")
 			return false
-		return mine_rock(hit.collider)
+		return mine_rock(hit.collider, hit)
 	var pickaxe: bool = player.selected_type == PICKAXE
+	# 0.0.6 : pierre à la pioche : une sous-cellule de 50 cm par coup, là où l'on vise ; pierre sombre : 2 coups.
+	if pickaxe and _aimed_ground(hit, player.break_reach):
+		var aimed := SmoothTerrain.point_of(hit.position - hit.normal * 0.3)
+		if terrain.is_stone(aimed) and _in_terrain_limits(aimed):
+			return _strike_stone(aimed, hit.position)
 	var stone := not hit.is_empty() and terrain.is_stone(SmoothTerrain.point_of(hit.position - hit.normal * 0.3))
 	var done := sculpt(hit, false, -1, SIZE_CELLS[player.brush_size], pickaxe)
 	if done:
@@ -1418,6 +1423,13 @@ static func valid_objects(data: Dictionary) -> bool:
 	for id in data.get("rochers_mines", []):
 		if not id is String:
 			return false
+	# 0.0.6 : cubes retirés des rochers entamés : [x, y, z] entiers (sous-cellules du terrain).
+	var carved: Variant = data.get("rochers_entames", {})
+	if not carved is Dictionary:
+		return false
+	for id in carved:
+		if not carved[id] is Array or not carved[id].all(func(entry): return entry is Array and entry.size() == 3 and entry.all(func(n): return (n is int or n is float) and float(n) == floorf(float(n)))):
+			return false
 	return true
 
 # Lu avant d'afficher le terrain : les rochers minés ne doivent pas réapparaître avec leur colonne.
@@ -1432,6 +1444,12 @@ func _read_objects() -> void:
 	objects_data = saved.get("data", {})
 	for id in objects_data.get("rochers_mines", []):
 		mined_rocks[id] = true
+	_read_carved(objects_data)
+
+func _read_carved(data: Dictionary) -> void:
+	var carved: Dictionary = data.get("rochers_entames", {})
+	for id in carved:
+		carved_rocks[id] = carved[id].map(func(entry): return [int(entry[0]), int(entry[1]), int(entry[2])])
 
 # Objets de la liste du monde (rochers et étiquettes des mondes d'essai), une fois le terrain prêt.
 func _load_objects() -> void:
@@ -1458,12 +1476,17 @@ func _make_rock(rock: Dictionary, id: String) -> StaticBody3D:
 	body.set_meta("id", id)
 	body.set_meta("hits", 0)
 	_rocks_parent().add_child(body)
+	if carved_rocks.has(id) and not _apply_carving(body):
+		body.free()
+		mined_rocks[id] = true
+		return null
 	return body
 
 func place_objects(data: Dictionary) -> void:
 	objects_data = data
 	for id in data.get("rochers_mines", []):
 		mined_rocks[id] = true
+	_read_carved(data)
 	var index := 0
 	for rock in data.get("rochers", []):
 		var id := "liste_%d" % index
@@ -1487,7 +1510,9 @@ func _show_column_objects(column: Vector2i) -> void:
 	_hide_column_objects(column)
 	for rock in terrain.rocks_in_zone(column):
 		if not mined_rocks.has(rock.id):
-			_make_rock(rock, rock.id).set_meta("column", column)
+			var made := _make_rock(rock, rock.id)
+			if made != null:
+				made.set_meta("column", column)
 	for lake in terrain.lakes_in_zone(column):
 		var water := MeshInstance3D.new()
 		water.name = "Lac"
@@ -1548,20 +1573,124 @@ static func _water_disc(radius: float, half: Vector2 = Vector2.ZERO) -> ArrayMes
 	return tool.commit()
 
 # Coup de pioche sur un rocher : il se fend un peu à chaque coup ; au bout d'autant de coups que sa taille, il casse.
-func mine_rock(body: StaticBody3D) -> bool:
-	var size: int = body.get_meta("rock").x
-	var hits: int = body.get_meta("hits") + 1
-	body.set_meta("hits", hits)
-	_debris(body.global_position + Vector3.UP * 0.3, Color("#6f6b66"))
-	if hits < size:
-		body.scale = Vector3.ONE * (1.0 - 0.06 * hits)
-		show_choice("Rocher : %d / %d coups" % [hits, size])
+# Coups de pioche par sous-cellule selon la pierre (plus dure : plus de coups). Roche-mère : jamais (hors limites).
+const STONE_HITS := {SmoothTerrain.STONE: 1, SmoothTerrain.DARK_STONE: 2}
+var stone_target := Vector3i(999999, 0, 0)
+var stone_hits := 0
+
+func _strike_stone(point: Vector3i, at: Vector3) -> bool:
+	var kind: int = terrain.materials.get(point, terrain.natural_kind(point))
+	if point != stone_target:
+		stone_target = point
+		stone_hits = 0
+	stone_hits += 1
+	_debris(at, Color("#4a4744") if kind == SmoothTerrain.DARK_STONE else Color("#6f6b66"))
+	_impact_sound(at)
+	if stone_hits < STONE_HITS.get(kind, 1):
 		return true
-	mined_rocks[body.get_meta("id")] = true
+	stone_target = Vector3i(999999, 0, 0)
+	stone_hits = 0
+	return _apply_terrain({point: [SmoothTerrain.DUG, -1]})
+
+# 0.0.6 : rocher creusé à la pioche, une sous-cellule de 50 cm par coup (cubes alignés sur le terrain) ;
+# la forme se creuse là où l'on frappe. Sauvegarde : objets.json, « rochers_entames » (cubes retirés par rocher).
+var carved_rocks: Dictionary = {}
+
+func mine_rock(body: StaticBody3D, hit: Dictionary = {}) -> bool:
+	var id: String = body.get_meta("id")
+	if not body.has_meta("grid"):
+		var rock: Vector2i = body.get_meta("rock")
+		body.set_meta("grid", Rocks.shape_grid(rock.x, rock.y, body.global_transform))
+	var grid: Dictionary = body.get_meta("grid")
+	var aim: Vector3 = hit.get("position", body.global_position)
+	var normal: Vector3 = hit.get("normal", Vector3.UP)
+	var removed: Array = carved_rocks.get(id, [])
+	var rock_size: Vector2i = body.get_meta("rock")
+	var noise := Rocks._noise_for(rock_size.x, rock_size.y)
+	var inverse := body.global_transform.affine_inverse()
+	# La sous-cellule visée, ou la suivante plus au fond si elle est déjà vide ou hors du rocher.
+	var chosen := Vector3i(999999, 0, 0)
+	for depth in [0.15, 0.4, 0.65, 0.9]:
+		var point := SmoothTerrain.point_of(aim - normal * depth)
+		if [point.x, point.y, point.z] in removed:
+			continue
+		if Rocks.shape_distance(inverse * (Vector3(point) * SmoothTerrain.STEP), rock_size.x, rock_size.y, noise) < 0.3:
+			chosen = point
+			break
+	_debris(aim, Color("#6f6b66"))
+	_impact_sound(aim)
+	if chosen.x == 999999:
+		return false
+	removed.append([chosen.x, chosen.y, chosen.z])
+	carved_rocks[id] = removed
 	objects_dirty = true
-	body.queue_free()
-	show_choice("Rocher cassé")
+	if not _apply_carving(body):
+		carved_rocks.erase(id)
+		mined_rocks[id] = true
+		body.queue_free()
+		show_choice("Rocher cassé")
 	return true
+
+# Refait la forme et la collision d'un rocher entamé ; faux s'il ne reste rien.
+func _apply_carving(body: StaticBody3D) -> bool:
+	if not body.has_meta("grid"):
+		var rock: Vector2i = body.get_meta("rock")
+		body.set_meta("grid", Rocks.shape_grid(rock.x, rock.y, body.global_transform))
+	var centers: Array = carved_rocks.get(body.get_meta("id"), []).map(func(entry): return Vector3(entry[0], entry[1], entry[2]) * SmoothTerrain.STEP)
+	var grid: Dictionary = body.get_meta("grid")
+	var faces := Rocks.carved_faces(grid, Rocks.carved_values(grid, centers))
+	if faces.is_empty():
+		return false
+	var inverse := body.global_transform.affine_inverse()
+	var local := PackedVector3Array()
+	local.resize(faces.size())
+	for index in range(faces.size()):
+		local[index] = inverse * faces[index]
+	var tool := SurfaceTool.new()
+	tool.begin(Mesh.PRIMITIVE_TRIANGLES)
+	tool.set_color(Color(1.0, 0.0, 1.0, 1.0))
+	for vertex in local:
+		tool.add_vertex(vertex)
+	tool.index()
+	tool.generate_normals()
+	for child in body.get_children():
+		if child is MeshInstance3D:
+			child.mesh = tool.commit()
+		elif child is CollisionShape3D:
+			var shape := ConcavePolygonShape3D.new()
+			shape.backface_collision = true
+			shape.set_faces(local)
+			child.shape = shape
+	return true
+
+# Petit choc de pioche : son fait ici (bruit bref et note sourde qui s'éteignent vite), aucun fichier externe.
+static var _impact_stream: AudioStreamWAV
+
+func _impact_sound(at: Vector3) -> void:
+	if _impact_stream == null:
+		var rate := 22050
+		var data := PackedByteArray()
+		var rng := RandomNumberGenerator.new()
+		rng.seed = 7
+		var length := int(rate * 0.14)
+		data.resize(length * 2)
+		for index in range(length):
+			var t := float(index) / rate
+			var fade := exp(-t * 38.0)
+			var sample := (rng.randf_range(-1.0, 1.0) * 0.55 + sin(TAU * 190.0 * t) * 0.45 + sin(TAU * 1300.0 * t) * 0.2 * exp(-t * 90.0)) * fade
+			data.encode_s16(index * 2, int(clampf(sample, -1.0, 1.0) * 26000.0))
+		_impact_stream = AudioStreamWAV.new()
+		_impact_stream.format = AudioStreamWAV.FORMAT_16_BITS
+		_impact_stream.mix_rate = rate
+		_impact_stream.data = data
+	var player_3d := AudioStreamPlayer3D.new()
+	player_3d.stream = _impact_stream
+	player_3d.pitch_scale = randf_range(0.9, 1.1)
+	player_3d.volume_db = -6.0
+	add_child(player_3d)
+	player_3d.global_position = at
+	player_3d.finished.connect(player_3d.queue_free)
+	player_3d.play()
 
 func _save_objects() -> bool:
 	if save_folder.is_empty() or not objects_dirty:
@@ -1570,6 +1699,7 @@ func _save_objects() -> bool:
 	if data.is_empty():
 		data = {"format": 1}
 	data.rochers_mines = mined_rocks.keys()
+	data.rochers_entames = carved_rocks.duplicate(true)
 	var ok := Store.write_json(save_folder.path_join(Store.OBJECTS_FILE), data)
 	if ok:
 		objects_dirty = false
