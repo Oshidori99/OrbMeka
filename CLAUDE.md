@@ -23,6 +23,8 @@ Guide complet : docs/README.md. Fichiers techniques : docs/ORGANISATION.txt.
     joueur.json (position, regard), zones/zone_X_Y_Z.bin (seulement les changements, format versionné) ;
   - mondes en sécurité (0.0.6, scripts/world_shelves.gd) : mondes-securises.json + mondes-securises/, mondes-versions.json
     + mondes-versions/ (jamais lus par les anciennes versions) ; sous-dossiers et exceptions dans mondes-dossiers.json ;
+  - eau d'un monde (0.0.6.6, scripts/water.gd) : mondes/<nom>/eau/lacs.json (niveaux des lacs qui ont bougé) et eau/cases.json
+    (eau libre : case X, case Z, profondeur en mm), seulement si l'eau a bougé ;
   - launcher : launcher/.
 
 ## Tests

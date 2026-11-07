@@ -1302,6 +1302,24 @@ func _with_lakes(at: Vector2, height: float) -> float:
 	return height
 
 # Lacs qui commencent dans cette zone de 8 m (pour poser l'eau), avec leur niveau.
+# 0.0.6.6 (#124) : lac sous ce point (dans son rayon), sinon {} ; identifiant stable d'un lac (son centre, au dixième).
+func lake_at(at: Vector2) -> Dictionary:
+	if _noise == null or int(generation_options.get("version", 0)) < 4:
+		return {}
+	for lake in _lakes_near(at):
+		if _lake_distance(at, lake) < lake.radius:
+			return lake
+	return {}
+
+static func lake_id(lake: Dictionary) -> String:
+	var center: Vector2 = (lake.start + lake.end) / 2.0
+	return "%d_%d" % [roundi(center.x * 10.0), roundi(center.y * 10.0)]
+
+# Surface d'un lac en m² (disque, ou bande arrondie pour les lacs allongés).
+static func lake_area(lake: Dictionary) -> float:
+	var radius: float = lake.radius
+	return PI * radius * radius + 2.0 * radius * lake.start.distance_to(lake.end)
+
 func lakes_in_zone(area: Vector2i) -> Array:
 	if _noise == null or generation_options.is_empty():
 		return []

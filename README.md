@@ -1,7 +1,8 @@
-# OrbMeka™ 0.0.6.5
+# OrbMeka™ 0.0.6.6
 
 Dans Godot, ouvrez **project.godot**, puis **F5** pour lancer le jeu.
 
+0.0.6.6 : eau qui coule : creuser à côté d'un lac fait couler l'eau, le lac baisse ; enregistré dans le dossier du monde (#124).
 0.0.6.5 : 20 m de pierre et 20 m de pierre sombre (Roche-mère à 45 m), cailloux de calcaire et de silex de toutes les tailles (génération 19).
 0.0.6.4 : calcaire, charbon et silex dans la pierre (génération 18), silex en surface, rochers de calcaire.
 0.0.6.3 : cailloux posés sur le sol (7 tailles, jusqu'à 60 cm), cassés à la pioche ; plus d'eau en l'air dans les lacs de montagne (génération 17).

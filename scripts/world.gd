@@ -12,6 +12,7 @@ const SmoothTerrain = preload("res://scripts/smooth_terrain.gd")
 const Generation = preload("res://scripts/world_generation.gd")
 const FarTerrain = preload("res://scripts/far_terrain.gd")
 const Rocks = preload("res://scripts/rocks.gd")
+const Water = preload("res://scripts/water.gd")
 const DIRT := 2
 const BLOCK_COLORS := [Color("#d8c291"), Color("#888b90"), Color("#855332")]
 const BLOCK_NAMES := ["Sable", "Pierre", "Terre"]
@@ -217,6 +218,9 @@ func _create_terrain(start_at: Vector3 = Vector3.ZERO) -> void:
 		terrain.setup(terrain_seed, [[Vector2(0.5, 0.5), 9.0], [SAND_CENTER, SAND_RADIUS + 2.0]], generation_options)
 	_read_terrain_changes()
 	_read_objects()
+	# 0.0.6.6 (#124) : eau qui coule (lacs qui baissent, eau libre), relue depuis le dossier du monde.
+	flowing = Water.new(terrain)
+	flowing.load_from(save_folder)
 	terrain_node = Node3D.new()
 	terrain_node.name = "Terrain"
 	add_child(terrain_node)
@@ -388,6 +392,58 @@ func finish_terrain() -> void:
 		_build_far_tile(far_queue.pop_front())
 
 # Brume au loin, au bord de la distance d'affichage : le terrain ne s'arrête pas d'un coup.
+# 0.0.6.6 (#124) : eau qui coule (water.gd) : un pas tous les dixièmes de seconde autour du joueur ; l'eau libre est
+# redessinée par zone de 8 m, les lacs qui ont bougé changent de hauteur.
+var flowing: RefCounted
+var water_time := 0.0
+var water_pieces: Dictionary = {}
+
+func _update_water(delta: float) -> void:
+	if flowing == null:
+		return
+	water_time += delta
+	if water_time < Water.STEP_SECONDS:
+		return
+	water_time = 0.0
+	flowing.step(Vector2(player.position.x, player.position.z))
+	show_water_changes()
+
+func show_water_changes() -> void:
+	for zone: Vector2i in flowing.changed_zones.keys():
+		if is_instance_valid(water_pieces.get(zone)):
+			water_pieces[zone].free()
+		water_pieces.erase(zone)
+		var faces: PackedVector3Array = flowing.zone_faces(zone)
+		if faces.is_empty():
+			continue
+		var normals := PackedVector3Array()
+		normals.resize(faces.size())
+		normals.fill(Vector3.UP)
+		var arrays := []
+		arrays.resize(Mesh.ARRAY_MAX)
+		arrays[Mesh.ARRAY_VERTEX] = faces
+		arrays[Mesh.ARRAY_NORMAL] = normals
+		var mesh := ArrayMesh.new()
+		mesh.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arrays)
+		var piece := MeshInstance3D.new()
+		piece.name = "EauLibre"
+		piece.mesh = mesh
+		if _water_material == null:
+			_water_material = ShaderMaterial.new()
+			_water_material.shader = preload("res://shaders/water.gdshader")
+			_clip_water()
+		piece.material_override = _water_material
+		piece.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		piece.add_to_group("water")
+		add_child(piece)
+		water_pieces[zone] = piece
+	flowing.changed_zones.clear()
+	if not flowing.changed_lakes.is_empty():
+		for node in get_tree().get_nodes_in_group("water"):
+			if node.has_meta("lake_id") and flowing.changed_lakes.has(node.get_meta("lake_id")):
+				node.position.y = flowing.lake_level_now(flowing.changed_lakes[node.get_meta("lake_id")])
+		flowing.changed_lakes.clear()
+
 # 0.0.6 : sous l'eau (caméra plus basse que la surface d'un lac) : brume bleu-vert épaisse et voile teinté ; on ne
 # voit plus qu'à quelques mètres, la surface paraît claire au-dessus. En sortant : la brume normale revient.
 var underwater := false
@@ -399,7 +455,7 @@ func _update_underwater() -> void:
 	if view == null or terrain == null:
 		return
 	var at := view.global_position
-	var now: bool = at.y < terrain.water_level_at(Vector2(at.x, at.z)) - 0.05
+	var now: bool = at.y < (flowing.surface_at(Vector2(at.x, at.z)) if flowing != null else terrain.water_level_at(Vector2(at.x, at.z))) - 0.05
 	if now == underwater:
 		return
 	underwater = now
@@ -702,6 +758,8 @@ func _apply_terrain(updates: Dictionary) -> bool:
 
 # Points changés (geste ou chute) : zones à enregistrer, pièces et herbe autour recalculées une fois.
 func _refresh_terrain(points: Array) -> void:
+	if flowing != null:
+		flowing.terrain_changed(points)
 	var zones := {}
 	var tiles := {}
 	for point: Vector3i in points:
@@ -1003,6 +1061,9 @@ func save_now() -> bool:
 	var ok := Store.write_json(save_folder.path_join(Store.PLAYER_FILE), player_data())
 	# 0.0.5.19 : rochers minés.
 	ok = _save_objects() and ok
+	# 0.0.6.6 : eau (niveaux des lacs, eau libre), seulement si elle a bougé.
+	if flowing != null:
+		ok = flowing.save(save_folder) and ok
 	for zone: Vector3i in dirty_zones.keys():
 		if loaded_zones.has(zone) and not _save_zone(zone):
 			ok = false
@@ -1264,6 +1325,7 @@ func _process(delta: float) -> void:
 		return
 	_update_fps(delta)
 	_update_underwater()
+	_update_water(delta)
 	# Sauvegarde régulière (petits fichiers, seulement les zones modifiées : pas de saccade).
 	autosave_time += delta
 	if autosave_time >= AUTOSAVE_SECONDS:
@@ -1585,7 +1647,8 @@ func _show_column_objects(column: Vector2i) -> void:
 			_clip_water()
 		water.material_override = _water_material
 		water.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-		water.position = Vector3(lake.center.x, lake.level, lake.center.y)
+		water.position = Vector3(lake.center.x, flowing.lake_level_now(lake) if flowing != null else lake.level, lake.center.y)
+		water.set_meta("lake_id", terrain.lake_id(lake))
 		water.set_meta("column", column)
 		water.add_to_group("water")
 		_rocks_parent().add_child(water)

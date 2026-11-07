@@ -1,6 +1,18 @@
-# OrbMeka™ — prototype 0.0.6.5
+# OrbMeka™ — prototype 0.0.6.6
 
 Godot 4.7 / GDScript. Formes et couleurs simples ; assets externes seulement sous licence vérifiée (sons CC0, assets/sounds/CREDITS.txt).
+
+## 0.0.6.6 — L'eau coule (#124, début)
+Version locale (pas encore publiée).
+- **Eau qui coule** (scripts/water.gd) : chaque case de 50 cm a un fond (le haut du terrain) et une hauteur d'eau ; l'eau passe vers les cases voisines plus basses, sans jamais se créer ni se perdre. Creuser à côté d'un lac fait couler son eau dans le trou ou le fossé.
+- **Lacs-réservoirs** : l'eau qui sort d'un lac le fait baisser (volume ÷ surface) ; un lac peut se vider. Le relief du lac ne change pas.
+- **Seulement près du joueur** (32 m) et seulement les cases qui bougent : rien à calculer quand l'eau est calme.
+- **Sauvegarde** dans le dossier du monde, seulement si l'eau a bougé : `eau/lacs.json` (niveaux des lacs) et `eau/cases.json` (eau libre). Relue à l'ouverture.
+- Sous l'eau : la vue sous-marine suit aussi l'eau libre et les lacs qui ont baissé.
+- **Monde d'essai T36** (graine 3460613564) ; la vitrine de l'accueil le montre.
+
+Tests concernés réussis (nouveau test « water » : le fossé se remplit, le lac baisse du même volume à 1 % près, sauvegarde et relecture, aucun fichier si l'eau n'a pas bougé). Mesures : un pas de calcul 0,7 ms avec un fossé en train de se remplir ; FPS identiques à 0.0.6.5 (repos 240, vol rapide environ 74 sur PC).
+À tester manuellement : creuser un fossé depuis un lac, regarder l'eau arriver, rouvrir le monde. Pas encore de rivières ni de nage.
 
 ## 0.0.6.5 — Sous-sol plus profond, cailloux de calcaire et de silex
 - **Génération version 19** (nouveaux mondes) : 5 m de terre, **20 m de pierre** et **20 m de pierre sombre**, puis la Roche-mère à 45 m (avant : 10 m et 10 m, Roche-mère à 25 m). Grottes et crevasses descendent jusqu'à la nouvelle Roche-mère.

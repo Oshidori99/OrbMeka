@@ -3,6 +3,10 @@ Du plus récent au plus ancien. Ce fichier est mis à jour à chaque version.
 
 === Thème « Monde » (0.0.5 et suivantes) ===
 
+0.0.6.6 — L'eau coule
+Génération du terrain : version 19 · Menus : version 3.
+Creuser à côté d'un lac fait couler l'eau dans le trou et baisser le lac (même volume) ; eau gardée dans le dossier du monde (eau/).
+
 0.0.6.5 — Sous-sol plus profond, cailloux de calcaire et de silex
 Génération du terrain : version 19 (nouvelle) · Menus : version 3.
 20 m de pierre et 20 m de pierre sombre (Roche-mère à 45 m) ; cailloux de calcaire et de silex de toutes les tailles ; vitrine sur le monde d'essai T35.
