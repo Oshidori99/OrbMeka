@@ -76,9 +76,10 @@ Règles : même graine = même monde ; mondes légers (seulement les changements
 mesurer les performances sur PC et sur le Web à chaque étape.
 
 ## Série 0.0.6 — Monde 2 (milestone du même nom)
-Seulement le monde : arbres et fruitiers (#138), matières (#122), minerais (#134), lave (#137), lacs (#131),
-eau et rivières (#124), dunes (#125), taille du monde (#135), structures (#123).
-Pas d'inventaire, de récolte ni de modes créatif/survie (#73) sans demande de l'utilisateur.
+Réduite le 08.11.2026 à ce qui sert au gameplay : arbres (#138), pommiers et noisetiers (#149), pins et tilleuls (#146),
+plantes à fibres et lianes (#147), et lacs plus profonds que leur eau (#158). Lave, lacs, structures → « À venir » ;
+eau, rivières, météo → « Ciel et climat ». Ensuite : 0.0.7 — Gameplay et inventaire, puis 0.0.8 — Paramètres 3.
+Pas d'inventaire, de récolte ni de modes créatif/survie (#73) dans la 0.0.6 : ils sont pour la 0.0.7.
 Une génération qui change = un nouveau numéro de version : les mondes existants ne changent jamais.
 Taille du monde : génération version 15, 64 × 64 zones (512 m) ; les versions d'avant restent à 48 × 48 (Generation.half_zones).
 Génération version 16 : neige sur 1 montagne sur 4 (SNOW), gravier au pied des montagnes et sur 1 rive de lac sur 3 (GRAVEL) ; UV2 du terrain = neige, gravier.
