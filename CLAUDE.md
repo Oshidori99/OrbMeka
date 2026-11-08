@@ -77,7 +77,7 @@ mesurer les performances sur PC et sur le Web à chaque étape.
 
 ## Série 0.0.6 — Monde 2 (milestone du même nom)
 Réduite le 08.11.2026 à ce qui sert au gameplay : arbres (#138), pommiers et noisetiers (#149), pins et tilleuls (#146),
-plantes à fibres et lianes (#147). Lave, lacs, structures → « À venir » ;
+plantes à fibres et lianes (#147), rochers et arbres selon la graine (#123). Lave, lacs, vraies structures (#166 : maisons, villages) → « À venir » ;
 eau, rivières, remplissage des lacs (#164, #158), météo → « Ciel et climat ». Ensuite : 0.0.7 — Gameplay et inventaire, puis 0.0.8 — Paramètres 3.
 Pas d'inventaire, de récolte ni de modes créatif/survie (#73) dans la 0.0.6 : ils sont pour la 0.0.7.
 Une génération qui change = un nouveau numéro de version : les mondes existants ne changent jamais.
