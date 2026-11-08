@@ -81,6 +81,7 @@ func setup(terrain_seed: int, flat_spots: Array = [], options: Dictionary = {}) 
 	_snow_on = int(generation_options.get("version", 0)) >= 16
 	_ores_on = int(generation_options.get("version", 0)) >= 18
 	_rivers_on = int(generation_options.get("version", 0)) >= 20
+	_trees_on = int(generation_options.get("version", 0)) >= 21
 	fall_limit = half_zones * int(ZONE_METERS) - 3
 	var layers := layers_of(generation_options)
 	low_point = layers[0]
@@ -2042,3 +2043,81 @@ func river_level_at(at: Vector2) -> float:
 func surface_kind(column: Vector2i) -> int:
 	var top := Vector3i(column.x, floori(ground_height(column) / STEP), column.y)
 	return natural_kind(top)
+
+# 0.0.6.9 (version 21, #149, #138) : premiers arbres fruitiers, pommiers et noisetiers (trees.gd). Quelques-uns seulement :
+# dans une zone sur fruit_trees (14 par défaut), un arbre seul ou un petit groupe de 2 à 3, plus souvent en lisière (près
+# d'un lac, au pied d'une montagne, au bord d'un désert). Seulement sur l'herbe ; jamais dans l'eau, le sable, la boue,
+# le gravier, la neige ni la pierre, ni sur une pente raide, ni contre un rocher. Les forêts viendront plus tard.
+var _trees_on := false
+const TREE_SLOPE := 0.45
+const TREE_SPACING := 3.0
+
+func trees_in_zone(area: Vector2i) -> Array:
+	if not _trees_on or _noise == null:
+		return []
+	var chances := int(generation_options.get("fruit_trees", 0))
+	if chances <= 0:
+		return []
+	var rng := RandomNumberGenerator.new()
+	rng.seed = hash([_seed, area.x, area.y, "arbres"])
+	var center := Vector2(area) * ZONE_METERS + Vector2(rng.randf_range(1.5, 6.5), rng.randf_range(1.5, 6.5))
+	var roll := rng.randf()
+	var chance := 1.0 / chances
+	if roll >= chance * 2.5 or (roll >= chance and not _meadow_edge(center)):
+		return []
+	var count := 1 if rng.randf() < 0.45 else rng.randi_range(2, 3)
+	var kind := 0 if rng.randf() < 0.55 else 1
+	var result := []
+	for index in range(count):
+		var at := center if index == 0 else center + Vector2.from_angle(rng.randf() * TAU) * rng.randf_range(3.5, 6.0)
+		var entry := {"id": "a%d_%d_%d" % [area.x, area.y, index], "x": at.x, "z": at.y, "espece": kind if rng.randf() < 0.75 else 1 - kind, "variante": rng.randi_range(0, 2), "rotation": rng.randf_range(0.0, 360.0), "taille": rng.randf_range(0.85, 1.15)}
+		if _tree_spot_ok(at, result):
+			result.append(entry)
+	return result
+
+# Lisière : à quelques mètres d'un lac, au pied d'une montagne ou au bord d'un désert.
+func _meadow_edge(at: Vector2) -> bool:
+	for lake in _lakes_near(at):
+		var distance: float = _lake_distance(at, lake) - lake.radius - lake.get("bank", 0.0)
+		if distance > 3.0 and distance < 14.0:
+			return true
+	for found in _mountains_near(at):
+		if not found.get("sand", false):
+			var ratio := _mountain_ratio(at, found)
+			if ratio > 0.9 and ratio < 1.5:
+				return true
+	for index in range(4):
+		if is_desert(at + Vector2.from_angle(TAU * index / 4.0) * 12.0):
+			return true
+	return false
+
+func _tree_spot_ok(at: Vector2, placed: Array) -> bool:
+	var limit := half_zones * ZONE_METERS - 3.0
+	if absf(at.x) > limit or absf(at.y) > limit:
+		return false
+	for tree in placed:
+		if at.distance_to(Vector2(tree.x, tree.z)) < TREE_SPACING:
+			return false
+	for spot in _flat_spots:
+		if at.distance_to(spot[0]) < spot[1] + 3.0:
+			return false
+	var column := Vector2i(roundi(at.x / STEP), roundi(at.y / STEP))
+	if is_desert(at) or not surface_kind(column) in [-1, DIRT] or muddy(column) or cave_open(column) or in_crevasse(at) or _mud_pit_depth(at) > 0.0:
+		return false
+	var ground := ground_height(column)
+	if water_level_at(at) > ground - 0.3:
+		return false
+	for lake in _lakes_near(at):
+		if _lake_distance(at, lake) < lake.radius + lake.get("bank", 0.0) + 2.0:
+			return false
+	if _rivers_on:
+		var river := river_near(at)
+		if not river.is_empty() and river.distance < river.width + RIVER_BANK + 1.5:
+			return false
+	var slope := Vector2(ground_height(column + Vector2i(2, 0)) - ground_height(column - Vector2i(2, 0)), ground_height(column + Vector2i(0, 2)) - ground_height(column - Vector2i(0, 2))) / 2.0
+	if slope.length() > TREE_SLOPE:
+		return false
+	for rock in rocks_in_zone(Vector2i(floori(at.x / ZONE_METERS), floori(at.y / ZONE_METERS))):
+		if at.distance_to(Vector2(rock.x, rock.z)) < 1.5 + 0.3 * float(rock.taille):
+			return false
+	return true

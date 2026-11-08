@@ -12,6 +12,7 @@ const SmoothTerrain = preload("res://scripts/smooth_terrain.gd")
 const Generation = preload("res://scripts/world_generation.gd")
 const FarTerrain = preload("res://scripts/far_terrain.gd")
 const Rocks = preload("res://scripts/rocks.gd")
+const Trees = preload("res://scripts/trees.gd")
 const Water = preload("res://scripts/water.gd")
 const DIRT := 2
 const BLOCK_COLORS := [Color("#d8c291"), Color("#888b90"), Color("#855332")]
@@ -1118,6 +1119,9 @@ func _valid_hit(hit: Dictionary, reach: float) -> bool:
 
 # 0.0.5.8 : clic gauche : creuser le terrain lisse (les blocs posés avant restent, sans casse ni pose).
 func break_target(hit: Dictionary) -> bool:
+	# 0.0.6.9 : les arbres ne se coupent pas (série 0.0.6).
+	if not hit.is_empty() and is_instance_valid(hit.get("collider")) and hit.collider.is_in_group("trees"):
+		return false
 	# 0.0.5.19 : un rocher se mine à la pioche (sinon un message).
 	# 0.0.6.3 : un caillou se casse à la pioche, en 1 à 3 coups selon sa taille.
 	if not hit.is_empty() and is_instance_valid(hit.get("collider")) and hit.collider.is_in_group("pebbles"):
@@ -1170,6 +1174,8 @@ static func hit_cell(hit: Dictionary) -> Vector3i:
 
 # Clic droit : le pinceau choisi (B + T), avec la matière choisie (sable ou terre) et la taille (B + molette).
 func place_target(hit: Dictionary, kind: int) -> bool:
+	if not hit.is_empty() and is_instance_valid(hit.get("collider")) and hit.collider.is_in_group("trees"):
+		return false
 	if kind == PICKAXE and player.brush == 0:
 		_notify("Choisissez du sable ou de la terre pour poser (molette).")
 		return false
@@ -1657,6 +1663,16 @@ func _show_column_objects(column: Vector2i) -> void:
 			if made != null:
 				made.set_meta("column", column)
 				_column_object(column, made)
+	# 0.0.6.9 (#149) : arbres fruitiers de la colonne (génération 21), détaillés de près, simplifiés au loin.
+	for tree in terrain.trees_in_zone(column):
+		var made := Trees.tree_body(int(tree.espece), int(tree.variante))
+		made.position = Vector3(tree.x, terrain.height_at(tree.x, tree.z) - 0.05, tree.z)
+		made.rotation.y = deg_to_rad(float(tree.rotation))
+		made.scale = Vector3.ONE * float(tree.taille)
+		made.set_meta("id", tree.id)
+		made.set_meta("column", column)
+		_rocks_parent().add_child(made)
+		_column_object(column, made)
 	for lake in terrain.lakes_in_zone(column):
 		var water := MeshInstance3D.new()
 		water.name = "Lac"

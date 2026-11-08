@@ -87,6 +87,8 @@ func _run() -> void:
 	var deep_land := SmoothTerrain.new()
 	var options_18: Dictionary = load("res://scripts/world_generation.gd").defaults()
 	options_18.version = 18
+	# 0.0.6.9 : réglage des arbres seulement dès la version 21.
+	options_18.erase("fruit_trees")
 	deep_land.setup(7, [], options_18)
 	# 0.0.6.5 (version 19) : 5 m de terre, 20 m de pierre, 20 m de pierre sombre, Roche-mère à 45 m.
 	var deeper := SmoothTerrain.new()
@@ -462,6 +464,8 @@ func _run() -> void:
 	v3_options.erase("rocks")
 	v3_options.erase("lakes")
 	v3_options.version = 3
+	# 0.0.6.9 : réglage des arbres seulement dès la version 21.
+	v3_options.erase("fruit_trees")
 	older_terrain.setup(70621, [], v3_options)
 	var no_rocks := true
 	for x in range(-10, 10):
@@ -756,6 +760,8 @@ func _run() -> void:
 	var older := SmoothTerrain.new()
 	var options_15: Dictionary = load("res://scripts/world_generation.gd").defaults()
 	options_15.version = 15
+	# 0.0.6.9 : réglage des arbres seulement dès la version 21.
+	options_15.erase("fruit_trees")
 	older.setup(42, [], options_15)
 	var none_older := true
 	for found in older._all_mountains():
@@ -777,6 +783,8 @@ func _run() -> void:
 	check(lakes_17 > 30 and floating_water == 0, "mountain lakes (version 17): water never floats past the ground (%d lakes)" % lakes_17)
 	var options_16: Dictionary = load("res://scripts/world_generation.gd").defaults()
 	options_16.version = 16
+	# 0.0.6.9 : réglage des arbres seulement dès la version 21.
+	options_16.erase("fruit_trees")
 	var older_lakes := SmoothTerrain.new()
 	older_lakes.setup(42, [], options_16)
 	older_lakes._mountain_lakes_of(Vector2i.ZERO)
@@ -874,6 +882,8 @@ func _run() -> void:
 	check(deep_kinds.keys() == [SmoothTerrain.MOTHER_ROCK] and not dark_kinds.has(SmoothTerrain.LIMESTONE) and not dark_kinds.has(SmoothTerrain.FLINT) and dark_kinds.has(SmoothTerrain.COAL), "never limestone or flint in the dark stone, nothing in the bedrock")
 	var options_17: Dictionary = load("res://scripts/world_generation.gd").defaults()
 	options_17.version = 17
+	# 0.0.6.9 : réglage des arbres seulement dès la version 21.
+	options_17.erase("fruit_trees")
 	var plain := SmoothTerrain.new()
 	plain.setup(42, [], options_17)
 	var plain_kinds := {}
@@ -994,6 +1004,8 @@ func _run() -> void:
 	check(river_land.surface_kind(Vector2i(roundi(bed_point.x / 0.5), roundi(bed_point.y / 0.5))) == SmoothTerrain.GRAVEL and in_river, "river beds are gravel, no rock in a river")
 	var options_19: Dictionary = load("res://scripts/world_generation.gd").defaults()
 	options_19.version = 19
+	# 0.0.6.9 : réglage des arbres seulement dès la version 21.
+	options_19.erase("fruit_trees")
 	var no_river := SmoothTerrain.new()
 	no_river.setup(42, [], options_19)
 	check(no_river.rivers().is_empty() and no_river.ground_height(Vector2i(roundi(bed_point.x / 0.5), roundi(bed_point.y / 0.5))) > river_land.ground_height(Vector2i(roundi(bed_point.x / 0.5), roundi(bed_point.y / 0.5))), "version 19 worlds keep their ground, without rivers")

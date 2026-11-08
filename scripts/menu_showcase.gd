@@ -12,9 +12,9 @@ extends Node3D
 # 2 ou 3, choisis parmi les nouveautés : liste NEWS_RUNNERS ([id, peau], peau vide pour un animal).
 # Chacun prend son modèle Blender, sinon une forme simple (character_model.gd, partagé avec le jeu).
 # Le reste du fichier (sol, gazon, plage, ciel, caméra) ne change pas d'une version à l'autre.
-const NEWS_VERSION := "0.0.6.8"
-const NEWS_TEXT := "Nouveau : on peut nager !
-Flotter, plonger, se laisser porter par les rivières."
+const NEWS_VERSION := "0.0.6.9"
+const NEWS_TEXT := "Nouveau : des arbres fruitiers !
+Pommiers et noisetiers dans les prairies."
 
 # 0.0.3.25 : les trois nouveautés de 0.0.3.23 en aller-retour au-dessus de l'herbe libre, devant la place
 # de sable et pierre (sous le panneau des menus, vers la droite), chacune sur sa rangée.
@@ -35,6 +35,8 @@ const NEWS_HEIGHT := 1
 const FLY_LOW := 0.6
 const FLY_HIGH := 3.6
 const FLY_CYCLE := 5.0
+const Trees = preload("res://scripts/trees.gd")
+const NEWS_TREES := [[0, 0, Vector2(2.6, 9.6), 0.4], [1, 0, Vector2(10.6, 3.2), 1.9], [0, 2, Vector2(2.2, 3.6), 3.1]]
 const CharacterModel = preload("res://scripts/character_model.gd")
 var runners: Array[Node3D] = []
 var runner_ids: Array[String] = []
@@ -48,7 +50,26 @@ func _build_news() -> void:
 		add_child(runner)
 		runners.append(runner)
 		runner_ids.append(id)
+	# 0.0.6.9 : un pommier, un noisetier et un jeune pommier autour de la plage (arbres du jeu, trees.gd).
+	# Comme dans le jeu, seulement sur l'herbe : chaque arbre prend le coin d'herbe le plus proche de sa place.
+	for tree in NEWS_TREES:
+		var spot := _grass_near(tree[2])
+		if spot == Vector2.INF:
+			continue
+		var body := Trees.tree_body(tree[0], tree[1])
+		body.position = Vector3(spot.x, terrain.height_at(spot.x, spot.y) - 0.05, spot.y)
+		body.rotation.y = tree[3]
+		add_child(body)
 	_animate_news(0.0)
+
+func _grass_near(wanted: Vector2) -> Vector2:
+	for ring in range(0, 25):
+		for step in range(maxi(1, ring * 6)):
+			var at := wanted + Vector2.from_angle(TAU * step / maxi(1, ring * 6)) * ring * 0.5
+			var column := Vector2i(roundi(at.x / 0.5), roundi(at.y / 0.5))
+			if at.distance_to(BEACH_CENTER) > BEACH_RADIUS + 1.5 and not terrain.is_desert(at) and terrain.surface_kind(column) in [-1, Terrain.DIRT] and not terrain.muddy(column):
+				return at
+	return Vector2.INF
 
 func _animate_news(delta: float) -> void:
 	# Aller-retour décalé ; demi-tour net au bout de la place.
@@ -71,8 +92,8 @@ const CharacterPreview = preload("res://scripts/character_preview.gd")
 
 const TerrainMaterials = preload("res://scripts/terrain_materials.gd")
 const WorldRules = preload("res://scripts/world.gd")
-# 0.0.6.5 : graine du monde d'essai de la version (T35, T36 en 0.0.6.6, T37 en 0.0.6.7 : monde standard créé dans la liste du joueur), vue depuis une hauteur.
-const SCENE_SEED := 397857267
+# 0.0.6.5 : graine du monde d'essai de la version (T35, T36 en 0.0.6.6, T37 en 0.0.6.7, T38 en 0.0.6.8, T39 en 0.0.6.9 : monde standard créé dans la liste du joueur), vue depuis une hauteur.
+const SCENE_SEED := 1820305098
 # Point de vue : en hauteur (0.0.5.37), pour voir la crevasse ; à hauteur d'homme, le relief la cache.
 # Il tourne lentement la tête ; la vitrine reste sur le côté, hors du panneau des menus.
 const TOWER_CELL := Vector2i(12, 12)

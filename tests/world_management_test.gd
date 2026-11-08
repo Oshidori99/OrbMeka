@@ -53,6 +53,8 @@ func _run() -> void:
 	var Generation = load("res://scripts/world_generation.gd")
 	var old_options: Dictionary = Generation.defaults()
 	old_options.version = Generation.VERSION - 1
+	# 0.0.6.9 : réglage des arbres seulement dès la version 21.
+	old_options.erase("fruit_trees")
 	var old: Dictionary = catalog.create_world("Ancien monde", "7", Catalog.MODE_DEFAULT, false, old_options)
 	check(app.is_old_world(old) and not app.is_old_world(catalog.find_world(first.id)) and app.is_old_world({"id": "x", "generation": {}}), "older generations (and worlds without one) are marked, current ones are not")
 	app.refresh_world_list(old.id)

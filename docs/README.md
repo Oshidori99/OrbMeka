@@ -1,9 +1,21 @@
-# OrbMeka™ — prototype 0.0.6.8
+# OrbMeka™ — prototype 0.0.6.9
 
 Godot 4.7 / GDScript. Formes et couleurs simples ; assets externes seulement sous licence vérifiée (sons CC0, assets/sounds/CREDITS.txt).
 
+## 0.0.6.9 — Pommiers et noisetiers (#149, #138)
+Version publiée (avec 0.0.6.6 à 0.0.6.8).
+- **Génération version 21** (nouveaux mondes ; les anciens ne changent pas) : premiers arbres fruitiers, selon la graine. Dans une zone sur 14 environ (réglage « Arbres fruitiers » des mondes personnalisés), un arbre seul ou un petit groupe de 2 à 3, plus souvent en lisière (près d'un lac, au pied d'une montagne, au bord d'un désert). Environ 400 arbres dans un monde de 512 m.
+- Seulement sur l'herbe : jamais dans l'eau ni sur la rive, ni sur le sable, la boue, le gravier, la neige ou la pierre, ni sur une pente raide, ni contre un rocher.
+- **Modèles** faits en code (scripts/trees.gd), formes douces : **pommier** (tronc un peu penché, branches, couronne ronde de boules de feuilles, pommes rouges à orangées) et **noisetier** (touffe de tiges droites, feuillage plus clair, noisettes par 2 ou 3). Trois variantes chacun (rond, large, jeune ; touffe moyenne, grande, petite), taille et orientation au hasard.
+- **Au loin** : modèle détaillé jusqu'à 40 m, simplifié (tronc + une boule) jusqu'à 150 m, puis rien. Environ 800 à 1 600 sommets par arbre de près, une centaine au loin.
+- **Collision** du tronc (ou du pied de la touffe). Pas de récolte ni de coupe : la pioche et la pose ne font rien sur un arbre.
+- **Monde d'essai T39** (graine 1820305098, génération 21) ; la vitrine de l'accueil montre trois arbres sur l'herbe.
+
+Tests concernés réussis (nouveau test « trees » : même graine = mêmes arbres, autre graine = autres arbres, pas d'arbre dans l'eau, le sable ou sur une pente raide, génération 20 sans arbre et relief identique, modèles et distances, tronc solide, pas de coupe). Mesures dans la même séance, génération 20 puis 21 : vol rapide 63 → 64 FPS sur PC, 71 → 68 en rendu Web ; à l'arrêt 239 dans les deux cas.
+À tester manuellement : aspect des arbres de près et de loin, passage d'un modèle à l'autre, buter contre un tronc, monde T39.
+
 ## 0.0.6.8 — Nager
-Version locale (pas encore publiée).
+Version locale (publiée avec 0.0.6.9).
 - **Nage** (scripts/player.gd) : eau à plus de 1,1 m au-dessus des pieds (lacs, eau libre) : on nage. Sans rien toucher, on remonte et on flotte, les yeux juste hors de l'eau.
   Espace maintenu : monter ; Y maintenu : plonger ; avancer en regardant vers le bas plonge aussi. R : nager vite. Plus lent qu'à pied (2,6 m/s).
   Espace à la surface contre une rive ou sur le fond : on sort de l'eau d'un bond. Eau peu profonde : on marche moins vite. Les rivières emportent doucement vers l'aval.
@@ -14,7 +26,7 @@ Tests concernés réussis (nouveau test « swim » : flotter les yeux hors de l'
 À tester manuellement : nager, plonger, sortir de l'eau sur une rive raide, nager dans une rivière ; dire si l'on voit encore à travers quelque chose (où, et en regardant quoi).
 
 ## 0.0.6.7 — Rivières (#124)
-Version locale (pas encore publiée).
+Version locale (publiée avec 0.0.6.9).
 - **Correction de l'eau qui coule** : l'eau garde un élan d'une case à l'autre (calcul en petits pas) ; un fossé se met au niveau du lac en 10 à 15 s au lieu de garder une longue pente d'eau.
 - **Génération version 20** (nouveaux mondes) : **rivières** selon la graine. Sources sur environ une montagne sur deux, descente jusqu'au lac de plaine le plus proche (plus bas que la source), jamais près d'un lac de montagne.
 - Lit creusé dans le terrain, fond en **gravier**, sans rochers ; l'eau reste sous les rives et descend toujours.
@@ -26,7 +38,7 @@ Tests concernés réussis (rivières qui descendent jusqu'aux lacs, eau sous les
 À tester manuellement : suivre une rivière depuis sa source jusqu'au lac (aspect, animation), creuser un fossé depuis une rivière. Pas encore de nage.
 
 ## 0.0.6.6 — L'eau coule (#124, début)
-Version locale (pas encore publiée).
+Version locale (publiée avec 0.0.6.9).
 - **Eau qui coule** (scripts/water.gd) : chaque case de 50 cm a un fond (le haut du terrain) et une hauteur d'eau ; l'eau passe vers les cases voisines plus basses, sans jamais se créer ni se perdre. Creuser à côté d'un lac fait couler son eau dans le trou ou le fossé.
 - **Lacs-réservoirs** : l'eau qui sort d'un lac le fait baisser (volume ÷ surface) ; un lac peut se vider. Le relief du lac ne change pas.
 - **Seulement près du joueur** (32 m) et seulement les cases qui bougent : rien à calculer quand l'eau est calme.
@@ -61,7 +73,7 @@ Tests concernés réussis (proportions sur des zones entières : calcaire 8,8 %,
 À tester manuellement : creuser dans la pierre pour voir le calcaire et le charbon, casser un rocher de calcaire, silex au bord de l'eau, fluidité dans un navigateur.
 
 ## 0.0.6.3 — Cailloux et lacs de montagne
-Version locale (pas encore publiée).
+Version locale (publiée avec 0.0.6.5).
 - **Génération version 17** (nouveaux mondes) : **cailloux** posés sur le sol, 7 tailles (8 à 60 cm : le plus gros ne dépasse pas le plus petit rocher) et les 7 formes des rochers ; un peu partout, bien plus nombreux sur le gravier, au pied des montagnes et au bord des lacs ; plus de petits que de gros (environ 4,6 par zone de 8 m).
 - **Pioche** : les petits cailloux partent en 1 coup, les plus gros en 2 ou 3 (ils rapetissent entre deux coups). Cassés, ils sont gardés dans objets.json (« cailloux_casses ») ; pas de récolte. Les petits ne gênent pas la marche, les deux plus grosses tailles arrêtent le joueur.
 - **Lacs de montagne** : jamais collés l'un à l'autre (le replat de l'un écrasait le bord de l'autre : de l'eau restait en l'air, parfois sur tout le bord). Plusieurs lacs par montagne restent possibles. Les mondes déjà créés gardent leurs lacs.
@@ -71,7 +83,7 @@ Tests concernés réussis. Mesures : sur 5 graines, plus aucun lac de montagne a
 À tester manuellement : marcher sur le gravier parmi les cailloux, les casser à la pioche, lac de montagne vu de près, fluidité dans un navigateur.
 
 ## 0.0.6.2 — Jeu plus fluide
-Version locale (pas encore publiée).
+Version locale (publiée avec 0.0.6.5).
 - **Herbe** : envoyée d'un coup à la carte graphique (avant : deux appels par touffe, puis une relecture) : environ 0,3 ms par carré de 8 m au lieu de 27 ms. Même herbe.
 - **Terrain** : la file construit zone par zone (une colonne de montagne prenait jusqu'à 50 ms d'un coup) ; seule la colonne du joueur est faite tout de suite.
 - **Vue** : zones visibles gardées par colonne, morceaux, herbe et objets retrouvés par colonne (pire image de la mise à jour : 21 → 4 ms).

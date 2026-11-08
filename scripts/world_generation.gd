@@ -28,8 +28,9 @@ extends RefCounted
 # Version 18 (0.0.6.4) : même relief, calcaire, charbon et silex dans la pierre, silex en surface, rochers de calcaire.
 # Version 19 (0.0.6.5) : même relief, 20 m de pierre et 20 m de pierre sombre (Roche-mère à 45 m), cailloux de calcaire et de silex de toutes les tailles.
 # Version 20 (0.0.6.7) : même relief, rivières (sources sur les montagnes, jusqu'aux lacs), lit creusé en gravier.
-const VERSION := 20
-const VERSIONS := [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20]
+# Version 21 (0.0.6.9) : même relief, premiers arbres fruitiers (pommiers, noisetiers), seuls ou par 2-3, dans les prairies et en lisière.
+const VERSION := 21
+const VERSIONS := [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21]
 # Chance la plus rare qu'on peut régler : 1 sur MAX_CHANCE par zone (64 avant 0.0.5.18, 400 avant 0.0.5.23, 2000 avant 0.0.5.24).
 const MAX_CHANCE := 4000
 const STANDARD_SMALL_DENOMINATOR := 8
@@ -74,6 +75,7 @@ const SPECS := [
 	{"key":"crevasses", "label":"Crevasses en éclair", "default":30, "since":14, "optional":true},
 	{"key":"mud_pits", "label":"Trous de boue (2 à 4 m de rayon)", "default":40, "since":10},
 	{"key":"clay", "label":"Poches d'argile dans la terre", "default":10, "since":5},
+	{"key":"fruit_trees", "label":"Arbres fruitiers (pommiers, noisetiers ; seuls ou par 2 à 3)", "default":14, "since":21},
 ]
 # Taille des déserts (nombre de zones, et case où ils tiennent) selon la version.
 const DESERT_SIZES := {
@@ -97,6 +99,7 @@ const DESERT_SIZES := {
 	18: {"medium_desert": [3, 4, 2, 2], "big_desert": [40, 48, 8, 8]},
 	19: {"medium_desert": [3, 4, 2, 2], "big_desert": [40, 48, 8, 8]},
 	20: {"medium_desert": [3, 4, 2, 2], "big_desert": [40, 48, 8, 8]},
+	21: {"medium_desert": [3, 4, 2, 2], "big_desert": [40, 48, 8, 8]},
 }
 # 0.0.6 (version 15) : monde de 64 × 64 zones ; 48 × 48 pour les versions d'avant (0.0.5.20 ; 20 × 20 en 0.0.5.18, 16 × 16 avant).
 static func half_zones(version: int = VERSION) -> int:
@@ -288,6 +291,9 @@ static func zone_info(terrain_seed: int, zone: Vector2i, options: Dictionary) ->
 				pass
 			"cave_entrances", "cave_systems", "crevasses":
 				pass
+			"fruit_trees":
+				# 0.0.6.9 : arbres placés à part (smooth_terrain.gd trees_in_zone), pas une forme du relief.
+				pass
 			"steep_mountains":
 				info.steep_mountain = steep_mountain(rng, zone)
 			"mud_regions":
@@ -361,6 +367,8 @@ static func describe(options: Dictionary) -> String:
 		lines.append("Cailloux de calcaire et de silex de toutes les tailles, autant de gros que de petits.")
 	if version >= 20:
 		lines.append("Rivières : sources sur environ une montagne sur deux, jusqu'aux lacs ; lit creusé, fond en gravier.")
+	if version >= 21:
+		lines.append("Arbres fruitiers : pommiers et noisetiers, seuls ou par 2 à 3, dans les prairies et en lisière ; jamais dans l'eau, le sable ou les pentes raides.")
 	lines.append(layers)
 	return "\n".join(lines)
 
