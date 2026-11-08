@@ -408,8 +408,14 @@ func _physics_process(delta: float) -> void:
 		jump_requested = Input.is_action_just_pressed("jump") and not wait_jump_release
 	var active := Input.mouse_mode == Input.MOUSE_MODE_CAPTURED
 	update_fly(active, Input.is_action_just_pressed("fly"))
-	# En vol, Se baisser sert à descendre : on ne se baisse pas.
-	if flying:
+	# 0.0.6.8 : dans l'eau profonde, on nage (pas en vol).
+	var depth := water_depth()
+	if leaping and (velocity.y <= 0.0 or is_on_floor()):
+		leaping = false
+	swimming = not flying and not leaping and depth > SWIM_DEPTH
+	wade = WADE_FACTOR if not flying and depth > WADE_DEPTH else 1.0
+	# En vol, Se baisser sert à descendre ; en nageant, à plonger : on ne se baisse pas.
+	if flying or swimming:
 		crouching = false
 	else:
 		update_crouch(active, Input.is_action_pressed("crouch"), Input.is_action_just_pressed("crouch"))
@@ -434,9 +440,73 @@ func _physics_process(delta: float) -> void:
 		if active:
 			vertical = float(Input.is_action_pressed("jump") and not wait_jump_release) - float(Input.is_action_pressed("crouch"))
 		step_flight(delta, direction, vertical)
+	elif swimming:
+		var stroke := 0.0
+		if active:
+			stroke = float(Input.is_action_pressed("jump") and not wait_jump_release) - float(Input.is_action_pressed("crouch"))
+		step_swim(delta, direction, stroke, depth, jump_requested)
 	else:
 		step_movement(delta, direction, jump_requested)
 	update_view()
+
+# 0.0.6.8 : nager. Eau plus haute que SWIM_DEPTH au-dessus des pieds (lacs, eau libre) : on nage. Sans rien toucher,
+# on remonte et on flotte, les yeux juste hors de l'eau (pieds à FLOAT_DEPTH sous la surface). Sauter maintenu : monter ;
+# Se baisser maintenu : plonger ; avancer en regardant vers le bas plonge aussi, vers le haut fait remonter. Courir : nager vite.
+# Sauter à la surface contre une rive ou sur le fond : on sort de l'eau d'un bond. Dans l'eau peu profonde (WADE_DEPTH),
+# on marche moins vite ; une rivière emporte doucement vers l'aval.
+const SWIM_DEPTH := 1.1
+const FLOAT_DEPTH := 1.35
+const WADE_DEPTH := 0.45
+const WADE_FACTOR := 0.7
+const SWIM_SPEED := 2.6
+const SWIM_RUN_SPEED := 4.2
+const SWIM_UP := 2.5
+const SWIM_DOWN := 2.5
+const SWIM_FLOAT_UP := 1.0
+const WATER_DRAG := 10.0
+const LEAP_FACTOR := 0.8
+var swimming := false
+var leaping := false
+var wade := 1.0
+
+# Hauteur d'eau au-dessus des pieds (m), 0 hors de l'eau.
+func water_depth() -> float:
+	if not is_instance_valid(world) or not world.has_method("water_surface"):
+		return 0.0
+	return maxf(0.0, world.water_surface(Vector2(position.x, position.z)) - position.y)
+
+func step_swim(delta: float, direction: Vector2, stroke: float, depth: float, jump_requested := false) -> void:
+	var step := direction.limit_length(1.0)
+	var speed := (SWIM_RUN_SPEED if running else SWIM_SPEED) * speed_scale * (run_scale if running else walk_scale)
+	var movement := global_transform.basis * Vector3(step.x * speed, 0.0, step.y * speed)
+	camera.position.y = move_toward(camera.position.y, eye_height, 4.0 * delta)
+	# Avancer en regardant vers le bas (plus de 20°) : plonger ; vers le haut, sous l'eau : remonter.
+	var pitch := camera.rotation.x
+	var look := 0.0
+	if step.y < 0.0 and (pitch < -0.35 or (pitch > 0.35 and depth > FLOAT_DEPTH + 0.2)):
+		look = sin(pitch) * -step.y * speed
+		movement *= cos(pitch)
+	var target_y := clampf((depth - FLOAT_DEPTH) * 3.0, -2.0, SWIM_FLOAT_UP)
+	if stroke > 0.0:
+		target_y = minf(SWIM_UP, (depth - FLOAT_DEPTH + 0.25) * 4.0)
+	elif stroke < 0.0:
+		target_y = -SWIM_DOWN
+	elif look != 0.0:
+		target_y = minf(look, (depth - FLOAT_DEPTH) * 3.0) if look > 0.0 else look
+	velocity.y = move_toward(velocity.y, target_y, WATER_DRAG * delta)
+	var current: Vector2 = world.water_current(Vector2(position.x, position.z)) if world.has_method("water_current") else Vector2.ZERO
+	var flat := Vector2(velocity.x, velocity.z).move_toward(Vector2(movement.x, movement.z) + current, WATER_DRAG * 1.5 * delta)
+	velocity.x = flat.x
+	velocity.z = flat.y
+	# Sortir de l'eau : un bond depuis la surface, contre la rive ou depuis le fond.
+	if jump_requested and depth < FLOAT_DEPTH + 0.3 and (is_on_wall() or is_on_floor()):
+		velocity.y = jump_speed * LEAP_FACTOR
+		leaping = true
+	move_and_slide()
+	if is_on_floor() and velocity.y < 0.0:
+		velocity.y = 0.0
+	position.x = clampf(position.x, -world.build_limit - 1.0, world.build_limit + 1.0)
+	position.z = clampf(position.z, -world.build_limit - 1.0, world.build_limit + 1.0)
 
 # Vues (0.0.4.9) : F4, dans l'ordre de VIEWS.
 func cycle_view() -> void:
@@ -715,7 +785,8 @@ func step_movement(delta: float, direction: Vector2, jump_requested: bool) -> vo
 	var side := (crouch_side if crouching else (run_side if running else walk_side)) * speed_scale * own
 	var forward := (crouch_forward if crouching else (run_forward if running else walk_forward)) * speed_scale * own
 	var back := (crouch_back if crouching else (run_back if running else walk_back)) * speed_scale * own
-	var local := Vector3(step.x * side, 0.0, step.y * (forward if step.y < 0.0 else back))
+	# 0.0.6.8 : dans l'eau peu profonde, on avance moins vite.
+	var local := Vector3(step.x * side, 0.0, step.y * (forward if step.y < 0.0 else back)) * wade
 	# Caméra un peu plus basse quand on est baissé.
 	var eye := maxf(0.2, eye_height - CROUCH_DROP) if crouching else eye_height
 	camera.position.y = move_toward(camera.position.y, eye, 4.0 * delta)
@@ -724,6 +795,11 @@ func step_movement(delta: float, direction: Vector2, jump_requested: bool) -> vo
 		var slip := slip_motion(world.ground_kind_under(position), get_floor_normal(), Vector2(movement.x, movement.z), Vector2(velocity.x, velocity.z), delta)
 		movement.x = slip.x
 		movement.z = slip.y
+	# Rivière : le courant pousse aussi quand on y marche.
+	if wade < 1.0 and is_instance_valid(world) and world.has_method("water_current"):
+		var current: Vector2 = world.water_current(Vector2(position.x, position.z)) * 0.6
+		movement.x += current.x
+		movement.z += current.y
 	velocity.x = movement.x
 	velocity.z = movement.z
 	move_and_slide()

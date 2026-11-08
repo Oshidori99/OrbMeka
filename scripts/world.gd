@@ -450,6 +450,23 @@ var underwater := false
 var underwater_veil: ColorRect
 const UNDERWATER_COLOR := Color(0.06, 0.24, 0.29)
 
+# 0.0.6.8 : nage : hauteur de l'eau (lacs, rivières, eau libre) à cet endroit, -INF sans eau.
+func water_surface(at: Vector2) -> float:
+	if flowing != null:
+		return flowing.surface_at(at)
+	return terrain.water_level_at(at) if terrain != null else -INF
+
+# Courant d'une rivière (m/s, vers l'aval) à cet endroit ; nul hors des rivières.
+const RIVER_CURRENT := 1.2
+
+func water_current(at: Vector2) -> Vector2:
+	if terrain == null:
+		return Vector2.ZERO
+	var river: Dictionary = terrain.river_near(at)
+	if river.is_empty() or river.distance > river.width:
+		return Vector2.ZERO
+	return river.direction * RIVER_CURRENT * (1.0 - 0.5 * river.distance / river.width)
+
 func _update_underwater() -> void:
 	var view := get_viewport().get_camera_3d() if is_inside_tree() else null
 	if view == null or terrain == null:
@@ -1381,6 +1398,8 @@ La vitesse choisie reste. A ou W tenus avec ↑, ↓ ou ⌫ ne font pas bouger.
 Voler : Espace deux fois (rapidement) ; en vol, pas de gravité, Espace maintenu monte,
 Y maintenu descend ; Espace deux fois à nouveau : on retombe. Vitesses dans Attributs → Voler,
 ↑ ↓ comptent aussi en vol. R en vol : voler vite.
+Nager : dans l'eau profonde, on flotte ; Espace maintenu monte, Y maintenu plonge (ou avancer en regardant en bas) ;
+R : nager vite ; Espace contre la rive : sortir de l'eau. Les rivières emportent doucement vers l'aval.
 
 Terrain lisse (sous-cellules de 50 cm, 8 par bloc de 1 m) : clic gauche creuse ; clic droit utilise le pinceau
 choisi avec B + T : Poser (sable ou terre, molette ou 1 et 2), Aplanir (sol mis à la hauteur visée)

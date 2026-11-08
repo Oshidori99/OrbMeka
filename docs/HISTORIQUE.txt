@@ -3,6 +3,10 @@ Du plus récent au plus ancien. Ce fichier est mis à jour à chaque version.
 
 === Thème « Monde » (0.0.5 et suivantes) ===
 
+0.0.6.8 — Nager
+Génération du terrain : version 20 · Menus : version 3.
+Nager dans les lacs et les rivières (flotter, monter, plonger, sortir d'un bond, courant) ; plus de zones oubliées au sommet des montagnes (on voyait à travers).
+
 0.0.6.7 — Rivières
 Génération du terrain : version 20 (nouvelle) · Menus : version 3.
 Rivières des montagnes jusqu'aux lacs, lit creusé en gravier, eau qui descend le courant ; l'eau qui coule se met à niveau en quelques secondes.

@@ -608,6 +608,12 @@ func surface_zones(low_zone: Vector2i, high_zone: Vector2i) -> Dictionary:
 					# 0.0.5.23 : zones en hauteur des montagnes (version 7).
 					for y in range(1, floori((mountain_top(column) + 3.5) / ZONE_METERS) + 1):
 						ys.append(y)
+					# 0.0.6.8 : hauteurs réelles de la colonne (déjà nécessaires au maillage) : mountain_top, mesuré tous les
+					# 2 m sans les collines, oubliait parfois un sommet ; la zone manquait et on voyait à travers la montagne.
+					var real := zone_heights(Vector3i(x, 0, z))
+					for y in range(floori((real.x - 1.0) / ZONE_METERS), floori((real.y + 1.0) / ZONE_METERS) + 1):
+						if not y in ys:
+							ys.append(y)
 				_surface_ys[column] = ys
 			for y in _surface_ys[column]:
 				result[Vector3i(x, y, z)] = true

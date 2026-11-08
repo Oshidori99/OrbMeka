@@ -1,6 +1,17 @@
-# OrbMeka™ — prototype 0.0.6.7
+# OrbMeka™ — prototype 0.0.6.8
 
 Godot 4.7 / GDScript. Formes et couleurs simples ; assets externes seulement sous licence vérifiée (sons CC0, assets/sounds/CREDITS.txt).
+
+## 0.0.6.8 — Nager
+Version locale (pas encore publiée).
+- **Nage** (scripts/player.gd) : eau à plus de 1,1 m au-dessus des pieds (lacs, eau libre) : on nage. Sans rien toucher, on remonte et on flotte, les yeux juste hors de l'eau.
+  Espace maintenu : monter ; Y maintenu : plonger ; avancer en regardant vers le bas plonge aussi. R : nager vite. Plus lent qu'à pied (2,6 m/s).
+  Espace à la surface contre une rive ou sur le fond : on sort de l'eau d'un bond. Eau peu profonde : on marche moins vite. Les rivières emportent doucement vers l'aval.
+- **Correction : on voyait à travers les montagnes.** Certaines zones de 8 m en haut des montagnes n'étaient jamais construites (le sommet était mesuré trop grossièrement) : un trou laissait voir le monde derrière. Les zones suivent maintenant la vraie hauteur du sol (0 zone manquante sur tout le monde T37, 20 avant). Les mondes ne changent pas.
+- **Monde d'essai T38** (graine 397857267, génération 20) ; la vitrine de l'accueil le montre.
+
+Tests concernés réussis (nouveau test « swim » : flotter les yeux hors de l'eau, plonger, remonter, vitesse, rester à la surface, plonger en regardant en bas, pas de nage au sec, courant vers l'aval, aucune zone de sol oubliée). Captures : sommet complet, vue à la surface d'un lac.
+À tester manuellement : nager, plonger, sortir de l'eau sur une rive raide, nager dans une rivière ; dire si l'on voit encore à travers quelque chose (où, et en regardant quoi).
 
 ## 0.0.6.7 — Rivières (#124)
 Version locale (pas encore publiée).

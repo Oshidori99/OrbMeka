@@ -1,7 +1,8 @@
-# OrbMeka™ 0.0.6.7
+# OrbMeka™ 0.0.6.8
 
 Dans Godot, ouvrez **project.godot**, puis **F5** pour lancer le jeu.
 
+0.0.6.8 : nager (flotter, plonger, sortir de l'eau, courant des rivières) ; plus de trous au sommet des montagnes (on voyait à travers).
 0.0.6.7 : rivières générées par la graine (des montagnes jusqu'aux lacs, génération 20) ; l'eau qui coule se met vraiment à niveau.
 0.0.6.6 : eau qui coule : creuser à côté d'un lac fait couler l'eau, le lac baisse ; enregistré dans le dossier du monde (#124).
 0.0.6.5 : 20 m de pierre et 20 m de pierre sombre (Roche-mère à 45 m), cailloux de calcaire et de silex de toutes les tailles (génération 19).
