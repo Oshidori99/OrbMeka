@@ -56,6 +56,14 @@ func _run() -> void:
 	var gone: float = (level - world.flowing.lake_level_now(lake)) * area
 	check(free > 2.0, "water flows out of the lake into the ditch (%.1f m³)" % free)
 	check(gone > 0.0 and absf(gone - free) < 0.05 * gone, "the lake goes down by the same volume (%.2f m³ out, %.2f m³ in the ditch)" % [gone, free])
+	# 0.0.6.7 : l'eau se met à niveau (avant : une longue pente d'eau restait dans le fossé).
+	var lowest := INF
+	var highest := -INF
+	for step in range(int(lake.radius / 0.5), int((lake.radius + 8.0) / 0.5)):
+		var surface: float = world.flowing.surface_at(center + Vector2(step * 0.5, 0.0))
+		lowest = minf(lowest, surface)
+		highest = maxf(highest, surface)
+	check(highest - lowest < 0.03 and absf(highest - world.flowing.lake_level_now(lake)) < 0.03, "after 30 s the ditch water is level with the lake (%.3f m apart)" % (highest - lowest))
 	var outside := center + Vector2(lake.radius + 4.0, 0.0)
 	check(world.flowing.surface_at(outside) > world.flowing.floor_of(world.flowing.column_of(outside)), "the ditch past the shore holds water")
 	world.show_water_changes()

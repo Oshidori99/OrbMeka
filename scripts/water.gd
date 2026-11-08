@@ -9,8 +9,12 @@ const Store = preload("res://scripts/world_store.gd")
 const CELL := 0.5
 const AREA := 0.25
 const STEP_SECONDS := 0.1
-# Part de la différence de niveau passée à un voisin par pas (au plus 4 voisins : jamais plus que l'eau présente).
-const FLOW := 0.2
+# 0.0.6.7 : tuyau entre deux cases (section en m²), pesanteur, petite perte d'élan, petits pas par dixième de seconde.
+const PIPE := 0.5
+const GRAVITY := 9.8
+const DAMPING := 0.98
+const SUBSTEPS := 4
+const CALM := 0.0004
 const MIN_DEPTH := 0.004
 const REACH := 32.0
 const FOLDER := "eau"
@@ -23,6 +27,8 @@ var depth: Dictionary = {}
 var lake_levels: Dictionary = {}
 var active: Dictionary = {}
 var _floors: Dictionary = {}
+# Débit sortant de chaque case vers ses 4 voisines (m³/s), gardé d'un pas à l'autre : c'est l'élan de l'eau.
+var flux: Dictionary = {}
 # Zones de 8 m (X, Z) dont l'eau libre est à redessiner, lacs dont le niveau a bougé.
 var changed_zones: Dictionary = {}
 var changed_lakes: Dictionary = {}
@@ -72,6 +78,7 @@ func surface_at(at: Vector2) -> float:
 	var free: float = depth.get(column, 0.0)
 	if free > MIN_DEPTH:
 		level = maxf(level, floor_of(column) + free)
+	level = maxf(level, terrain.river_level_at(at))
 	return level
 
 # Le terrain a changé à ces points : fonds à revoir ; les cases et leurs voisines se remettent à couler.
@@ -89,64 +96,108 @@ func _height(column: Vector2i) -> Array:
 	var level: float = bottom + depth.get(column, 0.0)
 	if not lake.is_empty():
 		level = maxf(level, lake_level_now(lake))
-	return [bottom, level, lake]
+	# 0.0.6.7 : une rivière donne et emporte l'eau sans compter (sa source la remplit, elle va au lac).
+	var river: float = terrain.river_level_at(Vector2(column) * CELL)
+	var flowing_river := river > bottom + MIN_DEPTH
+	if flowing_river:
+		level = maxf(level, river)
+	return [bottom, level, lake, flowing_river]
 
-# Un pas : l'eau des cases actives descend vers les voisines plus basses. Rien ne bouge loin du joueur.
+# 0.0.6.7 : écoulement avec élan (comme de vrais tuyaux entre cases voisines) : le débit vers une voisine plus basse
+# grandit tant que la pente dure, puis l'eau se met à niveau en quelques secondes (avant : sans élan, une longue
+# pente d'eau restait en place). Quatre petits pas par dixième de seconde, pour rester stable.
 func step(center: Vector2) -> void:
 	if active.is_empty():
 		return
-	var gains := {}
+	for index in range(SUBSTEPS):
+		_substep(center, STEP_SECONDS / SUBSTEPS)
+
+func _substep(center: Vector2, dt: float) -> void:
+	var heights := {}
+	var columns := {}
+	for column: Vector2i in active:
+		if (Vector2(column) * CELL).distance_to(center) <= REACH:
+			columns[column] = true
+	var outflows := {}
 	var lake_gains := {}
 	var lakes := {}
-	var next := {}
-	for column: Vector2i in active.keys():
-		if (Vector2(column) * CELL).distance_to(center) > REACH:
-			next[column] = true
-			continue
-		var here := _height(column)
+	var gains := {}
+	for column: Vector2i in columns:
+		var here: Array = _height_cached(column, heights)
 		var lake: Dictionary = here[2]
-		var available: float = INF if not lake.is_empty() else depth.get(column, 0.0)
-		if available <= MIN_DEPTH:
-			continue
-		var moves := []
+		var river_here: bool = here[3]
+		var old: PackedFloat32Array = flux.get(column, PackedFloat32Array([0.0, 0.0, 0.0, 0.0]))
+		var flows := PackedFloat32Array([0.0, 0.0, 0.0, 0.0])
 		var total := 0.0
-		for side: Vector2i in SIDES:
-			var there := _height(column + side)
+		for side in range(4):
+			var there: Array = _height_cached(column + SIDES[side], heights)
 			var drop: float = here[1] - there[1]
-			# Même lac des deux côtés : rien ne coule.
-			if drop <= 0.001 or (not lake.is_empty() and not there[2].is_empty() and terrain.lake_id(lake) == terrain.lake_id(there[2])):
+			# Même lac des deux côtés, ou rien au-dessus du fond de la voisine : rien ne coule.
+			if not lake.is_empty() and not there[2].is_empty() and terrain.lake_id(lake) == terrain.lake_id(there[2]):
 				continue
-			var amount := drop * FLOW
-			moves.append([column + side, amount, there[2]])
-			total += amount
-		if moves.is_empty():
+			if here[1] <= there[0] + 0.0005:
+				continue
+			var rate := maxf(0.0, old[side] * DAMPING + dt * GRAVITY * PIPE * drop / CELL)
+			# Presque rien : l'eau est calme ici (elle s'endort, plus rien à calculer).
+			if rate < CALM:
+				rate = 0.0
+			flows[side] = rate
+			total += rate
+		if total <= 0.0:
+			flux.erase(column)
 			continue
-		var scale := minf(1.0, available / total) if lake.is_empty() else 1.0
-		for move in moves:
-			var amount: float = move[1] * scale
-			if lake.is_empty():
-				gains[column] = gains.get(column, 0.0) - amount
+		# Jamais plus que l'eau présente (un lac, lui, donne sans compter : il baisse ensuite ; une rivière aussi).
+		if lake.is_empty() and not river_here:
+			var water: float = depth.get(column, 0.0) * AREA
+			if total * dt > water:
+				var scale := water / (total * dt)
+				for side in range(4):
+					flows[side] *= scale
+		flux[column] = flows
+		outflows[column] = flows
+	for column: Vector2i in outflows:
+		var flows: PackedFloat32Array = outflows[column]
+		var lake: Dictionary = _height_cached(column, heights)[2]
+		var river_source: bool = _height_cached(column, heights)[3]
+		for side in range(4):
+			var volume: float = flows[side] * dt
+			if volume <= 0.0:
+				continue
+			var target: Vector2i = column + SIDES[side]
+			var target_lake: Dictionary = _height_cached(target, heights)[2]
+			var target_river: bool = _height_cached(target, heights)[3]
+			if river_source and lake.is_empty():
+				pass
+			elif lake.is_empty():
+				gains[column] = gains.get(column, 0.0) - volume
 			else:
 				var lost: String = terrain.lake_id(lake)
 				lakes[lost] = lake
-				lake_gains[lost] = lake_gains.get(lost, 0.0) - amount * AREA
-			var target: Vector2i = move[0]
-			var target_lake: Dictionary = move[2]
-			if target_lake.is_empty():
-				gains[target] = gains.get(target, 0.0) + amount
+				lake_gains[lost] = lake_gains.get(lost, 0.0) - volume
+			if target_river and target_lake.is_empty():
+				pass
+			elif target_lake.is_empty():
+				gains[target] = gains.get(target, 0.0) + volume
 			else:
 				var won: String = terrain.lake_id(target_lake)
 				lakes[won] = target_lake
-				lake_gains[won] = lake_gains.get(won, 0.0) + amount * AREA
+				lake_gains[won] = lake_gains.get(won, 0.0) + volume
+	var next := {}
+	for column: Vector2i in active:
+		if not columns.has(column):
 			next[column] = true
-			next[target] = true
 	for column: Vector2i in gains:
-		var now: float = depth.get(column, 0.0) + gains[column]
+		var now: float = depth.get(column, 0.0) + gains[column] / AREA
 		if now > MIN_DEPTH:
 			depth[column] = now
 		else:
 			depth.erase(column)
 		changed_zones[zone_of(column)] = true
+		next[column] = true
+		for side: Vector2i in SIDES:
+			next[column + side] = true
+	for column: Vector2i in flux:
+		next[column] = true
 	for id: String in lake_gains:
 		var lake: Dictionary = lakes[id]
 		lake_levels[id] = lake_level_now(lake) + lake_gains[id] / terrain.lake_area(lake)
@@ -154,6 +205,11 @@ func step(center: Vector2) -> void:
 	if not gains.is_empty() or not lake_gains.is_empty():
 		dirty = true
 	active = next
+
+func _height_cached(column: Vector2i, heights: Dictionary) -> Array:
+	if not heights.has(column):
+		heights[column] = _height(column)
+	return heights[column]
 
 # Volume d'eau libre (m³), pour vérifier que rien ne se crée ni ne se perd.
 func free_volume() -> float:

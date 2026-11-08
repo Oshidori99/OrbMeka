@@ -715,6 +715,10 @@ func _run() -> void:
 				lakes_seen += 1
 				for outline_point: Vector2 in wet_land.lake_outline(lake):
 					var on_shore: Vector2 = lake.center + outline_point
+					# 0.0.6.7 : l'embouchure d'une rivière, elle, est plus basse (l'eau y entre).
+					var mouth: Dictionary = wet_land.river_near(on_shore)
+					if not mouth.is_empty() and mouth.distance < mouth.width + SmoothTerrain.RIVER_BANK + 1.0:
+						continue
 					dry_shore = dry_shore and wet_land.height_at(on_shore.x, on_shore.y) >= lake.level - 0.05
 	check(lakes_seen > 0 and dry_shore, "water outline always ends on the shore, never over dry ground")
 	far_world.far_distance = 0
@@ -959,6 +963,40 @@ func _run() -> void:
 	check(not back and pebble_again.get_tree().get_nodes_in_group("pebbles").size() > 50, "a broken pebble never comes back")
 	close(pebble_again)
 	Store.delete_folder(pebble_folder)
+	# 0.0.6.7 (version 20) : rivières : des sources sur les montagnes jusqu'aux lacs, lit toujours en descente, eau sous
+	# les berges, fond en gravier, jamais de rocher dedans ; même graine, mêmes rivières ; rien en version 19.
+	var river_land := SmoothTerrain.new()
+	river_land.setup(42, [], load("res://scripts/world_generation.gd").defaults())
+	var river_twin := SmoothTerrain.new()
+	river_twin.setup(42, [], load("res://scripts/world_generation.gd").defaults())
+	var river_list: Array = river_land.rivers()
+	var rivers_ok := river_list.size() >= 1 and river_list.size() == river_twin.rivers().size()
+	for index in range(river_list.size()):
+		var river: Dictionary = river_list[index]
+		rivers_ok = rivers_ok and river.points == river_twin.rivers()[index].points
+		rivers_ok = rivers_ok and not river_land.lake_at(river.points[river.points.size() - 1]).is_empty()
+		for k in range(1, river.beds.size()):
+			rivers_ok = rivers_ok and river.beds[k] < river.beds[k - 1]
+		for k in range(2, river.points.size() - 3, 3):
+			var a: Vector2 = river.points[k]
+			var side: Vector2 = (river.points[k + 1] - river.points[k - 1]).normalized().orthogonal() * (river.widths[k] + SmoothTerrain.RIVER_BANK + 0.5)
+			var bank: float = river_land.height_at(a.x + side.x, a.y + side.y)
+			var bed_column := Vector2i(roundi(a.x / 0.5), roundi(a.y / 0.5))
+			rivers_ok = rivers_ok and river_land.river_level_at(a) > river_land.ground_height(bed_column) and river_land.river_level_at(a) <= bank + 0.3
+	check(rivers_ok, "rivers run downhill from mountain springs to lakes, water below their banks, same seed same rivers (%d)" % river_list.size())
+	var bed_river: Dictionary = river_list[0]
+	var bed_point: Vector2 = bed_river.points[bed_river.points.size() / 2]
+	var in_river := true
+	for x in range(-24, 24):
+		for z in range(-24, 24):
+			for rock in river_land.rocks_in_zone(Vector2i(x, z)):
+				in_river = in_river and river_land.river_level_at(Vector2(rock.x, rock.z)) == -INF
+	check(river_land.surface_kind(Vector2i(roundi(bed_point.x / 0.5), roundi(bed_point.y / 0.5))) == SmoothTerrain.GRAVEL and in_river, "river beds are gravel, no rock in a river")
+	var options_19: Dictionary = load("res://scripts/world_generation.gd").defaults()
+	options_19.version = 19
+	var no_river := SmoothTerrain.new()
+	no_river.setup(42, [], options_19)
+	check(no_river.rivers().is_empty() and no_river.ground_height(Vector2i(roundi(bed_point.x / 0.5), roundi(bed_point.y / 0.5))) > river_land.ground_height(Vector2i(roundi(bed_point.x / 0.5), roundi(bed_point.y / 0.5))), "version 19 worlds keep their ground, without rivers")
 	# 0.0.6 : sous l'eau : brume bleu-vert proche et voile ; en sortant, la brume normale revient.
 	var lake_world: Node3D = WorldScene.instantiate()
 	lake_world.generation_options = load("res://scripts/world_generation.gd").defaults()

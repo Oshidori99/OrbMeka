@@ -1631,6 +1631,7 @@ func place_objects(data: Dictionary) -> void:
 func _show_column_objects(column: Vector2i) -> void:
 	_hide_column_objects(column)
 	_show_column_pebbles(column)
+	_show_column_river(column)
 	for rock in terrain.rocks_in_zone(column):
 		if not mined_rocks.has(rock.id):
 			var made := _make_rock(rock, rock.id)
@@ -1653,6 +1654,55 @@ func _show_column_objects(column: Vector2i) -> void:
 		water.add_to_group("water")
 		_rocks_parent().add_child(water)
 		_column_object(column, water)
+
+# 0.0.6.7 (#124) : eau des rivières de cette colonne : un ruban posé sur le lit, à la hauteur de l'eau, du point de chaque
+# morceau de rivière qui commence ici jusqu'au suivant ; rides qui descendent le courant (river.gdshader).
+var _river_material: ShaderMaterial
+
+func _show_column_river(column: Vector2i) -> void:
+	var vertices := PackedVector3Array()
+	var uvs := PackedVector2Array()
+	for river: Dictionary in terrain.rivers():
+		var points: PackedVector2Array = river.points
+		for index in range(points.size() - 1):
+			if Vector2i(floori(points[index].x / SmoothTerrain.ZONE_SIZE), floori(points[index].y / SmoothTerrain.ZONE_SIZE)) != column:
+				continue
+			var ends := []
+			for k in [index, index + 1]:
+				var before: Vector2 = points[maxi(k - 1, 0)]
+				var after: Vector2 = points[mini(k + 1, points.size() - 1)]
+				var side: Vector2 = (after - before).normalized().orthogonal() * river.widths[k] * 0.95
+				var y: float = river.beds[k] + SmoothTerrain.RIVER_WATER
+				ends.append([Vector3(points[k].x + side.x, y, points[k].y + side.y), Vector3(points[k].x - side.x, y, points[k].y - side.y), river.lengths[k]])
+			var a: Vector3 = ends[0][0]
+			var b: Vector3 = ends[0][1]
+			var c: Vector3 = ends[1][1]
+			var d: Vector3 = ends[1][0]
+			vertices.append_array([a, b, c, a, c, d])
+			uvs.append_array([Vector2(0, ends[0][2]), Vector2(1, ends[0][2]), Vector2(1, ends[1][2]), Vector2(0, ends[0][2]), Vector2(1, ends[1][2]), Vector2(0, ends[1][2])])
+	if vertices.is_empty():
+		return
+	var normals := PackedVector3Array()
+	normals.resize(vertices.size())
+	normals.fill(Vector3.UP)
+	var arrays := []
+	arrays.resize(Mesh.ARRAY_MAX)
+	arrays[Mesh.ARRAY_VERTEX] = vertices
+	arrays[Mesh.ARRAY_NORMAL] = normals
+	arrays[Mesh.ARRAY_TEX_UV] = uvs
+	var mesh := ArrayMesh.new()
+	mesh.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arrays)
+	if _river_material == null:
+		_river_material = ShaderMaterial.new()
+		_river_material.shader = preload("res://shaders/river.gdshader")
+	var ribbon := MeshInstance3D.new()
+	ribbon.name = "Riviere"
+	ribbon.mesh = mesh
+	ribbon.material_override = _river_material
+	ribbon.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	ribbon.add_to_group("water")
+	_rocks_parent().add_child(ribbon)
+	_column_object(column, ribbon)
 
 func _column_object(column: Vector2i, node: Node) -> void:
 	if not column_objects.has(column):

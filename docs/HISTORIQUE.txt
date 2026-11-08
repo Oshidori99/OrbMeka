@@ -3,6 +3,10 @@ Du plus récent au plus ancien. Ce fichier est mis à jour à chaque version.
 
 === Thème « Monde » (0.0.5 et suivantes) ===
 
+0.0.6.7 — Rivières
+Génération du terrain : version 20 (nouvelle) · Menus : version 3.
+Rivières des montagnes jusqu'aux lacs, lit creusé en gravier, eau qui descend le courant ; l'eau qui coule se met à niveau en quelques secondes.
+
 0.0.6.6 — L'eau coule
 Génération du terrain : version 19 · Menus : version 3.
 Creuser à côté d'un lac fait couler l'eau dans le trou et baisser le lac (même volume) ; eau gardée dans le dossier du monde (eau/).

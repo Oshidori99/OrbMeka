@@ -27,8 +27,9 @@ extends RefCounted
 # Version 17 (0.0.6.3) : même relief, lacs de montagne jamais collés (plus d'eau en l'air), cailloux posés sur le sol.
 # Version 18 (0.0.6.4) : même relief, calcaire, charbon et silex dans la pierre, silex en surface, rochers de calcaire.
 # Version 19 (0.0.6.5) : même relief, 20 m de pierre et 20 m de pierre sombre (Roche-mère à 45 m), cailloux de calcaire et de silex de toutes les tailles.
-const VERSION := 19
-const VERSIONS := [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19]
+# Version 20 (0.0.6.7) : même relief, rivières (sources sur les montagnes, jusqu'aux lacs), lit creusé en gravier.
+const VERSION := 20
+const VERSIONS := [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20]
 # Chance la plus rare qu'on peut régler : 1 sur MAX_CHANCE par zone (64 avant 0.0.5.18, 400 avant 0.0.5.23, 2000 avant 0.0.5.24).
 const MAX_CHANCE := 4000
 const STANDARD_SMALL_DENOMINATOR := 8
@@ -95,6 +96,7 @@ const DESERT_SIZES := {
 	17: {"medium_desert": [3, 4, 2, 2], "big_desert": [40, 48, 8, 8]},
 	18: {"medium_desert": [3, 4, 2, 2], "big_desert": [40, 48, 8, 8]},
 	19: {"medium_desert": [3, 4, 2, 2], "big_desert": [40, 48, 8, 8]},
+	20: {"medium_desert": [3, 4, 2, 2], "big_desert": [40, 48, 8, 8]},
 }
 # 0.0.6 (version 15) : monde de 64 × 64 zones ; 48 × 48 pour les versions d'avant (0.0.5.20 ; 20 × 20 en 0.0.5.18, 16 × 16 avant).
 static func half_zones(version: int = VERSION) -> int:
@@ -357,6 +359,8 @@ static func describe(options: Dictionary) -> String:
 		lines.append("Dans la pierre : calcaire (environ 8 % de la pierre claire), charbon (1,5 %), silex dans le calcaire ; silex en surface, 1 rocher sur 5 en calcaire.")
 	if version >= 19:
 		lines.append("Cailloux de calcaire et de silex de toutes les tailles, autant de gros que de petits.")
+	if version >= 20:
+		lines.append("Rivières : sources sur environ une montagne sur deux, jusqu'aux lacs ; lit creusé, fond en gravier.")
 	lines.append(layers)
 	return "\n".join(lines)
 

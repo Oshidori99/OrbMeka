@@ -1,6 +1,18 @@
-# OrbMeka™ — prototype 0.0.6.6
+# OrbMeka™ — prototype 0.0.6.7
 
 Godot 4.7 / GDScript. Formes et couleurs simples ; assets externes seulement sous licence vérifiée (sons CC0, assets/sounds/CREDITS.txt).
+
+## 0.0.6.7 — Rivières (#124)
+Version locale (pas encore publiée).
+- **Correction de l'eau qui coule** : l'eau garde un élan d'une case à l'autre (calcul en petits pas) ; un fossé se met au niveau du lac en 10 à 15 s au lieu de garder une longue pente d'eau.
+- **Génération version 20** (nouveaux mondes) : **rivières** selon la graine. Sources sur environ une montagne sur deux, descente jusqu'au lac de plaine le plus proche (plus bas que la source), jamais près d'un lac de montagne.
+- Lit creusé dans le terrain, fond en **gravier**, sans rochers ; l'eau reste sous les rives et descend toujours.
+- **Eau en mouvement** : ruban d'eau animé dans le sens du courant (shaders/river.gdshader), un peu d'écume sur les bords.
+- Pour l'eau qui coule, une rivière est une source sans fin et un puits : un fossé creusé depuis une rivière se remplit.
+- **Monde d'essai T37** (graine 1019681621, génération 20) ; la vitrine de l'accueil le montre.
+
+Tests concernés réussis (rivières qui descendent jusqu'aux lacs, eau sous les rives, même graine = mêmes rivières, gravier dans le lit, version 19 sans rivière ; eau du fossé au niveau du lac après 30 s). Mesures dans la même séance : FPS identiques entre génération 19 et 20 ; environ 130 ms de plus à la première construction des rivières d'un monde.
+À tester manuellement : suivre une rivière depuis sa source jusqu'au lac (aspect, animation), creuser un fossé depuis une rivière. Pas encore de nage.
 
 ## 0.0.6.6 — L'eau coule (#124, début)
 Version locale (pas encore publiée).
