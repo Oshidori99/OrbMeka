@@ -1,11 +1,13 @@
 # Tests choisis avec surveillance de la charge totale du PC. Suite complète seulement sur demande.
 param(
  [string[]]$Only = @(),
- [ValidateRange(1,4)][int]$Jobs = 4,
+ [ValidateRange(1,6)][int]$Jobs = 6,
  [int]$TimeoutSeconds = 180,
- [ValidateRange(1,85)][int]$MaxMemoryPercent = 80,
- [ValidateRange(1,85)][int]$AbortMemoryPercent = 85,
- [ValidateRange(1,85)][int]$AbortCpuPercent = 85,
+ # Mémoire : au-delà de 85 %, aucun nouveau test (ceux en cours finissent) ; au-delà de 90 %, tout s'arrête.
+ [ValidateRange(1,90)][int]$MaxMemoryPercent = 85,
+ [ValidateRange(1,90)][int]$AbortMemoryPercent = 90,
+ # Processeur : au-delà de 85 %, moins de tests à la fois (jamais d'arrêt : 6 tests chargent normalement le CPU).
+ [ValidateRange(1,100)][int]$BusyCpuPercent = 85,
  [int]$MaxTestMemoryMB = 3072,
  [string]$Godot = 'C:\Users\Dev\Desktop\Godot_v4.7.2-stable_win64.exe\Godot_v4.7.2-stable_win64.exe'
 )
@@ -62,12 +64,13 @@ try {
   $load = Get-PCLoad
   $peakCpu = [math]::Max($peakCpu,$load.Cpu)
   $peakMemory = [math]::Max($peakMemory,$load.Memory)
-  if ($load.Memory -gt $AbortMemoryPercent -or $load.Cpu -gt $AbortCpuPercent) {
-   'ARRÊT : CPU {0:N1} %, mémoire {1:N1} % ; seuil 85 %. Seuls nos tests sont arrêtés.' -f $load.Cpu,$load.Memory
+  if ($load.Memory -gt $AbortMemoryPercent) {
+   'ARRÊT : mémoire {0:N1} % (limite {1} %). Seuls nos tests sont arrêtés.' -f $load.Memory,$AbortMemoryPercent
    $aborted = $true
    break
   }
-  $limit = if ($load.Cpu -ge 70 -or $load.Memory -ge 75) { [math]::Min(2,$Jobs) } else { $Jobs }
+  # Moins de tests à la fois quand le PC est chargé : 6 normalement, 3 au-delà de 75 % de mémoire ou de 85 % de CPU.
+  $limit = if ($load.Cpu -ge $BusyCpuPercent -or $load.Memory -ge 75) { [math]::Min(3,$Jobs) } else { $Jobs }
   if ($running.Count -eq 0 -and $queue.Count -gt 0 -and $load.Memory -ge $MaxMemoryPercent) {
    'Tests non lancés : mémoire déjà élevée ({0:N1} %).' -f $load.Memory
    $aborted = $true
