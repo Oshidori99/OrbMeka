@@ -3,6 +3,10 @@ Du plus récent au plus ancien. Ce fichier est mis à jour à chaque version.
 
 === Thème « Monde » (0.0.5 et suivantes) ===
 
+0.0.6.11 — Arbres de cinq tailles
+Génération du terrain : version 22 (nouvelle) · Menus : version 3.
+Arbres plus réalistes (pommier standard 7,5 m, tronc plus large, premières branches vers 2 m) et cinq tailles, de petit à grand ; groupes plus espacés.
+
 0.0.6.10 — Arbres faits dans Blender
 Génération du terrain : version 21 · Menus : version 3.
 Pommier et noisetier refaits dans Blender : pommier de 5,7 m à la couronne pleine, noisettes visibles ; version légère dans le jeu (feuillage en plaques), mondes inchangés.

@@ -3,13 +3,13 @@
 importer="scene"
 importer_version=1
 type="PackedScene"
-uid="uid://c3ijojcm0ey0w"
-path="res://.godot/imported/pommier_jeu.glb-061cc59fd0789bf10cb971d2eed90207.scn"
+uid="uid://cpgaqyg4ycpn3"
+path="res://.godot/imported/noisetier_2_jeu.glb-760f434948b310f179b3e2226d8ba6b3.scn"
 
 [deps]
 
-source_file="res://assets/trees/pommier_jeu.glb"
-dest_files=["res://.godot/imported/pommier_jeu.glb-061cc59fd0789bf10cb971d2eed90207.scn"]
+source_file="res://assets/trees/noisetier_2_jeu.glb"
+dest_files=["res://.godot/imported/noisetier_2_jeu.glb-760f434948b310f179b3e2226d8ba6b3.scn"]
 
 [params]
 

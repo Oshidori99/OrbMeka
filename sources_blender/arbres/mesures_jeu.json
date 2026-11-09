@@ -1,14 +1,76 @@
 {
   "Pommier": {
-    "pommier_jeu": 8265,
-    "pommier_loin": 1009,
-    "plaques": 456,
-    "fruits": 64
+    "1": {
+      "pommier_1_jeu": 5879,
+      "hauteur_m": 4.01,
+      "pommier_1_loin": 593,
+      "plaques": 259,
+      "fruits": 48
+    },
+    "2": {
+      "pommier_2_jeu": 7927,
+      "hauteur_m": 5.53,
+      "pommier_2_loin": 813,
+      "plaques": 446,
+      "fruits": 64
+    },
+    "3": {
+      "pommier_3_jeu": 11117,
+      "hauteur_m": 7.43,
+      "pommier_3_loin": 1275,
+      "plaques": 667,
+      "fruits": 80
+    },
+    "4": {
+      "pommier_4_jeu": 13115,
+      "hauteur_m": 8.7,
+      "pommier_4_loin": 1416,
+      "plaques": 795,
+      "fruits": 96
+    },
+    "5": {
+      "pommier_5_jeu": 14915,
+      "hauteur_m": 9.74,
+      "pommier_5_loin": 1524,
+      "plaques": 965,
+      "fruits": 112
+    }
   },
   "Noisetier": {
-    "noisetier_jeu": 5932,
-    "noisetier_loin": 558,
-    "plaques": 366,
-    "fruits": 48
+    "1": {
+      "noisetier_1_jeu": 3471,
+      "hauteur_m": 3.01,
+      "noisetier_1_loin": 114,
+      "plaques": 165,
+      "fruits": 36
+    },
+    "2": {
+      "noisetier_2_jeu": 5345,
+      "hauteur_m": 4.3,
+      "noisetier_2_loin": 456,
+      "plaques": 316,
+      "fruits": 48
+    },
+    "3": {
+      "noisetier_3_jeu": 7707,
+      "hauteur_m": 5.82,
+      "noisetier_3_loin": 648,
+      "plaques": 503,
+      "fruits": 60
+    },
+    "4": {
+      "noisetier_4_jeu": 9294,
+      "hauteur_m": 6.5,
+      "noisetier_4_loin": 783,
+      "plaques": 637,
+      "fruits": 72
+    },
+    "5": {
+      "noisetier_5_jeu": 11235,
+      "hauteur_m": 7.54,
+      "noisetier_5_loin": 965,
+      "plaques": 762,
+      "fruits": 84
+    }
   }
 }

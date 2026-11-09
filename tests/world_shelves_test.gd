@@ -31,8 +31,6 @@ func _run() -> void:
 	var catalog := Catalog.new(PATH)
 	var old_options := Generation.defaults()
 	old_options.version = Generation.VERSION - 1
-	# 0.0.6.9 : réglage des arbres seulement dès la version 21.
-	old_options.erase("fruit_trees")
 	var fresh: Dictionary = catalog.create_world("Neuf", "1")
 	var old: Dictionary = catalog.create_world("Ancien", "2", Catalog.MODE_DEFAULT, false, old_options)
 	var precious: Dictionary = catalog.create_world("Précieux", "3")

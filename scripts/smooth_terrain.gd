@@ -82,6 +82,7 @@ func setup(terrain_seed: int, flat_spots: Array = [], options: Dictionary = {}) 
 	_ores_on = int(generation_options.get("version", 0)) >= 18
 	_rivers_on = int(generation_options.get("version", 0)) >= 20
 	_trees_on = int(generation_options.get("version", 0)) >= 21
+	_tree_sizes_on = int(generation_options.get("version", 0)) >= 22
 	fall_limit = half_zones * int(ZONE_METERS) - 3
 	var layers := layers_of(generation_options)
 	low_point = layers[0]
@@ -2051,6 +2052,20 @@ func surface_kind(column: Vector2i) -> int:
 var _trees_on := false
 const TREE_SLOPE := 0.45
 const TREE_SPACING := 3.0
+# 0.0.6.11 (version 22) : cinq tailles d'arbres (1 petit … 3 standard … 5 grand), tirées à part (le reste du tirage ne change pas) ;
+# arbres plus grands : groupes plus espacés. Version 21 : ses trois variantes deviennent les tailles 3, 4 et 2.
+var _tree_sizes_on := false
+const TREE_SIZE_WEIGHTS := [15, 25, 30, 20, 10]
+const TREE_SPACING_BIG := 5.0
+const OLD_VARIANT_SIZES := [3, 4, 2]
+
+func _tree_size(area: Vector2i, index: int) -> int:
+	var pick := absi(hash([_seed, area.x, area.y, index, "taille"])) % 100
+	for size in range(TREE_SIZE_WEIGHTS.size()):
+		pick -= TREE_SIZE_WEIGHTS[size]
+		if pick < 0:
+			return size + 1
+	return 3
 
 func trees_in_zone(area: Vector2i) -> Array:
 	if not _trees_on or _noise == null:
@@ -2069,8 +2084,12 @@ func trees_in_zone(area: Vector2i) -> Array:
 	var kind := 0 if rng.randf() < 0.55 else 1
 	var result := []
 	for index in range(count):
-		var at := center if index == 0 else center + Vector2.from_angle(rng.randf() * TAU) * rng.randf_range(3.5, 6.0)
+		var at := center if index == 0 else center + Vector2.from_angle(rng.randf() * TAU) * rng.randf_range(3.5, 6.0) * (1.6 if _tree_sizes_on else 1.0)
 		var entry := {"id": "a%d_%d_%d" % [area.x, area.y, index], "x": at.x, "z": at.y, "espece": kind if rng.randf() < 0.75 else 1 - kind, "variante": rng.randi_range(0, 2), "rotation": rng.randf_range(0.0, 360.0), "taille": rng.randf_range(0.85, 1.15)}
+		# Taille de l'arbre (1 à 5) ; « taille » reste une petite variation d'échelle (plus petite en version 22).
+		entry.classe = _tree_size(area, index) if _tree_sizes_on else OLD_VARIANT_SIZES[entry.variante]
+		if _tree_sizes_on:
+			entry.taille = 1.0 + (entry.taille - 1.0) * 0.4
 		if _tree_spot_ok(at, result):
 			result.append(entry)
 	return result
@@ -2096,7 +2115,7 @@ func _tree_spot_ok(at: Vector2, placed: Array) -> bool:
 	if absf(at.x) > limit or absf(at.y) > limit:
 		return false
 	for tree in placed:
-		if at.distance_to(Vector2(tree.x, tree.z)) < TREE_SPACING:
+		if at.distance_to(Vector2(tree.x, tree.z)) < (TREE_SPACING_BIG if _tree_sizes_on else TREE_SPACING):
 			return false
 	for spot in _flat_spots:
 		if at.distance_to(spot[0]) < spot[1] + 3.0:

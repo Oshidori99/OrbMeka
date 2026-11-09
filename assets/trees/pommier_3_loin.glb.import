@@ -3,13 +3,13 @@
 importer="scene"
 importer_version=1
 type="PackedScene"
-uid="uid://cycoowqub3hof"
-path="res://.godot/imported/noisetier_loin.glb-23f97706c49155f873f70dc82d2255a7.scn"
+uid="uid://7jyhvs5xvqoy"
+path="res://.godot/imported/pommier_3_loin.glb-89f0ccf1a4d4805c069ad6c5c0f62e9e.scn"
 
 [deps]
 
-source_file="res://assets/trees/noisetier_loin.glb"
-dest_files=["res://.godot/imported/noisetier_loin.glb-23f97706c49155f873f70dc82d2255a7.scn"]
+source_file="res://assets/trees/pommier_3_loin.glb"
+dest_files=["res://.godot/imported/pommier_3_loin.glb-89f0ccf1a4d4805c069ad6c5c0f62e9e.scn"]
 
 [params]
 

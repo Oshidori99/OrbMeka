@@ -1,7 +1,8 @@
-# OrbMeka™ 0.0.6.10
+# OrbMeka™ 0.0.6.11
 
 Dans Godot, ouvrez **project.godot**, puis **F5** pour lancer le jeu.
 
+0.0.6.11 : arbres de cinq tailles (petit à grand), plus réalistes : pommier standard de 7,5 m au tronc plus large, premières branches vers 2 m (génération 22).
 0.0.6.10 : arbres faits dans Blender : pommier de 5,7 m (couronne pleine, branches basses qui retombent) et noisetier avec ses noisettes, en version légère.
 0.0.6.9 : premiers arbres fruitiers, pommiers et noisetiers, seuls ou par 2 à 3 dans les prairies (génération 21).
 0.0.6.8 : nager (flotter, plonger, sortir de l'eau, courant des rivières) ; plus de trous au sommet des montagnes (on voyait à travers).

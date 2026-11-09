@@ -3,13 +3,13 @@
 importer="scene"
 importer_version=1
 type="PackedScene"
-uid="uid://ddbdpnr0lf7a6"
-path="res://.godot/imported/noisetier_jeu.glb-964ac3dbc1f78dc1781cd4a6267855bd.scn"
+uid="uid://db3cm5yob1rf4"
+path="res://.godot/imported/noisetier_1_jeu.glb-56a17531b1b3cf1445d5eeb00b0e348c.scn"
 
 [deps]
 
-source_file="res://assets/trees/noisetier_jeu.glb"
-dest_files=["res://.godot/imported/noisetier_jeu.glb-964ac3dbc1f78dc1781cd4a6267855bd.scn"]
+source_file="res://assets/trees/noisetier_1_jeu.glb"
+dest_files=["res://.godot/imported/noisetier_1_jeu.glb-56a17531b1b3cf1445d5eeb00b0e348c.scn"]
 
 [params]
 

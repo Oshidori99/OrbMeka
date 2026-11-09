@@ -1,26 +1,22 @@
 {
   "Pommier": {
-    "triangles_detail": 1317756,
-    "triangles_lod": 10763,
-    "vertices_detail": 1206420,
-    "leaves": 42744,
-    "fruits_or_clusters": 165,
-    "height_m": 5.671,
-    "width_m": 6.181,
-    "materials_detail": 3,
-    "lod_count": 1,
-    "lowest_leaf_m": 0.809
+    "size": 3,
+    "triangles_detail": 1799408,
+    "vertices_detail": 1647714,
+    "leaves": 58400,
+    "fruits_or_clusters": 225,
+    "height_m": 7.199,
+    "width_m": 5.642,
+    "lowest_leaf_m": 1.56
   },
   "Noisetier": {
-    "triangles_detail": 447446,
-    "triangles_lod": 7592,
-    "vertices_detail": 406338,
-    "leaves": 14492,
-    "fruits_or_clusters": 86,
-    "height_m": 4.659,
-    "width_m": 4.101,
-    "materials_detail": 3,
-    "lod_count": 1,
-    "lowest_leaf_m": 0.276
+    "size": 3,
+    "triangles_detail": 566964,
+    "vertices_detail": 514746,
+    "leaves": 18360,
+    "fruits_or_clusters": 106,
+    "height_m": 5.607,
+    "width_m": 4.845,
+    "lowest_leaf_m": 1.066
   }
 }

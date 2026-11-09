@@ -29,8 +29,9 @@ extends RefCounted
 # Version 19 (0.0.6.5) : même relief, 20 m de pierre et 20 m de pierre sombre (Roche-mère à 45 m), cailloux de calcaire et de silex de toutes les tailles.
 # Version 20 (0.0.6.7) : même relief, rivières (sources sur les montagnes, jusqu'aux lacs), lit creusé en gravier.
 # Version 21 (0.0.6.9) : même relief, premiers arbres fruitiers (pommiers, noisetiers), seuls ou par 2-3, dans les prairies et en lisière.
-const VERSION := 21
-const VERSIONS := [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21]
+# Version 22 (0.0.6.11) : même monde, arbres de cinq tailles (petit à grand) et groupes d'arbres plus espacés.
+const VERSION := 22
+const VERSIONS := [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22]
 # Chance la plus rare qu'on peut régler : 1 sur MAX_CHANCE par zone (64 avant 0.0.5.18, 400 avant 0.0.5.23, 2000 avant 0.0.5.24).
 const MAX_CHANCE := 4000
 const STANDARD_SMALL_DENOMINATOR := 8
@@ -100,6 +101,7 @@ const DESERT_SIZES := {
 	19: {"medium_desert": [3, 4, 2, 2], "big_desert": [40, 48, 8, 8]},
 	20: {"medium_desert": [3, 4, 2, 2], "big_desert": [40, 48, 8, 8]},
 	21: {"medium_desert": [3, 4, 2, 2], "big_desert": [40, 48, 8, 8]},
+	22: {"medium_desert": [3, 4, 2, 2], "big_desert": [40, 48, 8, 8]},
 }
 # 0.0.6 (version 15) : monde de 64 × 64 zones ; 48 × 48 pour les versions d'avant (0.0.5.20 ; 20 × 20 en 0.0.5.18, 16 × 16 avant).
 static func half_zones(version: int = VERSION) -> int:
@@ -369,6 +371,8 @@ static func describe(options: Dictionary) -> String:
 		lines.append("Rivières : sources sur environ une montagne sur deux, jusqu'aux lacs ; lit creusé, fond en gravier.")
 	if version >= 21:
 		lines.append("Arbres fruitiers : pommiers et noisetiers, seuls ou par 2 à 3, dans les prairies et en lisière ; jamais dans l'eau, le sable ou les pentes raides.")
+	if version >= 22:
+		lines.append("Arbres de cinq tailles, de petit (4 m pour un pommier) à grand (près de 10 m), plus souvent de taille moyenne.")
 	lines.append(layers)
 	return "\n".join(lines)
 

@@ -2,7 +2,7 @@
 # Lancer dans Blender (runpy) : relance generer_arbres.py, puis construit pour chaque espèce
 #   <Espèce>_Leger : branches à peu de facettes, feuillage en plaques croisées (image de grappe de feuilles), fruits simples ;
 #   <Espèce>_Leger_Loin : tronc, grosses branches et quelques grandes plaques (40 à 150 m dans le jeu).
-# Exporte assets/trees/<espece>_jeu.glb et <espece>_loin.glb (sans images) et les images PNG à côté.
+# Exporte assets/trees/<espece>_<taille>_jeu.glb et _loin.glb (tailles 1 à 5, sans images) et les images PNG à côté.
 import bpy, runpy, math, random, json
 import numpy as np
 from mathutils import Vector
@@ -94,38 +94,47 @@ save_png(bpy.data.images['Ecorce_Pommier_256'],'ecorce_pommier')
 save_png(bpy.data.images['Ecorce_Noisetier_256'],'ecorce_noisetier')
 col=bpy.data.collections.new('Version_Legere_Jeu');scene.collection.children.link(col)
 report={}
+# 0.0.6.11 : cinq tailles par espèce (1 petit … 3 standard … 5 grand). La taille 3 reprend le modèle détaillé
+# construit ci-dessus ; les autres sont construites « en forme seulement » (generer_arbres.py, record_only).
 for name,hazel in [('Pommier',False),('Noisetier',True)]:
- src=geos[name];rng=random.Random(91 if hazel else 47)
  detail=bpy.data.objects[name+'_Detail'];mats=list(detail.data.materials)
- near=Geo()
- wood(near,src,.02 if hazel else .016,2,lambda r:7 if r>.1 else (5 if r>.035 else 4))
- groups=cards(near,src,.42 if hazel else .48,6,1.0,rng)
- if hazel:
-  # Une petite boule par grappe de noisettes (les noisettes d'une grappe sont à quelques cm).
-  clusters=[]
-  for pos,r in src.fruit_spots:
-   if not any((pos-c).length<.09 for c in clusters):clusters.append(pos)
-  for pos in clusters[:48]:low_sphere(near,pos,.034,2,5,3,1.1)
-  fruits=min(48,len(clusters))
- else:
-  # Les pommes du bord de la couronne (les autres sont cachées par le feuillage).
-  axis=Vector((0,0,0))
-  spots=sorted(src.fruit_spots,key=lambda s:-(Vector((s[0].x,s[0].y,0))-axis).length-s[0].z*.25)[:64]
-  for pos,r in spots:low_sphere(near,pos,r*1.05,2,6,3)
-  fruits=len(spots)
- far=Geo()
- wood(far,src,.05,3,lambda r:5 if r>.1 else 4)
- cards(far,src,1.25,20,1.05,rng)
  report[name]={}
- for g,suffix,file in [(near,'_Leger',name.lower()+'_jeu'),(far,'_Leger_Loin',name.lower()+'_loin')]:
-  ob=g.object(name+suffix,mats,col)
-  report[name][file]=sum(len(p.vertices)-2 for p in ob.data.polygons)
-  bpy.ops.object.select_all(action='DESELECT');ob.select_set(True);bpy.context.view_layer.objects.active=ob
-  bpy.ops.export_scene.gltf(filepath=str(OUT/(file+'.glb')),export_format='GLB',use_selection=True,export_yup=True,export_texcoords=True,export_normals=True,export_materials='EXPORT',export_image_format='NONE',export_animations=False,export_cameras=False,export_lights=False)
-  ob.location.x=detail.location.x+(0 if suffix=='_Leger' else 0);ob.location.y=7.5 if suffix=='_Leger' else 15
-  ob.hide_render=True
- report[name]['plaques']=groups;report[name]['fruits']=fruits
- print(name,report[name])
+ for size in range(1,6):
+  src=geos[name] if size==3 else G['make_species'](hazel,size,True)
+  rng=random.Random((91 if hazel else 47)+size)
+  near=Geo()
+  wood(near,src,.02 if hazel else .016,2,lambda r:7 if r>.1 else (5 if r>.035 else 4))
+  groups=cards(near,src,.42 if hazel else .48,6,1.0,rng)
+  if hazel:
+   # Une petite boule par grappe de noisettes (les noisettes d'une grappe sont à quelques cm).
+   clusters=[]
+   for pos,r in src.fruit_spots:
+    if not any((pos-c).length<.09 for c in clusters):clusters.append(pos)
+   limit=round(48*(.5+.25*size))
+   for pos in clusters[:limit]:low_sphere(near,pos,.034,2,5,3,1.1)
+   fruits=min(limit,len(clusters))
+  else:
+   # Les pommes du bord de la couronne (les autres sont cachées par le feuillage).
+   limit=round(64*(.5+.25*size))
+   spots=sorted(src.fruit_spots,key=lambda s:-Vector((s[0].x,s[0].y,0)).length-s[0].z*.25)[:limit]
+   for pos,r in spots:low_sphere(near,pos,r*1.05,2,6,3)
+   fruits=len(spots)
+  far=Geo()
+  wood(far,src,.05,3,lambda r:5 if r>.1 else 4)
+  cards(far,src,1.25,8 if size<3 else 20,1.05,rng)
+  entry={}
+  for g,suffix,file in [(near,'_Leger',f'{name.lower()}_{size}_jeu'),(far,'_Leger_Loin',f'{name.lower()}_{size}_loin')]:
+   ob=g.object(f'{name}_T{size}{suffix}',mats,col)
+   entry[file]=sum(len(p.vertices)-2 for p in ob.data.polygons)
+   bpy.ops.object.select_all(action='DESELECT');ob.select_set(True);bpy.context.view_layer.objects.active=ob
+   bpy.ops.export_scene.gltf(filepath=str(OUT/(file+'.glb')),export_format='GLB',use_selection=True,use_active_scene=True,export_yup=True,export_texcoords=True,export_normals=True,export_materials='EXPORT',export_image_format='NONE',export_animations=False,export_cameras=False,export_lights=False)
+   # Rangés dans l'atelier : une rangée par espèce, tailles de gauche à droite ; version de loin derrière.
+   ob.location=((size-3)*9.0,(14 if hazel else 4)+(18 if suffix=='_Leger_Loin' else 0),0)
+   ob.hide_render=True
+   if suffix=='_Leger':entry['hauteur_m']=round(ob.dimensions.z,2)
+  entry['plaques']=groups;entry['fruits']=fruits
+  report[name][size]=entry
+  print(name,size,entry)
 scene['version_jeu']=json.dumps(report)
 (HERE/'mesures_jeu.json').write_text(json.dumps(report,indent=2),encoding='utf-8')
 bpy.ops.wm.save_mainfile()

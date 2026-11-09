@@ -1,6 +1,17 @@
-# OrbMeka™ — prototype 0.0.6.10
+# OrbMeka™ — prototype 0.0.6.11
 
 Godot 4.7 / GDScript. Formes et couleurs simples ; assets externes seulement sous licence vérifiée (sons CC0, assets/sounds/CREDITS.txt).
+
+## 0.0.6.11 — Arbres de cinq tailles (#178, #180)
+Version locale (pas encore publiée).
+- **Arbres plus réalistes** (taille 3, standard) : pommier de 7,5 m au tronc plus large, tronc dégagé jusqu'aux premières branches vers 2 m, couronne plus large en haut ; noisetier de 5,8 m, tiges plus épaisses, feuillage à partir d'environ 1 m.
+- **Cinq tailles par espèce**, chacune son propre modèle (un grand arbre a un tronc plus épais et plus de branches, pas le même arbre agrandi) : 1 petit, 2 plutôt petit, 3 standard, 4 plutôt grand, 5 grand. Pommier 4,0 / 5,5 / 7,4 / 8,7 / 9,7 m ; noisetier 3,0 / 4,3 / 5,8 / 6,5 / 7,5 m. De près : 5 900 à 14 900 triangles (pommier), 3 500 à 11 200 (noisetier) ; au loin : 100 à 1 500.
+- **Génération version 22** (nouveaux mondes) : tailles tirées selon la graine (15 % petit, 25 % plutôt petit, 30 % standard, 20 % plutôt grand, 10 % grand) ; arbres d'un groupe à 5 m au moins. Les mondes en génération 21 gardent leurs arbres aux mêmes endroits ; leurs trois variantes deviennent les tailles 3, 4 et 2.
+- Blender : le générateur garde la version détaillée de la taille 3 dans `arbres_detail.blend` (rangé dans ../Archives OrbMeka/Blender) et fait les autres tailles « en forme seulement » pour la version légère (`version_jeu.py`).
+- **Monde d'essai T41** (graine 1112514211) ; la vitrine de l'accueil le montre.
+
+Tests concernés réussis (test « trees » : cinq tailles, standard la plus courante, groupes espacés, génération 21 inchangée, modèles de plus en plus hauts ; générations et mondes anciens). Mesures dans la même séance, 0.0.6.10 puis 0.0.6.11 : à l'arrêt et face aux arbres, FPS au plafond de 120 dans les deux cas (PC et Web) ; en vol, 58 → 58 sur PC, 60 → 61 en rendu Web.
+À tester manuellement : aspect des cinq tailles de près et de loin, forme des grands pommiers (tailles 4 et 5), buter contre un tronc, monde T41.
 
 ## 0.0.6.10 — Arbres faits dans Blender (#138)
 Version locale (pas encore publiée).

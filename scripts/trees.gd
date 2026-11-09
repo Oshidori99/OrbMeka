@@ -4,12 +4,17 @@ extends RefCounted
 # version_jeu.py pour cette version légère). De près (jusqu'à DETAIL_END) : branches à peu de facettes, feuillage en
 # plaques croisées avec une image de grappe de feuilles (bords découpés, sans transparence coûteuse), pommes et noisettes
 # simples ; au loin (jusqu'à FAR_END) : tronc, grosses branches et quelques grandes plaques ; ensuite rien.
-# Un modèle par espèce ; les trois variantes de la génération (0 normal, 1 grand, 2 jeune) changent la taille.
+# 0.0.6.11 : cinq tailles par espèce (1 petit, 2 plutôt petit, 3 standard, 4 plutôt grand, 5 grand), chacune son propre
+# modèle (proportions naturelles : un grand arbre a un tronc plus épais et plus de branches, pas le même arbre agrandi).
+# Pommier : 4,0 / 5,5 / 7,5 / 8,4 / 9,6 m ; noisetier : 3,0 / 4,3 / 5,8 / 6,5 / 7,5 m.
 const APPLE := 0
 const HAZEL := 1
 const KIND_NAMES := ["pommier", "noisetier"]
-const VARIANTS := 3
-const VARIANT_SCALES := [1.0, 1.12, 0.72]
+const SIZES := 5
+const SIZE_NAMES := ["petit", "plutôt petit", "standard", "plutôt grand", "grand"]
+# Collision du tronc (pommier) ou du pied de la touffe (noisetier) par taille : [rayon, hauteur].
+const APPLE_TRUNKS := [Vector2(0.12, 1.0), Vector2(0.2, 1.5), Vector2(0.3, 2.0), Vector2(0.36, 2.2), Vector2(0.41, 2.4)]
+const HAZEL_TRUNKS := [Vector2(0.15, 0.8), Vector2(0.2, 1.2), Vector2(0.24, 1.6), Vector2(0.27, 1.8), Vector2(0.3, 2.0)]
 # Distances d'affichage (m) : détaillé jusqu'à DETAIL_END, simplifié jusqu'à FAR_END, ensuite rien.
 const DETAIL_END := 40.0
 const FAR_END := 150.0
@@ -47,14 +52,15 @@ static func material(kind: int, role: String) -> StandardMaterial3D:
 	return _materials[key]
 
 # Modèle de près (far = false) ou de loin (far = true), lu une fois dans assets/trees, avec nos matériaux.
-static func mesh(kind: int, _variant: int = 0, far := false) -> ArrayMesh:
-	var key := "%d_%s" % [kind, far]
+static func mesh(kind: int, size: int = 3, far := false) -> ArrayMesh:
+	size = clampi(size, 1, SIZES)
+	var key := "%d_%d_%s" % [kind, size, far]
 	if not _meshes.has(key):
-		_meshes[key] = _load(kind, far)
+		_meshes[key] = _load(kind, size, far)
 	return _meshes[key]
 
-static func _load(kind: int, far: bool) -> ArrayMesh:
-	var scene: PackedScene = load(FOLDER + "%s_%s.glb" % [FILES[kind], "loin" if far else "jeu"])
+static func _load(kind: int, size: int, far: bool) -> ArrayMesh:
+	var scene: PackedScene = load(FOLDER + "%s_%d_%s.glb" % [FILES[kind], size, "loin" if far else "jeu"])
 	var root := scene.instantiate()
 	var source: Mesh = (root.find_children("*", "MeshInstance3D", true, false)[0] as MeshInstance3D).mesh
 	root.free()
@@ -80,9 +86,9 @@ static func _load(kind: int, far: bool) -> ArrayMesh:
 		result.surface_set_material(result.get_surface_count() - 1, material(kind, role))
 	return result
 
-# Collision simple : le tronc (pommier) ou le pied de la touffe (noisetier) : [rayon, hauteur], avant la taille de la variante.
-static func trunk(kind: int, _variant: int = 0) -> Vector2:
-	return Vector2(0.24, 2.0) if kind == APPLE else Vector2(0.24, 1.6)
+# Collision simple : le tronc (pommier) ou le pied de la touffe (noisetier) : [rayon, hauteur].
+static func trunk(kind: int, size: int = 3) -> Vector2:
+	return (APPLE_TRUNKS if kind == APPLE else HAZEL_TRUNKS)[clampi(size, 1, SIZES) - 1]
 
 static func triangles(made: Mesh) -> int:
 	var count := 0
@@ -92,33 +98,32 @@ static func triangles(made: Mesh) -> int:
 	return count
 
 # Arbre posé dans le monde : corps immobile (collision du tronc), modèle détaillé de près, simplifié au loin.
-static func tree_body(kind: int, variant: int) -> StaticBody3D:
+static func tree_body(kind: int, size: int) -> StaticBody3D:
 	var body := StaticBody3D.new()
 	body.name = "Arbre"
 	body.add_to_group("trees")
 	var model := Node3D.new()
 	model.name = "Modele"
-	model.scale = Vector3.ONE * VARIANT_SCALES[clampi(variant, 0, VARIANTS - 1)]
 	body.add_child(model)
 	var near := MeshInstance3D.new()
 	near.name = "Detail"
-	near.mesh = mesh(kind, variant)
+	near.mesh = mesh(kind, size)
 	near.visibility_range_end = DETAIL_END
 	near.visibility_range_end_margin = 2.0
 	model.add_child(near)
 	var far := MeshInstance3D.new()
 	far.name = "Loin"
-	far.mesh = mesh(kind, variant, true)
+	far.mesh = mesh(kind, size, true)
 	far.visibility_range_begin = DETAIL_END
 	far.visibility_range_begin_margin = 2.0
 	far.visibility_range_end = FAR_END
 	model.add_child(far)
-	var size := trunk(kind, variant)
+	var foot := trunk(kind, size)
 	var shape := CylinderShape3D.new()
-	shape.radius = size.x
-	shape.height = size.y
+	shape.radius = foot.x
+	shape.height = foot.y
 	var collision := CollisionShape3D.new()
 	collision.shape = shape
-	collision.position.y = size.y / 2.0
+	collision.position.y = foot.y / 2.0
 	model.add_child(collision)
 	return body

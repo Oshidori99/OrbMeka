@@ -35,7 +35,7 @@ func all_trees(terrain: RefCounted) -> Array:
 
 func _run() -> void:
 	var options := Generation.defaults()
-	check(Generation.VERSION == 21 and options.fruit_trees == 14 and Generation.describe(options).contains("pommiers et noisetiers"), "generation 21: fruit trees setting, described in the world information")
+	check(Generation.VERSION == 22 and options.fruit_trees == 14 and Generation.describe(options).contains("pommiers et noisetiers") and Generation.describe(options).contains("cinq tailles"), "generation 22: fruit trees of five sizes, described in the world information")
 	var terrain := terrain_for(SEED, options)
 	var trees := all_trees(terrain)
 	var again := all_trees(terrain_for(SEED, options))
@@ -48,9 +48,25 @@ func _run() -> void:
 		kinds[int(tree.espece)] += 1
 		var area: String = str(tree.id).get_slice("_", 0) + "_" + str(tree.id).get_slice("_", 1)
 		groups[area] = groups.get(area, 0) + 1
-		variants_ok = variants_ok and int(tree.variante) >= 0 and int(tree.variante) < Trees.VARIANTS
+		variants_ok = variants_ok and int(tree.classe) >= 1 and int(tree.classe) <= Trees.SIZES
 	check(trees.size() > 100 and trees.size() < 1000 and kinds[0] > 0 and kinds[1] > 0 and variants_ok, "a few trees only: %d apple trees, %d hazels in a 512 m world" % kinds)
 	check(groups.values().max() <= 3 and groups.values().has(1) and groups.values().has(3), "alone or in small groups of 2 to 3")
+	# 0.0.6.11 (version 22) : cinq tailles, plus souvent la taille standard ; arbres d'un groupe à 5 m au moins.
+	var by_size := [0, 0, 0, 0, 0]
+	var spaced := true
+	for tree in trees:
+		by_size[int(tree.classe) - 1] += 1
+		for other in trees:
+			if other != tree and str(other.id).get_slice("_", 0) == str(tree.id).get_slice("_", 0) and str(other.id).get_slice("_", 1) == str(tree.id).get_slice("_", 1):
+				spaced = spaced and Vector2(tree.x, tree.z).distance_to(Vector2(other.x, other.z)) >= SmoothTerrain.TREE_SPACING_BIG
+	check(not by_size.has(0) and by_size[2] == by_size.max(), "all five sizes, standard the most common (%s)" % str(by_size))
+	check(spaced, "trees of a group at least 5 m apart")
+	var v21 := options.duplicate()
+	v21.version = 21
+	var old_sizes := {}
+	for tree in all_trees(terrain_for(SEED, v21)):
+		old_sizes[int(tree.classe)] = true
+	check(old_sizes.keys().all(func(size): return size in [2, 3, 4]) and old_sizes.size() == 3, "generation 21 worlds keep their three kinds (now sizes 2, 3, 4)")
 	var dry := true
 	var sandless := true
 	var gentle := true
@@ -78,19 +94,22 @@ func _run() -> void:
 		var column := Vector2i(index * 37 % 900 - 450, index * 53 % 900 - 450)
 		same = same and old.ground_height(column) == terrain.ground_height(column) and old.surface_kind(column) == terrain.surface_kind(column)
 	check(same, "the relief and the ground do not change with the trees")
-	# 0.0.6.10 : modèles légers faits dans Blender (assets/trees) : écorce, feuillage, fruits de près ; écorce et feuillage au loin.
+	# 0.0.6.10 : modèles légers faits dans Blender (assets/trees) ; 0.0.6.11 : un modèle par taille, de plus en plus haut.
 	var models_ok := true
-	var sizes := []
+	var heights := []
 	for kind in [Trees.APPLE, Trees.HAZEL]:
-		var near: ArrayMesh = Trees.mesh(kind)
-		var far: ArrayMesh = Trees.mesh(kind, 0, true)
-		sizes.append_array([Trees.triangles(near), Trees.triangles(far)])
-		models_ok = models_ok and near.get_surface_count() == 3 and far.get_surface_count() == 2 and Trees.triangles(near) < 10000 and Trees.triangles(far) * 5 < Trees.triangles(near)
-		var leaves: StandardMaterial3D = near.surface_get_material(1)
-		models_ok = models_ok and leaves.transparency == BaseMaterial3D.TRANSPARENCY_ALPHA_SCISSOR and leaves.albedo_texture != null
-	check(models_ok, "Blender models: apple %d / %d triangles near / far, hazel %d / %d; leaves with cut-out edges" % sizes)
-	var height: float = Trees.mesh(Trees.APPLE).get_aabb().size.y
-	check(height > 5.0 and height < 6.5 and Trees.VARIANT_SCALES[2] * height > 3.5, "apple trees about 5.7 m high (young ones about 4 m)")
+		var last := 0.0
+		for size in range(1, Trees.SIZES + 1):
+			var near: ArrayMesh = Trees.mesh(kind, size)
+			var far: ArrayMesh = Trees.mesh(kind, size, true)
+			var high: float = near.get_aabb().size.y
+			heights.append(snappedf(high, 0.1))
+			models_ok = models_ok and near.get_surface_count() == 3 and far.get_surface_count() >= 1 and Trees.triangles(near) < 15000 and Trees.triangles(far) * 5 < Trees.triangles(near) and high > last
+			var leaves: StandardMaterial3D = near.surface_get_material(1)
+			models_ok = models_ok and leaves.transparency == BaseMaterial3D.TRANSPARENCY_ALPHA_SCISSOR and leaves.albedo_texture != null
+			last = high
+	check(models_ok, "Blender models, five sizes each, taller and taller, leaves with cut-out edges (%s m)" % str(heights))
+	check(heights[2] > 7.0 and heights[2] < 8.0 and heights[7] > 5.3 and heights[7] < 6.3, "standard size: apple tree about 7.5 m, hazel about 5.8 m")
 	# Dans le monde : détaillé de près, simplifié au loin, rien au-delà ; tronc solide ; pas de coupe.
 	var world: Node3D = load("res://scenes/world.tscn").instantiate()
 	world.generation_options = options

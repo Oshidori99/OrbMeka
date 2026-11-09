@@ -3,13 +3,13 @@
 importer="scene"
 importer_version=1
 type="PackedScene"
-uid="uid://br2icyiuqtxsf"
-path="res://.godot/imported/pommier_loin.glb-22df98cbef7557ad409164eaa7e28e2e.scn"
+uid="uid://ddpcsgfnpuegf"
+path="res://.godot/imported/pommier_4_jeu.glb-fd4412b8be759403a9d122567897b572.scn"
 
 [deps]
 
-source_file="res://assets/trees/pommier_loin.glb"
-dest_files=["res://.godot/imported/pommier_loin.glb-22df98cbef7557ad409164eaa7e28e2e.scn"]
+source_file="res://assets/trees/pommier_4_jeu.glb"
+dest_files=["res://.godot/imported/pommier_4_jeu.glb-fd4412b8be759403a9d122567897b572.scn"]
 
 [params]
 
