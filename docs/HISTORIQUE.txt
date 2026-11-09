@@ -3,6 +3,10 @@ Du plus récent au plus ancien. Ce fichier est mis à jour à chaque version.
 
 === Thème « Monde » (0.0.5 et suivantes) ===
 
+0.0.6.10 — Arbres faits dans Blender
+Génération du terrain : version 21 · Menus : version 3.
+Pommier et noisetier refaits dans Blender : pommier de 5,7 m à la couronne pleine, noisettes visibles ; version légère dans le jeu (feuillage en plaques), mondes inchangés.
+
 0.0.6.9 — Pommiers et noisetiers
 Génération du terrain : version 21 (nouvelle) · Menus : version 3.
 Premiers arbres fruitiers : pommiers (pommes) et noisetiers (noisettes), 3 formes chacun, seuls ou par 2 à 3 dans les prairies et en lisière ; simplifiés au loin.

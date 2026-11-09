@@ -1,0 +1,14 @@
+{
+  "Pommier": {
+    "pommier_jeu": 8265,
+    "pommier_loin": 1009,
+    "plaques": 456,
+    "fruits": 64
+  },
+  "Noisetier": {
+    "noisetier_jeu": 5932,
+    "noisetier_loin": 558,
+    "plaques": 366,
+    "fruits": 48
+  }
+}

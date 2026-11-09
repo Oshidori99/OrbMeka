@@ -1,7 +1,7 @@
 extends SceneTree
 # 0.0.6.9 (#149, #138) : premiers arbres fruitiers (génération 21). Même graine = mêmes arbres ; quelques-uns seulement,
 # seuls ou par 2 à 3 ; jamais dans l'eau, le sable, la boue ni sur une pente raide ; anciens mondes inchangés ;
-# modèle détaillé de près, simplifié au loin, rien au-delà ; collision du tronc ; pas de coupe.
+# modèle détaillé de près, simplifié au loin, rien au-delà ; collision du tronc ; pas de coupe. 0.0.6.10 : modèles Blender.
 const SmoothTerrain = preload("res://scripts/smooth_terrain.gd")
 const Generation = preload("res://scripts/world_generation.gd")
 const Trees = preload("res://scripts/trees.gd")
@@ -78,20 +78,19 @@ func _run() -> void:
 		var column := Vector2i(index * 37 % 900 - 450, index * 53 % 900 - 450)
 		same = same and old.ground_height(column) == terrain.ground_height(column) and old.surface_kind(column) == terrain.surface_kind(column)
 	check(same, "the relief and the ground do not change with the trees")
-	# Modèles : 3 variantes par espèce, pommes et noisettes, simplifiés au loin.
+	# 0.0.6.10 : modèles légers faits dans Blender (assets/trees) : écorce, feuillage, fruits de près ; écorce et feuillage au loin.
 	var models_ok := true
+	var sizes := []
 	for kind in [Trees.APPLE, Trees.HAZEL]:
-		for variant in range(Trees.VARIANTS):
-			var near: ArrayMesh = Trees.mesh(kind, variant)
-			var far: ArrayMesh = Trees.mesh(kind, variant, true)
-			var near_count := 0
-			var far_count := 0
-			for surface in range(near.get_surface_count()):
-				near_count += near.surface_get_array_len(surface)
-			for surface in range(far.get_surface_count()):
-				far_count += far.surface_get_array_len(surface)
-			models_ok = models_ok and near.get_surface_count() == 3 and far.get_surface_count() == 2 and far_count * 8 < near_count
-	check(models_ok, "apple trees and hazels, 3 variants each, with fruit; far models at least 8 times lighter")
+		var near: ArrayMesh = Trees.mesh(kind)
+		var far: ArrayMesh = Trees.mesh(kind, 0, true)
+		sizes.append_array([Trees.triangles(near), Trees.triangles(far)])
+		models_ok = models_ok and near.get_surface_count() == 3 and far.get_surface_count() == 2 and Trees.triangles(near) < 10000 and Trees.triangles(far) * 5 < Trees.triangles(near)
+		var leaves: StandardMaterial3D = near.surface_get_material(1)
+		models_ok = models_ok and leaves.transparency == BaseMaterial3D.TRANSPARENCY_ALPHA_SCISSOR and leaves.albedo_texture != null
+	check(models_ok, "Blender models: apple %d / %d triangles near / far, hazel %d / %d; leaves with cut-out edges" % sizes)
+	var height: float = Trees.mesh(Trees.APPLE).get_aabb().size.y
+	check(height > 5.0 and height < 6.5 and Trees.VARIANT_SCALES[2] * height > 3.5, "apple trees about 5.7 m high (young ones about 4 m)")
 	# Dans le monde : détaillé de près, simplifié au loin, rien au-delà ; tronc solide ; pas de coupe.
 	var world: Node3D = load("res://scenes/world.tscn").instantiate()
 	world.generation_options = options
@@ -105,10 +104,10 @@ func _run() -> void:
 	check(shown.size() == 1, "the tree is shown in the world")
 	if shown.size() == 1:
 		var body: StaticBody3D = shown[0]
-		var detail: MeshInstance3D = body.get_node("Detail")
-		var far: MeshInstance3D = body.get_node("Loin")
+		var detail: MeshInstance3D = body.get_node("Modele/Detail")
+		var far: MeshInstance3D = body.get_node("Modele/Loin")
 		check(detail.visibility_range_end == Trees.DETAIL_END and far.visibility_range_begin == Trees.DETAIL_END and far.visibility_range_end == Trees.FAR_END, "detailed up to %d m, simplified up to %d m, then nothing" % [Trees.DETAIL_END, Trees.FAR_END])
-		check(body.get_children().any(func(child): return child is CollisionShape3D and child.shape is CylinderShape3D), "the trunk is solid")
+		check(body.find_children("*", "CollisionShape3D", true, false).any(func(child): return child.shape is CylinderShape3D), "the trunk is solid")
 		var ground: float = world.terrain.height_at(tree.x, tree.z)
 		check(absf(body.position.y - ground) < 0.2, "standing on the ground")
 		world.player.selected_type = world.PICKAXE
