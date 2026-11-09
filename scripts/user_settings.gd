@@ -74,6 +74,9 @@ const SPECS := {
 	"view_distance": {"label": "Distance d’affichage", "unit": "zones de 8 m", "default": 8.0, "min": 1.0, "max": 32.0, "step": 1.0},
 	# 0.0.5.22 (#128) : terrain lointain simplifié jusqu'à cette distance (0 : aucun), au-delà du terrain détaillé.
 	"far_distance": {"label": "Distance lointaine (relief simplifié)", "unit": "zones de 8 m", "default": 24.0, "min": 0.0, "max": 48.0, "step": 1.0},
+	# 0.0.6.12 : images par seconde au plus (menus et jeu). Sans limite, la carte graphique calculait jusqu'à 240 images
+	# par seconde (plus de 500 sans synchronisation) et pouvait siffler ou grésiller ; 60 suffit et chauffe moins.
+	"max_fps": {"label": "Images par seconde au plus", "unit": "images par seconde", "default": 60.0, "min": 30.0, "max": 240.0, "step": 10.0},
 }
 # 0.0.5.36 (#128) : sur le Web, distances plus courtes par défaut (le joueur peut les changer dans Vidéo).
 const WEB_DEFAULTS := {"grass_zones": 3.0, "view_distance": 6.0, "far_distance": 16.0}

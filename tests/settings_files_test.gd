@@ -144,6 +144,12 @@ func _run() -> void:
 	app.open_world(item.id)
 	check(app.active_world.player.camera.fov == 75, "default FOV is the original view")
 	app.return_to_worlds()
+	# 0.0.6.12 : images par seconde limitées (60 par défaut) dans les menus et le jeu : le PC ne siffle plus.
+	check(Engine.max_fps == 60 and app.setting_fields.has("max_fps"), "frame rate limited to 60 by default (Vidéo → Jeu)")
+	apply(app, {"max_fps": "120"})
+	var raised := Engine.max_fps
+	apply(app, {"max_fps": "60"})
+	check(raised == 120 and Engine.max_fps == 60, "the frame rate limit applies at once")
 	check(Input.mouse_mode == Input.MOUSE_MODE_VISIBLE, "verification never captures pointer")
 	root.remove_child(app)
 	app.queue_free()
