@@ -16,7 +16,7 @@ static func build(id: String, skin: String) -> Node3D:
 		return _cat_model()
 	return _human_model(id, skin if not skin.is_empty() else "light")
 
-# Modèles détaillés faits dans Blender (sources_blender/personnages.blend), exportés en .glb.
+# Modèles détaillés faits dans Blender (personnages.blend, rangé hors du dépôt dans ../Archives OrbMeka/Blender), exportés en .glb.
 # Les autres personnages gardent leurs volumes simples ci-dessous.
 const MODELS := {
 	"brioche": preload("res://assets/characters/brioche.glb"),

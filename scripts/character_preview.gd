@@ -27,7 +27,7 @@ const CHARACTERS := {
 	"turtle": {"name": "Tortue", "age": "peluche", "height": 0.51},
 	"rabbit": {"name": "Lapin bleu", "age": "peluche", "height": 0.73},
 }
-# Personnages modélisés dans Blender (sources_blender/personnages.blend) : aperçu en 3D.
+# Personnages modélisés dans Blender (personnages.blend, rangé hors du dépôt dans ../Archives OrbMeka/Blender) : aperçu en 3D.
 # La matière « Skin » prend la couleur de peau choisie.
 const MODELS := {
 	"boy9": preload("res://assets/characters/boy9.glb"),

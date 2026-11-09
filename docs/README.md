@@ -5,7 +5,7 @@ Godot 4.7 / GDScript. Formes et couleurs simples ; assets externes seulement sou
 ## 0.0.6.10 — Arbres faits dans Blender (#138)
 Version locale (pas encore publiée).
 - **Pommier et noisetier refaits dans Blender** (sources_blender/arbres). Pommier : 5,7 m de haut, axe central, trois étages de branches, couronne pleine jusqu'en bas, branches basses presque à plat dont le bout retombe, pommes bien visibles. Noisetier : touffe de tiges, noisettes en grappes de 2 ou 3 avec leur collerette, au bord du feuillage.
-- **Deux versions** : la version détaillée (1,3 million de triangles pour le pommier, 450 000 pour le noisetier) reste dans `arbres_detail.blend` ; le jeu lit une **version légère** faite à partir d'elle (`version_jeu.py` → assets/trees) : branches à peu de facettes, feuillage en plaques croisées avec une image de grappe de feuilles (bords découpés), fruits simples. De près : 8 300 triangles (pommier), 5 900 (noisetier) ; au loin (40 à 150 m) : 1 000 et 560.
+- **Deux versions** : la version détaillée (1,3 million de triangles pour le pommier, 450 000 pour le noisetier) reste dans `arbres_detail.blend` (rangé hors du dépôt, dans ../Archives OrbMeka/Blender) ; le jeu lit une **version légère** faite à partir d'elle (`version_jeu.py` → assets/trees) : branches à peu de facettes, feuillage en plaques croisées avec une image de grappe de feuilles (bords découpés), fruits simples. De près : 8 300 triangles (pommier), 5 900 (noisetier) ; au loin (40 à 150 m) : 1 000 et 560.
 - Un modèle par espèce : les trois variantes de la génération donnent un arbre normal, grand ou jeune (taille). Placement inchangé : **mêmes mondes**, pas de nouvelle génération.
 - **Monde d'essai T40** (graine 1814019520) ; la vitrine de l'accueil le montre.
 

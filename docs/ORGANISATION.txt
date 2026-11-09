@@ -21,11 +21,12 @@ docs/ contient le guide détaillé README.md et cette note.
 docs/idees/ garde des images d'idées pas encore dans le jeu (pour plus tard).
 docs/idees/personnages/ garde les prototypes de chaque nouveau personnage (nom-1.png à nom-3.png,
 rendus dans Blender), pour comparer ; Godot l'ignore (fichier .gdignore).
-sources_blender/personnages.blend contient les modèles des personnages et les
+Les fichiers Blender (.blend) sont rangés hors du dépôt, dans ../Archives OrbMeka/Blender :
+personnages.blend contient les modèles des personnages et les
 scripts qui les construisent (textes orbmeka_*.py dans Blender) ; ils sont
 exportés en .glb dans assets/characters/, lus par le jeu.
-sources_blender/arbres/ contient les arbres (pommier, noisetier) : arbres_detail.blend (modèles détaillés),
-generer_arbres.py (les construit), version_jeu.py (version légère exportée dans assets/trees/, lue par
+sources_blender/arbres/ contient les scripts des arbres (pommier, noisetier) : generer_arbres.py (construit les
+modèles détaillés et enregistre arbres_detail.blend dans les archives Blender), version_jeu.py (version légère exportée dans assets/trees/, lue par
 scripts/trees.gd), presentation.py (rendu d'aperçu) ; voir son README.md.
 L'icône icon.svg reste à la racine avec son fichier icon.svg.import :
 inutile de créer un dossier de ressources pour cette seule image.

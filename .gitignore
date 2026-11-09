@@ -13,3 +13,8 @@ docs/Tester ancienne version.txt
 
 # Réglages locaux de Claude Code
 .claude/
+
+# Fichiers Blender : rangés hors du dépôt, dans ..\Archives OrbMeka\Blender (09.11.2026)
+*.blend
+*.blend1
+*.blend2

@@ -20,6 +20,7 @@ scene.camera=cam
 scene.render.resolution_x=1280;scene.render.resolution_y=800;scene.render.resolution_percentage=100
 if hasattr(scene,'eevee') and hasattr(scene.eevee,'taa_render_samples'):scene.eevee.taa_render_samples=24
 scene.render.image_settings.file_format='PNG';scene.render.filepath=r'C:\Users\Dev\Desktop\Godot\orb-meka\sources_blender\arbres\apercu_ensemble.png'
-bpy.ops.wm.save_as_mainfile(filepath=r'C:\Users\Dev\Desktop\Godot\orb-meka\sources_blender\arbres\arbres_detail.blend')
+# Enregistré là où il est ouvert (..\Archives OrbMeka\Blender\arbres_detail.blend depuis le 09.11.2026).
+bpy.ops.wm.save_mainfile()
 bpy.ops.render.render(write_still=True)
 print('PREVIEW_READY')

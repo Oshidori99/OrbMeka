@@ -15,7 +15,8 @@ Deux versions : la **détaillée** (ce fichier Blender) et la **légère**, fait
 
 ## Fichiers
 
-- `arbres_detail.blend` : source, scène `OrbMeka_Arbres_Atelier` (la scène `Scene` de l'utilisateur est gardée).
+- `arbres_detail.blend` : source, scène `OrbMeka_Arbres_Atelier` (la scène `Scene` de l'utilisateur est gardée),
+  **rangé hors du dépôt** dans `../../../Archives OrbMeka/Blender/` (le générateur l'y enregistre).
 - `generer_arbres.py` : générateur (aussi enregistré dans le fichier Blender). Le relancer refait toute la scène
   et enregistre le fichier ; relancer ensuite `presentation.py` (lumières, caméra, rendu `apercu_ensemble.png`).
 - `version_jeu.py` : relance le générateur, puis fait la **version légère** (objets `<Espèce>_Leger` et `_Leger_Loin`) :

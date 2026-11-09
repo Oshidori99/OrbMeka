@@ -6,6 +6,9 @@ import numpy as np
 ROOT=Path(__file__).resolve().parents[2]
 OUT=ROOT/'sources_blender'/'arbres'
 ASSETS=ROOT/'assets'/'trees'
+# 09.11.2026 : les fichiers .blend sont rangés hors du dépôt, dans ..Archives OrbMekaBlender (demande de l'utilisateur).
+BLEND=ROOT.parent/'Archives OrbMeka'/'Blender'/'arbres_detail.blend'
+BLEND.parent.mkdir(parents=True,exist_ok=True)
 ASSETS.mkdir(exist_ok=True)
 old=bpy.data.scenes.get('OrbMeka_Arbres_Atelier')
 if old:
@@ -347,6 +350,6 @@ make_species(True)
 scene['OrbMeka_assets']='Revision 2: connected curved branches, rounded leafy tips, lower hazel canopy. One variant per species. Not integrated.'
 scene['stats_json']=json.dumps(stats)
 text=bpy.data.texts.get('OrbMeka_Arbres_Generateur.py') or bpy.data.texts.new('OrbMeka_Arbres_Generateur.py');text.clear();text.write(Path(__file__).read_text(encoding='utf-8'))
-bpy.ops.wm.save_as_mainfile(filepath=str(OUT/'arbres_detail.blend'))
+bpy.ops.wm.save_as_mainfile(filepath=str(BLEND))
 (OUT/'mesures.json').write_text(json.dumps(stats,indent=2),encoding='utf-8')
-print('SOURCE_SAVED',str(OUT/'arbres_detail.blend'))
+print('SOURCE_SAVED',str(BLEND))
