@@ -8,7 +8,7 @@ param(
  [ValidateRange(1,90)][int]$AbortMemoryPercent = 90,
  # Processeur : au-delà de 85 %, moins de tests à la fois (jamais d'arrêt : 6 tests chargent normalement le CPU).
  [ValidateRange(1,100)][int]$BusyCpuPercent = 85,
- [int]$MaxTestMemoryMB = 3072,
+ [int]$MaxTestMemoryMB = 2048,
  [string]$Godot = 'C:\Users\Dev\Desktop\Godot_v4.7.2-stable_win64.exe\Godot_v4.7.2-stable_win64.exe'
 )
 $ErrorActionPreference = 'Stop'
