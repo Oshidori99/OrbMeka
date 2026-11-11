@@ -1,9 +1,20 @@
-# OrbMeka™ — prototype 0.0.6.12
+# OrbMeka™ — prototype 0.0.6.13
 
 Godot 4.7 / GDScript. Formes et couleurs simples ; assets externes seulement sous licence vérifiée (sons CC0, assets/sounds/CREDITS.txt).
 
+## 0.0.6.13 — Forêts (#138)
+Version publiée (avec 0.0.6.10 à 0.0.6.12).
+- **Génération version 24** (nouveaux mondes ; les autres ne changent pas) : environ 18 forêts de 25 à 40 m de rayon (un quart du sol), bord irrégulier ; réglage « Forêts » des mondes personnalisés.
+- **Deux sortes** : **pinède** au pied et sur les pentes basses des montagnes (seulement des pins) ; **forêt de feuillus** en plaine (grands tilleuls au cœur, noisetiers en sous-bois).
+- **Lisières** : arbres plus espacés et plus petits vers le bord ; au bord des feuillus, noisetiers, pommiers et petits tilleuls. **Clairières** d'herbe dans les grandes forêts, parfois avec un grand arbre seul au milieu.
+- Arbres sur une grille de 5,5 m un peu décalée, serrés au cœur ; jamais dans l'eau, le sable, la boue ni sur les pentes trop raides (des trous dans la forêt là où elle touche un désert ou un lac). Les arbres isolés et petits groupes restent hors des forêts. Environ 1 260 arbres dans un monde de 512 m.
+- **Monde d'essai T43** (graine 2114718997) ; la vitrine de l'accueil le montre.
+
+Tests concernés réussis (nouveau test « forests » : nombre, sortes et taille des forêts, part du sol, espèces du cœur et de la lisière, grands arbres au cœur, densité, clairières, arbres isolés dehors, génération 23 sans forêt). Mesures au cœur d'une forêt, sans limite d'images : PC 330 → 216 FPS (feuillus), 462 → 189 (pinède) ; rendu Web 445 → 299 et 414 → 253 (environ 3 ms de plus par image, large marge avec la limite de 60).
+À tester manuellement : se promener dans une forêt et en lisière, clairières, fluidité sur un PC plus faible et sur la page Web.
+
 ## 0.0.6.12 — Pins et tilleuls (#146)
-Version locale (pas encore publiée).
+Version locale (publiée avec 0.0.6.13).
 - **Petit sifflement corrigé** : le jeu calculait jusqu'à 240 images par seconde (plus de 500 sans synchronisation), même dans les menus ; la carte graphique pouvait siffler ou grésiller. Nouveau réglage Paramètres → Vidéo → Jeu : **Images par seconde au plus** (60 par défaut, 30 à 240), appliqué aux menus et au jeu.
 - **Pin sylvestre** fait dans Blender : tronc droit, écorce orangée ; branches en étages, touffes d'aiguilles bleu-vert, petites pommes de pin. Jeune : conique et garni jusqu'en bas ; adulte : tronc nu sur plus de la moitié de sa hauteur (quelques chicots), cime large et aplatie. Tailles 1 à 5 : 7,6 / 11,6 / 15,8 / 18,9 / 21,9 m.
 - **Tilleul** fait dans Blender : tronc droit, écorce grise fissurée, branches qui montent, couronne ovale haute et dense, feuilles en cœur. Tailles 1 à 5 : 6,6 / 10,3 / 14,3 / 17,3 / 20,1 m.
@@ -15,7 +26,7 @@ Tests concernés réussis (limite d'images par seconde ; test « trees » : quat
 À tester manuellement : le sifflement a-t-il disparu ; aspect des pins et tilleuls de près et de loin ; monde T42.
 
 ## 0.0.6.11 — Arbres de cinq tailles (#178, #180)
-Version locale (pas encore publiée).
+Version locale (publiée avec 0.0.6.13).
 - **Arbres plus réalistes** (taille 3, standard) : pommier de 7,5 m au tronc plus large, tronc dégagé jusqu'aux premières branches vers 2 m, couronne plus large en haut ; noisetier de 5,8 m, tiges plus épaisses, feuillage à partir d'environ 1 m.
 - **Cinq tailles par espèce**, chacune son propre modèle (un grand arbre a un tronc plus épais et plus de branches, pas le même arbre agrandi) : 1 petit, 2 plutôt petit, 3 standard, 4 plutôt grand, 5 grand. Pommier 4,0 / 5,5 / 7,4 / 8,7 / 9,7 m ; noisetier 3,0 / 4,3 / 5,8 / 6,5 / 7,5 m. De près : 5 900 à 14 900 triangles (pommier), 3 500 à 11 200 (noisetier) ; au loin : 100 à 1 500.
 - **Génération version 22** (nouveaux mondes) : tailles tirées selon la graine (15 % petit, 25 % plutôt petit, 30 % standard, 20 % plutôt grand, 10 % grand) ; arbres d'un groupe à 5 m au moins. Les mondes en génération 21 gardent leurs arbres aux mêmes endroits ; leurs trois variantes deviennent les tailles 3, 4 et 2.
@@ -26,7 +37,7 @@ Tests concernés réussis (test « trees » : cinq tailles, standard la plus cou
 À tester manuellement : aspect des cinq tailles de près et de loin, forme des grands pommiers (tailles 4 et 5), buter contre un tronc, monde T41.
 
 ## 0.0.6.10 — Arbres faits dans Blender (#138)
-Version locale (pas encore publiée).
+Version locale (publiée avec 0.0.6.13).
 - **Pommier et noisetier refaits dans Blender** (sources_blender/arbres). Pommier : 5,7 m de haut, axe central, trois étages de branches, couronne pleine jusqu'en bas, branches basses presque à plat dont le bout retombe, pommes bien visibles. Noisetier : touffe de tiges, noisettes en grappes de 2 ou 3 avec leur collerette, au bord du feuillage.
 - **Deux versions** : la version détaillée (1,3 million de triangles pour le pommier, 450 000 pour le noisetier) reste dans `arbres_detail.blend` (rangé hors du dépôt, dans ../Archives OrbMeka/Blender) ; le jeu lit une **version légère** faite à partir d'elle (`version_jeu.py` → assets/trees) : branches à peu de facettes, feuillage en plaques croisées avec une image de grappe de feuilles (bords découpés), fruits simples. De près : 8 300 triangles (pommier), 5 900 (noisetier) ; au loin (40 à 150 m) : 1 000 et 560.
 - Un modèle par espèce : les trois variantes de la génération donnent un arbre normal, grand ou jeune (taille). Placement inchangé : **mêmes mondes**, pas de nouvelle génération.

@@ -34,8 +34,11 @@ func all_trees(terrain: RefCounted) -> Array:
 	return result
 
 func _run() -> void:
+	# 0.0.6.13 : arbres hors forêts, vérifiés en génération 23 (les forêts ont leur propre test, forests_test.gd).
 	var options := Generation.defaults()
-	check(Generation.VERSION == 23 and options.fruit_trees == 14 and options.other_trees == 16 and Generation.describe(options).contains("pommiers et noisetiers") and Generation.describe(options).contains("cinq tailles") and Generation.describe(options).contains("Pins sylvestres"), "generation 23: fruit trees, pines and lindens of five sizes, described in the world information")
+	options.version = 23
+	options.erase("forests")
+	check(Generation.VERSION >= 23 and options.fruit_trees == 14 and options.other_trees == 16 and Generation.describe(options).contains("pommiers et noisetiers") and Generation.describe(options).contains("cinq tailles") and Generation.describe(options).contains("Pins sylvestres"), "generation 23: fruit trees, pines and lindens of five sizes, described in the world information")
 	var terrain := terrain_for(SEED, options)
 	var trees := all_trees(terrain)
 	var again := all_trees(terrain_for(SEED, options))
@@ -64,6 +67,7 @@ func _run() -> void:
 	var v21 := options.duplicate()
 	v21.version = 21
 	v21.erase("other_trees")
+	v21.erase("forests")
 	var old_sizes := {}
 	for tree in all_trees(terrain_for(SEED, v21)):
 		old_sizes[int(tree.classe)] = true
@@ -99,6 +103,7 @@ func _run() -> void:
 	var v22 := options.duplicate()
 	v22.version = 22
 	v22.erase("other_trees")
+	v22.erase("forests")
 	var v22_trees := all_trees(terrain_for(SEED, v22))
 	check(v22_trees.all(func(tree): return int(tree.espece) < Trees.PINE) and v22_trees == trees.filter(func(tree): return int(tree.espece) < Trees.PINE), "generation 22 worlds keep exactly their fruit trees, without pines or lindens")
 	# Anciens mondes : génération 20 sans arbre, relief identique.
@@ -106,6 +111,7 @@ func _run() -> void:
 	old_options.version = 20
 	old_options.erase("fruit_trees")
 	old_options.erase("other_trees")
+	old_options.erase("forests")
 	var old := terrain_for(SEED, old_options)
 	check(all_trees(old).is_empty(), "generation 20 worlds get no trees")
 	var same := true

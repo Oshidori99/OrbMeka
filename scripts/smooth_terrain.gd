@@ -84,6 +84,7 @@ func setup(terrain_seed: int, flat_spots: Array = [], options: Dictionary = {}) 
 	_trees_on = int(generation_options.get("version", 0)) >= 21
 	_tree_sizes_on = int(generation_options.get("version", 0)) >= 22
 	_other_trees_on = int(generation_options.get("version", 0)) >= 23
+	_forests_on = int(generation_options.get("version", 0)) >= 24
 	fall_limit = half_zones * int(ZONE_METERS) - 3
 	var layers := layers_of(generation_options)
 	low_point = layers[0]
@@ -2074,6 +2075,10 @@ func trees_in_zone(area: Vector2i) -> Array:
 	var result := _fruit_trees(area)
 	if _other_trees_on:
 		result.append_array(_pines_and_lindens(area, result))
+	if _forests_on:
+		# 0.0.6.13 : les arbres isolés restent hors des forêts ; puis les arbres des forêts de la zone.
+		result = result.filter(func(tree): return forest_at(Vector2(tree.x, tree.z)).is_empty())
+		result.append_array(_forest_trees(area, result))
 	return result
 
 func _fruit_trees(area: Vector2i) -> Array:
@@ -2193,3 +2198,130 @@ func _near_mountain_foot(at: Vector2) -> bool:
 			if ratio > 0.45 and ratio < 1.3:
 				return true
 	return false
+
+# 0.0.6.13 (version 24, #138) : forêts. Deux sortes : pinède au pied et sur les pentes basses des montagnes (pins de toutes
+# tailles, jeunes pins en lisière) et forêt de feuillus en plaine (grands tilleuls au cœur, noisetiers en sous-bois ;
+# pommiers, noisetiers et petits tilleuls en lisière). Une forêt pour environ « forests » zones (230 par défaut : environ
+# 18 forêts de 25 à 40 m de rayon, un cinquième du sol), bord irrégulier ; clairières d'herbe dans les grandes, parfois
+# avec un arbre seul au milieu. Arbres sur une grille de 6,5 m un peu décalée : serrés au cœur, plus rares et plus petits
+# vers la lisière. Mêmes interdits que les autres arbres (eau, sable, boue, pentes raides).
+const FOREST_PINE := 0
+const FOREST_BROADLEAF := 1
+const FOREST_STEP := 5.5
+const FOREST_CORE_SIZES := [5, 10, 25, 35, 25]
+const FOREST_EDGE_SIZES := [35, 35, 20, 8, 2]
+var _forests_on := false
+var _forests: Array = []
+var _forests_ready := false
+var _forest_zones: Dictionary = {}
+
+func forests() -> Array:
+	if not _forests_on or _forests_ready:
+		return _forests
+	_forests_ready = true
+	var chances := int(generation_options.get("forests", 0))
+	if chances <= 0:
+		return _forests
+	var rng := RandomNumberGenerator.new()
+	rng.seed = hash([_seed, "forets"])
+	var wanted := roundi(float(Generation.world_zones(int(generation_options.get("version", 0)))) / chances)
+	var limit := half_zones * ZONE_METERS - 45.0
+	for attempt in range(wanted * 4):
+		if _forests.size() >= wanted:
+			break
+		var center := Vector2(rng.randf_range(-limit, limit), rng.randf_range(-limit, limit))
+		var radius := rng.randf_range(25.0, 40.0)
+		var wobble := rng.randf() * TAU
+		var clearing_roll := rng.randf()
+		var clearings := []
+		for k in range(2):
+			clearings.append({"center": center + Vector2.from_angle(rng.randf() * TAU) * rng.randf_range(0.0, radius * 0.5), "radius": rng.randf_range(4.0, 7.5), "lone": rng.randf() < 0.4})
+		var free := not is_desert(center) and lake_at(center).is_empty() and mountain_lift(center) < 6.0
+		for spot in _flat_spots:
+			free = free and center.distance_to(spot[0]) > spot[1] + radius + 8.0
+		for other in _forests:
+			free = free and center.distance_to(other.center) > (radius + other.radius) * 0.85
+		if not free:
+			continue
+		# Grandes forêts : une ou deux clairières.
+		var kept := []
+		if radius > 33.0:
+			kept = clearings.slice(0, 2 if clearing_roll < 0.4 else 1)
+		var forest := {"index": _forests.size(), "center": center, "radius": radius, "wobble": wobble, "kind": FOREST_PINE if _near_mountain_foot(center) or mountain_lift(center) > 0.5 else FOREST_BROADLEAF, "clearings": kept}
+		_forests.append(forest)
+		var reach := radius * 1.25
+		for x in range(floori((center.x - reach) / ZONE_METERS), floori((center.x + reach) / ZONE_METERS) + 1):
+			for z in range(floori((center.y - reach) / ZONE_METERS), floori((center.y + reach) / ZONE_METERS) + 1):
+				if not _forest_zones.has(Vector2i(x, z)):
+					_forest_zones[Vector2i(x, z)] = []
+				_forest_zones[Vector2i(x, z)].append(forest.index)
+	return _forests
+
+# Profondeur dans une forêt : 1 au centre, 0 sur la lisière (bord irrégulier), négatif dehors.
+func forest_depth(at: Vector2, forest: Dictionary) -> float:
+	var offset: Vector2 = at - forest.center
+	var edge: float = forest.radius * (1.0 + 0.16 * sin(offset.angle() * 3.0 + forest.wobble) + 0.12 * _warp.get_noise_2d(at.x * 0.09 + 31.0, at.y * 0.09 - 7.0))
+	return 1.0 - offset.length() / edge
+
+# Forêt à cet endroit ({"forest", "depth"}), vide hors des forêts.
+func forest_at(at: Vector2) -> Dictionary:
+	forests()
+	for index in _forest_zones.get(Vector2i(floori(at.x / ZONE_METERS), floori(at.y / ZONE_METERS)), []):
+		var depth := forest_depth(at, _forests[index])
+		if depth > 0.0:
+			return {"forest": _forests[index], "depth": depth}
+	return {}
+
+func _pick_size(weights: Array, key: Array) -> int:
+	var pick := absi(hash(key)) % 100
+	for size in range(weights.size()):
+		pick -= weights[size]
+		if pick < 0:
+			return size + 1
+	return 3
+
+func _forest_trees(area: Vector2i, placed: Array) -> Array:
+	forests()
+	if not _forest_zones.has(area):
+		return []
+	var result := []
+	var others := placed.duplicate()
+	var low := Vector2(area) * ZONE_METERS
+	for kx in range(ceili(low.x / FOREST_STEP), ceili((low.x + ZONE_METERS) / FOREST_STEP)):
+		for kz in range(ceili(low.y / FOREST_STEP), ceili((low.y + ZONE_METERS) / FOREST_STEP)):
+			var rng := RandomNumberGenerator.new()
+			rng.seed = hash([_seed, kx, kz, "foret"])
+			var at := Vector2(kx, kz) * FOREST_STEP + Vector2(rng.randf_range(-2.0, 2.0), rng.randf_range(-2.0, 2.0))
+			var found := forest_at(at)
+			if found.is_empty():
+				continue
+			var forest: Dictionary = found.forest
+			var depth: float = found.depth
+			var lone := false
+			var in_clearing := false
+			for clearing in forest.clearings:
+				var distance: float = at.distance_to(clearing.center)
+				if distance < clearing.radius:
+					in_clearing = true
+					lone = lone or (clearing.lone and distance < FOREST_STEP * 0.5)
+			if in_clearing and not lone:
+				continue
+			# Serrés au cœur, plus rares vers la lisière.
+			if rng.randf() > lerpf(0.4, 0.92, smoothstep(0.0, 0.35, depth)):
+				continue
+			var edge := depth < 0.22
+			var kind := PINE
+			if forest.kind == FOREST_BROADLEAF:
+				var roll := rng.randf()
+				if edge:
+					kind = 1 if roll < 0.4 else (0 if roll < 0.7 else LINDEN)
+				else:
+					kind = LINDEN if roll < 0.75 else 1
+			var size := _pick_size(FOREST_EDGE_SIZES if edge else FOREST_CORE_SIZES, [_seed, kx, kz, "taille foret"])
+			if lone:
+				size = 5
+			var entry := {"id": "f%d_%d" % [kx, kz], "x": at.x, "z": at.y, "espece": kind, "variante": 0, "rotation": rng.randf_range(0.0, 360.0), "taille": rng.randf_range(0.95, 1.05), "classe": size, "foret": forest.index}
+			if _tree_spot_ok(at, others, PINE_SLOPE if kind == PINE else TREE_SLOPE, 4.0):
+				result.append(entry)
+				others.append(entry)
+	return result

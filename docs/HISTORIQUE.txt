@@ -3,6 +3,10 @@ Du plus récent au plus ancien. Ce fichier est mis à jour à chaque version.
 
 === Thème « Monde » (0.0.5 et suivantes) ===
 
+0.0.6.13 — Forêts
+Génération du terrain : version 24 (nouvelle) · Menus : version 3.
+Forêts moyennement grandes et nombreuses : pinèdes au pied des montagnes, feuillus (tilleuls, noisetiers) en plaine ; lisières de petits arbres et d'arbres fruitiers, clairières.
+
 0.0.6.12 — Pins et tilleuls
 Génération du terrain : version 23 (nouvelle) · Menus : version 3.
 Pins sylvestres (surtout au pied des montagnes) et tilleuls (surtout en lisière), faits dans Blender, cinq tailles ; images par seconde limitées à 60 (réglable) : le PC ne siffle plus.

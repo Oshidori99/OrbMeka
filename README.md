@@ -1,7 +1,8 @@
-# OrbMeka™ 0.0.6.12
+# OrbMeka™ 0.0.6.13
 
 Dans Godot, ouvrez **project.godot**, puis **F5** pour lancer le jeu.
 
+0.0.6.13 : forêts (génération 24) : pinèdes au pied des montagnes, feuillus en plaine, lisières et clairières.
 0.0.6.12 : pins sylvestres et tilleuls faits dans Blender, cinq tailles chacun (génération 23) ; le jeu est limité à 60 images par seconde (le PC ne siffle plus).
 0.0.6.11 : arbres de cinq tailles (petit à grand), plus réalistes : pommier standard de 7,5 m au tronc plus large, premières branches vers 2 m (génération 22).
 0.0.6.10 : arbres faits dans Blender : pommier de 5,7 m (couronne pleine, branches basses qui retombent) et noisetier avec ses noisettes, en version légère.

@@ -90,6 +90,7 @@ func _run() -> void:
 	# 0.0.6.9 : réglage des arbres seulement dès la version 21.
 	options_18.erase("fruit_trees")
 	options_18.erase("other_trees")
+	options_18.erase("forests")
 	deep_land.setup(7, [], options_18)
 	# 0.0.6.5 (version 19) : 5 m de terre, 20 m de pierre, 20 m de pierre sombre, Roche-mère à 45 m.
 	var deeper := SmoothTerrain.new()
@@ -468,6 +469,7 @@ func _run() -> void:
 	# 0.0.6.9 : réglage des arbres seulement dès la version 21.
 	v3_options.erase("fruit_trees")
 	v3_options.erase("other_trees")
+	v3_options.erase("forests")
 	older_terrain.setup(70621, [], v3_options)
 	var no_rocks := true
 	for x in range(-10, 10):
@@ -765,6 +767,7 @@ func _run() -> void:
 	# 0.0.6.9 : réglage des arbres seulement dès la version 21.
 	options_15.erase("fruit_trees")
 	options_15.erase("other_trees")
+	options_15.erase("forests")
 	older.setup(42, [], options_15)
 	var none_older := true
 	for found in older._all_mountains():
@@ -789,6 +792,7 @@ func _run() -> void:
 	# 0.0.6.9 : réglage des arbres seulement dès la version 21.
 	options_16.erase("fruit_trees")
 	options_16.erase("other_trees")
+	options_16.erase("forests")
 	var older_lakes := SmoothTerrain.new()
 	older_lakes.setup(42, [], options_16)
 	older_lakes._mountain_lakes_of(Vector2i.ZERO)
@@ -889,6 +893,7 @@ func _run() -> void:
 	# 0.0.6.9 : réglage des arbres seulement dès la version 21.
 	options_17.erase("fruit_trees")
 	options_17.erase("other_trees")
+	options_17.erase("forests")
 	var plain := SmoothTerrain.new()
 	plain.setup(42, [], options_17)
 	var plain_kinds := {}
@@ -1012,6 +1017,7 @@ func _run() -> void:
 	# 0.0.6.9 : réglage des arbres seulement dès la version 21.
 	options_19.erase("fruit_trees")
 	options_19.erase("other_trees")
+	options_19.erase("forests")
 	var no_river := SmoothTerrain.new()
 	no_river.setup(42, [], options_19)
 	check(no_river.rivers().is_empty() and no_river.ground_height(Vector2i(roundi(bed_point.x / 0.5), roundi(bed_point.y / 0.5))) > river_land.ground_height(Vector2i(roundi(bed_point.x / 0.5), roundi(bed_point.y / 0.5))), "version 19 worlds keep their ground, without rivers")
