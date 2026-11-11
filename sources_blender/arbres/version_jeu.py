@@ -88,24 +88,86 @@ def cards(g,source,cell,min_leaves,grow,rng):
   count+=1
  return count
 
+# 0.0.6.12 : grappe d'aiguilles de pin (touffes en éventail sur un rameau) et rameau de tilleul (feuilles en cœur, larges).
+def needle_cluster(name,seed):
+ n=512;rng=np.random.default_rng(seed)
+ y,x=np.mgrid[0:n,0:n].astype(np.float32)/(n-1)
+ rgba=np.zeros((n,n,4),np.float32)
+ def segment(x0,y0,x1,y1,width,color):
+  dx,dy=x1-x0,y1-y0;L2=dx*dx+dy*dy+1e-9
+  t=np.clip(((x-x0)*dx+(y-y0)*dy)/L2,0,1);d=np.hypot(x-(x0+t*dx),y-(y0+t*dy))
+  m=d<width*(1-.5*t)
+  rgba[m,:3]=color;rgba[m,3]=1
+ twigs=[(.5,.0,.5,.86),(.5,.30,.24,.62),(.5,.48,.78,.78),(.5,.18,.80,.40)]
+ for x0,y0,x1,y1 in twigs:segment(x0,y0,x1,y1,.012,np.array([.42,.27,.16]))
+ for x0,y0,x1,y1 in twigs:
+  for k in range(7):
+   t=.25+.75*k/6;cx,cy=x0+(x1-x0)*t,y0+(y1-y0)*t
+   heading=math.atan2(y1-y0,x1-x0)
+   for j in range(16):
+    a=heading+rng.uniform(-1.3,1.3);L=rng.uniform(.07,.12)
+    tone=rng.uniform(.75,1.15)
+    segment(cx,cy,cx+math.cos(a)*L,cy+math.sin(a)*L,.0065,np.clip(np.array([.20,.36,.30])*tone,0,1))
+ img=bpy.data.images.new(name,n,n,alpha=True);img.pixels.foreach_set(rgba.ravel())
+ img.filepath_raw=str(OUT/(name+'.png'));img.file_format='PNG';img.save();bpy.data.images.remove(img)
+
+def linden_cluster(name,seed):
+ n=512;rng=np.random.default_rng(seed)
+ y,x=np.mgrid[0:n,0:n].astype(np.float32)/(n-1)
+ rgba=np.zeros((n,n,4),np.float32)
+ twigs=[((.5,.0),(.5,.78)),((.5,.2),(.2,.55)),((.5,.38),(.82,.66)),((.5,.56),(.3,.86))]
+ for (x0,y0),(x1,y1) in twigs:
+  dx,dy=x1-x0,y1-y0;L2=dx*dx+dy*dy
+  t=np.clip(((x-x0)*dx+(y-y0)*dy)/L2,0,1);d=np.hypot(x-(x0+t*dx),y-(y0+t*dy))
+  m=d<(.010-.005*t);rgba[m,:3]=np.array([.33,.27,.20]);rgba[m,3]=1
+ base=np.array([.24,.43,.12]);leaves=[]
+ for (x0,y0),(x1,y1) in twigs:
+  for k in range(6):
+   t=rng.uniform(.2,1.0);ax,ay=x0+(x1-x0)*t,y0+(y1-y0)*t
+   ang=math.atan2(y1-y0,x1-x0)+rng.choice([-1,1])*rng.uniform(.6,1.4)
+   leaves.append((ax,ay,ang,rng.uniform(.17,.23),rng.uniform(.75,1.12)))
+ rng.shuffle(leaves)
+ for ax,ay,ang,L,tone in leaves:
+  ux,uy=math.cos(ang),math.sin(ang)
+  s=((x-ax)*ux+(y-ay)*uy)/L;w=(-(x-ax)*uy+(y-ay)*ux)/L
+  sc=np.clip(s,0,1)
+  # Feuille en cœur : base large et échancrée, pointe courte ; bord finement denté.
+  prof=np.sin(np.pi*sc**.62)**.7*.47*(1+.04*np.sin(sc*60))
+  prof=np.maximum(prof,.30*(1-sc)**3)
+  inside=(s>.04*np.abs(w)/.3)&(s<1)&(np.abs(w)<prof)
+  shade=(.82+.22*s-.30*np.abs(w))*tone
+  col=base[None,None,:]*shade[:,:,None]
+  col=np.where((np.abs(w)<.011)[:,:,None],col*1.22,col)
+  rgba[inside,:3]=np.clip(col[inside],0,1);rgba[inside,3]=1
+ img=bpy.data.images.new(name,n,n,alpha=True);img.pixels.foreach_set(rgba.ravel())
+ img.filepath_raw=str(OUT/(name+'.png'));img.file_format='PNG';img.save();bpy.data.images.remove(img)
+
 leaf_cluster('feuilles_pommier',False,11)
 leaf_cluster('feuilles_noisetier',True,23)
-save_png(bpy.data.images['Ecorce_Pommier_256'],'ecorce_pommier')
-save_png(bpy.data.images['Ecorce_Noisetier_256'],'ecorce_noisetier')
+needle_cluster('feuilles_pin',31)
+linden_cluster('feuilles_tilleul',37)
+for image,file in [('Ecorce_Pommier_256','ecorce_pommier'),('Ecorce_Noisetier_256','ecorce_noisetier'),('Ecorce_Pin_256','ecorce_pin'),('Ecorce_Tilleul_256','ecorce_tilleul')]:
+ save_png(bpy.data.images[image],file)
 col=bpy.data.collections.new('Version_Legere_Jeu');scene.collection.children.link(col)
 report={}
 # 0.0.6.11 : cinq tailles par espèce (1 petit … 3 standard … 5 grand). La taille 3 reprend le modèle détaillé
 # construit ci-dessus ; les autres sont construites « en forme seulement » (generer_arbres.py, record_only).
-for name,hazel in [('Pommier',False),('Noisetier',True)]:
+# 0.0.6.12 : pin et tilleul. [nom, fichier, construction, case des plaques, feuilles mini par plaque, rangée dans l'atelier]
+SPECIES=[('Pommier','pommier',lambda s,r:G['make_species'](False,s,r),.48,6,4),
+ ('Noisetier','noisetier',lambda s,r:G['make_species'](True,s,r),.42,6,14),
+ ('Pin','pin',G['make_pine'],.50,3,30),
+ ('Tilleul','tilleul',G['make_linden'],.60,6,50)]
+for name,file_name,build,cell,min_leaves,row in SPECIES:
  detail=bpy.data.objects[name+'_Detail'];mats=list(detail.data.materials)
  report[name]={}
  for size in range(1,6):
-  src=geos[name] if size==3 else G['make_species'](hazel,size,True)
-  rng=random.Random((91 if hazel else 47)+size)
+  src=geos[name] if size==3 else build(size,True)
+  rng=random.Random(len(file_name)*13+size)
   near=Geo()
-  wood(near,src,.02 if hazel else .016,2,lambda r:7 if r>.1 else (5 if r>.035 else 4))
-  groups=cards(near,src,.42 if hazel else .48,6,1.0,rng)
-  if hazel:
+  wood(near,src,.02 if name!='Pommier' else .016,2,lambda r:7 if r>.1 else (5 if r>.035 else 4))
+  groups=cards(near,src,cell,min_leaves,1.25 if name=='Tilleul' else 1.0,rng)
+  fruits=0
+  if name=='Noisetier':
    # Une petite boule par grappe de noisettes (les noisettes d'une grappe sont à quelques cm).
    clusters=[]
    for pos,r in src.fruit_spots:
@@ -113,23 +175,28 @@ for name,hazel in [('Pommier',False),('Noisetier',True)]:
    limit=round(48*(.5+.25*size))
    for pos in clusters[:limit]:low_sphere(near,pos,.034,2,5,3,1.1)
    fruits=min(limit,len(clusters))
-  else:
+  elif name=='Pommier':
    # Les pommes du bord de la couronne (les autres sont cachées par le feuillage).
    limit=round(64*(.5+.25*size))
    spots=sorted(src.fruit_spots,key=lambda s:-Vector((s[0].x,s[0].y,0)).length-s[0].z*.25)[:limit]
    for pos,r in spots:low_sphere(near,pos,r*1.05,2,6,3)
    fruits=len(spots)
+  elif name=='Pin':
+   # Pommes de pin : petites, allongées, pendantes.
+   for pos,r in src.fruit_spots[:40]:low_sphere(near,pos,.028,2,5,3,1.6)
+   fruits=min(40,len(src.fruit_spots))
   far=Geo()
   wood(far,src,.05,3,lambda r:5 if r>.1 else 4)
-  cards(far,src,1.25,8 if size<3 else 20,1.05,rng)
+  if name in ('Pommier','Noisetier'):cards(far,src,1.25,8 if size<3 else 20,1.05,rng)
+  else:cards(far,src,1.9,6,1.1,rng)
   entry={}
-  for g,suffix,file in [(near,'_Leger',f'{name.lower()}_{size}_jeu'),(far,'_Leger_Loin',f'{name.lower()}_{size}_loin')]:
+  for g,suffix,file in [(near,'_Leger',f'{file_name}_{size}_jeu'),(far,'_Leger_Loin',f'{file_name}_{size}_loin')]:
    ob=g.object(f'{name}_T{size}{suffix}',mats,col)
    entry[file]=sum(len(p.vertices)-2 for p in ob.data.polygons)
    bpy.ops.object.select_all(action='DESELECT');ob.select_set(True);bpy.context.view_layer.objects.active=ob
    bpy.ops.export_scene.gltf(filepath=str(OUT/(file+'.glb')),export_format='GLB',use_selection=True,use_active_scene=True,export_yup=True,export_texcoords=True,export_normals=True,export_materials='EXPORT',export_image_format='NONE',export_animations=False,export_cameras=False,export_lights=False)
    # Rangés dans l'atelier : une rangée par espèce, tailles de gauche à droite ; version de loin derrière.
-   ob.location=((size-3)*9.0,(14 if hazel else 4)+(18 if suffix=='_Leger_Loin' else 0),0)
+   ob.location=((size-3)*14.0,row+(8 if suffix=='_Leger_Loin' else 0),0)
    ob.hide_render=True
    if suffix=='_Leger':entry['hauteur_m']=round(ob.dimensions.z,2)
   entry['plaques']=groups;entry['fruits']=fruits

@@ -14,6 +14,7 @@ const MENUS := [
 ]
 # Version de génération → version du jeu qui l'a apportée, et ce qu'elle change.
 const GENERATIONS := [
+	[23, "0.0.6.12", "pins sylvestres et tilleuls"],
 	[22, "0.0.6.11", "arbres de cinq tailles, plus grands et plus réalistes"],
 	[21, "0.0.6.9", "premiers arbres fruitiers : pommiers et noisetiers"],
 	[20, "0.0.6.7", "rivières des montagnes jusqu'aux lacs"],

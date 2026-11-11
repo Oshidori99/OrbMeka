@@ -76,6 +76,24 @@ leafA=mat('Pommier_Feuille_Ovale_Nervuree',(.16,.335,.065),img=texture('Feuille_
 leafH=mat('Noisetier_Feuille_Cordiforme_Nervuree',(.25,.43,.075),img=texture('Feuille_Noisetier_256',hazel=True),double=True)
 fruitA=mat('Pomme_Rouge_Doree',(.42,.045,.014),0.48)
 fruitH=mat('Noisette_Coque_Mure',(.42,.23,.08),0.5)
+# 0.0.6.12 : écorces du pin (plaques orangées en haut, gris-brun crevassé en bas) et du tilleul (gris, fissures en long).
+def bark_texture(name,top,bottom,plates):
+ n=256
+ y,x=np.mgrid[0:n,0:n].astype(float);u=x/(n-1);v=y/(n-1)
+ fiss=np.maximum(0,np.sin(u*(60 if plates else 140)+np.sin(v*(9 if plates else 22))*1.4)-(.55 if plates else .7))*(.9 if plates else .55)
+ cells=np.sin(u*38+np.sin(v*17)*2)*np.sin(v*23+np.sin(u*11))*(.10 if plates else .04)
+ grain=np.sin(x*1.9+y*4.7)*np.sin(x*3.3-y*2.1)*.03
+ shade=.86+cells+grain-fiss
+ base=np.array(bottom)[None,None,:]*(1-v[:,:,None])+np.array(top)[None,None,:]*v[:,:,None]
+ rgba=np.ones((n,n,4),dtype=np.float32);rgba[:,:,:3]=np.clip(shade[:,:,None]*base,0,1)
+ img=bpy.data.images.new(name,width=n,height=n);img.pixels.foreach_set(rgba.ravel());img.pack()
+ return img
+barkP=mat('Pin_Ecorce_Plaques',(.30,.16,.08),img=bark_texture('Ecorce_Pin_256',[.42,.20,.09],[.25,.17,.12],True))
+barkL=mat('Tilleul_Ecorce_Fissuree',(.26,.24,.21),img=bark_texture('Ecorce_Tilleul_256',[.30,.28,.25],[.24,.22,.19],False))
+leafP=mat('Pin_Feuille_Aiguilles',(.10,.22,.13),double=True)
+leafL=mat('Tilleul_Feuille_Coeur',(.17,.33,.06),img=texture('Feuille_Tilleul_256',hazel=True),double=True)
+fruitP=mat('Pomme_de_Pin',(.28,.17,.08),0.8)
+fruitL=mat('Tilleul_Bractee_Fruits',(.55,.55,.25),0.7)
 
 class Geo:
  # record_only : on note seulement la forme (branches, feuilles, fruits) sans construire les sommets, pour la version légère
@@ -126,6 +144,23 @@ class Geo:
    for s in range(2):self.face((k+j*3+s,k+j*3+s+1,k+(j+1)*3+s+1,k+(j+1)*3+s),1)
   self.leaves+=1
   if length>.07:self.leaf_centers.append(base+axis*(length*.5))
+ # 0.0.6.12 : touffe d'aiguilles de pin (paires d'aiguilles fines, en éventail vers l'extérieur et le haut).
+ def needles(self,base,direction,length,rng,count=12):
+  axis=Vector(direction).normalized()
+  side=axis.cross(Vector((0,0,1)))
+  if side.length<.01:side=Vector((1,0,0))
+  side.normalize();up=side.cross(axis).normalized()
+  dirs=[]
+  for k in range(count):
+   a=k*math.tau/count+rng.uniform(-.2,.2);spread=rng.uniform(.35,.65)
+   dirs.append((axis+(side*math.cos(a)+up*math.sin(a))*spread).normalized())
+  self.leaves+=count;self.leaf_centers.append(base+axis*length*.5)
+  if self.record_only:return
+  for d in dirs:
+   w=(d.cross(axis) if d.cross(axis).length>.01 else side).normalized()*.0028
+   tip=base+d*length*rng.uniform(.85,1.1)
+   k=self.verts([base-w,base+w,tip],[(0,0),(1,0),(.5,1)],(rng.uniform(.85,1),1,rng.uniform(.85,1),1))
+   self.face((k,k+1,k+2),1)
  def fruit(self,pos,radius,rng,hazel=False):
   self.fruit_spots.append((pos.copy(),radius))
   if self.record_only:return
@@ -329,9 +364,149 @@ def make_species(hazel=False,size=3,record_only=False):
  geos[name]=g
  models[name]=detail;print(name,stats[name]);return detail
 
+# 0.0.6.12 : pin sylvestre et tilleul, cinq tailles chacun (1 petit … 3 standard … 5 grand), d'après leur port réel.
+# Pin : tronc droit, branches en étages autour du tronc ; jeune, conique et garni jusqu'en bas ; adulte, tronc nu sur la
+# moitié de sa hauteur (quelques chicots), cime arrondie un peu aplatie ; touffes d'aiguilles bleu-vert, petites pommes de pin.
+# [hauteur (m), rayon de la couronne (m), part du tronc sans branches vivantes, rayon du tronc au pied (m)]
+PINE_SIZES={1:(7.0,1.6,.10,.12),2:(11.0,2.4,.30,.20),3:(15.0,3.4,.54,.29),4:(18.0,3.9,.58,.35),5:(21.0,4.4,.61,.41)}
+# Tilleul : tronc droit, branches qui montent en couronne ovale haute et dense, feuilles en cœur.
+# [hauteur (m), rayon de la couronne (m), hauteur des premières branches (m), rayon du tronc au pied (m)]
+LINDEN_SIZES={1:(6.0,1.8,1.3,.12),2:(10.0,3.0,2.0,.22),3:(14.0,4.3,2.8,.33),4:(17.0,5.1,3.3,.41),5:(20.0,5.8,3.8,.49)}
+
+def needle_shoot(g,path,rng,start=.35,spacing=.065,length=.085):
+ # Touffes d'aiguilles le long de la partie vivante d'un rameau, plus serrées au bout (pousses de l'année).
+ L=sum((path[i+1]-path[i]).length for i in range(len(path)-1))
+ n=max(2,int(L*(1-start)/spacing))
+ for j in range(n+1):
+  t=start+(1-start)*j/n;at=sample(path,t)
+  tangent=(sample(path,min(1,t+.05))-sample(path,max(0,t-.05))).normalized()
+  outward=(tangent+Vector((0,0,.55))).normalized()
+  g.needles(at,outward,length*rng.uniform(.85,1.15),rng)
+
+def make_pine(size=3,record_only=False):
+ H,R,clear,r0=PINE_SIZES[size];rng=random.Random(4409+size*37)
+ g=Geo(record_only);cones=[]
+ lean=Vector((rng.uniform(-.25,.25),rng.uniform(-.25,.25),0))*H/15
+ trunk=[Vector((0,0,0))+lean*(j/12)**2+Vector((rng.uniform(-.04,.04),rng.uniform(-.04,.04),H*j/12)) for j in range(13)]
+ g.tube(trunk,[r0*(1.15 if j==0 else 1)*(1-.92*j/12)+.012 for j in range(13)],14)
+ for i in range(5):
+  a=i*math.tau/5+.3;branch(g,Vector((0,0,.10)),Vector((math.cos(a)*r0*2.2,math.sin(a)*r0*2.2,-.06)),r0*.45,r0*.12,rng,8,5)
+ # Chicots : restes de branches mortes sur le tronc nu (pin adulte).
+ base_z=clear*H
+ for i in range(int(base_z/1.1)):
+  z=1.5+i*1.1
+  if z>=base_z-.4:break
+  a=rng.random()*math.tau;at=sample(trunk,z/H)
+  branch(g,at,at+Vector((math.cos(a)*.22,math.sin(a)*.22,.03)),.025*(r0/.29)**.5,.012,rng,5,3)
+ mature=size>=3
+ z=base_z;k=0;step=.45+.1*size
+ while z<H*.97:
+  t=(z-base_z)/max(.01,H*.97-base_z)
+  # Jeune : couronne conique ; adulte : la plus large aux deux tiers, cime arrondie et aplatie.
+  profile=(1.02-t)**.95 if not mature else max(.30*(1-t),(math.sin(math.pi*min(1,t**2.2)))**.5)
+  count=5 if size>=2 else 4
+  for i in range(count):
+   a=k*2.399+i*math.tau/count+rng.uniform(-.3,.3)
+   L=R*profile*rng.uniform(.75,1.05)+.25
+   at=sample(trunk,z/H)
+   rise=(-.06+.50*t)*L if mature else (-.02+.35*t)*L
+   end=at+Vector((math.cos(a)*L,math.sin(a)*L,rise))
+   main=branch(g,at,end,max(.012,r0*.22*(L/R)**.8),.006,rng,7 if L>1.2 else 5,6)
+   # Rameaux de côté, puis aiguilles sur la partie extérieure (l'intérieur d'un pin est clairsemé).
+   shoots=[main]
+   sides=max(2,int(L/.32))
+   for j in range(sides):
+    tt=.25+.7*(j+.5)/sides;origin=sample(main,tt)
+    side=a+(-1 if j%2 else 1)*rng.uniform(.6,1.2);span=rng.uniform(.35,.65)*min(1.4,L/1.5+.4)
+    tip=origin+Vector((math.cos(side)*span,math.sin(side)*span,rng.uniform(.05,.30)))
+    shoot=branch(g,origin,tip,.012,.004,rng,4,4);shoots.append(shoot)
+    # Rameaux de troisième ordre : touffes d'aiguilles en « plateaux » au bout des branches, comme un vrai pin.
+    for m in range(2):
+     at2=sample(shoot,.45+m*.3);b=side+(-1 if m else 1)*rng.uniform(.5,1.0)
+     shoots.append(branch(g,at2,at2+Vector((math.cos(b)*.28,math.sin(b)*.28,rng.uniform(.05,.2))),.006,.003,rng,4,3))
+   for s in shoots:
+    needle_shoot(g,s,rng,.45 if s is main else .25)
+    if rng.random()<.10:cones.append(sample(s,.85)+Vector((0,0,-.05)))
+  z+=step*rng.uniform(.85,1.15);k+=1
+ # Pousse de tête.
+ needle_shoot(g,[trunk[-2],trunk[-1],trunk[-1]+Vector((0,0,.25))],rng,.0)
+ for at in cones[:60]:
+  g.fruit_spots.append((at.copy(),.03))
+  if not record_only:
+   k0=len(g.v)
+   for j in range(5):
+    th=math.pi*j/4
+    for i in range(6):
+     a=math.tau*i/6;r=.022*math.sin(th)+.004
+     g.verts([at+Vector((math.cos(a)*r,math.sin(a)*r,-.035*math.cos(th)*1.6))])
+   for j in range(4):
+    for i in range(6):g.face((k0+j*6+i,k0+j*6+(i+1)%6,k0+(j+1)*6+(i+1)%6,k0+(j+1)*6+i),2)
+ g.fruit_count=len(cones[:60])
+ return _finish(g,'Pin',size,record_only,[barkP,leafP,fruitP],'Pinus sylvestris')
+
+def make_linden(size=3,record_only=False):
+ H,R,clear,r0=LINDEN_SIZES[size];rng=random.Random(5521+size*41)
+ g=Geo(record_only);secondary=[];terminals=[]
+ trunk=[Vector((rng.uniform(-.05,.05)*(j>0),rng.uniform(-.05,.05)*(j>0),H*.8*j/10)) for j in range(11)]
+ g.tube(trunk,[r0*(1.1 if j==0 else 1)*(1-.85*j/10)+.015 for j in range(11)],14)
+ for i in range(6):
+  a=i*math.tau/6+.4;branch(g,Vector((0,0,.12)),Vector((math.cos(a)*r0*2.0,math.sin(a)*r0*2.0,-.06)),r0*.45,r0*.10,rng,8,5)
+ top=H*.8
+ limbs=6+2*size
+ for i in range(limbs):
+  t=i/(limbs-1)
+  z=clear+t*(top-clear)
+  # Couronne ovale : la plus large vers 40 % de sa hauteur ; branches qui montent (35 à 60°).
+  profile=max(.32,math.sqrt(max(0,1-((t-.40)/.68)**2)))
+  L=R*profile*rng.uniform(.85,1.05)
+  a=i*2.399+rng.uniform(-.2,.2);elev=math.radians(rng.uniform(45,65)+10*t)
+  at=sample(trunk,z/top)
+  end=at+Vector((math.cos(a)*L*math.cos(elev),math.sin(a)*L*math.cos(elev),L*math.sin(elev)*.9))
+  main=branch(g,at,end,max(.03,r0*.42*(L/R)),.01,rng,9 if L>2 else 7,8)
+  forks=max(5,int(L/.30))
+  for j in range(forks):
+   tt=.25+.7*(j+.5)/forks;origin=sample(main,tt)
+   side=a+(-1 if j%2 else 1)*rng.uniform(.5,1.2);span=rng.uniform(.6,1.1)*min(1.3,.5+L/R)
+   tip=origin+Vector((math.cos(side)*span,math.sin(side)*span,rng.uniform(.1,.5)))
+   secondary.append(branch(g,origin,tip,.022*(1-tt*.5),.005,rng,6,6))
+  terminals.append(main)
+ # Cime : pousses autour du haut de l'axe.
+ for i in range(5+size):
+  a=i*2.399;at=sample(trunk,.9+i*.015)
+  secondary.append(branch(g,at,at+Vector((math.cos(a)*R*.35,math.sin(a)*R*.35,H*.17)),.03,.006,rng,7,6))
+ # Feuillage dense : sur chaque rameau, des brindilles feuillues tout le long, et deux pousses feuillues par brindille.
+ for path in secondary+terminals:
+  for k in range(6):
+   t=.20+k*.14;origin=sample(path,t);a=rng.random()*math.tau
+   span=rng.uniform(.30,.55)
+   twig=branch(g,origin,origin+Vector((math.cos(a)*span,math.sin(a)*span,rng.uniform(-.05,.25))),.006,.002,rng,4,4)
+   tuft(g,twig,rng,True,False)
+   for j in range(2):
+    at=sample(twig,.4+j*.35);b=rng.random()*math.tau
+    shoot=branch(g,at,at+Vector((math.cos(b)*.22,math.sin(b)*.22,rng.uniform(0,.15))),.003,.0017,rng,4,4)
+    tuft(g,shoot,rng,True,False)
+  tuft(g,path,rng,True,False,.45)
+ g.fruit_count=0
+ return _finish(g,'Tilleul',size,record_only,[barkL,leafL,fruitL],'Tilia cordata')
+
+def _finish(g,name,size,record_only,mats,species):
+ if record_only:
+  return g
+ col=bpy.data.collections.new(name+'_Taille_%d'%size);scene.collection.children.link(col)
+ detail=g.object(name+'_Detail',mats,col)
+ detail['species']=species;detail['size']=size;detail['leaf_count']=g.leaves
+ detail['source']='Original OrbMeka / Blender';detail['lod_role']='detail'
+ detail.location=(12.0 if name=='Pin' else 24.0,0,0)
+ bpy.context.view_layer.update()
+ count=sum(len(p.vertices)-2 for p in detail.data.polygons)
+ stats[name]={'size':size,'triangles_detail':count,'leaves':g.leaves,'fruits_or_clusters':g.fruit_count,'height_m':round(detail.dimensions.z,3),'width_m':round(detail.dimensions.x,3),'lowest_leaf_m':round(min(p.z for p in g.leaf_centers),3)}
+ geos[name]=g;models[name]=detail;print(name,stats[name]);return detail
+
 if __name__=='__main__':
  make_species(False)
  make_species(True)
+ make_pine(3)
+ make_linden(3)
  scene['OrbMeka_assets']='Revision 4 (0.0.6.11): five sizes, standard size kept in detail here; light game versions by version_jeu.py.'
  scene['stats_json']=json.dumps(stats)
  text=bpy.data.texts.get('OrbMeka_Arbres_Generateur.py') or bpy.data.texts.new('OrbMeka_Arbres_Generateur.py');text.clear();text.write(Path(__file__).read_text(encoding='utf-8'))

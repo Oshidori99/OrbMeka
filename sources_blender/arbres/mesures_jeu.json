@@ -72,5 +72,79 @@
       "plaques": 762,
       "fruits": 84
     }
+  },
+  "Pin": {
+    "1": {
+      "pin_1_jeu": 3954,
+      "hauteur_m": 7.55,
+      "pin_1_loin": 283,
+      "plaques": 319,
+      "fruits": 38
+    },
+    "2": {
+      "pin_2_jeu": 6704,
+      "hauteur_m": 11.57,
+      "pin_2_loin": 415,
+      "plaques": 584,
+      "fruits": 40
+    },
+    "3": {
+      "pin_3_jeu": 7614,
+      "hauteur_m": 15.76,
+      "pin_3_loin": 956,
+      "plaques": 697,
+      "fruits": 40
+    },
+    "4": {
+      "pin_4_jeu": 8139,
+      "hauteur_m": 18.94,
+      "pin_4_loin": 1112,
+      "plaques": 774,
+      "fruits": 40
+    },
+    "5": {
+      "pin_5_jeu": 9177,
+      "hauteur_m": 21.93,
+      "pin_5_loin": 1520,
+      "plaques": 926,
+      "fruits": 40
+    }
+  },
+  "Tilleul": {
+    "1": {
+      "tilleul_1_jeu": 1923,
+      "hauteur_m": 6.63,
+      "tilleul_1_loin": 277,
+      "plaques": 174,
+      "fruits": 0
+    },
+    "2": {
+      "tilleul_2_jeu": 3075,
+      "hauteur_m": 10.28,
+      "tilleul_2_loin": 613,
+      "plaques": 339,
+      "fruits": 0
+    },
+    "3": {
+      "tilleul_3_jeu": 5073,
+      "hauteur_m": 14.25,
+      "tilleul_3_loin": 923,
+      "plaques": 598,
+      "fruits": 0
+    },
+    "4": {
+      "tilleul_4_jeu": 6677,
+      "hauteur_m": 17.31,
+      "tilleul_4_loin": 1170,
+      "plaques": 831,
+      "fruits": 0
+    },
+    "5": {
+      "tilleul_5_jeu": 8287,
+      "hauteur_m": 20.15,
+      "tilleul_5_loin": 1447,
+      "plaques": 1065,
+      "fruits": 0
+    }
   }
 }

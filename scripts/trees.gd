@@ -7,21 +7,30 @@ extends RefCounted
 # 0.0.6.11 : cinq tailles par espèce (1 petit, 2 plutôt petit, 3 standard, 4 plutôt grand, 5 grand), chacune son propre
 # modèle (proportions naturelles : un grand arbre a un tronc plus épais et plus de branches, pas le même arbre agrandi).
 # Pommier : 4,0 / 5,5 / 7,5 / 8,4 / 9,6 m ; noisetier : 3,0 / 4,3 / 5,8 / 6,5 / 7,5 m.
+# 0.0.6.12 : pin sylvestre (7 à 21 m, tronc nu sur la moitié de sa hauteur une fois adulte, touffes d'aiguilles, pommes de pin)
+# et tilleul (6 à 20 m, couronne ovale dense, feuilles en cœur).
 const APPLE := 0
 const HAZEL := 1
-const KIND_NAMES := ["pommier", "noisetier"]
+const PINE := 2
+const LINDEN := 3
+const KIND_NAMES := ["pommier", "noisetier", "pin", "tilleul"]
 const SIZES := 5
 const SIZE_NAMES := ["petit", "plutôt petit", "standard", "plutôt grand", "grand"]
 # Collision du tronc (pommier) ou du pied de la touffe (noisetier) par taille : [rayon, hauteur].
 const APPLE_TRUNKS := [Vector2(0.12, 1.0), Vector2(0.2, 1.5), Vector2(0.3, 2.0), Vector2(0.36, 2.2), Vector2(0.41, 2.4)]
 const HAZEL_TRUNKS := [Vector2(0.15, 0.8), Vector2(0.2, 1.2), Vector2(0.24, 1.6), Vector2(0.27, 1.8), Vector2(0.3, 2.0)]
+const PINE_TRUNKS := [Vector2(0.14, 3.0), Vector2(0.22, 4.0), Vector2(0.31, 5.0), Vector2(0.37, 5.0), Vector2(0.43, 5.0)]
+const LINDEN_TRUNKS := [Vector2(0.14, 1.3), Vector2(0.24, 2.0), Vector2(0.35, 2.8), Vector2(0.43, 3.3), Vector2(0.51, 3.8)]
+const TRUNKS := [APPLE_TRUNKS, HAZEL_TRUNKS, PINE_TRUNKS, LINDEN_TRUNKS]
 # Distances d'affichage (m) : détaillé jusqu'à DETAIL_END, simplifié jusqu'à FAR_END, ensuite rien.
 const DETAIL_END := 40.0
 const FAR_END := 150.0
 const FOLDER := "res://assets/trees/"
-const FILES := ["pommier", "noisetier"]
-const APPLE_RED := Color("#b5281c")
-const NUT := Color("#8a5a2b")
+const FILES := ["pommier", "noisetier", "pin", "tilleul"]
+# Fruits : pommes, noisettes, pommes de pin (le tilleul n'en a pas dans le modèle).
+const FRUIT_COLORS := [Color("#b5281c"), Color("#8a5a2b"), Color("#7a5532"), Color("#c9c27a")]
+# Teinte du feuillage (la lumière ambiante bleutée du jeu rendait le feuillage bleu-gris).
+const LEAF_TINTS := [Color(1.12, 1.18, 0.78), Color(1.05, 1.1, 0.8), Color(1.02, 1.08, 0.74), Color(1.12, 1.16, 0.74)]
 
 static var _materials: Dictionary = {}
 static var _meshes: Dictionary = {}
@@ -39,15 +48,14 @@ static func material(kind: int, role: String) -> StandardMaterial3D:
 				made.roughness = 0.95
 			"leaves":
 				made.albedo_texture = load(FOLDER + "feuilles_%s.png" % FILES[kind])
-				# Teinte plus chaude : la lumière ambiante bleutée du jeu rendait le feuillage bleu-gris.
-				made.albedo_color = Color(1.12, 1.18, 0.78) if kind == APPLE else Color(1.05, 1.1, 0.8)
+				made.albedo_color = LEAF_TINTS[kind]
 				made.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA_SCISSOR
 				made.alpha_scissor_threshold = 0.5
 				made.cull_mode = BaseMaterial3D.CULL_DISABLED
 				made.roughness = 0.85
 			_:
-				made.albedo_color = APPLE_RED if kind == APPLE else NUT
-				made.roughness = 0.45 if kind == APPLE else 0.6
+				made.albedo_color = FRUIT_COLORS[kind]
+				made.roughness = 0.45 if kind == APPLE else 0.7
 		_materials[key] = made
 	return _materials[key]
 
@@ -88,7 +96,7 @@ static func _load(kind: int, size: int, far: bool) -> ArrayMesh:
 
 # Collision simple : le tronc (pommier) ou le pied de la touffe (noisetier) : [rayon, hauteur].
 static func trunk(kind: int, size: int = 3) -> Vector2:
-	return (APPLE_TRUNKS if kind == APPLE else HAZEL_TRUNKS)[clampi(size, 1, SIZES) - 1]
+	return TRUNKS[kind][clampi(size, 1, SIZES) - 1]
 
 static func triangles(made: Mesh) -> int:
 	var count := 0

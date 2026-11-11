@@ -1,6 +1,18 @@
-# OrbMeka™ — prototype 0.0.6.11
+# OrbMeka™ — prototype 0.0.6.12
 
 Godot 4.7 / GDScript. Formes et couleurs simples ; assets externes seulement sous licence vérifiée (sons CC0, assets/sounds/CREDITS.txt).
+
+## 0.0.6.12 — Pins et tilleuls (#146)
+Version locale (pas encore publiée).
+- **Petit sifflement corrigé** : le jeu calculait jusqu'à 240 images par seconde (plus de 500 sans synchronisation), même dans les menus ; la carte graphique pouvait siffler ou grésiller. Nouveau réglage Paramètres → Vidéo → Jeu : **Images par seconde au plus** (60 par défaut, 30 à 240), appliqué aux menus et au jeu.
+- **Pin sylvestre** fait dans Blender : tronc droit, écorce orangée ; branches en étages, touffes d'aiguilles bleu-vert, petites pommes de pin. Jeune : conique et garni jusqu'en bas ; adulte : tronc nu sur plus de la moitié de sa hauteur (quelques chicots), cime large et aplatie. Tailles 1 à 5 : 7,6 / 11,6 / 15,8 / 18,9 / 21,9 m.
+- **Tilleul** fait dans Blender : tronc droit, écorce grise fissurée, branches qui montent, couronne ovale haute et dense, feuilles en cœur. Tailles 1 à 5 : 6,6 / 10,3 / 14,3 / 17,3 / 20,1 m.
+- Version légère dans le jeu (comme les arbres fruitiers) : aiguilles et feuilles en plaques avec une image de grappe (dessinée en code), 2 000 à 9 200 triangles de près, 280 à 1 500 au loin. Versions détaillées de la taille standard dans `arbres_detail.blend` (archives Blender).
+- **Génération version 23** (nouveaux mondes ; les autres gardent exactement leurs arbres) : pins et tilleuls seuls ou par 2 à 3, dans une zone sur 16 (nouveau réglage « Pins et tilleuls ») ; trois fois plus souvent au pied et sur les pentes douces des montagnes, où ce sont surtout des pins (pentes un peu plus raides permises), deux fois plus en lisière, où ce sont plutôt des tilleuls ; 7 m au moins entre eux. Environ 280 pins et 140 tilleuls dans un monde de 512 m.
+- **Monde d'essai T42** (graine 1755064997) ; la vitrine de l'accueil montre un pin, un tilleul et un pommier.
+
+Tests concernés réussis (limite d'images par seconde ; test « trees » : quatre espèces, pins surtout au pied des montagnes, espacement, génération 22 inchangée, hauteurs ; générations et mondes anciens). Mesures dans la même séance, 0.0.6.11 puis 0.0.6.12 : à l'arrêt et face aux arbres, FPS au plafond de 120 du PC dans les deux cas ; en vol, 55 → 57 sur PC, 60 → 58 en rendu Web (bruit de mesure).
+À tester manuellement : le sifflement a-t-il disparu ; aspect des pins et tilleuls de près et de loin ; monde T42.
 
 ## 0.0.6.11 — Arbres de cinq tailles (#178, #180)
 Version locale (pas encore publiée).

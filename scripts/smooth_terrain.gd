@@ -83,6 +83,7 @@ func setup(terrain_seed: int, flat_spots: Array = [], options: Dictionary = {}) 
 	_rivers_on = int(generation_options.get("version", 0)) >= 20
 	_trees_on = int(generation_options.get("version", 0)) >= 21
 	_tree_sizes_on = int(generation_options.get("version", 0)) >= 22
+	_other_trees_on = int(generation_options.get("version", 0)) >= 23
 	fall_limit = half_zones * int(ZONE_METERS) - 3
 	var layers := layers_of(generation_options)
 	low_point = layers[0]
@@ -2070,6 +2071,12 @@ func _tree_size(area: Vector2i, index: int) -> int:
 func trees_in_zone(area: Vector2i) -> Array:
 	if not _trees_on or _noise == null:
 		return []
+	var result := _fruit_trees(area)
+	if _other_trees_on:
+		result.append_array(_pines_and_lindens(area, result))
+	return result
+
+func _fruit_trees(area: Vector2i) -> Array:
 	var chances := int(generation_options.get("fruit_trees", 0))
 	if chances <= 0:
 		return []
@@ -2110,12 +2117,12 @@ func _meadow_edge(at: Vector2) -> bool:
 			return true
 	return false
 
-func _tree_spot_ok(at: Vector2, placed: Array) -> bool:
+func _tree_spot_ok(at: Vector2, placed: Array, slope_limit := TREE_SLOPE, spacing := -1.0) -> bool:
 	var limit := half_zones * ZONE_METERS - 3.0
 	if absf(at.x) > limit or absf(at.y) > limit:
 		return false
 	for tree in placed:
-		if at.distance_to(Vector2(tree.x, tree.z)) < (TREE_SPACING_BIG if _tree_sizes_on else TREE_SPACING):
+		if at.distance_to(Vector2(tree.x, tree.z)) < (spacing if spacing > 0.0 else (TREE_SPACING_BIG if _tree_sizes_on else TREE_SPACING)):
 			return false
 	for spot in _flat_spots:
 		if at.distance_to(spot[0]) < spot[1] + 3.0:
@@ -2134,9 +2141,55 @@ func _tree_spot_ok(at: Vector2, placed: Array) -> bool:
 		if not river.is_empty() and river.distance < river.width + RIVER_BANK + 1.5:
 			return false
 	var slope := Vector2(ground_height(column + Vector2i(2, 0)) - ground_height(column - Vector2i(2, 0)), ground_height(column + Vector2i(0, 2)) - ground_height(column - Vector2i(0, 2))) / 2.0
-	if slope.length() > TREE_SLOPE:
+	if slope.length() > slope_limit:
 		return false
 	for rock in rocks_in_zone(Vector2i(floori(at.x / ZONE_METERS), floori(at.y / ZONE_METERS))):
 		if at.distance_to(Vector2(rock.x, rock.z)) < 1.5 + 0.3 * float(rock.taille):
 			return false
 	return true
+
+# 0.0.6.12 (version 23, #146) : pins sylvestres et tilleuls, seuls ou par 2 à 3, tirés à part des arbres fruitiers (ceux-ci
+# ne changent pas). Dans une zone sur other_trees (16 par défaut) ; trois fois plus souvent au pied et sur les pentes douces
+# des montagnes, où ce sont surtout des pins (ils supportent des pentes plus raides) ; deux fois plus en lisière, où ce sont
+# plutôt des tilleuls. Grands arbres : 7 m au moins entre eux. Mêmes interdits que les arbres fruitiers (eau, sable, boue…).
+const PINE := 2
+const LINDEN := 3
+const PINE_SLOPE := 0.7
+const BIG_TREE_SPACING := 7.0
+var _other_trees_on := false
+
+func _pines_and_lindens(area: Vector2i, fruit: Array) -> Array:
+	var chances := int(generation_options.get("other_trees", 0))
+	if chances <= 0:
+		return []
+	var rng := RandomNumberGenerator.new()
+	rng.seed = hash([_seed, area.x, area.y, "pins et tilleuls"])
+	var center := Vector2(area) * ZONE_METERS + Vector2(rng.randf_range(1.5, 6.5), rng.randf_range(1.5, 6.5))
+	var roll := rng.randf()
+	var chance := 1.0 / chances
+	if roll >= chance * 3.0:
+		return []
+	var mountain := _near_mountain_foot(center)
+	if roll >= chance * (3.0 if mountain else (2.0 if _meadow_edge(center) else 1.0)):
+		return []
+	var count := 1 if rng.randf() < 0.4 else rng.randi_range(2, 3)
+	var kind := PINE if rng.randf() < (0.85 if mountain else 0.35) else LINDEN
+	var result := []
+	var placed := fruit.duplicate()
+	for index in range(count):
+		var at := center if index == 0 else center + Vector2.from_angle(rng.randf() * TAU) * rng.randf_range(7.0, 11.0)
+		var entry := {"id": "b%d_%d_%d" % [area.x, area.y, index], "x": at.x, "z": at.y, "espece": kind if rng.randf() < 0.85 else PINE + LINDEN - kind, "variante": 0, "rotation": rng.randf_range(0.0, 360.0), "taille": 1.0 + (rng.randf_range(0.85, 1.15) - 1.0) * 0.4}
+		entry.classe = _tree_size(area, 10 + index)
+		if _tree_spot_ok(at, placed, PINE_SLOPE if entry.espece == PINE else TREE_SLOPE, BIG_TREE_SPACING):
+			result.append(entry)
+			placed.append(entry)
+	return result
+
+# Au pied ou sur les pentes basses d'une montagne de terre et de pierre (pas de sable).
+func _near_mountain_foot(at: Vector2) -> bool:
+	for found in _mountains_near(at):
+		if not found.get("sand", false):
+			var ratio := _mountain_ratio(at, found)
+			if ratio > 0.45 and ratio < 1.3:
+				return true
+	return false

@@ -2,6 +2,7 @@
 
 Une variante de pommier et une de noisetier, faites dans Blender par un générateur original (aucun asset repris).
 Deux versions : la **détaillée** (fichier Blender, taille standard) et la **légère**, lue par le jeu (0.0.6.10). Depuis 0.0.6.11 :
+0.0.6.12 : **pin sylvestre** (make_pine, PINE_SIZES) et **tilleul** (make_linden, LINDEN_SIZES), cinq tailles aussi.
 **cinq tailles** par espèce (APPLE_SIZES et HAZEL_SIZES dans generer_arbres.py : hauteur, largeur, hauteur des premières branches,
 épaisseur du tronc) ; les tailles 1, 2, 4 et 5 sont construites « en forme seulement » pour la version légère.
 

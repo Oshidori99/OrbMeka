@@ -15,7 +15,7 @@ for name,loc,power,size in [('Lumiere_Principale',(0,-7,11),1800,8),('Lumiere_Co
 sun=bpy.data.lights.new('Soleil','SUN');sun.energy=2.0;sun.angle=.15
 ob=bpy.data.objects.new('Soleil',sun);col.objects.link(ob);ob.rotation_euler=(.5,-.5,-.4)
 d=bpy.data.cameras.new('Camera_Atelier');cam=bpy.data.objects.new('Camera_Atelier',d);col.objects.link(cam)
-cam.location=(11,-20,9.5);cam.rotation_euler=(Vector((0,0,3.2))-cam.location).to_track_quat('-Z','Y').to_euler();d.type='ORTHO';d.ortho_scale=18
+cam.location=(22,-34,14);cam.rotation_euler=(Vector((9,0,6.5))-cam.location).to_track_quat('-Z','Y').to_euler();d.type='ORTHO';d.ortho_scale=38
 scene.camera=cam
 scene.render.resolution_x=1280;scene.render.resolution_y=800;scene.render.resolution_percentage=100
 if hasattr(scene,'eevee') and hasattr(scene.eevee,'taa_render_samples'):scene.eevee.taa_render_samples=24

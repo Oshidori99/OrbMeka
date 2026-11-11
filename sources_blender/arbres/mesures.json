@@ -18,5 +18,23 @@
     "height_m": 5.607,
     "width_m": 4.845,
     "lowest_leaf_m": 1.066
+  },
+  "Pin": {
+    "size": 3,
+    "triangles_detail": 111903,
+    "leaves": 71472,
+    "fruits_or_clusters": 60,
+    "height_m": 15.606,
+    "width_m": 7.896,
+    "lowest_leaf_m": 8.033
+  },
+  "Tilleul": {
+    "size": 3,
+    "triangles_detail": 1078706,
+    "leaves": 36252,
+    "fruits_or_clusters": 0,
+    "height_m": 13.869,
+    "width_m": 7.996,
+    "lowest_leaf_m": 3.594
   }
 }

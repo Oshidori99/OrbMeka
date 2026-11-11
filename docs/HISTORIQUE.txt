@@ -3,6 +3,10 @@ Du plus récent au plus ancien. Ce fichier est mis à jour à chaque version.
 
 === Thème « Monde » (0.0.5 et suivantes) ===
 
+0.0.6.12 — Pins et tilleuls
+Génération du terrain : version 23 (nouvelle) · Menus : version 3.
+Pins sylvestres (surtout au pied des montagnes) et tilleuls (surtout en lisière), faits dans Blender, cinq tailles ; images par seconde limitées à 60 (réglable) : le PC ne siffle plus.
+
 0.0.6.11 — Arbres de cinq tailles
 Génération du terrain : version 22 (nouvelle) · Menus : version 3.
 Arbres plus réalistes (pommier standard 7,5 m, tronc plus large, premières branches vers 2 m) et cinq tailles, de petit à grand ; groupes plus espacés.
