@@ -5,11 +5,11 @@ Personnages 3D faits dans Blender (assets/characters), sons en partie CC0 ; asse
 Guide complet : docs/README.md. Fichiers techniques : docs/ORGANISATION.txt.
 
 ## Communication
-- Répondre en français, de façon **très synthétique** (l'utilisateur lit souvent à voix haute).
+- Répondre en français, de façon **très synthétique**.
 - L'utilisateur n'est pas expert Git : expliquer les étapes simplement.
 
 ## Juridique (prioritaire)
-- Signaler **immédiatement** tout risque : droit suisse/UE, autres jeux et éditeurs (surtout le jeu de blocs le plus connu), licences, données personnelles.
+- Signaler **immédiatement** tout risque à l'utilisateur' : droit suisse/UE, autres jeux et éditeurs (surtout le jeu de blocs le plus connu), licences, données personnelles.
 - Ne rien reprendre d'un autre jeu (code, assets, noms, éléments emblématiques, interface identique) ; proposer une alternative originale. Ne jamais citer un autre jeu dans le dépôt (il est public).
 - Voir « Cadre juridique » dans README.md.
 
@@ -28,14 +28,15 @@ Guide complet : docs/README.md. Fichiers techniques : docs/ORGANISATION.txt.
   - launcher : launcher/.
 
 ## Tests
-Depuis PowerShell, à la racine du projet, en parallèle (4 à la fois) :
+Depuis PowerShell, à la racine du projet, en parallèle (6 à la fois, moins si le PC est chargé) :
 
     .\tests\run_all.ps1 -Only fly,controls   # versions non publiées : seulement les tests de ce qui a changé
     .\tests\run_all.ps1                      # tous : seulement sur demande (à la publication, l'Action Dev les lance sur GitHub)
 
 Les tests juridiques (licences, aucun autre jeu cité) passent **toujours**, même avec -Only.
 **Sécurité du PC** (planté le 24.10.2026, mémoire à 99 %) : run_all.ps1 ne lance plus de test au-delà de 85 % de mémoire,
-arrête tout au-delà de 90 % et coupe un test qui dépasse 3 Go. Ne jamais lancer de tests depuis deux sessions à la fois ;
+arrête tout au-delà de 90 % et coupe un test qui dépasse 2 Go. Le jeu lui-même : qualité d'abord ; sur PC 5 à 5,5 Go au plus (environ 3 Go en 0.0.6, acceptable), enlever seulement le gaspillage (#175) ; sur le Web, réglages plus légers. 6 tests à la fois par défaut, réduits à 3 au-delà
+de 75 % de mémoire ou de 85 % de processeur (jamais d'arrêt à cause du processeur). Ne jamais lancer de tests depuis deux sessions à la fois ;
 utiliser -Jobs 2 si le PC est en mode économie d'énergie ou si d'autres gros programmes tournent (Blender, éditeur Godot).
 Godot console : C:\Users\Dev\Desktop\Godot_v4.7.2-stable_win64.exe\Godot_v4.7.2-stable_win64_console.exe
 Un seul test : `& '<Godot console>' --headless --path . --script res://tests/<nom>_test.gd`.
@@ -78,7 +79,7 @@ mesurer les performances sur PC et sur le Web à chaque étape.
 ## Série 0.0.6 — Monde 2 (milestone du même nom)
 Réduite le 08.11.2026 à ce qui sert au gameplay : arbres (#138), pommiers et noisetiers (#149), pins et tilleuls (#146),
 plantes à fibres et lianes (#147). Lave, lacs, vraies structures (#166 : maisons, villages) → « À venir » ;
-eau, rivières, remplissage des lacs (#164, #158), météo → « Ciel et climat ». Ensuite : 0.0.7 — Gameplay et inventaire, puis 0.0.8 — Paramètres 3.
+eau, rivières, remplissage des lacs (#164, #158), météo → « Ciel et climat ». Ensuite (décidé le 12.11.2026) : 0.0.7 — Gameplay et inventaire, 0.0.8 — Animaux, 0.1 — Enfin un jeu (commencement), puis 0.1.1 — Paramètres 3.
 Pas d'inventaire, de récolte ni de modes créatif/survie (#73) dans la 0.0.6 : ils sont pour la 0.0.7.
 Une génération qui change = un nouveau numéro de version : les mondes existants ne changent jamais.
 Taille du monde : génération version 15, 64 × 64 zones (512 m) ; les versions d'avant restent à 48 × 48 (Generation.half_zones).
