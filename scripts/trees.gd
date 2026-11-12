@@ -94,6 +94,9 @@ static func read_ahead() -> void:
 
 # Prépare le prochain modèle pas encore prêt ; faux quand tous le sont.
 static func warm_next() -> bool:
+	# Rendu Compatibility (Web) : préparer un modèle y prend 50 à 100 ms (à-coups quand on ne bouge pas) ; lus à la demande.
+	if RenderingServer.get_current_rendering_method() == "gl_compatibility":
+		return false
 	while not _warm_list.is_empty():
 		var next: Array = _warm_list.pop_front()
 		if not _meshes.has("%d_%d_%s" % next):

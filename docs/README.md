@@ -1,6 +1,15 @@
-# OrbMeka™ — prototype 0.0.6.18
+# OrbMeka™ — prototype 0.0.6.19
 
 Godot 4.7 / GDScript. Formes et couleurs simples ; assets externes seulement sous licence vérifiée (sons CC0, assets/sounds/CREDITS.txt).
+
+## 0.0.6.19 — Version Web allégée
+Version locale. Seulement le Web (rendu Compatibility) ; le PC ne change pas.
+- **Optimisé** : la préparation d'avance des modèles d'arbres (0.0.6.18) est coupée sur le Web, où elle prend 50 à 100 ms par modèle ; ils sont lus quand il faut, comme avant.
+- **Allégé** (réglages par défaut du Web, modifiables dans Vidéo) : distance d'affichage 5 zones (avant 6), lointain 12 (avant 16), herbe 2 (avant 3) ; ombres sur un seul niveau jusqu'à 40 m ; pas de lissage des bords (MSAA) ; image à la taille de la page sans multiplier les pixels des écrans haute densité.
+- Mesure : le navigateur intégré de l'outil freine la page (une image toutes les 2 s, même sans rien à dessiner) : pas de chiffres fiables ici ; le code d'avant 0.0.6.18 y est aussi lent, la lenteur du Web n'est donc pas due à 0.0.6.18.
+
+Tests réussis : web_fixes, trees, display_settings, settings_files, world_consistency, smooth_terrain, history_resume, prototype (+ tests juridiques).
+À tester manuellement : la vraie page Web (images par seconde, chargement), netteté du texte sur un écran haute densité.
 
 ## 0.0.6.18 — Jeu plus fluide (#175)
 Version locale (1 sur 4 avant la prochaine publication). Même monde, même image (captures avant/après identiques sur PC et Web, à l'herbe agitée par le vent près).

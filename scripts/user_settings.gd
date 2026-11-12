@@ -79,7 +79,8 @@ const SPECS := {
 	"max_fps": {"label": "Images par seconde au plus", "unit": "images par seconde", "default": 60.0, "min": 30.0, "max": 240.0, "step": 10.0},
 }
 # 0.0.5.36 (#128) : sur le Web, distances plus courtes par défaut (le joueur peut les changer dans Vidéo).
-const WEB_DEFAULTS := {"grass_zones": 3.0, "view_distance": 6.0, "far_distance": 16.0}
+# 0.0.6.19 : encore plus courtes (le navigateur calcule 3 à 5 fois moins vite que le jeu sur PC).
+const WEB_DEFAULTS := {"grass_zones": 2.0, "view_distance": 5.0, "far_distance": 12.0}
 static func default_of(key: String, web: bool = OS.has_feature("web")) -> float:
 	return WEB_DEFAULTS[key] if web and WEB_DEFAULTS.has(key) else SPECS[key].default
 # Réglages à choix (0.0.3.4 ; profondeur 0.0.3.5), affichés en boutons ; options dans l'ordre d'affichage.

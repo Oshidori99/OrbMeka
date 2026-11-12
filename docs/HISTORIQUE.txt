@@ -3,6 +3,10 @@ Du plus récent au plus ancien. Ce fichier est mis à jour à chaque version.
 
 === Thème « Monde » (0.0.5 et suivantes) ===
 
+0.0.6.19 — Version Web allégée
+Génération du terrain : version 28 (inchangée) · Menus : version 3.
+Sur le Web : distances plus courtes, ombres sur un niveau, sans lissage des bords ni haute densité de pixels ; plus de préparation d'arbres d'avance.
+
 0.0.6.18 — Jeu plus fluide (#175)
 Génération du terrain : version 28 (inchangée) · Menus : version 3.
 Vol sans à-coups (46 → 0), 2 fois plus d'images par seconde, 3 fois moins de dessins, collisions seulement près du joueur ; même image.

@@ -20,7 +20,7 @@ func check(ok: bool, label: String) -> void:
 func _run() -> void:
 	root.size = Vector2i(1280, 720)
 	check(WorldRules.COMPAT_SUN == 0.65 and WorldRules.COMPAT_AMBIENT == 1.3 and WorldRules.PC_SUN == 0.42 and WorldRules.PC_AMBIENT == 0.42, "web renderer: sun and ambient light corrected (0.0.6.17 values, measured on captures)")
-	check(load("res://scripts/user_settings.gd").default_of("far_distance", true) == 16.0 and load("res://scripts/user_settings.gd").default_of("view_distance", true) == 6.0 and load("res://scripts/user_settings.gd").default_of("far_distance", false) == 24.0, "web: shorter distances by default")
+	check(load("res://scripts/user_settings.gd").default_of("far_distance", true) == 12.0 and load("res://scripts/user_settings.gd").default_of("view_distance", true) == 5.0 and load("res://scripts/user_settings.gd").default_of("far_distance", false) == 24.0, "web: shorter distances by default")
 	check(not WorldRules.is_compat() or RenderingServer.get_current_rendering_method() == "gl_compatibility", "compatibility renderer detected by its name")
 	var showcase := FileAccess.get_file_as_string("res://scripts/menu_showcase.gd")
 	check(showcase.contains("WorldRules.apply_compat_light(environment, sun)"), "home showcase uses the same correction")

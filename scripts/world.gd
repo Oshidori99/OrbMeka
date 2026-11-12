@@ -187,6 +187,10 @@ func _setup_environment() -> void:
 	# 0.0.5.25 : ombres jusqu'à 64 m, en 2 niveaux (moitié moins de dessins, presque rien ne change à l'œil).
 	sun.directional_shadow_max_distance = 64.0
 	sun.directional_shadow_mode = DirectionalLight3D.SHADOW_PARALLEL_2_SPLITS
+	# 0.0.6.19 : Web (rendu Compatibility) allégé : ombres en un seul niveau, jusqu'à 40 m (moitié moins de dessins pour elles).
+	if is_compat():
+		sun.directional_shadow_mode = DirectionalLight3D.SHADOW_ORTHOGONAL
+		sun.directional_shadow_max_distance = 40.0
 	apply_compat_light(environment, sun)
 	add_child(sun)
 
