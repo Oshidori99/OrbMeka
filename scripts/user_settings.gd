@@ -83,6 +83,10 @@ const SPECS := {
 const WEB_DEFAULTS := {"grass_zones": 2.0, "view_distance": 5.0, "far_distance": 12.0}
 static func default_of(key: String, web: bool = OS.has_feature("web")) -> float:
 	return WEB_DEFAULTS[key] if web and WEB_DEFAULTS.has(key) else SPECS[key].default
+# 0.0.6.20 : herbe peu dense par défaut sur le Web (le joueur peut la remettre dans Vidéo).
+const WEB_CHOICES := {"grass_density": "low"}
+static func choice_default(key: String, web: bool = OS.has_feature("web")) -> String:
+	return WEB_CHOICES[key] if web and WEB_CHOICES.has(key) else CHOICES[key].default
 # Réglages à choix (0.0.3.4 ; profondeur 0.0.3.5), affichés en boutons ; options dans l'ordre d'affichage.
 const CHOICES := {
 	"text_detail": {"label": "Synthèse des textes", "options": {"minus": "−", "default": "Par défaut", "plus": "+"}, "default": "default"},
@@ -326,7 +330,7 @@ static func default_values() -> Dictionary:
 	for key in SPECS:
 		result[key] = default_of(key)
 	for key in CHOICES:
-		result[key] = CHOICES[key].default
+		result[key] = choice_default(key)
 	return result
 
 # Valeurs pour une partie : monde développeur = tous les réglages ; monde par défaut =
@@ -359,7 +363,7 @@ func apply_texts(texts: Dictionary) -> bool:
 		candidate[key] = snappedf(value, SPECS[key].step) if SPECS[key].has("step") else value
 	for key in CHOICES:
 		# Choix absent : défaut ; choix inconnu : refusé.
-		var choice: String = str(texts.get(key, CHOICES[key].default))
+		var choice: String = str(texts.get(key, choice_default(key)))
 		if not CHOICES[key].options.has(choice):
 			last_error = "%s : choix inconnu." % CHOICES[key].label
 			return false

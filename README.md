@@ -1,7 +1,8 @@
-# OrbMeka™ 0.0.6.19
+# OrbMeka™ 0.0.6.20
 
 Dans Godot, ouvrez **project.godot**, puis **F5** pour lancer le jeu.
 
+0.0.6.20 : version Web encore allégée (image 3D à 75 %, herbe peu dense par défaut).
 0.0.6.19 : version Web allégée (distances plus courtes, ombres simples, sans lissage ni haute densité de pixels).
 0.0.6.18 : jeu beaucoup plus fluide (vol sans à-coups, 2 fois plus d'images par seconde, 3 fois moins de dessins), même image.
 0.0.6.17 : monde plus grand (96 × 96 zones, 768 m, génération 28) ; version Web corrigée (cailloux et rochers, couleurs proches du PC).

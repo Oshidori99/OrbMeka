@@ -3,6 +3,10 @@ Du plus récent au plus ancien. Ce fichier est mis à jour à chaque version.
 
 === Thème « Monde » (0.0.5 et suivantes) ===
 
+0.0.6.20 — Version Web encore allégée
+Génération du terrain : version 28 (inchangée) · Menus : version 3.
+Sur le Web seulement : image 3D calculée à 75 % de la taille (menus nets), herbe peu dense par défaut.
+
 0.0.6.19 — Version Web allégée
 Génération du terrain : version 28 (inchangée) · Menus : version 3.
 Sur le Web : distances plus courtes, ombres sur un niveau, sans lissage des bords ni haute densité de pixels ; plus de préparation d'arbres d'avance.

@@ -1,6 +1,14 @@
-# OrbMeka™ — prototype 0.0.6.19
+# OrbMeka™ — prototype 0.0.6.20
 
 Godot 4.7 / GDScript. Formes et couleurs simples ; assets externes seulement sous licence vérifiée (sons CC0, assets/sounds/CREDITS.txt).
+
+## 0.0.6.20 — Version Web encore allégée
+Publié. Seulement le Web (le PC ne change pas). Mesuré par l'utilisateur en 0.0.6.19 : 15 à 25 images par seconde dans le navigateur.
+- Image 3D calculée à 75 % de la taille de la page puis agrandie (presque moitié moins de pixels) ; menus et textes restent nets.
+- Herbe peu dense par défaut (Basse ; modifiable dans Vidéo).
+
+Tests réussis : settings_files, display_settings, web_fixes, history_resume, prototype, interface_info, custom_world_menu (+ tests juridiques).
+À tester manuellement : images par seconde sur la page publique (après Ctrl + F5).
 
 ## 0.0.6.19 — Version Web allégée
 Version locale. Seulement le Web (rendu Compatibility) ; le PC ne change pas.
