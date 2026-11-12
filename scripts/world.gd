@@ -338,6 +338,8 @@ func _show_cave_zone(zone: Vector3i) -> void:
 		rebuild_terrain_piece(zone)
 
 func _hide_column(column: Vector2i) -> void:
+	# 0.0.6.18 (#175) : calculs du terrain de cette colonne libérés (recalculés à l'identique au retour).
+	terrain.forget_column(column)
 	shown_columns.erase(column)
 	column_pending.erase(column)
 	_hide_column_objects(column)

@@ -2454,3 +2454,18 @@ func _plant_spot_ok(at: Vector2) -> bool:
 			return false
 	var slope := Vector2(ground_height(column + Vector2i(2, 0)) - ground_height(column - Vector2i(2, 0)), ground_height(column + Vector2i(0, 2)) - ground_height(column - Vector2i(0, 2))) / 2.0
 	return slope.length() < 0.6
+
+# 0.0.6.18 (#175) : les calculs gardés par point (hauteurs, sols, neige, pierre des montagnes, désert, aiguilles) grandissaient
+# sans fin en voyageant (près de 250 Mo après 600 m). Quand une colonne de 8 m quitte la vue, on les oublie ; ils se
+# recalculent à l'identique si on revient (même graine = même résultat).
+func forget_column(zone_column: Vector2i) -> void:
+	var low := zone_column * POINTS - Vector2i(2, 2)
+	for x in range(low.x, low.x + POINTS + 4):
+		for z in range(low.y, low.y + POINTS + 4):
+			var column := Vector2i(x, z)
+			_heights.erase(column)
+			_soils.erase(column)
+			_snow.erase(column)
+			_lifts.erase(column)
+			_desert_columns.erase(column)
+			_needle_columns.erase(column)
