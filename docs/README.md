@@ -1,6 +1,18 @@
-# OrbMeka™ — prototype 0.0.6.13
+# OrbMeka™ — prototype 0.0.6.14
 
 Godot 4.7 / GDScript. Formes et couleurs simples ; assets externes seulement sous licence vérifiée (sons CC0, assets/sounds/CREDITS.txt).
+
+## 0.0.6.14 — Grandes montagnes douces (#184)
+Version locale (pas encore publiée).
+- **Génération version 25** (nouveaux mondes ; les autres ne changent pas) : montagnes plus grandes, 24 à 36 m de haut (20 à 32 avant) et 70 à 115 m de rayon (40 à 70 avant), crêtes moins marquées : pentes moyennes de 0,61 au lieu de 0,77 (environ 31° au lieu de 38°), moins de passages trop raides. Chaînes de montagnes plus douces aussi. Les montagnes raides restent, rares.
+- Un peu moins de montagnes (environ 10 de terre par monde), mais elles couvrent plus de sol (30 à 40 %, selon la graine).
+- **Pins plus haut** : pins et pinèdes montent jusqu'aux trois quarts des pentes ; environ 30 % des forêts naissent sur les pentes des montagnes (pinèdes).
+- Rivières toujours présentes (1 à 3 par monde selon la graine).
+- **Monde d'essai T44** (graine 4088120467) ; la vitrine de l'accueil le montre.
+
+Tests concernés réussis (montagnes de la génération 25 plus hautes et plus douces ; forêts, arbres, terrain, eau, mondes anciens : les tests d'anciennes versions gardent leurs anciens réglages de montagnes). Mesures dans la même séance (graine de T43), génération 24 puis 25, sans limite d'images : PC à l'arrêt 685 → 398 FPS, en vol 106 → 93 ; rendu Web 702 → 672 et 166 → 139 (plus de terrain visible avec les grandes montagnes ; large marge avec la limite de 60).
+À tester manuellement : monter sur une grande montagne, pinèdes sur les pentes, rivières.
+Prochaines étapes décidées : finir les forêts (sol d'aiguilles, verger sauvage), plantes à fibres et lianes (#182), puis agrandir les mondes (#183).
 
 ## 0.0.6.13 — Forêts (#138)
 Version publiée (avec 0.0.6.10 à 0.0.6.12).

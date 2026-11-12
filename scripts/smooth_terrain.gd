@@ -85,6 +85,9 @@ func setup(terrain_seed: int, flat_spots: Array = [], options: Dictionary = {}) 
 	_tree_sizes_on = int(generation_options.get("version", 0)) >= 22
 	_other_trees_on = int(generation_options.get("version", 0)) >= 23
 	_forests_on = int(generation_options.get("version", 0)) >= 24
+	_gentle_mountains = int(generation_options.get("version", 0)) >= 25
+	# Version 25 : crêtes moins marquées sur les montagnes (pentes plus régulières, plus faciles à monter).
+	_ridge = 0.12 if _gentle_mountains else 0.3
 	fall_limit = half_zones * int(ZONE_METERS) - 3
 	var layers := layers_of(generation_options)
 	low_point = layers[0]
@@ -1757,7 +1760,7 @@ func mountain_lift(at: Vector2, kind := MOUNTAINS_ALL) -> float:
 			continue
 		var profile := 1.0 - smoothstep(0.0, 1.0, distance / radius)
 		var ridge := 1.0 - absf(_noise.get_noise_2d(at.x * 1.6 - 401.0, at.y * 1.6 + 97.0))
-		lift = maxf(lift, found.height * maxf(0.0, pow(profile, 1.3) + 0.3 * profile * (ridge - 0.6)))
+		lift = maxf(lift, found.height * maxf(0.0, pow(profile, 1.3) + _ridge * profile * (ridge - 0.6)))
 	return lift
 
 # Distance au centre d'une montagne, en part de son rayon (bord irrégulier) : 0 au sommet, 1 au pied.
@@ -1774,7 +1777,7 @@ func _lift_of(at: Vector2, found: Dictionary) -> float:
 		return 0.0
 	var profile := 1.0 - smoothstep(0.0, 1.0, ratio)
 	var ridge := 1.0 - absf(_noise.get_noise_2d(at.x * 1.6 - 401.0, at.y * 1.6 + 97.0))
-	return found.height * maxf(0.0, pow(profile, 1.3) + 0.3 * profile * (ridge - 0.6))
+	return found.height * maxf(0.0, pow(profile, 1.3) + _ridge * profile * (ridge - 0.6))
 
 # 0.0.6 (version 16) : environ 1 montagne sur 4 enneigée (jamais de sable), selon la graine.
 func _snowy(found: Dictionary) -> bool:
@@ -2191,11 +2194,15 @@ func _pines_and_lindens(area: Vector2i, fruit: Array) -> Array:
 	return result
 
 # Au pied ou sur les pentes basses d'une montagne de terre et de pierre (pas de sable).
+# 0.0.6.14 (version 25) : montagnes douces : les pins montent jusqu'aux trois quarts de la pente.
+var _gentle_mountains := false
+var _ridge := 0.3
+
 func _near_mountain_foot(at: Vector2) -> bool:
 	for found in _mountains_near(at):
 		if not found.get("sand", false):
 			var ratio := _mountain_ratio(at, found)
-			if ratio > 0.45 and ratio < 1.3:
+			if ratio > (0.2 if _gentle_mountains else 0.45) and ratio < 1.3:
 				return true
 	return false
 
@@ -2230,13 +2237,20 @@ func forests() -> Array:
 		if _forests.size() >= wanted:
 			break
 		var center := Vector2(rng.randf_range(-limit, limit), rng.randf_range(-limit, limit))
+		# 0.0.6.14 (version 25) : environ 30 % des forêts naissent sur les pentes douces d'une montagne (pinèdes).
+		var slope_roll := rng.randf()
+		var hills: Array = _all_mountains().filter(func(found): return not found.get("sand", false) and found.radius > 40.0) if _gentle_mountains else []
+		if not hills.is_empty() and slope_roll < 0.3:
+			var hill: Dictionary = hills[rng.randi() % hills.size()]
+			center = hill.center + Vector2.from_angle(rng.randf() * TAU) * hill.radius * rng.randf_range(0.6, 1.0)
+			center = center.clamp(Vector2(-limit, -limit), Vector2(limit, limit))
 		var radius := rng.randf_range(25.0, 40.0)
 		var wobble := rng.randf() * TAU
 		var clearing_roll := rng.randf()
 		var clearings := []
 		for k in range(2):
 			clearings.append({"center": center + Vector2.from_angle(rng.randf() * TAU) * rng.randf_range(0.0, radius * 0.5), "radius": rng.randf_range(4.0, 7.5), "lone": rng.randf() < 0.4})
-		var free := not is_desert(center) and lake_at(center).is_empty() and mountain_lift(center) < 6.0
+		var free := not is_desert(center) and lake_at(center).is_empty() and mountain_lift(center) < (14.0 if _gentle_mountains else 6.0)
 		for spot in _flat_spots:
 			free = free and center.distance_to(spot[0]) > spot[1] + radius + 8.0
 		for other in _forests:

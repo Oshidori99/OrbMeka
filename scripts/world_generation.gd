@@ -32,8 +32,9 @@ extends RefCounted
 # Version 22 (0.0.6.11) : même monde, arbres de cinq tailles (petit à grand) et groupes d'arbres plus espacés.
 # Version 23 (0.0.6.12) : même monde, pins sylvestres (surtout au pied des montagnes) et tilleuls (surtout en lisière).
 # Version 24 (0.0.6.13) : même monde, forêts (pinèdes au pied des montagnes, feuillus en plaine), lisières et clairières.
-const VERSION := 24
-const VERSIONS := [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24]
+# Version 25 (0.0.6.14) : montagnes plus grandes (24 à 36 m) aux pentes bien plus douces ; pins plus haut sur les pentes.
+const VERSION := 25
+const VERSIONS := [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25]
 # Chance la plus rare qu'on peut régler : 1 sur MAX_CHANCE par zone (64 avant 0.0.5.18, 400 avant 0.0.5.23, 2000 avant 0.0.5.24).
 const MAX_CHANCE := 4000
 const STANDARD_SMALL_DENOMINATOR := 8
@@ -68,9 +69,11 @@ const SPECS := [
 	{"key":"lakes_large", "label":"Grands lacs (environ 16 zones)", "default":260, "since":12, "until":12},
 	{"key":"lakes_large", "label":"Grands lacs (environ 32 zones)", "default":90, "since":13},
 	{"key":"mountains", "label":"Montagnes (20 à 32 blocs de haut, environ 50 zones)", "default":700, "since":7, "until":7},
-	{"key":"mountains", "label":"Montagnes où l'on peut monter (20 à 32 blocs de haut)", "default":850, "since":8},
+	{"key":"mountains", "label":"Montagnes où l'on peut monter (20 à 32 blocs de haut)", "default":850, "since":8, "until":24},
+	{"key":"mountains", "label":"Grandes montagnes aux pentes douces (24 à 36 blocs de haut)", "default":1700, "since":25},
 	{"key":"steep_mountains", "label":"Montagnes raides, trop raides pour y monter", "default":2800, "since":8},
-	{"key":"mountain_chains", "label":"Chaînes de montagnes (3 à 5 sommets)", "default":1400, "since":13},
+	{"key":"mountain_chains", "label":"Chaînes de montagnes (3 à 5 sommets)", "default":1400, "since":13, "until":24},
+	{"key":"mountain_chains", "label":"Chaînes de montagnes (3 à 5 sommets doux)", "default":2200, "since":25},
 	{"key":"sand_mountains", "label":"Montagnes de sable (10 à 16 blocs, seulement dans les déserts)", "default":15, "since":11},
 	{"key":"mud_regions", "label":"Régions de boue (environ 2 zones)", "default":70, "since":6},
 	{"key":"cave_entrances", "label":"Entrées de grottes", "default":24, "since":14},
@@ -108,6 +111,7 @@ const DESERT_SIZES := {
 	22: {"medium_desert": [3, 4, 2, 2], "big_desert": [40, 48, 8, 8]},
 	23: {"medium_desert": [3, 4, 2, 2], "big_desert": [40, 48, 8, 8]},
 	24: {"medium_desert": [3, 4, 2, 2], "big_desert": [40, 48, 8, 8]},
+	25: {"medium_desert": [3, 4, 2, 2], "big_desert": [40, 48, 8, 8]},
 }
 # 0.0.6 (version 15) : monde de 64 × 64 zones ; 48 × 48 pour les versions d'avant (0.0.5.20 ; 20 × 20 en 0.0.5.18, 16 × 16 avant).
 static func half_zones(version: int = VERSION) -> int:
@@ -190,6 +194,10 @@ static func mountain(rng: RandomNumberGenerator, zone: Vector2i, version: int = 
 	var center := Vector2(zone) * 8.0 + Vector2(rng.randf_range(0.0, 8.0), rng.randf_range(0.0, 8.0))
 	var height := rng.randf_range(20.0, 32.0)
 	var radius := height * rng.randf_range(1.9, 2.2) if version >= 8 else rng.randf_range(32.0, 46.0)
+	# 0.0.6.14 (version 25, #184) : plus grandes (24 à 36 m) et bien plus larges (70 à 115 m de rayon) : pentes plus douces.
+	if version >= 25:
+		height = 24.0 + (height - 20.0) * 1.0
+		radius = height * rng.randf_range(2.8, 3.2)
 	return {"center": center, "height": height, "radius": radius, "stretch": rng.randf_range(1.0, 1.35), "turn": rng.randf() * TAU}
 
 # Version 8 : montagne raide : aussi haute, bien moins large (pente trop forte pour monter).
@@ -218,6 +226,10 @@ static func mountain_chain(terrain_seed: int, zone: Vector2i, options: Dictionar
 	for index in range(rng.randi_range(3, 5)):
 		var height := rng.randf_range(16.0, 26.0)
 		var radius := height * rng.randf_range(1.9, 2.1)
+		# 0.0.6.14 (version 25) : chaînes plus hautes et plus douces.
+		if int(options.version) >= 25:
+			height += 4.0
+			radius = height * rng.randf_range(2.4, 2.7)
 		peaks.append({"center": at, "height": height, "radius": radius, "stretch": rng.randf_range(1.0, 1.2), "turn": heading})
 		heading += rng.randf_range(-0.35, 0.35)
 		at += Vector2.from_angle(heading) * radius * 0.85
@@ -387,6 +399,8 @@ static func describe(options: Dictionary) -> String:
 		lines.append("Pins sylvestres (7 à 21 m), surtout au pied des montagnes, et tilleuls (6 à 20 m), surtout en lisière ; seuls ou par 2 à 3.")
 	if version >= 24:
 		lines.append("Forêts : pinèdes au pied des montagnes, feuillus (tilleuls, noisetiers) en plaine ; lisières de petits arbres et d'arbres fruitiers, clairières dans les grandes.")
+	if version >= 25:
+		lines.append("Montagnes plus grandes (24 à 36 m) aux pentes douces, où montent les pins ; quelques montagnes raides restent.")
 	lines.append(layers)
 	return "\n".join(lines)
 

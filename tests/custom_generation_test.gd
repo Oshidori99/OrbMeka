@@ -16,7 +16,7 @@ func _run() -> void:
 	for source in ["res://scripts/world_generation.gd.uid","res://tests/custom_generation_test.gd.uid","res://tests/custom_world_menu_test.gd.uid"]:
 		check(ResourceUID.text_to_id(FileAccess.get_file_as_string(source).strip_edges()) > 0, "new script UID is valid")
 	var options := Generation.defaults()
-	check(options.version == 24 and options.forests == 230 and options.fruit_trees == 14 and options.other_trees == 16 and options.cave_entrances == 24 and options.cave_systems == 20 and options.crevasses == 30 and options.mountain_chains == 1400 and options.smooth_holes == 30 and options.steep_holes == 45 and options.mud_pits == 40 and options.sand_mountains == 15 and not options.has("small_deserts") and not options.has("lakes_2") and not options.has("lakes_4") and options.large_deserts == 340 and options.lakes_small == 900 and options.lakes_medium == 40 and options.lakes_large == 90 and options.mountains == 850 and options.steep_mountains == 2800 and options.mud_regions == 70, "standard (version 24): fruit trees, big deserts, small, medium and large lakes, climbable and steep mountains")
+	check(options.version == 25 and options.forests == 230 and options.fruit_trees == 14 and options.other_trees == 16 and options.cave_entrances == 24 and options.cave_systems == 20 and options.crevasses == 30 and options.mountain_chains == 2200 and options.smooth_holes == 30 and options.steep_holes == 45 and options.mud_pits == 40 and options.sand_mountains == 15 and not options.has("small_deserts") and not options.has("lakes_2") and not options.has("lakes_4") and options.large_deserts == 340 and options.lakes_small == 900 and options.lakes_medium == 40 and options.lakes_large == 90 and options.mountains == 1700 and options.steep_mountains == 2800 and options.mud_regions == 70, "standard (version 25): fruit trees, big deserts, small, medium and large lakes, climbable and steep mountains")
 	check(options.deep_holes == 0 and absf(256.0 / options.stone_holes - 3.5) < 0.6 and absf(Generation.desert_share(options) - 0.12) < 0.02, "3 or 4 huge holes per 256 zones; about 6 big deserts")
 	check(Generation.valid({}) and Generation.valid(options), "legacy and custom options accepted")
 	for invalid in [-1,4001,1.5,"24",null]:
@@ -47,6 +47,9 @@ func _run() -> void:
 	# Version 1 (0.0.5.16) : mêmes tailles qu'avant, pour les mondes déjà créés avec elle.
 	var old := all.duplicate()
 	old.version = 1
+	# 0.0.6.14 : réglages des montagnes d'avant la version 25.
+	if old.has("mountains"): old.mountains = 850
+	if old.has("mountain_chains"): old.mountain_chains = 1400
 	# 0.0.6.9 : réglage des arbres seulement dès la version 21.
 	old.erase("fruit_trees")
 	old.erase("other_trees")
@@ -73,7 +76,7 @@ func _run() -> void:
 	for x in range(512):
 		if Generation.zone_info(42,Vector2i(x,9),rare).has("big_desert"):
 			rare_count += 1
-	check(rare_count > 0 and rare_count < 24, "1/64 really reduces generated desert frequency (big deserts, version 24)")
+	check(rare_count > 0 and rare_count < 24, "1/64 really reduces generated desert frequency (big deserts, version 25)")
 	var a := Terrain.new()
 	var b := Terrain.new()
 	a.setup(123,[],options)
@@ -118,7 +121,7 @@ func _run() -> void:
 	var copy: Dictionary = reopened.duplicate_world(item.id)
 	check(copy.id != item.id and copy.generation == options, "duplicate retains seed options with distinct identity")
 	var standard: Dictionary = reopened.create_world("Standard","123")
-	check(standard.generation == Generation.defaults(), "a new standard world saves the version 24 settings")
+	check(standard.generation == Generation.defaults(), "a new standard world saves the version 25 settings")
 	var legacy: Dictionary = reopened.create_world("Ancien","124","default",false,{})
 	check(legacy.generation.is_empty(), "worlds without settings keep the 0.0.5.15 generation")
 	Store.delete_folder(catalog.worlds_root)
@@ -127,6 +130,9 @@ func _run() -> void:
 	check(Generation.half_zones(15) == 32 and Generation.world_zones(15) == 4096 and Generation.half_zones(14) == 24 and Generation.world_zones(14) == 2304 and Generation.half_zones(0) == 24, "world size follows the generation version")
 	var old_options := Generation.defaults()
 	old_options.version = 14
+	# 0.0.6.14 : réglages des montagnes d'avant la version 25.
+	if old_options.has("mountains"): old_options.mountains = 850
+	if old_options.has("mountain_chains"): old_options.mountain_chains = 1400
 	# 0.0.6.9 : réglage des arbres seulement dès la version 21.
 	old_options.erase("fruit_trees")
 	old_options.erase("other_trees")

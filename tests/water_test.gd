@@ -20,6 +20,10 @@ func _initialize() -> void:
 func _open() -> Node3D:
 	var world: Node3D = load("res://scenes/world.tscn").instantiate()
 	world.generation_options = load("res://scripts/world_generation.gd").defaults()
+	# 0.0.6.14 : même monde d'essai qu'avant les grandes montagnes (génération 24), pour garder le même lac.
+	world.generation_options.version = 24
+	world.generation_options.mountains = 850
+	world.generation_options.mountain_chains = 1400
 	world.terrain_seed = 42
 	world.save_folder = FOLDER
 	root.add_child(world)

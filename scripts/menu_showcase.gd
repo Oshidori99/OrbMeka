@@ -12,9 +12,9 @@ extends Node3D
 # 2 ou 3, choisis parmi les nouveautés : liste NEWS_RUNNERS ([id, peau], peau vide pour un animal).
 # Chacun prend son modèle Blender, sinon une forme simple (character_model.gd, partagé avec le jeu).
 # Le reste du fichier (sol, gazon, plage, ciel, caméra) ne change pas d'une version à l'autre.
-const NEWS_VERSION := "0.0.6.13"
-const NEWS_TEXT := "Nouveau : des forêts !
-Pinèdes, feuillus, lisières et clairières."
+const NEWS_VERSION := "0.0.6.14"
+const NEWS_TEXT := "Nouveau : de grandes montagnes !
+Pentes douces et pinèdes jusqu'à mi-hauteur."
 
 # 0.0.3.25 : les trois nouveautés de 0.0.3.23 en aller-retour au-dessus de l'herbe libre, devant la place
 # de sable et pierre (sous le panneau des menus, vers la droite), chacune sur sa rangée.
@@ -93,8 +93,8 @@ const CharacterPreview = preload("res://scripts/character_preview.gd")
 
 const TerrainMaterials = preload("res://scripts/terrain_materials.gd")
 const WorldRules = preload("res://scripts/world.gd")
-# 0.0.6.5 : graine du monde d'essai de la version (T35, T36 en 0.0.6.6, T37 en 0.0.6.7, T38 en 0.0.6.8, T39 en 0.0.6.9, T40 en 0.0.6.10, T41 en 0.0.6.11, T42 en 0.0.6.12, T43 en 0.0.6.13 : monde standard créé dans la liste du joueur), vue depuis une hauteur.
-const SCENE_SEED := 2114718997
+# 0.0.6.5 : graine du monde d'essai de la version (T35, T36 en 0.0.6.6, T37 en 0.0.6.7, T38 en 0.0.6.8, T39 en 0.0.6.9, T40 en 0.0.6.10, T41 en 0.0.6.11, T42 en 0.0.6.12, T43 en 0.0.6.13, T44 en 0.0.6.14 : monde standard créé dans la liste du joueur), vue depuis une hauteur.
+const SCENE_SEED := 4088120467
 # Point de vue : en hauteur (0.0.5.37), pour voir la crevasse ; à hauteur d'homme, le relief la cache.
 # Il tourne lentement la tête ; la vitrine reste sur le côté, hors du panneau des menus.
 const TOWER_CELL := Vector2i(12, 12)

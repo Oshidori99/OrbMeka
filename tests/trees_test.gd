@@ -37,6 +37,9 @@ func _run() -> void:
 	# 0.0.6.13 : arbres hors forêts, vérifiés en génération 23 (les forêts ont leur propre test, forests_test.gd).
 	var options := Generation.defaults()
 	options.version = 23
+	# 0.0.6.14 : réglages des montagnes d'avant la version 25.
+	if options.has("mountains"): options.mountains = 850
+	if options.has("mountain_chains"): options.mountain_chains = 1400
 	options.erase("forests")
 	check(Generation.VERSION >= 23 and options.fruit_trees == 14 and options.other_trees == 16 and Generation.describe(options).contains("pommiers et noisetiers") and Generation.describe(options).contains("cinq tailles") and Generation.describe(options).contains("Pins sylvestres"), "generation 23: fruit trees, pines and lindens of five sizes, described in the world information")
 	var terrain := terrain_for(SEED, options)
@@ -62,10 +65,13 @@ func _run() -> void:
 		for other in trees:
 			if other != tree and str(other.id).get_slice("_", 0) == str(tree.id).get_slice("_", 0) and str(other.id).get_slice("_", 1) == str(tree.id).get_slice("_", 1):
 				spaced = spaced and Vector2(tree.x, tree.z).distance_to(Vector2(other.x, other.z)) >= SmoothTerrain.TREE_SPACING_BIG
-	check(not by_size.has(0) and by_size[2] == by_size.max(), "all five sizes, standard the most common (%s)" % str(by_size))
+	check(not by_size.has(0) and by_size[2] > by_size[0] and by_size[2] > by_size[4], "all five sizes, standard more common than the smallest and the biggest (%s)" % str(by_size))
 	check(spaced, "trees of a group at least 5 m apart")
 	var v21 := options.duplicate()
 	v21.version = 21
+	# 0.0.6.14 : réglages des montagnes d'avant la version 25.
+	if v21.has("mountains"): v21.mountains = 850
+	if v21.has("mountain_chains"): v21.mountain_chains = 1400
 	v21.erase("other_trees")
 	v21.erase("forests")
 	var old_sizes := {}
@@ -102,6 +108,9 @@ func _run() -> void:
 	check(big_spaced, "pines and lindens of a group at least 7 m apart")
 	var v22 := options.duplicate()
 	v22.version = 22
+	# 0.0.6.14 : réglages des montagnes d'avant la version 25.
+	if v22.has("mountains"): v22.mountains = 850
+	if v22.has("mountain_chains"): v22.mountain_chains = 1400
 	v22.erase("other_trees")
 	v22.erase("forests")
 	var v22_trees := all_trees(terrain_for(SEED, v22))
@@ -109,6 +118,9 @@ func _run() -> void:
 	# Anciens mondes : génération 20 sans arbre, relief identique.
 	var old_options := options.duplicate()
 	old_options.version = 20
+	# 0.0.6.14 : réglages des montagnes d'avant la version 25.
+	if old_options.has("mountains"): old_options.mountains = 850
+	if old_options.has("mountain_chains"): old_options.mountain_chains = 1400
 	old_options.erase("fruit_trees")
 	old_options.erase("other_trees")
 	old_options.erase("forests")

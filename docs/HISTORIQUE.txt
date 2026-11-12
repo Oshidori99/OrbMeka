@@ -3,6 +3,10 @@ Du plus récent au plus ancien. Ce fichier est mis à jour à chaque version.
 
 === Thème « Monde » (0.0.5 et suivantes) ===
 
+0.0.6.14 — Grandes montagnes douces
+Génération du terrain : version 25 (nouvelle) · Menus : version 3.
+Montagnes plus grandes (24 à 36 m, 70 à 115 m de rayon) aux pentes plus douces et crêtes moins marquées ; pins et pinèdes plus haut sur leurs pentes.
+
 0.0.6.13 — Forêts
 Génération du terrain : version 24 (nouvelle) · Menus : version 3.
 Forêts moyennement grandes et nombreuses : pinèdes au pied des montagnes, feuillus (tilleuls, noisetiers) en plaine ; lisières de petits arbres et d'arbres fruitiers, clairières.

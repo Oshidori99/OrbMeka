@@ -87,6 +87,9 @@ func _run() -> void:
 	var deep_land := SmoothTerrain.new()
 	var options_18: Dictionary = load("res://scripts/world_generation.gd").defaults()
 	options_18.version = 18
+	# 0.0.6.14 : réglages des montagnes d'avant la version 25.
+	if options_18.has("mountains"): options_18.mountains = 850
+	if options_18.has("mountain_chains"): options_18.mountain_chains = 1400
 	# 0.0.6.9 : réglage des arbres seulement dès la version 21.
 	options_18.erase("fruit_trees")
 	options_18.erase("other_trees")
@@ -466,6 +469,9 @@ func _run() -> void:
 	v3_options.erase("rocks")
 	v3_options.erase("lakes")
 	v3_options.version = 3
+	# 0.0.6.14 : réglages des montagnes d'avant la version 25.
+	if v3_options.has("mountains"): v3_options.mountains = 850
+	if v3_options.has("mountain_chains"): v3_options.mountain_chains = 1400
 	# 0.0.6.9 : réglage des arbres seulement dès la version 21.
 	v3_options.erase("fruit_trees")
 	v3_options.erase("other_trees")
@@ -477,7 +483,12 @@ func _run() -> void:
 	check(no_rocks, "worlds made before version 4 get no rocks or lakes")
 	# 0.0.5.20 : lacs de 1 zone et de 1 × 2 zones, boue au bord et au fond, argile dessous et en poches.
 	var wet_land := SmoothTerrain.new()
-	wet_land.setup(70621, [], load("res://scripts/world_generation.gd").defaults())
+	# 0.0.6.14 : ce monde d'essai garde les montagnes d'avant la version 25 (mêmes lacs et sommets).
+	var wet_options: Dictionary = load("res://scripts/world_generation.gd").defaults()
+	wet_options.version = 24
+	wet_options.mountains = 850
+	wet_options.mountain_chains = 1400
+	wet_land.setup(70621, [], wet_options)
 	var round_lakes := 0
 	var long_lakes := 0
 	var a_long_lake := {}
@@ -764,6 +775,9 @@ func _run() -> void:
 	var older := SmoothTerrain.new()
 	var options_15: Dictionary = load("res://scripts/world_generation.gd").defaults()
 	options_15.version = 15
+	# 0.0.6.14 : réglages des montagnes d'avant la version 25.
+	if options_15.has("mountains"): options_15.mountains = 850
+	if options_15.has("mountain_chains"): options_15.mountain_chains = 1400
 	# 0.0.6.9 : réglage des arbres seulement dès la version 21.
 	options_15.erase("fruit_trees")
 	options_15.erase("other_trees")
@@ -789,6 +803,9 @@ func _run() -> void:
 	check(lakes_17 > 30 and floating_water == 0, "mountain lakes (version 17): water never floats past the ground (%d lakes)" % lakes_17)
 	var options_16: Dictionary = load("res://scripts/world_generation.gd").defaults()
 	options_16.version = 16
+	# 0.0.6.14 : réglages des montagnes d'avant la version 25.
+	if options_16.has("mountains"): options_16.mountains = 850
+	if options_16.has("mountain_chains"): options_16.mountain_chains = 1400
 	# 0.0.6.9 : réglage des arbres seulement dès la version 21.
 	options_16.erase("fruit_trees")
 	options_16.erase("other_trees")
@@ -842,7 +859,12 @@ func _run() -> void:
 	check(lime_pebbles / 1024.0 > 1.0 and lime_pebbles / 1024.0 < 4.0, "limestone pebbles: about 2 per zone (%.1f)" % (lime_pebbles / 1024.0))
 	# Minerais sous terre, comptés sur des zones entières (comme si toute la zone était de la pierre claire ou sombre).
 	var ore_land := SmoothTerrain.new()
-	ore_land.setup(42, [], load("res://scripts/world_generation.gd").defaults())
+	# 0.0.6.14 : montagnes d'avant la version 25, pour comparer au même relief que la version 17.
+	var ore_options: Dictionary = load("res://scripts/world_generation.gd").defaults()
+	ore_options.version = 24
+	ore_options.mountains = 850
+	ore_options.mountain_chains = 1400
+	ore_land.setup(42, [], ore_options)
 	var lime_count := 0
 	var coal_light := 0
 	var coal_dark := 0
@@ -890,6 +912,9 @@ func _run() -> void:
 	check(deep_kinds.keys() == [SmoothTerrain.MOTHER_ROCK] and not dark_kinds.has(SmoothTerrain.LIMESTONE) and not dark_kinds.has(SmoothTerrain.FLINT) and dark_kinds.has(SmoothTerrain.COAL), "never limestone or flint in the dark stone, nothing in the bedrock")
 	var options_17: Dictionary = load("res://scripts/world_generation.gd").defaults()
 	options_17.version = 17
+	# 0.0.6.14 : réglages des montagnes d'avant la version 25.
+	if options_17.has("mountains"): options_17.mountains = 850
+	if options_17.has("mountain_chains"): options_17.mountain_chains = 1400
 	# 0.0.6.9 : réglage des arbres seulement dès la version 21.
 	options_17.erase("fruit_trees")
 	options_17.erase("other_trees")
@@ -986,9 +1011,14 @@ func _run() -> void:
 	# 0.0.6.7 (version 20) : rivières : des sources sur les montagnes jusqu'aux lacs, lit toujours en descente, eau sous
 	# les berges, fond en gravier, jamais de rocher dedans ; même graine, mêmes rivières ; rien en version 19.
 	var river_land := SmoothTerrain.new()
-	river_land.setup(42, [], load("res://scripts/world_generation.gd").defaults())
+	# 0.0.6.14 : monde d'essai des rivières avec les montagnes d'avant la version 25.
+	var river_options: Dictionary = load("res://scripts/world_generation.gd").defaults()
+	river_options.version = 24
+	river_options.mountains = 850
+	river_options.mountain_chains = 1400
+	river_land.setup(42, [], river_options)
 	var river_twin := SmoothTerrain.new()
-	river_twin.setup(42, [], load("res://scripts/world_generation.gd").defaults())
+	river_twin.setup(42, [], river_options)
 	var river_list: Array = river_land.rivers()
 	var rivers_ok := river_list.size() >= 1 and river_list.size() == river_twin.rivers().size()
 	for index in range(river_list.size()):
@@ -1014,6 +1044,9 @@ func _run() -> void:
 	check(river_land.surface_kind(Vector2i(roundi(bed_point.x / 0.5), roundi(bed_point.y / 0.5))) == SmoothTerrain.GRAVEL and in_river, "river beds are gravel, no rock in a river")
 	var options_19: Dictionary = load("res://scripts/world_generation.gd").defaults()
 	options_19.version = 19
+	# 0.0.6.14 : réglages des montagnes d'avant la version 25.
+	if options_19.has("mountains"): options_19.mountains = 850
+	if options_19.has("mountain_chains"): options_19.mountain_chains = 1400
 	# 0.0.6.9 : réglage des arbres seulement dès la version 21.
 	options_19.erase("fruit_trees")
 	options_19.erase("other_trees")

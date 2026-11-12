@@ -35,7 +35,7 @@ func all_trees(terrain: RefCounted) -> Array:
 
 func _run() -> void:
 	var options := Generation.defaults()
-	check(Generation.VERSION == 24 and options.forests == 230 and Generation.describe(options).contains("Forêts"), "generation 24: forests setting, described in the world information")
+	check(Generation.VERSION >= 24 and options.forests == 230 and Generation.describe(options).contains("Forêts"), "generation 24: forests setting, described in the world information")
 	var terrain := terrain_for(SEED, options)
 	var started := Time.get_ticks_msec()
 	var trees := all_trees(terrain)
@@ -114,5 +114,26 @@ func _run() -> void:
 	old_options.erase("forests")
 	var old := terrain_for(SEED, old_options)
 	check(old.forests().is_empty() and all_trees(old).all(func(tree): return not str(tree.id).begins_with("f")), "generation 23 worlds get no forests")
+	# 0.0.6.14 (version 25, #184) : montagnes plus grandes et plus douces ; pins plus haut sur leurs pentes.
+	var mountain_slopes := []
+	var heights := []
+	for version in [24, 25]:
+		var mountain_options := Generation.defaults()
+		if version == 24:
+			mountain_options.version = 24
+			mountain_options.mountains = 850
+			mountain_options.mountain_chains = 1400
+		var land := terrain_for(2114718997, mountain_options)
+		var total := 0.0
+		var count := 0
+		for x in range(-250, 250, 5):
+			for z in range(-250, 250, 5):
+				if land.mountain_lift(Vector2(x, z)) > 1.0:
+					var c := Vector2i(x * 2, z * 2)
+					total += Vector2(land.ground_height(c + Vector2i(2, 0)) - land.ground_height(c - Vector2i(2, 0)), land.ground_height(c + Vector2i(0, 2)) - land.ground_height(c - Vector2i(0, 2))).length() / 2.0
+					count += 1
+		mountain_slopes.append(total / maxf(1, count))
+		heights.append(land._all_mountains().filter(func(found): return not found.get("sand", false)).map(func(found): return found.height).max())
+	check(mountain_slopes[1] < mountain_slopes[0] * 0.9 and heights[1] > heights[0] and heights[1] <= 36.0, "generation 25: bigger mountains (up to %.0f m) with gentler slopes (%.2f against %.2f)" % [heights[1], mountain_slopes[1], mountain_slopes[0]])
 	print("RESULT: %d forest checks, %d failures" % [checks, failures])
 	quit(failures)
