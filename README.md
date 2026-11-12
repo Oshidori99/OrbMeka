@@ -1,7 +1,8 @@
-# OrbMeka™ 0.0.6.16
+# OrbMeka™ 0.0.6.17
 
 Dans Godot, ouvrez **project.godot**, puis **F5** pour lancer le jeu.
 
+0.0.6.17 : monde plus grand (96 × 96 zones, 768 m, génération 28) ; version Web corrigée (cailloux et rochers, couleurs proches du PC).
 0.0.6.16 : plantes à fibres (orties, lin, herbes longues) et lianes sur les tilleuls, faites dans Blender (génération 27).
 0.0.6.15 : sol d'aiguilles sous les pinèdes, vergers sauvages de pommiers et noisetiers (génération 26).
 0.0.6.14 : montagnes plus grandes (24 à 36 m) aux pentes plus douces, pinèdes sur leurs pentes (génération 25).

@@ -12,9 +12,9 @@ extends Node3D
 # 2 ou 3, choisis parmi les nouveautés : liste NEWS_RUNNERS ([id, peau], peau vide pour un animal).
 # Chacun prend son modèle Blender, sinon une forme simple (character_model.gd, partagé avec le jeu).
 # Le reste du fichier (sol, gazon, plage, ciel, caméra) ne change pas d'une version à l'autre.
-const NEWS_VERSION := "0.0.6.16"
-const NEWS_TEXT := "Nouveau : orties, lin et lianes !
-Plantes à fibres dans les prairies et les forêts."
+const NEWS_VERSION := "0.0.6.17"
+const NEWS_TEXT := "Nouveau : des mondes plus grands !
+768 m de côté, plus de place à explorer."
 
 # 0.0.3.25 : les trois nouveautés de 0.0.3.23 en aller-retour au-dessus de l'herbe libre, devant la place
 # de sable et pierre (sous le panneau des menus, vers la droite), chacune sur sa rangée.
@@ -93,8 +93,8 @@ const CharacterPreview = preload("res://scripts/character_preview.gd")
 
 const TerrainMaterials = preload("res://scripts/terrain_materials.gd")
 const WorldRules = preload("res://scripts/world.gd")
-# 0.0.6.5 : graine du monde d'essai de la version (T35, T36 en 0.0.6.6, T37 en 0.0.6.7, T38 en 0.0.6.8, T39 en 0.0.6.9, T40 en 0.0.6.10, T41 en 0.0.6.11, T42 en 0.0.6.12, T43 en 0.0.6.13, T44 en 0.0.6.14, T45 en 0.0.6.15, T46 en 0.0.6.16 : monde standard créé dans la liste du joueur), vue depuis une hauteur.
-const SCENE_SEED := 1420169977
+# 0.0.6.5 : graine du monde d'essai de la version (T35, T36 en 0.0.6.6, T37 en 0.0.6.7, T38 en 0.0.6.8, T39 en 0.0.6.9, T40 en 0.0.6.10, T41 en 0.0.6.11, T42 en 0.0.6.12, T43 en 0.0.6.13, T44 en 0.0.6.14, T45 en 0.0.6.15, T46 en 0.0.6.16, T47 en 0.0.6.17 : monde standard créé dans la liste du joueur), vue depuis une hauteur.
+const SCENE_SEED := 3463503054
 # Point de vue : en hauteur (0.0.5.37), pour voir la crevasse ; à hauteur d'homme, le relief la cache.
 # Il tourne lentement la tête ; la vitrine reste sur le côté, hors du panneau des menus.
 const TOWER_CELL := Vector2i(12, 12)
@@ -194,10 +194,14 @@ var water_material: ShaderMaterial
 func _plan_ground() -> void:
 	terrain.setup(SCENE_SEED, [[Vector2(TOWER_CELL) + Vector2(1.5, 1.5), 5.0], [BEACH_CENTER, BEACH_RADIUS + 4.0]], Generation.defaults())
 	ground_material = TerrainMaterials.surface(true)
+	# 0.0.6.17 : le sol lit les minerais et la litière (CUSTOM0) ; pas les rochers ni les cailloux (rendu Web).
+	ground_material.set_shader_parameter("terrain_layers", true)
+	ground_material.set_shader_parameter("compat_look", RenderingServer.get_current_rendering_method() == "gl_compatibility")
 	ground_material.set_shader_parameter("sand_center", BEACH_CENTER)
 	ground_material.set_shader_parameter("sand_radius", BEACH_RADIUS)
 	water_material = ShaderMaterial.new()
 	water_material.shader = preload("res://shaders/water.gdshader")
+	water_material.set_shader_parameter("tone", 0.85 if RenderingServer.get_current_rendering_method() == "gl_compatibility" else 1.0)
 	TerrainMaterials.density = "low"
 	var near_low := Vector2i(SHOWCASE_ZONES.x, SHOWCASE_ZONES.x)
 	var near_high := Vector2i(SHOWCASE_ZONES.y, SHOWCASE_ZONES.y)

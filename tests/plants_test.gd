@@ -35,7 +35,7 @@ func plants_of(terrain: RefCounted) -> Array:
 
 func _run() -> void:
 	var options := Generation.defaults()
-	check(Generation.VERSION == 27 and Generation.describe(options).contains("Plantes à fibres"), "generation 27: fibre plants, described in the world information")
+	check(Generation.VERSION >= 27 and Generation.describe(options).contains("Plantes à fibres"), "generation 27: fibre plants, described in the world information")
 	var terrain := terrain_for(options)
 	var plants := plants_of(terrain)
 	check(plants == plants_of(terrain_for(options)), "same seed, same plants (%d)" % plants.size())

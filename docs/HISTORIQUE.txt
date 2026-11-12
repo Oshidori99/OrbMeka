@@ -3,6 +3,10 @@ Du plus récent au plus ancien. Ce fichier est mis à jour à chaque version.
 
 === Thème « Monde » (0.0.5 et suivantes) ===
 
+0.0.6.17 — Monde plus grand, version Web corrigée
+Génération du terrain : version 28 (nouvelle) · Menus : version 3.
+Nouveaux mondes de 96 × 96 zones (768 m de côté) ; sur le Web, cailloux et rochers à nouveau en pierre et couleurs alignées sur le PC.
+
 0.0.6.16 — Plantes à fibres et lianes
 Génération du terrain : version 27 (nouvelle) · Menus : version 3.
 Orties en lisière et au bord de l'eau, lin bleu et herbes longues dans les prairies, lianes enroulées sur des tilleuls ; faites dans Blender.

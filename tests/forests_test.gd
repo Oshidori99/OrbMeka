@@ -46,7 +46,8 @@ func _run() -> void:
 	for forest in forests:
 		kinds[forest.kind] += 1
 		sizes_ok = sizes_ok and forest.radius >= 25.0 and forest.radius <= 40.0
-	check(forests.size() >= 12 and forests.size() <= 26 and kinds[0] > 0 and kinds[1] > 0 and sizes_ok, "%d forests of 25 to 40 m: %d pine woods, %d broadleaf woods, %d wild orchards" % [forests.size(), kinds[0], kinds[1], kinds[2]])
+	var expected: float = Generation.world_zones() / float(options.forests)
+	check(forests.size() >= expected * 0.6 and forests.size() <= expected * 1.1 and kinds[0] > 0 and kinds[1] > 0 and sizes_ok, "%d forests of 25 to 40 m: %d pine woods, %d broadleaf woods, %d wild orchards" % [forests.size(), kinds[0], kinds[1], kinds[2]])
 	check(all_trees(terrain_for(SEED, options)) == trees, "same seed, same forests and trees (%d trees)" % trees.size())
 	# Part du sol en forêt.
 	var inside := 0
@@ -89,9 +90,9 @@ func _run() -> void:
 		elif depth < 0.22:
 			edge_count += 1
 			edge_sizes += int(tree.classe)
-		for clearing in forest.clearings:
-			if at.distance_to(clearing.center) < clearing.radius:
-				clearing_ok = clearing_ok and clearing.lone and int(tree.classe) == 5
+		# Dans une clairière : seulement le grand arbre seul, au milieu d'une clairière « avec arbre ».
+		if forest.clearings.any(func(clearing): return at.distance_to(clearing.center) < clearing.radius):
+			clearing_ok = clearing_ok and int(tree.classe) == 5 and forest.clearings.any(func(clearing): return clearing.lone and at.distance_to(clearing.center) < SmoothTerrain.FOREST_STEP * 0.5 + 2.0)
 	check(pine_wood_ok, "pine woods hold only pines")
 	check(core_kinds[Trees.LINDEN] > core_kinds[Trees.HAZEL] and core_kinds[Trees.HAZEL] > 0 and core_kinds[Trees.APPLE] == 0, "broadleaf woods: lindens with hazel undergrowth (%s)" % str(core_kinds))
 	check(edge_kinds[Trees.APPLE] > 0 and edge_kinds[Trees.HAZEL] + edge_kinds[Trees.APPLE] > edge_kinds[Trees.LINDEN], "broadleaf edges: hazels, apple trees and a few small lindens (%s)" % str(edge_kinds))

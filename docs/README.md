@@ -1,6 +1,16 @@
-# OrbMeka™ — prototype 0.0.6.16
+# OrbMeka™ — prototype 0.0.6.17
 
 Godot 4.7 / GDScript. Formes et couleurs simples ; assets externes seulement sous licence vérifiée (sons CC0, assets/sounds/CREDITS.txt).
+
+## 0.0.6.17 — Monde plus grand, version Web corrigée (#183)
+Version locale (pas encore publiée).
+- **Génération version 28** : nouveaux mondes de **96 × 96 zones (768 m de côté)** au lieu de 64 × 64 (512 m) ; montagnes, lacs, déserts, forêts et rivières suivent (même densité, plus de place). Les mondes existants gardent leur taille.
+- **Version Web corrigée** : les cailloux et les rochers y ressemblaient à de la terre rayée (dans le rendu Web, le canal de la litière d'aiguilles valait 1 sur les objets qui ne l'ont pas) ; seul le sol lit maintenant ce canal, et le sol plat le porte à zéro.
+- **Couleurs du Web alignées sur le PC** (mesurées sur captures des deux rendus) : soleil et saturation du rendu Web réduits, feuillage des arbres et plantes, rivière, lacs, sable et terrain lointain un peu moins clairs, boue et litière moins sombres. Écart restant de moins de 10 % sur l'herbe, les arbres, le ciel, le sable et les rochers.
+- **Monde d'essai T47** (graine 3463503054) ; la vitrine de l'accueil le montre.
+
+Tests concernés réussis (taille du monde 768 m, estimations, forêts en proportion, grottes, plantes, arbres). Mesures, même graine, monde de 512 m puis 768 m : ouverture 1,3 → 1,9 s sur PC (1,0 → 1,6 s en rendu Web), mémoire +33 Mo, FPS identiques (vol 83 → 75 sur PC, 87 → 108 en rendu Web) ; 2 768 arbres au lieu de 1 089.
+À tester manuellement : la page Web sur itch.io (cailloux, couleurs), traverser un monde de 768 m.
 
 ## 0.0.6.16 — Plantes à fibres et lianes (#182)
 Version locale (pas encore publiée).

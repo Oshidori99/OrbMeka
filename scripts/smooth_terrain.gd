@@ -915,8 +915,13 @@ static func flat_mesh() -> ArrayMesh:
 	arrays.resize(Mesh.ARRAY_MAX)
 	arrays[Mesh.ARRAY_VERTEX] = vertices
 	arrays[Mesh.ARRAY_NORMAL] = normals
+	# 0.0.6.17 : canal CUSTOM0 à zéro (ni minerai ni litière), lu par le shader du sol.
+	var custom := PackedFloat32Array()
+	custom.resize(6 * 4)
+	custom.fill(0.0)
+	arrays[Mesh.ARRAY_CUSTOM0] = custom
 	var mesh := ArrayMesh.new()
-	mesh.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arrays)
+	mesh.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arrays, [], {}, Mesh.ARRAY_CUSTOM_RGBA_FLOAT << Mesh.ARRAY_FORMAT_CUSTOM0_SHIFT)
 	return mesh
 
 # 0.0.5.11 : gravité de la terre et du sable. Un point plein sans rien dessous tombe d'un cran ; posé
@@ -1715,14 +1720,16 @@ var _mountain_list_ready := false
 func _all_mountains() -> Array:
 	if not _mountain_list_ready:
 		_mountain_list_ready = true
-		for x in range(-40, 40):
-			for z in range(-40, 40):
+		# 0.0.6.17 : jusqu'au bord des grands mondes (96 × 96 zones) ; ±40 zones avant (mêmes montagnes pour eux).
+		var reach := maxi(40, half_zones + 8)
+		for x in range(-reach, reach):
+			for z in range(-reach, reach):
 				var found := _zone_mountain(Vector2i(x, z))
 				if not found.is_empty():
 					_mountain_list.append(found)
 		# 0.0.5.35 (version 13) : chaînes de montagnes, jamais près de l'apparition ni de la plage.
-		for x in range(-40, 40):
-			for z in range(-40, 40):
+		for x in range(-reach, reach):
+			for z in range(-reach, reach):
 				for peak in Generation.mountain_chain(_seed, Vector2i(x, z), generation_options):
 					var clear := true
 					for spot in _flat_spots:

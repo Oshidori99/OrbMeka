@@ -5,6 +5,8 @@ shader_type spatial;
 render_mode blend_mix, cull_disabled, depth_draw_opaque, specular_schlick_ggx;
 uniform vec3 water_color : source_color = vec3(0.09, 0.30, 0.36);
 uniform vec3 sky_tint : source_color = vec3(0.55, 0.75, 0.85);
+// 0.0.6.17 : rendu Web : eau un peu moins claire (mesuré sur captures).
+uniform float tone = 1.0;
 // 0.0.5.36 : l'eau détaillée s'arrête où commence le terrain lointain (qui a sa propre eau) : pas de double couche.
 uniform vec4 near_rect = vec4(-100000.0, -100000.0, 100000.0, 100000.0);
 varying vec3 world_position;
@@ -38,7 +40,7 @@ void fragment() {
 	if (CAMERA_POSITION_WORLD.y >= world_position.y) {
 		NORMAL = normalize((VIEW_MATRIX * vec4(ripple, 0.0)).xyz);
 		float side = pow(1.0 - clamp(dot(NORMAL, VIEW), 0.0, 1.0), 3.0);
-		ALBEDO = mix(water_color, sky_tint, side * 0.5);
+		ALBEDO = mix(water_color, sky_tint, side * 0.5) * tone;
 		ALPHA = mix(0.72, 0.93, side);
 		ROUGHNESS = 0.06;
 		SPECULAR = 0.6;

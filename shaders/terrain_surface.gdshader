@@ -12,6 +12,11 @@ varying vec4 tint;
 varying vec3 ore_share;
 // 0.0.6.15 : litière d'aiguilles de pin (CUSTOM0.a).
 varying float litter_share;
+// 0.0.6.17 : seul le sol (pièces de terrain) porte CUSTOM0 ; dans le rendu Web, un canal absent vaut (0, 0, 0, 1) :
+// sans ce réglage, rochers et cailloux y prenaient l'aspect de la litière d'aiguilles.
+uniform bool terrain_layers = false;
+// 0.0.6.17 : rendu Web (gl_compatibility) : sable un peu moins clair, litière et boue moins sombres (mesuré sur captures).
+uniform bool compat_look = false;
 uniform int rock_kind = 0;
 float zone_hash(vec2 p) {
 	return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453);
@@ -49,8 +54,8 @@ void vertex() {
 	world_position = (MODEL_MATRIX*vec4(VERTEX,1.0)).xyz;
 	world_normal = normalize(MODEL_NORMAL_MATRIX*NORMAL);
 	tint = COLOR;
-	ore_share = CUSTOM0.rgb;
-	litter_share = CUSTOM0.a;
+	ore_share = terrain_layers ? CUSTOM0.rgb : vec3(0.0);
+	litter_share = terrain_layers ? CUSTOM0.a : 0.0;
 }
 void fragment() {
 	vec3 p = world_position;
@@ -265,8 +270,14 @@ void fragment() {
 		albedo = mix(albedo, needles, litter);
 		height = mix(height, max(streak_a, streak_b) * 0.003, litter);
 	}
+	if (compat_look) {
+		float sand_share = clamp(1.0 - tint.a, 0.0, 1.0);
+		albedo *= mix(1.0, 0.85, sand_share);
+		albedo *= mix(1.0, 1.25, litter);
+		albedo *= mix(1.0, 1.45, mud);
+	}
 	ALBEDO = albedo;
-	ROUGHNESS = mix(mix(mix(mix(mix(mix(mix(mix(mix(earth ? 0.96 : (sand ? 0.93 : 0.86), 0.62, clay_wet), 0.72, mud), 0.12, puddle), 0.55, snow), 0.9, gravel), 0.92, ore.x), 0.8 - coal_glint * 0.45, ore.y), 0.6, flint_gloss), 0.95, ore.z - flint_gloss);
+	ROUGHNESS = mix(mix(mix(mix(mix(mix(mix(mix(mix(earth ? 0.96 : (sand ? 0.93 : 0.86), 0.62, clay_wet), 0.72, mud), (compat_look ? 0.6 : 0.12), puddle), 0.55, snow), 0.9, gravel), 0.92, ore.x), 0.8 - coal_glint * 0.45, ore.y), 0.6, flint_gloss), 0.95, ore.z - flint_gloss);
 	SPECULAR = mix(mix(mix(mix(mix(mix(mix(earth ? 0.12 : (sand ? 0.18 + step(0.985,noise3(p*240.0))*0.6 : 0.25), 0.22, mud), 0.5, puddle), 0.35 + sparkle * 0.6, snow), 0.2, gravel), 0.15, ore.x), 0.25 + coal_glint * 0.55, ore.y), 0.25, flint_gloss);
 	vec3 r1 = cross(dFdy(world_position),n);
 	vec3 r2 = cross(n,dFdx(world_position));

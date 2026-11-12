@@ -137,7 +137,7 @@ func _setup_inputs() -> void:
 # soleil × 0,75 (avant 0,48), lumière ambiante × 0,6 (avant 0,38).
 # 0.0.5.30 : PC et Web rapprochés, herbe entre les deux aspects d'avant : même tonemap filmique, lumière propre à chacun,
 # saturation 0,8 sur le Web (mesuré sur captures : herbe proche #6d8452 PC, #4a682f Web ; avant #97b06b et #344f21).
-const COMPAT_SUN := 0.8
+const COMPAT_SUN := 0.65
 const PC_SUN := 0.42
 const COMPAT_AMBIENT := 1.3
 const PC_AMBIENT := 0.42
@@ -150,7 +150,7 @@ static func apply_compat_light(environment: Environment, sun: DirectionalLight3D
 	sun.light_energy *= COMPAT_SUN
 	environment.ambient_light_energy *= COMPAT_AMBIENT
 	environment.adjustment_enabled = true
-	environment.adjustment_saturation = 0.8
+	environment.adjustment_saturation = 0.68
 
 static func is_compat() -> bool:
 	return RenderingServer.get_current_rendering_method() == "gl_compatibility"
@@ -199,6 +199,9 @@ func _create_ground() -> void:
 	box.size = base_size
 	mesh.mesh = box
 	ground_material = TerrainMaterials.surface(true)
+	# 0.0.6.17 : le sol lit les minerais et la litière (CUSTOM0) ; pas les rochers ni les cailloux (rendu Web).
+	ground_material.set_shader_parameter("terrain_layers", true)
+	ground_material.set_shader_parameter("compat_look", is_compat())
 	ground_material.set_shader_parameter("sand_center", SAND_CENTER)
 	ground_material.set_shader_parameter("sand_radius", SAND_RADIUS)
 	mesh.material_override = ground_material
@@ -433,6 +436,7 @@ func show_water_changes() -> void:
 		if _water_material == null:
 			_water_material = ShaderMaterial.new()
 			_water_material.shader = preload("res://shaders/water.gdshader")
+			_water_material.set_shader_parameter("tone", 0.85 if is_compat() else 1.0)
 			_clip_water()
 		piece.material_override = _water_material
 		piece.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
@@ -1689,6 +1693,7 @@ func _show_column_objects(column: Vector2i) -> void:
 		if _water_material == null:
 			_water_material = ShaderMaterial.new()
 			_water_material.shader = preload("res://shaders/water.gdshader")
+			_water_material.set_shader_parameter("tone", 0.85 if is_compat() else 1.0)
 			_clip_water()
 		water.material_override = _water_material
 		water.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
@@ -1739,6 +1744,7 @@ func _show_column_river(column: Vector2i) -> void:
 	if _river_material == null:
 		_river_material = ShaderMaterial.new()
 		_river_material.shader = preload("res://shaders/river.gdshader")
+		_river_material.set_shader_parameter("tone", 0.66 if is_compat() else 1.0)
 	var ribbon := MeshInstance3D.new()
 	ribbon.name = "Riviere"
 	ribbon.mesh = mesh

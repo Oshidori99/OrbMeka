@@ -50,6 +50,9 @@ static func material(kind: int, role: String) -> StandardMaterial3D:
 			"leaves":
 				made.albedo_texture = load(FOLDER + "feuilles_%s.png" % FILES[kind])
 				made.albedo_color = LEAF_TINTS[kind]
+				# 0.0.6.17 : rendu Web : feuillage nettement plus clair qu'au PC (mesuré sur captures) : un peu assombri.
+				if RenderingServer.get_current_rendering_method() == "gl_compatibility":
+					made.albedo_color = Color(made.albedo_color.r * 0.74, made.albedo_color.g * 0.74, made.albedo_color.b * 0.74)
 				made.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA_SCISSOR
 				made.alpha_scissor_threshold = 0.5
 				made.cull_mode = BaseMaterial3D.CULL_DISABLED

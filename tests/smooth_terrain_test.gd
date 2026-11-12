@@ -641,8 +641,9 @@ func _run() -> void:
 		for z in range(-100, 100, 3):
 			rock_ok = rock_ok and cave_land.density(Vector3i(x, cave_land.mother_rock_top, z)) > 0.0
 	check(rock_ok and cave_land.cave_open(Vector2i(1, 1)) == false, "Roche-mère never carved, no cave at the start")
-	var cave_zone: Vector3i = cave_land._cave_zones.keys().filter(func(zone: Vector3i): return zone.y < -1)[0]
-	check(cave_land.zone_mesh(cave_zone)[0].size() > 0 or cave_land.zone_mesh(cave_zone + Vector3i.UP)[0].size() > 0, "cave walls are drawn underground")
+	# 0.0.6.17 : n'importe quelle zone de grotte profonde (avant : la première de la liste, qui peut être vide).
+	var deep_caves: Array = cave_land._cave_zones.keys().filter(func(zone: Vector3i): return zone.y < -1).slice(0, 30)
+	check(deep_caves.any(func(cave_zone: Vector3i): return cave_land.zone_mesh(cave_zone)[0].size() > 0), "cave walls are drawn underground")
 	# 0.0.5.37 : crevasses en éclair : un bout à peine creusé, l'autre très profond, zones basses dessinées.
 	cave_land.caves_in_zone(Vector3i.ZERO)
 	var last_piece := {}

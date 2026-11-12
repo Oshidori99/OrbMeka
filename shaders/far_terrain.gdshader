@@ -1,4 +1,5 @@
 shader_type spatial;
+uniform float bare_tone = 1.0;
 // 0.0.5.30 : terrain lointain : couleurs des sommets, et les mêmes zones d'herbe que le terrain détaillé.
 render_mode diffuse_burley, specular_disabled;
 varying vec3 world_position;
@@ -22,5 +23,7 @@ void vertex() {
 void fragment() {
 	bool grass = COLOR.g > COLOR.r * 1.2 && COLOR.g > COLOR.b * 1.2;
 	ALBEDO = grass ? COLOR.rgb * zone_shade(world_position.xz) : COLOR.rgb;
+	// 0.0.6.17 : rendu Web : sols nus (sable, terre, pierre) un peu moins clairs qu'au PC, comme le sol proche.
+	if (!grass) { ALBEDO *= bare_tone; }
 	ROUGHNESS = 1.0;
 }

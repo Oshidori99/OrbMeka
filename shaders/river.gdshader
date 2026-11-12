@@ -4,6 +4,8 @@ shader_type spatial;
 render_mode blend_mix, cull_disabled, depth_draw_opaque, specular_schlick_ggx;
 uniform vec3 water_color : source_color = vec3(0.09, 0.30, 0.36);
 uniform vec3 sky_tint : source_color = vec3(0.55, 0.75, 0.85);
+// 0.0.6.17 : rendu Web : eau un peu moins claire (mesuré sur captures).
+uniform float tone = 1.0;
 uniform float speed = 1.4;
 
 void fragment() {
@@ -15,7 +17,7 @@ void fragment() {
 	NORMAL = normalize((VIEW_MATRIX * vec4(ripple, 0.0)).xyz);
 	float side = pow(1.0 - clamp(dot(NORMAL, VIEW), 0.0, 1.0), 3.0);
 	float foam = smoothstep(0.75, 1.0, abs(across)) * (0.5 + 0.5 * sin(along * 5.0 + across * 3.0));
-	ALBEDO = mix(mix(water_color, sky_tint, side * 0.5), vec3(0.85, 0.9, 0.92), foam * 0.35);
+	ALBEDO = mix(mix(water_color, sky_tint, side * 0.5), vec3(0.85, 0.9, 0.92), foam * 0.35) * tone;
 	ALPHA = mix(0.75, 0.93, side);
 	ROUGHNESS = 0.08;
 	SPECULAR = 0.6;

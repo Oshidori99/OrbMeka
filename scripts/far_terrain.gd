@@ -27,6 +27,7 @@ static func material() -> ShaderMaterial:
 	if _material == null:
 		_material = ShaderMaterial.new()
 		_material.shader = preload("res://shaders/far_terrain.gdshader")
+		_material.set_shader_parameter("bare_tone", 0.85 if RenderingServer.get_current_rendering_method() == "gl_compatibility" else 1.0)
 	return _material
 
 static func tile_of(zone: Vector2i) -> Vector2i:

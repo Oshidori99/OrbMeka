@@ -20,6 +20,8 @@ static func material(name: String) -> StandardMaterial3D:
 		var made := StandardMaterial3D.new()
 		made.albedo_texture = load(FOLDER + name + ".png")
 		made.albedo_color = TINT
+		if RenderingServer.get_current_rendering_method() == "gl_compatibility":
+			made.albedo_color = Color(TINT.r * 0.8, TINT.g * 0.8, TINT.b * 0.8)
 		made.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA_SCISSOR
 		made.alpha_scissor_threshold = 0.5
 		made.cull_mode = BaseMaterial3D.CULL_DISABLED
