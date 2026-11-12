@@ -71,8 +71,39 @@ static func mesh(kind: int, size: int = 3, far := false) -> ArrayMesh:
 		_meshes[key] = _load(kind, size, far)
 	return _meshes[key]
 
+static func _path(kind: int, size: int, far: bool) -> String:
+	return FOLDER + "%s_%d_%s.glb" % [FILES[kind], size, "loin" if far else "jeu"]
+
+# 0.0.6.18 (#175) : modèles lus d'avance : sur PC, les fichiers en arrière-plan dès l'ouverture du monde ; ensuite
+# (warm_next), un modèle préparé par image calme. Avant : 10 à 20 ms d'à-coup au premier arbre de chaque sorte et taille.
+static var _requested: Dictionary = {}
+static var _warm_list: Array = []
+
+static func read_ahead() -> void:
+	if not _warm_list.is_empty() or _meshes.size() >= FILES.size() * SIZES * 2:
+		return
+	for kind in range(FILES.size()):
+		for size in range(1, SIZES + 1):
+			for far in [false, true]:
+				_warm_list.append([kind, size, far])
+				var path := _path(kind, size, far)
+				# Rendu Compatibility (Web, vieux PC) : les fichiers y sont lus un par un (warm_next) ; en arrière-plan,
+				# ses maillages bloquaient la première image 5 s.
+				if RenderingServer.get_current_rendering_method() != "gl_compatibility" and not _meshes.has("%d_%d_%s" % [kind, size, far]) and ResourceLoader.load_threaded_request(path) == OK:
+					_requested[path] = true
+
+# Prépare le prochain modèle pas encore prêt ; faux quand tous le sont.
+static func warm_next() -> bool:
+	while not _warm_list.is_empty():
+		var next: Array = _warm_list.pop_front()
+		if not _meshes.has("%d_%d_%s" % next):
+			mesh(next[0], next[1], next[2])
+			return true
+	return false
+
 static func _load(kind: int, size: int, far: bool) -> ArrayMesh:
-	var scene: PackedScene = load(FOLDER + "%s_%d_%s.glb" % [FILES[kind], size, "loin" if far else "jeu"])
+	var path := _path(kind, size, far)
+	var scene: PackedScene = ResourceLoader.load_threaded_get(path) if _requested.erase(path) else load(path)
 	var root := scene.instantiate()
 	var source: Mesh = (root.find_children("*", "MeshInstance3D", true, false)[0] as MeshInstance3D).mesh
 	root.free()

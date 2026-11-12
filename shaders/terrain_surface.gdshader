@@ -18,6 +18,9 @@ uniform bool terrain_layers = false;
 // 0.0.6.17 : rendu Web (gl_compatibility) : sable un peu moins clair, litière et boue moins sombres (mesuré sur captures).
 uniform bool compat_look = false;
 uniform int rock_kind = 0;
+// 0.0.6.18 (#175) : cailloux dessinés ensemble : aspect de chacun (0 pierre, 1 calcaire, 2 silex) dans INSTANCE_CUSTOM.r.
+uniform bool kind_per_instance = false;
+varying float kind_value;
 float zone_hash(vec2 p) {
 	return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453);
 }
@@ -56,6 +59,7 @@ void vertex() {
 	tint = COLOR;
 	ore_share = terrain_layers ? CUSTOM0.rgb : vec3(0.0);
 	litter_share = terrain_layers ? CUSTOM0.a : 0.0;
+	kind_value = kind_per_instance ? INSTANCE_CUSTOM.r : float(rock_kind);
 }
 void fragment() {
 	vec3 p = world_position;
@@ -230,8 +234,9 @@ void fragment() {
 		snow = hold;
 	}
 	vec3 ore = clamp(ore_share, 0.0, 1.0);
-	if (rock_kind == 1) { ore.x = 1.0; }
-	if (rock_kind == 2) { ore.z = 1.0; }
+	int kind = int(kind_value + 0.5);
+	if (kind == 1) { ore.x = 1.0; }
+	if (kind == 2) { ore.z = 1.0; }
 	float coal_glint = 0.0;
 	float flint_gloss = 0.0;
 	if (ore.x > 0.01) {
@@ -254,7 +259,7 @@ void fragment() {
 		// Silex : gris foncé à noir, lisse et un peu brillant ; croûte blanche crayeuse autour (bord du rognon,
 		// taches sur les cailloux).
 		vec3 core = mix(vec3(0.05, 0.05, 0.06), vec3(0.17, 0.17, 0.19), fbm(p * 3.5));
-		float crust = rock_kind == 2 ? smoothstep(0.45, 0.6, fbm(p * 16.0)) : 1.0 - smoothstep(0.55, 0.85, ore.z);
+		float crust = kind == 2 ? smoothstep(0.45, 0.6, fbm(p * 16.0)) : 1.0 - smoothstep(0.55, 0.85, ore.z);
 		vec3 chalk = mix(vec3(0.74, 0.73, 0.68), vec3(0.86, 0.85, 0.8), noise3(p * 40.0));
 		albedo = mix(albedo, mix(core, chalk, crust), ore.z);
 		flint_gloss = ore.z * (1.0 - crust);

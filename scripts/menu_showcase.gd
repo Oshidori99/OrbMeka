@@ -12,9 +12,9 @@ extends Node3D
 # 2 ou 3, choisis parmi les nouveautés : liste NEWS_RUNNERS ([id, peau], peau vide pour un animal).
 # Chacun prend son modèle Blender, sinon une forme simple (character_model.gd, partagé avec le jeu).
 # Le reste du fichier (sol, gazon, plage, ciel, caméra) ne change pas d'une version à l'autre.
-const NEWS_VERSION := "0.0.6.17"
-const NEWS_TEXT := "Nouveau : des mondes plus grands !
-768 m de côté, plus de place à explorer."
+const NEWS_VERSION := "0.0.6.18"
+const NEWS_TEXT := "Nouveau : un jeu bien plus fluide !
+Vol sans à-coups, deux fois plus d'images par seconde."
 
 # 0.0.3.25 : les trois nouveautés de 0.0.3.23 en aller-retour au-dessus de l'herbe libre, devant la place
 # de sable et pierre (sous le panneau des menus, vers la droite), chacune sur sa rangée.
@@ -93,8 +93,8 @@ const CharacterPreview = preload("res://scripts/character_preview.gd")
 
 const TerrainMaterials = preload("res://scripts/terrain_materials.gd")
 const WorldRules = preload("res://scripts/world.gd")
-# 0.0.6.5 : graine du monde d'essai de la version (T35, T36 en 0.0.6.6, T37 en 0.0.6.7, T38 en 0.0.6.8, T39 en 0.0.6.9, T40 en 0.0.6.10, T41 en 0.0.6.11, T42 en 0.0.6.12, T43 en 0.0.6.13, T44 en 0.0.6.14, T45 en 0.0.6.15, T46 en 0.0.6.16, T47 en 0.0.6.17 : monde standard créé dans la liste du joueur), vue depuis une hauteur.
-const SCENE_SEED := 3463503054
+# 0.0.6.5 : graine du monde d'essai de la version (T35, T36 en 0.0.6.6, T37 en 0.0.6.7, T38 en 0.0.6.8, T39 en 0.0.6.9, T40 en 0.0.6.10, T41 en 0.0.6.11, T42 en 0.0.6.12, T43 en 0.0.6.13, T44 en 0.0.6.14, T45 en 0.0.6.15, T46 en 0.0.6.16, T47 en 0.0.6.17, T48 en 0.0.6.18 : monde standard créé dans la liste du joueur), vue depuis une hauteur.
+const SCENE_SEED := 308661615
 # Point de vue : en hauteur (0.0.5.37), pour voir la crevasse ; à hauteur d'homme, le relief la cache.
 # Il tourne lentement la tête ; la vitrine reste sur le côté, hors du panneau des menus.
 const TOWER_CELL := Vector2i(12, 12)
@@ -245,8 +245,9 @@ func finish_building() -> void:
 		build_queue.pop_front().call()
 
 func _build_zone(zone: Vector3i) -> void:
-	var surface: Array = terrain.zone_mesh(zone)
-	if surface[0].is_empty():
+	# 0.0.6.18 : sommets partagés, triangles par indices (comme dans la partie).
+	var surface: Array = terrain.zone_surface(zone)
+	if surface[6].is_empty():
 		return
 	var arrays := []
 	arrays.resize(Mesh.ARRAY_MAX)
@@ -256,6 +257,7 @@ func _build_zone(zone: Vector3i) -> void:
 	arrays[Mesh.ARRAY_TEX_UV] = surface[3]
 	arrays[Mesh.ARRAY_TEX_UV2] = surface[4]
 	arrays[Mesh.ARRAY_CUSTOM0] = surface[5]
+	arrays[Mesh.ARRAY_INDEX] = surface[6]
 	var mesh := ArrayMesh.new()
 	mesh.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arrays, [], {}, Mesh.ARRAY_CUSTOM_RGBA_FLOAT << Mesh.ARRAY_FORMAT_CUSTOM0_SHIFT)
 	var piece := MeshInstance3D.new()

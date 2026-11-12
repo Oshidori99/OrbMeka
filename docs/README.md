@@ -1,6 +1,32 @@
-# OrbMeka™ — prototype 0.0.6.17
+# OrbMeka™ — prototype 0.0.6.18
 
 Godot 4.7 / GDScript. Formes et couleurs simples ; assets externes seulement sous licence vérifiée (sons CC0, assets/sounds/CREDITS.txt).
+
+## 0.0.6.18 — Jeu plus fluide (#175)
+Version locale (1 sur 4 avant la prochaine publication). Même monde, même image (captures avant/après identiques sur PC et Web, à l'herbe agitée par le vent près).
+- **Terrain** : calcul des zones 40 % plus rapide (sous-cellules examinées au plus juste, matières lues dans des tables, une seule lecture des caches), sommets partagés (6 fois moins à envoyer à la carte graphique) ; résultat vérifié identique sur 2 783 zones (montagnes, grottes, zones creusées).
+- **Plus d'à-coups en vol** : les colonnes qui entrent dans la vue sont relevées peu à peu, celles qui sortent retirées peu à peu ; une étape de terrain commence seulement si elle tient dans le temps de l'image ; le lointain ne prend double temps qu'à l'ouverture ; l'ancien système de blocs ne relit plus le disque.
+- **Collisions seulement près du joueur** : terrain (2 zones autour) et cailloux (1 zone autour) ; au loin, seulement le dessin.
+- **Cailloux** dessinés par carré de 4 × 4 colonnes (aspect pierre, calcaire ou silex porté par chaque caillou) : 1 825 dessins par image → 225.
+- **Arbres** : modèles lus d'avance (en arrière-plan sur PC, une image calme à la fois sur le Web) : plus d'à-coup au premier arbre de chaque sorte.
+- Corrigé au passage : une erreur possible pour un point solide à plus d'un mètre au-dessus du sol naturel (poches d'argile).
+
+Mesures (graine de T47, réglages par défaut, même PC ; rendu Web = Compatibility sur ce PC) :
+
+| | PC avant | PC après | Web avant | Web après |
+|---|---|---|---|---|
+| Ouverture | 1,85 s + blocage 3 s | 1,2 s (pire image 160 ms) | 1,5 s + 470 ms | 1,2 s (pire 100 ms) |
+| Immobile | 244 i/s | 273 i/s | 370-400 i/s | 494 i/s |
+| Marche | 133 i/s, pire image 610 ms | 268 i/s, pire 18 ms | 258 i/s | 343 i/s |
+| Vol 20 m/s | 64 i/s, 46 à-coups (> 33 ms) | 126 i/s, 0 à-coup | 70 i/s, 45 à-coups | 139 i/s, 0 à-coup |
+| Dessins par image | 1 300-2 700 | 400-1 130 | 1 150-1 650 | 375-685 |
+| Nœuds | 7 000-12 000 | 2 000-3 300 | 5 000-8 000 | 1 800-2 300 |
+| Mémoire du jeu | 300-357 Mo | 233-316 Mo | 220-265 Mo | 199-246 Mo |
+| Mémoire vidéo | 550-640 Mo | 450-545 Mo | ~100 Mo | 70-75 Mo |
+| Processus (pic) | — | 807 Mo | — | 611 Mo |
+
+Tests réussis : smooth_terrain, zones, prototype, breaking, swim, trees, web_fixes, water, plants, forests, body, terrain_visuals, world_consistency, fly, custom_world_menu, menu_style, reach, views (+ tests juridiques).
+À tester manuellement : vol rapide et retour en arrière (colonnes qui reviennent), coups de pioche sur les cailloux, sculpter loin de l'apparition ; vraie page Web (navigateur).
 
 ## 0.0.6.17 — Monde plus grand, version Web corrigée (#183)
 Version publiée (avec 0.0.6.16).

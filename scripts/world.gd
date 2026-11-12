@@ -105,6 +105,9 @@ func _ready() -> void:
 	block_material = TerrainMaterials.surface()
 	block_box = BoxShape3D.new()
 	_create_ground()
+	# 0.0.6.18 (#175) : modèles d'arbres lus d'avance (en arrière-plan sur PC) pendant que le terrain se prépare.
+	if relief and int(generation_options.get("version", 0)) >= 21:
+		Trees.read_ahead()
 	var saved_player := _read_saved_player()
 	var start_at := Vector3.ZERO
 	if not saved_player.is_empty():
@@ -237,6 +240,7 @@ func _create_terrain(start_at: Vector3 = Vector3.ZERO) -> void:
 	lawn.name = "Lawn"
 	add_child(lawn)
 	view_center = Vector2i(floori(start_at.x / SmoothTerrain.ZONE_SIZE), floori(start_at.z / SmoothTerrain.ZONE_SIZE))
+	collision_center = view_center
 	update_terrain_view(true)
 	# Le socle (Roche-mère) n'est jamais à voir : seulement sa collision, sous le terrain.
 	get_node("Ground").get_child(0).visible = false
@@ -265,38 +269,74 @@ func update_terrain_view(force: bool = false, center: Vector2i = view_center) ->
 	view_center = center
 	_update_fog()
 	var wanted := wanted_columns(center)
-	for column: Vector2i in shown_columns.keys():
-		if not wanted.has(column):
-			_hide_column(column)
-	var by_column := {}
+	# 0.0.6.18 (#175) : colonnes sorties de la vue retirées peu à peu (_process_hide_queue) ; avant : toute une rangée
+	# d'un coup à chaque zone traversée (environ 8 ms en vol).
+	for column: Vector2i in shown_columns:
+		if not wanted.has(column) and not hiding.has(column):
+			hiding[column] = true
+			hide_queue.append(column)
 	# 0.0.5.20 : seulement les colonnes à portée (monde de 48 × 48 zones : jamais tout le monde d'un coup).
 	var near_low := Vector2i(maxi(base_zones_low.x, center.x - load_distance), maxi(base_zones_low.y, center.y - load_distance))
 	var near_high := Vector2i(mini(base_zones_high.x, center.x + load_distance), mini(base_zones_high.y, center.y + load_distance))
-	for zone: Vector3i in terrain.surface_zones(near_low, near_high):
-		var column := Vector2i(zone.x, zone.z)
-		if wanted.has(column) and not shown_columns.has(column):
-			if not by_column.has(column):
-				by_column[column] = []
-			by_column[column].append(zone)
 	var later: Array = []
-	for column: Vector2i in by_column:
-		shown_columns[column] = by_column[column]
+	for column: Vector2i in wanted:
+		if shown_columns.has(column):
+			# Revenue avant d'être retirée : gardée, et finie si elle ne l'était pas.
+			if hiding.erase(column) and not built_columns.has(column):
+				later.append(column)
+			continue
+		# 0.0.6.18 (#175) : zones de la nouvelle colonne relevées plus tard, dans le temps de chaque image (avant : toute la
+		# vue relevée d'un coup à chaque zone traversée, 30 à 50 ms d'à-coup en vol).
+		shown_columns[column] = []
+		unsurveyed[column] = true
 		if maxi(absi(column.x - center.x), absi(column.y - center.y)) <= NEAR_ZONES:
 			_show_column(column)
 		else:
 			# 0.0.6 : avec le lointain, c'est lui qui montre la colonne en attendant (pas de sol plat par-dessus).
-			for zone: Vector3i in by_column[column] if not _far_active() else []:
-				if SmoothTerrain.ground_zone(zone):
-					rebuild_terrain_piece(zone, true)
+			if not _far_active():
+				rebuild_terrain_piece(Vector3i(column.x, -1, column.y), true)
 			later.append(column)
-	terrain_queue = terrain_queue.filter(func(column: Vector2i): return wanted.has(column)) + later
-	terrain_queue.sort_custom(func(a: Vector2i, b: Vector2i): return maxi(absi(a.x - center.x), absi(a.y - center.y)) < maxi(absi(b.x - center.x), absi(b.y - center.y)))
+	# 0.0.6.18 : les plus proches d'abord, rangées par anneau (avant : un tri complet de la file à chaque zone traversée).
+	var rings: Array = []
+	rings.resize(load_distance + 1)
+	for ring in range(rings.size()):
+		rings[ring] = []
+	for column: Vector2i in terrain_queue + later:
+		if wanted.has(column):
+			rings[mini(load_distance, maxi(absi(column.x - center.x), absi(column.y - center.y)))].append(column)
+	terrain_queue = []
+	for ring: Array in rings:
+		terrain_queue.append_array(ring)
 	_update_far(center, Rect2(Vector2(near_low) * SmoothTerrain.ZONE_SIZE, Vector2(near_high - near_low + Vector2i.ONE) * SmoothTerrain.ZONE_SIZE))
 	_update_caves(center)
 
+# Colonnes sorties de la vue, à retirer (dans le temps de chaque image).
+const HIDE_BUDGET_USEC := 1500
+var hiding: Dictionary = {}
+var hide_queue: Array = []
+
+func _process_hide_queue(budget_usec: int = HIDE_BUDGET_USEC) -> void:
+	var started := Time.get_ticks_usec()
+	while not hide_queue.is_empty() and Time.get_ticks_usec() - started < budget_usec:
+		var column: Vector2i = hide_queue.pop_front()
+		if hiding.erase(column):
+			_hide_column(column)
+
+# Colonnes affichées dont les zones de surface ne sont pas encore relevées.
+var unsurveyed: Dictionary = {}
+
+# Zones de surface d'une colonne affichée (relevées à la première demande).
+func _surveyed(column: Vector2i) -> Array:
+	if unsurveyed.erase(column):
+		var zones: Array = shown_columns[column]
+		for zone: Vector3i in terrain.surface_zones(column, column):
+			if not zone in zones:
+				zones.append(zone)
+	return shown_columns[column]
+
 # Colonne affichée : ses zones de surface et son herbe.
 func _show_column(column: Vector2i) -> void:
-	for zone: Vector3i in shown_columns.get(column, []):
+	for zone: Vector3i in _surveyed(column):
 		rebuild_terrain_piece(zone)
 	column_pending.erase(column)
 	_finish_column(column)
@@ -329,6 +369,7 @@ func _update_caves(center: Vector2i) -> void:
 			if terrain_pieces.has(zone) and not terrain.by_zone.has(zone) and not zone in shown_columns.get(Vector2i(zone.x, zone.z), []):
 				terrain_pieces[zone].free()
 				terrain_pieces.erase(zone)
+				pending_collisions.erase(zone)
 	cave_queue = wanted.keys().filter(func(zone: Vector3i): return not cave_pieces.has(zone))
 	cave_queue.sort_custom(func(a: Vector3i, b: Vector3i): return maxi(absi(a.x - center.x), absi(a.z - center.y)) < maxi(absi(b.x - center.x), absi(b.z - center.y)))
 
@@ -338,9 +379,11 @@ func _show_cave_zone(zone: Vector3i) -> void:
 		rebuild_terrain_piece(zone)
 
 func _hide_column(column: Vector2i) -> void:
+	hiding.erase(column)
 	# 0.0.6.18 (#175) : calculs du terrain de cette colonne libérés (recalculés à l'identique au retour).
 	terrain.forget_column(column)
 	shown_columns.erase(column)
+	unsurveyed.erase(column)
 	column_pending.erase(column)
 	_hide_column_objects(column)
 	# 0.0.6.2 : morceaux, herbe et objets retrouvés par colonne (avant : tout le monde parcouru pour chaque colonne).
@@ -348,6 +391,7 @@ func _hide_column(column: Vector2i) -> void:
 		if terrain_pieces.has(zone):
 			terrain_pieces[zone].free()
 			terrain_pieces.erase(zone)
+		pending_collisions.erase(zone)
 	column_zones.erase(column)
 	if is_instance_valid(lawn_tiles.get(column)):
 		lawn_tiles[column].free()
@@ -371,24 +415,37 @@ func _process_terrain_queue() -> void:
 		_show_cave_zone(cave_queue.pop_front())
 	var started := Time.get_ticks_usec()
 	# 0.0.6.2 : zone par zone (une colonne de montagne dépassait 40 ms d’un coup) ; l’herbe et les objets quand la colonne est finie.
-	while not terrain_queue.is_empty() and Time.get_ticks_usec() - started < TERRAIN_BUDGET_USEC:
-		var column: Vector2i = terrain_queue[0]
-		if not shown_columns.has(column):
-			terrain_queue.pop_front()
-			column_pending.erase(column)
-			continue
-		if not column_pending.has(column):
-			column_pending[column] = shown_columns[column].duplicate()
-		var pending: Array = column_pending[column]
-		if pending.is_empty():
-			terrain_queue.pop_front()
-			column_pending.erase(column)
-			_finish_column(column)
-		else:
-			rebuild_terrain_piece(pending.pop_back())
+	# 0.0.6.18 (#175) : une étape de plus seulement si elle tient dans le temps restant (durée moyenne des dernières) :
+	# avant, une zone commencée à la fin du budget pouvait le dépasser de 10 ms.
+	while not terrain_queue.is_empty():
+		var step_started := Time.get_ticks_usec()
+		if step_started > started and step_started - started + terrain_step_usec > TERRAIN_BUDGET_USEC:
+			break
+		_terrain_step()
+		terrain_step_usec = terrain_step_usec * 0.8 + (Time.get_ticks_usec() - step_started) * 0.2
+
+# Durée moyenne d'une étape du terrain (µs), pour ne pas dépasser le temps de chaque image.
+var terrain_step_usec := 2000.0
+
+func _terrain_step() -> void:
+	var column: Vector2i = terrain_queue[0]
+	if not shown_columns.has(column):
+		terrain_queue.pop_front()
+		column_pending.erase(column)
+		return
+	if not column_pending.has(column):
+		column_pending[column] = _surveyed(column).duplicate()
+	var pending: Array = column_pending[column]
+	if pending.is_empty():
+		terrain_queue.pop_front()
+		column_pending.erase(column)
+		_finish_column(column)
+	else:
+		rebuild_terrain_piece(pending.pop_back())
 
 # Tout le terrain en attente, d'un coup (tests, captures).
 func finish_terrain() -> void:
+	_process_hide_queue(FAR_NO_LIMIT)
 	while not cave_queue.is_empty():
 		_show_cave_zone(cave_queue.pop_front())
 	while not terrain_queue.is_empty():
@@ -397,6 +454,12 @@ func finish_terrain() -> void:
 			_show_column(column)
 	while not far_queue.is_empty():
 		_build_far_tile(far_queue.pop_front())
+	# Toutes les collisions en attente (terrain, cailloux) : les tests et les captures visent partout.
+	for zone: Vector3i in pending_collisions.keys():
+		_build_collision(zone)
+	for column: Vector2i in pebble_bodies:
+		_build_pebble_bodies(column)
+	_update_pebble_blocks()
 
 # Brume au loin, au bord de la distance d'affichage : le terrain ne s'arrête pas d'un coup.
 # 0.0.6.6 (#124) : eau qui coule (water.gd) : un pas tous les dixièmes de seconde autour du joueur ; l'eau libre est
@@ -526,6 +589,9 @@ func _update_fog() -> void:
 var base_zones_low := Vector2i(-24, -24)
 var base_zones_high := Vector2i(23, 23)
 
+# 0.0.6.18 (#175) : zones qui ont un fichier (lu seulement pour celles-là).
+var zone_files: Dictionary = {}
+
 # Points changés de tous les fichiers de zone (lus une fois à l'ouverture ; les blocs restent lus par zone).
 func _read_terrain_changes() -> void:
 	if save_folder.is_empty():
@@ -536,6 +602,9 @@ func _read_terrain_changes() -> void:
 	for file in DirAccess.get_files_at(folder):
 		if not file.begins_with("zone_") or not file.ends_with(".bin"):
 			continue
+		var numbers := file.trim_prefix("zone_").trim_suffix(".bin").split("_")
+		if numbers.size() == 3:
+			zone_files[Vector3i(int(numbers[0]), int(numbers[1]), int(numbers[2]))] = true
 		var saved := Zones.read_zone(folder.path_join(file))
 		if saved.has("data"):
 			terrain.load_entries(saved.data.get("densite", []))
@@ -549,24 +618,28 @@ func rebuild_terrain_piece(zone: Vector3i, flat_for_now: bool = false) -> void:
 	if terrain_pieces.has(zone):
 		terrain_pieces[zone].free()
 		terrain_pieces.erase(zone)
+	pending_collisions.erase(zone)
 	var body := StaticBody3D.new()
 	body.name = "Terrain_%d_%d_%d" % [zone.x, zone.y, zone.z]
 	body.add_to_group("ground")
 	body.set_meta("zone", zone)
 	var instance := MeshInstance3D.new()
 	instance.material_override = ground_material
-	var collision := CollisionShape3D.new()
+	var collision: CollisionShape3D = null
+	var faces: Array = []
 	if flat_for_now or terrain.is_flat(zone):
 		if not SmoothTerrain.ground_zone(zone):
 			body.free()
 			return
 		body.position = Vector3(zone.x, 0, zone.z) * SmoothTerrain.ZONE_SIZE
 		instance.mesh = flat_ground_mesh
+		collision = CollisionShape3D.new()
 		collision.shape = flat_ground_shape
 		collision.position = Vector3(SmoothTerrain.ZONE_SIZE / 2.0, -0.5, SmoothTerrain.ZONE_SIZE / 2.0)
 	else:
-		var surface := terrain.zone_mesh(zone)
-		if surface[0].is_empty():
+		# 0.0.6.18 (#175) : sommets partagés et triangles par indices (même image, environ 6 fois moins de sommets).
+		var surface := terrain.zone_surface(zone)
+		if surface[6].is_empty():
 			body.free()
 			return
 		var arrays := []
@@ -578,22 +651,86 @@ func rebuild_terrain_piece(zone: Vector3i, flat_for_now: bool = false) -> void:
 		arrays[Mesh.ARRAY_TEX_UV2] = surface[4]
 		# 0.0.6.4 : calcaire, charbon, silex (CUSTOM0).
 		arrays[Mesh.ARRAY_CUSTOM0] = surface[5]
+		arrays[Mesh.ARRAY_INDEX] = surface[6]
 		var mesh := ArrayMesh.new()
 		mesh.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arrays, [], {}, Mesh.ARRAY_CUSTOM_RGBA_FLOAT << Mesh.ARRAY_FORMAT_CUSTOM0_SHIFT)
 		instance.mesh = mesh
-		var shape := ConcavePolygonShape3D.new()
-		shape.backface_collision = true
-		shape.set_faces(surface[0])
-		collision.shape = shape
+		faces = [surface[0], surface[6]]
 	body.add_child(instance)
-	body.add_child(collision)
+	if collision != null:
+		body.add_child(collision)
 	terrain_node.add_child(body)
 	terrain_pieces[zone] = body
+	if not faces.is_empty():
+		pending_collisions[zone] = faces
+		if _near_collision(zone):
+			_build_collision(zone)
 	var column := Vector2i(zone.x, zone.z)
 	if not column_zones.has(column):
 		column_zones[column] = {}
 	column_zones[column][zone] = true
 	last_section_ms = (Time.get_ticks_usec() - started) / 1000.0
+
+# 0.0.6.18 (#175) : collision du terrain lisse seulement près du joueur (COLLISION_REACH zones autour) ; au loin, seulement
+# le dessin. Les triangles en attente (sommets et indices) pèsent bien moins qu'une collision faite.
+const COLLISION_REACH := 2
+const COLLISION_BUDGET_USEC := 1500
+var collision_center := Vector2i.ZERO
+var pending_collisions: Dictionary = {}
+var collision_queue: Array = []
+
+# Zone (colonne de 8 m) du joueur ; avant son arrivée, celle de l'ouverture.
+func _player_column() -> Vector2i:
+	if is_instance_valid(player):
+		return Vector2i(floori(player.position.x / SmoothTerrain.ZONE_SIZE), floori(player.position.z / SmoothTerrain.ZONE_SIZE))
+	return collision_center
+
+func _near_collision(zone: Vector3i) -> bool:
+	var here := _player_column()
+	return maxi(absi(zone.x - here.x), absi(zone.z - here.y)) <= COLLISION_REACH
+
+func _build_collision(zone: Vector3i) -> void:
+	var faces: Array = pending_collisions.get(zone, [])
+	pending_collisions.erase(zone)
+	if faces.is_empty() or not terrain_pieces.has(zone):
+		return
+	var shape := ConcavePolygonShape3D.new()
+	shape.backface_collision = true
+	shape.set_faces(SmoothTerrain.surface_faces(faces[0], faces[1]))
+	var collision := CollisionShape3D.new()
+	collision.shape = shape
+	terrain_pieces[zone].add_child(collision)
+
+# Le joueur change de zone : collisions des zones voisines tout de suite, puis celles un peu plus loin, peu à peu.
+func _update_collisions() -> void:
+	if not is_instance_valid(player):
+		return
+	var here := _player_column()
+	if here != collision_center:
+		collision_center = here
+		collision_queue.clear()
+		# Cailloux : collisions des colonnes proches faites, celles des colonnes laissées derrière retirées.
+		for column: Vector2i in column_pebbles.keys():
+			if not _pebble_near(column):
+				for node in column_pebbles[column]:
+					if is_instance_valid(node):
+						node.free()
+				column_pebbles.erase(column)
+		for x in range(here.x - PEBBLE_REACH, here.x + PEBBLE_REACH + 1):
+			for z in range(here.y - PEBBLE_REACH, here.y + PEBBLE_REACH + 1):
+				_build_pebble_bodies(Vector2i(x, z))
+		for x in range(here.x - COLLISION_REACH, here.x + COLLISION_REACH + 1):
+			for z in range(here.y - COLLISION_REACH, here.y + COLLISION_REACH + 1):
+				for zone: Vector3i in column_zones.get(Vector2i(x, z), {}):
+					if not pending_collisions.has(zone):
+						continue
+					if maxi(absi(x - here.x), absi(z - here.y)) <= 1:
+						_build_collision(zone)
+					else:
+						collision_queue.append(zone)
+	var started := Time.get_ticks_usec()
+	while not collision_queue.is_empty() and Time.get_ticks_usec() - started < COLLISION_BUDGET_USEC:
+		_build_collision(collision_queue.pop_front())
 
 # Herbe écartée là où le terrain a été sculpté (colonne de 50 cm et ses voisines) et dans les déserts.
 func _grass_skipped(at: Vector3) -> bool:
@@ -939,6 +1076,7 @@ func _migrate_step1() -> void:
 		if not Zones.write_zone(save_folder.path_join(Zones.zone_file(zone)), Zones.zone_data(zone, by_zone[zone][0], by_zone[zone][1])):
 			_notify("Conversion en zones impossible : l'ancien fichier est gardé.")
 			return
+		zone_files[zone] = true
 	DirAccess.rename_absolute(ProjectSettings.globalize_path(save_folder.path_join(Store.CHANGES_FILE)), ProjectSettings.globalize_path(save_folder.path_join(Zones.STEP1_KEPT)))
 
 # Zones voulues autour d'une case : distance de chargement en zones, dans les limites de construction.
@@ -956,12 +1094,24 @@ func wanted_zones(center: Vector3i) -> Dictionary:
 # Met en file les zones à charger (les plus proches d'abord) et à décharger ; now : tout de suite.
 func update_zones(center: Vector3i, now: bool = false) -> void:
 	zone_center = Zones.zone_of(center)
-	var wanted := wanted_zones(center)
+	# 0.0.6.18 (#175) : mêmes zones que wanted_zones, comparées à leurs bornes (avant : un dictionnaire de 1 500 zones refait
+	# et filtré à chaque zone traversée, plus de 3 ms en vol).
+	var here := Zones.zone_of(center)
+	var limit_low := Zones.zone_of(Vector3i(-build_limit, 0, -build_limit))
+	var limit_high := Zones.zone_of(Vector3i(build_limit, MAX_BUILD_HEIGHT - 1, build_limit))
+	var low := Vector3i(maxi(limit_low.x, here.x - load_distance), maxi(limit_low.y, here.y - load_distance), maxi(limit_low.z, here.z - load_distance))
+	var high := Vector3i(mini(limit_high.x, here.x + load_distance), mini(limit_high.y, here.y + load_distance), mini(limit_high.z, here.z + load_distance))
 	zone_queue = zone_queue.filter(func(item: Array): return item[0] == "section")
-	for zone: Vector3i in loaded_zones.keys():
-		if not wanted.has(zone):
+	for zone: Vector3i in loaded_zones:
+		if zone.x < low.x or zone.y < low.y or zone.z < low.z or zone.x > high.x or zone.y > high.y or zone.z > high.z:
 			zone_queue.append(["unload", zone])
-	var missing: Array = wanted.keys().filter(func(zone: Vector3i): return not loaded_zones.has(zone))
+	var missing: Array = []
+	for x in range(low.x, high.x + 1):
+		for y in range(low.y, high.y + 1):
+			for z in range(low.z, high.z + 1):
+				var zone := Vector3i(x, y, z)
+				if not loaded_zones.has(zone):
+					missing.append(zone)
 	missing.sort_custom(func(a: Vector3i, b: Vector3i): return (a - zone_center).length_squared() < (b - zone_center).length_squared())
 	for zone in missing:
 		zone_queue.append(["load", zone])
@@ -991,7 +1141,8 @@ func load_zone(zone: Vector3i) -> void:
 	var started := Time.get_ticks_usec()
 	for cell: Vector3i in generated_by_zone.get(zone, []):
 		blocks[cell] = generated[cell]
-	if not save_folder.is_empty():
+	# 0.0.6.18 (#175) : fichiers de zone connus depuis l'ouverture (avant : deux vérifications sur le disque par zone chargée).
+	if zone_files.has(zone):
 		var saved := Zones.read_zone(save_folder.path_join(Zones.zone_file(zone)))
 		if saved.has("data"):
 			for entry in saved.data.casses:
@@ -1003,7 +1154,7 @@ func load_zone(zone: Vector3i) -> void:
 			notice_time = 8.0
 	loaded_zones[zone] = true
 	# Zone vide (ni terrain ni fichier) : rien à afficher, le cas le plus courant en hauteur.
-	if generated_by_zone.has(zone) or FileAccess.file_exists(save_folder.path_join(Zones.zone_file(zone))) and not save_folder.is_empty():
+	if generated_by_zone.has(zone) or zone_files.has(zone):
 		for section in Zones.zone_sections(zone):
 			rebuild_section(section)
 	last_zone_load_ms = (Time.get_ticks_usec() - started) / 1000.0
@@ -1021,8 +1172,8 @@ func unload_zone(zone: Vector3i) -> void:
 		if sections.has(section):
 			sections[section].free()
 			sections.erase(section)
-	# Les faces des zones voisines cachées par celle-ci réapparaissent.
-	for face in Zones.FACES:
+	# Les faces des zones voisines cachées par celle-ci réapparaissent (0.0.6.18 : rien à refaire sans aucun bloc).
+	for face in Zones.FACES if not blocks.is_empty() else []:
 		if loaded_zones.has(zone + face[0]):
 			for section in Zones.zone_sections(zone + face[0]):
 				zone_queue.append(["section", section])
@@ -1070,8 +1221,12 @@ func _save_zone(zone: Vector3i) -> bool:
 	if changes[0].is_empty() and changes[1].is_empty() and dense.is_empty():
 		if FileAccess.file_exists(path):
 			ok = DirAccess.remove_absolute(ProjectSettings.globalize_path(path)) == OK
+		if ok:
+			zone_files.erase(zone)
 	else:
 		ok = Zones.write_zone(path, Zones.zone_data(zone, changes[0], changes[1], dense))
+		if ok:
+			zone_files[zone] = true
 	if ok:
 		dirty_zones.erase(zone)
 		terrain_dirty.erase(zone)
@@ -1355,6 +1510,7 @@ func _process(delta: float) -> void:
 	if not is_instance_valid(player):
 		return
 	_update_fps(delta)
+	_update_collisions()
 	_update_underwater()
 	_update_water(delta)
 	# Sauvegarde régulière (petits fichiers, seulement les zones modifiées : pas de saccade).
@@ -1373,9 +1529,14 @@ func _process(delta: float) -> void:
 		update_zones(here)
 	process_zone_queue()
 	_settle_terrain(delta)
+	_process_hide_queue()
 	update_terrain_view(false, Vector2i(floori(player.position.x / SmoothTerrain.ZONE_SIZE), floori(player.position.z / SmoothTerrain.ZONE_SIZE)))
 	_process_far_queue()
 	_process_terrain_queue()
+	_update_pebble_blocks()
+	# Image calme (rien à construire) : un modèle d'arbre de plus préparé d'avance.
+	if terrain_queue.is_empty() and far_queue.is_empty():
+		Trees.warm_next()
 	hint.text = notice if notice_time > 0.0 else ""
 	_update_coordinates()
 
@@ -1785,8 +1946,10 @@ func _kind_material(kind: int) -> ShaderMaterial:
 
 func _show_column_pebbles(column: Vector2i) -> void:
 	_hide_column_pebbles(column)
-	var nodes := []
+	# 0.0.6.18 (#175) : placements gardés par colonne et par forme ; dessinés par carré de 4 × 4 colonnes (avant : un dessin
+	# par forme et par colonne, près de 2 000 dessins par image, les trois quarts de tous) ; collisions seulement près du joueur.
 	var by_shape := {}
+	var bodies := []
 	for pebble in terrain.pebbles_in_zone(column):
 		if broken_pebbles.has(pebble.id):
 			continue
@@ -1796,42 +1959,43 @@ func _show_column_pebbles(column: Vector2i) -> void:
 		var shrink: float = 1.0 - 0.2 * pebble_hits.get(pebble.id, 0)
 		var diameter: float = Rocks.PEBBLE_SIZES[size - 1] * shrink
 		var at := Vector3(pebble.x, terrain.height_at(pebble.x, pebble.z) + Rocks.pebble_lift(size, shape) * shrink, pebble.z)
-		# Silex à part (autre aspect).
-		var group := shape + (100 if pebble.get("silex", false) else (200 if pebble.get("calcaire", false) else 0))
-		if not by_shape.has(group):
-			by_shape[group] = []
-		by_shape[group].append(Transform3D(Basis(Vector3.UP, deg_to_rad(pebble.rotation)).scaled(Vector3.ONE * diameter), at))
+		# Formes 1 à 7 ; aspect de chacun dans la donnée du caillou (0 pierre, 1 calcaire, 2 silex : terrain_surface.gdshader).
+		var group := shape
+		var look := 2.0 if pebble.get("silex", false) else (1.0 if pebble.get("calcaire", false) else 0.0)
+		var basis := Basis(Vector3.UP, deg_to_rad(pebble.rotation)).scaled(Vector3.ONE * diameter)
+		var placed: PackedFloat32Array = by_shape.get(group, PackedFloat32Array())
+		placed.append_array([basis.x.x, basis.y.x, basis.z.x, at.x, basis.x.y, basis.y.y, basis.z.y, at.y, basis.x.z, basis.y.z, basis.z.z, at.z, 1.0, 1.0, 1.0, 1.0, look, 0.0, 0.0, 0.0])
+		by_shape[group] = placed
+		bodies.append([pebble.id, size, shape, diameter, at])
+	pebble_shapes[column] = by_shape
+	pebble_bodies[column] = bodies
+	_pebble_block_changed(column)
+	if _pebble_near(column):
+		_build_pebble_bodies(column)
+
+# Petites collisions rondes des cailloux d'une colonne (pour la pioche ; les deux plus gros arrêtent le joueur).
+func _build_pebble_bodies(column: Vector2i) -> void:
+	if column_pebbles.has(column) or not pebble_bodies.has(column):
+		return
+	var nodes := []
+	for spec: Array in pebble_bodies[column]:
+		var size: int = spec[1]
 		var body := StaticBody3D.new()
 		body.name = "Caillou"
 		body.add_to_group("pebbles")
-		body.set_meta("id", pebble.id)
-		body.set_meta("pebble", Vector2i(size, shape))
+		body.set_meta("id", spec[0])
+		body.set_meta("pebble", Vector2i(size, spec[2]))
 		body.set_meta("column", column)
 		body.collision_layer = 3 if size >= 6 else 2
 		body.collision_mask = 0
 		var collision := CollisionShape3D.new()
 		var sphere := SphereShape3D.new()
-		sphere.radius = maxf(diameter * 0.42, 0.04)
+		sphere.radius = maxf(float(spec[3]) * 0.42, 0.04)
 		collision.shape = sphere
 		body.add_child(collision)
-		body.position = at
+		body.position = spec[4]
 		_rocks_parent().add_child(body)
 		nodes.append(body)
-	for group: int in by_shape:
-		var placements: Array = by_shape[group]
-		var multi := MultiMesh.new()
-		multi.transform_format = MultiMesh.TRANSFORM_3D
-		multi.mesh = Rocks.pebble_mesh(group % 100)
-		multi.instance_count = placements.size()
-		for index in range(placements.size()):
-			multi.set_instance_transform(index, placements[index])
-		var drawn := MultiMeshInstance3D.new()
-		drawn.name = "Cailloux"
-		drawn.multimesh = multi
-		# Formes 1 à 7 ; + 100 : silex, + 200 : calcaire.
-		drawn.material_override = _kind_material(2) if group >= 100 and group < 200 else (_kind_material(1) if group >= 200 else _stone_material())
-		_rocks_parent().add_child(drawn)
-		nodes.append(drawn)
 	column_pebbles[column] = nodes
 
 func _hide_column_pebbles(column: Vector2i) -> void:
@@ -1839,6 +2003,71 @@ func _hide_column_pebbles(column: Vector2i) -> void:
 		if is_instance_valid(node):
 			node.free()
 	column_pebbles.erase(column)
+	pebble_bodies.erase(column)
+	if pebble_shapes.erase(column):
+		_pebble_block_changed(column)
+
+# Carrés de cailloux (4 × 4 colonnes) : un dessin par forme et par aspect, refait quand une de ses colonnes change.
+const PEBBLE_BLOCK := 4
+var pebble_shapes: Dictionary = {}
+var pebble_bodies: Dictionary = {}
+var pebble_blocks: Dictionary = {}
+var changed_pebble_blocks: Dictionary = {}
+# Collisions des cailloux : colonne du joueur et ses voisines (la pioche porte à quelques mètres).
+const PEBBLE_REACH := 1
+
+func _pebble_near(column: Vector2i) -> bool:
+	var here := _player_column()
+	return maxi(absi(column.x - here.x), absi(column.y - here.y)) <= PEBBLE_REACH
+
+var _pebbles_look: ShaderMaterial
+
+func _pebble_material() -> ShaderMaterial:
+	if _pebbles_look == null:
+		_pebbles_look = TerrainMaterials.surface(true)
+		_pebbles_look.set_shader_parameter("kind_per_instance", true)
+	return _pebbles_look
+
+func _pebble_block_changed(column: Vector2i) -> void:
+	changed_pebble_blocks[Vector2i(floori(column.x / float(PEBBLE_BLOCK)), floori(column.y / float(PEBBLE_BLOCK)))] = true
+
+func _update_pebble_blocks() -> void:
+	for block: Vector2i in changed_pebble_blocks:
+		_rebuild_pebble_block(block)
+	changed_pebble_blocks.clear()
+
+func _rebuild_pebble_block(block: Vector2i) -> void:
+	for node in pebble_blocks.get(block, []):
+		if is_instance_valid(node):
+			node.free()
+	pebble_blocks.erase(block)
+	var by_shape := {}
+	for x in range(block.x * PEBBLE_BLOCK, block.x * PEBBLE_BLOCK + PEBBLE_BLOCK):
+		for z in range(block.y * PEBBLE_BLOCK, block.y * PEBBLE_BLOCK + PEBBLE_BLOCK):
+			var shapes: Dictionary = pebble_shapes.get(Vector2i(x, z), {})
+			for group: int in shapes:
+				var placed: PackedFloat32Array = by_shape.get(group, PackedFloat32Array())
+				placed.append_array(shapes[group])
+				by_shape[group] = placed
+	var nodes := []
+	for group: int in by_shape:
+		var buffer: PackedFloat32Array = by_shape[group]
+		var multi := MultiMesh.new()
+		multi.transform_format = MultiMesh.TRANSFORM_3D
+		# Couleur blanche (neutre) en plus de l'aspect : sans elle, le rendu Compatibility (Web) lisait l'aspect comme couleur.
+		multi.use_colors = true
+		multi.use_custom_data = true
+		multi.mesh = Rocks.pebble_mesh(group)
+		multi.instance_count = buffer.size() / 20
+		multi.buffer = buffer
+		var drawn := MultiMeshInstance3D.new()
+		drawn.name = "Cailloux"
+		drawn.multimesh = multi
+		drawn.material_override = _pebble_material()
+		_rocks_parent().add_child(drawn)
+		nodes.append(drawn)
+	if not nodes.is_empty():
+		pebble_blocks[block] = nodes
 
 func strike_pebble(body: StaticBody3D) -> bool:
 	var id: String = body.get_meta("id")
@@ -1853,6 +2082,8 @@ func strike_pebble(body: StaticBody3D) -> bool:
 		broken_pebbles[id] = true
 		objects_dirty = true
 	_show_column_pebbles(column)
+	# Colonne visée : ses collisions refaites tout de suite (elle est près du joueur).
+	_build_pebble_bodies(column)
 	return true
 
 func _hide_column_objects(column: Vector2i) -> void:
@@ -2044,6 +2275,7 @@ var far_queue: Array = []
 var near_area := Rect2()
 const FAR_BUDGET_USEC := 4000
 const FAR_NO_LIMIT := 9223372036854775807
+var far_opening := true
 
 func _update_far(center: Vector2i, area: Rect2) -> void:
 	far_center = center
@@ -2147,8 +2379,11 @@ func _build_far_tile(tile: Vector2i, deadline: int = FAR_NO_LIMIT) -> bool:
 	return true
 
 func _process_far_queue() -> void:
-	# Beaucoup de carrés à faire (ouverture du monde) : deux fois plus de temps par image.
-	var deadline := Time.get_ticks_usec() + (FAR_BUDGET_USEC * 2 if far_queue.size() > 20 else FAR_BUDGET_USEC)
+	# Beaucoup de carrés à faire à l'ouverture du monde : deux fois plus de temps par image. 0.0.6.18 (#175) : seulement
+	# à l'ouverture (en vol, la file dépasse souvent 20 carrés : 8 ms par image en plus du terrain, des à-coups).
+	var deadline := Time.get_ticks_usec() + (FAR_BUDGET_USEC * 2 if far_opening and far_queue.size() > 20 else FAR_BUDGET_USEC)
+	if far_queue.is_empty():
+		far_opening = false
 	while not far_queue.is_empty() and Time.get_ticks_usec() < deadline:
 		if not _build_far_tile(far_queue[0], deadline):
 			return

@@ -212,8 +212,10 @@ func is_desert(at: Vector2) -> bool:
 func ground_height(column: Vector2i) -> float:
 	if _noise == null:
 		return 0.0
-	if _heights.has(column):
-		return _heights[column]
+	# 0.0.6.18 (#175) : une seule lecture du dictionnaire.
+	var known: Variant = _heights.get(column)
+	if known != null:
+		return known
 	var at := Vector2(column) * STEP
 	if not generation_options.is_empty():
 		var custom_height := _base_height(at)
@@ -298,28 +300,34 @@ func natural_kind(point: Vector3i) -> int:
 	if point.y <= stone_top:
 		return _ore(point, STONE) if _ores_on else STONE
 	var column := Vector2i(point.x, point.z)
+	# 0.0.6.18 (#175) : hauteur du sol lue une seule fois (appelé pour chaque point au bord de la surface).
+	var y := point.y * STEP
+	var ground := ground_height(column)
 	if _snow_on:
 		var snow := snow_depth(column)
-		if snow > 0.0 and point.y * STEP > ground_height(column) - snow:
+		if snow > 0.0 and y > ground - snow:
 			return SNOW
-	if point.y * STEP <= mountain_stone(column):
+	if y <= mountain_stone(column):
 		return _ore(point, STONE) if _ores_on else STONE
 	# 0.0.5.20 : boue des lacs, puis argile dessous ou en poche (profondeur sous le sol de la graine).
 	var soil := _soil(column)
 	if not soil.is_empty():
-		var below := ground_height(column) - point.y * STEP
-		if below < soil.get("top_depth", -1.0):
+		var below := ground - y
+		# 0.0.6.18 : sans couche du dessus, rien à lire (avant : erreur pour un point solide à plus d'un mètre au-dessus du sol).
+		if soil.has("top") and below < soil.top_depth:
 			return soil.top
 		if below < soil.get("mud", -1.0):
 			return MUD
 		if below >= soil.get("clay_top", soil.get("mud", 0.0)) and below < soil.get("clay_bottom", -1.0):
 			return CLAY
 	# 0.0.5.15 : sable sous les déserts, sur DESERT_SAND mètres, puis la terre.
-	if not _desert_columns.has(column):
-		_desert_columns[column] = is_desert(Vector2(column) * STEP)
-	if _desert_columns[column] and point.y * STEP > ground_height(column) - DESERT_SAND:
+	var desert: Variant = _desert_columns.get(column)
+	if desert == null:
+		desert = is_desert(Vector2(column) * STEP)
+		_desert_columns[column] = desert
+	if desert and y > ground - DESERT_SAND:
 		return SAND
-	if _needle_floor_on and point.y * STEP > ground_height(column) - NEEDLE_DEPTH and needle_floor(column):
+	if _needle_floor_on and y > ground - NEEDLE_DEPTH and needle_floor(column):
 		return NEEDLES
 	return -1
 
@@ -631,17 +639,23 @@ func surface_zones(low_zone: Vector2i, high_zone: Vector2i) -> Dictionary:
 				_surface_ys[column] = ys
 			for y in _surface_ys[column]:
 				result[Vector3i(x, y, z)] = true
-	for point: Vector3i in changes:
-		for zone in zones_using(point):
-			if zone.x >= low_zone.x and zone.x <= high_zone.x and zone.z >= low_zone.y and zone.z <= high_zone.y:
-				result[zone] = true
+	# 0.0.6.18 (#175) : seulement les points changés des zones autour (avant : tous les points changés du monde à chaque fois).
+	for changed: Vector3i in by_zone:
+		if changed.x < low_zone.x - 1 or changed.x > high_zone.x + 1 or changed.z < low_zone.y - 1 or changed.z > high_zone.y + 1:
+			continue
+		for point: Vector3i in by_zone[changed]:
+			for zone in zones_using(point):
+				if zone.x >= low_zone.x and zone.x <= high_zone.x and zone.z >= low_zone.y and zone.z <= high_zone.y:
+					result[zone] = true
 	return result
 
-# Maillage lisse d'une zone (coordonnées du monde) : [sommets, normales, couleurs], triangles dans le sens
-# des aiguilles d'une montre vus de dehors, comme les blocs. Vide si la surface ne passe pas.
+# Maillage lisse d'une zone (coordonnées du monde), triangles dans le sens des aiguilles d'une montre vus de dehors,
+# comme les blocs. Vide si la surface ne passe pas.
 # 0.0.5.14 : seulement les hauteurs où la surface peut passer (sol de la graine, points changés), sans
 # fonction appelée par point : bien plus rapide.
-func zone_mesh(zone: Vector3i) -> Array:
+# 0.0.6.18 (#175) : chaque sommet une seule fois et les triangles par indices (environ 6 fois moins de sommets à
+# envoyer à la carte graphique et à garder, même image) : [sommets, normales, couleurs, UV, UV2, CUSTOM0, indices].
+func zone_surface(zone: Vector3i) -> Array:
 	var origin := zone * POINTS
 	var vertices := PackedVector3Array()
 	var normals := PackedVector3Array()
@@ -650,6 +664,7 @@ func zone_mesh(zone: Vector3i) -> Array:
 	var uvs2 := PackedVector2Array()
 	# 0.0.6.4 : calcaire, charbon, silex (CUSTOM0 du maillage, 4 nombres par sommet).
 	var ore_colors := PackedColorArray()
+	var indices := PackedInt32Array()
 	var nearby: Array = []
 	var lowest := INF
 	var highest := -INF
@@ -670,13 +685,13 @@ func zone_mesh(zone: Vector3i) -> Array:
 	var y_low := maxi(maxi(origin.y - 1, int(lowest) - 2), mother_rock_top - 2)
 	var y_high := mini(mini(origin.y + POINTS, int(highest) + 2), HIGH_POINT + 2)
 	if y_low >= y_high:
-		return [vertices, normals, colors, uvs, uvs2, PackedFloat32Array()]
+		return [vertices, normals, colors, uvs, uvs2, PackedFloat32Array(), indices]
 	var size := POINTS + 2
 	var height := y_high - y_low + 1
 	var start := Vector3i(origin.x - 1, y_low, origin.z - 1)
 	var values := PackedFloat32Array()
 	values.resize(size * height * size)
-	var tops := PackedFloat32Array()
+	var tops := PackedFloat64Array()
 	tops.resize(size * size)
 	for x in range(size):
 		for z in range(size):
@@ -723,9 +738,17 @@ func zone_mesh(zone: Vector3i) -> Array:
 				kinds[local] = materials[point]
 	# Décalages des 8 coins d'une sous-cellule dans le tableau.
 	var corner_at := [Vector3i(0, 0, 0), Vector3i(1, 0, 0), Vector3i(0, 1, 0), Vector3i(1, 1, 0), Vector3i(0, 0, 1), Vector3i(1, 0, 1), Vector3i(0, 1, 1), Vector3i(1, 1, 1)]
+	var corner_place := PackedVector3Array()
 	var offsets := PackedInt32Array()
 	for corner: Vector3i in corner_at:
 		offsets.append((corner.x * height + corner.y) * size + corner.z)
+		corner_place.append(Vector3(corner))
+	var edge_from := PackedInt32Array(EDGE_FROM)
+	var edge_to := PackedInt32Array(EDGE_TO)
+	var paint_of := PackedVector4Array(KIND_PAINT)
+	var wet_of := PackedVector2Array(KIND_WET)
+	var cover_of := PackedVector2Array(KIND_COVER)
+	var ore_of := PackedColorArray(KIND_ORE)
 	# Un sommet par sous-cellule traversée : moyenne des passages sur ses 12 arêtes ; normale = pente de la densité.
 	# 0.0.6.2 : sommets des sous-cellules dans des tableaux simples (pas de dictionnaire) : plus rapide, même résultat.
 	var cell_slot := PackedInt32Array()
@@ -761,8 +784,10 @@ func zone_mesh(zone: Vector3i) -> Array:
 				var b := tops[x * size + z + 1]
 				var c := tops[(x + 1) * size + z]
 				var d := tops[(x + 1) * size + z + 1]
-				lowest_y = maxi(0, floori(minf(minf(a, b), minf(c, d)) / STEP) - y_low - 2)
-				highest_y = mini(height - 2, ceili(maxf(maxf(a, b), maxf(c, d)) / STEP) - y_low + 1)
+				# 0.0.6.18 (#175) : exactement les sous-cellules que la surface traverse (un coin plein si y < hauteur / STEP) ; avant :
+				# 2 ou 3 de plus en bas et en haut de chaque colonne, examinées pour rien.
+				lowest_y = maxi(0, ceili(minf(minf(a, b), minf(c, d)) / STEP) - 1 - y_low)
+				highest_y = mini(height - 2, ceili(maxf(maxf(a, b), maxf(c, d)) / STEP) - 1 - y_low)
 				var hollow_low := mini(mini(cave_low[x * size + z], cave_low[x * size + z + 1]), mini(cave_low[(x + 1) * size + z], cave_low[(x + 1) * size + z + 1]))
 				var hollow_high := maxi(maxi(cave_high[x * size + z], cave_high[x * size + z + 1]), maxi(cave_high[(x + 1) * size + z], cave_high[(x + 1) * size + z + 1]))
 				if hollow_high >= 0:
@@ -795,18 +820,18 @@ func zone_mesh(zone: Vector3i) -> Array:
 						solid += 1
 				if solid == 0 or solid == 8:
 					continue
+				# 0.0.6.18 : les 12 arêtes d'une sous-cellule dans une table (avant : 24 essais, dont 12 pour rien).
 				var sum := Vector3.ZERO
 				var count := 0
-				for index in range(8):
-					for axis: int in EDGE_AXES:
-						if index & axis:
-							continue
-						var a := corners[index]
-						var b := corners[index | axis]
-						if (a > 0.0) == (b > 0.0):
-							continue
-						sum += Vector3(corner_at[index]).lerp(Vector3(corner_at[index | axis]), a / (a - b))
-						count += 1
+				for edge in range(12):
+					var one := edge_from[edge]
+					var other := edge_to[edge]
+					var a := corners[one]
+					var b := corners[other]
+					if (a > 0.0) == (b > 0.0):
+						continue
+					sum += corner_place[one].lerp(corner_place[other], a / (a - b))
+					count += 1
 				var cell := Vector3i(x, y, z)
 				cell_slot[base] = cell_vertex.size()
 				cell_vertex.append((Vector3(start + cell) + sum / count) * STEP)
@@ -816,39 +841,43 @@ func zone_mesh(zone: Vector3i) -> Array:
 					corners[4] + corners[5] + corners[6] + corners[7] - corners[0] - corners[1] - corners[2] - corners[3])
 				cell_normal.append((-slope).normalized() if slope.length_squared() > 0.000001 else Vector3.UP)
 				# Couleur des sommets (0.0.5.9) : alpha 0 = sable posé, bleu 0 = terre nue posée, blanc = sol de la graine ;
-				# 0.0.5.12 : vert 0 = pierre ; 0.0.5.18 : rouge 0 (avec vert 0) = Roche-mère.
+				# 0.0.5.12 : vert 0 = pierre ; 0.0.5.18 : rouge 0 (avec vert 0) = Roche-mère. 0.0.6.18 : part de chaque
+				# matière lue dans une table (KIND_PAINT…) : mêmes nombres, sans une longue suite de conditions par coin.
 				var paint := Vector4.ZERO
-				var weight := 0
 				var wet := Vector2.ZERO
 				var cover := Vector2.ZERO
-				var ore := Vector3.ZERO
-				var litter := 0.0
+				var ore := Color(0.0, 0.0, 0.0, 0.0)
+				var weight := 0
 				for index in range(8):
 					if corners[index] > 0.0:
-						var corner: Vector3i = cell + corner_at[index]
 						var kind_at: int = base + offsets[index]
 						var kind: int = known_kinds[kind_at]
 						if kind == UNKNOWN_KIND:
+							var corner: Vector3i = cell + corner_at[index]
 							kind = kinds[corner] if kinds.has(corner) else natural_kind(start + corner)
 							known_kinds[kind_at] = kind
-						var soft := kind == CLAY or kind == MUD or kind == SNOW or kind == GRAVEL or kind == NEEDLES
-						paint += Vector4(1.0 if kind == SAND else 0.0, 1.0 if kind == DIRT or soft else 0.0, 1.0 if kind == STONE or kind == MOTHER_ROCK or kind == DARK_STONE or kind == LIMESTONE or kind == COAL or kind == FLINT else 0.0, 1.0 if kind == MOTHER_ROCK else (0.5 if kind == DARK_STONE else 0.0))
-						# 0.0.5.20 : argile (U) et boue (V), terres nues de couleur à part.
-						wet += Vector2(1.0 if kind == CLAY else 0.0, 1.0 if kind == MUD else 0.0)
-						# 0.0.6 : neige (UV2.x) et gravier (UV2.y).
-						cover += Vector2(1.0 if kind == SNOW else 0.0, 1.0 if kind == GRAVEL else 0.0)
-						ore += Vector3(1.0 if kind == LIMESTONE else 0.0, 1.0 if kind == COAL else 0.0, 1.0 if kind == FLINT else 0.0)
-						litter += 1.0 if kind == NEEDLES else 0.0
+						var slot := kind + 1
+						if slot < 0 or slot >= KIND_SLOTS:
+							slot = 0
+						paint += paint_of[slot]
+						wet += wet_of[slot]
+						cover += cover_of[slot]
+						ore += ore_of[slot]
 						weight += 1
 				paint /= maxf(weight, 1)
 				cell_color.append(Color(1.0 - paint.w, 1.0 - paint.z, 1.0 - paint.y, 1.0 - paint.x))
+				# 0.0.5.20 : argile (U) et boue (V) ; 0.0.6 : neige (UV2.x) et gravier (UV2.y) ;
+				# 0.0.6.4 : calcaire, charbon, silex (CUSTOM0.rgb) ; 0.0.6.15 : litière d'aiguilles (CUSTOM0.a).
 				cell_uv.append(wet / maxf(weight, 1))
 				cell_uv2.append(cover / maxf(weight, 1))
-				var share := ore / maxf(weight, 1)
-				# 0.0.6.15 : litière d'aiguilles (CUSTOM0.a).
-				cell_ores.append(Color(share.x, share.y, share.z, litter / maxf(weight, 1)))
+				cell_ores.append(ore / maxf(weight, 1))
 	# Une face par arête traversée, entre les 4 sous-cellules qui la partagent ; la zone garde les arêtes
 	# qui partent de ses propres points (pas de double avec la zone voisine).
+	var used := PackedInt32Array()
+	used.resize(cell_vertex.size())
+	used.fill(-1)
+	var triangle := PackedInt32Array()
+	triangle.resize(3)
 	var axes := [Vector3i(1, 0, 0), Vector3i(0, 1, 0), Vector3i(0, 0, 1)]
 	for axis_index in range(3):
 		var axis: Vector3i = axes[axis_index]
@@ -868,39 +897,110 @@ func zone_mesh(zone: Vector3i) -> Array:
 					var first := values[index]
 					if (first > 0.0) == (values[index + step] > 0.0):
 						continue
-					var quad := [cell_slot[index], cell_slot[index - step_a], cell_slot[index - step_a - step_b], cell_slot[index - step_b]]
-					if quad[0] < 0 or quad[1] < 0 or quad[2] < 0 or quad[3] < 0:
+					var q0 := cell_slot[index]
+					var q1 := cell_slot[index - step_a]
+					var q2 := cell_slot[index - step_a - step_b]
+					var q3 := cell_slot[index - step_b]
+					if q0 < 0 or q1 < 0 or q2 < 0 or q3 < 0:
 						continue
 					var outward := Vector3(axis) if first > 0.0 else -Vector3(axis)
 					# 0.0.5.14 : face coupée selon la diagonale qui garde les deux triangles tournés vers dehors
 					# (sur les pentes, l'autre coupe pouvait retourner un petit triangle).
-					var split := [[0, 1, 2], [0, 2, 3]]
-					var p0: Vector3 = cell_vertex[quad[0]]
-					var p1: Vector3 = cell_vertex[quad[1]]
-					var p2: Vector3 = cell_vertex[quad[2]]
-					var p3: Vector3 = cell_vertex[quad[3]]
+					var p0 := cell_vertex[q0]
+					var p1 := cell_vertex[q1]
+					var p2 := cell_vertex[q2]
+					var p3 := cell_vertex[q3]
 					var facing := absf((p2 - p0).cross(p1 - p0).dot(outward)) + absf((p3 - p0).cross(p2 - p0).dot(outward))
 					var other_facing := absf((p3 - p1).cross(p2 - p1).dot(outward)) + absf((p0 - p1).cross(p3 - p1).dot(outward))
 					var folded := signf((p2 - p0).cross(p1 - p0).dot(outward)) != signf((p3 - p0).cross(p2 - p0).dot(outward))
 					var other_folded := signf((p3 - p1).cross(p2 - p1).dot(outward)) != signf((p0 - p1).cross(p3 - p1).dot(outward))
-					if (folded and not other_folded) or (folded == other_folded and other_facing > facing):
-						split = [[1, 2, 3], [1, 3, 0]]
-					for triangle in split:
-						var a: Vector3 = cell_vertex[quad[triangle[0]]]
-						var b: Vector3 = cell_vertex[quad[triangle[1]]]
-						var c: Vector3 = cell_vertex[quad[triangle[2]]]
-						var order := [quad[triangle[0]], quad[triangle[1]], quad[triangle[2]]]
-						if (c - a).cross(b - a).dot(outward) < 0.0:
-							order = [order[0], order[2], order[1]]
-						for slot: int in order:
-							vertices.append(cell_vertex[slot])
-							normals.append(cell_normal[slot])
-							colors.append(cell_color[slot])
-							uvs.append(cell_uv[slot])
-							uvs2.append(cell_uv2[slot])
-							ore_colors.append(cell_ores[slot])
+					var turned := (folded and not other_folded) or (folded == other_folded and other_facing > facing)
+					for half in range(2):
+						# Coupe [0, 1, 2] + [0, 2, 3], ou [1, 2, 3] + [1, 3, 0].
+						if turned:
+							triangle[0] = q1
+							triangle[1] = q2 if half == 0 else q3
+							triangle[2] = q3 if half == 0 else q0
+						else:
+							triangle[0] = q0
+							triangle[1] = q1 if half == 0 else q2
+							triangle[2] = q2 if half == 0 else q3
+						var a := cell_vertex[triangle[0]]
+						if (cell_vertex[triangle[2]] - a).cross(cell_vertex[triangle[1]] - a).dot(outward) < 0.0:
+							var swap := triangle[1]
+							triangle[1] = triangle[2]
+							triangle[2] = swap
+						for corner in range(3):
+							var slot := triangle[corner]
+							var mapped := used[slot]
+							if mapped < 0:
+								mapped = vertices.size()
+								used[slot] = mapped
+								vertices.append(cell_vertex[slot])
+								normals.append(cell_normal[slot])
+								colors.append(cell_color[slot])
+								uvs.append(cell_uv[slot])
+								uvs2.append(cell_uv2[slot])
+								ore_colors.append(cell_ores[slot])
+							indices.append(mapped)
 	# Une couleur par sommet, convertie d'un coup en 4 nombres (bien plus rapide qu'un petit tableau par sommet).
-	return [vertices, normals, colors, uvs, uvs2, ore_colors.to_byte_array().to_float32_array()]
+	return [vertices, normals, colors, uvs, uvs2, ore_colors.to_byte_array().to_float32_array(), indices]
+
+# Les 12 arêtes d'une sous-cellule (coins 0 à 7 : bit 1 = X, 2 = Y, 4 = Z), dans l'ordre d'avant 0.0.6.18.
+const EDGE_FROM: Array[int] = [0, 0, 0, 1, 1, 2, 2, 3, 4, 4, 5, 6]
+const EDGE_TO: Array[int] = [1, 2, 4, 3, 5, 3, 6, 7, 5, 6, 7, 7]
+# Part de chaque matière dans la couleur des sommets (indice : matière + 1 ; 0 : terre de la graine ou matière inconnue).
+# Peinture : sable, terre nue (terre, argile, boue, neige, gravier, aiguilles), pierre, Roche-mère (1) ou pierre sombre (0,5).
+const KIND_SLOTS := 14
+const KIND_PAINT: Array[Vector4] = [Vector4(0, 0, 0, 0), Vector4(1, 0, 0, 0), Vector4(0, 0, 1, 0), Vector4(0, 1, 0, 0),
+	Vector4(0, 0, 1, 1), Vector4(0, 1, 0, 0), Vector4(0, 1, 0, 0), Vector4(0, 0, 1, 0.5), Vector4(0, 1, 0, 0),
+	Vector4(0, 1, 0, 0), Vector4(0, 0, 1, 0), Vector4(0, 0, 1, 0), Vector4(0, 0, 1, 0), Vector4(0, 1, 0, 0)]
+# Argile, boue.
+const KIND_WET: Array[Vector2] = [Vector2.ZERO, Vector2.ZERO, Vector2.ZERO, Vector2.ZERO, Vector2.ZERO, Vector2(1, 0),
+	Vector2(0, 1), Vector2.ZERO, Vector2.ZERO, Vector2.ZERO, Vector2.ZERO, Vector2.ZERO, Vector2.ZERO, Vector2.ZERO]
+# Neige, gravier.
+const KIND_COVER: Array[Vector2] = [Vector2.ZERO, Vector2.ZERO, Vector2.ZERO, Vector2.ZERO, Vector2.ZERO, Vector2.ZERO,
+	Vector2.ZERO, Vector2.ZERO, Vector2(1, 0), Vector2(0, 1), Vector2.ZERO, Vector2.ZERO, Vector2.ZERO, Vector2.ZERO]
+# Calcaire, charbon, silex, aiguilles.
+const KIND_ORE: Array[Color] = [Color(0, 0, 0, 0), Color(0, 0, 0, 0), Color(0, 0, 0, 0), Color(0, 0, 0, 0), Color(0, 0, 0, 0),
+	Color(0, 0, 0, 0), Color(0, 0, 0, 0), Color(0, 0, 0, 0), Color(0, 0, 0, 0), Color(0, 0, 0, 0), Color(1, 0, 0, 0),
+	Color(0, 1, 0, 0), Color(0, 0, 1, 0), Color(0, 0, 0, 1)]
+
+# Ancienne forme (tests, outils) : un sommet par coin de triangle, sans indices.
+func zone_mesh(zone: Vector3i) -> Array:
+	return expand_surface(zone_surface(zone))
+
+static func expand_surface(surface: Array) -> Array:
+	var indices: PackedInt32Array = surface[6]
+	var vertices: PackedVector3Array = surface[0]
+	var normals: PackedVector3Array = surface[1]
+	var colors: PackedColorArray = surface[2]
+	var uvs: PackedVector2Array = surface[3]
+	var uvs2: PackedVector2Array = surface[4]
+	var custom: PackedFloat32Array = surface[5]
+	var out_vertices := PackedVector3Array()
+	var out_normals := PackedVector3Array()
+	var out_colors := PackedColorArray()
+	var out_uvs := PackedVector2Array()
+	var out_uvs2 := PackedVector2Array()
+	var out_custom := PackedFloat32Array()
+	for index in indices:
+		out_vertices.append(vertices[index])
+		out_normals.append(normals[index])
+		out_colors.append(colors[index])
+		out_uvs.append(uvs[index])
+		out_uvs2.append(uvs2[index])
+		for channel in range(4):
+			out_custom.append(custom[index * 4 + channel])
+	return [out_vertices, out_normals, out_colors, out_uvs, out_uvs2, out_custom]
+
+# Triangles d'une surface (collision) : trois sommets par triangle.
+static func surface_faces(vertices: PackedVector3Array, indices: PackedInt32Array) -> PackedVector3Array:
+	var faces := PackedVector3Array()
+	faces.resize(indices.size())
+	for index in range(indices.size()):
+		faces[index] = vertices[indices[index]]
+	return faces
 
 # Carré plat d'une zone sans changement (8 m, du milieu de la sous-cellule −1 au bord suivant).
 static func flat_mesh() -> ArrayMesh:
@@ -1372,8 +1472,10 @@ const MUD := 5
 const CLAY := 4
 
 func _soil(column: Vector2i) -> Dictionary:
-	if _soils.has(column):
-		return _soils[column]
+	# 0.0.6.18 (#175) : une seule lecture du dictionnaire.
+	var known: Variant = _soils.get(column)
+	if known != null:
+		return known
 	var soil := {}
 	var version := int(generation_options.get("version", 0))
 	var at := Vector2(column) * STEP
@@ -1506,6 +1608,15 @@ func _ores_of(zone: Vector3i) -> Dictionary:
 		for extra in [Vector3i.ZERO, Vector3i(1, 0, 0), Vector3i(0, 0, 1)].slice(0, count):
 			flint[middle + extra] = true
 	_ores[zone] = {"lime": lime, "coal": coal, "flint": flint}
+	# 0.0.6.18 (#175) : centres et portées aussi en tableaux simples : la plupart des formes sont écartées sans lire leur dictionnaire.
+	for key in ["lime", "coal"]:
+		var centers := PackedVector3Array()
+		var reaches := PackedFloat64Array()
+		for shape: Dictionary in _ores[zone][key]:
+			centers.append(shape.center)
+			reaches.append(shape.reach)
+		_ores[zone][key + "_centers"] = centers
+		_ores[zone][key + "_reaches"] = reaches
 	return _ores[zone]
 
 # Ellipsoïde tourné (demi-axes en sous-cellules), centre n'importe où dans la zone : la partie qui dépasse est coupée.
@@ -1530,13 +1641,27 @@ func _in_ore(point: Vector3i, shape: Dictionary) -> bool:
 	return inside < 1.0 + jitter * 0.6
 
 func _ore(point: Vector3i, base: int) -> int:
-	var ores := _ores_of(point_zone(point))
+	var zone := point_zone(point)
+	var ores: Dictionary = _ores[zone] if _ores.has(zone) else _ores_of(zone)
+	var at := Vector3(point)
 	if base == STONE:
-		for pocket: Dictionary in ores.lime:
-			if _in_ore(point, pocket):
+		var centers: PackedVector3Array = ores.lime_centers
+		var reaches: PackedFloat64Array = ores.lime_reaches
+		for index in range(centers.size()):
+			var offset := at - centers[index]
+			var reach := reaches[index]
+			if absf(offset.x) > reach or absf(offset.y) > reach or absf(offset.z) > reach:
+				continue
+			if _in_ore(point, ores.lime[index]):
 				return FLINT if ores.flint.has(point) else LIMESTONE
-	for vein: Dictionary in ores.coal:
-		if _in_ore(point, vein):
+	var vein_centers: PackedVector3Array = ores.coal_centers
+	var vein_reaches: PackedFloat64Array = ores.coal_reaches
+	for index in range(vein_centers.size()):
+		var offset := at - vein_centers[index]
+		var reach := vein_reaches[index]
+		if absf(offset.x) > reach or absf(offset.y) > reach or absf(offset.z) > reach:
+			continue
+		if _in_ore(point, ores.coal[index]):
 			return COAL
 	return base
 
@@ -1809,8 +1934,10 @@ var _snow_on := false
 func snow_depth(column: Vector2i) -> float:
 	if not _snow_on:
 		return 0.0
-	if _snow.has(column):
-		return _snow[column]
+	# 0.0.6.18 (#175) : une seule lecture du dictionnaire.
+	var known: Variant = _snow.get(column)
+	if known != null:
+		return known
 	var at := Vector2(column) * STEP
 	# Zone sans montagne enneigée proche : rien à calculer (la plupart du monde, bien plus rapide).
 	var zone := Vector2i(floori(at.x / ZONE_METERS), floori(at.y / ZONE_METERS))
@@ -1832,8 +1959,10 @@ func snow_depth(column: Vector2i) -> float:
 # Hauteur (m) jusqu'où monte la pierre dans une montagne : le cœur de pierre monte vers le sommet (sommets
 # rocheux), et parfois une plaque de pierre sur la pente. Très bas hors des montagnes.
 func mountain_stone(column: Vector2i) -> float:
-	if _lifts.has(column):
-		return _lifts[column]
+	# 0.0.6.18 (#175) : une seule lecture du dictionnaire.
+	var known: Variant = _lifts.get(column)
+	if known != null:
+		return known
 	var at := Vector2(column) * STEP
 	var lift := mountain_lift(at, MOUNTAINS_ROCK)
 	var top := -INF
@@ -2379,10 +2508,12 @@ var _needle_columns: Dictionary = {}
 func needle_floor(column: Vector2i) -> bool:
 	if not _needle_floor_on:
 		return false
-	if not _needle_columns.has(column):
+	var known: Variant = _needle_columns.get(column)
+	if known == null:
 		var found := forest_at(Vector2(column) * STEP)
-		_needle_columns[column] = not found.is_empty() and found.forest.kind == FOREST_PINE and found.depth > 0.06
-	return _needle_columns[column]
+		known = not found.is_empty() and found.forest.kind == FOREST_PINE and found.depth > 0.06
+		_needle_columns[column] = known
+	return known
 
 # 0.0.6.16 (version 27, #182) : plantes à fibres, par petites taches selon les milieux (plants.gd les dessine) :
 # orties en lisière des feuillus et des vergers et au bord de l'eau ; lin en petites taches bleues dans les prairies ;

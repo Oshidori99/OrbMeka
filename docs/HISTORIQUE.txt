@@ -3,6 +3,10 @@ Du plus récent au plus ancien. Ce fichier est mis à jour à chaque version.
 
 === Thème « Monde » (0.0.5 et suivantes) ===
 
+0.0.6.18 — Jeu plus fluide (#175)
+Génération du terrain : version 28 (inchangée) · Menus : version 3.
+Vol sans à-coups (46 → 0), 2 fois plus d'images par seconde, 3 fois moins de dessins, collisions seulement près du joueur ; même image.
+
 0.0.6.17 — Monde plus grand, version Web corrigée
 Génération du terrain : version 28 (nouvelle) · Menus : version 3.
 Nouveaux mondes de 96 × 96 zones (768 m de côté) ; sur le Web, cailloux et rochers à nouveau en pierre et couleurs alignées sur le PC.
