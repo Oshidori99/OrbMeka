@@ -47,12 +47,12 @@ func _run() -> void:
 	# Base : le sol réel va de -256 à 256, soit les cases -256 à 255 (0.0.6 : 64 × 64 zones de 8 m).
 	var ground: StaticBody3D = world.get_node("Ground")
 	var half: float = ground.get_child(1).shape.size.x / 2.0
-	check(is_equal_approx(ground.position.x - half, -256.0) and is_equal_approx(ground.position.x + half, 256.0), "ground spans 512 blocks around 0")
+	check(is_equal_approx(ground.position.x - half, -384.0) and is_equal_approx(ground.position.x + half, 384.0), "ground spans 768 blocks around 0 (0.0.6.17)")
 	var low_corner: Vector3i = stand(world, -255.9, 4, -255.9)
 	var high_corner: Vector3i = stand(world, 255.9, 4, 255.9)
 	check(low_corner.x == -256 and low_corner.z == -256 and high_corner.x == 255 and high_corner.z == 255, "ground corners shown as X/Z -256 and 255 (hills may raise Y)")
 	for text in [home_info, info]:
-		check(text.contains("largeur 512 × longueur 512 blocs (X et Z de -256 à 255)"), "base size and range announced")
+		check(text.contains("largeur 768 × longueur 768 blocs (X et Z de -384 à 383)"), "base size and range announced")
 	# Zone générée : 41 × 41 cases, de -20 à 20.
 	var span := Terrain.MAX_CELL - Terrain.MIN_CELL + 1
 	var heights := {}
@@ -78,13 +78,13 @@ func _run() -> void:
 	check(stand(world, 30.5, WorldRules.MAX_BUILD_HEIGHT, 30.5).y == 25, "standing on the highest allowed block shows Y 25")
 	for text in [home_info, info, help]:
 		check(text.contains("hauteur maximale 25 blocs au-dessus du sol plat") or text.contains("Hauteur maximale : 25 blocs au-dessus du sol plat"), "build height 25 announced")
-		check(text.contains("sommet à Y 25") and text.contains("X et Z de -253 à 253"), "build top Y 25 and build zone -253 to 253 announced")
+		check(text.contains("sommet à Y 25") and text.contains("X et Z de -381 à 381"), "build top Y 25 and build zone -381 to 381 announced")
 		check(text.contains(WorldRules.COORDINATES_NOTE), "coordinate note in every text")
 	# Pose réelle : au bord de la zone de construction acceptée, juste après refusée ; hauteur 24 acceptée, 25 refusée.
-	world.player.position = Vector3(253.5, 0.01, 251.5)
-	check(world._edit_place_target({"collider": ground, "position": Vector3(253.5, 0.0, 253.5), "normal": Vector3.UP}, 1), "block placed at X 253")
-	world.player.position = Vector3(254.5, 0.01, 251.5)
-	check(not world._edit_place_target({"collider": ground, "position": Vector3(254.5, 0.0, 253.5), "normal": Vector3.UP}, 1), "block refused at X 254")
+	world.player.position = Vector3(381.5, 0.01, 379.5)
+	check(world._edit_place_target({"collider": ground, "position": Vector3(381.5, 0.0, 381.5), "normal": Vector3.UP}, 1), "block placed at X 381")
+	world.player.position = Vector3(382.5, 0.01, 379.5)
+	check(not world._edit_place_target({"collider": ground, "position": Vector3(382.5, 0.0, 381.5), "normal": Vector3.UP}, 1), "block refused at X 382")
 	var column_top: StaticBody3D = world.section_body(Vector3i(30, 24, 30))
 	world.player.position = Vector3(30.5, 22.01, 28.5)
 	check(not world._edit_place_target({"collider": column_top, "position": Vector3(30.5, 25.0, 30.5), "normal": Vector3.UP}, 1), "block refused above height 25")
