@@ -3,6 +3,10 @@ Du plus récent au plus ancien. Ce fichier est mis à jour à chaque version.
 
 === Thème « Monde » (0.0.5 et suivantes) ===
 
+0.0.6.16 — Plantes à fibres et lianes
+Génération du terrain : version 27 (nouvelle) · Menus : version 3.
+Orties en lisière et au bord de l'eau, lin bleu et herbes longues dans les prairies, lianes enroulées sur des tilleuls ; faites dans Blender.
+
 0.0.6.15 — Sol d'aiguilles et vergers sauvages
 Génération du terrain : version 26 (nouvelle) · Menus : version 3.
 Sous les pinèdes, une litière d'aiguilles brun-orangé remplace l'herbe ; nouveaux vergers sauvages (pommiers et noisetiers clairsemés) en plaine.

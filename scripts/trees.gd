@@ -9,6 +9,7 @@ extends RefCounted
 # Pommier : 4,0 / 5,5 / 7,5 / 8,4 / 9,6 m ; noisetier : 3,0 / 4,3 / 5,8 / 6,5 / 7,5 m.
 # 0.0.6.12 : pin sylvestre (7 à 21 m, tronc nu sur la moitié de sa hauteur une fois adulte, touffes d'aiguilles, pommes de pin)
 # et tilleul (6 à 20 m, couronne ovale dense, feuilles en cœur).
+const Plants = preload("res://scripts/plants.gd")
 const APPLE := 0
 const HAZEL := 1
 const PINE := 2
@@ -106,7 +107,7 @@ static func triangles(made: Mesh) -> int:
 	return count
 
 # Arbre posé dans le monde : corps immobile (collision du tronc), modèle détaillé de près, simplifié au loin.
-static func tree_body(kind: int, size: int) -> StaticBody3D:
+static func tree_body(kind: int, size: int, vine := false) -> StaticBody3D:
 	var body := StaticBody3D.new()
 	body.name = "Arbre"
 	body.add_to_group("trees")
@@ -126,6 +127,15 @@ static func tree_body(kind: int, size: int) -> StaticBody3D:
 	far.visibility_range_begin_margin = 2.0
 	far.visibility_range_end = FAR_END
 	model.add_child(far)
+	# 0.0.6.16 : liane enroulée sur le tronc (tilleuls du cœur des forêts de feuillus), visible de près seulement.
+	if vine:
+		var climb := MeshInstance3D.new()
+		climb.name = "Liane"
+		var base := trunk(kind, size)
+		climb.mesh = Plants.vine_mesh(base.x, base.y + 1.5)
+		climb.visibility_range_end = DETAIL_END
+		climb.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		model.add_child(climb)
 	var foot := trunk(kind, size)
 	var shape := CylinderShape3D.new()
 	shape.radius = foot.x

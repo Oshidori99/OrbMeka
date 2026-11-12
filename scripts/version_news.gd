@@ -14,6 +14,7 @@ const MENUS := [
 ]
 # Version de génération → version du jeu qui l'a apportée, et ce qu'elle change.
 const GENERATIONS := [
+	[27, "0.0.6.16", "plantes à fibres et lianes"],
 	[26, "0.0.6.15", "sol d'aiguilles sous les pinèdes, vergers sauvages"],
 	[25, "0.0.6.14", "grandes montagnes aux pentes douces, pins plus haut"],
 	[24, "0.0.6.13", "forêts : pinèdes et feuillus, lisières et clairières"],

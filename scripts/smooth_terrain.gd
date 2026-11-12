@@ -87,6 +87,7 @@ func setup(terrain_seed: int, flat_spots: Array = [], options: Dictionary = {}) 
 	_forests_on = int(generation_options.get("version", 0)) >= 24
 	_gentle_mountains = int(generation_options.get("version", 0)) >= 25
 	_needle_floor_on = int(generation_options.get("version", 0)) >= 26
+	_plants_on = int(generation_options.get("version", 0)) >= 27
 	# Version 25 : crêtes moins marquées sur les montagnes (pentes plus régulières, plus faciles à monter).
 	_ridge = 0.12 if _gentle_mountains else 0.3
 	fall_limit = half_zones * int(ZONE_METERS) - 3
@@ -2356,6 +2357,9 @@ func _forest_trees(area: Vector2i, placed: Array) -> Array:
 			if lone:
 				size = 5
 			var entry := {"id": "f%d_%d" % [kx, kz], "x": at.x, "z": at.y, "espece": kind, "variante": 0, "rotation": rng.randf_range(0.0, 360.0), "taille": rng.randf_range(0.95, 1.05), "classe": size, "foret": forest.index}
+			# 0.0.6.16 (version 27) : lianes sur environ un tiers des tilleuls du cœur des forêts de feuillus.
+			if _plants_on and kind == LINDEN and forest.kind == FOREST_BROADLEAF and depth >= 0.22 and absi(hash([_seed, kx, kz, "liane"])) % 100 < 35:
+				entry.liane = true
 			if _tree_spot_ok(at, others, PINE_SLOPE if kind == PINE else TREE_SLOPE, 4.0):
 				result.append(entry)
 				others.append(entry)
@@ -2372,3 +2376,74 @@ func needle_floor(column: Vector2i) -> bool:
 		var found := forest_at(Vector2(column) * STEP)
 		_needle_columns[column] = not found.is_empty() and found.forest.kind == FOREST_PINE and found.depth > 0.06
 	return _needle_columns[column]
+
+# 0.0.6.16 (version 27, #182) : plantes à fibres, par petites taches selon les milieux (plants.gd les dessine) :
+# orties en lisière des feuillus et des vergers et au bord de l'eau ; lin en petites taches bleues dans les prairies ;
+# herbes longues dans les prairies, les lisières et les clairières. Jamais dans l'eau, le sable, la boue, le gravier,
+# la neige, la pierre ni sur la litière d'aiguilles. Pas de récolte dans la série 0.0.6.
+const NETTLE := 0
+const FLAX := 1
+const TALL_GRASS := 2
+var _plants_on := false
+
+func plants_in_zone(area: Vector2i) -> Array:
+	if not _plants_on or _noise == null:
+		return []
+	var rng := RandomNumberGenerator.new()
+	rng.seed = hash([_seed, area.x, area.y, "plantes"])
+	var result := []
+	for patch in range(3):
+		var center := Vector2(area) * ZONE_METERS + Vector2(rng.randf_range(0.5, 7.5), rng.randf_range(0.5, 7.5))
+		var roll := rng.randf()
+		var found := forest_at(center)
+		var wet := false
+		for lake in _lakes_near(center):
+			var distance: float = _lake_distance(center, lake) - lake.radius - lake.get("bank", 0.0)
+			wet = wet or (distance > 0.5 and distance < 6.0)
+		if _rivers_on:
+			var river := river_near(center)
+			wet = wet or (not river.is_empty() and river.distance > river.width + RIVER_BANK and river.distance < river.width + RIVER_BANK + 5.0)
+		var edge: bool = not found.is_empty() and found.forest.kind != FOREST_PINE and found.depth < 0.3
+		var pine_wood: bool = not found.is_empty() and found.forest.kind == FOREST_PINE
+		var meadow: bool = found.is_empty() or (not found.forest.clearings.is_empty() and found.forest.clearings.any(func(clearing): return center.distance_to(clearing.center) < clearing.radius))
+		var kind := -1
+		if (edge or wet) and roll < 0.45:
+			kind = NETTLE
+		elif meadow and not wet and roll < 0.05:
+			kind = FLAX
+		elif (meadow or edge) and not pine_wood and roll < 0.3:
+			kind = TALL_GRASS
+		if kind < 0:
+			continue
+		var count := rng.randi_range(3, 7) if kind == NETTLE else (rng.randi_range(6, 14) if kind == FLAX else rng.randi_range(3, 8))
+		var spread := 2.5 if kind == FLAX else 1.6
+		for index in range(count):
+			var at := center + Vector2.from_angle(rng.randf() * TAU) * rng.randf_range(0.0, spread)
+			var entry := {"x": at.x, "z": at.y, "plante": kind, "rotation": rng.randf_range(0.0, 360.0), "taille": rng.randf_range(0.85, 1.2)}
+			# Le lin reste en prairie (ou en clairière), même au bord de sa tache.
+			if kind == FLAX and not forest_at(at).is_empty() and not meadow:
+				continue
+			if kind == FLAX and not forest_at(at).is_empty() and not forest_at(at).forest.clearings.any(func(clearing): return at.distance_to(clearing.center) < clearing.radius):
+				continue
+			if _plant_spot_ok(at):
+				result.append(entry)
+	return result
+
+func _plant_spot_ok(at: Vector2) -> bool:
+	var limit := half_zones * ZONE_METERS - 2.0
+	if absf(at.x) > limit or absf(at.y) > limit:
+		return false
+	for spot in _flat_spots:
+		if at.distance_to(spot[0]) < spot[1] + 1.0:
+			return false
+	var column := Vector2i(roundi(at.x / STEP), roundi(at.y / STEP))
+	if is_desert(at) or not surface_kind(column) in [-1, DIRT] or muddy(column) or needle_floor(column) or cave_open(column) or in_crevasse(at):
+		return false
+	var ground := ground_height(column)
+	if water_level_at(at) > ground - 0.1:
+		return false
+	for lake in _lakes_near(at):
+		if _lake_distance(at, lake) < lake.radius + lake.get("bank", 0.0) + 0.3:
+			return false
+	var slope := Vector2(ground_height(column + Vector2i(2, 0)) - ground_height(column - Vector2i(2, 0)), ground_height(column + Vector2i(0, 2)) - ground_height(column - Vector2i(0, 2))) / 2.0
+	return slope.length() < 0.6

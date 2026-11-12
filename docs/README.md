@@ -1,6 +1,16 @@
-# OrbMeka™ — prototype 0.0.6.15
+# OrbMeka™ — prototype 0.0.6.16
 
 Godot 4.7 / GDScript. Formes et couleurs simples ; assets externes seulement sous licence vérifiée (sons CC0, assets/sounds/CREDITS.txt).
+
+## 0.0.6.16 — Plantes à fibres et lianes (#182)
+Version locale (pas encore publiée).
+- **Plantes modélisées dans Blender** (sources_blender/plantes/generer_plantes.py, fichier plantes.blend rangé dans ../Archives OrbMeka/Blender), puis rendues en images sur fond transparent (assets/plants) : **ortie** (tiges droites, feuilles en cœur dentées, chatons), **lin** (tiges fines, fleurs bleu ciel), **herbes longues** (feuilles arquées, épis plumeux), **liane** (petites feuilles en cœur sur une tige en zigzag).
+- Dans le jeu (scripts/plants.gd) : trois plaques croisées par plante (ortie jusqu'à 1,5 m, lin 1 m, herbes 1,5 m), une MultiMesh par sorte et par colonne, visibles jusqu'à 45 m ; on passe au travers. Liane : deux rubans enroulés en hélice autour du tronc.
+- **Génération version 27** (nouveaux mondes ; les autres ne changent pas), par petites taches selon les milieux : **orties** en lisière des feuillus et des vergers et au bord de l'eau ; **lin** dans les prairies et clairières ; **herbes longues** dans les prairies, lisières et clairières ; **lianes** sur environ un tiers des tilleuls du cœur des forêts de feuillus. Jamais dans l'eau, le sable, la boue, le gravier, la neige, la pierre ni sur la litière d'aiguilles. Pas de récolte (série 0.0.6).
+- **Monde d'essai T46** (graine 1420169977) ; la vitrine de l'accueil le montre.
+
+Tests concernés réussis (nouveau test « plants » : les trois plantes poussent, bons milieux, jamais dans l'eau ni le sable, lin hors des forêts, orties en lisière ou près de l'eau, lianes sur des tilleuls de feuillus, affichage, génération 26 sans plantes). Mesures en lisière d'une forêt de feuillus, génération 26 puis 27, sans limite d'images : PC 218 → 229 FPS, rendu Web 315 → 312 (pas de coût visible).
+À tester manuellement : aspect des plantes de près (les orties restent un peu plates), taches de lin, lianes sur les tilleuls.
 
 ## 0.0.6.15 — Sol d'aiguilles et vergers sauvages (#181)
 Version publiée (avec 0.0.6.14).

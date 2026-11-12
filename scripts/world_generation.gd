@@ -34,8 +34,9 @@ extends RefCounted
 # Version 24 (0.0.6.13) : même monde, forêts (pinèdes au pied des montagnes, feuillus en plaine), lisières et clairières.
 # Version 25 (0.0.6.14) : montagnes plus grandes (24 à 36 m) aux pentes bien plus douces ; pins plus haut sur les pentes.
 # Version 26 (0.0.6.15) : même monde, sol d'aiguilles sous les pinèdes, vergers sauvages (pommiers et noisetiers) en plaine.
-const VERSION := 26
-const VERSIONS := [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26]
+# Version 27 (0.0.6.16) : même monde, plantes à fibres (orties, lin, herbes longues) et lianes sur les tilleuls.
+const VERSION := 27
+const VERSIONS := [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27]
 # Chance la plus rare qu'on peut régler : 1 sur MAX_CHANCE par zone (64 avant 0.0.5.18, 400 avant 0.0.5.23, 2000 avant 0.0.5.24).
 const MAX_CHANCE := 4000
 const STANDARD_SMALL_DENOMINATOR := 8
@@ -114,6 +115,7 @@ const DESERT_SIZES := {
 	24: {"medium_desert": [3, 4, 2, 2], "big_desert": [40, 48, 8, 8]},
 	25: {"medium_desert": [3, 4, 2, 2], "big_desert": [40, 48, 8, 8]},
 	26: {"medium_desert": [3, 4, 2, 2], "big_desert": [40, 48, 8, 8]},
+	27: {"medium_desert": [3, 4, 2, 2], "big_desert": [40, 48, 8, 8]},
 }
 # 0.0.6 (version 15) : monde de 64 × 64 zones ; 48 × 48 pour les versions d'avant (0.0.5.20 ; 20 × 20 en 0.0.5.18, 16 × 16 avant).
 static func half_zones(version: int = VERSION) -> int:
@@ -405,6 +407,8 @@ static func describe(options: Dictionary) -> String:
 		lines.append("Montagnes plus grandes (24 à 36 m) aux pentes douces, où montent les pins ; quelques montagnes raides restent.")
 	if version >= 26:
 		lines.append("Sol d'aiguilles sous les pinèdes, sans herbe ; vergers sauvages de pommiers et noisetiers en plaine.")
+	if version >= 27:
+		lines.append("Plantes à fibres : orties en lisière et au bord de l'eau, lin et herbes longues dans les prairies ; lianes sur des tilleuls des forêts.")
 	lines.append(layers)
 	return "\n".join(lines)
 

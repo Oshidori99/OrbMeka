@@ -1,7 +1,8 @@
-# OrbMeka™ 0.0.6.15
+# OrbMeka™ 0.0.6.16
 
 Dans Godot, ouvrez **project.godot**, puis **F5** pour lancer le jeu.
 
+0.0.6.16 : plantes à fibres (orties, lin, herbes longues) et lianes sur les tilleuls, faites dans Blender (génération 27).
 0.0.6.15 : sol d'aiguilles sous les pinèdes, vergers sauvages de pommiers et noisetiers (génération 26).
 0.0.6.14 : montagnes plus grandes (24 à 36 m) aux pentes plus douces, pinèdes sur leurs pentes (génération 25).
 0.0.6.13 : forêts (génération 24) : pinèdes au pied des montagnes, feuillus en plaine, lisières et clairières.

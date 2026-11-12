@@ -13,6 +13,7 @@ const Generation = preload("res://scripts/world_generation.gd")
 const FarTerrain = preload("res://scripts/far_terrain.gd")
 const Rocks = preload("res://scripts/rocks.gd")
 const Trees = preload("res://scripts/trees.gd")
+const Plants = preload("res://scripts/plants.gd")
 const Water = preload("res://scripts/water.gd")
 const DIRT := 2
 const BLOCK_COLORS := [Color("#d8c291"), Color("#888b90"), Color("#855332")]
@@ -1666,7 +1667,7 @@ func _show_column_objects(column: Vector2i) -> void:
 				_column_object(column, made)
 	# 0.0.6.9 (#149) : arbres fruitiers de la colonne (génération 21), détaillés de près, simplifiés au loin.
 	for tree in terrain.trees_in_zone(column):
-		var made := Trees.tree_body(int(tree.espece), int(tree.get("classe", 3)))
+		var made := Trees.tree_body(int(tree.espece), int(tree.get("classe", 3)), tree.get("liane", false))
 		made.position = Vector3(tree.x, terrain.height_at(tree.x, tree.z) - 0.05, tree.z)
 		made.rotation.y = deg_to_rad(float(tree.rotation))
 		made.scale = Vector3.ONE * float(tree.taille)
@@ -1674,6 +1675,13 @@ func _show_column_objects(column: Vector2i) -> void:
 		made.set_meta("column", column)
 		_rocks_parent().add_child(made)
 		_column_object(column, made)
+	# 0.0.6.16 (#182) : plantes à fibres de la colonne (génération 27).
+	var plant_list: Array = terrain.plants_in_zone(column)
+	if not plant_list.is_empty():
+		for node in Plants.column_nodes(plant_list, terrain.height_at):
+			node.set_meta("column", column)
+			_rocks_parent().add_child(node)
+			_column_object(column, node)
 	for lake in terrain.lakes_in_zone(column):
 		var water := MeshInstance3D.new()
 		water.name = "Lac"
