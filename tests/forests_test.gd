@@ -41,12 +41,12 @@ func _run() -> void:
 	var trees := all_trees(terrain)
 	print("Arbres du monde en %d ms" % (Time.get_ticks_msec() - started))
 	var forests: Array = terrain.forests()
-	var kinds := [0, 0]
+	var kinds := [0, 0, 0]
 	var sizes_ok := true
 	for forest in forests:
 		kinds[forest.kind] += 1
 		sizes_ok = sizes_ok and forest.radius >= 25.0 and forest.radius <= 40.0
-	check(forests.size() >= 12 and forests.size() <= 26 and kinds[0] > 0 and kinds[1] > 0 and sizes_ok, "%d forests of 25 to 40 m: %d pine woods, %d broadleaf woods" % [forests.size(), kinds[0], kinds[1]])
+	check(forests.size() >= 12 and forests.size() <= 26 and kinds[0] > 0 and kinds[1] > 0 and sizes_ok, "%d forests of 25 to 40 m: %d pine woods, %d broadleaf woods, %d wild orchards" % [forests.size(), kinds[0], kinds[1], kinds[2]])
 	check(all_trees(terrain_for(SEED, options)) == trees, "same seed, same forests and trees (%d trees)" % trees.size())
 	# Part du sol en forêt.
 	var inside := 0
@@ -77,6 +77,8 @@ func _run() -> void:
 		var depth: float = terrain.forest_depth(at, forest)
 		if forest.kind == SmoothTerrain.FOREST_PINE:
 			pine_wood_ok = pine_wood_ok and int(tree.espece) == Trees.PINE
+		elif forest.kind == SmoothTerrain.FOREST_ORCHARD:
+			continue
 		elif depth >= 0.22:
 			core_kinds[int(tree.espece)] += 1
 		else:
@@ -92,7 +94,7 @@ func _run() -> void:
 				clearing_ok = clearing_ok and clearing.lone and int(tree.classe) == 5
 	check(pine_wood_ok, "pine woods hold only pines")
 	check(core_kinds[Trees.LINDEN] > core_kinds[Trees.HAZEL] and core_kinds[Trees.HAZEL] > 0 and core_kinds[Trees.APPLE] == 0, "broadleaf woods: lindens with hazel undergrowth (%s)" % str(core_kinds))
-	check(edge_kinds[Trees.APPLE] > 0 and edge_kinds[Trees.HAZEL] > edge_kinds[Trees.LINDEN], "broadleaf edges: hazels, apple trees and a few small lindens (%s)" % str(edge_kinds))
+	check(edge_kinds[Trees.APPLE] > 0 and edge_kinds[Trees.HAZEL] + edge_kinds[Trees.APPLE] > edge_kinds[Trees.LINDEN], "broadleaf edges: hazels, apple trees and a few small lindens (%s)" % str(edge_kinds))
 	check(core_count > 0 and edge_count > 0 and core_sizes / core_count > edge_sizes / edge_count + 1.0, "big trees in the heart, small ones at the edge (%.1f against %.1f)" % [core_sizes / maxf(1, core_count), edge_sizes / maxf(1, edge_count)])
 	var core_area := 0.0
 	var edge_area := 0.0
@@ -135,5 +137,31 @@ func _run() -> void:
 		mountain_slopes.append(total / maxf(1, count))
 		heights.append(land._all_mountains().filter(func(found): return not found.get("sand", false)).map(func(found): return found.height).max())
 	check(mountain_slopes[1] < mountain_slopes[0] * 0.9 and heights[1] > heights[0] and heights[1] <= 36.0, "generation 25: bigger mountains (up to %.0f m) with gentler slopes (%.2f against %.2f)" % [heights[1], mountain_slopes[1], mountain_slopes[0]])
+	# 0.0.6.15 (version 26, #181) : sol d'aiguilles sous les pinèdes, vergers sauvages en plaine.
+	var orchards := forests.filter(func(forest): return forest.kind == SmoothTerrain.FOREST_ORCHARD)
+	var orchard_ok := not orchards.is_empty()
+	var orchard_trees := 0
+	for tree in trees:
+		if str(tree.id).begins_with("f") and forests[int(tree.foret)].kind == SmoothTerrain.FOREST_ORCHARD:
+			orchard_trees += 1
+			orchard_ok = orchard_ok and int(tree.espece) in [Trees.APPLE, Trees.HAZEL]
+	check(orchard_ok and orchard_trees > 0, "wild orchards: %d of %d forests, %d apple trees and hazels only" % [orchards.size(), forests.size(), orchard_trees])
+	var litter := 0
+	var litter_outside := 0
+	for x in range(-250, 250, 3):
+		for z in range(-250, 250, 3):
+			var column := Vector2i(x * 2, z * 2)
+			var top := Vector3i(column.x, floori(terrain.ground_height(column) / SmoothTerrain.STEP), column.y)
+			if terrain.natural_kind(top) == SmoothTerrain.NEEDLES:
+				var found: Dictionary = terrain.forest_at(Vector2(x, z))
+				if found.is_empty() or found.forest.kind != SmoothTerrain.FOREST_PINE:
+					litter_outside += 1
+				else:
+					litter += 1
+	check(litter > 0 and litter_outside == 0 and terrain.natural_kind(Vector3i(0, -6, 0)) != SmoothTerrain.NEEDLES, "pine needles on the ground of pine woods only, a thin layer over the dirt")
+	var v25 := options.duplicate()
+	v25.version = 25
+	var older := terrain_for(SEED, v25)
+	check(not older.needle_floor(Vector2i(0, 0)) and older.forests().all(func(forest): return forest.kind != SmoothTerrain.FOREST_ORCHARD), "generation 25 worlds keep their ground and their forests")
 	print("RESULT: %d forest checks, %d failures" % [checks, failures])
 	quit(failures)

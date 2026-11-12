@@ -86,6 +86,7 @@ func setup(terrain_seed: int, flat_spots: Array = [], options: Dictionary = {}) 
 	_other_trees_on = int(generation_options.get("version", 0)) >= 23
 	_forests_on = int(generation_options.get("version", 0)) >= 24
 	_gentle_mountains = int(generation_options.get("version", 0)) >= 25
+	_needle_floor_on = int(generation_options.get("version", 0)) >= 26
 	# Version 25 : crêtes moins marquées sur les montagnes (pentes plus régulières, plus faciles à monter).
 	_ridge = 0.12 if _gentle_mountains else 0.3
 	fall_limit = half_zones * int(ZONE_METERS) - 3
@@ -279,6 +280,9 @@ const LIMESTONE := 9
 const COAL := 10
 const FLINT := 11
 const ROCKS := [STONE, DARK_STONE, LIMESTONE, COAL, FLINT]
+# 0.0.6.15 (version 26, #181) : litière d'aiguilles sous les pinèdes (couche de 20 cm sur la terre, sans herbe).
+const NEEDLES := 12
+const NEEDLE_DEPTH := 0.2
 
 # Matière du sol de la graine : terre (-1, aspect du sol avec herbe), sable des déserts, pierre ou Roche-mère.
 var _desert_columns: Dictionary = {}
@@ -314,6 +318,8 @@ func natural_kind(point: Vector3i) -> int:
 		_desert_columns[column] = is_desert(Vector2(column) * STEP)
 	if _desert_columns[column] and point.y * STEP > ground_height(column) - DESERT_SAND:
 		return SAND
+	if _needle_floor_on and point.y * STEP > ground_height(column) - NEEDLE_DEPTH and needle_floor(column):
+		return NEEDLES
 	return -1
 
 func material(point: Vector3i) -> int:
@@ -815,6 +821,7 @@ func zone_mesh(zone: Vector3i) -> Array:
 				var wet := Vector2.ZERO
 				var cover := Vector2.ZERO
 				var ore := Vector3.ZERO
+				var litter := 0.0
 				for index in range(8):
 					if corners[index] > 0.0:
 						var corner: Vector3i = cell + corner_at[index]
@@ -823,20 +830,22 @@ func zone_mesh(zone: Vector3i) -> Array:
 						if kind == UNKNOWN_KIND:
 							kind = kinds[corner] if kinds.has(corner) else natural_kind(start + corner)
 							known_kinds[kind_at] = kind
-						var soft := kind == CLAY or kind == MUD or kind == SNOW or kind == GRAVEL
+						var soft := kind == CLAY or kind == MUD or kind == SNOW or kind == GRAVEL or kind == NEEDLES
 						paint += Vector4(1.0 if kind == SAND else 0.0, 1.0 if kind == DIRT or soft else 0.0, 1.0 if kind == STONE or kind == MOTHER_ROCK or kind == DARK_STONE or kind == LIMESTONE or kind == COAL or kind == FLINT else 0.0, 1.0 if kind == MOTHER_ROCK else (0.5 if kind == DARK_STONE else 0.0))
 						# 0.0.5.20 : argile (U) et boue (V), terres nues de couleur à part.
 						wet += Vector2(1.0 if kind == CLAY else 0.0, 1.0 if kind == MUD else 0.0)
 						# 0.0.6 : neige (UV2.x) et gravier (UV2.y).
 						cover += Vector2(1.0 if kind == SNOW else 0.0, 1.0 if kind == GRAVEL else 0.0)
 						ore += Vector3(1.0 if kind == LIMESTONE else 0.0, 1.0 if kind == COAL else 0.0, 1.0 if kind == FLINT else 0.0)
+						litter += 1.0 if kind == NEEDLES else 0.0
 						weight += 1
 				paint /= maxf(weight, 1)
 				cell_color.append(Color(1.0 - paint.w, 1.0 - paint.z, 1.0 - paint.y, 1.0 - paint.x))
 				cell_uv.append(wet / maxf(weight, 1))
 				cell_uv2.append(cover / maxf(weight, 1))
 				var share := ore / maxf(weight, 1)
-				cell_ores.append(Color(share.x, share.y, share.z, 0.0))
+				# 0.0.6.15 : litière d'aiguilles (CUSTOM0.a).
+				cell_ores.append(Color(share.x, share.y, share.z, litter / maxf(weight, 1)))
 	# Une face par arête traversée, entre les 4 sous-cellules qui la partagent ; la zone garde les arêtes
 	# qui partent de ses propres points (pas de double avec la zone voisine).
 	var axes := [Vector3i(1, 0, 0), Vector3i(0, 1, 0), Vector3i(0, 0, 1)]
@@ -2214,6 +2223,9 @@ func _near_mountain_foot(at: Vector2) -> bool:
 # vers la lisière. Mêmes interdits que les autres arbres (eau, sable, boue, pentes raides).
 const FOREST_PINE := 0
 const FOREST_BROADLEAF := 1
+# 0.0.6.15 (version 26) : verger sauvage, en plaine : pommiers et noisetiers clairsemés dans l'herbe (environ 1 forêt de plaine sur 4).
+const FOREST_ORCHARD := 2
+const ORCHARD_SIZES := [10, 25, 35, 20, 10]
 const FOREST_STEP := 5.5
 const FOREST_CORE_SIZES := [5, 10, 25, 35, 25]
 const FOREST_EDGE_SIZES := [35, 35, 20, 8, 2]
@@ -2262,6 +2274,8 @@ func forests() -> Array:
 		if radius > 33.0:
 			kept = clearings.slice(0, 2 if clearing_roll < 0.4 else 1)
 		var forest := {"index": _forests.size(), "center": center, "radius": radius, "wobble": wobble, "kind": FOREST_PINE if _near_mountain_foot(center) or mountain_lift(center) > 0.5 else FOREST_BROADLEAF, "clearings": kept}
+		if _needle_floor_on and forest.kind == FOREST_BROADLEAF and absi(hash([_seed, forest.index, "verger"])) % 4 == 0:
+			forest.kind = FOREST_ORCHARD
 		_forests.append(forest)
 		var reach := radius * 1.25
 		for x in range(floori((center.x - reach) / ZONE_METERS), floori((center.x + reach) / ZONE_METERS) + 1):
@@ -2320,8 +2334,11 @@ func _forest_trees(area: Vector2i, placed: Array) -> Array:
 					lone = lone or (clearing.lone and distance < FOREST_STEP * 0.5)
 			if in_clearing and not lone:
 				continue
-			# Serrés au cœur, plus rares vers la lisière.
-			if rng.randf() > lerpf(0.4, 0.92, smoothstep(0.0, 0.35, depth)):
+			# Serrés au cœur, plus rares vers la lisière ; verger sauvage : clairsemé partout.
+			var keep := lerpf(0.4, 0.92, smoothstep(0.0, 0.35, depth))
+			if forest.kind == FOREST_ORCHARD:
+				keep = lerpf(0.25, 0.5, smoothstep(0.0, 0.35, depth))
+			if rng.randf() > keep:
 				continue
 			var edge := depth < 0.22
 			var kind := PINE
@@ -2331,7 +2348,11 @@ func _forest_trees(area: Vector2i, placed: Array) -> Array:
 					kind = 1 if roll < 0.4 else (0 if roll < 0.7 else LINDEN)
 				else:
 					kind = LINDEN if roll < 0.75 else 1
+			if forest.kind == FOREST_ORCHARD:
+				kind = 0 if rng.randf() < 0.55 else 1
 			var size := _pick_size(FOREST_EDGE_SIZES if edge else FOREST_CORE_SIZES, [_seed, kx, kz, "taille foret"])
+			if forest.kind == FOREST_ORCHARD:
+				size = _pick_size(ORCHARD_SIZES, [_seed, kx, kz, "taille verger"])
 			if lone:
 				size = 5
 			var entry := {"id": "f%d_%d" % [kx, kz], "x": at.x, "z": at.y, "espece": kind, "variante": 0, "rotation": rng.randf_range(0.0, 360.0), "taille": rng.randf_range(0.95, 1.05), "classe": size, "foret": forest.index}
@@ -2339,3 +2360,15 @@ func _forest_trees(area: Vector2i, placed: Array) -> Array:
 				result.append(entry)
 				others.append(entry)
 	return result
+
+# 0.0.6.15 (version 26) : sol d'aiguilles sous les pinèdes (un peu en dedans de la lisière), gardé par colonne.
+var _needle_floor_on := false
+var _needle_columns: Dictionary = {}
+
+func needle_floor(column: Vector2i) -> bool:
+	if not _needle_floor_on:
+		return false
+	if not _needle_columns.has(column):
+		var found := forest_at(Vector2(column) * STEP)
+		_needle_columns[column] = not found.is_empty() and found.forest.kind == FOREST_PINE and found.depth > 0.06
+	return _needle_columns[column]

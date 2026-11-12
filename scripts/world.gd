@@ -593,7 +593,8 @@ func _grass_skipped(at: Vector3) -> bool:
 	# 0.0.5.15 : pas d'herbe dans les déserts.
 	# 0.0.5.20 : ni sur la boue au bord des lacs.
 	var column := Vector2i(roundi(at.x / SmoothTerrain.STEP), roundi(at.z / SmoothTerrain.STEP))
-	return terrain.column_changed(column) or terrain.is_desert(Vector2(at.x, at.z)) or terrain.muddy(column)
+	# 0.0.6.15 : ni sur la litière d'aiguilles des pinèdes.
+	return terrain.column_changed(column) or terrain.is_desert(Vector2(at.x, at.z)) or terrain.muddy(column) or terrain.needle_floor(column)
 
 func _rebuild_lawn_tile(tile: Vector2i) -> void:
 	if is_instance_valid(lawn_tiles.get(tile)):

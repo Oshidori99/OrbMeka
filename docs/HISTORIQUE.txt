@@ -3,6 +3,10 @@ Du plus récent au plus ancien. Ce fichier est mis à jour à chaque version.
 
 === Thème « Monde » (0.0.5 et suivantes) ===
 
+0.0.6.15 — Sol d'aiguilles et vergers sauvages
+Génération du terrain : version 26 (nouvelle) · Menus : version 3.
+Sous les pinèdes, une litière d'aiguilles brun-orangé remplace l'herbe ; nouveaux vergers sauvages (pommiers et noisetiers clairsemés) en plaine.
+
 0.0.6.14 — Grandes montagnes douces
 Génération du terrain : version 25 (nouvelle) · Menus : version 3.
 Montagnes plus grandes (24 à 36 m, 70 à 115 m de rayon) aux pentes plus douces et crêtes moins marquées ; pins et pinèdes plus haut sur leurs pentes.

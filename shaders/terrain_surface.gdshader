@@ -10,6 +10,8 @@ varying vec3 world_normal;
 varying vec4 tint;
 // 0.0.6.4 : calcaire, charbon, silex (CUSTOM0 du terrain) ; rock_kind pour les rochers et cailloux : 1 calcaire, 2 silex.
 varying vec3 ore_share;
+// 0.0.6.15 : litière d'aiguilles de pin (CUSTOM0.a).
+varying float litter_share;
 uniform int rock_kind = 0;
 float zone_hash(vec2 p) {
 	return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453);
@@ -48,6 +50,7 @@ void vertex() {
 	world_normal = normalize(MODEL_NORMAL_MATRIX*NORMAL);
 	tint = COLOR;
 	ore_share = CUSTOM0.rgb;
+	litter_share = CUSTOM0.a;
 }
 void fragment() {
 	vec3 p = world_position;
@@ -251,6 +254,16 @@ void fragment() {
 		albedo = mix(albedo, mix(core, chalk, crust), ore.z);
 		flint_gloss = ore.z * (1.0 - crust);
 		height = mix(height, crust * noise3(p * 50.0) * 0.004, ore.z);
+	}
+	// 0.0.6.15 : litière d'aiguilles sous les pins : brun-orangé, fines aiguilles couchées en tous sens, taches plus sombres.
+	float litter = clamp(litter_share, 0.0, 1.0);
+	if (litter > 0.01) {
+		float streak_a = smoothstep(0.55, 0.9, noise3(vec3(p.x * 40.0 + p.z * 8.0, p.y, p.z * 6.0)));
+		float streak_b = smoothstep(0.6, 0.92, noise3(vec3(p.x * 7.0, p.y, p.z * 38.0 - p.x * 9.0)));
+		vec3 needles = mix(vec3(0.30, 0.19, 0.10), vec3(0.50, 0.33, 0.17), max(streak_a, streak_b));
+		needles = mix(needles, vec3(0.20, 0.14, 0.09), smoothstep(0.62, 0.85, fbm(p * 0.9)) * 0.6);
+		albedo = mix(albedo, needles, litter);
+		height = mix(height, max(streak_a, streak_b) * 0.003, litter);
 	}
 	ALBEDO = albedo;
 	ROUGHNESS = mix(mix(mix(mix(mix(mix(mix(mix(mix(earth ? 0.96 : (sand ? 0.93 : 0.86), 0.62, clay_wet), 0.72, mud), 0.12, puddle), 0.55, snow), 0.9, gravel), 0.92, ore.x), 0.8 - coal_glint * 0.45, ore.y), 0.6, flint_gloss), 0.95, ore.z - flint_gloss);

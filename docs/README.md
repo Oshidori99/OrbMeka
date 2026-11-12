@@ -1,9 +1,19 @@
-# OrbMeka™ — prototype 0.0.6.14
+# OrbMeka™ — prototype 0.0.6.15
 
 Godot 4.7 / GDScript. Formes et couleurs simples ; assets externes seulement sous licence vérifiée (sons CC0, assets/sounds/CREDITS.txt).
 
+## 0.0.6.15 — Sol d'aiguilles et vergers sauvages (#181)
+Version publiée (avec 0.0.6.14).
+- **Génération version 26** (nouveaux mondes ; les autres ne changent pas).
+- **Sol d'aiguilles** sous les pinèdes (un peu en dedans de la lisière) : nouvelle matière « litière d'aiguilles », couche de 20 cm sur la terre, brun-orangé avec de fines aiguilles couchées en tous sens et des taches sombres ; pas d'herbe dessus. Visible aussi au loin (terrain simplifié).
+- **Verger sauvage** : troisième sorte de forêt, en plaine (environ 1 forêt de plaine sur 4) : pommiers et noisetiers clairsemés dans l'herbe, de toutes tailles.
+- **Monde d'essai T45** (graine 1193425969) ; la vitrine de l'accueil le montre.
+
+Tests concernés réussis (test « forests » : vergers sauvages seulement de pommiers et noisetiers, aiguilles seulement sous les pinèdes et en surface, génération 25 inchangée). Mesures au cœur d'une pinède (même graine), génération 25 puis 26, sans limite d'images : PC 215 → 292 FPS, rendu Web 283 → 338 (moins d'herbe à dessiner).
+À tester manuellement : marcher dans une pinède (aspect du sol), trouver un verger sauvage.
+
 ## 0.0.6.14 — Grandes montagnes douces (#184)
-Version locale (pas encore publiée).
+Version locale (publiée avec 0.0.6.15).
 - **Génération version 25** (nouveaux mondes ; les autres ne changent pas) : montagnes plus grandes, 24 à 36 m de haut (20 à 32 avant) et 70 à 115 m de rayon (40 à 70 avant), crêtes moins marquées : pentes moyennes de 0,61 au lieu de 0,77 (environ 31° au lieu de 38°), moins de passages trop raides. Chaînes de montagnes plus douces aussi. Les montagnes raides restent, rares.
 - Un peu moins de montagnes (environ 10 de terre par monde), mais elles couvrent plus de sol (30 à 40 %, selon la graine).
 - **Pins plus haut** : pins et pinèdes montent jusqu'aux trois quarts des pentes ; environ 30 % des forêts naissent sur les pentes des montagnes (pinèdes).

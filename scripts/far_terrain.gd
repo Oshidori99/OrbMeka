@@ -19,6 +19,7 @@ const STONE := Color(0.3, 0.29, 0.27)
 # 0.0.6 : neige et gravier vus de loin.
 const SNOW := Color(0.82, 0.85, 0.9)
 const GRAVEL := Color(0.31, 0.29, 0.26)
+const NEEDLES := Color(0.36, 0.24, 0.13)
 
 static var _material: ShaderMaterial
 
@@ -45,6 +46,8 @@ static func _sample(terrain, at: Vector2) -> Array:
 		color = SNOW
 	elif top == terrain.GRAVEL:
 		color = GRAVEL
+	elif top == terrain.NEEDLES:
+		color = NEEDLES
 	elif top == terrain.MUD:
 		color = MUD
 	elif top == terrain.CLAY:
