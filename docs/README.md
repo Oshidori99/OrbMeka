@@ -3,7 +3,7 @@
 Godot 4.7 / GDScript. Formes et couleurs simples ; assets externes seulement sous licence vérifiée (sons CC0, assets/sounds/CREDITS.txt).
 
 ## 0.0.6.17 — Monde plus grand, version Web corrigée (#183)
-Version locale (pas encore publiée).
+Version publiée (avec 0.0.6.16).
 - **Génération version 28** : nouveaux mondes de **96 × 96 zones (768 m de côté)** au lieu de 64 × 64 (512 m) ; montagnes, lacs, déserts, forêts et rivières suivent (même densité, plus de place). Les mondes existants gardent leur taille.
 - **Version Web corrigée** : les cailloux et les rochers y ressemblaient à de la terre rayée (dans le rendu Web, le canal de la litière d'aiguilles valait 1 sur les objets qui ne l'ont pas) ; seul le sol lit maintenant ce canal, et le sol plat le porte à zéro.
 - **Couleurs du Web alignées sur le PC** (mesurées sur captures des deux rendus) : soleil et saturation du rendu Web réduits, feuillage des arbres et plantes, rivière, lacs, sable et terrain lointain un peu moins clairs, boue et litière moins sombres. Écart restant de moins de 10 % sur l'herbe, les arbres, le ciel, le sable et les rochers.
@@ -13,7 +13,7 @@ Tests concernés réussis (taille du monde 768 m, estimations, forêts en propor
 À tester manuellement : la page Web sur itch.io (cailloux, couleurs), traverser un monde de 768 m.
 
 ## 0.0.6.16 — Plantes à fibres et lianes (#182)
-Version locale (pas encore publiée).
+Version locale (publiée avec 0.0.6.17).
 - **Plantes modélisées dans Blender** (sources_blender/plantes/generer_plantes.py, fichier plantes.blend rangé dans ../Archives OrbMeka/Blender), puis rendues en images sur fond transparent (assets/plants) : **ortie** (tiges droites, feuilles en cœur dentées, chatons), **lin** (tiges fines, fleurs bleu ciel), **herbes longues** (feuilles arquées, épis plumeux), **liane** (petites feuilles en cœur sur une tige en zigzag).
 - Dans le jeu (scripts/plants.gd) : trois plaques croisées par plante (ortie jusqu'à 1,5 m, lin 1 m, herbes 1,5 m), une MultiMesh par sorte et par colonne, visibles jusqu'à 45 m ; on passe au travers. Liane : deux rubans enroulés en hélice autour du tronc.
 - **Génération version 27** (nouveaux mondes ; les autres ne changent pas), par petites taches selon les milieux : **orties** en lisière des feuillus et des vergers et au bord de l'eau ; **lin** dans les prairies et clairières ; **herbes longues** dans les prairies, lisières et clairières ; **lianes** sur environ un tiers des tilleuls du cœur des forêts de feuillus. Jamais dans l'eau, le sable, la boue, le gravier, la neige, la pierre ni sur la litière d'aiguilles. Pas de récolte (série 0.0.6).
