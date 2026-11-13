@@ -81,6 +81,7 @@ func setup(terrain_seed: int, flat_spots: Array = [], options: Dictionary = {}) 
 	_snow_on = int(generation_options.get("version", 0)) >= 16
 	_ores_on = int(generation_options.get("version", 0)) >= 18
 	_rivers_on = int(generation_options.get("version", 0)) >= 20
+	_river_lakes_on = int(generation_options.get("version", 0)) >= 30
 	_trees_on = int(generation_options.get("version", 0)) >= 21
 	_tree_sizes_on = int(generation_options.get("version", 0)) >= 22
 	_other_trees_on = int(generation_options.get("version", 0)) >= 23
@@ -2044,6 +2045,7 @@ const RIVER_WATER := 0.5
 const RIVER_STEP := 2.0
 const RIVER_BANK := 1.5
 var _rivers_on := false
+var _river_lakes_on := false
 var _rivers: Array = []
 var _rivers_ready := false
 var _river_zones: Dictionary = {}
@@ -2052,8 +2054,155 @@ func rivers() -> Array:
 	if not _rivers_ready:
 		_rivers_ready = true
 		if _rivers_on:
-			_build_rivers()
+			if int(generation_options.get("version", 0)) >= 30:
+				_build_rivers_from_lakes()
+			else:
+				_build_rivers()
 	return _rivers
+
+# 0.0.6.22 (génération 30, #194) : chaque rivière part d'un lac de montagne, par son exutoire (le point le plus bas de
+# sa rive), l'eau au niveau du lac ; elle descend jusqu'à un lac de la plaine ou se jette dans une rivière déjà tracée,
+# au même niveau. Berges vérifiées tout du long (des deux côtés, aussi entre les points) : l'eau ne dépasse jamais la
+# berge la plus basse ; à l'arrivée, jamais plus haute que le lac. Les mondes d'avant gardent leurs rivières.
+func _build_rivers_from_lakes() -> void:
+	var limit: float = half_zones * ZONE_METERS - 6.0
+	var plains_lakes := []
+	var mountain_lakes := []
+	var seen := {}
+	for x in range(-half_zones, half_zones):
+		for z in range(-half_zones, half_zones):
+			for lake in _zone_lakes(Vector2i(x, z)):
+				# Un lac est listé dans chaque zone qu'il touche : retenu une seule fois (par sa position).
+				var key := Vector2i(roundi(lake.start.x * 4.0), roundi(lake.start.y * 4.0))
+				if seen.has(key):
+					continue
+				seen[key] = true
+				if lake.has("on_mountain"):
+					mountain_lakes.append(lake)
+				else:
+					plains_lakes.append(lake)
+	for source_lake: Dictionary in mountain_lakes:
+		var source_id := lake_id(source_lake)
+		var level := lake_level(source_lake)
+		# Exutoire : le point du contour dont le sol, un peu plus loin dehors, est le plus bas.
+		var center: Vector2 = (source_lake.start + source_lake.end) / 2.0
+		var outlet := Vector2.INF
+		var outside := INF
+		var heading := Vector2.ZERO
+		for offset in lake_outline(source_lake, 36):
+			# Le contour est donné par rapport au milieu du lac.
+			var point: Vector2 = center + offset
+			var away := offset.normalized()
+			var lower := _base_height(point + away * 3.0)
+			if lower < outside:
+				outside = lower
+				outlet = point
+				heading = away
+		if outlet == Vector2.INF or outside > level - 0.5 or absf(outlet.x) > limit or absf(outlet.y) > limit:
+			continue
+		var target := Vector2.INF
+		for lake in plains_lakes:
+			var middle: Vector2 = (lake.start + lake.end) / 2.0
+			if lake_level(lake) < level - 2.0 and (target == Vector2.INF or middle.distance_to(outlet) < target.distance_to(outlet)):
+				target = middle
+		if target == Vector2.INF or target.distance_to(outlet) > 450.0:
+			continue
+		var at := outlet
+		var points := PackedVector2Array([at])
+		var grounds := PackedFloat32Array([_base_height(at)])
+		var climbed := 0.0
+		var joined := {}
+		var reached := {}
+		for index in range(300):
+			var best := Vector2.INF
+			var best_height := INF
+			var best_cost := INF
+			for turn in range(12):
+				var direction := Vector2.from_angle(TAU * turn / 12.0)
+				if heading != Vector2.ZERO and direction.dot(heading) < 0.4:
+					continue
+				var next := at + direction * RIVER_STEP
+				var height := _base_height(next)
+				var cost := height + 0.35 * next.distance_to(target)
+				if cost < best_cost:
+					best_cost = cost
+					best_height = height
+					best = next
+			if best == Vector2.INF or absf(best.x) > limit or absf(best.y) > limit:
+				break
+			var near_other_lake := false
+			for lake in mountain_lakes:
+				if (lake.start as Vector2).distance_to(source_lake.start) > 0.1:
+					near_other_lake = near_other_lake or _lake_distance(best, lake) < lake.radius + lake.get("bank", 0.0) + 2.7 + RIVER_BANK + 1.5
+			if near_other_lake or (index > 3 and _lake_distance(best, source_lake) < source_lake.radius + 1.0):
+				break
+			var loops := false
+			for earlier in range(points.size() - 3):
+				loops = loops or points[earlier].distance_to(best) < RIVER_STEP * 0.75
+			if loops:
+				break
+			climbed += maxf(0.0, best_height - grounds[grounds.size() - 1])
+			if climbed > 20.0:
+				break
+			heading = (best - at).normalized()
+			at = best
+			points.append(at)
+			grounds.append(best_height)
+			# Se jette dans une rivière déjà tracée (au même niveau, voir plus bas).
+			var other := river_near(at)
+			if not other.is_empty() and other.distance < other.width + RIVER_BANK + 1.0:
+				joined = other
+				break
+			var lake := lake_at(at)
+			if not lake.is_empty():
+				reached = lake
+				break
+		if points.size() < 8 or (joined.is_empty() and (reached.is_empty() or reached.has("on_mountain"))):
+			continue
+		var beds := PackedFloat32Array()
+		var widths := PackedFloat32Array()
+		var lengths := PackedFloat32Array()
+		for index in range(points.size()):
+			var width := 1.1 + 1.6 * index / float(points.size() - 1)
+			var before: Vector2 = points[maxi(index - 1, 0)]
+			var after: Vector2 = points[mini(index + 1, points.size() - 1)]
+			var across: Vector2 = (after - before).normalized().orthogonal()
+			# Berge la plus basse : des deux côtés, au bord de l'eau et plus loin, ici et à mi-chemin du point suivant.
+			var low_bank := INF
+			for along in [0.0, 0.5]:
+				var middle: Vector2 = points[index].lerp(after, along)
+				for side in [-1.0, 1.0]:
+					for reach in [width * 0.6, width, width + RIVER_BANK]:
+						low_bank = minf(low_bank, _base_height(middle + across * side * reach))
+			var bed: float = minf(grounds[index] - RIVER_DEPTH, low_bank - RIVER_WATER - 0.15)
+			# L'eau sort du lac à son niveau et y reste tant qu'elle traverse la rive (sinon, le bord de l'eau du lac
+			# resterait en l'air au-dessus du lit) ; elle descend ensuite.
+			var in_rim: bool = _lake_distance(points[index], source_lake) < source_lake.radius + source_lake.get("bank", 0.0) + width + RIVER_BANK
+			if index == 0 or (in_rim and beds[index - 1] >= level - RIVER_WATER - 0.001):
+				bed = level - RIVER_WATER
+			else:
+				bed = minf(bed, beds[index - 1] - 0.02)
+			lengths.append(0.0 if index == 0 else lengths[index - 1] + RIVER_STEP)
+			beds.append(bed)
+			widths.append(width)
+		# Arrivée : l'eau jamais plus haute que le lac ou la rivière où elle se jette.
+		var last := points.size() - 1
+		var end_water: float = lake_level(reached) if joined.is_empty() else joined.bed + RIVER_WATER
+		beds[last] = minf(beds[last], end_water - RIVER_WATER - 0.05)
+		_add_river(points, beds, widths, lengths)
+
+func _add_river(points: PackedVector2Array, beds: PackedFloat32Array, widths: PackedFloat32Array, lengths: PackedFloat32Array) -> void:
+	_rivers.append({"points": points, "beds": beds, "widths": widths, "lengths": lengths})
+	var river_index := _rivers.size() - 1
+	for index in range(points.size() - 1):
+		var reach: float = widths[index + 1] + RIVER_BANK + 1.0
+		var low := Vector2i(((points[index].min(points[index + 1]) - Vector2.ONE * reach) / ZONE_METERS).floor())
+		var high := Vector2i(((points[index].max(points[index + 1]) + Vector2.ONE * reach) / ZONE_METERS).floor())
+		for x in range(low.x, high.x + 1):
+			for z in range(low.y, high.y + 1):
+				if not _river_zones.has(Vector2i(x, z)):
+					_river_zones[Vector2i(x, z)] = []
+				_river_zones[Vector2i(x, z)].append([river_index, index])
 
 func _build_rivers() -> void:
 	var limit: float = half_zones * ZONE_METERS - 6.0
@@ -2185,6 +2334,10 @@ func _with_rivers(at: Vector2, height: float) -> float:
 		return height
 	# Fond plat au milieu, berges en pente douce jusqu'au sol autour.
 	var carved: float = river.bed + (RIVER_DEPTH + 0.4) * smoothstep(river.width * 0.55, river.width + RIVER_BANK, river.distance)
+	# 0.0.6.22 (génération 30, #194) : berge plus franche : au bord du ruban d'eau (0,95 de la largeur), le sol est déjà
+	# au-dessus de l'eau (avant : 25 cm dessous, le bord de l'eau flottait en l'air).
+	if _river_lakes_on:
+		carved = river.bed + (RIVER_DEPTH + 0.4) * smoothstep(river.width * 0.35, river.width * 0.95, river.distance)
 	return minf(height, carved)
 
 # Niveau de l'eau d'une rivière à ce point, -INF hors de la rivière.

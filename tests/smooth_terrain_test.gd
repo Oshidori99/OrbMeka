@@ -800,8 +800,37 @@ func _run() -> void:
 				lakes_17 += 1
 				var tidy_level: float = tidy.lake_level(lake)
 				for p: Vector2 in tidy.lake_outline(lake):
-					floating_water += 1 if tidy.height_at(lake.start.x + p.x, lake.start.y + p.y) < tidy_level - 0.05 else 0
+					# 0.0.6.22 (version 30) : à l'exutoire, la rive est entaillée par la rivière qui part du lac, à son niveau.
+					var outflow: bool = tidy.river_level_at(lake.start + p) > tidy_level - 0.1
+					floating_water += 1 if tidy.height_at(lake.start.x + p.x, lake.start.y + p.y) < tidy_level - 0.05 and not outflow else 0
 	check(lakes_17 > 30 and floating_water == 0, "mountain lakes (version 17): water never floats past the ground (%d lakes)" % lakes_17)
+	# 0.0.6.22 (version 30, #194) : rivières qui partent d'un lac de montagne (eau au niveau du lac), sans eau en l'air,
+	# jamais plus hautes que le lac ou la rivière où elles arrivent.
+	var river_count := 0
+	var from_lakes := true
+	var river_floating := 0
+	var river_samples := 0
+	for seed_value in [3463503054, 308661615]:
+		var flowing := SmoothTerrain.new()
+		flowing.setup(seed_value, [[Vector2(0.5, 0.5), 9.0]], load("res://scripts/world_generation.gd").defaults())
+		for river in flowing.rivers():
+			river_count += 1
+			var start: Vector2 = river.points[0]
+			var source_ok := false
+			for zone in flowing._mountain_lake_zones:
+				for lake in flowing._mountain_lake_zones[zone]:
+					source_ok = source_ok or (flowing._lake_distance(start, lake) < lake.radius + lake.get("bank", 0.0) + 1.0 and is_equal_approx(river.beds[0] + SmoothTerrain.RIVER_WATER, flowing.lake_level(lake)))
+			from_lakes = from_lakes and source_ok
+			for index in range(river.points.size() - 1):
+				var a: Vector2 = river.points[index]
+				var across: Vector2 = (river.points[index + 1] - a).normalized().orthogonal()
+				if not flowing.lake_at(a).is_empty():
+					continue
+				for side in [-1.0, 1.0]:
+					var edge: Vector2 = a + across * side * river.widths[index] * 1.05
+					river_samples += 1
+					river_floating += 1 if flowing.height_at(edge.x, edge.y) < river.beds[index] + SmoothTerrain.RIVER_WATER - 0.1 and flowing.lake_at(edge).is_empty() and flowing.river_level_at(edge) == -INF else 0
+	check(river_count >= 6 and from_lakes and river_floating * 50 <= river_samples, "generation 30: %d rivers, all leaving a mountain lake at its level; water past the bank at %d of %d points" % [river_count, river_floating, river_samples])
 	var options_16: Dictionary = load("res://scripts/world_generation.gd").defaults()
 	options_16.version = 16
 	# 0.0.6.14 : réglages des montagnes d'avant la version 25.

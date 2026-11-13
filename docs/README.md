@@ -1,6 +1,15 @@
-# OrbMeka™ — prototype 0.0.6.21
+# OrbMeka™ — prototype 0.0.6.22
 
 Godot 4.7 / GDScript. Formes et couleurs simples ; assets externes seulement sous licence vérifiée (sons CC0, assets/sounds/CREDITS.txt).
+
+## 0.0.6.22 — Rivières qui partent des lacs (#194)
+Version locale (2 sur 4). Fichiers d'eau (niveaux des lacs, eau libre) inchangés.
+- **Génération version 30** : chaque lac de montagne donne une rivière, par son exutoire (le point le plus bas de sa rive) ; l'eau sort au niveau du lac et y reste en traversant la rive, puis descend jusqu'à un lac de la plaine ou se jette dans une rivière déjà tracée, au même niveau (plus de rivières qui se croisent). 4 à 11 rivières par monde (avant : 1 à 5, nées « du néant »).
+- **Eau qui flottait** : berges plus franches (au bord de l'eau, le sol est déjà au-dessus de la surface ; avant, 25 cm dessous) et berges vérifiées des deux côtés, aussi entre les points du tracé ; arrivée jamais plus haute que le lac. Points de berge en l'air : 40 % → moins de 1 % (seulement en traversant la rive d'un lac).
+- Les mondes d'avant gardent leurs rivières.
+
+Tests réussis : smooth_terrain (nouveau contrôle des rivières), water, swim, world_consistency, custom_generation, trees, forests, plants, history_resume, prototype (+ tests juridiques).
+À tester manuellement : suivre une rivière de son lac jusqu'en bas, nager à l'exutoire.
 
 ## 0.0.6.21 — Arbres de trois formes (#177)
 Version locale (1 sur 4).
