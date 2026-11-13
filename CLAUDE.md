@@ -91,6 +91,7 @@ Génération version 20 : rivières (smooth_terrain.gd rivers(), _with_rivers, r
 Génération version 21 : arbres fruitiers (scripts/trees.gd : pommier, noisetier, 3 variantes, détaillé jusqu'à 40 m, simplifié jusqu'à 150 m ; smooth_terrain.gd trees_in_zone, réglage fruit_trees, 1 zone sur 14, plus en lisière) ; pas de récolte ni de coupe.
 Génération version 29 (0.0.6.21, #177) : arbres de trois formes (trees.gd FORMS, fichiers _f2 et _f3, champ « forme » de trees_in_zone) ; la forme 3 du pommier, du pin et du tilleul a un trou dans le tronc.
 Génération version 30 (0.0.6.22, #194) : rivières depuis l'exutoire des lacs de montagne (smooth_terrain.gd _build_rivers_from_lakes), jusqu'à un lac de la plaine ou une autre rivière ; berges plus franches (_with_rivers).
+Génération version 31 (0.0.6.23) : lac de plaine abaissé jusqu'à l'eau la plus basse de la rivière qui y arrive (_lake_drops, 6 m au plus ; rivières tracées dès setup) ; raccords à 2 cm sous la surface des lacs (SURFACE_GAP).
 
 ## Rythme de publication
 Publier une version sur 4, ou dès que l'utilisateur dit « publie », puis remettre le compteur à zéro.
