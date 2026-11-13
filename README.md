@@ -1,72 +1,39 @@
 # OrbMeka™ 0.0.6.20
 
-Dans Godot, ouvrez **project.godot**, puis **F5** pour lancer le jeu.
+Jeu de construction et d'exploration en 3D, fait avec Godot 4.7.2 (GDScript).
+Monde au terrain lisse qu'on peut creuser et sculpter, généré à partir d'une graine.
 
-0.0.6.20 : version Web encore allégée (image 3D à 75 %, herbe peu dense par défaut).
-0.0.6.19 : version Web allégée (distances plus courtes, ombres simples, sans lissage ni haute densité de pixels).
-0.0.6.18 : jeu beaucoup plus fluide (vol sans à-coups, 2 fois plus d'images par seconde, 3 fois moins de dessins), même image.
-0.0.6.17 : monde plus grand (96 × 96 zones, 768 m, génération 28) ; version Web corrigée (cailloux et rochers, couleurs proches du PC).
-0.0.6.16 : plantes à fibres (orties, lin, herbes longues) et lianes sur les tilleuls, faites dans Blender (génération 27).
-0.0.6.15 : sol d'aiguilles sous les pinèdes, vergers sauvages de pommiers et noisetiers (génération 26).
-0.0.6.14 : montagnes plus grandes (24 à 36 m) aux pentes plus douces, pinèdes sur leurs pentes (génération 25).
-0.0.6.13 : forêts (génération 24) : pinèdes au pied des montagnes, feuillus en plaine, lisières et clairières.
-0.0.6.12 : pins sylvestres et tilleuls faits dans Blender, cinq tailles chacun (génération 23) ; le jeu est limité à 60 images par seconde (le PC ne siffle plus).
-0.0.6.11 : arbres de cinq tailles (petit à grand), plus réalistes : pommier standard de 7,5 m au tronc plus large, premières branches vers 2 m (génération 22).
-0.0.6.10 : arbres faits dans Blender : pommier de 5,7 m (couronne pleine, branches basses qui retombent) et noisetier avec ses noisettes, en version légère.
-0.0.6.9 : premiers arbres fruitiers, pommiers et noisetiers, seuls ou par 2 à 3 dans les prairies (génération 21).
-0.0.6.8 : nager (flotter, plonger, sortir de l'eau, courant des rivières) ; plus de trous au sommet des montagnes (on voyait à travers).
-0.0.6.7 : rivières générées par la graine (des montagnes jusqu'aux lacs, génération 20) ; l'eau qui coule se met vraiment à niveau.
-0.0.6.6 : eau qui coule : creuser à côté d'un lac fait couler l'eau, le lac baisse ; enregistré dans le dossier du monde (#124).
-0.0.6.5 : 20 m de pierre et 20 m de pierre sombre (Roche-mère à 45 m), cailloux de calcaire et de silex de toutes les tailles (génération 19).
-0.0.6.4 : calcaire, charbon et silex dans la pierre (génération 18), silex en surface, rochers de calcaire.
-0.0.6.3 : cailloux posés sur le sol (7 tailles, jusqu'à 60 cm), cassés à la pioche ; plus d'eau en l'air dans les lacs de montagne (génération 17).
-0.0.6.2 : jeu plus fluide (herbe 100 fois plus rapide à construire, terrain construit zone par zone, ouverture d'un monde plus rapide).
-0.0.6.1 : neige et gravier (génération 16), vue sous l'eau, pioche qui casse la pierre et les rochers par morceaux de 50 cm, contrôles corrigés.
-0.0.6 : monde de 512 m (64 × 64 zones), anciens mondes signalés, mondes en sécurité et sous-dossiers, mises à jour dans Informations.
-0.0.5.21 : lacs de 2 et 4 zones aux bords irréguliers, bandes de boue et d'argile grise, régions de boue, grands déserts seulement (8 %).
-0.0.5.20 : monde de 48 × 48 zones, argile et boue, lacs de 1 zone et de 1 × 2 zones, dossiers des mondes à leur nom.
-0.0.5.19 : rochers plus gros, rochers au hasard dans les nouveaux mondes, minés à la pioche ; petits lacs.
-0.0.5.18 : mondes de 20 × 20 zones, déserts 12 % (1, 3-4, 6-7 zones), trous énormes, Roche-mère noire-rouge, essai de rochers (7 tailles × 7 formes), vitrine avec collines.
-0.0.5.17 : distance d'affichage horizontale (8 zones, 1 à 32), relief moins plat, moins de déserts, écran Monde personnalisé plus clair, Génération du monde dans Informations.
-0.0.5.16 : Monde personnalisé à la création : dix fréquences de déserts, collines et trous.
-Les options sont sauvegardées avec le monde ; distance de l'herbe réglable dans Vidéo → Jeu.
+## Jouer
+- **Windows** : télécharger le zip de la dernière version dans les [Releases](../../releases), puis lancer OrbMeka.exe.
+- **Navigateur** : version Web sur itch.io.
 
-0.0.5.15 : relief plus varié : collines jusqu'à 3 m, bosses, crêtes abruptes et trous rares, petits et grands déserts.
-0.0.5.14 : petites collines de terre selon la graine ; clic maintenu qui répète ; B + molette haut = plus grand.
-0.0.5.13 : la pioche (molette : sable, terre, pioche ; touche 3) casse la pierre, avec un coup de pioche et des éclats.
-0.0.5.12 : sous-sol : 4 m de terre, 4 m de pierre (pas encore cassable), puis la Roche-mère ; chute plus lente.
-0.0.5.11 : gravité de la terre et du sable (chute, talus, petites piles) ; plus de page Comment jouer.
-0.0.5.10 : touches du pinceau, de la taille et de F1 à F4 modifiables ; aplanir et lisser sans ajouter de matière ; terre posée sur la plage.
-0.0.5.9 : pinceaux du clic droit (B + T : poser, aplanir, lisser), sable ou terre, taille 1/8, 1/4, 1/2 bloc (B + molette).
-0.0.5.8 : terrain lisse (1re étape) : clic gauche creuse, clic droit ajoute 50 cm ; Web plus lumineux ; réglages Jeu en tête de Vidéo.
-0.0.5.7 : herbe haute (environ 40 cm, deux fois plus de brins) et sol vert plus clair, aussi sur le Web.
-0.0.5.5 : monde tout plat, sans bloc au départ ; plage de sable réaliste (grains, rides de vent) près de l'apparition.
-0.0.5.4 : gazon dense, brins de 3 à 7 cm balancés par le vent ; Densité de l'herbe dans Vidéo ; FPS plus visibles.
-0.0.5.3 : FPS discrets en jeu ; date et heure de création dans Informations du monde (pause/F3).
-Une date absente reste inconnue. L'exploration visuelle de la 0.0.5.2 est conservée.
+## Ce que contient le jeu (0.0.6.20)
+- **Monde** de 96 × 96 zones (768 m de côté), découpé en zones de 8 m chargées autour du joueur ;
+  même graine = même monde.
+- **Terrain lisse** : creuser, ajouter, aplanir et lisser au pinceau, par morceaux de 50 cm ;
+  pioche pour la pierre ; terre et sable tombent s'ils n'ont pas de support.
+- **Relief** : plaines, collines, montagnes enneigées, déserts, lacs, rivières, grottes et crevasses.
+- **Sous-sol** : terre, pierre, pierre sombre, puis la Roche-mère incassable à 45 m ;
+  calcaire, charbon et silex ; cailloux et rochers en surface.
+- **Eau** : lacs et rivières ; l'eau coule quand on creuse à côté ; on peut nager.
+- **Végétation** : herbe, forêts de pins et de tilleuls, pommiers, noisetiers, plantes à fibres et lianes.
+- **Personnages** : enfants, adultes et animaux (chats, renard, écureuil, tortue, lapin bleu), trois couleurs de peau.
+- **Déplacements** : marcher, courir (plusieurs vitesses), se baisser, sauter, voler, trois vues.
+- **Menus** : mondes enregistrés et sécurisés, paramètres (vidéo, son, contrôles à deux touches, attributs), launcher Windows.
 
-- [Guide détaillé et commandes](docs/README.md)
-- [Organisation et fichiers techniques](docs/ORGANISATION.txt)
-- [Historique des versions](docs/HISTORIQUE.txt)
+Pas encore d'inventaire, de récolte ni de modes Créatif et Survie : ils arrivent en 0.0.7.
 
-Scènes : scenes/ · Scripts : scripts/ · Tests : tests/ · Documentation : docs/.
-Les mondes personnels restent dans les données Godot user:// : un dossier par monde, mondes/<id>/,
-avec monde.json (qui contient la graine), joueur.json et zones/ (seulement les changements).
-Depuis 0.0.5, blocs posés et cassés, position et regard sont sauvegardés ; depuis 0.0.5.1,
-les changements sont compressés par zone dans zones/zone_X_Y_Z.bin.
+## Suite prévue
+- **0.0.7 — Gameplay et inventaire** : récolte, fabrication (Simple, Classique, Réaliste), outils en pierre,
+  Créatif et Survie, vie, jour et nuit.
+- **0.0.8 — Animaux**, puis **0.1 — Enfin un jeu**, puis **0.1.1 — Paramètres 3**.
+- Plus tard : climat et météo, monde vivant (animaux qui construisent), métaux, cultures.
 
-## Prochaines étapes (Monde)
-0.0.5.2 : première passe visuelle originale sur l'herbe et la terre (matières procédurales et touffes).
-Le relief reste anguleux. Casse, pose et pinceaux sont désactivés pendant cette étape ;
-exploration, pause et anciennes constructions restent disponibles.
+Détails et suivi : [GitHub Project](https://github.com/users/Oshidori99/projects/10).
 
-Zones (fait) → terrain lisse sculptable (en cours) → relief et sous-sol (avec la Roche-mère) → matières → structures
-→ modes Créatif et Survie → inventaire → eau réaliste. Détail : CLAUDE.md et le GitHub Project.
-
-Terrain lisse (première version en 0.0.5.8 : creuser et ajouter 50 cm par clic) : zones de **8 × 8 × 8 m**.
-Chaque bloc de 1 m de côté est partagé en **2 × 2 × 2 = 8 sous-cellules au total**, de **50 cm de côté**
-et de **1/8 du volume** chacune. Une zone contient **16 × 16 × 16 sous-cellules** ;
-une grille de sommets avec les bords compterait **17 sommets par axe**.
+## Historique
+Toutes les versions et leurs nouveautés : [historique des versions](docs/HISTORIQUE.txt).
+Les mondes sont sauvegardés sur l'appareil du joueur, avec seulement les changements par rapport à la graine.
 
 ## Cadre juridique
 Objectif : aucun risque juridique, ni en droit suisse ou européen, ni vis-à-vis d'autres jeux ou éditeurs.
