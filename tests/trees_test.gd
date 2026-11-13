@@ -172,6 +172,32 @@ func _run() -> void:
 		check(not world.break_target(hit) and not world.place_target(hit, SmoothTerrain.DIRT) and is_instance_valid(body), "trees are not cut nor built on (series 0.0.6)")
 	root.remove_child(world)
 	world.free()
+	# 0.0.6.21 (version 29, #177) : trois formes par espèce et taille ; la troisième des arbres à vrai tronc a un trou.
+	var form_terrain := terrain_for(SEED, Generation.defaults())
+	var form_counts := [0, 0, 0]
+	for shaped in all_trees(form_terrain):
+		form_counts[int(shaped.forme)] += 1
+	check(Generation.VERSION >= 29 and form_counts.min() > 0 and form_counts.min() * 2 > form_counts.max(), "generation 29: three tree forms, about as many of each (%s)" % str(form_counts))
+	check(all_trees(form_terrain) == all_trees(terrain_for(SEED, Generation.defaults())), "same seed, same tree forms")
+	var form_old := Generation.defaults()
+	form_old.version = 28
+	check(all_trees(terrain_for(SEED, form_old)).all(func(tree): return not tree.has("forme")), "generation 28 worlds keep the first form only")
+	var files_ok := true
+	var holes_ok := true
+	for kind in range(4):
+		for size in range(1, 6):
+			for form in range(3):
+				files_ok = files_ok and ResourceLoader.exists(Trees._path(kind, size, false, form)) and ResourceLoader.exists(Trees._path(kind, size, true, form))
+		var made: ArrayMesh = Trees.mesh(kind, 3, false, 2)
+		var has_hole := false
+		for surface in range(made.get_surface_count()):
+			var look: StandardMaterial3D = made.surface_get_material(surface)
+			has_hole = has_hole or look.albedo_color.is_equal_approx(Color(0.05, 0.035, 0.025))
+		holes_ok = holes_ok and has_hole == (kind != Trees.HAZEL)
+	check(files_ok and holes_ok, "Blender models for the three forms of every size; trunk hole on the third form of apple, pine and linden, not hazel")
+	var formed: StaticBody3D = Trees.tree_body(Trees.LINDEN, 3, false, 1)
+	check((formed.get_node("Modele/Detail") as MeshInstance3D).mesh == Trees.mesh(Trees.LINDEN, 3, false, 1), "a tree shows the model of its form")
+	formed.free()
 	print("RESULT: %d tree checks, %d failures" % [checks, failures])
 	quit(failures)
 

@@ -1,6 +1,15 @@
-# OrbMeka™ — prototype 0.0.6.20
+# OrbMeka™ — prototype 0.0.6.21
 
 Godot 4.7 / GDScript. Formes et couleurs simples ; assets externes seulement sous licence vérifiée (sons CC0, assets/sounds/CREDITS.txt).
+
+## 0.0.6.21 — Arbres de trois formes (#177)
+Version locale (1 sur 4).
+- **Génération version 29** : chaque arbre des nouveaux mondes prend une de trois formes (même graine = même forme) ; les mondes existants gardent la première.
+- **Blender** (sources_blender/arbres) : même charpente et mêmes proportions, branches tirées autrement (forme 1 inchangée) ; la forme 3 du pommier, du pin et du tilleul a un trou ovale dans le tronc (haut d'un rayon de tronc, bourrelet d'écorce, fond sombre), futur abri d'écureuil (#150). Versions détaillées des formes 2 et 3 dans arbres_detail.blend (Archives), légères dans assets/trees (_f2, _f3 ; +20 Mo).
+- Mesures (graine de T47) : PC 284 i/s immobile, 260 en marche, 130 en vol (comme avant) ; rendu Web 488 / 433 / 237.
+
+Tests réussis : trees, forests, plants, smooth_terrain, world_consistency, custom_generation, world_options, world_info, interface_info, web_fixes, history_resume, prototype (+ tests juridiques).
+À tester manuellement : le trou dans le tronc vu en jeu, variété des forêts.
 
 ## 0.0.6.20 — Version Web encore allégée
 Publié. Seulement le Web (le PC ne change pas). Mesuré par l'utilisateur en 0.0.6.19 : 15 à 25 images par seconde dans le navigateur.

@@ -36,5 +36,81 @@
     "height_m": 13.869,
     "width_m": 7.996,
     "lowest_leaf_m": 3.594
+  },
+  "Pommier_F2": {
+    "size": 3,
+    "triangles_detail": 1799408,
+    "vertices_detail": 1647714,
+    "leaves": 58400,
+    "fruits_or_clusters": 225,
+    "height_m": 7.399,
+    "width_m": 5.981,
+    "lowest_leaf_m": 1.53
+  },
+  "Noisetier_F2": {
+    "size": 3,
+    "triangles_detail": 572234,
+    "vertices_detail": 518652,
+    "leaves": 18484,
+    "fruits_or_clusters": 122,
+    "height_m": 5.608,
+    "width_m": 4.404,
+    "lowest_leaf_m": 1.077
+  },
+  "Pin_F2": {
+    "size": 3,
+    "triangles_detail": 107157,
+    "leaves": 68136,
+    "fruits_or_clusters": 60,
+    "height_m": 15.791,
+    "width_m": 8.396,
+    "lowest_leaf_m": 8.032
+  },
+  "Tilleul_F2": {
+    "size": 3,
+    "triangles_detail": 1051618,
+    "leaves": 35340,
+    "fruits_or_clusters": 0,
+    "height_m": 13.957,
+    "width_m": 6.436,
+    "lowest_leaf_m": 3.49
+  },
+  "Pommier_F3": {
+    "size": 3,
+    "triangles_detail": 1803612,
+    "vertices_detail": 1650138,
+    "leaves": 58400,
+    "fruits_or_clusters": 243,
+    "height_m": 7.269,
+    "width_m": 7.664,
+    "lowest_leaf_m": 1.455
+  },
+  "Noisetier_F3": {
+    "size": 3,
+    "triangles_detail": 565434,
+    "vertices_detail": 513612,
+    "leaves": 18324,
+    "fruits_or_clusters": 105,
+    "height_m": 5.345,
+    "width_m": 4.481,
+    "lowest_leaf_m": 1.083
+  },
+  "Pin_F3": {
+    "size": 3,
+    "triangles_detail": 104501,
+    "leaves": 66108,
+    "fruits_or_clusters": 60,
+    "height_m": 15.717,
+    "width_m": 7.809,
+    "lowest_leaf_m": 8.037
+  },
+  "Tilleul_F3": {
+    "size": 3,
+    "triangles_detail": 1044928,
+    "leaves": 35112,
+    "fruits_or_clusters": 0,
+    "height_m": 13.9,
+    "width_m": 7.25,
+    "lowest_leaf_m": 3.551
   }
 }

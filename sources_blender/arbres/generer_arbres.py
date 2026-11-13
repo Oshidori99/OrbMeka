@@ -98,7 +98,10 @@ fruitL=mat('Tilleul_Bractee_Fruits',(.55,.55,.25),0.7)
 class Geo:
  # record_only : on note seulement la forme (branches, feuilles, fruits) sans construire les sommets, pour la version légère
  # des tailles 1, 2, 4 et 5 (bien plus rapide et sans des millions de triangles en mémoire). Même tirage au hasard.
- def __init__(self,record_only=False): self.record_only=record_only;self.v=[];self.f=[];self.uv=[];self.mi=[];self.col=[];self.leaves=0;self.paths=[];self.leaf_centers=[];self.blades=[];self.fruit_spots=[]
+ def __init__(self,record_only=False): self.record_only=record_only;self.v=[];self.f=[];self.uv=[];self.mi=[];self.col=[];self.leaves=0;self.paths=[];self.leaf_centers=[];self.blades=[];self.fruit_spots=[];self.holes=[]
+ def hole(self,axis_at,out,up,r):
+  self.holes.append((axis_at.copy(),out.copy(),up.copy(),r))
+  if not self.record_only:draw_hole(self,axis_at,out,up,r)
  def verts(self,vs,uv=None,col=(1,1,1,1)):
   k=len(self.v);self.v.extend([tuple(v) for v in vs]);self.uv.extend(uv or [(0,0)]*len(vs));self.col.extend([col]*len(vs));return k
  def face(self,ids,mat): self.f.append(tuple(ids));self.mi.append(mat)
@@ -199,6 +202,33 @@ def sample(path,t):
  x=max(0,min(1,t))*(len(path)-1);i=min(len(path)-2,int(x))
  return path[i].lerp(path[i+1],x-i)
 
+# 0.0.6.21 (#177) : trois formes par espèce et par taille, peu différentes (même charpente, autre tirage au hasard) ;
+# la forme 3 des arbres à vrai tronc (pommier, pin, tilleul) a un trou dans le tronc (futur abri d'écureuil, #150).
+VARIANT_SEED=7919
+holeM=mat('Trou_Tronc',(.035,.025,.018),1.0)
+
+def trunk_hole(g,trunk,radii,height,size):
+ # Position sur le tronc : à « height » mètres, face tournée selon la taille (pas toujours du même côté).
+ top=trunk[-1].z;t=max(0,min(1,height/top))
+ x=t*(len(radii)-1);i=min(len(radii)-2,int(x));r=radii[i]+(radii[i+1]-radii[i])*(x-i)
+ axis_at=sample(trunk,t);up=(sample(trunk,min(1,t+.05))-sample(trunk,max(0,t-.05))).normalized()
+ a=1.1+size*.7;out=Vector((math.cos(a),math.sin(a),0));out=(out-up*out.dot(up)).normalized()
+ g.hole(axis_at,out,up,r)
+
+def draw_hole(g,axis_at,out,up,r,sides=12):
+ # Trou ovale (haut de 1 rayon de tronc, large de 0,65) bordé d'un bourrelet d'écorce, fond sombre.
+ side=up.cross(out).normalized();w=.65*r*.5;h=1.0*r*.5
+ def ring(scale,dist):
+  return [axis_at+out*dist+side*math.cos(i*math.tau/sides)*w*scale+up*math.sin(i*math.tau/sides)*h*scale for i in range(sides)]
+ outer=g.verts(ring(1.55,r*.98));crest=g.verts(ring(1.18,r*1.10));edge=g.verts(ring(1.0,r*1.07));bottom=g.verts(ring(.92,r*1.02))
+ for i in range(sides):
+  j=(i+1)%sides
+  g.face((outer+i,outer+j,crest+j,crest+i),0)
+  g.face((crest+i,crest+j,edge+j,edge+i),0)
+  g.face((edge+i,edge+j,bottom+j,bottom+i),3)
+ g.face(tuple(bottom+i for i in range(sides)),3)
+
+
 def branch(g,start,end,r0,r1,rng,sides=7,segments=6):
  # Every attachment uses this exact sampled curve, never a straight chord.
  delta=end-start;span=delta.length
@@ -238,8 +268,8 @@ APPLE_SIZES={1:(.62,.65,1.0,.50),2:(.95,.92,1.5,.85),3:(1.35,1.25,2.0,1.30),4:(1
 # Noisetier : [kz, kr, feuillage à partir de (m), kt, nombre de tiges] ; standard environ 5,5 m.
 HAZEL_SIZES={1:(.60,.62,.35,.55,5),2:(.95,.86,.60,.85,7),3:(1.40,1.12,.90,1.25,9),4:(1.62,1.28,1.10,1.45,10),5:(1.85,1.42,1.30,1.65,11)}
 
-def make_species(hazel=False,size=3,record_only=False):
- name='Noisetier' if hazel else 'Pommier';rng=random.Random((3107 if hazel else 2173)+(size-3)*101)
+def make_species(hazel=False,size=3,record_only=False,variant=0):
+ name='Noisetier' if hazel else 'Pommier';rng=random.Random((3107 if hazel else 2173)+(size-3)*101+variant*VARIANT_SEED)
  g=Geo(record_only);terminals=[];fruit_anchors=[];secondary=[]
  if not hazel:
   kz,kr,clear,kt=APPLE_SIZES[size]
@@ -247,6 +277,7 @@ def make_species(hazel=False,size=3,record_only=False):
   base=[(0,0,0),(.035,.025,.30),(.07,-.02,.70),(.10,.02,1.10),(.08,.06,1.55),(.12,.04,2.05),(.09,.08,2.60),(.13,.06,3.15),(.10,.10,3.70),(.14,.08,4.20),(.12,.11,4.55)]
   trunk=[Vector((x*kr*.8,y*kr*.8,z*kz)) for x,y,z in base]
   g.tube(trunk,[r*kt for r in [.27,.22,.19,.165,.145,.125,.10,.08,.06,.04,.022]],16)
+  if variant==2:trunk_hole(g,trunk,[r*kt for r in [.27,.22,.19,.165,.145,.125,.10,.08,.06,.04,.022]],.95*kz,size)
   for i in range(6):
    a=i*math.tau/6+.2;spread=rng.uniform(.38,.6)*kt**.5
    branch(g,Vector((0,0,.16*kt**.5)),Vector((math.cos(a)*spread,math.sin(a)*spread,-.07)),.115*kt,.025*kt,rng,9,6)
@@ -351,18 +382,21 @@ def make_species(hazel=False,size=3,record_only=False):
  if record_only:
   return g
  # Version détaillée gardée dans le fichier Blender (taille standard) ; la version légère est faite par version_jeu.py.
- col=bpy.data.collections.new(name+'_Taille_%d'%size);scene.collection.children.link(col)
+ key=name if variant==0 else '%s_F%d'%(name,variant+1)
+ col=bpy.data.collections.new(key+'_Taille_%d'%size);scene.collection.children.link(col)
  mats=[barkH,leafH,fruitH] if hazel else [barkA,leafA,fruitA]
- detail=g.object(name+'_Detail',mats,col)
+ if g.holes:mats=mats+[holeM]
+ detail=g.object(key+'_Detail',mats,col)
  detail['species']='Corylus avellana' if hazel else 'Malus domestica'
  detail['size']=size;detail['leaf_count']=g.leaves
  detail['source']='Original OrbMeka / Blender';detail['lod_role']='detail'
  detail.location.x=4.5 if hazel else -4.5
+ detail.location.y=variant*10.0
  bpy.context.view_layer.update()
  def count(obj):return sum(len(p.vertices)-2 for p in obj.data.polygons)
- stats[name]={'size':size,'triangles_detail':count(detail),'vertices_detail':len(detail.data.vertices),'leaves':g.leaves,'fruits_or_clusters':len(fruit_anchors),'height_m':round(detail.dimensions.z,3),'width_m':round(detail.dimensions.x,3),'lowest_leaf_m':round(min(p.z for p in g.leaf_centers),3)}
- geos[name]=g
- models[name]=detail;print(name,stats[name]);return detail
+ stats[key]={'size':size,'triangles_detail':count(detail),'vertices_detail':len(detail.data.vertices),'leaves':g.leaves,'fruits_or_clusters':len(fruit_anchors),'height_m':round(detail.dimensions.z,3),'width_m':round(detail.dimensions.x,3),'lowest_leaf_m':round(min(p.z for p in g.leaf_centers),3)}
+ geos[key]=g
+ models[key]=detail;print(key,stats[key]);return detail
 
 # 0.0.6.12 : pin sylvestre et tilleul, cinq tailles chacun (1 petit … 3 standard … 5 grand), d'après leur port réel.
 # Pin : tronc droit, branches en étages autour du tronc ; jeune, conique et garni jusqu'en bas ; adulte, tronc nu sur la
@@ -383,12 +417,13 @@ def needle_shoot(g,path,rng,start=.35,spacing=.065,length=.085):
   outward=(tangent+Vector((0,0,.55))).normalized()
   g.needles(at,outward,length*rng.uniform(.85,1.15),rng)
 
-def make_pine(size=3,record_only=False):
- H,R,clear,r0=PINE_SIZES[size];rng=random.Random(4409+size*37)
+def make_pine(size=3,record_only=False,variant=0):
+ H,R,clear,r0=PINE_SIZES[size];rng=random.Random(4409+size*37+variant*VARIANT_SEED)
  g=Geo(record_only);cones=[]
  lean=Vector((rng.uniform(-.25,.25),rng.uniform(-.25,.25),0))*H/15
  trunk=[Vector((0,0,0))+lean*(j/12)**2+Vector((rng.uniform(-.04,.04),rng.uniform(-.04,.04),H*j/12)) for j in range(13)]
  g.tube(trunk,[r0*(1.15 if j==0 else 1)*(1-.92*j/12)+.012 for j in range(13)],14)
+ if variant==2:trunk_hole(g,trunk,[r0*(1.15 if j==0 else 1)*(1-.92*j/12)+.012 for j in range(13)],min(2.2,.13*H),size)
  for i in range(5):
   a=i*math.tau/5+.3;branch(g,Vector((0,0,.10)),Vector((math.cos(a)*r0*2.2,math.sin(a)*r0*2.2,-.06)),r0*.45,r0*.12,rng,8,5)
  # Chicots : restes de branches mortes sur le tronc nu (pin adulte).
@@ -442,13 +477,14 @@ def make_pine(size=3,record_only=False):
    for j in range(4):
     for i in range(6):g.face((k0+j*6+i,k0+j*6+(i+1)%6,k0+(j+1)*6+(i+1)%6,k0+(j+1)*6+i),2)
  g.fruit_count=len(cones[:60])
- return _finish(g,'Pin',size,record_only,[barkP,leafP,fruitP],'Pinus sylvestris')
+ return _finish(g,'Pin',size,record_only,[barkP,leafP,fruitP],'Pinus sylvestris',variant)
 
-def make_linden(size=3,record_only=False):
- H,R,clear,r0=LINDEN_SIZES[size];rng=random.Random(5521+size*41)
+def make_linden(size=3,record_only=False,variant=0):
+ H,R,clear,r0=LINDEN_SIZES[size];rng=random.Random(5521+size*41+variant*VARIANT_SEED)
  g=Geo(record_only);secondary=[];terminals=[]
  trunk=[Vector((rng.uniform(-.05,.05)*(j>0),rng.uniform(-.05,.05)*(j>0),H*.8*j/10)) for j in range(11)]
  g.tube(trunk,[r0*(1.1 if j==0 else 1)*(1-.85*j/10)+.015 for j in range(11)],14)
+ if variant==2:trunk_hole(g,trunk,[r0*(1.1 if j==0 else 1)*(1-.85*j/10)+.015 for j in range(11)],.5*clear,size)
  for i in range(6):
   a=i*math.tau/6+.4;branch(g,Vector((0,0,.12)),Vector((math.cos(a)*r0*2.0,math.sin(a)*r0*2.0,-.06)),r0*.45,r0*.10,rng,8,5)
  top=H*.8
@@ -487,16 +523,18 @@ def make_linden(size=3,record_only=False):
     tuft(g,shoot,rng,True,False)
   tuft(g,path,rng,True,False,.45)
  g.fruit_count=0
- return _finish(g,'Tilleul',size,record_only,[barkL,leafL,fruitL],'Tilia cordata')
+ return _finish(g,'Tilleul',size,record_only,[barkL,leafL,fruitL],'Tilia cordata',variant)
 
-def _finish(g,name,size,record_only,mats,species):
+def _finish(g,name,size,record_only,mats,species,variant=0):
  if record_only:
   return g
+ if g.holes:mats=mats+[holeM]
+ name=name if variant==0 else '%s_F%d'%(name,variant+1)
  col=bpy.data.collections.new(name+'_Taille_%d'%size);scene.collection.children.link(col)
  detail=g.object(name+'_Detail',mats,col)
  detail['species']=species;detail['size']=size;detail['leaf_count']=g.leaves
  detail['source']='Original OrbMeka / Blender';detail['lod_role']='detail'
- detail.location=(12.0 if name=='Pin' else 24.0,0,0)
+ detail.location=(12.0 if name.startswith('Pin') else 24.0,variant*14.0,0)
  bpy.context.view_layer.update()
  count=sum(len(p.vertices)-2 for p in detail.data.polygons)
  stats[name]={'size':size,'triangles_detail':count,'leaves':g.leaves,'fruits_or_clusters':g.fruit_count,'height_m':round(detail.dimensions.z,3),'width_m':round(detail.dimensions.x,3),'lowest_leaf_m':round(min(p.z for p in g.leaf_centers),3)}
@@ -507,6 +545,9 @@ if __name__=='__main__':
  make_species(True)
  make_pine(3)
  make_linden(3)
+ # 0.0.6.21 (#177) : formes 2 et 3, détaillées (taille standard), à côté des premières.
+ for v in (1,2):
+  make_species(False,3,False,v);make_species(True,3,False,v);make_pine(3,False,v);make_linden(3,False,v)
  scene['OrbMeka_assets']='Revision 4 (0.0.6.11): five sizes, standard size kept in detail here; light game versions by version_jeu.py.'
  scene['stats_json']=json.dumps(stats)
  text=bpy.data.texts.get('OrbMeka_Arbres_Generateur.py') or bpy.data.texts.new('OrbMeka_Arbres_Generateur.py');text.clear();text.write(Path(__file__).read_text(encoding='utf-8'))

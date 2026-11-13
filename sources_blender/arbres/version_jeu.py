@@ -153,18 +153,22 @@ report={}
 # 0.0.6.11 : cinq tailles par espèce (1 petit … 3 standard … 5 grand). La taille 3 reprend le modèle détaillé
 # construit ci-dessus ; les autres sont construites « en forme seulement » (generer_arbres.py, record_only).
 # 0.0.6.12 : pin et tilleul. [nom, fichier, construction, case des plaques, feuilles mini par plaque, rangée dans l'atelier]
-SPECIES=[('Pommier','pommier',lambda s,r:G['make_species'](False,s,r),.48,6,4),
- ('Noisetier','noisetier',lambda s,r:G['make_species'](True,s,r),.42,6,14),
+SPECIES=[('Pommier','pommier',lambda s,r,v=0:G['make_species'](False,s,r,v),.48,6,4),
+ ('Noisetier','noisetier',lambda s,r,v=0:G['make_species'](True,s,r,v),.42,6,14),
  ('Pin','pin',G['make_pine'],.50,3,30),
  ('Tilleul','tilleul',G['make_linden'],.60,6,50)]
 for name,file_name,build,cell,min_leaves,row in SPECIES:
  detail=bpy.data.objects[name+'_Detail'];mats=list(detail.data.materials)
  report[name]={}
- for size in range(1,6):
-  src=geos[name] if size==3 else build(size,True)
-  rng=random.Random(len(file_name)*13+size)
+ # 0.0.6.21 (#177) : trois formes par taille ; la forme 1 garde ses fichiers, les autres : <espece>_<taille>_f2 et _f3.
+ for variant,size in [(v,s) for v in range(3) for s in range(1,6)]:
+  src=geos[name] if (size==3 and variant==0) else build(size,True,variant)
+  rng=random.Random(len(file_name)*13+size+variant*7919)
+  form='' if variant==0 else '_f%d'%(variant+1)
+  used=mats+[G['holeM']] if src.holes else mats
   near=Geo()
   wood(near,src,.02 if name!='Pommier' else .016,2,lambda r:7 if r>.1 else (5 if r>.035 else 4))
+  for axis_at,out,up,r in src.holes:G['draw_hole'](near,axis_at,out,up,r,10)
   groups=cards(near,src,cell,min_leaves,1.25 if name=='Tilleul' else 1.0,rng)
   fruits=0
   if name=='Noisetier':
@@ -190,18 +194,18 @@ for name,file_name,build,cell,min_leaves,row in SPECIES:
   if name in ('Pommier','Noisetier'):cards(far,src,1.25,8 if size<3 else 20,1.05,rng)
   else:cards(far,src,1.9,6,1.1,rng)
   entry={}
-  for g,suffix,file in [(near,'_Leger',f'{file_name}_{size}_jeu'),(far,'_Leger_Loin',f'{file_name}_{size}_loin')]:
-   ob=g.object(f'{name}_T{size}{suffix}',mats,col)
+  for g,suffix,file in [(near,'_Leger',f'{file_name}_{size}{form}_jeu'),(far,'_Leger_Loin',f'{file_name}_{size}{form}_loin')]:
+   ob=g.object(f'{name}_T{size}{form}{suffix}',used if g is near else mats,col)
    entry[file]=sum(len(p.vertices)-2 for p in ob.data.polygons)
    bpy.ops.object.select_all(action='DESELECT');ob.select_set(True);bpy.context.view_layer.objects.active=ob
    bpy.ops.export_scene.gltf(filepath=str(OUT/(file+'.glb')),export_format='GLB',use_selection=True,use_active_scene=True,export_yup=True,export_texcoords=True,export_normals=True,export_materials='EXPORT',export_image_format='NONE',export_animations=False,export_cameras=False,export_lights=False)
    # Rangés dans l'atelier : une rangée par espèce, tailles de gauche à droite ; version de loin derrière.
-   ob.location=((size-3)*14.0,row+(8 if suffix=='_Leger_Loin' else 0),0)
+   ob.location=((size-3)*14.0+variant*80.0,row+(8 if suffix=='_Leger_Loin' else 0),0)
    ob.hide_render=True
    if suffix=='_Leger':entry['hauteur_m']=round(ob.dimensions.z,2)
   entry['plaques']=groups;entry['fruits']=fruits
-  report[name][size]=entry
-  print(name,size,entry)
+  report[name][f'{size}{form}']=entry
+  print(name,size,form,entry)
 scene['version_jeu']=json.dumps(report)
 (HERE/'mesures_jeu.json').write_text(json.dumps(report,indent=2),encoding='utf-8')
 bpy.ops.wm.save_mainfile()

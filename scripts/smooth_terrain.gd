@@ -88,6 +88,8 @@ func setup(terrain_seed: int, flat_spots: Array = [], options: Dictionary = {}) 
 	_gentle_mountains = int(generation_options.get("version", 0)) >= 25
 	_needle_floor_on = int(generation_options.get("version", 0)) >= 26
 	_plants_on = int(generation_options.get("version", 0)) >= 27
+	# 0.0.6.21 (version 29, #177) : trois formes d'arbres ; la troisième des arbres à vrai tronc a un trou.
+	_tree_forms_on = int(generation_options.get("version", 0)) >= 29
 	# Version 25 : crêtes moins marquées sur les montagnes (pentes plus régulières, plus faciles à monter).
 	_ridge = 0.12 if _gentle_mountains else 0.3
 	fall_limit = half_zones * int(ZONE_METERS) - 3
@@ -2228,7 +2230,12 @@ func trees_in_zone(area: Vector2i) -> Array:
 		# 0.0.6.13 : les arbres isolés restent hors des forêts ; puis les arbres des forêts de la zone.
 		result = result.filter(func(tree): return forest_at(Vector2(tree.x, tree.z)).is_empty())
 		result.append_array(_forest_trees(area, result))
+	if _tree_forms_on:
+		for tree: Dictionary in result:
+			tree.forme = absi(hash([_seed, float(tree.x), float(tree.z), "forme"])) % 3
 	return result
+
+var _tree_forms_on := false
 
 func _fruit_trees(area: Vector2i) -> Array:
 	var chances := int(generation_options.get("fruit_trees", 0))

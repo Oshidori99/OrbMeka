@@ -57,6 +57,10 @@ static func material(kind: int, role: String) -> StandardMaterial3D:
 				made.alpha_scissor_threshold = 0.5
 				made.cull_mode = BaseMaterial3D.CULL_DISABLED
 				made.roughness = 0.85
+			"hole":
+				# 0.0.6.21 (#177) : fond du trou dans le tronc, brun presque noir, mat.
+				made.albedo_color = Color(0.05, 0.035, 0.025)
+				made.roughness = 1.0
 			_:
 				made.albedo_color = FRUIT_COLORS[kind]
 				made.roughness = 0.45 if kind == APPLE else 0.7
@@ -64,33 +68,40 @@ static func material(kind: int, role: String) -> StandardMaterial3D:
 	return _materials[key]
 
 # Modèle de près (far = false) ou de loin (far = true), lu une fois dans assets/trees, avec nos matériaux.
-static func mesh(kind: int, size: int = 3, far := false) -> ArrayMesh:
+# 0.0.6.21 (#177) : form 0, 1 ou 2 (trois formes un peu différentes ; fichiers _f2 et _f3 pour les deux dernières).
+static func mesh(kind: int, size: int = 3, far := false, form := 0) -> ArrayMesh:
 	size = clampi(size, 1, SIZES)
-	var key := "%d_%d_%s" % [kind, size, far]
+	form = clampi(form, 0, FORMS - 1)
+	var key := "%d_%d_%s_%d" % [kind, size, far, form]
 	if not _meshes.has(key):
-		_meshes[key] = _load(kind, size, far)
+		_meshes[key] = _load(kind, size, far, form)
 	return _meshes[key]
 
-static func _path(kind: int, size: int, far: bool) -> String:
-	return FOLDER + "%s_%d_%s.glb" % [FILES[kind], size, "loin" if far else "jeu"]
+const FORMS := 3
+
+static func _path(kind: int, size: int, far: bool, form := 0) -> String:
+	return FOLDER + "%s_%d%s_%s.glb" % [FILES[kind], size, "" if form == 0 else "_f%d" % (form + 1), "loin" if far else "jeu"]
 
 # 0.0.6.18 (#175) : modèles lus d'avance : sur PC, les fichiers en arrière-plan dès l'ouverture du monde ; ensuite
 # (warm_next), un modèle préparé par image calme. Avant : 10 à 20 ms d'à-coup au premier arbre de chaque sorte et taille.
 static var _requested: Dictionary = {}
 static var _warm_list: Array = []
 
-static func read_ahead() -> void:
-	if not _warm_list.is_empty() or _meshes.size() >= FILES.size() * SIZES * 2:
+static func read_ahead(forms := 1) -> void:
+	if not _warm_list.is_empty():
 		return
-	for kind in range(FILES.size()):
-		for size in range(1, SIZES + 1):
-			for far in [false, true]:
-				_warm_list.append([kind, size, far])
-				var path := _path(kind, size, far)
-				# Rendu Compatibility (Web, vieux PC) : les fichiers y sont lus un par un (warm_next) ; en arrière-plan,
-				# ses maillages bloquaient la première image 5 s.
-				if RenderingServer.get_current_rendering_method() != "gl_compatibility" and not _meshes.has("%d_%d_%s" % [kind, size, far]) and ResourceLoader.load_threaded_request(path) == OK:
-					_requested[path] = true
+	for form in range(forms):
+		for kind in range(FILES.size()):
+			for size in range(1, SIZES + 1):
+				for far in [false, true]:
+					if _meshes.has("%d_%d_%s_%d" % [kind, size, far, form]):
+						continue
+					_warm_list.append([kind, size, far, form])
+					var path := _path(kind, size, far, form)
+					# Rendu Compatibility (Web, vieux PC) : les fichiers y sont lus un par un (warm_next) ; en arrière-plan,
+					# ses maillages bloquaient la première image 5 s.
+					if RenderingServer.get_current_rendering_method() != "gl_compatibility" and ResourceLoader.load_threaded_request(path) == OK:
+						_requested[path] = true
 
 # Prépare le prochain modèle pas encore prêt ; faux quand tous le sont.
 static func warm_next() -> bool:
@@ -99,13 +110,13 @@ static func warm_next() -> bool:
 		return false
 	while not _warm_list.is_empty():
 		var next: Array = _warm_list.pop_front()
-		if not _meshes.has("%d_%d_%s" % next):
-			mesh(next[0], next[1], next[2])
+		if not _meshes.has("%d_%d_%s_%d" % next):
+			mesh(next[0], next[1], next[2], next[3])
 			return true
 	return false
 
-static func _load(kind: int, size: int, far: bool) -> ArrayMesh:
-	var path := _path(kind, size, far)
+static func _load(kind: int, size: int, far: bool, form := 0) -> ArrayMesh:
+	var path := _path(kind, size, far, form)
 	var scene: PackedScene = ResourceLoader.load_threaded_get(path) if _requested.erase(path) else load(path)
 	var root := scene.instantiate()
 	var source: Mesh = (root.find_children("*", "MeshInstance3D", true, false)[0] as MeshInstance3D).mesh
@@ -114,7 +125,7 @@ static func _load(kind: int, size: int, far: bool) -> ArrayMesh:
 	for surface in range(source.get_surface_count()):
 		var arrays := source.surface_get_arrays(surface)
 		var name := str(source.surface_get_material(surface).resource_name) if source.surface_get_material(surface) else ""
-		var role := "bark" if name.contains("Ecorce") else ("leaves" if name.contains("Feuille") else "fruit")
+		var role := "bark" if name.contains("Ecorce") else ("leaves" if name.contains("Feuille") else ("hole" if name.contains("Trou") else "fruit"))
 		if role == "leaves":
 			# Feuillage éclairé comme une boule (normales vers l'extérieur de la couronne) : plus doux que des plaques à plat.
 			var points: PackedVector3Array = arrays[Mesh.ARRAY_VERTEX]
@@ -144,7 +155,7 @@ static func triangles(made: Mesh) -> int:
 	return count
 
 # Arbre posé dans le monde : corps immobile (collision du tronc), modèle détaillé de près, simplifié au loin.
-static func tree_body(kind: int, size: int, vine := false) -> StaticBody3D:
+static func tree_body(kind: int, size: int, vine := false, form := 0) -> StaticBody3D:
 	var body := StaticBody3D.new()
 	body.name = "Arbre"
 	body.add_to_group("trees")
@@ -153,13 +164,13 @@ static func tree_body(kind: int, size: int, vine := false) -> StaticBody3D:
 	body.add_child(model)
 	var near := MeshInstance3D.new()
 	near.name = "Detail"
-	near.mesh = mesh(kind, size)
+	near.mesh = mesh(kind, size, false, form)
 	near.visibility_range_end = DETAIL_END
 	near.visibility_range_end_margin = 2.0
 	model.add_child(near)
 	var far := MeshInstance3D.new()
 	far.name = "Loin"
-	far.mesh = mesh(kind, size, true)
+	far.mesh = mesh(kind, size, true, form)
 	far.visibility_range_begin = DETAIL_END
 	far.visibility_range_begin_margin = 2.0
 	far.visibility_range_end = FAR_END

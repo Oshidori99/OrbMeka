@@ -34,6 +34,76 @@
       "pommier_5_loin": 1524,
       "plaques": 965,
       "fruits": 112
+    },
+    "1_f2": {
+      "pommier_1_f2_jeu": 5849,
+      "hauteur_m": 3.9,
+      "pommier_1_f2_loin": 557,
+      "plaques": 254,
+      "fruits": 48
+    },
+    "2_f2": {
+      "pommier_2_f2_jeu": 7669,
+      "hauteur_m": 5.49,
+      "pommier_2_f2_loin": 795,
+      "plaques": 403,
+      "fruits": 64
+    },
+    "3_f2": {
+      "pommier_3_f2_jeu": 11141,
+      "hauteur_m": 7.64,
+      "pommier_3_f2_loin": 1293,
+      "plaques": 671,
+      "fruits": 80
+    },
+    "4_f2": {
+      "pommier_4_f2_jeu": 13289,
+      "hauteur_m": 8.44,
+      "pommier_4_f2_loin": 1410,
+      "plaques": 824,
+      "fruits": 96
+    },
+    "5_f2": {
+      "pommier_5_f2_jeu": 14759,
+      "hauteur_m": 9.63,
+      "pommier_5_f2_loin": 1524,
+      "plaques": 939,
+      "fruits": 112
+    },
+    "1_f3": {
+      "pommier_1_f3_jeu": 5947,
+      "hauteur_m": 3.95,
+      "pommier_1_f3_loin": 539,
+      "plaques": 259,
+      "fruits": 48
+    },
+    "2_f3": {
+      "pommier_2_f3_jeu": 7875,
+      "hauteur_m": 5.49,
+      "pommier_2_f3_loin": 771,
+      "plaques": 426,
+      "fruits": 64
+    },
+    "3_f3": {
+      "pommier_3_f3_jeu": 11275,
+      "hauteur_m": 7.37,
+      "pommier_3_f3_loin": 1275,
+      "plaques": 682,
+      "fruits": 80
+    },
+    "4_f3": {
+      "pommier_4_f3_jeu": 13177,
+      "hauteur_m": 8.7,
+      "pommier_4_f3_loin": 1428,
+      "plaques": 794,
+      "fruits": 96
+    },
+    "5_f3": {
+      "pommier_5_f3_jeu": 14713,
+      "hauteur_m": 9.41,
+      "pommier_5_f3_loin": 1512,
+      "plaques": 920,
+      "fruits": 112
     }
   },
   "Noisetier": {
@@ -70,6 +140,76 @@
       "hauteur_m": 7.54,
       "noisetier_5_loin": 965,
       "plaques": 762,
+      "fruits": 84
+    },
+    "1_f2": {
+      "noisetier_1_f2_jeu": 3488,
+      "hauteur_m": 3.01,
+      "noisetier_1_f2_loin": 126,
+      "plaques": 165,
+      "fruits": 36
+    },
+    "2_f2": {
+      "noisetier_2_f2_jeu": 5429,
+      "hauteur_m": 4.27,
+      "noisetier_2_f2_loin": 456,
+      "plaques": 330,
+      "fruits": 48
+    },
+    "3_f2": {
+      "noisetier_3_f2_jeu": 7743,
+      "hauteur_m": 5.8,
+      "noisetier_3_f2_loin": 660,
+      "plaques": 509,
+      "fruits": 60
+    },
+    "4_f2": {
+      "noisetier_4_f2_jeu": 9480,
+      "hauteur_m": 6.71,
+      "noisetier_4_f2_loin": 864,
+      "plaques": 651,
+      "fruits": 72
+    },
+    "5_f2": {
+      "noisetier_5_f2_jeu": 11461,
+      "hauteur_m": 7.38,
+      "noisetier_5_f2_loin": 1021,
+      "plaques": 777,
+      "fruits": 84
+    },
+    "1_f3": {
+      "noisetier_1_f3_jeu": 3442,
+      "hauteur_m": 2.91,
+      "noisetier_1_f3_loin": 114,
+      "plaques": 163,
+      "fruits": 36
+    },
+    "2_f3": {
+      "noisetier_2_f3_jeu": 5291,
+      "hauteur_m": 4.26,
+      "noisetier_2_f3_loin": 450,
+      "plaques": 307,
+      "fruits": 48
+    },
+    "3_f3": {
+      "noisetier_3_f3_jeu": 7569,
+      "hauteur_m": 5.55,
+      "noisetier_3_f3_loin": 630,
+      "plaques": 480,
+      "fruits": 60
+    },
+    "4_f3": {
+      "noisetier_4_f3_jeu": 9252,
+      "hauteur_m": 6.51,
+      "noisetier_4_f3_loin": 795,
+      "plaques": 630,
+      "fruits": 72
+    },
+    "5_f3": {
+      "noisetier_5_f3_jeu": 11589,
+      "hauteur_m": 7.56,
+      "noisetier_5_f3_loin": 1001,
+      "plaques": 821,
       "fruits": 84
     }
   },
@@ -108,6 +248,76 @@
       "pin_5_loin": 1520,
       "plaques": 926,
       "fruits": 40
+    },
+    "1_f2": {
+      "pin_1_f2_jeu": 3914,
+      "hauteur_m": 7.55,
+      "pin_1_f2_loin": 277,
+      "plaques": 291,
+      "fruits": 40
+    },
+    "2_f2": {
+      "pin_2_f2_jeu": 6428,
+      "hauteur_m": 11.56,
+      "pin_2_f2_loin": 391,
+      "plaques": 555,
+      "fruits": 40
+    },
+    "3_f2": {
+      "pin_3_f2_jeu": 7440,
+      "hauteur_m": 15.93,
+      "pin_3_f2_loin": 974,
+      "plaques": 668,
+      "fruits": 40
+    },
+    "4_f2": {
+      "pin_4_f2_jeu": 8361,
+      "hauteur_m": 18.99,
+      "pin_4_f2_loin": 1264,
+      "plaques": 808,
+      "fruits": 40
+    },
+    "5_f2": {
+      "pin_5_f2_jeu": 7951,
+      "hauteur_m": 21.72,
+      "pin_5_f2_loin": 1324,
+      "plaques": 759,
+      "fruits": 40
+    },
+    "1_f3": {
+      "pin_1_f3_jeu": 3964,
+      "hauteur_m": 7.55,
+      "pin_1_f3_loin": 277,
+      "plaques": 318,
+      "fruits": 34
+    },
+    "2_f3": {
+      "pin_2_f3_jeu": 6686,
+      "hauteur_m": 11.56,
+      "pin_2_f3_loin": 403,
+      "plaques": 564,
+      "fruits": 40
+    },
+    "3_f3": {
+      "pin_3_f3_jeu": 7598,
+      "hauteur_m": 15.97,
+      "pin_3_f3_loin": 942,
+      "plaques": 686,
+      "fruits": 40
+    },
+    "4_f3": {
+      "pin_4_f3_jeu": 8054,
+      "hauteur_m": 18.82,
+      "pin_4_f3_loin": 1178,
+      "plaques": 750,
+      "fruits": 40
+    },
+    "5_f3": {
+      "pin_5_f3_jeu": 7983,
+      "hauteur_m": 21.75,
+      "pin_5_f3_loin": 1300,
+      "plaques": 756,
+      "fruits": 40
     }
   },
   "Tilleul": {
@@ -144,6 +354,76 @@
       "hauteur_m": 20.15,
       "tilleul_5_loin": 1447,
       "plaques": 1065,
+      "fruits": 0
+    },
+    "1_f2": {
+      "tilleul_1_f2_jeu": 1876,
+      "hauteur_m": 6.59,
+      "tilleul_1_f2_loin": 277,
+      "plaques": 168,
+      "fruits": 0
+    },
+    "2_f2": {
+      "tilleul_2_f2_jeu": 3051,
+      "hauteur_m": 10.46,
+      "tilleul_2_f2_loin": 625,
+      "plaques": 335,
+      "fruits": 0
+    },
+    "3_f2": {
+      "tilleul_3_f2_jeu": 4895,
+      "hauteur_m": 14.38,
+      "tilleul_3_f2_loin": 898,
+      "plaques": 572,
+      "fruits": 0
+    },
+    "4_f2": {
+      "tilleul_4_f2_jeu": 6539,
+      "hauteur_m": 17.08,
+      "tilleul_4_f2_loin": 1158,
+      "plaques": 808,
+      "fruits": 0
+    },
+    "5_f2": {
+      "tilleul_5_f2_jeu": 8371,
+      "hauteur_m": 20.22,
+      "tilleul_5_f2_loin": 1441,
+      "plaques": 1079,
+      "fruits": 0
+    },
+    "1_f3": {
+      "tilleul_1_f3_jeu": 2038,
+      "hauteur_m": 6.66,
+      "tilleul_1_f3_loin": 297,
+      "plaques": 180,
+      "fruits": 0
+    },
+    "2_f3": {
+      "tilleul_2_f3_jeu": 3161,
+      "hauteur_m": 10.4,
+      "tilleul_2_f3_loin": 631,
+      "plaques": 342,
+      "fruits": 0
+    },
+    "3_f3": {
+      "tilleul_3_f3_jeu": 5009,
+      "hauteur_m": 14.38,
+      "tilleul_3_f3_loin": 911,
+      "plaques": 576,
+      "fruits": 0
+    },
+    "4_f3": {
+      "tilleul_4_f3_jeu": 6445,
+      "hauteur_m": 17.24,
+      "tilleul_4_f3_loin": 1146,
+      "plaques": 781,
+      "fruits": 0
+    },
+    "5_f3": {
+      "tilleul_5_f3_jeu": 8141,
+      "hauteur_m": 20.25,
+      "tilleul_5_f3_loin": 1362,
+      "plaques": 1033,
       "fruits": 0
     }
   }
