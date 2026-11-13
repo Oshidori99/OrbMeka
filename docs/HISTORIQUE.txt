@@ -3,6 +3,10 @@ Du plus récent au plus ancien. Ce fichier est mis à jour à chaque version.
 
 === Thème « Monde » (0.0.5 et suivantes) ===
 
+0.0.6.23 — Rivières raccordées aux lacs
+Génération du terrain : version 31 (nouvelle) · Menus : version 3.
+Les rivières ne passent plus sous le lac où elles arrivent (ce lac est abaissé, idée de l'utilisateur) ; départ et arrivée raccordés à la surface des lacs.
+
 0.0.6.22 — Rivières qui partent des lacs (#194)
 Génération du terrain : version 30 (nouvelle) · Menus : version 3.
 Les rivières partent des lacs de montagne et descendent jusqu'à un lac ou une autre rivière ; berges plus franches, l'eau ne flotte plus.

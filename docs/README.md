@@ -1,6 +1,15 @@
-# OrbMeka™ — prototype 0.0.6.22
+# OrbMeka™ — prototype 0.0.6.23
 
 Godot 4.7 / GDScript. Formes et couleurs simples ; assets externes seulement sous licence vérifiée (sons CC0, assets/sounds/CREDITS.txt).
+
+## 0.0.6.23 — Rivières raccordées aux lacs
+Version locale (1 sur 4). Fichiers d'eau inchangés ; mondes de la génération 30 identiques (vérifié).
+- **Génération version 31** : les rivières passaient par des vallées plus basses que le lac de plaine où elles arrivent (on voyait leur eau sous le lac). Ce lac est maintenant abaissé jusqu'à l'eau la plus basse de la rivière (6 m au plus, sinon la rivière n'est pas faite ; idée de l'utilisateur) : il est un peu en creux. Les rivières qui se jettent dans une autre ne passent jamais plus bas qu'elle.
+- **Raccords** : au départ, l'eau sort 2 cm sous la surface du lac de montagne et y reste en traversant la rive ; à l'arrivée, le ruban s'arrête au bord de l'eau du lac (plus de tache sombre de deux eaux l'une sur l'autre).
+- Rivières tracées dès la préparation du terrain (les lacs abaissés comptent partout). 4 à 9 rivières par monde ; berges en l'air : moins de 1 %.
+
+Tests réussis : smooth_terrain (rivières jamais sous leur lac), water, swim, custom_generation, world_consistency, trees, forests, plants, history_resume, prototype (+ tests juridiques).
+À tester manuellement : arrivée d'une rivière dans un lac abaissé, départ d'un lac de montagne.
 
 ## 0.0.6.22 — Rivières qui partent des lacs (#194)
 Version locale (2 sur 4). Fichiers d'eau (niveaux des lacs, eau libre) inchangés.

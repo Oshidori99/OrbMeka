@@ -82,6 +82,7 @@ func setup(terrain_seed: int, flat_spots: Array = [], options: Dictionary = {}) 
 	_ores_on = int(generation_options.get("version", 0)) >= 18
 	_rivers_on = int(generation_options.get("version", 0)) >= 20
 	_river_lakes_on = int(generation_options.get("version", 0)) >= 30
+	_rivers_downhill = int(generation_options.get("version", 0)) >= 31
 	_trees_on = int(generation_options.get("version", 0)) >= 21
 	_tree_sizes_on = int(generation_options.get("version", 0)) >= 22
 	_other_trees_on = int(generation_options.get("version", 0)) >= 23
@@ -135,6 +136,10 @@ func setup(terrain_seed: int, flat_spots: Array = [], options: Dictionary = {}) 
 	_mountain_list.clear()
 	_mountain_list_ready = false
 	_lifts.clear()
+	# Génération 31 : rivières tracées tout de suite (elles abaissent des lacs : aucune hauteur ne doit être lue avant).
+	_lake_drops = {}
+	if _rivers_downhill:
+		rivers()
 
 # Ce que la graine met dans une zone de 8 m : crête, trou, désert (toujours pareil pour une graine).
 func _zone_info(area: Vector2i) -> Dictionary:
@@ -1331,6 +1336,11 @@ func lake_level(lake: Dictionary) -> float:
 		if not lake.has("fixed_level"):
 			lake.fixed_level = roundf((clampf(_custom_height(lake.start), -7.0, 3.0) + mountain_lift(lake.start)) * 1000.0) / 1000.0
 		return lake.fixed_level
+	# Génération 31 : lac abaissé par une rivière qui y arrive (les rivières sont tracées dès setup).
+	if not _lake_drops.is_empty():
+		var dropped: Variant = _lake_drops.get(lake_id(lake))
+		if dropped != null:
+			return dropped
 	return roundf(_rolling((lake.start + lake.end) / 2.0) * 1000.0) / 1000.0
 
 # Lacs qui peuvent toucher ce point (les allongés débordent jusqu'à deux zones plus loin, les grands trois).
@@ -2046,6 +2056,7 @@ const RIVER_STEP := 2.0
 const RIVER_BANK := 1.5
 var _rivers_on := false
 var _river_lakes_on := false
+var _rivers_downhill := false
 var _rivers: Array = []
 var _rivers_ready := false
 var _river_zones: Dictionary = {}
@@ -2101,12 +2112,14 @@ func _build_rivers_from_lakes() -> void:
 		if outlet == Vector2.INF or outside > level - 0.5 or absf(outlet.x) > limit or absf(outlet.y) > limit:
 			continue
 		var target := Vector2.INF
+		var target_level := INF
 		for lake in plains_lakes:
 			var middle: Vector2 = (lake.start + lake.end) / 2.0
 			if lake_level(lake) < level - 2.0 and (target == Vector2.INF or middle.distance_to(outlet) < target.distance_to(outlet)):
 				target = middle
 		if target == Vector2.INF or target.distance_to(outlet) > 450.0:
 			continue
+		var outward := heading
 		var at := outlet
 		var points := PackedVector2Array([at])
 		var grounds := PackedFloat32Array([_base_height(at)])
@@ -2159,6 +2172,7 @@ func _build_rivers_from_lakes() -> void:
 				break
 		if points.size() < 8 or (joined.is_empty() and (reached.is_empty() or reached.has("on_mountain"))):
 			continue
+		var gap := SURFACE_GAP if _rivers_downhill else 0.0
 		var beds := PackedFloat32Array()
 		var widths := PackedFloat32Array()
 		var lengths := PackedFloat32Array()
@@ -2178,18 +2192,78 @@ func _build_rivers_from_lakes() -> void:
 			# L'eau sort du lac à son niveau et y reste tant qu'elle traverse la rive (sinon, le bord de l'eau du lac
 			# resterait en l'air au-dessus du lit) ; elle descend ensuite.
 			var in_rim: bool = _lake_distance(points[index], source_lake) < source_lake.radius + source_lake.get("bank", 0.0) + width + RIVER_BANK
-			if index == 0 or (in_rim and beds[index - 1] >= level - RIVER_WATER - 0.001):
-				bed = level - RIVER_WATER
+			if index == 0 or (in_rim and beds[index - 1] >= level - RIVER_WATER - gap - 0.001):
+				bed = level - RIVER_WATER - gap
 			else:
 				bed = minf(bed, beds[index - 1] - 0.02)
 			lengths.append(0.0 if index == 0 else lengths[index - 1] + RIVER_STEP)
 			beds.append(bed)
 			widths.append(width)
-		# Arrivée : l'eau jamais plus haute que le lac ou la rivière où elle se jette.
+		# Arrivée (0.0.6.23) : l'eau finit juste sous la surface du lac ou de la rivière où elle se jette, et ne descend jamais
+		# plus bas (avant : elle passait sous le niveau du lac et se voyait dessous) ; dans un lac, le ruban continue 2,5 m.
 		var last := points.size() - 1
 		var end_water: float = lake_level(reached) if joined.is_empty() else joined.bed + RIVER_WATER
-		beds[last] = minf(beds[last], end_water - RIVER_WATER - 0.05)
+		var end_bed := end_water - SURFACE_GAP - RIVER_WATER
+		if not _rivers_downhill:
+			# Génération 30 (0.0.6.22), gardée telle quelle.
+			beds[last] = minf(beds[last], end_water - RIVER_WATER - 0.05)
+			_add_river(points, beds, widths, lengths)
+			continue
+		# Génération 31 : la rivière ne passe jamais sous l'eau où elle arrive. Dans une rivière : au même niveau, et
+		# écartée si son lit passe nettement plus bas. Dans un lac de plaine : le lac est abaissé jusqu'à l'eau la plus
+		# basse de la rivière (idée de l'utilisateur, 13.11.2026), au plus MAX_LAKE_DROP mètres ; l'eau de la rivière
+		# finit 2 cm sous sa surface, le ruban continue 2,5 m dans le lac.
+		var lowest := INF
+		for bed: float in beds:
+			lowest = minf(lowest, bed + RIVER_WATER)
+		if not joined.is_empty():
+			if lowest < end_water - 0.3:
+				continue
+			for index in range(beds.size()):
+				beds[index] = maxf(beds[index], end_bed)
+			beds[last] = end_bed
+			_add_river(points, beds, widths, lengths)
+			continue
+		var lake_key := lake_id(reached)
+		var lowered: float = minf(_lake_drops.get(lake_key, end_water), lowest)
+		if end_water - lowered > MAX_LAKE_DROP:
+			continue
+		_lake_drops[lake_key] = lowered
+		# Le ruban s'arrête au bord de l'eau du lac (deux eaux transparentes l'une sur l'autre faisaient une tache sombre).
+		var edge: float = reached.radius + reached.get("bank", 0.0) * 0.4
+		var outside_point: Vector2 = points[last - 1]
+		var inside_point: Vector2 = points[last]
+		for step in range(12):
+			var middle_point := outside_point.lerp(inside_point, 0.5)
+			if _lake_distance(middle_point, reached) < edge:
+				inside_point = middle_point
+			else:
+				outside_point = middle_point
+		lengths[last] = lengths[last - 1] + points[last - 1].distance_to(outside_point)
+		points[last] = outside_point
 		_add_river(points, beds, widths, lengths)
+		_rivers[_rivers.size() - 1].lac = reached
+	# Fin des lacs abaissés : chaque rivière qui arrive dans un lac finit sous sa surface (niveau final, plusieurs rivières
+	# pouvant abaisser le même lac), aussi le long de sa rive (le bord du lac a baissé avec lui).
+	for river: Dictionary in _rivers:
+		if not river.has("lac"):
+			continue
+		var lake: Dictionary = river.lac
+		var surface_bed := lake_level(lake) - SURFACE_GAP - RIVER_WATER
+		var reach: float = lake.radius + lake.get("bank", 0.0) + LAKE_SHORE + (lake.wobble if lake.has("wobble_scale") else 0.0)
+		var beds: PackedFloat32Array = river.beds
+		for index in range(beds.size()):
+			if index == beds.size() - 1 or _lake_distance(river.points[index], lake) < reach + river.widths[index] + RIVER_BANK:
+				beds[index] = minf(beds[index], surface_bed) if index < beds.size() - 1 else surface_bed
+		river.beds = beds
+		river.erase("lac")
+
+# Génération 31 : lacs de plaine abaissés par les rivières qui y arrivent (identifiant → niveau).
+var _lake_drops: Dictionary = {}
+const MAX_LAKE_DROP := 6.0
+
+# Écart entre la surface d'une rivière et celle du lac qu'elle touche : l'eau du lac passe dessus (pas de scintillement).
+const SURFACE_GAP := 0.02
 
 func _add_river(points: PackedVector2Array, beds: PackedFloat32Array, widths: PackedFloat32Array, lengths: PackedFloat32Array) -> void:
 	_rivers.append({"points": points, "beds": beds, "widths": widths, "lengths": lengths})

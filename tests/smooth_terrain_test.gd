@@ -819,7 +819,7 @@ func _run() -> void:
 			var source_ok := false
 			for zone in flowing._mountain_lake_zones:
 				for lake in flowing._mountain_lake_zones[zone]:
-					source_ok = source_ok or (flowing._lake_distance(start, lake) < lake.radius + lake.get("bank", 0.0) + 1.0 and is_equal_approx(river.beds[0] + SmoothTerrain.RIVER_WATER, flowing.lake_level(lake)))
+					source_ok = source_ok or (flowing._lake_distance(start, lake) < lake.radius + lake.get("bank", 0.0) + 1.0 and absf(river.beds[0] + SmoothTerrain.RIVER_WATER - flowing.lake_level(lake)) < 0.05)
 			from_lakes = from_lakes and source_ok
 			for index in range(river.points.size() - 1):
 				var a: Vector2 = river.points[index]
@@ -830,7 +830,18 @@ func _run() -> void:
 					var edge: Vector2 = a + across * side * river.widths[index] * 1.05
 					river_samples += 1
 					river_floating += 1 if flowing.height_at(edge.x, edge.y) < river.beds[index] + SmoothTerrain.RIVER_WATER - 0.1 and flowing.lake_at(edge).is_empty() and flowing.river_level_at(edge) == -INF else 0
-	check(river_count >= 6 and from_lakes and river_floating * 50 <= river_samples, "generation 30: %d rivers, all leaving a mountain lake at its level; water past the bank at %d of %d points" % [river_count, river_floating, river_samples])
+	# 0.0.6.23 (version 31) : jamais sous le lac où elles arrivent (lacs abaissés si besoin).
+	var below_lake := 0
+	for seed_value in [3463503054]:
+		var ending := SmoothTerrain.new()
+		ending.setup(seed_value, [[Vector2(0.5, 0.5), 9.0]], load("res://scripts/world_generation.gd").defaults())
+		for river in ending.rivers():
+			var end_lake: Dictionary = ending.lake_at(river.points[river.points.size() - 1] + (river.points[river.points.size() - 1] - river.points[river.points.size() - 2]).normalized() * 1.5)
+			if end_lake.is_empty() or end_lake.has("on_mountain"):
+				continue
+			for bed: float in river.beds:
+				below_lake += 1 if bed + SmoothTerrain.RIVER_WATER < ending.lake_level(end_lake) - 0.03 else 0
+	check(river_count >= 6 and from_lakes and below_lake == 0 and river_floating * 50 <= river_samples, "generation 31: %d rivers, all leaving a mountain lake at its level, never below the lake they reach; water past the bank at %d of %d points" % [river_count, river_floating, river_samples])
 	var options_16: Dictionary = load("res://scripts/world_generation.gd").defaults()
 	options_16.version = 16
 	# 0.0.6.14 : réglages des montagnes d'avant la version 25.
