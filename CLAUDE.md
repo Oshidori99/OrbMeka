@@ -89,6 +89,8 @@ Génération version 18 : calcaire (LIMESTONE), charbon (COAL), silex (FLINT) da
 Génération version 19 : 5 m de terre, 20 m de pierre, 20 m de pierre sombre, Roche-mère à 45 m (layers_of) ; cailloux de calcaire et de silex de toutes les tailles.
 Génération version 20 : rivières (smooth_terrain.gd rivers(), _with_rivers, river_level_at ; ruban d'eau river.gdshader) des montagnes jusqu'aux lacs de la plaine, jamais près d'un lac de montagne ; water.gd : écoulement avec élan (tuyaux), rivières = source et puits.
 Génération version 21 : arbres fruitiers (scripts/trees.gd : pommier, noisetier, 3 variantes, détaillé jusqu'à 40 m, simplifié jusqu'à 150 m ; smooth_terrain.gd trees_in_zone, réglage fruit_trees, 1 zone sur 14, plus en lisière) ; pas de récolte ni de coupe.
+Génération version 29 (0.0.6.21, #177) : arbres de trois formes (trees.gd FORMS, fichiers _f2 et _f3, champ « forme » de trees_in_zone) ; la forme 3 du pommier, du pin et du tilleul a un trou dans le tronc.
+Génération version 30 (0.0.6.22, #194) : rivières depuis l'exutoire des lacs de montagne (smooth_terrain.gd _build_rivers_from_lakes), jusqu'à un lac de la plaine ou une autre rivière ; berges plus franches (_with_rivers).
 
 ## Rythme de publication
 Publier une version sur 4, ou dès que l'utilisateur dit « publie », puis remettre le compteur à zéro.

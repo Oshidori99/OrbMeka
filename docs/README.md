@@ -1,6 +1,24 @@
-# OrbMeka™ — prototype 0.0.6.20
+# OrbMeka™ — prototype 0.0.6.22
 
 Godot 4.7 / GDScript. Formes et couleurs simples ; assets externes seulement sous licence vérifiée (sons CC0, assets/sounds/CREDITS.txt).
+
+## 0.0.6.22 — Rivières qui partent des lacs (#194)
+Version locale (2 sur 4). Fichiers d'eau (niveaux des lacs, eau libre) inchangés.
+- **Génération version 30** : chaque lac de montagne donne une rivière, par son exutoire (le point le plus bas de sa rive) ; l'eau sort au niveau du lac et y reste en traversant la rive, puis descend jusqu'à un lac de la plaine ou se jette dans une rivière déjà tracée, au même niveau (plus de rivières qui se croisent). 4 à 11 rivières par monde (avant : 1 à 5, nées « du néant »).
+- **Eau qui flottait** : berges plus franches (au bord de l'eau, le sol est déjà au-dessus de la surface ; avant, 25 cm dessous) et berges vérifiées des deux côtés, aussi entre les points du tracé ; arrivée jamais plus haute que le lac. Points de berge en l'air : 40 % → moins de 1 % (seulement en traversant la rive d'un lac).
+- Les mondes d'avant gardent leurs rivières.
+
+Tests réussis : smooth_terrain (nouveau contrôle des rivières), water, swim, world_consistency, custom_generation, trees, forests, plants, history_resume, prototype (+ tests juridiques).
+À tester manuellement : suivre une rivière de son lac jusqu'en bas, nager à l'exutoire.
+
+## 0.0.6.21 — Arbres de trois formes (#177)
+Version locale (1 sur 4).
+- **Génération version 29** : chaque arbre des nouveaux mondes prend une de trois formes (même graine = même forme) ; les mondes existants gardent la première.
+- **Blender** (sources_blender/arbres) : même charpente et mêmes proportions, branches tirées autrement (forme 1 inchangée) ; la forme 3 du pommier, du pin et du tilleul a un trou ovale dans le tronc (haut d'un rayon de tronc, bourrelet d'écorce, fond sombre), futur abri d'écureuil (#150). Versions détaillées des formes 2 et 3 dans arbres_detail.blend (Archives), légères dans assets/trees (_f2, _f3 ; +20 Mo).
+- Mesures (graine de T47) : PC 284 i/s immobile, 260 en marche, 130 en vol (comme avant) ; rendu Web 488 / 433 / 237.
+
+Tests réussis : trees, forests, plants, smooth_terrain, world_consistency, custom_generation, world_options, world_info, interface_info, web_fixes, history_resume, prototype (+ tests juridiques).
+À tester manuellement : le trou dans le tronc vu en jeu, variété des forêts.
 
 ## 0.0.6.20 — Version Web encore allégée
 Publié. Seulement le Web (le PC ne change pas). Mesuré par l'utilisateur en 0.0.6.19 : 15 à 25 images par seconde dans le navigateur.

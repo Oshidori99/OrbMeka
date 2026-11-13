@@ -12,9 +12,9 @@ extends Node3D
 # 2 ou 3, choisis parmi les nouveautés : liste NEWS_RUNNERS ([id, peau], peau vide pour un animal).
 # Chacun prend son modèle Blender, sinon une forme simple (character_model.gd, partagé avec le jeu).
 # Le reste du fichier (sol, gazon, plage, ciel, caméra) ne change pas d'une version à l'autre.
-const NEWS_VERSION := "0.0.6.20"
-const NEWS_TEXT := "Nouveau : version Web encore plus légère !
-Plus d'images par seconde dans le navigateur."
+const NEWS_VERSION := "0.0.6.22"
+const NEWS_TEXT := "Nouveau : les rivières partent des lacs de montagne !
+Et l'eau ne flotte plus au-dessus des berges."
 
 # 0.0.3.25 : les trois nouveautés de 0.0.3.23 en aller-retour au-dessus de l'herbe libre, devant la place
 # de sable et pierre (sous le panneau des menus, vers la droite), chacune sur sa rangée.
@@ -93,8 +93,8 @@ const CharacterPreview = preload("res://scripts/character_preview.gd")
 
 const TerrainMaterials = preload("res://scripts/terrain_materials.gd")
 const WorldRules = preload("res://scripts/world.gd")
-# 0.0.6.5 : graine du monde d'essai de la version (T35, T36 en 0.0.6.6, T37 en 0.0.6.7, T38 en 0.0.6.8, T39 en 0.0.6.9, T40 en 0.0.6.10, T41 en 0.0.6.11, T42 en 0.0.6.12, T43 en 0.0.6.13, T44 en 0.0.6.14, T45 en 0.0.6.15, T46 en 0.0.6.16, T47 en 0.0.6.17, T48 en 0.0.6.18, T49 en 0.0.6.19, T50 en 0.0.6.20 : monde standard créé dans la liste du joueur), vue depuis une hauteur.
-const SCENE_SEED := 3581919472
+# 0.0.6.5 : graine du monde d'essai de la version (T35, T36 en 0.0.6.6, T37 en 0.0.6.7, T38 en 0.0.6.8, T39 en 0.0.6.9, T40 en 0.0.6.10, T41 en 0.0.6.11, T42 en 0.0.6.12, T43 en 0.0.6.13, T44 en 0.0.6.14, T45 en 0.0.6.15, T46 en 0.0.6.16, T47 en 0.0.6.17, T48 en 0.0.6.18, T49 en 0.0.6.19, T50 en 0.0.6.20, T51 en 0.0.6.21, T52 en 0.0.6.22 : monde standard créé dans la liste du joueur), vue depuis une hauteur.
+const SCENE_SEED := 509148039
 # Point de vue : en hauteur (0.0.5.37), pour voir la crevasse ; à hauteur d'homme, le relief la cache.
 # Il tourne lentement la tête ; la vitrine reste sur le côté, hors du panneau des menus.
 const TOWER_CELL := Vector2i(12, 12)
