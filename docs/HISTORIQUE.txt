@@ -1,6 +1,12 @@
 ORBMEKA — HISTORIQUE DES VERSIONS
 Du plus récent au plus ancien. Ce fichier est mis à jour à chaque version.
 
+=== Thème « Gameplay et inventaire » (0.0.7) ===
+
+0.0.7.1 — Mode de jeu : Survie ou Créatif
+Génération du terrain : version 32 · Menus : version 4.
+Paramètres → Monde (en partie) : mode de jeu Survie ou Créatif, propre à chaque monde ; pour l'instant seulement enregistré.
+
 === Thème « Monde » (0.0.5 et suivantes) ===
 
 0.0.6.25 — Web plus fluide

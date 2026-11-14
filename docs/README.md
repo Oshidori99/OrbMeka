@@ -1,6 +1,15 @@
-# OrbMeka™ — prototype 0.0.6.25
+# OrbMeka™ — prototype 0.0.7.1
 
 Godot 4.7 / GDScript. Formes et couleurs simples ; assets externes seulement sous licence vérifiée (sons CC0, assets/sounds/CREDITS.txt).
+
+## 0.0.7.1 — Mode de jeu : Survie ou Créatif
+Version locale (1 sur 4), première de la série 0.0.7 — Gameplay et inventaire. Génération inchangée (version 32).
+- **Paramètres → Monde** (nouvel onglet tout en haut, seulement en partie) : **Mode de jeu**, Survie à gauche, Créatif à droite.
+- Propre à chaque monde, enregistré aussitôt (worlds.json : « game_mode » ; monde.json : « mode_de_jeu »). Mondes d'avant et nouveaux mondes : Créatif.
+- Pour l'instant le choix est seulement enregistré : il ne change rien au jeu.
+
+Tests réussis : game_mode (nouveau), pause_settings, pause, menu, catalog_restart, developer_return, controls, settings_walk, appearance, character, coordinates, crouch_mode, display_settings, folds, interface_info, key_combos, layout_lines, run_mode (+ tests juridiques).
+À tester manuellement : aspect de l'onglet Monde en partie.
 
 ## 0.0.6.25 — Web plus fluide
 Version publiée (demande de l'utilisateur). Génération inchangée (version 32).

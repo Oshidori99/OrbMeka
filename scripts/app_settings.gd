@@ -380,6 +380,50 @@ func _apply_to_game() -> void:
 	active_world.player.crouch_toggle = settings.control_options.crouch_mode == "toggle"
 	active_world.player.run_mode = settings.control_options.run_mode
 
+# 0.0.7 : section Monde (en partie seulement) : mode de jeu du monde ouvert, Survie à gauche, Créatif à droite.
+# Enregistré aussitôt avec le monde (worlds.json et monde.json) ; pour l'instant, ne change rien d'autre.
+var game_mode_buttons: Dictionary = {}
+
+func _build_world_section(parent: Node) -> void:
+	var box := VBoxContainer.new()
+	box.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_sep(box, 10)
+	parent.add_child(box)
+	settings_sections.world = box
+	var row := HBoxContainer.new()
+	_sep(row, 10)
+	box.add_child(row)
+	var label := _text_label()
+	label.text = "Mode de jeu"
+	label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	row.add_child(label)
+	var group := ButtonGroup.new()
+	for game_mode in [Catalog.GAME_SURVIVAL, Catalog.GAME_CREATIVE]:
+		var button := _button(Catalog.GAME_MODES[game_mode], row, func(): set_world_game_mode(game_mode))
+		button.theme_type_variation = "OrbTab"
+		button.toggle_mode = true
+		button.button_group = group
+		_min_size(button, Vector2(52, 0))
+		game_mode_buttons[game_mode] = button
+	_explanation(box, ["", "Propre à ce monde.", "Propre à ce monde, enregistré avec lui."])
+	box.get_child(-1).theme_type_variation = "OrbNote"
+
+func _refresh_world_section() -> void:
+	var item: Dictionary = catalog.find_world(current_world_id)
+	var current: String = item.get("game_mode", Catalog.GAME_CREATIVE)
+	for game_mode in game_mode_buttons:
+		game_mode_buttons[game_mode].set_pressed_no_signal(game_mode == current)
+
+func set_world_game_mode(game_mode: String) -> void:
+	if current_world_id.is_empty():
+		return
+	if catalog.set_game_mode(current_world_id, game_mode):
+		settings_message.text = "Mode de jeu : %s." % Catalog.GAME_MODES[game_mode]
+	else:
+		settings_message.text = catalog.last_error
+	_refresh_world_section()
+
 func open_pause_settings() -> void:
 	if page != "pause" or not is_instance_valid(active_world):
 		return

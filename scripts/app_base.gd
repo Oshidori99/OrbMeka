@@ -69,7 +69,8 @@ const GENERAL_CATEGORIES := {
 	},
 }
 # Menu latéral de Paramètres : sections dans l'ordre des boutons ; la première s'ouvre par défaut.
-const SETTINGS_SECTIONS := {"general": "Paramètres généraux", "video": "Vidéo", "controls": "Contrôles", "character": "Personnage", "attributes": "Attributs", "licences": "Licences"}
+# 0.0.7 : Monde (réglages du monde en cours, dont le mode de jeu) tout en haut, seulement en partie.
+const SETTINGS_SECTIONS := {"world": "Monde", "general": "Paramètres généraux", "video": "Vidéo", "controls": "Contrôles", "character": "Personnage", "attributes": "Attributs", "licences": "Licences"}
 # 0.0.4.16 : plus d'espace entre catégories, moins entre les lignes (séparées par un trait fin).
 const CATEGORY_GAP := 30.0
 const ROW_GAP := 4

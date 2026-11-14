@@ -174,6 +174,7 @@ func _build_interface() -> void:
 		tab.toggle_mode = true
 		tab.button_group = nav_group
 		settings_tabs[section] = tab
+	_build_world_section(settings_body)
 	for section in GENERAL_CATEGORIES:
 		var box := VBoxContainer.new()
 		box.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -581,7 +582,12 @@ func show_page(next_page: String) -> void:
 	elif page == "settings":
 		_fill_settings()
 		_show_attributes_gate(false)
-		show_settings_section(SETTINGS_SECTIONS.keys()[0])
+		# 0.0.7 : l'onglet Monde n'existe qu'en partie ; hors partie, Paramètres généraux s'ouvre en premier.
+		var in_world := is_instance_valid(active_world)
+		settings_tabs.world.visible = in_world
+		if in_world:
+			_refresh_world_section()
+		show_settings_section("world" if in_world else "general")
 		settings_tabs[settings_section].grab_focus()
 	elif page == "information":
 		information_back_button.grab_focus()
