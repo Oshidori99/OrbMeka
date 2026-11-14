@@ -3,6 +3,10 @@ Du plus récent au plus ancien. Ce fichier est mis à jour à chaque version.
 
 === Thème « Monde » (0.0.5 et suivantes) ===
 
+0.0.6.24 — Lacs en cuvette, rivières plus douces
+Génération du terrain : version 32 (nouvelle) · Menus : version 3.
+Lacs en cuvette à pentes douces, plages de sable, moins de petits lacs, cailloux dans l'eau ; rivières qui entrent tout droit dans les lacs et descendent petit à petit.
+
 0.0.6.23 — Rivières raccordées aux lacs
 Génération du terrain : version 31 (nouvelle) · Menus : version 3.
 Les rivières ne passent plus sous le lac où elles arrivent (ce lac est abaissé, idée de l'utilisateur) ; départ et arrivée raccordés à la surface des lacs.

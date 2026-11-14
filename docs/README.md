@@ -1,6 +1,16 @@
-# OrbMeka™ — prototype 0.0.6.23
+# OrbMeka™ — prototype 0.0.6.24
 
 Godot 4.7 / GDScript. Formes et couleurs simples ; assets externes seulement sous licence vérifiée (sons CC0, assets/sounds/CREDITS.txt).
+
+## 0.0.6.24 — Lacs en cuvette, rivières plus douces
+Version locale (1 sur 4). Fichiers d'eau inchangés ; mondes de la génération 31 identiques (vérifié).
+- **Lacs (génération 32)** : en cuvette, le sol descend vers l'eau en pente douce (environ 1 pour 3) sur une vingtaine de mètres, on en ressort à pied (avant : un mur autour des lacs abaissés) ; un lac sur deux a une plage de sable ; moitié moins de petits lacs (moins de lacs, en moyenne plus grands) ; quelques cailloux dans l'eau peu profonde (moins de 80 cm).
+- **Rivières** : près d'un lac, elles y entrent tout droit (plus de rivière qui longe le lac derrière un petit mur) et ne reviennent jamais longer leur lac de départ ; sortie du lac de montagne par le passage le plus doux ; pente limitée (1 m pour 2 m) : avant une chute, le lit se creuse plus tôt et descend petit à petit ; le lit est creusé un peu dans les lacs au départ et à l'arrivée (sans eau dessinée en double).
+- Mesures (3 graines) : 5 à 10 rivières par monde, toutes depuis un lac de montagne ; berges en l'air environ 1 % ; aucun bord de lac de montagne en l'air ; rives de lacs raides : 1,5 % des pas.
+- Reste : une petite cascade quand un lac de montagne est perché au bord d'une pente raide.
+
+Tests réussis : smooth_terrain (nouveau contrôle des lacs), water, swim, custom_generation, world_consistency, trees, forests, plants, history_resume, prototype (+ tests juridiques).
+À tester manuellement : marcher autour d'un lac et en ressortir, suivre une rivière de son lac jusqu'en bas.
 
 ## 0.0.6.23 — Rivières raccordées aux lacs
 Version locale (1 sur 4). Fichiers d'eau inchangés ; mondes de la génération 30 identiques (vérifié).

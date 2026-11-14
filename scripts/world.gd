@@ -1883,6 +1883,9 @@ func _show_column_river(column: Vector2i) -> void:
 		for index in range(points.size() - 1):
 			if Vector2i(floori(points[index].x / SmoothTerrain.ZONE_SIZE), floori(points[index].y / SmoothTerrain.ZONE_SIZE)) != column:
 				continue
+			# 0.0.6.24 : bouts de lit creusés dans un lac : pas d'eau dessinée (celle du lac suffit).
+			if (index == 0 and river.get("sans_debut", false)) or (index == points.size() - 2 and river.get("sans_fin", false)):
+				continue
 			var ends := []
 			for k in [index, index + 1]:
 				var before: Vector2 = points[maxi(k - 1, 0)]

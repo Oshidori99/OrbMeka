@@ -83,6 +83,7 @@ func setup(terrain_seed: int, flat_spots: Array = [], options: Dictionary = {}) 
 	_rivers_on = int(generation_options.get("version", 0)) >= 20
 	_river_lakes_on = int(generation_options.get("version", 0)) >= 30
 	_rivers_downhill = int(generation_options.get("version", 0)) >= 31
+	_lakes_v32 = int(generation_options.get("version", 0)) >= 32
 	_trees_on = int(generation_options.get("version", 0)) >= 21
 	_tree_sizes_on = int(generation_options.get("version", 0)) >= 22
 	_other_trees_on = int(generation_options.get("version", 0)) >= 23
@@ -1359,7 +1360,7 @@ func _lakes_near(at: Vector2) -> Array:
 		for dz in range(-reach, reach + 1):
 			for lake in _zone_lakes(here + Vector2i(dx, dz)):
 				# Bord, bande de boue et d'argile (9 m) et demi-diagonale de la zone (5,7 m) compris.
-				var margin: float = lake.radius + lake.get("bank", 0.0) + lake.get("wobble", 0.0) + LAKE_SHORE + 15.0
+				var margin: float = lake.radius + lake.get("bank", 0.0) + lake.get("wobble", 0.0) + LAKE_SHORE + 15.0 + (12.0 if version >= 32 else 0.0)
 				if _segment_distance(middle, lake) < margin:
 					result.append(lake)
 	_near_cache[here] = result
@@ -1436,13 +1437,17 @@ func _with_lakes(at: Vector2, height: float) -> float:
 		var bank: float = lake.get("bank", 0.0)
 		# Rive plus large pour les grands bords irréguliers (l'eau ne déborde jamais).
 		var shore: float = LAKE_SHORE + (lake.wobble if lake.has("wobble_scale") else 0.0)
-		if distance >= radius + bank + shore:
+		if distance >= radius + bank + (maxf(shore, LAKE_SLOPE_REACH) if _lakes_v32 else shore):
 			continue
 		var level := lake_level(lake)
 		if distance < radius:
 			height = minf(height, level - 0.15 - lake.depth * (1.0 - smoothstep(radius * 0.3, radius, distance)))
 		else:
 			height = maxf(height, lerpf(level + LAKE_BANK, height, smoothstep(radius + bank, radius + bank + shore, distance)))
+			if _lakes_v32:
+				# Cuvette : le sol autour descend en pente douce (environ 1 pour 3) jusqu'à l'eau, plus raide seulement tout au bout.
+				var out := distance - radius - bank
+				height = minf(height, level + LAKE_BANK + out * LAKE_SLOPE + maxf(0.0, out - LAKE_SLOPE_REACH * 0.7) ** 2 * 0.25)
 	return height
 
 # Lacs qui commencent dans cette zone de 8 m (pour poser l'eau), avec leur niveau.
@@ -1568,9 +1573,14 @@ func _lake_soils(at: Vector2, soil: Dictionary) -> void:
 			# 0.0.6 (version 16) : environ 1 lac sur 3 a une rive de gravier (une plage de petits cailloux).
 			if int(generation_options.get("version", 0)) >= 16 and absi(hash([_seed, roundi(center.x), roundi(center.y), "gravier"])) % 3 == 0:
 				kind = GRAVEL
+			# 0.0.6.24 (version 32) : un lac sur deux a une plage de sable (rive et bord du fond).
+			if _lakes_v32 and absi(hash([_seed, roundi(center.x), roundi(center.y), "plage"])) % 2 == 0:
+				kind = SAND
 		# Fond du lac : boue si le lac en a, sinon argile.
 		if distance < radius:
 			kind = CLAY if int(lake.get("soils", 1)) == 0 else MUD
+			if _lakes_v32 and distance > radius - 2.5 and absi(hash([_seed, roundi(center.x), roundi(center.y), "plage"])) % 2 == 0:
+				kind = SAND
 		if kind == CLAY:
 			depth = 1.5
 		if kind >= 0 and (not soil.has("top") or kind == MUD):
@@ -1706,7 +1716,10 @@ func pebbles_in_zone(area: Vector2i) -> Array:
 					chance = maxf(chance, 0.4)
 		if roll >= chance:
 			continue
-		if water_level_at(at) > ground_height(column) - 0.05 or in_crevasse(at) or cave_open(column):
+		var under := water_level_at(at) - ground_height(column)
+		# 0.0.6.24 (version 32) : quelques cailloux aussi dans l'eau peu profonde des lacs (moins de 80 cm).
+		var shallow := _lakes_v32 and under < 0.8 and river_level_at(at) == -INF
+		if (under > -0.05 and not shallow) or in_crevasse(at) or cave_open(column):
 			continue
 		var near_spot := false
 		for spot in _flat_spots:
@@ -2010,6 +2023,9 @@ func _raw_zone_lakes(area: Vector2i) -> Array:
 	for key in ["lakes_small", "lakes_medium", "lakes_large"]:
 		if info.has(key):
 			var lake: Dictionary = info[key].duplicate()
+			# 0.0.6.24 (version 32) : moitié moins de petits lacs (moins de lacs, en moyenne plus grands).
+			if _lakes_v32 and key == "lakes_small" and absi(hash([_seed, area.x, area.y, "petit lac"])) % 2 == 0:
+				continue
 			lake.wobble = lake.radius * 0.18
 			lake.wobble_scale = 1.3 * 5.0 / lake.radius
 			lake.bank = 1.6
@@ -2057,6 +2073,12 @@ const RIVER_BANK := 1.5
 var _rivers_on := false
 var _river_lakes_on := false
 var _rivers_downhill := false
+# 0.0.6.24 (génération 32) : lacs en cuvette à pentes douces, plages de sable, moins de petits lacs, cailloux dans
+# l'eau peu profonde ; rivières qui entrent tout droit dans les lacs, pente limitée, lit creusé un peu dans les lacs.
+var _lakes_v32 := false
+const LAKE_SLOPE := 0.3
+const LAKE_SLOPE_REACH := 20.0
+const RIVER_MAX_FALL := 1.0
 var _rivers: Array = []
 var _rivers_ready := false
 var _river_zones: Dictionary = {}
@@ -2105,7 +2127,10 @@ func _build_rivers_from_lakes() -> void:
 			var point: Vector2 = center + offset
 			var away := offset.normalized()
 			var lower := _base_height(point + away * 3.0)
-			if lower < outside:
+			# 0.0.6.24 (version 32) : sortie la plus douce (sol dehors sous le lac, mais le moins possible) ; avant : la plus
+			# basse, souvent au bord d'une falaise (l'eau tombait de 7 à 13 m dès la sortie).
+			var better: bool = (lower < level - 0.5 and (outside > level - 0.5 or lower > outside)) if _lakes_v32 else lower < outside
+			if better:
 				outside = lower
 				outlet = point
 				heading = away
@@ -2147,7 +2172,8 @@ func _build_rivers_from_lakes() -> void:
 			for lake in mountain_lakes:
 				if (lake.start as Vector2).distance_to(source_lake.start) > 0.1:
 					near_other_lake = near_other_lake or _lake_distance(best, lake) < lake.radius + lake.get("bank", 0.0) + 2.7 + RIVER_BANK + 1.5
-			if near_other_lake or (index > 3 and _lake_distance(best, source_lake) < source_lake.radius + 1.0):
+			var hugs_source: bool = _lakes_v32 and index > 4 and _lake_distance(best, source_lake) < source_lake.radius + source_lake.get("bank", 0.0) + RIVER_BANK + 2.0
+			if near_other_lake or hugs_source or (index > 3 and _lake_distance(best, source_lake) < source_lake.radius + 1.0):
 				break
 			var loops := false
 			for earlier in range(points.size() - 3):
@@ -2166,12 +2192,31 @@ func _build_rivers_from_lakes() -> void:
 			if not other.is_empty() and other.distance < other.width + RIVER_BANK + 1.0:
 				joined = other
 				break
+			# 0.0.6.24 (version 32) : près de la rive d'un lac de plaine, la rivière y entre tout droit (avant : elle pouvait
+			# longer la rive, séparée du lac par un petit mur).
+			if _lakes_v32:
+				var shore_lake := {}
+				for near_lake in _lakes_near(at):
+					if not near_lake.has("on_mountain") and _lake_distance(at, near_lake) < near_lake.radius + near_lake.get("bank", 0.0) + 6.0:
+						shore_lake = near_lake
+				if not shore_lake.is_empty():
+					var middle_of: Vector2 = (shore_lake.start + shore_lake.end) / 2.0
+					for step in range(8):
+						if not lake_at(at).is_empty():
+							break
+						at += (middle_of - at).normalized() * RIVER_STEP
+						points.append(at)
+						grounds.append(_base_height(at))
 			var lake := lake_at(at)
 			if not lake.is_empty():
 				reached = lake
 				break
 		if points.size() < 8 or (joined.is_empty() and (reached.is_empty() or reached.has("on_mountain"))):
 			continue
+		if _lakes_v32:
+			# Lit creusé 2,5 m dans le lac de départ, sans y dessiner d'eau.
+			points.insert(0, outlet - outward * 2.5)
+			grounds.insert(0, grounds[0])
 		var gap := SURFACE_GAP if _rivers_downhill else 0.0
 		var beds := PackedFloat32Array()
 		var widths := PackedFloat32Array()
@@ -2199,6 +2244,16 @@ func _build_rivers_from_lakes() -> void:
 			lengths.append(0.0 if index == 0 else lengths[index - 1] + RIVER_STEP)
 			beds.append(bed)
 			widths.append(width)
+		# 0.0.6.24 (version 32) : pente limitée (RIVER_MAX_FALL par pas de 2 m) : avant une chute, le lit se creuse plus tôt et
+		# descend petit à petit (avant : d'un coup, un trou où l'eau tombait). La sortie du lac reste à son niveau.
+		# Le lit qui touche encore le lac de départ reste à son niveau (sinon le bord du lac resterait en l'air) : ces premiers
+		# points (keep) ne sont jamais abaissés.
+		var keep := 2
+		while keep < points.size() and _lake_distance(points[keep], source_lake) < source_lake.radius + source_lake.get("bank", 0.0) + widths[keep] * 2.0 + RIVER_BANK + 1.0:
+			keep += 1
+		if _lakes_v32:
+			for index in range(beds.size() - 2, keep - 1, -1):
+				beds[index] = minf(beds[index], beds[index + 1] + RIVER_MAX_FALL)
 		# Arrivée (0.0.6.23) : l'eau finit juste sous la surface du lac ou de la rivière où elle se jette, et ne descend jamais
 		# plus bas (avant : elle passait sous le niveau du lac et se voyait dessous) ; dans un lac, le ruban continue 2,5 m.
 		var last := points.size() - 1
@@ -2223,6 +2278,7 @@ func _build_rivers_from_lakes() -> void:
 				beds[index] = maxf(beds[index], end_bed)
 			beds[last] = end_bed
 			_add_river(points, beds, widths, lengths)
+			_rivers[_rivers.size() - 1].fixe = keep
 			continue
 		var lake_key := lake_id(reached)
 		var lowered: float = minf(_lake_drops.get(lake_key, end_water), lowest)
@@ -2241,8 +2297,17 @@ func _build_rivers_from_lakes() -> void:
 				outside_point = middle_point
 		lengths[last] = lengths[last - 1] + points[last - 1].distance_to(outside_point)
 		points[last] = outside_point
+		if _lakes_v32:
+			# Lit creusé 2,5 m dans le lac (raccord net), sans y dessiner d'eau (celle du lac suffit).
+			points.append(points[points.size() - 1] + (points[points.size() - 1] - points[points.size() - 2]).normalized() * 2.5)
+			beds.append(0.0)
+			widths.append(widths[widths.size() - 1])
+			lengths.append(lengths[lengths.size() - 1] + 2.5)
 		_add_river(points, beds, widths, lengths)
 		_rivers[_rivers.size() - 1].lac = reached
+		if _lakes_v32:
+			_rivers[_rivers.size() - 1].sans_fin = true
+		_rivers[_rivers.size() - 1].fixe = keep
 	# Fin des lacs abaissés : chaque rivière qui arrive dans un lac finit sous sa surface (niveau final, plusieurs rivières
 	# pouvant abaisser le même lac), aussi le long de sa rive (le bord du lac a baissé avec lui).
 	for river: Dictionary in _rivers:
@@ -2255,8 +2320,13 @@ func _build_rivers_from_lakes() -> void:
 		for index in range(beds.size()):
 			if index == beds.size() - 1 or _lake_distance(river.points[index], lake) < reach + river.widths[index] + RIVER_BANK:
 				beds[index] = minf(beds[index], surface_bed) if index < beds.size() - 1 else surface_bed
+		if _lakes_v32:
+			# Lac abaissé : la rivière descend vers lui petit à petit (pente limitée), pas d'un coup à la rive.
+			for index in range(beds.size() - 2, int(river.get("fixe", 2)) - 1, -1):
+				beds[index] = minf(beds[index], beds[index + 1] + RIVER_MAX_FALL)
 		river.beds = beds
 		river.erase("lac")
+		river.erase("fixe")
 
 # Génération 31 : lacs de plaine abaissés par les rivières qui y arrivent (identifiant → niveau).
 var _lake_drops: Dictionary = {}
@@ -2267,6 +2337,8 @@ const SURFACE_GAP := 0.02
 
 func _add_river(points: PackedVector2Array, beds: PackedFloat32Array, widths: PackedFloat32Array, lengths: PackedFloat32Array) -> void:
 	_rivers.append({"points": points, "beds": beds, "widths": widths, "lengths": lengths})
+	if _lakes_v32:
+		_rivers[_rivers.size() - 1].sans_debut = true
 	var river_index := _rivers.size() - 1
 	for index in range(points.size() - 1):
 		var reach: float = widths[index + 1] + RIVER_BANK + 1.0

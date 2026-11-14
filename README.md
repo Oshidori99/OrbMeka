@@ -1,4 +1,4 @@
-# OrbMeka™ 0.0.6.23
+# OrbMeka™ 0.0.6.24
 
 Jeu de construction et d'exploration en 3D, fait avec Godot 4.7.2 (GDScript).
 Monde au terrain lisse qu'on peut creuser et sculpter, généré à partir d'une graine.
@@ -7,7 +7,7 @@ Monde au terrain lisse qu'on peut creuser et sculpter, généré à partir d'une
 - **Windows** : télécharger le zip de la dernière version dans les [Releases](../../releases), puis lancer OrbMeka.exe.
 - **Navigateur** : version Web sur itch.io.
 
-## Ce que contient le jeu (0.0.6.23)
+## Ce que contient le jeu (0.0.6.24)
 - **Monde** de 96 × 96 zones (768 m de côté), découpé en zones de 8 m chargées autour du joueur ;
   même graine = même monde.
 - **Terrain lisse** : creuser, ajouter, aplanir et lisser au pinceau, par morceaux de 50 cm ;
