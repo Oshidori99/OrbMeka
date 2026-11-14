@@ -94,6 +94,21 @@ Génération version 30 (0.0.6.22, #194) : rivières depuis l'exutoire des lacs 
 Génération version 31 (0.0.6.23) : lac de plaine abaissé jusqu'à l'eau la plus basse de la rivière qui y arrive (_lake_drops, 6 m au plus ; rivières tracées dès setup) ; raccords à 2 cm sous la surface des lacs (SURFACE_GAP).
 Génération version 32 (0.0.6.24) : lacs en cuvette (_with_lakes, LAKE_SLOPE), plages de sable (_lake_soils), moitié moins de petits lacs, cailloux dans l'eau peu profonde ; rivières : entrée droite dans les lacs, pente limitée (RIVER_MAX_FALL), lit creusé dans les lacs non dessiné (sans_debut, sans_fin).
 
+## Série 0.0.7 — Gameplay et inventaire (milestone du même nom)
+Le premier vrai gameplay : ramasser, fabriquer à la main un premier outil, survivre. Une petite version à la fois, dans cet ordre :
+1. Inventaire et ramassage : inventaire (peu de place au début), barre d'objets et objet en main, ramasser au sol,
+   lâcher, objets qui tombent quand on casse, sauvegarde de l'inventaire avec le monde.
+2. Bâtons et fibres : branches mortes au sol, rejets de noisetier cassés à la main, casser un bâton à la longueur voulue ;
+   fibres et lianes, tresser la ficelle. Chaque bâton a des qualités (longueur, épaisseur, droit, sain, essence).
+3. Fabrication à la main (originale, sans grille) : objets dans les deux mains, actions selon ce qu'on tient :
+   tailler (étapes de forme préparées, éclats), fendre le bâton, assembler, ficeler (touche maintenue, tours retenus).
+   La taille de la pierre décide de la taille de l'outil.
+4. Outils utiles (hache, pioche, mains nues), ce qu'on regarde à l'écran.
+5. Modes Créatif et Survie, vie, manger pour regagner de la vie, mort et réapparition, sac à dos ou panier.
+6. Jour et nuit, aide pour débuter, carte, retour au point de départ.
+Règles de l'utilisateur : jamais tuer d'animaux ni de robots, rien de gore ; tout doit rester original (aucune mécanique,
+interface ou nom copiés d'un autre jeu). Plus tard (Gameplay 2) : mode Simple de fabrication, feu de camp, coffre, soif, commandes.
+
 ## Rythme de publication
 Publier une version sur 4, ou dès que l'utilisateur dit « publie », puis remettre le compteur à zéro.
 Chaque version locale est une vraie version (demande de l'utilisateur, 07.11.2026) : après 0.0.6.1, les suivantes sont
