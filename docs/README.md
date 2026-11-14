@@ -1,7 +1,12 @@
-# OrbMeka™ — prototype 0.0.6.24
+# OrbMeka™ — prototype 0.0.6.25
 
 Godot 4.7 / GDScript. Formes et couleurs simples ; assets externes seulement sous licence vérifiée (sons CC0, assets/sounds/CREDITS.txt).
 
+## 0.0.6.25 — Web plus fluide
+Version publiée (demande de l'utilisateur). Génération inchangée (version 32).
+- **Web** : ombres du soleil plus légères (carte de 2048 au lieu de 4096, bords sans adoucissement), 4 fois moins de mémoire graphique pour les ombres ; le PC ne change pas.
+- Essai : export Web local lancé dans le navigateur, jeu jouable d'après l'utilisateur (la page d'essais en 0.0.6.24 ne l'était pas).
+- À tester manuellement : aspect des ombres sur le Web (si trop pixelisées, revenir à 4096).
 ## 0.0.6.24 — Lacs en cuvette, rivières plus douces
 Version locale (1 sur 4). Fichiers d'eau inchangés ; mondes de la génération 31 identiques (vérifié).
 - **Lacs (génération 32)** : en cuvette, le sol descend vers l'eau en pente douce (environ 1 pour 3) sur une vingtaine de mètres, on en ressort à pied (avant : un mur autour des lacs abaissés) ; un lac sur deux a une plage de sable ; moitié moins de petits lacs (moins de lacs, en moyenne plus grands) ; quelques cailloux dans l'eau peu profonde (moins de 80 cm).

@@ -3,6 +3,10 @@ Du plus récent au plus ancien. Ce fichier est mis à jour à chaque version.
 
 === Thème « Monde » (0.0.5 et suivantes) ===
 
+0.0.6.25 — Web plus fluide
+Génération du terrain : version 32 · Menus : version 3.
+Version Web : ombres plus légères (carte 2048, sans adoucissement), jeu à nouveau jouable dans le navigateur.
+
 0.0.6.24 — Lacs en cuvette, rivières plus douces
 Génération du terrain : version 32 (nouvelle) · Menus : version 3.
 Lacs en cuvette à pentes douces, plages de sable, moins de petits lacs, cailloux dans l'eau ; rivières qui entrent tout droit dans les lacs et descendent petit à petit.
