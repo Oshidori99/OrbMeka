@@ -15,6 +15,8 @@ const Rocks = preload("res://scripts/rocks.gd")
 const Trees = preload("res://scripts/trees.gd")
 const Plants = preload("res://scripts/plants.gd")
 const Water = preload("res://scripts/water.gd")
+const Inventory = preload("res://scripts/inventory.gd")
+const InventoryUI = preload("res://scripts/inventory_ui.gd")
 const DIRT := 2
 const BLOCK_COLORS := [Color("#d8c291"), Color("#888b90"), Color("#855332")]
 const BLOCK_NAMES := ["Sable", "Pierre", "Terre"]
@@ -43,7 +45,6 @@ var blocks: Dictionary = {}
 var materials: Array[StandardMaterial3D] = []
 var player: CharacterBody3D
 var selection: MeshInstance3D
-var selected_block_label: Label
 var hint: Label
 var coordinates_label: Label
 var fps_label: Label
@@ -126,8 +127,13 @@ func _ready() -> void:
 	player.position = spawn_position()
 	add_child(player)
 	_apply_saved_player(saved_player)
+	# 0.0.7.2 : inventaire relu (ancien monde : vide, sans erreur), dans le mode de jeu du monde.
+	inventory.mode = game_mode
+	inventory.from_dict(saved_player.get("inventaire"))
+	inventory.changed.connect(apply_held)
 	_create_selection()
 	_create_hud()
+	apply_held()
 
 func _setup_inputs() -> void:
 	# Touches choisies dans Paramètres → Contrôles (0.0.3.12), appliquées par le menu ;
@@ -758,22 +764,77 @@ func _rebuild_lawn_tile(tile: Vector2i) -> void:
 const BRUSH_NAMES := ["Poser", "Aplanir", "Lisser"]
 const SIZE_NAMES := ["1/8 de bloc", "1/4 de bloc", "1/2 bloc"]
 const SIZE_CELLS := [1, 2, 4]
-# Matières qu'on peut poser pour l'instant (0.0.5.9 : plus la pierre).
-const PLACEABLE := [0, 2, SmoothTerrain.CLAY, SmoothTerrain.MUD]
-# 0.0.5.13 : la pioche, dans la même sélection (molette : Sable, Terre, Pioche ; touches 1, 2, 3).
+# Matières qu'on peut poser. 0.0.7.2 : plus pierre, calcaire, pierre sombre et silex (inventaire, Matériaux naturels).
+const PLACEABLE := [0, 2, SmoothTerrain.CLAY, SmoothTerrain.MUD, SmoothTerrain.STONE, SmoothTerrain.LIMESTONE, SmoothTerrain.DARK_STONE, SmoothTerrain.FLINT]
+# 0.0.5.13 : la pioche. 0.0.7.2 : plus de choix de matière (molette, touches 1 à 5, texte en haut à gauche) :
+# l'objet en main est la case choisie de la barre d'objets (inventory.gd) ; player.selected_type en est la valeur
+# (matière, PICKAXE, ou -1 : main vide).
 const PICKAXE := 3
-# 0.0.5.20 : argile (touche 4) et boue (touche 5) avant la pioche.
-const SELECTION := [0, 2, SmoothTerrain.CLAY, SmoothTerrain.MUD, PICKAXE]
 
-func choice_name(kind: int) -> String:
-	if kind == SmoothTerrain.CLAY:
-		return "Argile"
-	if kind == SmoothTerrain.MUD:
-		return "Boue"
-	return "Pioche" if kind == PICKAXE else BLOCK_NAMES[kind]
+# 0.0.7.2 : inventaire, barre d'objets et mode de jeu du monde (Paramètres → Monde ; « creative » ou « survival »).
+var game_mode := Inventory.CREATIVE
+var inventory := Inventory.new()
+var inventory_ui: CanvasLayer
+var inventory_open := false
 
-func choice_text(kind: int) -> String:
-	return ("Outil : %s" if kind == PICKAXE else "Matière : %s") % choice_name(kind)
+func held_text() -> String:
+	var name := Inventory.item_name(inventory.held())
+	return name if not name.is_empty() else "Main vide"
+
+func apply_held() -> void:
+	if is_instance_valid(player):
+		player.selected_type = inventory.held_kind()
+
+func set_game_mode(new_mode: String) -> void:
+	game_mode = new_mode
+	inventory.set_mode(new_mode)
+
+# Touches 1 à 9 et 0 : cases 1 à 10 de la barre. En Survie, seules les 4 de droite (7, 8, 9, 0).
+func select_slot(index: int) -> void:
+	if inventory.select(index):
+		show_choice(held_text())
+	else:
+		_notify("Case fermée en Survie : seules les 4 cases de droite servent pour l'instant.")
+
+func cycle_slot(direction: int) -> void:
+	inventory.cycle(direction)
+	show_choice(held_text())
+
+func toggle_inventory() -> void:
+	if inventory_open:
+		close_inventory()
+	else:
+		open_inventory()
+
+func open_inventory() -> void:
+	if inventory_open or not is_instance_valid(inventory_ui):
+		return
+	inventory_open = true
+	player.release_controls()
+	inventory_ui.open()
+	_show_aim(false)
+
+# recapture : la souris revient au jeu (pas en se mettant en pause).
+func close_inventory(recapture: bool = true) -> void:
+	if not inventory_open:
+		return
+	inventory_open = false
+	inventory_ui.close()
+	_show_aim(true)
+	if recapture and DisplayServer.get_name() != "headless":
+		Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
+
+# Croix de visée et message du bas : cachés derrière l'inventaire ouvert (le panneau est un peu transparent).
+func _show_aim(on: bool) -> void:
+	var crosshair: Control = find_child("Crosshair", true, false)
+	if is_instance_valid(crosshair):
+		crosshair.visible = on
+	if is_instance_valid(hint):
+		hint.visible = on
+
+# Message quand une pioche manque : en Créatif, elle est dans l'inventaire (Outils) ; pas encore en Survie.
+func _needs_pickaxe(subject: String) -> String:
+	return subject + (" avec la pioche (inventaire : O + I, onglet Outils)." if game_mode == Inventory.CREATIVE else " avec une pioche : pas encore en Survie.")
 
 func _aimed_ground(hit: Dictionary, reach: float) -> bool:
 	if not _valid_hit(hit, reach):
@@ -845,7 +906,7 @@ func sculpt(hit: Dictionary, add: bool, kind: int = SmoothTerrain.DIRT, cells: i
 		if (terrain.density(point) > 0.0) == add:
 			continue
 		if not add and terrain.is_stone(point) and not pickaxe:
-			message = "La pierre se casse avec la pioche (molette ou touche 3)."
+			message = _needs_pickaxe("La pierre se casse")
 			continue
 		if add and _inside_player(point):
 			message = "Reculez un peu pour ajouter du terrain."
@@ -1038,7 +1099,9 @@ func _generate_block(cell: Vector3i, kind: int) -> void:
 
 func player_data() -> Dictionary:
 	return {"format": Store.FORMAT, "position": [player.position.x, player.position.y, player.position.z],
-		"regard_horizontal": player.rotation.y, "regard_vertical": player.camera.rotation.x}
+		"regard_horizontal": player.rotation.y, "regard_vertical": player.camera.rotation.x,
+		# 0.0.7.2 : inventaire (Survie et Créatif), barre d'objets et case en main.
+		"inventaire": inventory.to_dict()}
 
 func _read_saved_player() -> Dictionary:
 	if save_folder.is_empty():
@@ -1295,14 +1358,14 @@ func break_target(hit: Dictionary) -> bool:
 		if not _valid_hit(hit, player.break_reach):
 			return false
 		if player.selected_type != PICKAXE:
-			_notify("Les cailloux se cassent avec la pioche (molette ou touche 3).")
+			_notify(_needs_pickaxe("Les cailloux se cassent"))
 			return false
 		return strike_pebble(hit.collider)
 	if not hit.is_empty() and is_instance_valid(hit.get("collider")) and hit.collider.is_in_group("rocks"):
 		if not _valid_hit(hit, player.break_reach):
 			return false
 		if player.selected_type != PICKAXE:
-			_notify("Les rochers se cassent avec la pioche (molette ou touche 3).")
+			_notify(_needs_pickaxe("Les rochers se cassent"))
 			return false
 		return mine_rock(hit.collider, hit)
 	var pickaxe: bool = player.selected_type == PICKAXE
@@ -1343,12 +1406,11 @@ static func hit_cell(hit: Dictionary) -> Vector3i:
 func place_target(hit: Dictionary, kind: int) -> bool:
 	if not hit.is_empty() and is_instance_valid(hit.get("collider")) and hit.collider.is_in_group("trees"):
 		return false
-	if kind == PICKAXE and player.brush == 0:
-		_notify("Choisissez du sable ou de la terre pour poser (molette).")
+	# 0.0.7.2 : poser seulement ce qu'on a en main (barre d'objets) ; aplanir et lisser n'ajoutent pas de matière.
+	if player.brush == 0 and not kind in PLACEABLE:
+		_notify("Rien à poser : prenez une matière en main (inventaire : O + I)." if game_mode == Inventory.CREATIVE else "Rien à poser en main.")
 		return false
 	var cells: int = SIZE_CELLS[player.brush_size]
-	if not kind in PLACEABLE:
-		kind = SmoothTerrain.DIRT
 	match player.brush:
 		1:
 			return flatten(hit, cells)
@@ -1409,17 +1471,10 @@ func _create_hud() -> void:
 	left.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	left.add_theme_constant_override("separation",roundi(5 * text_scale))
 	layer.add_child(left)
-	selected_block_label = Label.new()
-	selected_block_label.name = "SelectedBlock"
-	selected_block_label.add_theme_font_size_override("font_size", roundi(18 * text_scale))
-	selected_block_label.add_theme_color_override("font_shadow_color", Color.BLACK)
-	selected_block_label.add_theme_constant_override("shadow_outline_size", 3)
-	selected_block_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	left.add_child(selected_block_label)
-	update_selected_block()
+	# 0.0.7.2 : plus de « Bloc sélectionné » en haut à gauche : l'objet en main se voit dans la barre d'objets.
 	var exploration := Label.new()
 	exploration.name = "ExplorationNotice"
-	exploration.text = "Clic gauche : creuser · clic droit : pinceau (B + T) · taille : B + molette"
+	exploration.text = "Clic gauche : creuser · clic droit : pinceau (B + T) · taille : B + molette · inventaire : O + I"
 	exploration.add_theme_font_size_override("font_size",roundi(14 * text_scale))
 	exploration.add_theme_color_override("font_shadow_color",Color.BLACK)
 	exploration.add_theme_constant_override("shadow_outline_size",3)
@@ -1449,10 +1504,14 @@ func _create_hud() -> void:
 	crosshair.offset_bottom = 24
 	crosshair.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	layer.add_child(crosshair)
+	# 0.0.7.2 : barre d'objets en bas au centre, écran d'inventaire (inventory_ui.gd) ; les messages juste au-dessus.
+	inventory_ui = InventoryUI.new()
+	add_child(inventory_ui)
+	inventory_ui.setup(inventory, text_scale)
 	hint = Label.new()
 	hint.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_WIDE)
-	hint.offset_top = -60
-	hint.offset_bottom = -20
+	hint.offset_bottom = -inventory_ui.hud_height() - 8
+	hint.offset_top = hint.offset_bottom - 40
 	hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	hint.add_theme_font_size_override("font_size", roundi(19 * text_scale))
 	hint.add_theme_color_override("font_shadow_color", Color.BLACK)
@@ -1488,19 +1547,14 @@ func _update_coordinates() -> void:
 # Taille du texte changée en pause (Paramètres, 0.0.3.9) : textes du jeu mis à jour aussitôt.
 func apply_text_scale(scale: float) -> void:
 	text_scale = scale
-	if is_instance_valid(selected_block_label):
-		selected_block_label.add_theme_font_size_override("font_size", roundi(18 * text_scale))
+	if is_instance_valid(hint):
 		hint.add_theme_font_size_override("font_size", roundi(19 * text_scale))
 		coordinates_label.add_theme_font_size_override("font_size", roundi(16 * text_scale))
 		coordinates_label.offset_top = 18 + roundi(80 * text_scale)
 		var exploration: Label = find_child("ExplorationNotice",true,false)
 		exploration.add_theme_font_size_override("font_size",roundi(14 * text_scale))
 		fps_label.add_theme_font_size_override("font_size",roundi(20 * text_scale))
-		selected_block_label.get_parent().add_theme_constant_override("separation",roundi(5 * text_scale))
-
-func update_selected_block() -> void:
-	if is_instance_valid(selected_block_label) and is_instance_valid(player):
-		selected_block_label.text = "Bloc sélectionné : %s" % choice_name(player.selected_type)
+		fps_label.get_parent().add_theme_constant_override("separation",roundi(5 * text_scale))
 
 # 0.0.5.9 : choix du joueur (matière, pinceau, taille), en bas, seulement quand il change.
 func show_choice(message: String) -> void:
@@ -1549,7 +1603,7 @@ func _process(delta: float) -> void:
 static func get_help_text(level: int = 2) -> String:
 	if level == 0:
 		return "ZQSD : marcher. ↑ ↓ + A : vitesse (⌫ ⌫ : défaut). Espace : sauter ; deux fois : voler. Clic gauche : creuser ; droit : poser, aplanir ou lisser (B + T).
-Molette : sable, terre, argile, boue ou pioche ; B + molette : taille. Échap : pause. F1 : mondes. F4 : vue."
+Molette ou 1 à 0 : barre d'objets ; O + I : inventaire ; B + molette : taille. Échap : pause. F1 : mondes. F4 : vue."
 	if level == 1:
 		return "ZQSD / WASD : marcher (← → : de côté). Souris : regarder. Espace : sauter.
 Y : se baisser. R : courir (mode dans Contrôles).
@@ -1557,7 +1611,7 @@ Y : se baisser. R : courir (mode dans Contrôles).
 ⌫ + touche : par défaut ; ⌫ deux fois : tout.
 Espace deux fois : voler (Espace monte, Y descend) ; encore deux fois : arrêter.
 Clic gauche : creuser ; clic droit : pinceau (B + T : poser, aplanir, lisser).
-B + molette : taille du geste (1/8, 1/4, 1/2 bloc). Molette : sable, terre, argile, boue ou pioche.
+B + molette : taille du geste (1/8, 1/4, 1/2 bloc). Molette ou 1 à 0 : barre d'objets. O + I : inventaire.
 Échap : pause. F1 : liste des mondes. F3 : Informations.
 F4 : vue (première personne, de derrière, de devant).
 Portée : %d blocs. Maximum : %d blocs, hauteur %d (Y 0 sur le sol plat).
@@ -1581,13 +1635,13 @@ Nager : dans l'eau profonde, on flotte ; Espace maintenu monte, Y maintenu plong
 R : nager vite ; Espace contre la rive : sortir de l'eau. Les rivières emportent doucement vers l'aval.
 
 Terrain lisse (sous-cellules de 50 cm, 8 par bloc de 1 m) : clic gauche creuse ; clic droit utilise le pinceau
-choisi avec B + T : Poser (sable ou terre, molette ou 1 et 2), Aplanir (sol mis à la hauteur visée)
+choisi avec B + T : Poser (la matière en main), Aplanir (sol mis à la hauteur visée)
 ou Lisser (formes adoucies). B + molette : taille du geste, 1/8, 1/4 ou 1/2 bloc (1, 2 ou 4 sous-cellules).
 Le choix s'affiche en bas quand on le change. Poser : jusqu'à 40 blocs de haut.
 Sous le gazon : 5 m de terre qu'on peut creuser, 10 m de pierre et 10 m de pierre sombre (à la pioche), puis la Roche-mère, incassable.
 Les blocs posés avant sont conservés ; plus de casse ni de pose de blocs pour l'instant.
 
-Molette (ou 1 à 5) : sable, terre, pioche (3), argile (4), boue (5). Avec la pioche, le clic gauche casse aussi la pierre.
+Barre d'objets (molette ou 1 à 0) : l'objet en main. O + I : inventaire (Créatif : Matériaux naturels, Outils ; Survie : 4 cases). Avec la pioche, le clic gauche casse aussi la pierre.
 Le sable reste immobile, même sans support.
 
 Échap : pause et souris libre. Reprendre / Échap : retour direct au jeu.

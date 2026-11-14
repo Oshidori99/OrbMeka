@@ -1,6 +1,19 @@
-# OrbMeka™ — prototype 0.0.7.1
+# OrbMeka™ — prototype 0.0.7.2
 
 Godot 4.7 / GDScript. Formes et couleurs simples ; assets externes seulement sous licence vérifiée (sons CC0, assets/sounds/CREDITS.txt).
+
+## 0.0.7.2 — Inventaire et barre d'objets
+Version locale (2 sur 4). Génération inchangée (version 32).
+- **Plus de choix de matière** : le texte « Bloc sélectionné » en haut à gauche, la molette et les touches 1 à 5 qui choisissaient sable, terre, argile, boue ou pioche sont retirés. On pose seulement ce qu'on a en main.
+- **Barre d'objets** : 10 cases en bas au centre, la case en main encadrée. Molette ou touches 1 à 9 et 0 pour changer de case ; le nom de l'objet s'affiche au-dessus.
+- **Inventaire** (Contrôles → nouvelle partie Inventaire : O et I en même temps ; fermer : O + I ou Échap) : panneau un peu transparent au centre, le monde visible autour ; grille de 5 lignes × 10 colonnes, puis, plus bas et séparée, la barre. Clic gauche : prendre ou poser (échange si la case est occupée) ; clic droit : vider la case.
+- **Créatif** : rien de grisé ; onglets en haut, **Matériaux naturels** (sable, terre, argile, boue, pierre, calcaire, pierre sombre, silex) et **Outils** (la pioche). Objets illimités ; clic droit sur un objet d'un onglet : dans la première case libre.
+- **Survie** : tout est grisé sauf les 4 cases de droite de la barre (touches 7, 8, 9, 0). Inventaire séparé de celui de Créatif (chacun est gardé). Pas de pioche en Survie pour l'instant ; pas encore de ramassage (prochaine version : poids, 5 kg au plus).
+- Pierre, calcaire, pierre sombre et silex se posent à nouveau.
+- **Sauvegarde** : inventaires, barre et case en main dans joueur.json (« inventaire ») ; ancien monde : inventaire vide, sans erreur.
+
+Tests réussis : inventory (nouveau, 42 vérifications), shortcuts_selection, prototype, controls, controls_groups, smooth_terrain, trees, breaking, reach, game_mode, pause_settings, pause, settings_walk, interface_info, key_combos, menu, coordinates, fly, history_resume (+ tests juridiques). Captures hors écran : barre en jeu, inventaire en Créatif et en Survie.
+À tester manuellement : O + I au clavier, clics dans l'inventaire et objet qui suit la souris, molette, Échap.
 
 ## 0.0.7.1 — Mode de jeu : Survie ou Créatif
 Version locale (1 sur 4), première de la série 0.0.7 — Gameplay et inventaire. Génération inchangée (version 32).

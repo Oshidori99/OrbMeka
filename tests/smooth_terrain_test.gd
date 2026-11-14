@@ -240,7 +240,7 @@ func _run() -> void:
 	player.brush_size = 1
 	before_size = world.terrain.changes.size()
 	check(world.break_target(aim(world, Vector3(-30.25, 0.0, -10.25))) and world.terrain.changes.size() - before_size == 2, "1/4 bloc gesture digs 2 sub-cells")
-	check(not world.place_target(aim(world, Vector3(30.25, 0.0, -30.25)), 1) or world.terrain.material(SmoothTerrain.point_of(Vector3(30.25, 0.15, -30.25))) == SmoothTerrain.DIRT, "stone is no longer placed: dirt instead")
+	check(world.place_target(aim(world, Vector3(30.25, 0.0, -30.25)), SmoothTerrain.STONE) and world.terrain.material(SmoothTerrain.point_of(Vector3(30.25, 0.15, -30.25))) == SmoothTerrain.STONE, "stone can be placed again (0.0.7.2, inventaire)")
 	player.brush = 1
 	player.brush_size = 2
 	var mound := Vector3(10.25, 0.0, -20.25)

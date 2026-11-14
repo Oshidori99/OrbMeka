@@ -86,7 +86,7 @@ func _run() -> void:
 	app.control_buttons.place_block.pressed.emit()
 	press_mouse(MOUSE_BUTTON_WHEEL_UP)
 	check(settings.controls.place_block == Controls.normalize({"mouse": MOUSE_BUTTON_WHEEL_UP}) and settings.controls.block_previous == Controls.normalize({}), "wheel can be chosen; taken from its previous action")
-	check(app.settings_message.text.contains("retirée de Bloc précédent"), "message says where the key was taken from")
+	check(app.settings_message.text.contains("retirée de Case précédente (barre)"), "message says where the key was taken from")
 	# ↻ par action et pour tout.
 	app.control_resets.block_previous.pressed.emit()
 	check(settings.controls.block_previous == Controls.normalize({"mouse": MOUSE_BUTTON_WHEEL_UP}) and settings.controls.place_block == Controls.normalize({}), "↻ restores the default and frees it elsewhere")

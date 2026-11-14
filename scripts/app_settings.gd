@@ -420,6 +420,9 @@ func set_world_game_mode(game_mode: String) -> void:
 		return
 	if catalog.set_game_mode(current_world_id, game_mode):
 		settings_message.text = "Mode de jeu : %s." % Catalog.GAME_MODES[game_mode]
+		# 0.0.7.2 : l'inventaire du mode choisi, tout de suite.
+		if is_instance_valid(active_world):
+			active_world.set_game_mode(game_mode)
 	else:
 		settings_message.text = catalog.last_error
 	_refresh_world_section()

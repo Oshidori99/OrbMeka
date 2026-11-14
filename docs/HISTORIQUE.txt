@@ -3,6 +3,10 @@ Du plus récent au plus ancien. Ce fichier est mis à jour à chaque version.
 
 === Thème « Gameplay et inventaire » (0.0.7) ===
 
+0.0.7.2 — Inventaire et barre d'objets
+Génération du terrain : version 32 · Menus : version 5.
+Inventaire (O + I) : grille de 5 × 10 et barre de 10 cases ; Créatif : Matériaux naturels et Outils ; Survie : 4 cases. Plus de choix de matière.
+
 0.0.7.1 — Mode de jeu : Survie ou Créatif
 Génération du terrain : version 32 · Menus : version 4.
 Paramètres → Monde (en partie) : mode de jeu Survie ou Créatif, propre à chaque monde ; pour l'instant seulement enregistré.

@@ -49,8 +49,11 @@ const ACTIONS := {
 	"fly": {"label": "Voler", "default": {"key": KEY_SPACE, "second": {"key": KEY_SPACE}}, "fixed": []},
 	"break_block": {"label": "Casser", "default": {"mouse": MOUSE_BUTTON_LEFT}, "fixed": []},
 	"place_block": {"label": "Poser", "default": {"mouse": MOUSE_BUTTON_RIGHT}, "fixed": []},
-	"block_previous": {"label": "Bloc précédent", "default": {"mouse": MOUSE_BUTTON_WHEEL_UP}, "fixed": []},
-	"block_next": {"label": "Bloc suivant", "default": {"mouse": MOUSE_BUTTON_WHEEL_DOWN}, "fixed": []},
+	# 0.0.7.2 : la molette change de case dans la barre d'objets (avant : de matière) ; mêmes noms d'actions.
+	"block_previous": {"label": "Case précédente (barre)", "default": {"mouse": MOUSE_BUTTON_WHEEL_UP}, "fixed": []},
+	"block_next": {"label": "Case suivante (barre)", "default": {"mouse": MOUSE_BUTTON_WHEEL_DOWN}, "fixed": []},
+	# 0.0.7.2 : ouvrir ou fermer l'inventaire : O et I en même temps (choix de l'utilisateur, O pour « Open », I pour « Inventory »).
+	"inventory": {"label": "Inventaire", "default": {"key": KEY_O, "second": {"key": KEY_I}}, "by_letter": true, "fixed": []},
 	# 0.0.5.10 : pinceau du clic droit (Poser, Aplanir, Lisser) et taille du geste (1/8, 1/4, 1/2 bloc), modifiables.
 	"brush_next": {"label": "Pinceau suivant (clic droit)", "default": {"key": KEY_B, "second": {"key": KEY_T}}, "fixed": []},
 	# 0.0.5.14 : molette vers le haut = plus grand (inversé, demande de l'utilisateur).
@@ -489,7 +492,9 @@ const FORMER_DEFAULTS := {"speed_up": {"key": KEY_UP}, "speed_down": {"key": KEY
 # 0.0.4.20 : les remises par défaut (⌫) dans leur propre partie.
 const GROUPS := {
 	"Mouvements": ["move_forward", "move_back", "move_left", "move_right", "jump", "crouch", "sprint", "fly"],
-	"Blocs": ["break_block", "place_block", "block_previous", "block_next", "brush_next", "size_up", "size_down"],
+	"Blocs": ["break_block", "place_block", "brush_next", "size_up", "size_down"],
+	# 0.0.7.2 : nouvelle partie : l'inventaire et le choix de la case de la barre d'objets.
+	"Inventaire": ["inventory", "block_previous", "block_next"],
 	"Vitesses": ["speed_up", "speed_down", "walk_up", "walk_down", "run_up", "run_down", "break_up", "break_down", "place_up", "place_down"],
 	"Vitesses — réinitialiser": ["move_reset", "walk_reset", "run_reset", "break_reset", "place_reset", "speed_reset_all"],
 	"Raccourcis": ["worlds_menu", "world_info_page", "change_view"],
