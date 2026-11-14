@@ -830,6 +830,42 @@ func _run() -> void:
 					var edge: Vector2 = a + across * side * river.widths[index] * 1.05
 					river_samples += 1
 					river_floating += 1 if flowing.height_at(edge.x, edge.y) < river.beds[index] + SmoothTerrain.RIVER_WATER - 0.1 and flowing.lake_at(edge).is_empty() and flowing.river_level_at(edge) == -INF else 0
+	# 0.0.6.24 (version 32) : lacs en cuvette à pentes douces, plages de sable, cailloux dans l'eau peu profonde.
+	var bowl := SmoothTerrain.new()
+	bowl.setup(3463503054, [[Vector2(0.5, 0.5), 9.0]], load("res://scripts/world_generation.gd").defaults())
+	var shore_samples := 0
+	var shore_steep := 0
+	var beaches := 0
+	var bowl_seen := {}
+	for x in range(-30, 30):
+		for z in range(-30, 30):
+			for lake in bowl._zone_lakes(Vector2i(x, z)):
+				if lake.has("on_mountain") or bowl_seen.has(bowl.lake_id(lake)):
+					continue
+				bowl_seen[bowl.lake_id(lake)] = true
+				var lake_middle: Vector2 = (lake.start + lake.end) / 2.0
+				var beach_found := false
+				for k in range(12):
+					var lake_dir := Vector2.from_angle(TAU * k / 12.0)
+					var lake_reach := 0.0
+					while lake_reach < 60.0 and bowl._lake_distance(lake_middle + lake_dir * lake_reach, lake) < lake.radius + lake.get("bank", 0.0):
+						lake_reach += 0.5
+					var shore_point: Vector2 = lake_middle + lake_dir * (lake_reach - 1.0)
+					var shore_column := Vector2i(roundi(shore_point.x / 0.5), roundi(shore_point.y / 0.5))
+					beach_found = beach_found or bowl.natural_kind(Vector3i(shore_column.x, floori(bowl.ground_height(shore_column) / 0.5), shore_column.y)) == SmoothTerrain.SAND
+					for d in range(10):
+						var shore_a: Vector2 = lake_middle + lake_dir * (lake_reach + d)
+						var shore_b: Vector2 = shore_a + lake_dir
+						shore_samples += 1
+						shore_steep += 1 if absf(bowl.height_at(shore_b.x, shore_b.y) - bowl.height_at(shore_a.x, shore_a.y)) > 0.7 else 0
+				beaches += 1 if beach_found else 0
+	var wet_pebbles := 0
+	for x in range(-30, 30):
+		for z in range(-30, 30):
+			for pebble in bowl.pebbles_in_zone(Vector2i(x, z)):
+				var wet_spot := Vector2(pebble.x, pebble.z)
+				wet_pebbles += 1 if bowl.water_level_at(wet_spot) > bowl.height_at(wet_spot.x, wet_spot.y) else 0
+	check(shore_steep * 20 < shore_samples and beaches > 0 and wet_pebbles > 0, "generation 32: lakes in gentle bowls (%d steep of %d shore steps), %d with a sand beach of %d, %d pebbles in shallow water" % [shore_steep, shore_samples, beaches, bowl_seen.size(), wet_pebbles])
 	# 0.0.6.23 (version 31) : jamais sous le lac où elles arrivent (lacs abaissés si besoin).
 	var below_lake := 0
 	for seed_value in [3463503054]:
