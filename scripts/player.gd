@@ -134,11 +134,12 @@ var view_camera: Camera3D
 var fly_up := FLY_VERTICAL
 var fly_down := FLY_VERTICAL
 var input_ready_frame := -1
-var selected_type := 0:
+# 0.0.7.2 : valeur de l'objet en main (case choisie de la barre d'objets, world.apply_held) : matière à poser,
+# world.PICKAXE, ou -1 (main vide).
+var selected_type := -1:
 	set(value):
 		selected_type = value
 		if is_instance_valid(world):
-			world.update_selected_block()
 			_update_pickaxe()
 var world: Node3D
 # 0.0.5.9 : pinceau du clic droit (0 poser, 1 aplanir, 2 lisser ; B + T) et taille du geste
@@ -180,28 +181,18 @@ func _input(event: InputEvent) -> void:
 func _unhandled_input(event: InputEvent) -> void:
 	if Engine.get_process_frames() <= input_ready_frame:
 		return
+	# 0.0.7.2 : inventaire ouvert : ses clics et Échap sont à lui (la souris ne revient pas au jeu).
+	if is_instance_valid(world) and world.get("inventory_open") == true:
+		return
 	# Changer de vue en combinaison (0.0.5.10, touche modifiable) : arrive comme une action.
 	if event is InputEventAction and event.is_action_pressed("change_view"):
 		cycle_view()
 	if event is InputEventKey and event.pressed and not event.echo:
 		if event.keycode == KEY_ESCAPE:
 			release_controls()
-		elif event.keycode == KEY_1 or event.physical_keycode == KEY_1:
-			selected_type = 0
-			world.show_choice(world.choice_text(selected_type))
-		elif event.keycode == KEY_2 or event.physical_keycode == KEY_2:
-			selected_type = 2
-			world.show_choice(world.choice_text(selected_type))
-		elif event.keycode == KEY_3 or event.physical_keycode == KEY_3:
-			selected_type = world.PICKAXE
-			world.show_choice(world.choice_text(selected_type))
-		# 0.0.5.20 : 4 : argile, 5 : boue.
-		elif event.keycode == KEY_4 or event.physical_keycode == KEY_4:
-			selected_type = world.SmoothTerrain.CLAY
-			world.show_choice(world.choice_text(selected_type))
-		elif event.keycode == KEY_5 or event.physical_keycode == KEY_5:
-			selected_type = world.SmoothTerrain.MUD
-			world.show_choice(world.choice_text(selected_type))
+		# 0.0.7.2 : touches 1 à 9 et 0 : cases 1 à 10 de la barre d'objets (avant : 1 à 5, une matière ou la pioche).
+		elif slot_key(event) >= 0:
+			world.select_slot(slot_key(event))
 		elif event.is_action_pressed("change_view", false, true):
 			cycle_view()
 	if event is InputEventMouseMotion and Input.mouse_mode == Input.MOUSE_MODE_CAPTURED:
@@ -216,6 +207,9 @@ func _unhandled_input(event: InputEvent) -> void:
 			return
 	if Input.mouse_mode != Input.MOUSE_MODE_CAPTURED:
 		return
+	# 0.0.7.3 : Ramasser (R par défaut) : l'objet visé (au sol, ou un petit caillou), main gauche puis droite.
+	if event.is_action_pressed("pick_up") and is_instance_valid(world) and world.has_method("pick_up"):
+		world.pick_up(get_target())
 	# Casser, poser, changer de bloc : touches ou boutons de Paramètres → Contrôles.
 	# Un clic avec ↑, ↓ ou ⌫ (0.0.4.6) règle la casse ou la pose : il ne casse ni ne pose.
 	if event.is_action_pressed("break_block"):
@@ -244,12 +238,18 @@ func turn_view(motion: Vector2) -> void:
 	rotate_y(-motion.x * sensitivity)
 	camera.rotation.x = clampf(camera.rotation.x - motion.y * sensitivity, deg_to_rad(-89.0), deg_to_rad(89.0))
 
-# 0.0.5.13 : sélection Sable → Terre → Pioche (plus la pierre à poser) ; 0.0.5.20 : + Argile et Boue (molette :
-# Sable, Terre, Argile, Boue, Pioche ; touches 1 sable, 2 terre, 3 pioche, 4 argile, 5 boue).
+# Case de la barre pour une touche chiffre (1 → 0, …, 9 → 8, 0 → 9) ; -1 pour une autre touche.
+static func slot_key(event: InputEventKey) -> int:
+	for code in [event.physical_keycode, event.keycode]:
+		if code >= KEY_1 and code <= KEY_9:
+			return code - KEY_1
+		if code == KEY_0:
+			return 9
+	return -1
+
+# 0.0.7.2 : molette (Case précédente / suivante) : case ouverte suivante de la barre d'objets.
 func cycle_block(direction: int) -> void:
-	var order: Array = world.SELECTION
-	selected_type = order[wrapi(maxi(order.find(selected_type), 0) + direction, 0, order.size())]
-	world.show_choice(world.choice_text(selected_type))
+	world.cycle_slot(direction)
 
 # Pioche tenue en main, en vue à la première personne, quand elle est choisie.
 var pickaxe: Node3D
@@ -420,7 +420,11 @@ func _physics_process(delta: float) -> void:
 	else:
 		update_crouch(active, Input.is_action_pressed("crouch"), Input.is_action_just_pressed("crouch"))
 	# En vol, Espace monte : ce n'est pas un saut qui arrête la course (Maintenir conditionnel).
-	update_run(active, Input.is_action_pressed("sprint"), Input.is_action_just_pressed("sprint"), direction != Vector2.ZERO, jump_requested and not flying)
+	# 0.0.7.3 : R + I maintenus (Récupérer une poignée) : R ne fait pas courir pendant ce temps.
+	var gathering := active and Input.is_action_pressed("gather")
+	update_run(active, Input.is_action_pressed("sprint") and not gathering, Input.is_action_just_pressed("sprint") and not gathering, direction != Vector2.ZERO, jump_requested and not flying)
+	if is_instance_valid(world) and world.has_method("step_gather"):
+		world.step_gather(delta, gathering)
 	var changes := {}
 	var resets := []
 	for target in ["walk", "run", "break", "place"]:

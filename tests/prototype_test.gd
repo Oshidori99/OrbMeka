@@ -69,7 +69,7 @@ func _run() -> void:
 			spawn_clear = false
 	check(spawn_clear, "spawn capsule does not intersect any block")
 	check(Input.mouse_mode == Input.MOUSE_MODE_VISIBLE, "startup leaves mouse free")
-	check(ProjectSettings.get_setting("application/config/version") == "0.0.6.25", "project version is 0.0.6.25")
+	check(ProjectSettings.get_setting("application/config/version") == "0.0.7.4", "project version is 0.0.7.4")
 	for action in ["move_forward", "move_back", "move_left", "move_right", "jump"]:
 		check(InputMap.has_action(action), "input binding: " + action)
 	# Marche testée dans l'aire dégagée (l'apparition en 0, 0 fait face aux blocs de démonstration).
@@ -149,6 +149,9 @@ func _run() -> void:
 	event.pressed = true
 	player._unhandled_input(event)
 	check(Input.mouse_mode == Input.MOUSE_MODE_VISIBLE, "Escape keeps mouse free")
+	# 0.0.7.2 : les touches choisissent une case de la barre d'objets (ici : sable, terre, pioche).
+	for pair in [[0, "sable"], [1, "terre"], [2, "pioche"]]:
+		world.inventory.put("bar", pair[0], {"objet": pair[1]})
 	event.keycode = KEY_2
 	player._unhandled_input(event)
 	check(player.selected_type == 2, "key 2 selects dirt (no stone to place since 0.0.5.9)")

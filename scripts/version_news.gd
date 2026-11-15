@@ -3,8 +3,14 @@ extends RefCounted
 # Les versions de la génération sont celles enregistrées avec chaque monde (world_generation.gd) ; la version des menus
 # compte les changements des menus depuis 0.0.6 (1 : menus de 0.0.5.37 et avant). À compléter à chaque version.
 const Generation = preload("res://scripts/world_generation.gd")
-const MENUS_VERSION := 3
+const MENUS_VERSION := 7
 const MENUS := [
+	{"menu": "Inventaire", "version": "0.0.7.4", "text": "icônes en petits tas texturés, onglets en images, lignes des mains et des poches, nom et poids sous les cases"},
+	{"menu": "Inventaire", "version": "0.0.7.3", "text": "Survie : deux mains et quatre poches, poids sous chaque case, icônes rondes"},
+	{"menu": "Contrôles", "version": "0.0.7.3", "text": "Inventaire : Ramasser (R) et Récupérer une poignée (R + I)"},
+	{"menu": "Inventaire", "version": "0.0.7.2", "text": "nouveau (O + I) : grille de 5 × 10, barre d'objets, catégories en Créatif"},
+	{"menu": "Contrôles", "version": "0.0.7.2", "text": "partie Inventaire : O + I, case précédente et suivante de la barre"},
+	{"menu": "Paramètres", "version": "0.0.7.1", "text": "onglet Monde en partie : mode de jeu Survie ou Créatif"},
 	{"menu": "Contrôles", "version": "0.0.6.1", "text": "Échap et un clic ailleurs annulent, ✕ pour désactiver une touche seule (Aucune)"},
 	{"menu": "Mes mondes", "version": "0.0.6", "text": "« ! » jaune des mondes d'anciennes générations, listes sécurisées en onglets, sous-dossiers, déplacement des mondes"},
 	{"menu": "Paramètres", "version": "0.0.6", "text": "Paramètres généraux → Mondes : cacher les anciens mondes, dossiers sécurisés, rangement automatique"},

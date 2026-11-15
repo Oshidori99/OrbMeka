@@ -31,7 +31,7 @@ func fly(player: CharacterBody3D, direction: Vector2, steps: int) -> float:
 func _run() -> void:
 	root.size = Vector2i(1280, 720)
 	# Parties.
-	check(Controls.GROUPS.keys() == ["Mouvements", "Blocs", "Vitesses", "Vitesses — réinitialiser", "Raccourcis"], "groups: Mouvements, Blocs, Vitesses, Vitesses — réinitialiser, Raccourcis (then Menus)")
+	check(Controls.GROUPS.keys() == ["Mouvements", "Blocs", "Inventaire", "Vitesses", "Vitesses — réinitialiser", "Raccourcis"], "groups: Mouvements, Blocs, Inventaire (0.0.7.2), Vitesses, Vitesses — réinitialiser, Raccourcis (then Menus)")
 	var seen := []
 	for group in Controls.GROUPS:
 		seen.append_array(Controls.GROUPS[group])
@@ -87,7 +87,7 @@ func _run() -> void:
 	app.catalog = load("res://scripts/world_catalog.gd").new(fixture + ".worlds")
 	root.add_child(app)
 	await process_frame
-	var titles: Array = ["Mouvements", "Blocs", "Vitesses", "Vitesses — réinitialiser", "Raccourcis", "Menus"]
+	var titles: Array = ["Mouvements", "Blocs", "Inventaire", "Vitesses", "Vitesses — réinitialiser", "Raccourcis", "Menus"]
 	var ordered := titles.all(func(title): return app.control_group_labels.has(title))
 	# 0.0.4.22 : le titre d'une partie est dans une ligne avec son ↻ (sauf Menus).
 	var list: Node = app.control_group_labels.Menus.get_parent()
@@ -96,7 +96,7 @@ func _run() -> void:
 		return label.get_index() if label.get_parent() == list else label.get_parent().get_index()
 	for index in range(titles.size() - 1):
 		ordered = ordered and head.call(titles[index]) < head.call(titles[index + 1])
-	check(ordered and app.control_group_labels.Menus.text == "▾ Menus", "six titled parts in order (▾ : repliables, 0.0.4.14 ; Raccourcis 0.0.5.10)")
+	check(ordered and app.control_group_labels.Menus.text == "▾ Menus", "seven titled parts in order (Inventaire 0.0.7.2) (▾ : repliables, 0.0.4.14 ; Raccourcis 0.0.5.10)")
 	var placed := true
 	for index in range(Controls.GROUPS.size()):
 		var group: String = titles[index]

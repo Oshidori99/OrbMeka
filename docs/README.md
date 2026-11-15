@@ -1,6 +1,54 @@
-# OrbMeka™ — prototype 0.0.6.25
+# OrbMeka™ — prototype 0.0.7.4
 
 Godot 4.7 / GDScript. Formes et couleurs simples ; assets externes seulement sous licence vérifiée (sons CC0, assets/sounds/CREDITS.txt).
+
+## 0.0.7.4 — Inventaire plus joli, mains et poches plus grandes
+Version publiée (4 sur 4, correction demandée par l'utilisateur). Génération inchangée (version 32).
+- **Reposer un objet** : caillou ou éclat en main, clic droit : il est posé au sol là où l'on vise.
+- **Poids** : 1 kg pour les deux mains ensemble, 500 g pour les quatre poches ensemble ; cailloux de 50 g à 2 kg selon la taille (inchangés) ; les deux plus gros ne se ramassent pas.
+- **Icônes** : de petits tas où l'on voit la texture (grains de sable, mottes de terre, argile fendillée, boue luisante, graviers, morceaux de pierre), galets mouchetés, éclats à facettes ; pioche, main et poche en petits dessins de jeu vidéo. Faites dans le jeu, une seule fois (42 ms pour toutes sur PC), sans fichier à télécharger.
+- **Créatif** : onglets en images (cinq petits tas : Matériaux naturels ; la pioche : Outils), le nom en bulle d'aide.
+- **Survie, écran O + I** : une ligne pour les mains (image de main, deux cases, « 550,0 g / 1,000 kg » à droite), une ligne pour les poches (image de poche, quatre cases, leur poids).
+- **Sous chaque case** : le nom de l'objet, puis son poids (barre en jeu et inventaire). En bas à droite en jeu : poids des mains et des poches, 4 pixels plus grand.
+
+Tests réussis : inventory (71 vérifications : limites de 1 kg et 500 g, reposer au sol, icônes, onglets en images, lignes des mains et des poches), shortcuts_selection, prototype, controls, controls_groups, key_combos, smooth_terrain, trees, breaking, reach, game_mode, pause_settings, pause, settings_walk, interface_info, menu, run_mode, fly, history_resume (+ tests juridiques). Captures hors écran : planche des icônes, Survie en jeu et inventaire, Créatif.
+À tester manuellement : clic droit pour reposer un caillou, aspect des icônes et des noms sous les cases sur le Web.
+
+## 0.0.7.3 — Mains, poches et objets au sol
+Version locale (3 sur 4). Génération inchangée (version 32). Décision de l'utilisateur du 15.11.2026 (issue #40) : presque pas d'inventaire au début.
+- **Survie : deux mains et quatre poches**, plus de grille ni de cases grisées. Barre : case 1 main gauche, case 2 main droite (400 g chacune), cases 3 à 6 les poches (150 g en tout) ; plus tard, sacs et paniers ajouteront des cases (10 au plus). Poids sous chaque case (rien sous une case vide) et total des poches en bas à droite. Poids toujours en 4 chiffres, de 1,000 à 999,9 par unité (mg, g, kg, Mg).
+- **Piles** : seuls des objets vraiment identiques s'empilent (même objet, même taille, même poids), selon le poids permis.
+- **Creuser en Survie** : la terre, le sable, l'argile, la boue ou le gravier ne donnent pas d'objet : ils sont rejetés derrière soi en petit tas ; jamais dans le trou qu'on creuse, jamais assez haut pour boucher un passage (2 m libres au-dessus) ; mur derrière : sur le côté.
+- **Récupérer une poignée** (R et I maintenus, Contrôles → Inventaire) : visée sur un tas ou le sol, une poignée après 1 s (plus long que creuser) ; dans les mains, puis les poches. Poids : sable 120 g, terre 100 g, argile 130 g, boue 150 g, gravier 140 g. **Poser** utilise une poignée par sous-cellule.
+- **Pierre cassée à la pioche** (aussi en Créatif) : deux petits morceaux de 125 g par sous-cellule tombent à côté du joueur ; cailloux cassés et rochers creusés aussi. **Ramasser** (R, comme Courir : seulement si un objet est visé) : main gauche, sinon main droite, puis poches ; aussi les petits cailloux et silex du monde (jusqu'à 400 g).
+- **Objets au sol** : tout petits modèles, chacun visible à sa place, dessinés ensemble par type ; sauvegardés dans objets.json (« objets_au_sol »). Ce qui ne tient plus dans l'inventaire est posé au sol, jamais perdu.
+- **Icônes** : rondes pour les matières (demande de l'utilisateur), ovales pour les cailloux, anguleuses pour les éclats ; nombre dans le coin. Gravier ajouté aux Matériaux naturels.
+- Pas encore de pioche en Survie ; pas encore de lancer d'objets.
+
+Tests réussis : inventory (68 vérifications : poids, piles, mains, poches, R, R + I, terre rejetée, morceaux au sol, sauvegarde), shortcuts_selection, prototype, controls, controls_groups, key_combos, smooth_terrain, trees, breaking, reach, game_mode, pause_settings, pause, settings_walk, interface_info, menu, run_mode, crouch, fly, swim, water, history_resume (+ tests juridiques). Captures hors écran : Survie en jeu et inventaire, Créatif.
+À tester manuellement : R et R + I au clavier (R fait aussi courir), creuser en Survie près d'un mur ou dans un tunnel, aspect des morceaux au sol.
+
+## 0.0.7.2 — Inventaire et barre d'objets
+Version locale (2 sur 4). Génération inchangée (version 32).
+- **Plus de choix de matière** : le texte « Bloc sélectionné » en haut à gauche, la molette et les touches 1 à 5 qui choisissaient sable, terre, argile, boue ou pioche sont retirés. On pose seulement ce qu'on a en main.
+- **Barre d'objets** : 10 cases en bas au centre, la case en main encadrée. Molette ou touches 1 à 9 et 0 pour changer de case ; le nom de l'objet s'affiche au-dessus.
+- **Inventaire** (Contrôles → nouvelle partie Inventaire : O et I en même temps ; fermer : O + I ou Échap) : panneau un peu transparent au centre, le monde visible autour ; grille de 5 lignes × 10 colonnes, puis, plus bas et séparée, la barre. Clic gauche : prendre ou poser (échange si la case est occupée) ; clic droit : vider la case.
+- **Créatif** : rien de grisé ; onglets en haut, **Matériaux naturels** (sable, terre, argile, boue, pierre, calcaire, pierre sombre, silex) et **Outils** (la pioche). Objets illimités ; clic droit sur un objet d'un onglet : dans la première case libre.
+- **Survie** : tout est grisé sauf les 4 cases de droite de la barre (touches 7, 8, 9, 0). Inventaire séparé de celui de Créatif (chacun est gardé). Pas de pioche en Survie pour l'instant ; pas encore de ramassage (prochaine version : poids, 5 kg au plus).
+- Pierre, calcaire, pierre sombre et silex se posent à nouveau.
+- **Sauvegarde** : inventaires, barre et case en main dans joueur.json (« inventaire ») ; ancien monde : inventaire vide, sans erreur.
+
+Tests réussis : inventory (nouveau, 42 vérifications), shortcuts_selection, prototype, controls, controls_groups, smooth_terrain, trees, breaking, reach, game_mode, pause_settings, pause, settings_walk, interface_info, key_combos, menu, coordinates, fly, history_resume (+ tests juridiques). Captures hors écran : barre en jeu, inventaire en Créatif et en Survie.
+À tester manuellement : O + I au clavier, clics dans l'inventaire et objet qui suit la souris, molette, Échap.
+
+## 0.0.7.1 — Mode de jeu : Survie ou Créatif
+Version locale (1 sur 4), première de la série 0.0.7 — Gameplay et inventaire. Génération inchangée (version 32).
+- **Paramètres → Monde** (nouvel onglet tout en haut, seulement en partie) : **Mode de jeu**, Survie à gauche, Créatif à droite.
+- Propre à chaque monde, enregistré aussitôt (worlds.json : « game_mode » ; monde.json : « mode_de_jeu »). Mondes d'avant et nouveaux mondes : Créatif.
+- Pour l'instant le choix est seulement enregistré : il ne change rien au jeu.
+
+Tests réussis : game_mode (nouveau), pause_settings, pause, menu, catalog_restart, developer_return, controls, settings_walk, appearance, character, coordinates, crouch_mode, display_settings, folds, interface_info, key_combos, layout_lines, run_mode (+ tests juridiques).
+À tester manuellement : aspect de l'onglet Monde en partie.
 
 ## 0.0.6.25 — Web plus fluide
 Version publiée (demande de l'utilisateur). Génération inchangée (version 32).

@@ -37,19 +37,21 @@ func _run() -> void:
 	var player: CharacterBody3D = world.player
 	await process_frame
 	await process_frame
-	check(world.selected_block_label.text == "Bloc sélectionné : Sable", "initial selected block is displayed")
-	# 0.0.5.9 : seulement le sable et la terre (2 et 3 : terre).
+	# 0.0.7.2 : plus de « Bloc sélectionné » en haut à gauche : l'objet en main est la case choisie de la barre d'objets.
+	check(world.find_child("SelectedBlock", true, false) == null, "no selected block text at the top left")
+	for pair in [[0, "sable"], [1, "terre"], [2, "pioche"]]:
+		world.inventory.put("bar", pair[0], {"objet": pair[1]})
 	for pair in [[KEY_2, "Terre"], [KEY_1, "Sable"], [KEY_3, "Pioche"], [KEY_1, "Sable"]]:
 		key(pair[0])
-		check(world.selected_block_label.text == "Bloc sélectionné : " + pair[1], "number key immediately updates " + pair[1])
+		check(world.held_text() == pair[1] and world.notice == pair[1], "number key immediately selects " + pair[1])
 	# Same cycling function called by the wheel handler; no OS mouse input.
-	for expected in ["Terre", "Argile", "Boue", "Pioche", "Sable"]:
+	for expected in ["Terre", "Pioche", "Main vide"]:
 		player.cycle_block(1)
-		check(world.selected_block_label.text == "Bloc sélectionné : " + expected, "wheel forward cycle updates " + expected)
+		check(world.held_text() == expected, "wheel forward cycle selects " + expected)
 	player.cycle_block(-1)
-	check(world.selected_block_label.text == "Bloc sélectionné : Pioche", "wheel reverse wraps to the pickaxe")
-	check(world.notice == "Outil : Pioche", "choice shown at the bottom")
-	check(world.selected_block_label.global_position == Vector2(18, 18) and world.selected_block_label.mouse_filter == Control.MOUSE_FILTER_IGNORE, "discreet top-left indicator does not intercept clicks")
+	player.cycle_block(-1)
+	check(world.held_text() == "Terre" and player.selected_type == 2, "wheel backward")
+	check(world.inventory_ui.hud_bar.mouse_filter == Control.MOUSE_FILTER_IGNORE and world.inventory_ui.hud_slots.all(func(slot): return slot.mouse_filter == Control.MOUSE_FILTER_IGNORE), "bar does not intercept clicks")
 	check(world.find_child("Help", true, false) == null, "old help panel remains absent")
 	player.position.y = 4
 	player.actions.set_place_pressed(true, true)

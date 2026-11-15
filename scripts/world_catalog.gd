@@ -11,6 +11,11 @@ const MAX_SEED := 4294967295
 const MODE_DEFAULT := "default"
 const MODE_DEVELOPER := "developer"
 const MODE_NAMES := {MODE_DEFAULT: "Par défaut", MODE_DEVELOPER: "Mode développeur"}
+# 0.0.7 : mode de jeu du monde (Paramètres → Monde, en partie), propre à chaque monde ; pour l'instant
+# seulement enregistré. Monde sans ce champ (d'avant 0.0.7) : créatif, comme il se jouait jusque-là.
+const GAME_SURVIVAL := "survival"
+const GAME_CREATIVE := "creative"
+const GAME_MODES := {GAME_SURVIVAL: "Survie", GAME_CREATIVE: "Créatif"}
 var worlds: Array[Dictionary] = []
 var last_error := ""
 var load_error := ""
@@ -170,6 +175,7 @@ func _load_worlds() -> void:
 		# Avant 0.0.4.10 (sans developer_used) : utilisé si le monde est en mode développeur.
 		var used: bool = item.get("developer_used", mode == MODE_DEVELOPER) == true or mode == MODE_DEVELOPER
 		var entry := {"id": item.id, "name": clean_name, "seed": int(seed_value), "mode": mode, "developer_used": used, "created": str(item.get("created", "")), "generation": Generation.normalized(item.get("generation", {}))}
+		entry.game_mode = item.get("game_mode") if GAME_MODES.has(item.get("game_mode")) else GAME_CREATIVE
 		# 0.0.5.20 : dossier au nom du monde, refusé s'il n'est pas propre (jamais de chemin dangereux).
 		if item.has("folder"):
 			if not item.folder is String or not Store.valid_folder_name(item.folder):
@@ -318,6 +324,29 @@ func disable_developer_mode(id: String) -> bool:
 			worlds[index]["mode"] = MODE_DEFAULT
 			if not _save_worlds():
 				worlds[index]["mode"] = MODE_DEVELOPER
+				return false
+			_write_base_for(id)
+			return true
+	last_error = "Ce monde n'existe plus."
+	return false
+
+# 0.0.7 : mode de jeu (Survie ou Créatif) du monde, enregistré dans worlds.json et monde.json.
+func set_game_mode(id: String, game_mode: String) -> bool:
+	last_error = ""
+	if not load_error.is_empty():
+		last_error = load_error
+		return false
+	if not GAME_MODES.has(game_mode):
+		last_error = "Mode de jeu inconnu."
+		return false
+	for index in range(worlds.size()):
+		if worlds[index].id == id:
+			var before: String = worlds[index].get("game_mode", GAME_CREATIVE)
+			if before == game_mode:
+				return true
+			worlds[index]["game_mode"] = game_mode
+			if not _save_worlds():
+				worlds[index]["game_mode"] = before
 				return false
 			_write_base_for(id)
 			return true

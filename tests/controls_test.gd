@@ -51,7 +51,7 @@ func _run() -> void:
 	root.add_child(app)
 	current_scene = app
 	await process_frame
-	check(app.settings_tabs.keys() == ["general", "video", "controls", "character", "attributes", "licences"], "Contrôles tab after Vidéo (Licences last, 0.0.4.17)")
+	check(app.settings_tabs.keys() == ["world", "general", "video", "controls", "character", "attributes", "licences"], "Monde first (0.0.7), Contrôles tab after Vidéo (Licences last, 0.0.4.17)")
 	check(has_key("move_forward", KEY_W) and not has_key("move_forward", KEY_UP) and has_key("move_left", KEY_LEFT) and has_mouse("break_block", MOUSE_BUTTON_LEFT) and has_mouse("place_block", MOUSE_BUTTON_RIGHT), "defaults applied to the game")
 	check(has_mouse("block_previous", MOUSE_BUTTON_WHEEL_UP) and has_mouse("block_next", MOUSE_BUTTON_WHEEL_DOWN), "mouse wheel changes the block by default")
 	app.show_page("settings")
@@ -86,7 +86,7 @@ func _run() -> void:
 	app.control_buttons.place_block.pressed.emit()
 	press_mouse(MOUSE_BUTTON_WHEEL_UP)
 	check(settings.controls.place_block == Controls.normalize({"mouse": MOUSE_BUTTON_WHEEL_UP}) and settings.controls.block_previous == Controls.normalize({}), "wheel can be chosen; taken from its previous action")
-	check(app.settings_message.text.contains("retirée de Bloc précédent"), "message says where the key was taken from")
+	check(app.settings_message.text.contains("retirée de Case précédente (barre)"), "message says where the key was taken from")
 	# ↻ par action et pour tout.
 	app.control_resets.block_previous.pressed.emit()
 	check(settings.controls.block_previous == Controls.normalize({"mouse": MOUSE_BUTTON_WHEEL_UP}) and settings.controls.place_block == Controls.normalize({}), "↻ restores the default and frees it elsewhere")

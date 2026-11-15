@@ -174,6 +174,7 @@ func _build_interface() -> void:
 		tab.toggle_mode = true
 		tab.button_group = nav_group
 		settings_tabs[section] = tab
+	_build_world_section(settings_body)
 	for section in GENERAL_CATEGORIES:
 		var box := VBoxContainer.new()
 		box.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -581,7 +582,12 @@ func show_page(next_page: String) -> void:
 	elif page == "settings":
 		_fill_settings()
 		_show_attributes_gate(false)
-		show_settings_section(SETTINGS_SECTIONS.keys()[0])
+		# 0.0.7 : l'onglet Monde n'existe qu'en partie ; hors partie, Paramètres généraux s'ouvre en premier.
+		var in_world := is_instance_valid(active_world)
+		settings_tabs.world.visible = in_world
+		if in_world:
+			_refresh_world_section()
+		show_settings_section("world" if in_world else "general")
 		settings_tabs[settings_section].grab_focus()
 	elif page == "information":
 		information_back_button.grab_focus()
@@ -962,6 +968,8 @@ func open_world(id: String) -> void:
 	active_world.developer_mode = developer
 	active_world.developer_used = item.get("developer_used", developer)
 	active_world.world_mode_text = Catalog.MODE_NAMES[Catalog.MODE_DEVELOPER if developer else Catalog.MODE_DEFAULT]
+	# 0.0.7.2 : mode de jeu du monde (Paramètres → Monde) : inventaire de Survie ou de Créatif.
+	active_world.game_mode = item.get("game_mode", Catalog.GAME_CREATIVE)
 	add_child(active_world)
 	shortcut_hints.show()
 	# Monde par défaut : réglages ignorés ; monde développeur : réglages globaux.
@@ -1010,6 +1018,7 @@ func _watch_web_page() -> void:
 func pause_game() -> void:
 	if page != "playing" or not is_instance_valid(active_world):
 		return
+	active_world.close_inventory(false)
 	active_world.player.release_controls()
 	_send_combos(key_combos.release_all())
 	get_tree().paused = true
@@ -1066,7 +1075,11 @@ func _unhandled_input(event: InputEvent) -> void:
 func _menu_shortcut(event: InputEvent) -> void:
 	# Paramètres ouverts depuis la pause comptent comme une page de la partie (F1, F3).
 	var in_game_pages := ["playing", "pause", "world_info", "settings"] if is_instance_valid(active_world) else ["playing", "pause", "world_info"]
-	if page in in_game_pages and event.is_action_pressed("worlds_menu"):
+	# 0.0.7.2 : Inventaire (O + I par défaut) : ouvre ou ferme l'inventaire pendant la partie.
+	if page == "playing" and is_instance_valid(active_world) and event.is_action_pressed("inventory"):
+		active_world.toggle_inventory()
+		get_viewport().set_input_as_handled()
+	elif page in in_game_pages and event.is_action_pressed("worlds_menu"):
 		return_to_worlds()
 		get_viewport().set_input_as_handled()
 	elif is_instance_valid(active_world) and page in in_game_pages and event.is_action_pressed("world_info_page"):
@@ -1093,7 +1106,10 @@ func _input(event: InputEvent) -> void:
 		get_viewport().set_input_as_handled()
 
 func _cancel_page() -> void:
-	if page == "playing":
+	# 0.0.7.2 : Échap ferme d'abord l'inventaire ouvert (retour au jeu), sans mettre en pause.
+	if page == "playing" and is_instance_valid(active_world) and active_world.inventory_open:
+		active_world.close_inventory()
+	elif page == "playing":
 		pause_game()
 	elif page == "world_info":
 		show_page("pause")

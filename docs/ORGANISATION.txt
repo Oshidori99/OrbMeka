@@ -88,3 +88,12 @@ MONDES PERSONNALISÉS (0.0.5.16)
 scripts/world_generation.gd définit les dix fréquences et l'algorithme personnalisé version 1.
 Le champ generation de monde.json et de l'index est propre à chaque monde. Absent ou vide :
 génération historique inchangée. Les réglages vidéo, dont la portée de l'herbe, restent globaux.
+
+INVENTAIRE (0.0.7.2)
+scripts/inventory.gd : données de l'inventaire (grille de 5 × 10, barre de 10 cases, case en main), un inventaire par
+mode de jeu (Survie, Créatif), objets et catégories de Créatif ; sauvegardé dans joueur.json (« inventaire »).
+scripts/inventory_ui.gd : barre d'objets en jeu et écran d'inventaire (touche Inventaire, O + I par défaut).
+scripts/ground_items.gd (0.0.7.3) : objets posés au sol (morceaux de pierre, cailloux, poignées), chacun visible à sa place,
+dessinés ensemble par type (MultiMesh) ; sauvegardés dans objets.json (« objets_au_sol »).
+scripts/item_icons.gd (0.0.7.4) : icônes de l'inventaire faites dans le jeu (petits tas texturés, cailloux, éclats ; pioche, main
+et poche en SVG écrits dans le script), une seule fois puis gardées.
