@@ -9,6 +9,7 @@ extends Node3D
 # Sauvegarde : objets.json, « objets_au_sol ».
 const Inventory = preload("res://scripts/inventory.gd")
 const Rocks = preload("res://scripts/rocks.gd")
+const Trees = preload("res://scripts/trees.gd")
 # Au-delà, les plus anciens disparaissent (seulement s'ils sont très nombreux).
 const MAX_ITEMS := 3000
 const FALL_SECONDS := 0.35
@@ -29,7 +30,6 @@ var _drawn: Dictionary = {}
 var _materials: Dictionary = {}
 var _dirty := false
 var rng := RandomNumberGenerator.new()
-static var _sphere: SphereMesh
 
 func _ready() -> void:
 	name = "GroundItems"
@@ -60,7 +60,7 @@ func drop(value: Dictionary, from: Vector3, near: Vector3, rest_height: Callable
 	if is_inside_tree() and from.distance_to(entry.position) > 0.05:
 		var falling := MeshInstance3D.new()
 		falling.mesh = _mesh(item)
-		falling.material_override = _plain_material(item)
+		falling.material_override = _plain_material(item) if _kind(item) != "fruit" else _fall_material(item)
 		falling.basis = _basis(item)
 		add_child(falling)
 		falling.global_position = from
@@ -100,6 +100,9 @@ static func size_of(value: Dictionary) -> float:
 		"caillou":
 			return Rocks.PEBBLE_SIZES[clampi(int(value.get("taille", 3)), 1, 7) - 1] * (1.0 - 0.2 * int(value.get("coups", 0)))
 		"fruit":
+			# 0.0.7.6 : fruit cueilli : sa vraie taille dans l'arbre (« diametre »), il reste le même une fois reposé.
+			if value.has("diametre"):
+				return float(value.diametre)
 			if value.get("objet") == "pomme":
 				return Inventory.APPLE_SIZES[clampi(int(value.get("taille", 2)), 1, 3) - 1]
 			return HAZELNUT_SIZE
@@ -113,18 +116,18 @@ static func lift(value: Dictionary) -> float:
 		return Rocks.pebble_lift(clampi(int(value.get("taille", 3)), 1, 7), clampi(int(value.get("forme", 1)), 1, 7)) * (1.0 - 0.2 * int(value.get("coups", 0)))
 	return size_of(value) * (0.5 if _kind(value) == "fruit" else 0.3)
 
+# Fruits : le modèle des arbres (rayon 1) ; autres objets : diamètre 1.
 static func _basis(value: Dictionary) -> Basis:
-	return Basis(Vector3.UP, float(value.get("rotation", 0.0))).scaled(Vector3.ONE * size_of(value))
+	var scale := size_of(value) * (0.5 if _kind(value) == "fruit" else 1.0)
+	return Basis(Vector3.UP, float(value.get("rotation", 0.0))).scaled(Vector3.ONE * scale)
 
+static func _two_tone(value: Dictionary) -> bool:
+	return value.get("objet") == "pomme" and int(value.get("couleur", 1)) == 4
+
+# 0.0.7.6 : pommes et noisettes au sol avec le même petit modèle que dans les arbres (Trees._fruit_mesh).
 func _mesh(value: Dictionary) -> Mesh:
 	if _kind(value) == "fruit":
-		if _sphere == null:
-			_sphere = SphereMesh.new()
-			_sphere.radius = 0.5
-			_sphere.height = 1.0
-			_sphere.radial_segments = 12
-			_sphere.rings = 6
-		return _sphere
+		return Trees._fruit_mesh(Trees.APPLE if value.get("objet") == "pomme" else Trees.HAZEL, _two_tone(value))
 	return Rocks.pebble_mesh(clampi(int(value.get("forme", 1)), 1, 7))
 
 # Aspect des pierres (0 pierre, 1 calcaire, 2 silex) ou -1 : couleur unie.
@@ -136,9 +139,22 @@ func _color(value: Dictionary) -> Color:
 		return Inventory.APPLE_COLORS[clampi(int(value.get("couleur", 1)), 0, Inventory.APPLE_COLORS.size() - 1)]
 	return Inventory.ITEMS.get(value.get("objet", ""), {}).get("couleur", Color.GRAY)
 
+# Fruit qui tombe (un instant) : couleur unie, le modèle partagé n'ayant pas la couleur de chaque pomme.
+func _fall_material(value: Dictionary) -> Material:
+	var key := "chute/%s/%d" % [value.get("objet", ""), int(value.get("couleur", -1))]
+	if not _materials.has(key):
+		var made := StandardMaterial3D.new()
+		made.albedo_color = _color(value)
+		made.roughness = 0.5
+		_materials[key] = made
+	return _materials[key]
+
 func _plain_material(value: Dictionary) -> Material:
 	if _look(value) >= 0 and stone_material != null:
 		return stone_material
+	# Fruits : le matériau de leur modèle (celui des arbres), couleur de chaque pomme dans ses données.
+	if _kind(value) == "fruit":
+		return null
 	var key := "%s/%d" % [value.get("objet", ""), int(value.get("couleur", -1))]
 	if not _materials.has(key):
 		var made := StandardMaterial3D.new()
@@ -194,7 +210,7 @@ func _redraw() -> void:
 			drawn.multimesh = MultiMesh.new()
 			drawn.multimesh.transform_format = MultiMesh.TRANSFORM_3D
 			# Pierres : comme les cailloux du monde, couleur blanche et aspect dans les données de chaque objet.
-			drawn.multimesh.use_colors = group.stone
+			drawn.multimesh.use_colors = group.stone or _kind(group.item) == "fruit"
 			drawn.multimesh.use_custom_data = group.stone
 			drawn.multimesh.mesh = _mesh(group.item)
 			drawn.material_override = _plain_material(group.item)
@@ -208,6 +224,8 @@ func _redraw() -> void:
 			if group.stone:
 				multi.set_instance_color(at, Color.WHITE)
 				multi.set_instance_custom_data(at, Color(float(_look(entry.item)), 0.0, 0.0, 0.0))
+			elif _kind(entry.item) == "fruit":
+				multi.set_instance_color(at, Color.WHITE if _two_tone(entry.item) or entry.item.objet != "pomme" else _color(entry.item))
 
 # --- Sauvegarde (objets.json) ---
 

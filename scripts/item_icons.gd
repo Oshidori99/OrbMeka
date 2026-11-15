@@ -22,7 +22,7 @@ static func texture(id: String) -> Texture2D:
 	else:
 		match spec.get("forme", ""):
 			"caillou":
-				image = _pebble(spec.couleur, id.hash())
+				image = _pebble(spec.couleur, id.hash(), id == "caillou_silex")
 			"eclat":
 				image = _chip(spec.couleur, id.hash(), id == "eclat_silex" or id == "charbon")
 			"fruit":
@@ -259,7 +259,9 @@ static func _chunks(id: String, x: int, y: int, salt: int, g: float, seeds: Arra
 
 # --- Caillou et éclat ---
 
-static func _pebble(base: Color, salt: int) -> Image:
+# 0.0.7.6 : rognon de silex comme dans le monde (demande de l'utilisateur) : croûte blanchâtre et taches sombres,
+# toujours le même.
+static func _pebble(base: Color, salt: int, flint: bool = false) -> Image:
 	var image := _blank()
 	var center := Vector2(SIZE * 0.5, SIZE * 0.56)
 	var radius := Vector2(SIZE * 0.4, SIZE * 0.29)
@@ -276,7 +278,10 @@ static func _pebble(base: Color, salt: int) -> Image:
 			var m := 0.55 + 0.6 * maxf(normal.dot(light), 0.0) + (g - 0.5) * 0.14 + (_noise(x, y, 5.0, salt) - 0.5) * 0.16
 			if g < 0.05:
 				m *= 0.7
-			var color := Color(base.r * m, base.g * m, base.b * m)
+			var tone := base
+			if flint:
+				tone = Color("#3b3b42") if _noise(x, y, 7.0, salt + 3) > 0.6 else Color("#d6d1c4")
+			var color := Color(tone.r * m, tone.g * m, tone.b * m)
 			color.a = clampf((1.0 - r) * radius.y, 0.0, 1.0)
 			image.set_pixel(x, y, color.clamp())
 	return image

@@ -101,6 +101,8 @@ func _run() -> void:
 		await physics_frame
 		player.step_flight(DELTA, Vector2.ZERO, 1.0)
 	check(player.position.y <= player.FLY_CEILING + 0.001, "flight ceiling")
+	# Toujours (0.0.7.6) : on vole encore au sol.
+	player.fly_stop_on_ground = false
 	player.position = Vector3(0.5, 3.0, 8.5)
 	for index in range(120):
 		await physics_frame
@@ -109,6 +111,21 @@ func _run() -> void:
 	# Arrêter de voler : la gravité revient.
 	player.update_fly(true, true)
 	check(not player.flying, "Voler again stops flying")
+	# 0.0.7.6 : Exception (par défaut) : en volant, descendre jusqu'au sol arrête le vol ; le décollage, non.
+	check(Controls.OPTIONS.fly_mode.default == "ground" and Controls.OPTIONS.fly_mode.options.keys() == ["ground", "always"], "Arrêter de voler au sol: Exception (left, default), Toujours")
+	player.fly_stop_on_ground = true
+	player.update_fly(true, true)
+	for index in range(10):
+		await physics_frame
+		player.step_flight(DELTA, Vector2.ZERO, 1.0)
+	check(player.flying, "Exception: taking off from the ground keeps flying")
+	for index in range(240):
+		await physics_frame
+		player.step_flight(DELTA, Vector2.ZERO, -1.0)
+		if not player.flying:
+			break
+	check(not player.flying, "Exception: touching the ground while descending stops flying")
+	player.fly_stop_on_ground = false
 	player.position = Vector3(0.5, 20.0, 8.5)
 	player.velocity = Vector3.ZERO
 	for index in range(30):

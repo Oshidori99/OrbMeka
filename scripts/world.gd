@@ -765,8 +765,9 @@ func _rebuild_lawn_tile(tile: Vector2i) -> void:
 const BRUSH_NAMES := ["Poser", "Aplanir", "Lisser"]
 const SIZE_NAMES := ["1/8 de bloc", "1/4 de bloc", "1/2 bloc"]
 const SIZE_CELLS := [1, 2, 4]
-# Matières qu'on peut poser. 0.0.7.2 : plus pierre, calcaire, pierre sombre et silex (inventaire, Matériaux naturels).
-const PLACEABLE := [0, 2, SmoothTerrain.CLAY, SmoothTerrain.MUD, SmoothTerrain.STONE, SmoothTerrain.LIMESTONE, SmoothTerrain.DARK_STONE, SmoothTerrain.FLINT]
+# Matières qu'on peut poser. 0.0.7.2 : plus pierre, calcaire, pierre sombre et silex (inventaire, Matériaux naturels) ;
+# 0.0.7.6 : plus le gravier (oublié en 0.0.7.3) : toutes les matières de l'inventaire se posent.
+const PLACEABLE := [0, 2, SmoothTerrain.CLAY, SmoothTerrain.MUD, SmoothTerrain.STONE, SmoothTerrain.LIMESTONE, SmoothTerrain.DARK_STONE, SmoothTerrain.FLINT, SmoothTerrain.GRAVEL]
 # 0.0.5.13 : la pioche. 0.0.7.2 : plus de choix de matière (molette, touches 1 à 5, texte en haut à gauche) :
 # l'objet en main est la case choisie de la barre d'objets (inventory.gd) ; player.selected_type en est la valeur
 # (matière, PICKAXE, ou -1 : main vide).
@@ -785,6 +786,7 @@ func held_text() -> String:
 func apply_held() -> void:
 	if is_instance_valid(player):
 		player.selected_type = inventory.held_kind()
+		player.show_held(inventory.held())
 
 func set_game_mode(new_mode: String) -> void:
 	game_mode = new_mode
@@ -972,7 +974,9 @@ func _pick_fruit(fruit: Dictionary) -> bool:
 	var tree: Node3D = fruit.tree
 	var spot: Array = fruit.spot
 	var apple: bool = int(tree.get_meta("kind")) == Trees.APPLE
-	var value := {"objet": "pomme", "pile": [{"taille": int(spot[2]), "couleur": int(spot[3])}]} if apple else {"objet": "noisette", "pile": [{}]}
+	# 0.0.7.6 : le fruit garde sa vraie taille dans l'arbre (diamètre, en mètres) : reposé, il reste le même.
+	var diameter := snappedf(float(spot[1]) * 2.0 * tree.global_transform.basis.get_scale().x, 0.001)
+	var value := {"objet": "pomme", "pile": [{"taille": int(spot[2]), "couleur": int(spot[3]), "diametre": diameter}]} if apple else {"objet": "noisette", "pile": [{"diametre": diameter}]}
 	var result := inventory.add_to_selected(value)
 	if result.added == 0:
 		_notify(_refused_message(result.reason, value))

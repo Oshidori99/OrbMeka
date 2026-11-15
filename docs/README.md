@@ -1,6 +1,19 @@
-# OrbMeka™ — prototype 0.0.7.5
+# OrbMeka™ — prototype 0.0.7.6
 
 Godot 4.7 / GDScript. Formes et couleurs simples ; assets externes seulement sous licence vérifiée (sons CC0, assets/sounds/CREDITS.txt).
+
+## 0.0.7.6 — Une main qui tient l'objet, poids réalistes
+Version locale (2 sur 4, correction demandée par l'utilisateur). Génération inchangée (version 32).
+- **Main à la première personne** (#201) : main droite en bas à droite, petite, faite dans Blender (sources_blender/main/generer_main.py → assets/hands/main_droite.glb), couleur de peau du personnage ; elle tient l'objet choisi (petit tas de terre ou de sable, caillou, éclat, pomme, noisette) et bouge un peu quand on creuse ou qu'on pose. Pioche : son propre dessin, la main est cachée.
+- **Pentes** : on monte un peu plus facilement les petites pentes (jusqu'à 52° au lieu de 45°), et on reste collé au sol en descente.
+- **Tout se pose** : le gravier se pose enfin (oublié en 0.0.7.3) ; matières dans le terrain, cailloux, éclats et fruits au sol ; la pioche ne se pose pas.
+- **Poids plus réalistes** (une grosse poignée d'environ 0,25 L × la densité) : terre 325 g, sable et boue 400 g, gravier 440 g, argile 450 g, pierre, calcaire et silex 650 g, pierre sombre 750 g. Mains : 1,400 kg en tout ; caillou de taille 6 : 1,100 kg, il se ramasse maintenant.
+- **Silex** : l'icône du rognon a l'aspect des rognons du monde (blanchâtre, taches sombres), toujours la même.
+- **Fruits reposés identiques** : une pomme ou une noisette cueillie garde sa vraie taille dans l'arbre ; au sol et dans la main, même petit modèle que dans l'arbre (avec le dégradé rouge et jaune).
+- **Contrôles → Arrêter de voler au sol** : Exception (par défaut, à gauche) : en volant, descendre jusqu'à toucher le sol arrête le vol ; Toujours : on vole encore au sol.
+
+Tests réussis : inventory (main, gravier, taille 6, diamètre des fruits), fly (Exception et Toujours), trees, forests, smooth_terrain, controls, controls_groups, key_combos, crouch_mode, run_mode, shortcuts_selection, prototype, action_timing, window_resize, fps_creation, display_settings, breaking, reach, game_mode, menu, body, character, jump_profile, crouch, swim, settings_walk, interface_info, pause, pause_settings, history_resume (+ tests juridiques). Captures hors écran : la main avec terre, pomme, silex, sable, main vide.
+À tester manuellement : monter les pentes, place et taille de la main en jouant, vol qui s'arrête au sol.
 
 ## 0.0.7.5 — Objets uniques, cueillette, pommes de toutes les couleurs
 Version locale (1 sur 4, correction demandée par l'utilisateur). Génération inchangée (version 32) ; les mondes gardent les mêmes arbres.

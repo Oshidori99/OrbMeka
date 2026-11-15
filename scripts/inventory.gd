@@ -22,34 +22,35 @@ const FORMAT := 3
 # Survie : mains et poches (cases de la barre), limites en grammes.
 const HANDS := [0, 1]
 const POCKETS := [2, 3, 4, 5]
-# 0.0.7.4 (demande de l'utilisateur) : 1 kg pour les deux mains ensemble, 500 g pour les quatre poches ensemble.
-const HANDS_LIMIT := 1000.0
+# 0.0.7.4 (demande de l'utilisateur) : 1 kg pour les deux mains ensemble (0.0.7.6 : 1,4 kg), 500 g pour les quatre poches.
+const HANDS_LIMIT := 1400.0
 const POCKETS_LIMIT := 500.0
 # Valeur d'outil de la pioche (même valeur que world.gd PICKAXE) ; -1 : main vide ou objet sans usage.
 const PICKAXE := 3
-# Poids d'un caillou selon sa taille (1 à 7, comme rocks.gd), en grammes. Tailles 6 et 7 : trop gros pour être ramassés.
-const PEBBLE_WEIGHTS := [50.0, 120.0, 250.0, 400.0, 700.0, 1200.0, 2000.0]
-const PICKABLE_SIZE := 5
+# Poids d'un caillou selon sa taille (1 à 7, comme rocks.gd), en grammes. 0.0.7.6 : la taille 6 (1,1 kg) se ramasse ; la 7, non.
+const PEBBLE_WEIGHTS := [50.0, 120.0, 250.0, 400.0, 700.0, 1100.0, 2000.0]
+const PICKABLE_SIZE := 6
 # 0.0.7.5 : pommes en trois tailles (taille 2 : la normale) et cinq couleurs, comme les vraies.
 const APPLE_WEIGHTS := [130.0, 200.0, 300.0]
 const APPLE_SIZES := [0.075, 0.105, 0.13]
 const APPLE_COLORS := [Color("#6aa531"), Color("#b5281c"), Color("#dcbb2c"), Color("#7a4a26"), Color("#c9452a")]
 const APPLE_COLOR_NAMES := ["verte", "rouge", "jaune", "brune", "rouge et jaune"]
 # Caractéristiques gardées pour chaque objet unique (et leur type).
-const INSTANCE_FIELDS := {"taille": TYPE_INT, "poids": TYPE_FLOAT, "forme": TYPE_INT, "rotation": TYPE_FLOAT, "couleur": TYPE_INT, "coups": TYPE_INT}
+const INSTANCE_FIELDS := {"taille": TYPE_INT, "poids": TYPE_FLOAT, "forme": TYPE_INT, "rotation": TYPE_FLOAT, "couleur": TYPE_INT, "coups": TYPE_INT, "diametre": TYPE_FLOAT}
 # Matières : valeurs de smooth_terrain.gd (SAND 0, STONE 1, DIRT 2, CLAY 4, MUD 5, DARK_STONE 6, GRAVEL 8, LIMESTONE 9,
-# FLINT 11). Poids : une poignée (une sous-cellule de 50 cm) ; décision du 14.11.2026.
+# FLINT 11). Poids : une poignée. 0.0.7.6 (plus réaliste, accepté par l'utilisateur) : une grosse poignée d'environ 0,25 L × la
+# densité de la matière ; elle compte toujours pour une sous-cellule de 50 cm (règle de jeu).
 # « forme » : objet unique (caillou, éclat, fruit) ; « aspect » : rendu des pierres (0 pierre, 1 calcaire, 2 silex).
 const ITEMS := {
-	"sable": {"nom": "Sable", "matiere": 0, "poids": 120.0, "couleur": Color("#c9a467")},
-	"terre": {"nom": "Terre", "matiere": 2, "poids": 100.0, "couleur": Color("#6e4a2c")},
-	"argile": {"nom": "Argile", "matiere": 4, "poids": 130.0, "couleur": Color("#8c8a84")},
-	"boue": {"nom": "Boue", "matiere": 5, "poids": 150.0, "couleur": Color("#4b3b2b")},
-	"gravier": {"nom": "Gravier", "matiere": 8, "poids": 140.0, "couleur": Color("#8a8276")},
-	"pierre": {"nom": "Pierre", "matiere": 1, "poids": 250.0, "couleur": Color("#7d7a75")},
-	"calcaire": {"nom": "Calcaire", "matiere": 9, "poids": 250.0, "couleur": Color("#c4bca8")},
-	"pierre_sombre": {"nom": "Pierre sombre", "matiere": 6, "poids": 250.0, "couleur": Color("#4a4744")},
-	"silex": {"nom": "Silex", "matiere": 11, "poids": 250.0, "couleur": Color("#2e2e33")},
+	"sable": {"nom": "Sable", "matiere": 0, "poids": 400.0, "couleur": Color("#c9a467")},
+	"terre": {"nom": "Terre", "matiere": 2, "poids": 325.0, "couleur": Color("#6e4a2c")},
+	"argile": {"nom": "Argile", "matiere": 4, "poids": 450.0, "couleur": Color("#8c8a84")},
+	"boue": {"nom": "Boue", "matiere": 5, "poids": 400.0, "couleur": Color("#4b3b2b")},
+	"gravier": {"nom": "Gravier", "matiere": 8, "poids": 440.0, "couleur": Color("#8a8276")},
+	"pierre": {"nom": "Pierre", "matiere": 1, "poids": 650.0, "couleur": Color("#7d7a75")},
+	"calcaire": {"nom": "Calcaire", "matiere": 9, "poids": 650.0, "couleur": Color("#c4bca8")},
+	"pierre_sombre": {"nom": "Pierre sombre", "matiere": 6, "poids": 750.0, "couleur": Color("#4a4744")},
+	"silex": {"nom": "Silex", "matiere": 11, "poids": 650.0, "couleur": Color("#2e2e33")},
 	"pioche": {"nom": "Pioche", "outil": PICKAXE, "poids": 0.0, "couleur": Color("#8d9196")},
 	# 0.0.7.3 : cailloux ramassés au sol (« taille » 1 à 7).
 	"caillou": {"nom": "Caillou", "forme": "caillou", "aspect": 0, "couleur": Color("#7d7a75")},

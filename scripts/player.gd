@@ -42,6 +42,7 @@ var character := "boy14"
 var skin := "light"
 const CharacterPreview = preload("res://scripts/character_preview.gd")
 const CharacterModel = preload("res://scripts/character_model.gd")
+const FirstPersonHand = preload("res://scripts/first_person_hand.gd")
 # Part de la hauteur d'un humain gardée sous le cou ; recul du corps derrière la caméra (m).
 const BODY_NECK := 0.52
 const BODY_BACK := 0.3
@@ -150,6 +151,10 @@ var wait_jump_release := false
 
 func _ready() -> void:
 	world = get_parent()
+	# 0.0.7.6 (demande de l'utilisateur) : petites pentes plus faciles à monter (avant : 45°, défaut de Godot),
+	# sans tout grimper ; un peu d'accroche au sol pour ne pas décoller dans les descentes.
+	floor_max_angle = deg_to_rad(MAX_SLOPE_DEGREES)
+	floor_snap_length = 0.25
 	var capsule := CapsuleShape3D.new()
 	capsule.radius = 0.32
 	capsule.height = 1.8
@@ -167,6 +172,10 @@ func _ready() -> void:
 	view_camera.name = "ViewCamera"
 	camera.add_child(view_camera)
 	_make_pickaxe()
+	# 0.0.7.6 : main droite à la première personne, qui tient l'objet choisi (first_person_hand.gd).
+	hand_view = FirstPersonHand.new()
+	camera.add_child(hand_view)
+	hand_view.setup(skin, Callable(world, "_kind_material") if world.has_method("_kind_material") else Callable())
 	# Capture only after the player explicitly clicks in the game.
 	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
 
@@ -285,9 +294,20 @@ func _make_pickaxe() -> void:
 	camera.add_child(pickaxe)
 	_update_pickaxe()
 
+var hand_view: Node3D
+const PICKAXE_KIND := 3
+
+# 0.0.7.6 : objet montré dans la main (world.apply_held).
+func show_held(value: Dictionary) -> void:
+	if is_instance_valid(hand_view):
+		hand_view.show_item(value)
+		hand_view.visible = view == "first" and value.get("objet", "") != "pioche"
+
 func _update_pickaxe() -> void:
 	if is_instance_valid(pickaxe) and is_instance_valid(world):
 		pickaxe.visible = selected_type == world.PICKAXE and view == "first"
+	if is_instance_valid(hand_view):
+		hand_view.visible = view == "first" and selected_type != PICKAXE_KIND
 
 # Coup de pioche : elle s'abat puis revient (0,25 s).
 func swing_pickaxe() -> void:
@@ -320,16 +340,22 @@ func step_breaking(delta: float, active: bool, button_held: bool) -> bool:
 func _break_once() -> bool:
 	if selected_type == world.PICKAXE:
 		swing_pickaxe()
+	elif is_instance_valid(hand_view):
+		hand_view.nudge()
 	return world.break_target(get_target())
 
 func begin_placement() -> bool:
 	actions.cancel()
 	actions.set_place_pressed(true, true)
+	if is_instance_valid(hand_view):
+		hand_view.nudge()
 	return world.place_target(get_target(), selected_type)
 
 func step_placement(delta: float, active: bool, button_held: bool) -> bool:
 	if not actions.tick_place(delta, active, button_held):
 		return false
+	if is_instance_valid(hand_view):
+		hand_view.nudge()
 	return world.place_target(get_target(), selected_type)
 
 func release_controls() -> void:
@@ -562,6 +588,8 @@ func sync_body() -> void:
 	if key == body_key or not CharacterPreview.CHARACTERS.has(character):
 		return
 	body_key = key
+	if is_instance_valid(hand_view):
+		hand_view.set_skin(skin)
 	for old in [body, body_shadow]:
 		if is_instance_valid(old):
 			remove_child(old)
@@ -724,9 +752,15 @@ func move_strength(action: String) -> float:
 	return Input.get_action_strength(action)
 
 # Voler (0.0.4.5) : chaque appui sur la touche Voler commence ou arrête le vol (rien en pause).
+# 0.0.7.6 : Contrôles → Arrêter de voler au sol (Exception, par défaut) : en volant, descendre jusqu'à toucher le sol
+# arrête le vol (seulement après avoir quitté le sol, pour pouvoir décoller).
+var fly_stop_on_ground := true
+var fly_airborne := false
+
 func update_fly(active: bool, just_pressed: bool) -> void:
 	if active and just_pressed:
 		flying = not flying
+		fly_airborne = false
 		velocity.y = 0.0
 
 # Un pas de vol : sans gravité ; vertical > 0 monte, < 0 descend. ↑ ↓ (speed_scale) comptent aussi.
@@ -740,6 +774,12 @@ func step_flight(delta: float, direction: Vector2, vertical: float) -> void:
 	var movement := global_transform.basis * local
 	velocity = Vector3(movement.x, (fly_up if vertical > 0.0 else fly_down) * vertical * speed_scale, movement.z)
 	move_and_slide()
+	if fly_stop_on_ground:
+		if not is_on_floor():
+			fly_airborne = true
+		elif fly_airborne and vertical < 0.0:
+			flying = false
+			fly_airborne = false
 	velocity.y = 0.0
 	position.x = clampf(position.x, -world.build_limit - 1.0, world.build_limit + 1.0)
 	position.z = clampf(position.z, -world.build_limit - 1.0, world.build_limit + 1.0)
@@ -748,6 +788,7 @@ func step_flight(delta: float, direction: Vector2, vertical: float) -> void:
 # 0.0.5.31 : boue et argile un peu glissantes, surtout en descente ; l'argile moins que la boue.
 # [vitesse du glissement vers le bas d'une pente, réaction aux pas : plus c'est grand, moins ça glisse]
 const SLIP := {5: [4.0, 10.0], 4: [1.8, 16.0]}
+const MAX_SLOPE_DEGREES := 52.0
 const SLIP_FLAT := 0.12
 
 # Déplacement voulu sur ce sol. Sur plat : presque normal, juste un petit retard ; en pente : on est tiré vers le bas.

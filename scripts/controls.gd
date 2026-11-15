@@ -77,6 +77,10 @@ const OPTIONS := {
 		"category": "Se baisser", "help": ["", "Maintenir la touche ou appuyer pour basculer.", "Maintenir : rester appuyé pour rester baissé. Basculer : un appui pour se baisser, un autre pour se relever."]},
 	"run_mode": {"label": "Mode pour courir", "options": {"hold": "Maintenir", "latch": "Maintenir conditionnel", "toggle": "Basculer"}, "default": "hold",
 		"category": "Courir", "help": ["", "Maintenir, lancer d'un appui, ou basculer.", "Maintenir : rester appuyé pour courir. Maintenir conditionnel : un appui lance la course ; elle s'arrête si l'on s'arrête, saute, se baisse ou met en pause, puis il faut réappuyer. Basculer : un appui pour courir, un autre pour marcher."]},
+	# 0.0.7.6 (demande de l'utilisateur) : Exception (à gauche, par défaut) : en volant, descendre jusqu'à toucher le sol
+	# arrête le vol ; Toujours : on continue de voler même au sol (comme avant).
+	"fly_mode": {"label": "Arrêter de voler au sol", "options": {"ground": "Exception", "always": "Toujours"}, "default": "ground",
+		"category": "Voler", "help": ["", "Exception : toucher le sol en descendant arrête le vol.", "Exception : en volant, descendre (Se baisser) jusqu'à toucher le sol arrête le vol. Toujours : on continue de voler même en touchant le sol."]},
 }
 
 static func default_options() -> Dictionary:
