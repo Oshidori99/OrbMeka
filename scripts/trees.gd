@@ -422,6 +422,35 @@ static func has_leaves(kind: int, size: int, form: int, lo: float, hi: float) ->
 				return true
 	return false
 
+# 0.0.7.11 : part des feuilles de l'arbre entre lo et hi (centres des triangles, comme mesh_range). Les petits arbres ont
+# des rameaux feuillus dès 40 cm : avec has_leaves, le bas du tronc n'était jamais du bois. Un morceau qui porte moins de
+# BARE_LEAF_SHARE des feuilles de l'arbre est du bois nu (ses quelques rameaux tombent avec la coupe).
+const BARE_LEAF_SHARE := 0.10
+static var _leaf_heights: Dictionary = {}
+
+static func leaf_share(kind: int, size: int, form: int, lo: float, hi: float) -> float:
+	var key := _fruit_key(kind, size, form)
+	if not _leaf_heights.has(key):
+		var heights := PackedFloat32Array()
+		var full := mesh(kind, size, false, form)
+		for surface in range(full.get_surface_count()):
+			if full.surface_get_material(surface) != material(kind, "leaves"):
+				continue
+			var arrays := full.surface_get_arrays(surface)
+			var points: PackedVector3Array = arrays[Mesh.ARRAY_VERTEX]
+			var indices: PackedInt32Array = arrays[Mesh.ARRAY_INDEX]
+			for at in range(0, indices.size() - 2, 3):
+				heights.append((points[indices[at]].y + points[indices[at + 1]].y + points[indices[at + 2]].y) / 3.0)
+		heights.sort()
+		_leaf_heights[key] = heights
+	var all: PackedFloat32Array = _leaf_heights[key]
+	if all.is_empty():
+		return 0.0
+	return float(all.bsearch(hi) - all.bsearch(lo)) / all.size()
+
+static func is_bare_wood(kind: int, size: int, form: int, lo: float, hi: float) -> bool:
+	return leaf_share(kind, size, form, lo, hi) < BARE_LEAF_SHARE
+
 static func top(kind: int, size: int, form: int) -> float:
 	return mesh(kind, size, false, form).get_aabb().end.y
 

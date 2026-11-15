@@ -885,7 +885,8 @@ func _update_ring() -> void:
 # Abattre : clic gauche maintenu sur un arbre debout, CHOP_SECONDS à mains nues (Créatif : CHOP_SECONDS_CREATIVE) ;
 # il tombe vers le joueur (plus tard, avec la vie, il faudra se décaler : #229). Arbre tombé : le même geste le coupe en
 # deux à l'endroit visé (0.0.7.9, cut_tree) ; le bois nu devient des troncs et des branches au sol, à ramasser avec R.
-const CHOP_SECONDS := 8.0
+# 0.0.7.11 : 5 s par tranche de 10 cm (avant : 8 s).
+const CHOP_SECONDS := 5.0
 const CHOP_SECONDS_CREATIVE := 1.0
 const TREE_FALL_SECONDS := 1.6
 var chop_target: Node3D
@@ -893,7 +894,8 @@ var chop_time := 0.0
 # 0.0.7.9 : épaisseur du bois visé (m) et temps de coupe à mains nues (s).
 var chop_thickness := 0.0
 var chop_seconds := 0.0
-const MAX_HAND_THICKNESS := 0.30
+# 0.0.7.11 : 40 cm au plus à mains nues (avant : 30 cm).
+const MAX_HAND_THICKNESS := 0.40
 # 0.0.7.9 : écart entre deux morceaux d'un arbre coupé (la coupe se voit).
 const CUT_GAP := 0.12
 # Sauvegarde (objets.json) : arbres tombés {id: {"direction": [x, z], "position": [x, y, z]}} et arbres coupés {id: true}.
@@ -920,7 +922,7 @@ func step_chop(delta: float, holding: bool) -> bool:
 	if tree != chop_target or chop_seconds <= 0.0:
 		chop_target = tree
 		chop_time = 0.0
-		# 0.0.7.10 : temps selon l'épaisseur du bois visé : 8 s par tranche de 10 cm (30 cm : 24 s) ; 30 cm au plus à mains nues.
+		# 0.0.7.11 : temps selon l'épaisseur du bois visé : 5 s par tranche de 10 cm (40 cm : 20 s) ; 40 cm au plus à mains nues.
 		var model: Node3D = tree.get_node_or_null("Modele")
 		var local: Vector3 = (tree.global_transform * (model.transform if model != null else Transform3D.IDENTITY)).affine_inverse() * hit.position
 		# 0.0.7.10 : jamais plus bas que 30 cm au-dessus du pied (l'évasement des racines grossirait la mesure).
@@ -928,7 +930,7 @@ func step_chop(delta: float, holding: bool) -> bool:
 		chop_thickness = Trees.wood_thickness(int(tree.get_meta("kind", 0)), int(tree.get_meta("size", 3)), int(tree.get_meta("form", 0)), local) * tree.scale.x
 		chop_seconds = maxf(CHOP_SECONDS * chop_thickness / 0.1, 0.5)
 	if game_mode == Inventory.SURVIVAL and chop_thickness > MAX_HAND_THICKNESS + 0.001:
-		_notify("Trop épais à mains nues : %d cm (30 cm au plus)." % roundi(chop_thickness * 100.0))
+		_notify("Trop épais à mains nues : %d cm (%d cm au plus)." % [roundi(chop_thickness * 100.0), roundi(MAX_HAND_THICKNESS * 100.0)])
 		return false
 	var seconds := CHOP_SECONDS_CREATIVE if game_mode == Inventory.CREATIVE else chop_seconds
 	chop_time += delta
@@ -1250,7 +1252,8 @@ func cut_tree(tree: Node3D, at_world: Vector3) -> void:
 	var node_used := false
 	var pieces := 0
 	for part in [[span[0], height], [height, span[1]]]:
-		if not Trees.has_leaves(kind, size, form, part[0], part[1]):
+		# 0.0.7.11 : bois nu = presque sans feuilles (quelques rameaux bas ne suffisent plus à garder le tronc entier).
+		if Trees.is_bare_wood(kind, size, form, part[0], part[1]):
 			_drop_wood_part(tree, part, to_world)
 			var wood: Array = saved.get("bois", [])
 			wood.append(part)
@@ -1292,7 +1295,8 @@ func _drop_wood_part(tree: Node3D, part: Array, to_world: Transform3D) -> void:
 	var near_end := (hi - lo) * 0.2
 	var size := int(tree.get_meta("size", 3))
 	var form := int(tree.get_meta("form", 0))
-	var base_thick := Trees.wood_thickness(kind, size, form, Vector3(0.0, lo + near_end, 0.0)) * scale
+	# 0.0.7.11 : gros bout jamais mesuré sous 30 cm (l'évasement des racines doublait l'épaisseur), comme pour abattre.
+	var base_thick := Trees.wood_thickness(kind, size, form, Vector3(0.0, clampf(maxf(lo + near_end, 0.3), lo, hi), 0.0)) * scale
 	var end_thick := Trees.wood_thickness(kind, size, form, Vector3(0.0, hi - near_end, 0.0)) * scale
 	var thickness := maxf(base_thick, end_thick)
 	var rng := RandomNumberGenerator.new()

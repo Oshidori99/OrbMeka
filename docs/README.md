@@ -1,6 +1,15 @@
-# OrbMeka™ — prototype 0.0.7.10
+# OrbMeka™ — prototype 0.0.7.11
 
 Godot 4.7 / GDScript. Formes et couleurs simples ; assets externes seulement sous licence vérifiée (sons CC0, assets/sounds/CREDITS.txt).
+
+## 0.0.7.11 — Couper à mains nues jusqu'à 40 cm (5 s par 10 cm), tronc devenu du bois ramassable, bois à sa vraie épaisseur
+Version locale (4 sur 4 ; publiée avec 0.0.7.12, à la demande de l'utilisateur). Génération inchangée (version 32).
+- **Couper à mains nues jusqu'à 40 cm** (avant 30 cm) ; temps : 5 s par tranche de 10 cm (40 cm : 20 s).
+- **Le tronc devient du bois** : les petits arbres ont des rameaux feuillus dès 40 cm, donc le bas du tronc restait entier. Maintenant, un morceau coupé qui porte moins de 10 % des feuilles de l'arbre devient aussitôt un tronc ou une branche au sol, à ramasser avec R.
+- **Bois à sa vraie épaisseur** : le gros bout est mesuré à 30 cm du pied au moins (avant, dans l'évasement des racines).
+
+Tests réussis : tree_fall (40 cm et 20 s, tronc avec quelques rameaux = bois, coupe au point visé, morceaux qui se suivent, bois + reste = longueur de l'arbre, épaisseur hors racines), trees, menu, prototype, history_resume (+ tests juridiques).
+À tester manuellement : couper un petit pommier couché vers 1 m et ramasser le tronc avec R ; couper un tronc de 30 à 40 cm à mains nues.
 
 ## 0.0.7.10 — Main gauche, porter à deux mains (case double), ramasser dans l'autre main, couper jusqu'à 30 cm, nom automatique, statistiques du monde
 Version locale (3 sur 4). Génération inchangée (version 32).
