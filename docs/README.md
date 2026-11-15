@@ -1,6 +1,18 @@
-# OrbMeka™ — prototype 0.0.7.3
+# OrbMeka™ — prototype 0.0.7.4
 
 Godot 4.7 / GDScript. Formes et couleurs simples ; assets externes seulement sous licence vérifiée (sons CC0, assets/sounds/CREDITS.txt).
+
+## 0.0.7.4 — Inventaire plus joli, mains et poches plus grandes
+Version publiée (4 sur 4, correction demandée par l'utilisateur). Génération inchangée (version 32).
+- **Reposer un objet** : caillou ou éclat en main, clic droit : il est posé au sol là où l'on vise.
+- **Poids** : 1 kg pour les deux mains ensemble, 500 g pour les quatre poches ensemble ; cailloux de 50 g à 2 kg selon la taille (inchangés) ; les deux plus gros ne se ramassent pas.
+- **Icônes** : de petits tas où l'on voit la texture (grains de sable, mottes de terre, argile fendillée, boue luisante, graviers, morceaux de pierre), galets mouchetés, éclats à facettes ; pioche, main et poche en petits dessins de jeu vidéo. Faites dans le jeu, une seule fois (42 ms pour toutes sur PC), sans fichier à télécharger.
+- **Créatif** : onglets en images (cinq petits tas : Matériaux naturels ; la pioche : Outils), le nom en bulle d'aide.
+- **Survie, écran O + I** : une ligne pour les mains (image de main, deux cases, « 550,0 g / 1,000 kg » à droite), une ligne pour les poches (image de poche, quatre cases, leur poids).
+- **Sous chaque case** : le nom de l'objet, puis son poids (barre en jeu et inventaire). En bas à droite en jeu : poids des mains et des poches, 4 pixels plus grand.
+
+Tests réussis : inventory (71 vérifications : limites de 1 kg et 500 g, reposer au sol, icônes, onglets en images, lignes des mains et des poches), shortcuts_selection, prototype, controls, controls_groups, key_combos, smooth_terrain, trees, breaking, reach, game_mode, pause_settings, pause, settings_walk, interface_info, menu, run_mode, fly, history_resume (+ tests juridiques). Captures hors écran : planche des icônes, Survie en jeu et inventaire, Créatif.
+À tester manuellement : clic droit pour reposer un caillou, aspect des icônes et des noms sous les cases sur le Web.
 
 ## 0.0.7.3 — Mains, poches et objets au sol
 Version locale (3 sur 4). Génération inchangée (version 32). Décision de l'utilisateur du 15.11.2026 (issue #40) : presque pas d'inventaire au début.

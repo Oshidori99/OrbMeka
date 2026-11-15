@@ -3,6 +3,10 @@ Du plus récent au plus ancien. Ce fichier est mis à jour à chaque version.
 
 === Thème « Gameplay et inventaire » (0.0.7) ===
 
+0.0.7.4 — Inventaire plus joli, mains et poches plus grandes
+Génération du terrain : version 32 · Menus : version 7.
+Icônes en petits tas texturés, onglets en images, lignes des mains (1 kg) et des poches (500 g), nom et poids sous les cases ; clic droit pour reposer un caillou.
+
 0.0.7.3 — Mains, poches et objets au sol
 Génération du terrain : version 32 · Menus : version 6.
 Survie : deux mains (400 g) et quatre poches (150 g), terre rejetée derrière soi, poignées (R + I), morceaux de pierre au sol à ramasser (R).

@@ -877,6 +877,25 @@ func drop_pieces(id: String, pieces: int, weight: float, from: Vector3) -> void:
 	for index in range(pieces):
 		ground.drop({"objet": id, "poids": weight}, from, _beside_player(), _rest_height)
 
+# 0.0.7.4 : poser au sol l'objet en main (clic droit), un à la fois, là où l'on vise (à portée de pose).
+func put_down_held(hit: Dictionary) -> bool:
+	var value := inventory.held()
+	if not Inventory.is_object(value) or not is_instance_valid(ground):
+		return false
+	if hit.is_empty() or not is_instance_valid(hit.get("collider")):
+		_notify("Visez le sol pour y poser %s." % Inventory.item_name(value).to_lower())
+		return false
+	if player.camera.global_position.distance_to(hit.position) > player.place_reach + 0.01:
+		_notify("Trop loin : %s m au plus." % str(snappedf(player.place_reach, 0.1)).replace(".", ","))
+		return false
+	if not inventory.use_held(1):
+		return false
+	var single := value.duplicate()
+	single.nombre = 1
+	ground.drop(single, hit.position + Vector3.UP * 0.3, hit.position, _rest_height, 0.0)
+	show_choice("%s posé au sol" % Inventory.item_name(value))
+	return true
+
 # Objets qui ne tiennent plus dans l'inventaire : posés au sol devant le joueur, jamais perdus.
 func drop_items(value: Dictionary) -> void:
 	if not is_instance_valid(ground) or not is_instance_valid(player):
@@ -915,8 +934,8 @@ func pick_up(hit: Dictionary) -> bool:
 	else:
 		var size: int = collider.get_meta("pebble").x
 		value = {"objet": PEBBLE_ITEMS[clampi(int(collider.get_meta("look", 0)), 0, 2)], "nombre": 1, "taille": size}
-		if Inventory.unit_weight(value) > Inventory.HAND_LIMIT:
-			_notify("Trop lourd pour une main : %s." % Inventory.format_weight(Inventory.unit_weight(value)))
+		if size > Inventory.PICKABLE_SIZE:
+			_notify("Trop gros pour être ramassé : cassez-le d'abord.")
 			return true
 		if inventory.add(value) == 0:
 			_notify(_full_message(value))
@@ -1616,6 +1635,9 @@ static func hit_cell(hit: Dictionary) -> Vector3i:
 func place_target(hit: Dictionary, kind: int) -> bool:
 	if not hit.is_empty() and is_instance_valid(hit.get("collider")) and hit.collider.is_in_group("trees"):
 		return false
+	# 0.0.7.4 : un objet en main (caillou, éclat…) se pose au sol là où l'on vise.
+	if player.brush == 0 and Inventory.is_object(inventory.held()):
+		return put_down_held(hit)
 	# 0.0.7.2 : poser seulement ce qu'on a en main (barre d'objets) ; aplanir et lisser n'ajoutent pas de matière.
 	if player.brush == 0 and not kind in PLACEABLE:
 		_notify("Rien à poser : prenez une matière en main (inventaire : O + I)." if game_mode == Inventory.CREATIVE else "Rien à poser en main.")

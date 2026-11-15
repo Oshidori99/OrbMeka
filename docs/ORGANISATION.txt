@@ -95,3 +95,5 @@ mode de jeu (Survie, Créatif), objets et catégories de Créatif ; sauvegardé 
 scripts/inventory_ui.gd : barre d'objets en jeu et écran d'inventaire (touche Inventaire, O + I par défaut).
 scripts/ground_items.gd (0.0.7.3) : objets posés au sol (morceaux de pierre, cailloux, poignées), chacun visible à sa place,
 dessinés ensemble par type (MultiMesh) ; sauvegardés dans objets.json (« objets_au_sol »).
+scripts/item_icons.gd (0.0.7.4) : icônes de l'inventaire faites dans le jeu (petits tas texturés, cailloux, éclats ; pioche, main
+et poche en SVG écrits dans le script), une seule fois puis gardées.

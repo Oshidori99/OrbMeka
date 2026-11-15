@@ -6,6 +6,7 @@ const Catalog = preload("res://scripts/world_catalog.gd")
 const Store = preload("res://scripts/world_store.gd")
 const Controls = preload("res://scripts/controls.gd")
 const Inventory = preload("res://scripts/inventory.gd")
+const ItemIcons = preload("res://scripts/item_icons.gd")
 var checks := 0
 var failures := 0
 
@@ -62,7 +63,7 @@ func _run() -> void:
 	check(ui.grid_slots.size() == 50 and ui.bar_slots.size() == 10 and ui.panel.get_parent() == ui.screen, "grid of 5 × 10 and the bar of 10")
 	var panel_style: StyleBoxFlat = ui.panel.get_theme_stylebox("panel")
 	check(panel_style.bg_color.a < 1.0 and panel_style.bg_color.a > 0.5, "panel slightly transparent")
-	check(ui.creative_box.visible and ui.tab_buttons.size() == 2 and ui.tab_buttons[0].text == "Matériaux naturels" and ui.tab_buttons[1].text == "Outils", "creative: categories Matériaux naturels and Outils")
+	check(ui.creative_box.visible and ui.tab_buttons.size() == 2 and ui.tab_buttons[0].text == "" and ui.tab_buttons[0].icon != null and ui.tab_buttons[0].tooltip_text == "Matériaux naturels" and ui.tab_buttons[1].icon != null and ui.tab_buttons[1].tooltip_text == "Outils", "creative: picture tabs (five piles, the pickaxe), names as tooltips")
 	var natural: Array = ui.catalog_slots.filter(func(slot): return slot.visible).map(func(slot): return slot.item.objet)
 	check(natural == ["sable", "terre", "argile", "boue", "gravier", "pierre", "calcaire", "pierre_sombre", "silex"], "natural materials listed (gravier 0.0.7.3)")
 	check(ui.grid_slots.all(func(slot): return not slot.locked) and ui.bar_slots.all(func(slot): return not slot.locked and slot.visible), "creative: nothing greyed, 10 bar slots")
@@ -115,9 +116,10 @@ func _run() -> void:
 	check(world.inventory.mode == Inventory.SURVIVAL and world.inventory.selected() == 0 and world.player.selected_type == -1, "survival: own empty inventory, left hand chosen")
 	var shown: Array = range(10).filter(func(index): return ui.hud_slots[index].visible)
 	check(world.inventory.bar_slots() == [0, 1, 2, 3, 4, 5] and shown == [0, 1, 2, 3, 4, 5] and ui.hud_gap.visible, "survival bar: 2 hands, a gap, 4 pockets")
-	check(ui.pockets_label.visible and ui.pockets_label.text == "Poches : 0,000 g / 150,0 g", "pockets weight at the bottom right")
+	check(ui.weights_label.visible and ui.weights_label.text == "Mains : 0,000 g / 1,000 kg\nPoches : 0,000 g / 500,0 g", "hands and pockets weight at the bottom right")
 	action(app, "inventory")
-	check(ui.is_open() and not ui.creative_box.visible and not ui.grid_box.visible and ui.bar_titles.visible, "survival screen: only hands and pockets, no grid")
+	check(ui.is_open() and not ui.creative_box.visible and not ui.grid_box.visible and ui.survival_box.visible and ui.hands_weight.text == "0,000 g / 1,000 kg" and ui.pockets_weight.text == "0,000 g / 500,0 g", "survival screen: a row for the hands, a row for the pockets, no grid")
+	check(ui.bar_slots.size() == 10 and ui.survival_box.is_ancestor_of(ui.bar_slots[0]) and ui.survival_box.is_ancestor_of(ui.bar_slots[5]), "survival slots are in the hands and pockets rows")
 	action(app, "inventory")
 	check(not ui.is_open(), "O + I closes it again")
 	key(world, KEY_7)
@@ -135,8 +137,15 @@ func _run() -> void:
 	check(world.inventory.item("bar", 0) == {"objet": "eclat_pierre", "poids": 125.0, "nombre": 2}, "identical pieces stack in the left hand")
 	world.pick_up({"collider": world.ground.bodies[0], "position": world.ground.entries[0].position})
 	check(world.inventory.item("bar", 1).objet == "charbon" and world.ground.entries.is_empty(), "another kind goes to the right hand")
-	check(ui.hud_slots[0].note == "250,0 g" and ui.hud_slots[1].note == "125,0 g" and ui.hud_slots[2].note == "", "weight under each slot, nothing under an empty one")
-	check(world.inventory.add({"objet": "terre", "nombre": 3}) == 1 and ui.pockets_label.text == "Poches : 100,0 g / 150,0 g", "pockets: 150 g in all (one handful of earth, not two)")
+	check(ui.hud_slots[0].title == "Éclat de pierre" and ui.hud_slots[0].note == "250,0 g" and ui.hud_slots[1].note == "125,0 g" and ui.hud_slots[2].title == "" and ui.hud_slots[2].note == "", "name then weight under each slot, nothing under an empty one")
+	check(world.inventory.add({"objet": "terre", "nombre": 6}) == 5 and ui.weights_label.text.ends_with("Poches : 500,0 g / 500,0 g"), "pockets: 500 g in all (five handfuls of earth, not six)")
+	# Reposer un objet tenu (clic droit) : il retourne au sol là où l'on vise.
+	world.inventory.select(1)
+	world.player.brush = 0
+	var spot: Vector3 = world.player.global_position - world.player.global_transform.basis.z * 1.5
+	check(world.place_target({"collider": world.ground, "position": spot}, world.player.selected_type) and world.inventory.item("bar", 1).is_empty() and world.ground.entries.size() == 1 and Vector2(world.ground.entries[0].position.x - spot.x, world.ground.entries[0].position.z - spot.z).length() < 0.01, "right click puts the held piece down where aimed")
+	world.pick_up({"collider": world.ground.bodies[0], "position": world.ground.entries[0].position})
+	world.inventory.select(0)
 	world.drop_items({"objet": "terre", "nombre": 1})
 	check(world.ground.entries.size() == 1 and world.ground.entries[0].item == {"objet": "terre"}, "what no longer fits is put on the ground")
 	# Récupérer une poignée (R + I) : visée vers le sol, plus long que creuser ; puis poser l'utilise.
@@ -217,16 +226,19 @@ func _data_checks() -> void:
 	bag.set_mode(Inventory.SURVIVAL)
 	check(bag.put("bar", 0, {"objet": "terre"}) == {"objet": "terre"} and bag.item("bar", 0).is_empty() and bag.put("bar", 7, {"objet": "terre", "nombre": 1}) == {"objet": "terre", "nombre": 1}, "survival: no unlimited items, no slot 8")
 	# Poids et piles (0.0.7.3).
-	check(bag.add({"objet": "terre", "nombre": 6}) == 6 and Inventory.count(bag.item("bar", 0)) == 4 and Inventory.count(bag.item("bar", 1)) == 2, "400 g per hand: 4 handfuls of earth, then the right hand")
+	# 0.0.7.4 : 1 kg pour les deux mains ensemble, 500 g pour les quatre poches ensemble.
+	check(bag.add({"objet": "terre", "nombre": 12}) == 12 and Inventory.count(bag.item("bar", 0)) == 10 and bag.item("bar", 1).is_empty() and Inventory.count(bag.item("bar", 2)) == 2, "1 kg for both hands together: 10 handfuls of earth, then the pockets")
 	check(bag.add({"objet": "caillou", "nombre": 1, "taille": 4}) == 0, "a 400 g pebble no longer fits anywhere")
-	check(bag.add({"objet": "caillou", "nombre": 3, "taille": 1}) == 3 and Inventory.count(bag.item("bar", 2)) == 3 and bag.pockets_weight() == 150.0, "pockets: 150 g in all (three 50 g pebbles)")
+	check(bag.add({"objet": "caillou", "nombre": 3, "taille": 1}) == 3 and Inventory.count(bag.item("bar", 3)) == 3 and bag.pockets_weight() == 350.0, "pockets: three 50 g pebbles (350 g of 500 g)")
 	check(not Inventory.same_kind({"objet": "caillou", "taille": 1, "nombre": 1}, {"objet": "caillou", "taille": 2, "nombre": 1}), "pebbles of another size do not stack")
-	check(bag.put("bar", 3, {"objet": "silex", "nombre": 1}) == {"objet": "silex", "nombre": 1}, "a 250 g stone does not fit in full pockets")
+	check(bag.put("bar", 4, {"objet": "silex", "nombre": 1}) == {"objet": "silex", "nombre": 1}, "a 250 g stone does not fit in the 150 g left in the pockets")
 	bag.select(0)
-	check(bag.use_held(3) and Inventory.count(bag.held()) == 1 and bag.held_kind() == 2, "placing uses handfuls")
+	check(bag.use_held(3) and Inventory.count(bag.held()) == 7 and bag.held_kind() == 2, "placing uses handfuls")
+	var icons := Inventory.ITEMS.keys().all(func(id): return ItemIcons.texture(id) != null and ItemIcons.texture(id).get_width() == ItemIcons.SIZE)
+	check(icons and ItemIcons.hand() != null and ItemIcons.pocket() != null and ItemIcons.natural_tab(34) != null and ItemIcons.texture("sable") == ItemIcons.texture("sable"), "an icon for every item, hand and pocket pictures, made once")
 	var weights := [[0.0, "0,000 g"], [0.5, "500,0 mg"], [1.0, "1,000 g"], [12.5, "12,50 g"], [150.0, "150,0 g"], [999.96, "1,000 kg"], [1000.0, "1,000 kg"], [12345.0, "12,35 kg"], [999999.0, "1,000 Mg"], [2500000.0, "2,500 Mg"]]
 	check(weights.all(func(pair): return Inventory.format_weight(pair[0]) == pair[1]), "weights always with 4 digits: " + str(weights.map(func(pair): return Inventory.format_weight(pair[0]))))
 	var saved_bag := Inventory.new()
 	saved_bag.mode = Inventory.SURVIVAL
 	saved_bag.from_dict(JSON.parse_string(JSON.stringify(bag.to_dict())))
-	check(saved_bag.item("bar", 2) == {"objet": "caillou", "nombre": 3, "taille": 1} and saved_bag.item("bar", 0) == {"objet": "terre", "nombre": 1}, "counts and sizes saved")
+	check(saved_bag.item("bar", 3) == {"objet": "caillou", "nombre": 3, "taille": 1} and saved_bag.item("bar", 0) == {"objet": "terre", "nombre": 7}, "counts and sizes saved")

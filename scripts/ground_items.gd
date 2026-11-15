@@ -29,10 +29,11 @@ func _ready() -> void:
 	rng.randomize()
 
 # Ajoute un objet tombé de « from » jusqu'au sol, près de « near » ; rend son numéro.
-func drop(value: Dictionary, from: Vector3, near: Vector3, rest_height: Callable) -> int:
+# spread : écart au hasard autour de « near » (0 : exactement là, objet posé à la main).
+func drop(value: Dictionary, from: Vector3, near: Vector3, rest_height: Callable, spread: float = 0.25) -> int:
 	var single := value.duplicate()
 	single.erase("nombre")
-	var spot := near + Vector3(rng.randf_range(-0.25, 0.25), 0.0, rng.randf_range(-0.25, 0.25))
+	var spot := near + Vector3(rng.randf_range(-spread, spread), 0.0, rng.randf_range(-spread, spread))
 	var ground: float = rest_height.call(spot)
 	var entry := {"item": single, "position": Vector3(spot.x, ground + _lift(single), spot.z), "rotation": rng.randf_range(0.0, TAU), "shape": rng.randi_range(1, 7)}
 	entries.append(entry)

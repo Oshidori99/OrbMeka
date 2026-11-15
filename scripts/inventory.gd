@@ -3,7 +3,7 @@ extends RefCounted
 # Un inventaire par mode de jeu, gardés tous les deux.
 # - Créatif : grille de 5 lignes × 10 colonnes et barre d'objets de 10 cases ; objets pris dans les catégories, illimités.
 # - Survie (0.0.7.3, décision du 15.11.2026, issue #40) : presque pas d'inventaire. Seulement deux mains (case 1 : main
-#   gauche, case 2 : main droite, 400 g chacune) et quatre poches (cases 3 à 6, 150 g en tout). Plus tard, sacs et paniers
+#   gauche, case 2 : main droite, 1 kg à elles deux) et quatre poches (cases 3 à 6, 500 g en tout ; 0.0.7.4). Plus tard, sacs et paniers
 #   ajouteront des cases (10 au plus dans la barre). Le reste se pose au sol.
 # Objet d'une case : {"objet": identifiant, "nombre": n} (+ « taille » pour un caillou, « poids » pour un éclat) ;
 # sans « nombre » : illimité (Créatif). Case vide : {}. Seuls des objets vraiment identiques s'empilent.
@@ -18,12 +18,15 @@ const FORMAT := 2
 # Survie : mains et poches (cases de la barre), limites en grammes.
 const HANDS := [0, 1]
 const POCKETS := [2, 3, 4, 5]
-const HAND_LIMIT := 400.0
-const POCKETS_LIMIT := 150.0
+# 0.0.7.4 (demande de l'utilisateur) : 1 kg pour les deux mains ensemble, 500 g pour les quatre poches ensemble.
+const HANDS_LIMIT := 1000.0
+const POCKETS_LIMIT := 500.0
 # Valeur d'outil de la pioche (même valeur que world.gd PICKAXE) ; -1 : main vide ou objet sans usage.
 const PICKAXE := 3
-# Poids d'un caillou selon sa taille (1 à 7, comme rocks.gd), en grammes : au-delà de 400 g, trop lourd pour une main.
+# Poids d'un caillou selon sa taille (1 à 7, comme rocks.gd), en grammes (gardés en 0.0.7.4, les mains et les poches portent plus).
+# Tailles 6 et 7 : trop gros pour être ramassés.
 const PEBBLE_WEIGHTS := [50.0, 120.0, 250.0, 400.0, 700.0, 1200.0, 2000.0]
+const PICKABLE_SIZE := 5
 # Matières : valeurs de smooth_terrain.gd (SAND 0, STONE 1, DIRT 2, CLAY 4, MUD 5, DARK_STONE 6, GRAVEL 8, LIMESTONE 9,
 # FLINT 11). Poids : une poignée (une sous-cellule de 50 cm) ; décision du 14.11.2026.
 const ITEMS := {
@@ -125,24 +128,35 @@ static func same_kind(a: Dictionary, b: Dictionary) -> bool:
 			return false
 	return unlimited(a) == unlimited(b)
 
-func pockets_weight(except: int = -1) -> float:
+func _weight_of(indexes: Array, except: int) -> float:
 	var total := 0.0
-	for index in POCKETS:
+	for index in indexes:
 		if index != except:
 			total += stack_weight(item("bar", index))
 	return total
 
-# Poids encore permis dans une case (Survie) ; sans limite en Créatif.
+func pockets_weight(except: int = -1) -> float:
+	return _weight_of(POCKETS, except)
+
+func hands_weight(except: int = -1) -> float:
+	return _weight_of(HANDS, except)
+
+# Poids encore permis dans une case (Survie) : ce que laissent les autres cases du même groupe (mains ou poches) ;
+# sans limite en Créatif.
 func room(area: String, index: int) -> float:
 	if mode == CREATIVE:
 		return INF
 	if area != "bar":
 		return 0.0
 	if index in HANDS:
-		return HAND_LIMIT
+		return HANDS_LIMIT - hands_weight(index)
 	if index in POCKETS:
 		return POCKETS_LIMIT - pockets_weight(index)
 	return 0.0
+
+# Objet posé au sol à la main (clic droit) : caillou, éclat… (pas les matières, qui se posent dans le terrain).
+static func is_object(value: Dictionary) -> bool:
+	return ITEMS.get(value.get("objet", ""), {}).has("forme")
 
 # Combien de cet objet tiennent dans la case (en plus de ce qui y est déjà, s'il est identique).
 func fit_count(area: String, index: int, value: Dictionary) -> int:

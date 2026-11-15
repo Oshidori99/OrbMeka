@@ -3,18 +3,21 @@ extends CanvasLayer
 # En jeu : la barre d'objets en bas au centre (case en main encadrée).
 # Écran d'inventaire (O + I, modifiable ; Échap ou O + I pour fermer) : un panneau un peu transparent au centre,
 # le monde reste visible autour.
-# - Créatif : onglets de catégories en haut (Matériaux naturels, Outils), la grille de 5 × 10 et, plus bas, la barre de 10.
-# - Survie (0.0.7.3) : pas de grille ni de cases grisées : seulement les deux mains et les quatre poches, le poids sous
-#   chaque case et le total des poches (en bas à droite en jeu).
+# - Créatif : onglets en images en haut (0.0.7.4 : cinq petits tas pour Matériaux naturels, la pioche pour Outils),
+#   la grille de 5 × 10 et, plus bas, la barre de 10.
+# - Survie (0.0.7.4) : une ligne pour les mains (image de main, les deux cases, « 100,0 g / 1,000 kg » à droite) et,
+#   dessous, une ligne pour les poches (image de poche, les quatre cases, leur poids à droite).
+# Sous chaque case : le nom de l'objet, puis, juste dessous, son poids (Survie ; rien sous une case vide).
 # Clic gauche : prendre ou poser (s'empile sur un objet identique, sinon échange) ; clic droit : vider la case (Créatif) ;
 # clic droit sur un objet d'une catégorie : dans la première case libre.
-# 0.0.7.3 : icônes rondes pour les matières (demande de l'utilisateur), cailloux en ovale, éclats anguleux.
+# Icônes : item_icons.gd (petits tas où l'on voit la texture), faites une seule fois.
 const Inventory = preload("res://scripts/inventory.gd")
+const ItemIcons = preload("res://scripts/item_icons.gd")
 const HUD_SLOT := 46.0
 const PANEL_SLOT := 48.0
 const GAP := 6
 
-# Une case dessinée (barre, grille, catégorie ou objet tenu par la souris) ; « note » : poids écrit sous la case.
+# Une case dessinée (barre, grille, catégorie ou objet tenu par la souris) ; sous la case : nom puis poids.
 class Slot extends Control:
 	signal clicked(button: int)
 	var item := {}
@@ -22,15 +25,16 @@ class Slot extends Control:
 	var chosen := false
 	var plain := false
 	var side := 46.0
+	var title := ""
 	var note := ""
-	var note_size := 12
-	# Contour clair : les matières sombres (silex, charbon) se voient sur le fond des cases.
-	const RIM := Color(1, 1, 1, 0.28)
+	var font_px := 11
+	var with_text := false
 
-	func _init(box_side: float, with_note: bool = false, font_px: int = 12) -> void:
+	func _init(box_side: float, text_lines: bool = false, text_px: int = 11) -> void:
 		side = box_side
-		note_size = font_px
-		custom_minimum_size = Vector2(side, side + (font_px + 6.0 if with_note else 0.0))
+		font_px = text_px
+		with_text = text_lines
+		custom_minimum_size = Vector2(side, side + (2.0 * (font_px + 3.0) + 2.0 if with_text else 0.0))
 		size = custom_minimum_size
 
 	func show_item(value: Dictionary, is_locked: bool = false, is_chosen: bool = false, weight_note: String = "") -> void:
@@ -38,6 +42,7 @@ class Slot extends Control:
 		locked = is_locked
 		chosen = is_chosen
 		note = weight_note
+		title = Inventory.item_name(value) if with_text else ""
 		var name := Inventory.item_name(value)
 		if not value.is_empty() and not Inventory.unlimited(value):
 			name += " × %d (%s)" % [Inventory.count(value), Inventory.format_weight(Inventory.stack_weight(value))]
@@ -54,7 +59,9 @@ class Slot extends Control:
 		if not plain:
 			draw_rect(rect, Color(0.32, 0.32, 0.34, 0.5) if locked else Color(0.13, 0.14, 0.16, 0.85))
 		if not item.is_empty():
-			Slot.draw_icon(self, item, rect.grow(-side * 0.17))
+			var icon: Texture2D = ItemIcons.texture(item.get("objet", ""))
+			if icon != null:
+				draw_texture_rect(icon, rect.grow(-side * 0.08), false)
 			var amount := Inventory.count(item)
 			if amount > 1:
 				var font := ThemeDB.fallback_font
@@ -70,64 +77,39 @@ class Slot extends Control:
 				draw_rect(rect.grow(-1.5), Color(1.0, 0.9, 0.5), false, 3.0)
 			else:
 				draw_rect(rect.grow(-0.5), Color(1, 1, 1, 0.2), false, 1.0)
-		if not note.is_empty():
-			var font := ThemeDB.fallback_font
-			var width := font.get_string_size(note, HORIZONTAL_ALIGNMENT_LEFT, -1, note_size).x
-			var at := Vector2((side - width) * 0.5, side + note_size + 2.0)
-			draw_string_outline(font, at, note, HORIZONTAL_ALIGNMENT_LEFT, -1, note_size, 3, Color(0, 0, 0, 0.8))
-			draw_string(font, at, note, HORIZONTAL_ALIGNMENT_LEFT, -1, note_size, Color(0.95, 0.95, 0.9))
+		if with_text:
+			_text_line(title, side + font_px + 2.0, Color(0.97, 0.97, 0.93))
+			_text_line(note, side + 2.0 * font_px + 5.0, Color(0.85, 0.88, 0.8))
 
-	# Icône simple dessinée : rond de la couleur de la matière (relief clair en haut à gauche), caillou ovale,
-	# éclat anguleux, ou pioche.
-	static func draw_icon(canvas: CanvasItem, value: Dictionary, rect: Rect2) -> void:
-		var spec: Dictionary = Inventory.ITEMS.get(value.get("objet", ""), {})
-		if spec.is_empty():
+	# Texte centré sous la case, raccourci (…) s'il dépasse un peu la largeur de la case.
+	func _text_line(text: String, baseline: float, color: Color) -> void:
+		if text.is_empty():
 			return
-		var p := rect.position
-		var w := rect.size.x
-		var h := rect.size.y
-		var center := rect.get_center()
-		var color: Color = spec.couleur
-		if spec.has("outil"):
-			canvas.draw_line(p + Vector2(0.18 * w, 0.9 * h), p + Vector2(0.68 * w, 0.26 * h), Color("#7a5230"), maxf(2.0, w * 0.1))
-			canvas.draw_polyline(PackedVector2Array([p + Vector2(0.28 * w, 0.06 * h), p + Vector2(0.56 * w, 0.14 * h), p + Vector2(0.8 * w, 0.32 * h), p + Vector2(0.94 * w, 0.6 * h)]), color, maxf(2.0, w * 0.1))
-			return
-		match spec.get("forme", ""):
-			"eclat":
-				var points := PackedVector2Array([p + Vector2(0.18 * w, 0.62 * h), p + Vector2(0.38 * w, 0.2 * h), p + Vector2(0.8 * w, 0.3 * h), p + Vector2(0.88 * w, 0.7 * h), p + Vector2(0.5 * w, 0.88 * h)])
-				canvas.draw_colored_polygon(points, color)
-				canvas.draw_colored_polygon(PackedVector2Array([points[1], points[2], center]), color.lightened(0.25))
-				canvas.draw_colored_polygon(PackedVector2Array([points[3], points[4], center]), color.darkened(0.3))
-				points.append(points[0])
-				canvas.draw_polyline(points, RIM, 1.0, true)
-			"caillou":
-				var oval := PackedVector2Array()
-				for step in range(24):
-					var angle := TAU * step / 24.0
-					oval.append(center + Vector2(cos(angle) * w * 0.46, sin(angle) * h * 0.34 + h * 0.06))
-				canvas.draw_colored_polygon(oval, color.darkened(0.15))
-				canvas.draw_circle(center + Vector2(-w * 0.1, -h * 0.02), w * 0.22, color.lightened(0.12))
-				oval.append(oval[0])
-				canvas.draw_polyline(oval, RIM, 1.0, true)
-			_:
-				canvas.draw_circle(center, w * 0.46, color.darkened(0.2))
-				canvas.draw_arc(center, w * 0.46, 0.0, TAU, 32, RIM, 1.0, true)
-				canvas.draw_circle(center + Vector2(-w * 0.06, -h * 0.06), w * 0.38, color)
-				canvas.draw_circle(center + Vector2(-w * 0.16, -h * 0.16), w * 0.12, color.lightened(0.3))
+		var font := ThemeDB.fallback_font
+		var room := side + 10.0
+		var shown := text
+		while shown.length() > 2 and font.get_string_size(shown, HORIZONTAL_ALIGNMENT_LEFT, -1, font_px).x > room:
+			shown = shown.left(shown.length() - 2) + "…"
+		var width := font.get_string_size(shown, HORIZONTAL_ALIGNMENT_LEFT, -1, font_px).x
+		var at := Vector2((side - width) * 0.5, baseline)
+		draw_string_outline(font, at, shown, HORIZONTAL_ALIGNMENT_LEFT, -1, font_px, 3, Color(0, 0, 0, 0.8))
+		draw_string(font, at, shown, HORIZONTAL_ALIGNMENT_LEFT, -1, font_px, color)
 
 var inventory: RefCounted
 var text_scale := 1.0
 var hud_bar: HBoxContainer
 var hud_slots: Array = []
 var hud_gap: Control
-var pockets_label: Label
+var weights_label: Label
 var screen: Control
 var panel: PanelContainer
 var mode_label: Label
 var creative_box: VBoxContainer
 var grid_box: GridContainer
-var bar_gap: Control
-var bar_titles: HBoxContainer
+var creative_bar: HBoxContainer
+var survival_box: VBoxContainer
+var hands_weight: Label
+var pockets_weight: Label
 var tab_buttons: Array = []
 var catalog: GridContainer
 var catalog_slots: Array = []
@@ -152,14 +134,14 @@ func setup(owner_inventory: RefCounted, scale: float) -> void:
 func is_open() -> bool:
 	return is_instance_valid(screen) and screen.visible
 
-func _note_px() -> int:
-	return roundi(12 * text_scale)
+func _text_px() -> int:
+	return roundi(11 * text_scale)
 
 func _build_hud() -> void:
 	hud_bar = HBoxContainer.new()
 	hud_bar.name = "HotBar"
 	hud_bar.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	hud_bar.add_theme_constant_override("separation", GAP)
+	hud_bar.add_theme_constant_override("separation", GAP + 4)
 	hud_bar.alignment = BoxContainer.ALIGNMENT_CENTER
 	hud_bar.anchor_left = 0.5
 	hud_bar.anchor_right = 0.5
@@ -167,10 +149,10 @@ func _build_hud() -> void:
 	hud_bar.anchor_bottom = 1.0
 	hud_bar.grow_horizontal = Control.GROW_DIRECTION_BOTH
 	hud_bar.grow_vertical = Control.GROW_DIRECTION_BEGIN
-	hud_bar.offset_bottom = -10
+	hud_bar.offset_bottom = -6
 	add_child(hud_bar)
 	for index in range(Inventory.BAR_SIZE):
-		var slot := Slot.new(roundf(HUD_SLOT * text_scale), true, _note_px())
+		var slot := Slot.new(roundf(HUD_SLOT * text_scale), true, _text_px())
 		slot.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		hud_bar.add_child(slot)
 		hud_slots.append(slot)
@@ -180,24 +162,25 @@ func _build_hud() -> void:
 			hud_gap.custom_minimum_size = Vector2(14, 0)
 			hud_gap.mouse_filter = Control.MOUSE_FILTER_IGNORE
 			hud_bar.add_child(hud_gap)
-	pockets_label = _label("", 15)
-	pockets_label.name = "PocketsWeight"
-	pockets_label.add_theme_color_override("font_shadow_color", Color.BLACK)
-	pockets_label.add_theme_constant_override("shadow_outline_size", 3)
-	pockets_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
-	pockets_label.anchor_left = 1.0
-	pockets_label.anchor_right = 1.0
-	pockets_label.anchor_top = 1.0
-	pockets_label.anchor_bottom = 1.0
-	pockets_label.grow_horizontal = Control.GROW_DIRECTION_BEGIN
-	pockets_label.grow_vertical = Control.GROW_DIRECTION_BEGIN
-	pockets_label.offset_right = -18
-	pockets_label.offset_bottom = -14
-	add_child(pockets_label)
+	# Poids portés, en bas à droite (Survie). 0.0.7.4 : 4 pixels plus grand (demande de l'utilisateur), mains et poches.
+	weights_label = _label("", 19)
+	weights_label.name = "CarriedWeight"
+	weights_label.add_theme_color_override("font_shadow_color", Color.BLACK)
+	weights_label.add_theme_constant_override("shadow_outline_size", 4)
+	weights_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	weights_label.anchor_left = 1.0
+	weights_label.anchor_right = 1.0
+	weights_label.anchor_top = 1.0
+	weights_label.anchor_bottom = 1.0
+	weights_label.grow_horizontal = Control.GROW_DIRECTION_BEGIN
+	weights_label.grow_vertical = Control.GROW_DIRECTION_BEGIN
+	weights_label.offset_right = -18
+	weights_label.offset_bottom = -12
+	add_child(weights_label)
 
 # Hauteur occupée par la barre en bas (pour placer les messages au-dessus).
 func hud_height() -> float:
-	return roundf(HUD_SLOT * text_scale) + _note_px() + 16.0
+	return roundf(HUD_SLOT * text_scale) + 2.0 * (_text_px() + 3.0) + 12.0
 
 func _label(text: String, font_size: int) -> Label:
 	var label := Label.new()
@@ -218,11 +201,18 @@ func _tab_style(alpha: float) -> StyleBoxFlat:
 	var style := StyleBoxFlat.new()
 	style.bg_color = Color(1, 1, 1, alpha)
 	style.set_corner_radius_all(6)
-	style.content_margin_left = 12
-	style.content_margin_right = 12
-	style.content_margin_top = 5
-	style.content_margin_bottom = 5
+	style.set_content_margin_all(5)
 	return style
+
+func _picture(texture: Texture2D, side: float) -> TextureRect:
+	var picture := TextureRect.new()
+	picture.texture = texture
+	picture.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	picture.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	picture.custom_minimum_size = Vector2(side, side)
+	picture.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
+	picture.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	return picture
 
 func _build_screen() -> void:
 	# Plein écran mais transparent : il arrête les clics (le monde ne reprend pas la souris), on voit le monde autour.
@@ -261,7 +251,7 @@ func _build_screen() -> void:
 	mode_label = _label("", 16)
 	mode_label.add_theme_color_override("font_color", Color(0.85, 0.85, 0.8, 0.85))
 	header.add_child(mode_label)
-	# Créatif : onglets des catégories, puis leurs objets.
+	# Créatif : onglets en images (le nom en bulle d'aide), puis les objets de l'onglet choisi.
 	creative_box = VBoxContainer.new()
 	creative_box.add_theme_constant_override("separation", GAP)
 	column.add_child(creative_box)
@@ -269,13 +259,14 @@ func _build_screen() -> void:
 	tabs.add_theme_constant_override("separation", GAP)
 	creative_box.add_child(tabs)
 	var group := ButtonGroup.new()
+	var tab_px := roundi(side * 0.72)
 	for index in range(Inventory.CATEGORIES.size()):
 		var tab := Button.new()
-		tab.text = Inventory.CATEGORIES[index].nom
+		tab.icon = ItemIcons.natural_tab(tab_px) if Inventory.CATEGORIES[index].id == "natural" else ItemIcons.tools_tab(tab_px)
+		tab.tooltip_text = Inventory.CATEGORIES[index].nom
 		tab.toggle_mode = true
 		tab.button_group = group
 		tab.focus_mode = Control.FOCUS_NONE
-		tab.add_theme_font_size_override("font_size", roundi(15 * text_scale))
 		tab.add_theme_stylebox_override("normal", _tab_style(0.08))
 		tab.add_theme_stylebox_override("hover", _tab_style(0.16))
 		tab.add_theme_stylebox_override("pressed", _tab_style(0.3))
@@ -301,29 +292,29 @@ func _build_screen() -> void:
 		slot.clicked.connect(_on_slot.bind("grid", index))
 		grid_box.add_child(slot)
 		grid_slots.append(slot)
-	# Barre d'objets, séparée et plus bas (Survie : « Mains » et « Poches » au-dessus).
 	panel_gap = Control.new()
-	panel_gap.custom_minimum_size = Vector2(0, 14)
+	panel_gap.custom_minimum_size = Vector2(0, 10)
 	column.add_child(panel_gap)
-	bar_titles = HBoxContainer.new()
-	bar_titles.add_theme_constant_override("separation", GAP)
-	column.add_child(bar_titles)
-	var hands_title := _label("Mains (400,0 g chacune)", 14)
-	hands_title.custom_minimum_size = Vector2(side * 2 + GAP + 14, 0)
-	bar_titles.add_child(hands_title)
-	bar_titles.add_child(_label("Poches (150,0 g en tout)", 14))
-	var bar := HBoxContainer.new()
-	bar.add_theme_constant_override("separation", GAP)
-	column.add_child(bar)
+	# Barre de 10 cases (Créatif), séparée et plus bas.
+	creative_bar = HBoxContainer.new()
+	creative_bar.add_theme_constant_override("separation", GAP)
+	column.add_child(creative_bar)
+	bar_slots.resize(Inventory.BAR_SIZE)
+	var creative_slots := {}
 	for index in range(Inventory.BAR_SIZE):
-		var slot := Slot.new(side, true, _note_px())
+		var slot := Slot.new(side, true, _text_px())
 		slot.clicked.connect(_on_slot.bind("bar", index))
-		bar.add_child(slot)
-		bar_slots.append(slot)
-		if index == Inventory.HANDS[-1]:
-			bar_gap = Control.new()
-			bar_gap.custom_minimum_size = Vector2(14, 0)
-			bar.add_child(bar_gap)
+		creative_bar.add_child(slot)
+		creative_slots[index] = slot
+	# Survie : ligne des mains, puis ligne des poches.
+	survival_box = VBoxContainer.new()
+	survival_box.add_theme_constant_override("separation", GAP + 4)
+	column.add_child(survival_box)
+	var survival_slots := {}
+	hands_weight = _survival_row(ItemIcons.hand(), Inventory.HANDS, side, survival_slots, "Mains")
+	pockets_weight = _survival_row(ItemIcons.pocket(), Inventory.POCKETS, side, survival_slots, "Poches")
+	_creative_bar_slots = creative_slots
+	_survival_bar_slots = survival_slots
 	message = _label("", 14)
 	message.add_theme_color_override("font_color", Color(0.9, 0.9, 0.85, 0.85))
 	message.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
@@ -337,9 +328,39 @@ func _build_screen() -> void:
 	screen.add_child(cursor)
 	show_category(0)
 
+var _creative_bar_slots := {}
+var _survival_bar_slots := {}
+
+# Une ligne de Survie : image (non cliquable), les cases un peu décalées à droite, et le poids tout à droite.
+func _survival_row(picture: Texture2D, indexes: Array, side: float, slots: Dictionary, what: String) -> Label:
+	var row := HBoxContainer.new()
+	row.add_theme_constant_override("separation", GAP)
+	survival_box.add_child(row)
+	var image := _picture(picture, side)
+	image.tooltip_text = what
+	row.add_child(image)
+	var shift := Control.new()
+	shift.custom_minimum_size = Vector2(8, 0)
+	row.add_child(shift)
+	for index in indexes:
+		var slot := Slot.new(side, true, _text_px())
+		slot.clicked.connect(_on_slot.bind("bar", index))
+		row.add_child(slot)
+		slots[index] = slot
+	var filler := Control.new()
+	filler.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	filler.custom_minimum_size = Vector2(24, 0)
+	row.add_child(filler)
+	var weight := _label("", 15)
+	weight.custom_minimum_size = Vector2(0, side)
+	weight.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	weight.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
+	row.add_child(weight)
+	return weight
+
 func _hint() -> String:
 	if inventory.mode == Inventory.CREATIVE:
-		return "Clic gauche : prendre ou poser · clic droit : vider la case (sur une catégorie : dans la première case libre) · Échap : fermer"
+		return "Clic gauche : prendre ou poser · clic droit : vider la case (sur un objet du haut : dans la première case libre) · Échap : fermer"
 	return "Clic gauche : prendre ou poser (les objets identiques s'empilent, selon le poids) · Échap : fermer"
 
 # Poids écrit sous une case (Survie seulement ; rien sous une case vide).
@@ -349,28 +370,39 @@ func _note(index: int) -> String:
 	var value: Dictionary = inventory.item("bar", index)
 	return "" if value.is_empty() else Inventory.format_weight(Inventory.stack_weight(value))
 
+func _carried(weight: float, limit: float) -> String:
+	return "%s / %s" % [Inventory.format_weight(weight), Inventory.format_weight(limit)]
+
 func refresh() -> void:
 	if inventory == null:
 		return
 	var creative: bool = inventory.mode == Inventory.CREATIVE
 	var shown: Array = inventory.bar_slots()
+	bar_slots.clear()
 	for index in range(Inventory.BAR_SIZE):
 		var chosen: bool = index == inventory.selected()
 		var value: Dictionary = inventory.item("bar", index)
 		hud_slots[index].visible = index in shown
-		bar_slots[index].visible = index in shown
 		hud_slots[index].show_item(value, false, chosen, _note(index))
-		bar_slots[index].show_item(value, false, chosen, _note(index))
+		var panel_slot: Slot = _creative_bar_slots[index] if creative or not _survival_bar_slots.has(index) else _survival_bar_slots[index]
+		bar_slots.append(panel_slot)
+		for slot in [_creative_bar_slots.get(index), _survival_bar_slots.get(index)]:
+			if slot != null:
+				slot.show_item(value, false, chosen, _note(index))
 	for index in range(Inventory.GRID_SIZE):
 		grid_slots[index].show_item(inventory.item("grid", index))
 	hud_gap.visible = not creative
-	bar_gap.visible = not creative
-	bar_titles.visible = not creative
 	grid_box.visible = creative
 	panel_gap.visible = creative
 	creative_box.visible = creative
-	pockets_label.visible = not creative
-	pockets_label.text = "Poches : %s / %s" % [Inventory.format_weight(inventory.pockets_weight()), Inventory.format_weight(Inventory.POCKETS_LIMIT)]
+	creative_bar.visible = creative
+	survival_box.visible = not creative
+	weights_label.visible = not creative
+	var hands_text := _carried(inventory.hands_weight(), Inventory.HANDS_LIMIT)
+	var pockets_text := _carried(inventory.pockets_weight(), Inventory.POCKETS_LIMIT)
+	hands_weight.text = hands_text
+	pockets_weight.text = pockets_text
+	weights_label.text = "Mains : %s\nPoches : %s" % [hands_text, pockets_text]
 	mode_label.text = "Créatif" if creative else "Survie"
 	if not message.has_meta("said"):
 		message.text = _hint()
@@ -416,7 +448,7 @@ func _on_slot(button: int, area: String, index: int) -> void:
 		var before: Dictionary = cursor_item
 		var rest: Dictionary = inventory.put(area, index, cursor_item)
 		if rest == before:
-			_say("Trop lourd pour cette case : %s au plus." % Inventory.format_weight(inventory.room(area, index)))
+			_say("Trop lourd ici : %s au plus." % Inventory.format_weight(inventory.room(area, index)))
 			return
 		cursor_item = rest
 		if rest.is_empty():
@@ -446,6 +478,8 @@ func _on_background(event: InputEvent) -> void:
 	if event is InputEventMouseButton and event.pressed:
 		_drop_cursor()
 
+signal overflow(value: Dictionary)
+
 func _drop_cursor() -> void:
 	if cursor_item.is_empty():
 		return
@@ -458,7 +492,7 @@ func _drop_cursor() -> void:
 			cursor_item.nombre = Inventory.count(cursor_item) - added
 			if cursor_item.nombre <= 0:
 				cursor_item = {}
-		# Ce qui ne tient plus nulle part retourne au monde (inventory_overflow), jamais perdu.
+		# Ce qui ne tient plus nulle part est posé au sol (world.drop_items), jamais perdu.
 		if not cursor_item.is_empty():
 			overflow.emit(cursor_item)
 	elif not cursor_from.is_empty() and inventory.item(cursor_from[0], cursor_from[1]).is_empty():
@@ -466,8 +500,6 @@ func _drop_cursor() -> void:
 	cursor_item = {}
 	cursor_from = []
 	_show_cursor()
-
-signal overflow(value: Dictionary)
 
 func _show_cursor() -> void:
 	cursor.show_item(cursor_item)
