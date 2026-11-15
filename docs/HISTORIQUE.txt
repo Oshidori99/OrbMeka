@@ -3,6 +3,26 @@ Du plus récent au plus ancien. Ce fichier est mis à jour à chaque version.
 
 === Thème « Gameplay et inventaire » (0.0.7) ===
 
+0.0.7.12 — Couper seulement la branche ou la tige visée, souche, une seule tige de noisetier, rameaux avec feuilles, coupe visible, tige tombée posée sur ses branches
+Génération du terrain : version 32 · Menus : version 10.
+Branche cassée = rameau au sol (« Tige de noisetier »…) ; abattre plus haut laisse une souche ; noisetier : une tige à la fois ; face claire et écart de 40 cm à 20° ; coupe nette ; tige tombée sur ses branches.
+
+0.0.7.11 — Couper à mains nues jusqu'à 40 cm (5 s par 10 cm), tronc devenu du bois ramassable, bois à sa vraie épaisseur
+Génération du terrain : version 32 · Menus : version 10.
+Coupe à mains nues jusqu'à 40 cm (5 s par 10 cm, 40 cm : 20 s) ; un morceau qui porte moins de 10 % des feuilles devient du bois à ramasser (R) ; épaisseur du bois mesurée hors évasement des racines.
+
+0.0.7.10 — Main gauche, porter à deux mains (case double), ramasser dans l'autre main, couper jusqu'à 30 cm, nom automatique, statistiques du monde
+Génération du terrain : version 32 · Menus : version 10.
+Main gauche (case 1) et droite (case 2) visibles ; objet lourd tenu à deux mains, une seule case ; R dans l'autre main ; coupe à mains nues jusqu'à 30 cm (8 s par 10 cm) ; monde sans nom : T56 ; statistiques (version, ouvertures, temps de jeu).
+
+0.0.7.9 — Couper en deux là où on vise, temps selon l'épaisseur, arbres posés sur leurs appuis, pas de vol en Survie, terre sur rocher, travois au sol, noms dans l'inventaire Créatif
+Génération du terrain : version 32 · Menus : version 10.
+Arbre couché coupé en deux au point visé (bois nu = tronc au sol à sa taille) ; temps selon l'épaisseur (15 cm au plus) ; tronc posé sur ses appuis, jamais dans le sol ; pas de vol en Survie ; terre qui tient sur un rocher ; travois au sol ; noms sous les objets.
+
+0.0.7.8 — Abattre et couper les arbres, bâtons, porter lourd, poser partout, anneau de chargement, troncs solides
+Génération du terrain : version 32 · Menus : version 10.
+Arbres abattus (8 s), couchés, qui glissent ; coupés en tronc et branches (âge, souplesse) ; mains 3 kg à deux mains ; matière posée sur rochers ; anneau de chargement ; troncs enfin solides.
+
 0.0.7.7 — Enjamber, pentes plus lentes, équipement à venir
 Génération du terrain : version 32 · Menus : version 10.
 Enjamber les petits obstacles (45 cm) ; marcher moins vite en montée raide ; cases grisées Sac, Panier, Travois, Chariot.

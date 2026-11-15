@@ -285,12 +285,14 @@ static func fruit_spots(kind: int, size: int, form: int = 0) -> Array:
 # une pour les pommes moitié rouge moitié jaune. Sans fruit cueilli : partagées par tous les arbres du même modèle.
 static var _fruit_series: Dictionary = {}
 
-static func _series(kind: int, size: int, form: int, skip: Dictionary) -> Array:
+# own_spots : fruits propres à un arbre (0.0.7.8 : arbre tombé, fruits déplacés avec lui) ; jamais gardées en commun.
+static func _series(kind: int, size: int, form: int, skip: Dictionary, own_spots: Array = []) -> Array:
 	var key := _fruit_key(kind, size, form)
-	if skip.is_empty() and _fruit_series.has(key):
+	var shared := skip.is_empty() and own_spots.is_empty()
+	if shared and _fruit_series.has(key):
 		return _fruit_series[key]
 	var lists := [[], []]
-	var spots := fruit_spots(kind, size, form)
+	var spots := own_spots if not own_spots.is_empty() else fruit_spots(kind, size, form)
 	for number in range(spots.size()):
 		if not skip.has(number):
 			lists[1 if kind == APPLE and spots[number][3] == 4 else 0].append(spots[number])
@@ -310,15 +312,15 @@ static func _series(kind: int, size: int, form: int, skip: Dictionary) -> Array:
 			var color: Color = FRUIT_COLORS[kind] if kind != APPLE else (Color.WHITE if two_tone else Inventory.APPLE_COLORS[spot[3]])
 			series.set_instance_color(at, color)
 		made.append(series)
-	if skip.is_empty():
+	if shared:
 		_fruit_series[key] = made
 	return made
 
 # Fruits d'un arbre (nœud « Fruits » de son modèle), visibles de près seulement, comme le modèle détaillé.
-static func fruit_node(kind: int, size: int, form: int, skip: Dictionary = {}) -> Node3D:
+static func fruit_node(kind: int, size: int, form: int, skip: Dictionary = {}, own_spots: Array = []) -> Node3D:
 	var holder := Node3D.new()
 	holder.name = "Fruits"
-	for series in _series(kind, size, form, skip):
+	for series in _series(kind, size, form, skip, own_spots):
 		var drawn := MultiMeshInstance3D.new()
 		drawn.multimesh = series
 		drawn.visibility_range_end = DETAIL_END
@@ -338,7 +340,261 @@ static func apply_picked(body: Node3D, picked: Array) -> void:
 	var skip := {}
 	for number in picked:
 		skip[int(number)] = true
-	model.add_child(fruit_node(body.get_meta("kind"), body.get_meta("size"), body.get_meta("form"), skip))
+	model.add_child(fruit_node(body.get_meta("kind"), body.get_meta("size"), body.get_meta("form"), skip, body.get_meta("fruit_spots", [])))
+
+# 0.0.7.9 : épaisseur du bois (diamètre, en mètres, repère du modèle, avant l'échelle de l'arbre) à un point visé : on
+# tranche les triangles d'écorce à la hauteur du point, on garde l'anneau de la tige ou branche la plus proche (pas les
+# tiges voisines d'une touffe) et on prend sa largeur la plus petite (le vrai diamètre, même pour une branche penchée).
+# Sert au temps de coupe et aux troncs coupés (world.gd). Les triangles d'écorce sont lus une fois par modèle.
+static var _bark_points: Dictionary = {}
+
+static func _bark(kind: int, size: int, form: int) -> PackedVector3Array:
+	var key := _fruit_key(kind, size, form)
+	if not _bark_points.has(key):
+		var triangles := PackedVector3Array()
+		var made := mesh(kind, size, false, form)
+		for surface in range(made.get_surface_count()):
+			if made.surface_get_material(surface) == material(kind, "bark"):
+				var arrays: Array = made.surface_get_arrays(surface)
+				var points: PackedVector3Array = arrays[Mesh.ARRAY_VERTEX]
+				var indices: PackedInt32Array = arrays[Mesh.ARRAY_INDEX]
+				if indices.is_empty():
+					triangles.append_array(points)
+				else:
+					for index in indices:
+						triangles.append(points[index])
+		_bark_points[key] = triangles
+	return _bark_points[key]
+
+# 0.0.7.9 : morceau d'un arbre coupé : seulement les triangles dont le centre est entre lo et hi (hauteur dans le modèle,
+# le long du tronc), écorce, feuilles et trous ; gardé en commun par morceau.
+static func mesh_range(kind: int, size: int, form: int, lo: float, hi: float) -> ArrayMesh:
+	var key := "morceau_%s_%.3f_%.3f" % [_fruit_key(kind, size, form), lo, hi]
+	if _meshes.has(key):
+		return _meshes[key]
+	var full := mesh(kind, size, false, form)
+	var made := ArrayMesh.new()
+	for surface in range(full.get_surface_count()):
+		var arrays := full.surface_get_arrays(surface)
+		var points: PackedVector3Array = arrays[Mesh.ARRAY_VERTEX]
+		var indices: PackedInt32Array = arrays[Mesh.ARRAY_INDEX]
+		var kept := PackedInt32Array()
+		for at in range(0, indices.size() - 2, 3):
+			var middle := (points[indices[at]].y + points[indices[at + 1]].y + points[indices[at + 2]].y) / 3.0
+			if middle >= lo and middle < hi:
+				kept.append_array([indices[at], indices[at + 1], indices[at + 2]])
+		if kept.is_empty():
+			continue
+		# Seulement les sommets de ce morceau (taille et collision justes, moins de mémoire).
+		var count := points.size()
+		var remap := {}
+		var order := PackedInt32Array()
+		for index in kept:
+			if not remap.has(index):
+				remap[index] = order.size()
+				order.append(index)
+		for kind_index in range(Mesh.ARRAY_MAX):
+			if kind_index == Mesh.ARRAY_INDEX or arrays[kind_index] == null:
+				continue
+			var source = arrays[kind_index]
+			var stride: int = source.size() / count
+			var packed = source.slice(0, 0)
+			for index in order:
+				for part in range(stride):
+					packed.append(source[index * stride + part])
+			arrays[kind_index] = packed
+		for at in range(kept.size()):
+			kept[at] = remap[kept[at]]
+		arrays[Mesh.ARRAY_INDEX] = kept
+		made.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arrays)
+		made.surface_set_material(made.get_surface_count() - 1, full.surface_get_material(surface))
+	_meshes[key] = made
+	return made
+
+# Feuilles entre lo et hi : un morceau sans feuilles est du bois nu (il devient un tronc ou un bâton).
+static func has_leaves(kind: int, size: int, form: int, lo: float, hi: float) -> bool:
+	var full := mesh(kind, size, false, form)
+	for surface in range(full.get_surface_count()):
+		if full.surface_get_material(surface) != material(kind, "leaves"):
+			continue
+		for point in full.surface_get_arrays(surface)[Mesh.ARRAY_VERTEX]:
+			if point.y >= lo and point.y < hi:
+				return true
+	return false
+
+# 0.0.7.11 : part des feuilles de l'arbre entre lo et hi (centres des triangles, comme mesh_range). Les petits arbres ont
+# des rameaux feuillus dès 40 cm : avec has_leaves, le bas du tronc n'était jamais du bois. Un morceau qui porte moins de
+# BARE_LEAF_SHARE des feuilles de l'arbre est du bois nu (ses quelques rameaux tombent avec la coupe).
+const BARE_LEAF_SHARE := 0.10
+static var _leaf_heights: Dictionary = {}
+
+static func leaf_share(kind: int, size: int, form: int, lo: float, hi: float) -> float:
+	var key := _fruit_key(kind, size, form)
+	if not _leaf_heights.has(key):
+		var heights := PackedFloat32Array()
+		var full := mesh(kind, size, false, form)
+		for surface in range(full.get_surface_count()):
+			if full.surface_get_material(surface) != material(kind, "leaves"):
+				continue
+			var arrays := full.surface_get_arrays(surface)
+			var points: PackedVector3Array = arrays[Mesh.ARRAY_VERTEX]
+			var indices: PackedInt32Array = arrays[Mesh.ARRAY_INDEX]
+			for at in range(0, indices.size() - 2, 3):
+				heights.append((points[indices[at]].y + points[indices[at + 1]].y + points[indices[at + 2]].y) / 3.0)
+		heights.sort()
+		_leaf_heights[key] = heights
+	var all: PackedFloat32Array = _leaf_heights[key]
+	if all.is_empty():
+		return 0.0
+	return float(all.bsearch(hi) - all.bsearch(lo)) / all.size()
+
+static func is_bare_wood(kind: int, size: int, form: int, lo: float, hi: float) -> bool:
+	return leaf_share(kind, size, form, lo, hi) < BARE_LEAF_SHARE
+
+static func top(kind: int, size: int, form: int) -> float:
+	return mesh(kind, size, false, form).get_aabb().end.y
+
+static func wood_thickness(kind: int, size: int, form: int, local: Vector3) -> float:
+	var rings := slice_rings(kind, size, form, local.y)
+	if rings.is_empty():
+		return 0.03
+	var aimed := Vector2(local.x, local.z)
+	var ring := []
+	var best_area := -1.0
+	var nearest := INF
+	var nearest_ring := []
+	for points in rings:
+		var box := Rect2(points[0], Vector2.ZERO)
+		var away := INF
+		for point in points:
+			box = box.expand(point)
+			away = minf(away, point.distance_to(aimed))
+		if box.grow(0.01).has_point(aimed) and box.get_area() > best_area:
+			best_area = box.get_area()
+			ring = points
+		if away < nearest:
+			nearest = away
+			nearest_ring = points
+	if ring.is_empty():
+		ring = nearest_ring
+	# Largeur la plus petite, sur 18 directions.
+	var thinnest := INF
+	for step in range(18):
+		var across := Vector2.from_angle(PI * step / 18.0)
+		var low := INF
+		var high := -INF
+		for point in ring:
+			var along: float = point.dot(across)
+			low = minf(low, along)
+			high = maxf(high, along)
+		thinnest = minf(thinnest, high - low)
+	return clampf(thinnest, 0.005, 1.5)
+
+# 0.0.7.11 : faces coupées : à la hauteur d'une coupe, un disque de bois clair par tronc, tige ou branche tranchée
+# (enveloppe de chaque anneau d'écorce), dans le repère du modèle ; gardé en commun par hauteur.
+static func cut_faces(kind: int, size: int, form: int, height: float) -> ArrayMesh:
+	var key := "coupe_%s_%.3f" % [_fruit_key(kind, size, form), height]
+	if _meshes.has(key):
+		return _meshes[key]
+	var points := PackedVector3Array()
+	var normals := PackedVector3Array()
+	var uvs := PackedVector2Array()
+	for ring in slice_rings(kind, size, form, height):
+		var hull := Geometry2D.convex_hull(PackedVector2Array(ring))
+		if hull.size() < 4:
+			continue
+		var center := Vector2.ZERO
+		for at in range(hull.size() - 1):
+			center += hull[at]
+		center /= hull.size() - 1
+		var radius := 0.0
+		for point in hull:
+			radius = maxf(radius, point.distance_to(center))
+		for at in range(hull.size() - 1):
+			for corner in [center, hull[at], hull[at + 1]]:
+				points.append(Vector3(corner.x, height, corner.y))
+				normals.append(Vector3.UP)
+				# Cernes : u = distance au cœur (0 au centre, 1 à l'écorce).
+				uvs.append(Vector2((corner - center).length() / maxf(radius, 0.001), 0.0))
+	var made := ArrayMesh.new()
+	if not points.is_empty():
+		var arrays := []
+		arrays.resize(Mesh.ARRAY_MAX)
+		arrays[Mesh.ARRAY_VERTEX] = points
+		arrays[Mesh.ARRAY_NORMAL] = normals
+		arrays[Mesh.ARRAY_TEX_UV] = uvs
+		made.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arrays)
+		made.surface_set_material(0, cut_material())
+	_meshes[key] = made
+	return made
+
+# Bois clair, cernes légers vers l'écorce ; vu des deux côtés.
+static func cut_material() -> ShaderMaterial:
+	if not _materials.has("coupe"):
+		var shader := Shader.new()
+		shader.code = """shader_type spatial;
+render_mode cull_disabled;
+void fragment() {
+	float r = UV.x;
+	float rings = 0.5 + 0.5 * sin(r * 40.0);
+	vec3 wood = mix(vec3(0.86, 0.72, 0.50), vec3(0.74, 0.58, 0.38), rings * 0.35);
+	ALBEDO = mix(wood, vec3(0.42, 0.28, 0.18), smoothstep(0.86, 1.0, r));
+	ROUGHNESS = 0.9;
+}
+"""
+		var made := ShaderMaterial.new()
+		made.shader = shader
+		_materials["coupe"] = made
+	return _materials["coupe"]
+
+# Anneaux d'écorce coupés par le plan horizontal à cette hauteur (un tableau de points 2D x, z par anneau).
+static func slice_rings(kind: int, size: int, form: int, at_height: float) -> Array:
+	var triangles := _bark(kind, size, form)
+	var height := at_height + 0.0007
+	# Morceaux de la tranche : un segment par triangle coupé par le plan horizontal.
+	var ends := []
+	for at in range(0, triangles.size() - 2, 3):
+		var crossing := []
+		for edge in [[0, 1], [1, 2], [2, 0]]:
+			var a: Vector3 = triangles[at + edge[0]]
+			var b: Vector3 = triangles[at + edge[1]]
+			if (a.y - height) * (b.y - height) < 0.0:
+				var share := (height - a.y) / (b.y - a.y)
+				var point := a.lerp(b, share)
+				crossing.append(Vector2(point.x, point.z))
+		if crossing.size() == 2:
+			ends.append(crossing)
+	if ends.is_empty():
+		return []
+	# Anneaux de la tranche : segments qui se touchent (bouts arrondis au mm près) ; wood_thickness garde le plus grand
+	# anneau qui entoure le point visé (tronc, tige d'une touffe, branche), sinon le plus proche.
+	var groups := {}
+	var owner := []
+	for index in range(ends.size()):
+		owner.append(index)
+	var find := func(index: int) -> int:
+		while owner[index] != index:
+			owner[index] = owner[owner[index]]
+			index = owner[index]
+		return index
+	for index in range(ends.size()):
+		for point in ends[index]:
+			var key := Vector2i(roundi(point.x * 500.0), roundi(point.y * 500.0))
+			if groups.has(key):
+				var first: int = find.call(groups[key])
+				var second: int = find.call(index)
+				if first != second:
+					owner[second] = first
+			else:
+				groups[key] = index
+	var rings := {}
+	for index in range(ends.size()):
+		var root: int = find.call(index)
+		if not rings.has(root):
+			rings[root] = []
+		rings[root].append(ends[index][0])
+		rings[root].append(ends[index][1])
+	return rings.values()
 
 # Collision simple : le tronc (pommier) ou le pied de la touffe (noisetier) : [rayon, hauteur].
 static func trunk(kind: int, size: int = 3) -> Vector2:
@@ -395,5 +651,6 @@ static func tree_body(kind: int, size: int, vine := false, form := 0) -> StaticB
 	var collision := CollisionShape3D.new()
 	collision.shape = shape
 	collision.position.y = foot.y / 2.0
-	model.add_child(collision)
+	# 0.0.7.8 : directement sous le corps de l'arbre (sous « Modele », Godot l'ignorait : on traversait les troncs).
+	body.add_child(collision)
 	return body

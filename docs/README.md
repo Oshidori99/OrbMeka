@@ -1,6 +1,68 @@
-# OrbMeka™ — prototype 0.0.7.7
+# OrbMeka™ — prototype 0.0.7.12
 
 Godot 4.7 / GDScript. Formes et couleurs simples ; assets externes seulement sous licence vérifiée (sons CC0, assets/sounds/CREDITS.txt).
+
+## 0.0.7.12 — Couper seulement la branche ou la tige visée, souche, une seule tige de noisetier, rameaux avec feuilles, coupe visible, tige tombée posée sur ses branches
+Version publiée (avec 0.0.7.11). Génération inchangée (version 32).
+- **Couper seulement ce qu'on vise** (scripts/tree_parts.gd) : dans les modèles Blender, chaque tronc, tige et branche est un tube séparé ; on vise la vraie branche (plus seulement le tronc), et seule elle est coupée, à l'endroit visé, avec ses petites branches et ses feuilles. Plus tard, la hache en coupera plusieurs d'un coup.
+- **Branche cassée = rameau au sol**, à sa vraie taille : « Tige de noisetier », « Rameau de pommier », de pin, de tilleul ; un même petit feuillage pour tous (icône et au sol). Sans feuilles : un bâton (branche ou tronc).
+- **Abattre à la hauteur visée** : près du pied (moins de 50 cm), l'arbre tombe depuis la racine ; plus haut, une souche reste debout (coupe nette, face claire) et le haut tombe depuis la coupe.
+- **Noisetier** : une seule tige tombe, celle qu'on vise ; les autres restent debout.
+- **Coupe visible** : face de bois clair sur chaque coupe ; arbre couché coupé : le morceau écarté de 40 cm et tourné de 20° (12 cm se cachaient dans les feuilles).
+- **Tige ou haut tombé posé sur ses branches** (avant : feuillage écrasé à plat) ; une tige légère (moins de 8 cm) presque sans plier.
+- Gardé dans objets.json (« arbres_branches »). Les arbres coupés en 0.0.7.9 à 0.0.7.11 gardent l'ancienne coupe.
+
+Tests réussis : tree_fall (44 vérifications : chute depuis la racine, pied nu = bûche à sa taille, coupe au point visé, écart et tour, branche seule = rameau nommé et dessiné, une tige de noisetier, souche à la hauteur de la coupe, monde rouvert, ramassé avec R, 40 cm au plus) et les tests touchés (+ tests juridiques). Captures hors écran : souche nette, branche cassée, noisetier avant et après, tige couchée sur ses branches.
+À tester manuellement : casser une brindille de noisetier et voir le rameau au sol puis dans l'inventaire ; abattre un pommier à hauteur de poitrine ; une tige de noisetier ; rouvrir le monde. Dans la main, le rameau est encore dessiné comme un bâton (sans feuilles).
+
+## 0.0.7.11 — Couper à mains nues jusqu'à 40 cm (5 s par 10 cm), tronc devenu du bois ramassable, bois à sa vraie épaisseur
+Version locale (publiée avec 0.0.7.12, à la demande de l'utilisateur). Génération inchangée (version 32).
+- **Couper à mains nues jusqu'à 40 cm** (avant 30 cm) ; temps : 5 s par tranche de 10 cm (40 cm : 20 s).
+- **Le tronc devient du bois** : les petits arbres ont des rameaux feuillus dès 40 cm, donc le bas du tronc restait entier. Maintenant, un morceau coupé qui porte moins de 10 % des feuilles de l'arbre devient aussitôt un tronc ou une branche au sol, à ramasser avec R.
+- **Bois à sa vraie épaisseur** : le gros bout est mesuré à 30 cm du pied au moins (avant, dans l'évasement des racines).
+
+Tests réussis : tree_fall (40 cm et 20 s, tronc avec quelques rameaux = bois, coupe au point visé, morceaux qui se suivent, bois + reste = longueur de l'arbre, épaisseur hors racines), trees, menu, prototype, history_resume (+ tests juridiques).
+À tester manuellement : couper un petit pommier couché vers 1 m et ramasser le tronc avec R ; couper un tronc de 30 à 40 cm à mains nues.
+
+## 0.0.7.10 — Main gauche, porter à deux mains (case double), ramasser dans l'autre main, couper jusqu'à 30 cm, nom automatique, statistiques du monde
+Version locale (3 sur 4). Génération inchangée (version 32).
+- **Main gauche** à la première personne : la main droite en miroir (pouce en haut), sans Blender. En Survie, la case 1 est dans la main gauche, la case 2 dans la main droite ; une poche choisie : son objet sorti dans la main droite si elle est libre. En Créatif : l'objet choisi dans la main droite.
+- **Porter à deux mains** : un objet de plus de 1,5 kg prend les deux mains : une seule case double dans la barre et dans l'inventaire (une case de moins), les deux mains glissent vers le centre et tiennent l'objet entre elles.
+- **Ramasser (R)** : dans la case choisie ; si elle est pleine, dans l'autre main libre (la droite d'abord), au lieu d'être refusé.
+- **Couper à mains nues jusqu'à 30 cm** (avant 15 cm) ; temps : 8 s par tranche de 10 cm (30 cm : 24 s). Mesure toujours au-dessus de l'évasement des racines (vérifiée : même valeur tout autour du tronc).
+- **Nom automatique** : un monde créé sans nom prend le suivant de la série T (T56 après T55), montré en gris dans le champ.
+- **Statistiques du monde** (statistiques.json, dans son dossier) : version qui l'a créé, dernière ouverture (date, heure, version), nombre d'ouvertures, temps de jeu (pauses non comptées), dans Pause → Infos du monde. Anciens mondes : « inconnue » jusqu'à leur prochaine ouverture.
+
+Tests réussis : world_stats (nouveau, 7 vérifications), inventory (case double, autre main), tree_fall (30 cm, 8 s par 10 cm) et les autres tests touchés (+ tests juridiques). Captures hors écran : deux mains en Survie, objet lourd à deux mains, inventaire avec case double.
+À tester manuellement : tenir des objets dans chaque main, ramasser un objet lourd puis le lâcher (mains qui reviennent), couper un tronc de 20 à 30 cm, créer un monde sans nom, statistiques après une partie.
+
+## 0.0.7.9 — Couper en deux là où on vise, temps selon l'épaisseur, arbres posés sur leurs appuis, pas de vol en Survie, terre sur rocher, travois au sol, noms dans l'inventaire Créatif
+Version locale (2 sur 4). Génération inchangée (version 32).
+- **Couper en deux** un arbre couché, à l'endroit visé (tous les arbres, plus seulement les petits) : chaque morceau garde sa vraie forme et sa taille. Un morceau sans feuilles devient aussitôt un tronc (ou une branche) au sol, à sa longueur et à son épaisseur exactes ; un morceau avec branches et feuilles reste couché et peut être recoupé. Gardé dans objets.json (« arbres_tombes » : coupes et morceaux devenus du bois).
+- **Temps de coupe selon l'épaisseur** du bois visé : 8 s pour 10 cm, 8 s × (épaisseur / 10 cm)^2,5 (15 cm : environ 22 s) ; plus de 15 cm : impossible à mains nues (message) ; Créatif : 1 s. L'épaisseur est celle de la tige visée (une touffe de noisetier compte tige par tige).
+- **Arbre couché sur ses appuis** : tronc rigide posé sur ses points les plus hauts (bosse, tas de terre, rocher), jamais dans le sol ; branches du dessous écrasées vers les côtés, sans soulever le tronc. Mesure du vrai sol (terrain creusé ou posé, rochers) ; grille du sol corrigée (elle restait parfois vide).
+- **Pas de vol en Survie** (le vol s'arrête en passant en Survie).
+- **Terre sur un rocher** : elle reste posée (avant : elle tombait à travers et disparaissait).
+- **Travois** : icône vue de côté, le bout arrière traîné sur le sol.
+- **Inventaire Créatif** : le nom sous chaque objet (onglets et cases).
+- **Corrections après essai** : seul le tronc est solide (on s'approche et on entre dans la couronne couchée ; une tige invisible permet encore de viser pour couper) ; fente de 12 cm entre deux morceaux (la coupe se voit) ; bois coupé à sa vraie épaisseur, gros bout et petit bout (mesure par tranche du modèle : l'ancienne donnait environ 18 cm au lieu de 60 pour un pommier moyen) ; mesure du sol de secours exacte.
+
+Tests réussis : tree_fall (26 vérifications : épaisseur, temps, chute, appuis, coupe en deux, approcher la couronne, fente, taille du bois, réouverture, 15 cm au plus), trees, inventory, fly, game_mode, smooth_terrain, breaking, step_over, world_save, forests, plants, interface_info, catalog_restart (+ tests juridiques). Captures hors écran : arbre coupé en deux puis recoupé, inventaires Créatif et Survie, travois.
+À tester manuellement : couper en jouant (viser le tronc, puis la couronne), arbre tombé sur une bosse ou un tas, terre sur un rocher, ramasser un long tronc coupé.
+
+## 0.0.7.8 — Abattre et couper les arbres, bâtons, porter lourd, poser partout, anneau de chargement, troncs solides
+Version locale (1 sur 4). Génération inchangée (version 32).
+- **Abattre** : clic gauche maintenu sur un arbre, 8 s à mains nues (1 s en Créatif) ; il tombe vers le joueur (#229 pour la vie, plus tard).
+- **Arbre couché** : branches et feuilles repoussées hors du sol, fruits déplacés avec elles (toujours cueillables) ; glisse sur une pente raide ; reste tombé (objets.json « arbres_tombes »).
+- **Couper** un arbre tombé de taille 1 à 3 (8 s) : un tronc et 3 à 7 branches au sol (« arbres_coupes ») ; les gros restent couchés.
+- **Bâtons** (tronc, branche) : épaisseur, longueur, essence, âge (1 à 5), souplesse (1 à 5), poids ; effets plus tard (#228). Icône, dans la main, au sol avec l'écorce de l'arbre ; ramassés avec R.
+- **Porter lourd** : mains 3 kg ; au-delà de 1,5 kg dans une main, à deux mains (l'autre grisée) ; marche jusqu'à 40 % plus lente ; plus de 3 kg : ne se ramasse pas.
+- **Poser partout** : terre et autres matières aussi sur un rocher, un caillou ou un bloc.
+- **Anneau de chargement** autour de la croix (abattre, couper, R + I) ; plus de pourcentage écrit.
+- **Troncs solides** : la collision des arbres était ignorée (on les traversait) ; corrigé.
+
+Tests réussis : tree_fall (nouveau, 14 vérifications), inventory (100), et 36 autres (déplacement, arbres, terrain, interface) (+ tests juridiques). Captures hors écran : anneau, chute, arbre couché, bâtons.
+À tester manuellement : abattre et couper en jouant, glissade sur une vraie pente, porter un tronc (lenteur), poser de la terre sur un rocher.
 
 ## 0.0.7.7 — Enjamber, pentes plus lentes, équipement à venir
 Version publiée (4 sur 4 : avec 0.0.7.5 et 0.0.7.6). Génération inchangée (version 32).

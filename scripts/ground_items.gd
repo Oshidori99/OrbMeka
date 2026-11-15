@@ -108,18 +108,32 @@ static func size_of(value: Dictionary) -> float:
 			return HAZELNUT_SIZE
 		"eclat":
 			return PIECE_SIZE
+		# 0.0.7.8 : bâton ou tronc : son épaisseur (la longueur est à part).
+		"bois":
+			return float(value.get("epaisseur", 3.0)) / 100.0
 	return HANDFUL_SIZE
 
 # Hauteur du centre au-dessus du sol (cailloux : comme ceux du monde).
 static func lift(value: Dictionary) -> float:
 	if _kind(value) == "caillou":
 		return Rocks.pebble_lift(clampi(int(value.get("taille", 3)), 1, 7), clampi(int(value.get("forme", 1)), 1, 7)) * (1.0 - 0.2 * int(value.get("coups", 0)))
-	return size_of(value) * (0.5 if _kind(value) == "fruit" else 0.3)
+	return size_of(value) * (0.5 if _kind(value) in ["fruit", "bois"] else 0.3)
 
-# Fruits : le modèle des arbres (rayon 1) ; autres objets : diamètre 1.
+# Fruits : le modèle des arbres (rayon 1) ; bois : cylindre couché le long de son orientation ; autres : diamètre 1.
 static func _basis(value: Dictionary) -> Basis:
+	var turn := Basis(Vector3.UP, float(value.get("rotation", 0.0)))
+	if _kind(value) == "bois":
+		var thick := size_of(value)
+		return turn * Basis(Vector3.RIGHT, PI * 0.5) * Basis.from_scale(Vector3(thick, float(value.get("longueur", 1.0)), thick))
 	var scale := size_of(value) * (0.5 if _kind(value) == "fruit" else 1.0)
-	return Basis(Vector3.UP, float(value.get("rotation", 0.0))).scaled(Vector3.ONE * scale)
+	return turn.scaled(Vector3.ONE * scale)
+
+# 0.0.7.9 : bois conique : gros bout (« epaisseur ») et petit bout (« fin »), par pas de 5 %.
+static var _sticks: Dictionary = {}
+
+static func taper_step(value: Dictionary) -> int:
+	var thick := float(value.get("epaisseur", 3.0))
+	return clampi(roundi(float(value.get("fin", thick * 0.84)) / maxf(thick, 0.01) * 20.0), 4, 20)
 
 static func _two_tone(value: Dictionary) -> bool:
 	return value.get("objet") == "pomme" and int(value.get("couleur", 1)) == 4
@@ -128,7 +142,61 @@ static func _two_tone(value: Dictionary) -> bool:
 func _mesh(value: Dictionary) -> Mesh:
 	if _kind(value) == "fruit":
 		return Trees._fruit_mesh(Trees.APPLE if value.get("objet") == "pomme" else Trees.HAZEL, _two_tone(value))
+	if _kind(value) == "bois":
+		var step := taper_step(value)
+		if not _sticks.has(step):
+			var stick := CylinderMesh.new()
+			stick.top_radius = 0.5 * step / 20.0
+			stick.bottom_radius = 0.5
+			stick.height = 1.0
+			stick.radial_segments = 10
+			stick.rings = 1
+			_sticks[step] = stick
+		return _sticks[step]
 	return Rocks.pebble_mesh(clampi(int(value.get("forme", 1)), 1, 7))
+
+# 0.0.7.12 : petit feuillage d'un rameau : quelques feuilles en croix sur la moitié fine du bâton (un seul modèle,
+# repère du bâton : y le long du bâton de 0 à 1, x et z en travers ; mis à la taille de chaque rameau par leaf_basis).
+static var _tuft: ArrayMesh
+
+static func leaf_tuft() -> ArrayMesh:
+	if _tuft != null:
+		return _tuft
+	var points := PackedVector3Array()
+	var normals := PackedVector3Array()
+	var uvs := PackedVector2Array()
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 712
+	for leaf in range(14):
+		var y := rng.randf_range(0.1, 0.48)
+		# Vers les côtés et vers le haut seulement (bâton couché : -z du modèle est le haut), pas dans le sol.
+		var angle := rng.randf_range(0.0, PI)
+		var out := Vector3(cos(angle), 0.0, -sin(angle))
+		var size := rng.randf_range(0.09, 0.16)
+		var base := Vector3(0.0, y, 0.0) + out * 0.02
+		var tip := base + (out * 0.9 + Vector3(0.0, 0.35, 0.0)).normalized() * size * 2.0
+		var side := out.cross(Vector3.UP).normalized() * size * 0.55
+		var corners := [base - side, base + side, tip + side, tip - side]
+		var uv := [Vector2(0, 1), Vector2(1, 1), Vector2(1, 0), Vector2(0, 0)]
+		for index in [0, 1, 2, 0, 2, 3]:
+			points.append(corners[index])
+			normals.append((out + Vector3.UP * 0.5).normalized())
+			uvs.append(uv[index])
+	var arrays := []
+	arrays.resize(Mesh.ARRAY_MAX)
+	arrays[Mesh.ARRAY_VERTEX] = points
+	arrays[Mesh.ARRAY_NORMAL] = normals
+	arrays[Mesh.ARRAY_TEX_UV] = uvs
+	_tuft = ArrayMesh.new()
+	_tuft.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arrays)
+	return _tuft
+
+# Couché comme son bâton (le bout fin vers +y du modèle), à sa longueur ; feuilles à la taille d'un vrai rameau.
+static func leaf_basis(value: Dictionary) -> Basis:
+	var length := float(value.get("longueur", 0.5))
+	var across := clampf(length * 0.6, 0.25, 0.9)
+	var turn := Basis(Vector3.UP, float(value.get("rotation", 0.0)))
+	return turn * Basis(Vector3.RIGHT, PI * 0.5) * Basis.from_scale(Vector3(across, length, across))
 
 # Aspect des pierres (0 pierre, 1 calcaire, 2 silex) ou -1 : couleur unie.
 static func _look(value: Dictionary) -> int:
@@ -155,6 +223,9 @@ func _plain_material(value: Dictionary) -> Material:
 	# Fruits : le matériau de leur modèle (celui des arbres), couleur de chaque pomme dans ses données.
 	if _kind(value) == "fruit":
 		return null
+	# Bois : l'écorce de son essence (comme les arbres).
+	if _kind(value) == "bois":
+		return Trees.material(clampi(int(value.get("essence", 0)), 0, 3), "bark")
 	var key := "%s/%d" % [value.get("objet", ""), int(value.get("couleur", -1))]
 	if not _materials.has(key):
 		var made := StandardMaterial3D.new()
@@ -172,9 +243,17 @@ func _add_body(index: int) -> void:
 	body.collision_layer = 2
 	body.collision_mask = 0
 	var shape := CollisionShape3D.new()
-	var sphere := SphereShape3D.new()
-	sphere.radius = maxf(size_of(entry.item) * 0.5, AIM_RADIUS)
-	shape.shape = sphere
+	if _kind(entry.item) == "bois":
+		# Bâton : une boîte sur toute sa longueur (facile à viser).
+		var stick := BoxShape3D.new()
+		var thick := maxf(size_of(entry.item), AIM_RADIUS * 1.5)
+		stick.size = Vector3(thick, thick, float(entry.item.get("longueur", 1.0)))
+		shape.shape = stick
+		body.rotation.y = float(entry.item.get("rotation", 0.0))
+	else:
+		var sphere := SphereShape3D.new()
+		sphere.radius = maxf(size_of(entry.item) * 0.5, AIM_RADIUS)
+		shape.shape = sphere
 	body.add_child(shape)
 	body.position = entry.position
 	add_child(body)
@@ -193,10 +272,18 @@ func _redraw() -> void:
 			continue
 		var item: Dictionary = entry.item
 		var stone := _look(item) >= 0 and stone_material != null
-		var key: String = "pierre/%d" % int(item.get("forme", 1)) if stone else "%s/%d/%d" % [item.objet, int(item.get("forme", 1)), int(item.get("couleur", -1))]
+		var key: String = "pierre/%d" % int(item.get("forme", 1)) if stone else "%s/%d/%d/%d" % [item.objet, int(item.get("forme", 1)), int(item.get("couleur", -1)), int(item.get("essence", -1))]
+		if _kind(item) == "bois":
+			key += "/%d" % taper_step(item)
 		if not groups.has(key):
 			groups[key] = {"item": item, "stone": stone, "list": []}
 		groups[key].list.append(entry)
+		# 0.0.7.12 : rameau : son petit feuillage (le même pour tous, aux feuilles de son essence).
+		if Inventory.ITEMS.get(item.objet, {}).get("feuilles", false):
+			var leaves_key := "feuilles/%d" % int(item.get("essence", 0))
+			if not groups.has(leaves_key):
+				groups[leaves_key] = {"item": item, "stone": false, "leaves": true, "list": []}
+			groups[leaves_key].list.append(entry)
 	for key in _drawn.keys():
 		if not groups.has(key):
 			_drawn[key].queue_free()
@@ -212,14 +299,17 @@ func _redraw() -> void:
 			# Pierres : comme les cailloux du monde, couleur blanche et aspect dans les données de chaque objet.
 			drawn.multimesh.use_colors = group.stone or _kind(group.item) == "fruit"
 			drawn.multimesh.use_custom_data = group.stone
-			drawn.multimesh.mesh = _mesh(group.item)
-			drawn.material_override = _plain_material(group.item)
+			drawn.multimesh.mesh = leaf_tuft() if group.get("leaves", false) else _mesh(group.item)
+			drawn.material_override = Trees.material(clampi(int(group.item.get("essence", 0)), 0, 3), "leaves") if group.get("leaves", false) else _plain_material(group.item)
 			add_child(drawn)
 			_drawn[key] = drawn
 		var multi := drawn.multimesh
 		multi.instance_count = group.list.size()
 		for at in range(group.list.size()):
 			var entry: Dictionary = group.list[at]
+			if group.get("leaves", false):
+				multi.set_instance_transform(at, Transform3D(leaf_basis(entry.item), entry.position))
+				continue
 			multi.set_instance_transform(at, Transform3D(_basis(entry.item), entry.position))
 			if group.stone:
 				multi.set_instance_color(at, Color.WHITE)

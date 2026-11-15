@@ -99,3 +99,4 @@ scripts/item_icons.gd (0.0.7.4) : icônes de l'inventaire faites dans le jeu (pe
 et poche en SVG écrits dans le script), une seule fois puis gardées.
 scripts/first_person_hand.gd (0.0.7.6) : main droite vue à la première personne (assets/hands/main_droite.glb, faite par
 sources_blender/main/generer_main.py dans Blender), qui tient l'objet choisi dans la barre.
+scripts/progress_ring.gd (0.0.7.8) : anneau de chargement autour de la croix de visée (abattre, couper, récupérer).

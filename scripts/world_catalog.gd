@@ -3,6 +3,7 @@ extends RefCounted
 # aussi son dossier (world_store.gd), avec monde.json, joueur.json et zones/ ; créé ici, copié, supprimé.
 const Store = preload("res://scripts/world_store.gd")
 const Generation = preload("res://scripts/world_generation.gd")
+const WorldMetadata = preload("res://scripts/world_metadata.gd")
 const MAX_NAME_LENGTH := 48
 const MAX_SEED := 4294967295
 # Mode du monde : « default » garde les attributs par défaut ; « developer » utilise les
@@ -126,6 +127,16 @@ func world_size(id: String) -> int:
 	return 0 if path.is_empty() else Store.folder_size(path)
 
 # Tous les noms pris, ceux des mondes illisibles compris (pas de conflit quand une version plus récente les relira).
+# 0.0.7.10 : nom donné à un monde créé sans nom : « T » suivi du plus grand numéro déjà pris + 1 (T1 au début).
+func next_auto_name() -> String:
+	var highest := 0
+	var pattern := RegEx.create_from_string("^[Tt]([0-9]{1,6})$")
+	for item in _named_worlds():
+		var found := pattern.search(str(item.get("name", "")).strip_edges())
+		if found != null:
+			highest = maxi(highest, found.get_string(1).to_int())
+	return "T%d" % (highest + 1)
+
 func _named_worlds() -> Array:
 	var others: Array = []
 	for sibling in siblings:
@@ -220,9 +231,9 @@ func create_world(raw_name: String, raw_seed: String = "", mode: String = MODE_D
 		last_error = load_error
 		return {}
 	var world_name := raw_name.strip_edges()
+	# 0.0.7.10 (demande de l'utilisateur) : sans nom, le suivant de la série « T » (T56 après T55).
 	if world_name.is_empty():
-		last_error = "Saisissez un nom pour ce monde."
-		return {}
+		world_name = next_auto_name()
 	if world_name.length() > MAX_NAME_LENGTH:
 		last_error = "Le nom doit contenir au maximum 48 caractères."
 		return {}
@@ -251,6 +262,8 @@ func create_world(raw_name: String, raw_seed: String = "", mode: String = MODE_D
 	if not _write_base(item):
 		last_error = "Impossible de créer le dossier du monde."
 		return {}
+	# 0.0.7.10 : statistiques : la version du jeu qui a créé ce monde.
+	WorldMetadata.start_stats(_item_folder(item))
 	worlds.append(item)
 	if not _save_worlds():
 		worlds.pop_back()

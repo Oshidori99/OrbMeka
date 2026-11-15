@@ -597,6 +597,7 @@ func show_page(next_page: String) -> void:
 			seed_field.clear()
 			custom_generation = {}
 			set_create_mode(Catalog.MODE_DEFAULT)
+		name_field.placeholder_text = catalog.next_auto_name() + " (nom automatique)"
 		form_error.text = ""
 		custom_status.text = "Génération standard" if custom_generation.is_empty() else "Génération personnalisée enregistrée pour ce monde"
 		create_button.disabled = not catalog.load_error.is_empty()

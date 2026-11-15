@@ -27,6 +27,10 @@ static func texture(id: String) -> Texture2D:
 				image = _chip(spec.couleur, id.hash(), id == "eclat_silex" or id == "charbon")
 			"fruit":
 				image = _apple(Inventory.APPLE_COLORS[1], -1) if id == "pomme" else _hazelnut(spec.couleur)
+			"bois":
+				image = _stick(spec.couleur, id == "tronc", id.hash())
+				if spec.get("feuilles", false):
+					_leaves(image)
 			_:
 				image = _pile(id, spec.couleur)
 	return _keep(id, image)
@@ -323,6 +327,53 @@ static func _chip(base: Color, salt: int, glassy: bool) -> Image:
 			image.set_pixel(x, y, color.clamp())
 	return image
 
+# --- Bois (0.0.7.8) : bâton en diagonale, écorce rayée, bout coupé clair ; tronc plus épais. ---
+
+static func _stick(base: Color, trunk: bool, salt: int) -> Image:
+	var image := _blank()
+	var start := Vector2(SIZE * 0.14, SIZE * 0.82)
+	var end := Vector2(SIZE * 0.86, SIZE * 0.2)
+	var radius := SIZE * (0.15 if trunk else 0.075)
+	var along := (end - start).normalized()
+	var across := Vector2(-along.y, along.x)
+	_shadow(image, (start + end) * 0.5 + Vector2(2.0, radius + 3.0), Vector2((end - start).length() * 0.45, SIZE * 0.06))
+	for y in range(SIZE):
+		for x in range(SIZE):
+			var at := Vector2(x + 0.5, y + 0.5)
+			var distance := _segment_distance(at, start, end)
+			if distance >= radius:
+				continue
+			var t := (at - start).dot(along)
+			var side := (at - start).dot(across) / radius
+			var m := 0.62 + 0.4 * (1.0 - absf(side + 0.35)) + (_noise(t * 0.25, side * 6.0, 1.0, salt) - 0.5) * 0.35
+			var color := Color(base.r * m, base.g * m, base.b * m)
+			# Bout coupé : bois clair et cernes.
+			if (end - at).dot(along) < radius * 0.5:
+				var ring := (at - end).length() / radius
+				color = Color("#d9b47c").darkened(0.18 * (1.0 if fmod(ring * 4.0, 1.0) < 0.25 else 0.0))
+			color.a = clampf(radius - distance, 0.0, 1.0)
+			image.set_pixel(x, y, color.clamp())
+	return image
+
+# 0.0.7.12 : rameau : quelques feuilles vertes le long du bout fin du bâton (une seule icône pour tous).
+static func _leaves(image: Image) -> void:
+	var spots := [[0.55, 0.42, 0.9], [0.66, 0.3, -0.6], [0.74, 0.36, 0.4], [0.62, 0.52, -1.2], [0.8, 0.22, 0.2], [0.47, 0.5, 0.7]]
+	for spot in spots:
+		var center := Vector2(SIZE * spot[0], SIZE * spot[1])
+		var along := Vector2.from_angle(spot[2])
+		var across := Vector2(-along.y, along.x)
+		for y in range(SIZE):
+			for x in range(SIZE):
+				var offset := Vector2(x + 0.5, y + 0.5) - center
+				var u := offset.dot(along) / (SIZE * 0.11)
+				var v := offset.dot(across) / (SIZE * 0.05)
+				var inside := 1.0 - (u * u + v * v)
+				if inside <= 0.0:
+					continue
+				var shade := 0.75 + 0.25 * (1.0 - absf(v)) - (0.12 if absf(v) < 0.12 else 0.0)
+				var leaf := Color(0.33 * shade, 0.58 * shade, 0.22 * shade, clampf(inside * 6.0, 0.0, 1.0))
+				image.set_pixel(x, y, image.get_pixel(x, y).blend(leaf))
+
 # --- Fruits (0.0.7.5) ---
 
 static func _segment_distance(point: Vector2, a: Vector2, b: Vector2) -> float:
@@ -428,18 +479,26 @@ const BASKET_SVG := "<svg xmlns='http://www.w3.org/2000/svg' width='64' height='
 <path d='M20 28 L21 56 M32 28 V56 M44 28 L43 56' stroke='#8a6233' stroke-width='2'/>
 </svg>"
 
+# 0.0.7.9 (demande de l'utilisateur) : travois traîné, vu de côté : une bande de sol en bas, les deux bâtons qui montent
+# doucement vers la droite (le bout tenu), le bout arrière couché sur le sol avec des traces derrière, la charge ficelée
+# dessus (avant : il avait l'air de flotter).
 const TRAVOIS_SVG := "<svg xmlns='http://www.w3.org/2000/svg' width='64' height='64' viewBox='0 0 64 64'>
-<path d='M12 10 L28 56 M52 10 L36 56' stroke='#3a2414' stroke-width='6' stroke-linecap='round'/>
-<path d='M12 10 L28 56 M52 10 L36 56' stroke='#b07a42' stroke-width='3' stroke-linecap='round'/>
-<path d='M19 30 H45 M22 38 H42 M24 45 H40' stroke='#3a2414' stroke-width='4' stroke-linecap='round'/>
-<path d='M19 30 H45 M22 38 H42 M24 45 H40' stroke='#d9a46a' stroke-width='2' stroke-linecap='round'/>
-<path d='M24 22 Q32 14 40 22 L38 30 H26 Z' fill='#8c5b2c' stroke='#3a2414' stroke-width='2.4' stroke-linejoin='round'/>
+<path d='M1 55 H63 V62 H1 Z' fill='#7a5a34' stroke='#3a2414' stroke-width='2'/>
+<path d='M1 55 H63' stroke='#6f9a3c' stroke-width='3'/>
+<path d='M2 58.5 H11 M4 60.5 H9' stroke='#4a341c' stroke-width='1.6' stroke-linecap='round'/>
+<path d='M10 53 L60 25 M16 54 L62 31' stroke='#3a2414' stroke-width='6' stroke-linecap='round'/>
+<path d='M10 53 L60 25 M16 54 L62 31' stroke='#b07a42' stroke-width='3' stroke-linecap='round'/>
+<path d='M22 46 L26 50 M34 39 L38 44 M46 32 L50 37' stroke='#3a2414' stroke-width='4' stroke-linecap='round'/>
+<path d='M22 46 L26 50 M34 39 L38 44 M46 32 L50 37' stroke='#d9a46a' stroke-width='2' stroke-linecap='round'/>
+<path d='M19 47 Q19 31 31 29 Q41 27 44 34 Z' fill='#8c5b2c' stroke='#3a2414' stroke-width='2.4' stroke-linejoin='round'/>
+<path d='M25 43 L29 30 M35 37 L37 28' stroke='#e1b54c' stroke-width='1.6'/>
 </svg>"
 
 const CART_SVG := "<svg xmlns='http://www.w3.org/2000/svg' width='64' height='64' viewBox='0 0 64 64'>
 <path d='M8 20 H48 L44 40 H12 Z' fill='#b07a42' stroke='#3a2414' stroke-width='3' stroke-linejoin='round'/>
 <path d='M48 22 L58 14' stroke='#3a2414' stroke-width='4' stroke-linecap='round'/>
 <path d='M18 26 V36 M28 26 V36 M38 26 V36' stroke='#8a6233' stroke-width='2'/>
+<ellipse cx='30' cy='56' rx='24' ry='3' fill='#000000' opacity='0.28'/>
 <circle cx='19' cy='46' r='8' fill='#6d747b' stroke='#22272c' stroke-width='3'/>
 <circle cx='39' cy='46' r='8' fill='#6d747b' stroke='#22272c' stroke-width='3'/>
 <circle cx='19' cy='46' r='2.2' fill='#22272c'/>
