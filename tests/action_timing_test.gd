@@ -74,7 +74,9 @@ func _run() -> void:
 	player.camera.rotation.x = -0.7
 	await frames(3)
 	var count: int = world.blocks.size()
-	# 0.0.5.8 : un clic droit ajoute du terrain lisse (50 cm), pas de bloc.
+	# 0.0.5.8 : un clic droit ajoute du terrain lisse (50 cm), pas de bloc. 0.0.7.2 : avec une matière en main (barre d'objets).
+	world.inventory.put("bar", 0, {"objet": "sable"})
+	world.inventory.select(0)
 	check(player.begin_placement() and world.terrain.changes.size() == 1, "right click adds smooth ground")
 	check(world.blocks.size() == count, "adding ground places no block")
 	check(not player.step_placement(0.299, true, true), "gameplay repeat waits before interval")

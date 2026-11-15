@@ -60,8 +60,8 @@ func _run() -> void:
 		var tag := " at %dx%d" % [window_size.x, window_size.y]
 		var crosshair: Control = world.find_child("Crosshair", true, false)
 		check(crosshair != null and crosshair.get_global_rect().get_center().distance_to(view.get_center()) < 4, "crosshair centred" + tag)
-		check(_inside(world.hint.get_global_rect(), view) and world.hint.get_global_rect().end.y > view.end.y - 80, "hint stays at bottom" + tag)
-		check(_inside(world.selected_block_label.get_global_rect(), view), "selected block label visible" + tag)
+		check(_inside(world.hint.get_global_rect(), view) and world.hint.get_global_rect().end.y > view.end.y - 160, "hint stays at bottom, above the hot bar" + tag)
+		check(_inside(world.inventory_ui.hud_bar.get_global_rect(), view) and world.hint.get_global_rect().end.y <= world.inventory_ui.hud_bar.get_global_rect().position.y + 1, "hot bar visible at the bottom, under the hint (0.0.7.2)" + tag)
 		check(app.shortcut_hints.visible and _inside(app.shortcut_hints.get_global_rect(), view) and app.shortcut_hints.get_global_rect().end.x > view.end.x - 40, "shortcut hints stay top right" + tag)
 	print("%d checks, %d failures" % [checks, failures])
 	quit(1 if failures else 0)
