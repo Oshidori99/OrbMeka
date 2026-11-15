@@ -46,7 +46,7 @@ func _run() -> void:
 	current_scene = app
 	await process_frame
 	# Contrôles : O + I, nouvelle partie Inventaire avec la molette.
-	check(Controls.GROUPS.has("Inventaire") and Controls.GROUPS.Inventaire == ["inventory", "block_previous", "block_next"] and not "block_next" in Controls.GROUPS.Blocs, "Contrôles: Inventaire part with O + I and the wheel")
+	check(Controls.GROUPS.has("Inventaire") and Controls.GROUPS.Inventaire == ["inventory", "block_previous", "block_next", "pick_up", "gather"] and not "block_next" in Controls.GROUPS.Blocs, "Contrôles: Inventaire part with O + I and the wheel")
 	check(Controls.combo_kind(Controls.options(Controls.default_for("inventory"))[0]) == "chord" and Controls.ACTIONS.inventory.label == "Inventaire", "Inventaire: O and I at the same time")
 	app.open_world(item.id)
 	await process_frame
@@ -64,14 +64,14 @@ func _run() -> void:
 	check(panel_style.bg_color.a < 1.0 and panel_style.bg_color.a > 0.5, "panel slightly transparent")
 	check(ui.creative_box.visible and ui.tab_buttons.size() == 2 and ui.tab_buttons[0].text == "Matériaux naturels" and ui.tab_buttons[1].text == "Outils", "creative: categories Matériaux naturels and Outils")
 	var natural: Array = ui.catalog_slots.filter(func(slot): return slot.visible).map(func(slot): return slot.item.objet)
-	check(natural == ["sable", "terre", "argile", "boue", "pierre", "calcaire", "pierre_sombre", "silex"], "natural materials listed")
-	check(ui.grid_slots.all(func(slot): return not slot.locked) and ui.bar_slots.all(func(slot): return not slot.locked), "creative: nothing greyed")
+	check(natural == ["sable", "terre", "argile", "boue", "gravier", "pierre", "calcaire", "pierre_sombre", "silex"], "natural materials listed (gravier 0.0.7.3)")
+	check(ui.grid_slots.all(func(slot): return not slot.locked) and ui.bar_slots.all(func(slot): return not slot.locked and slot.visible), "creative: nothing greyed, 10 bar slots")
 	# Prendre dans une catégorie, poser dans la barre.
 	ui._on_catalog(MOUSE_BUTTON_LEFT, 1)
 	check(ui.cursor.visible and ui.cursor_item.objet == "terre", "click on a category item takes it")
 	ui._on_slot(MOUSE_BUTTON_LEFT, "bar", 0)
 	check(world.inventory.item("bar", 0).objet == "terre" and ui.cursor_item.is_empty(), "click on a bar slot puts it there")
-	ui._on_catalog(MOUSE_BUTTON_LEFT, 4)
+	ui._on_catalog(MOUSE_BUTTON_LEFT, 5)
 	ui._on_slot(MOUSE_BUTTON_LEFT, "grid", 12)
 	check(world.inventory.item("grid", 12).objet == "pierre", "and in the grid")
 	ui.show_category(1)
@@ -99,29 +99,81 @@ func _run() -> void:
 	check(world.inventory.selected() == 0, "wheel wraps to the first slot")
 	check(ui.hud_slots[0].chosen and ui.hud_slots[0].item.objet == "terre", "bar shows the chosen slot and its item")
 	check(world.PLACEABLE.has(world.SmoothTerrain.STONE) and world.PLACEABLE.has(world.SmoothTerrain.FLINT), "stone kinds can be placed")
-	# Survie : seules les 4 cases de droite, tout le reste grisé ; l'inventaire de Créatif est gardé à part.
+	# Créatif : un morceau de pierre (pioche) se ramasse aussi ; il va dans la première case libre.
+	world.drop_pieces("eclat_calcaire", 1, 125.0, world.player.global_position + Vector3.UP)
+	check(world.ground.entries.size() == 1, "creative: stone pieces fall too")
+	world.pick_up({"collider": world.ground.bodies[0], "position": world.ground.entries[0].position})
+	check(world.ground.entries.is_empty() and world.inventory.item("bar", 3) == {"objet": "eclat_calcaire", "poids": 125.0, "nombre": 1}, "creative: piece picked up into the first free slot")
+	world.inventory.take("bar", 3)
+	# Survie (0.0.7.3) : deux mains (cases 1 et 2) et quatre poches (cases 3 à 6), rien de grisé, pas de grille.
 	app.pause_game()
 	app.pause_settings_button.pressed.emit()
 	app.game_mode_buttons[Catalog.GAME_SURVIVAL].pressed.emit()
 	app.settings_back_button.pressed.emit()
 	app.resume_game()
 	await process_frame
-	check(world.inventory.mode == Inventory.SURVIVAL and world.inventory.selected() == 6 and world.player.selected_type == -1, "survival: own empty inventory, hand on slot 7")
+	check(world.inventory.mode == Inventory.SURVIVAL and world.inventory.selected() == 0 and world.player.selected_type == -1, "survival: own empty inventory, left hand chosen")
+	var shown: Array = range(10).filter(func(index): return ui.hud_slots[index].visible)
+	check(world.inventory.bar_slots() == [0, 1, 2, 3, 4, 5] and shown == [0, 1, 2, 3, 4, 5] and ui.hud_gap.visible, "survival bar: 2 hands, a gap, 4 pockets")
+	check(ui.pockets_label.visible and ui.pockets_label.text == "Poches : 0,000 g / 150,0 g", "pockets weight at the bottom right")
 	action(app, "inventory")
-	check(ui.is_open() and not ui.creative_box.visible, "survival: no categories")
-	var open_bar: Array = range(10).filter(func(index): return not ui.bar_slots[index].locked)
-	check(open_bar == [6, 7, 8, 9] and ui.grid_slots.all(func(slot): return slot.locked), "survival: only the 4 right bar slots are not greyed")
-	ui._on_slot(MOUSE_BUTTON_LEFT, "grid", 0)
-	check(ui.message.text.contains("fermée"), "greyed slot says it is closed")
+	check(ui.is_open() and not ui.creative_box.visible and not ui.grid_box.visible and ui.bar_titles.visible, "survival screen: only hands and pockets, no grid")
 	action(app, "inventory")
 	check(not ui.is_open(), "O + I closes it again")
-	key(world, KEY_1)
-	check(world.inventory.selected() == 6 and world.notice.contains("fermée"), "key 1 refused in survival")
-	key(world, KEY_9)
-	check(world.inventory.selected() == 8, "key 9 accepted in survival")
+	key(world, KEY_7)
+	check(world.inventory.selected() == 0 and world.notice.contains("Survie"), "key 7: no such slot in survival")
+	key(world, KEY_6)
+	check(world.inventory.selected() == 5, "key 6: last pocket")
 	world.player.cycle_block(1)
-	world.player.cycle_block(1)
-	check(world.inventory.selected() == 6, "wheel stays on the 4 open slots")
+	check(world.inventory.selected() == 0, "wheel goes round hands and pockets")
+	# Morceaux de pierre au sol, ramassés avec R : main gauche, puis main droite (objets différents), puis poches.
+	world.drop_pieces("eclat_pierre", 2, 125.0, world.player.global_position + Vector3.UP)
+	world.drop_pieces("charbon", 1, 125.0, world.player.global_position + Vector3.UP)
+	check(world.ground.entries.size() == 3 and world.ground.entries.all(func(entry): return world.player.global_position.distance_to(entry.position) < 2.0), "pieces fall beside the player")
+	for index in range(2):
+		world.pick_up({"collider": world.ground.bodies[0], "position": world.ground.entries[0].position})
+	check(world.inventory.item("bar", 0) == {"objet": "eclat_pierre", "poids": 125.0, "nombre": 2}, "identical pieces stack in the left hand")
+	world.pick_up({"collider": world.ground.bodies[0], "position": world.ground.entries[0].position})
+	check(world.inventory.item("bar", 1).objet == "charbon" and world.ground.entries.is_empty(), "another kind goes to the right hand")
+	check(ui.hud_slots[0].note == "250,0 g" and ui.hud_slots[1].note == "125,0 g" and ui.hud_slots[2].note == "", "weight under each slot, nothing under an empty one")
+	check(world.inventory.add({"objet": "terre", "nombre": 3}) == 1 and ui.pockets_label.text == "Poches : 100,0 g / 150,0 g", "pockets: 150 g in all (one handful of earth, not two)")
+	world.drop_items({"objet": "terre", "nombre": 1})
+	check(world.ground.entries.size() == 1 and world.ground.entries[0].item == {"objet": "terre"}, "what no longer fits is put on the ground")
+	# Récupérer une poignée (R + I) : visée vers le sol, plus long que creuser ; puis poser l'utilise.
+	for index in range(6):
+		world.inventory.take("bar", index)
+	world.player.camera.rotation.x = -1.35
+	for index in range(40):
+		await physics_frame
+	var aimed: Dictionary = world.player.get_target()
+	check(not aimed.is_empty() and aimed.collider.is_in_group("ground"), "player aims at the ground")
+	check(not world.step_gather(0.6, true), "not yet after 0,6 s")
+	var gathered: bool = world.step_gather(0.6, true)
+	var aim_point: Vector3i = world.SmoothTerrain.point_of(aimed.position - aimed.normal * 0.3)
+	check(gathered, "a handful after 1 s or more (" + world.notice + ", sorte " + str(world.terrain.materials.get(aim_point, world.terrain.natural_kind(aim_point))) + ")")
+	var handful: Dictionary = world.inventory.item("bar", 0)
+	check(world.GATHER_ITEMS.values().has(handful.get("objet")) and handful.nombre == 1, "handful in the left hand: " + str(handful))
+	world.step_gather(0.1, false)
+	world.inventory.select(0)
+	world.player.brush = 0
+	world.player.brush_size = 0
+	await physics_frame
+	check(world.place_target(world.player.get_target(), world.player.selected_type) and world.inventory.item("bar", 0).is_empty(), "placing uses the handful")
+	check(not world.place_target(world.player.get_target(), world.player.selected_type), "nothing left to place")
+	# Creuser en Survie : la matière est rejetée derrière soi (jamais dans le trou).
+	for index in range(10):
+		await physics_frame
+	var before: Dictionary = world.terrain.changes.duplicate()
+	var dig_hit: Dictionary = world.player.get_target()
+	check(world.break_target(dig_hit), "survival: digging works by hand")
+	var thrown := []
+	for point in world.terrain.changes:
+		if not before.has(point) and world.terrain.changes[point] > 0.0:
+			thrown.append(point)
+	var behind: Vector3 = world.player.global_transform.basis.z
+	check(thrown.size() >= 1 and thrown.all(func(point): return (Vector3(point) * 0.5 - world.player.global_position).dot(behind) > -0.2 or absf((Vector3(point) * 0.5 - world.player.global_position).dot(world.player.global_transform.basis.x)) > 0.8), "dug earth thrown behind (or beside)")
+	check(thrown.all(func(point): return Vector2(point.x * 0.5 - dig_hit.position.x, point.z * 0.5 - dig_hit.position.z).length() > 0.5), "never back into the hole")
+	world.player.camera.rotation.x = 0.0
 	app.set_world_game_mode(Catalog.GAME_CREATIVE)
 	check(world.inventory.item("bar", 0).objet == "terre" and world.player.selected_type == 2, "back to creative: its inventory is back")
 	# Pause avec l'inventaire ouvert : fermé.
@@ -135,6 +187,8 @@ func _run() -> void:
 	var saved := Store.read_json(app.catalog.world_folder(item.id).path_join(Store.PLAYER_FILE), Store.valid_player)
 	var bag: Dictionary = saved.get("data", {}).get("inventaire", {})
 	check(bag.get("creatif", {}).get("barre", [])[0] == {"objet": "terre"} and bag.has("survie"), "inventory saved in joueur.json")
+	var objects := Store.read_json(app.catalog.world_folder(item.id).path_join(Store.OBJECTS_FILE), func(_data): return true)
+	check(objects.get("data", {}).get("objets_au_sol", []).size() == 1, "objects on the ground saved in objets.json")
 	app.return_to_worlds()
 	app.open_world(item.id)
 	await process_frame
@@ -161,4 +215,18 @@ func _data_checks() -> void:
 	copy.from_dict(JSON.parse_string(JSON.stringify(bag.to_dict())))
 	check(copy.item("bar", 0).objet == "sable" and copy.item("grid", 1).objet == "silex", "save round trip through JSON")
 	bag.set_mode(Inventory.SURVIVAL)
-	check(bag.put("bar", 0, {"objet": "terre"}) == {"objet": "terre"} and bag.item("bar", 0).is_empty() and bag.first_free() == ["bar", 6], "survival: closed slots refuse items")
+	check(bag.put("bar", 0, {"objet": "terre"}) == {"objet": "terre"} and bag.item("bar", 0).is_empty() and bag.put("bar", 7, {"objet": "terre", "nombre": 1}) == {"objet": "terre", "nombre": 1}, "survival: no unlimited items, no slot 8")
+	# Poids et piles (0.0.7.3).
+	check(bag.add({"objet": "terre", "nombre": 6}) == 6 and Inventory.count(bag.item("bar", 0)) == 4 and Inventory.count(bag.item("bar", 1)) == 2, "400 g per hand: 4 handfuls of earth, then the right hand")
+	check(bag.add({"objet": "caillou", "nombre": 1, "taille": 4}) == 0, "a 400 g pebble no longer fits anywhere")
+	check(bag.add({"objet": "caillou", "nombre": 3, "taille": 1}) == 3 and Inventory.count(bag.item("bar", 2)) == 3 and bag.pockets_weight() == 150.0, "pockets: 150 g in all (three 50 g pebbles)")
+	check(not Inventory.same_kind({"objet": "caillou", "taille": 1, "nombre": 1}, {"objet": "caillou", "taille": 2, "nombre": 1}), "pebbles of another size do not stack")
+	check(bag.put("bar", 3, {"objet": "silex", "nombre": 1}) == {"objet": "silex", "nombre": 1}, "a 250 g stone does not fit in full pockets")
+	bag.select(0)
+	check(bag.use_held(3) and Inventory.count(bag.held()) == 1 and bag.held_kind() == 2, "placing uses handfuls")
+	var weights := [[0.0, "0,000 g"], [0.5, "500,0 mg"], [1.0, "1,000 g"], [12.5, "12,50 g"], [150.0, "150,0 g"], [999.96, "1,000 kg"], [1000.0, "1,000 kg"], [12345.0, "12,35 kg"], [999999.0, "1,000 Mg"], [2500000.0, "2,500 Mg"]]
+	check(weights.all(func(pair): return Inventory.format_weight(pair[0]) == pair[1]), "weights always with 4 digits: " + str(weights.map(func(pair): return Inventory.format_weight(pair[0]))))
+	var saved_bag := Inventory.new()
+	saved_bag.mode = Inventory.SURVIVAL
+	saved_bag.from_dict(JSON.parse_string(JSON.stringify(bag.to_dict())))
+	check(saved_bag.item("bar", 2) == {"objet": "caillou", "nombre": 3, "taille": 1} and saved_bag.item("bar", 0) == {"objet": "terre", "nombre": 1}, "counts and sizes saved")

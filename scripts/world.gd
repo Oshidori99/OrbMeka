@@ -115,6 +115,7 @@ func _ready() -> void:
 		start_at = Vector3(float(saved_player.position[0]), 0.0, float(saved_player.position[2]))
 	_create_terrain(start_at)
 	_load_objects()
+	_create_ground_items()
 	_create_blocks()
 	_migrate_step1()
 	# Ouverture : zones autour du point d'arrivée chargées tout de suite (ensuite, étalées sur les images).
@@ -789,12 +790,12 @@ func set_game_mode(new_mode: String) -> void:
 	game_mode = new_mode
 	inventory.set_mode(new_mode)
 
-# Touches 1 à 9 et 0 : cases 1 à 10 de la barre. En Survie, seules les 4 de droite (7, 8, 9, 0).
+# Touches 1 à 9 et 0 : cases 1 à 10 de la barre. En Survie (0.0.7.3) : 1 et 2 les mains, 3 à 6 les poches.
 func select_slot(index: int) -> void:
 	if inventory.select(index):
 		show_choice(held_text())
 	else:
-		_notify("Case fermée en Survie : seules les 4 cases de droite servent pour l'instant.")
+		_notify("En Survie : deux mains (1 et 2) et quatre poches (3 à 6).")
 
 func cycle_slot(direction: int) -> void:
 	inventory.cycle(direction)
@@ -835,6 +836,206 @@ func _show_aim(on: bool) -> void:
 # Message quand une pioche manque : en Créatif, elle est dans l'inventaire (Outils) ; pas encore en Survie.
 func _needs_pickaxe(subject: String) -> String:
 	return subject + (" avec la pioche (inventaire : O + I, onglet Outils)." if game_mode == Inventory.CREATIVE else " avec une pioche : pas encore en Survie.")
+
+# --- 0.0.7.3 : objets au sol, ramasser (R), récupérer une poignée (R + I), terre rejetée derrière soi (Survie) ---
+const GroundItems = preload("res://scripts/ground_items.gd")
+var ground: Node3D
+# Sous-cellules du dernier geste (poser : autant de poignées utilisées).
+var last_gesture_points := 0
+# Morceaux de pierre cassée à la pioche : deux de 125 g par sous-cellule (250 g en tout), de la matière frappée.
+const STONE_PIECE_WEIGHT := 125.0
+const STONE_PIECES := {SmoothTerrain.STONE: "eclat_pierre", SmoothTerrain.DARK_STONE: "eclat_pierre_sombre", SmoothTerrain.LIMESTONE: "eclat_calcaire", SmoothTerrain.FLINT: "eclat_silex", SmoothTerrain.COAL: "charbon"}
+# Aspect d'un caillou (0 pierre, 1 calcaire, 2 silex) : objet ramassé, ou éclats quand on le casse.
+const PEBBLE_ITEMS := ["caillou", "caillou_calcaire", "caillou_silex"]
+const PEBBLE_PIECES := ["eclat_pierre", "eclat_calcaire", "eclat_silex"]
+
+func _create_ground_items() -> void:
+	ground = GroundItems.new()
+	add_child(ground)
+	ground.from_array(objects_data.get("objets_au_sol"))
+	ground.changed.connect(func(): objects_dirty = true)
+
+# Hauteur du sol sous un point (collisions du terrain près du joueur, sinon le sol de la graine).
+func _rest_height(spot: Vector3) -> float:
+	if is_inside_tree():
+		var query := PhysicsRayQueryParameters3D.create(spot + Vector3.UP * 1.5, spot + Vector3.DOWN * 6.0, 1)
+		if is_instance_valid(player):
+			query.exclude = [player.get_rid()]
+		var hit := get_world_3d().direct_space_state.intersect_ray(query)
+		if not hit.is_empty():
+			return hit.position.y
+	return terrain.height_at(spot.x, spot.z)
+
+# Point au sol à côté du joueur (à sa droite, un peu devant) : là où tombent les morceaux.
+func _beside_player() -> Vector3:
+	var basis := player.global_transform.basis
+	return player.global_position + basis.x * 0.6 - basis.z * 0.35
+
+func drop_pieces(id: String, pieces: int, weight: float, from: Vector3) -> void:
+	if not is_instance_valid(ground) or not is_instance_valid(player):
+		return
+	for index in range(pieces):
+		ground.drop({"objet": id, "poids": weight}, from, _beside_player(), _rest_height)
+
+# Objets qui ne tiennent plus dans l'inventaire : posés au sol devant le joueur, jamais perdus.
+func drop_items(value: Dictionary) -> void:
+	if not is_instance_valid(ground) or not is_instance_valid(player):
+		return
+	var near := player.global_position - player.global_transform.basis.z * 0.6
+	for index in range(maxi(Inventory.count(value), 1)):
+		ground.drop(value, player.global_position + Vector3.UP, near, _rest_height)
+
+func _full_message(value: Dictionary) -> String:
+	if game_mode == Inventory.CREATIVE:
+		return "Inventaire plein."
+	return "Mains et poches pleines (%s)." % Inventory.format_weight(Inventory.unit_weight(value))
+
+# R : ramasser l'objet visé (objet au sol ou petit caillou du monde) : main gauche, sinon main droite, puis poches.
+# Faux si rien n'est visé (R garde alors son autre usage : courir).
+func pick_up(hit: Dictionary) -> bool:
+	if hit.is_empty() or not is_instance_valid(hit.get("collider")):
+		return false
+	var collider: Node = hit.collider
+	if not (collider.is_in_group("ground_items") or collider.is_in_group("pebbles")):
+		return false
+	if player.camera.global_position.distance_to(hit.position) > player.break_reach + 0.01:
+		_notify("Trop loin : %s m au plus." % str(snappedf(player.break_reach, 0.1)).replace(".", ","))
+		return true
+	var value := {}
+	if collider.is_in_group("ground_items"):
+		var index: int = ground.index_of(collider)
+		if index < 0:
+			return false
+		value = ground.entries[index].item.duplicate()
+		value.nombre = 1
+		if inventory.add(value) == 0:
+			_notify(_full_message(value))
+			return true
+		ground.remove(index)
+	else:
+		var size: int = collider.get_meta("pebble").x
+		value = {"objet": PEBBLE_ITEMS[clampi(int(collider.get_meta("look", 0)), 0, 2)], "nombre": 1, "taille": size}
+		if Inventory.unit_weight(value) > Inventory.HAND_LIMIT:
+			_notify("Trop lourd pour une main : %s." % Inventory.format_weight(Inventory.unit_weight(value)))
+			return true
+		if inventory.add(value) == 0:
+			_notify(_full_message(value))
+			return true
+		var column: Vector2i = collider.get_meta("column")
+		broken_pebbles[collider.get_meta("id")] = true
+		objects_dirty = true
+		_show_column_pebbles(column)
+		_build_pebble_bodies(column)
+	show_choice("%s (%s)" % [Inventory.item_name(value), Inventory.format_weight(Inventory.unit_weight(value))])
+	return true
+
+# R + I maintenus : prendre une poignée de matière en vrac (terre, sable, argile, boue, gravier) là où l'on vise,
+# après GATHER_SECONDS (plus long que creuser). Survie seulement ; elle va dans les mains, puis les poches.
+const GATHER_SECONDS := 1.0
+const GATHER_ITEMS := {SmoothTerrain.SAND: "sable", SmoothTerrain.DIRT: "terre", SmoothTerrain.CLAY: "argile", SmoothTerrain.MUD: "boue", SmoothTerrain.GRAVEL: "gravier", SmoothTerrain.NEEDLES: "terre"}
+var gather_point := Vector3i(999999, 0, 0)
+var gather_time := 0.0
+
+static func handful_text(id: String) -> String:
+	var name := Inventory.item_name({"objet": id}).to_lower()
+	return ("Poignée d'" if name.left(1) in ["a", "e", "i", "o", "u", "é"] else "Poignée de ") + name
+
+func step_gather(delta: float, holding: bool) -> bool:
+	if not holding:
+		gather_time = 0.0
+		gather_point = Vector3i(999999, 0, 0)
+		return false
+	if game_mode == Inventory.CREATIVE:
+		_notify("En Créatif, les matières sont illimitées (inventaire : O + I).")
+		return false
+	var hit: Dictionary = player.get_target()
+	if not _valid_hit(hit, player.break_reach) or not hit.collider.is_in_group("ground"):
+		gather_time = 0.0
+		_notify("Visez la terre ou le sable pour en prendre une poignée.")
+		return false
+	var point := SmoothTerrain.point_of(hit.position - hit.normal * 0.3)
+	# Terre ordinaire : -1 dans le terrain (sans matière particulière).
+	var kind: int = terrain.materials.get(point, terrain.natural_kind(point))
+	if kind < 0:
+		kind = SmoothTerrain.DIRT
+	if terrain.density(point) <= 0.0 or not _in_terrain_limits(point):
+		gather_time = 0.0
+		return false
+	if not GATHER_ITEMS.has(kind):
+		gather_time = 0.0
+		_notify("La pierre ne se prend pas à la main." if kind in SmoothTerrain.ROCKS else "Rien à prendre ici.")
+		return false
+	if point != gather_point:
+		gather_point = point
+		gather_time = 0.0
+	var id: String = GATHER_ITEMS[kind]
+	gather_time += delta
+	if gather_time < GATHER_SECONDS:
+		_notify("%s… %d %%" % [handful_text(id), int(gather_time / GATHER_SECONDS * 100.0)])
+		return false
+	gather_time = 0.0
+	if inventory.add({"objet": id, "nombre": 1}) == 0:
+		_notify(_full_message({"objet": id}))
+		return false
+	_apply_terrain({point: [SmoothTerrain.DUG, -1]})
+	show_choice("%s (%s)" % [handful_text(id), Inventory.format_weight(Inventory.unit_weight({"objet": id}))])
+	return true
+
+# Survie : la matière creusée est rejetée derrière soi en petit tas. Jamais dans le trou qu'on creuse, jamais assez haut
+# pour boucher un passage (2 m libres au-dessus, au plus 50 cm plus haut que les pieds) ; mur derrière : sur le côté.
+const THROW_CENTERS := [[1.5, 0.0], [1.2, 1.0], [1.2, -1.0], [0.0, 1.5], [0.0, -1.5], [2.5, 0.0]]
+const NO_SPOT := Vector3i(999999, 0, 0)
+
+func _throw_behind(dug: Array) -> void:
+	var feet := player.global_position
+	var back := player.global_transform.basis.z
+	back.y = 0.0
+	back = back.normalized() if back.length() > 0.01 else Vector3.BACK
+	var side := Vector3(-back.z, 0.0, back.x)
+	var hole: Array = dug.map(func(entry): return Vector3(entry[0]) * SmoothTerrain.STEP)
+	var updates := {}
+	for entry in dug:
+		var kind: int = entry[1] if entry[1] >= 0 else SmoothTerrain.DIRT
+		if kind in SmoothTerrain.ROCKS:
+			continue
+		var spot := _throw_spot(feet, back, side, hole, updates)
+		if spot != NO_SPOT:
+			updates[spot] = [SmoothTerrain.ADDED, kind]
+	_apply_terrain(updates)
+
+func _throw_spot(feet: Vector3, back: Vector3, side: Vector3, hole: Array, pending: Dictionary) -> Vector3i:
+	for pair in THROW_CENTERS:
+		var center := SmoothTerrain.point_of(feet + back * pair[0] + side * pair[1])
+		var best := NO_SPOT
+		for dx in [-1, 0, 1]:
+			for dz in [-1, 0, 1]:
+				var top := _pile_top(Vector2i(center.x + dx, center.z + dz), feet, pending)
+				if top == NO_SPOT or not _in_terrain_limits(top) or _inside_player(top):
+					continue
+				var at := Vector3(top) * SmoothTerrain.STEP
+				if hole.any(func(dug_at: Vector3): return Vector2(dug_at.x - at.x, dug_at.z - at.z).length() < 0.8):
+					continue
+				if best == NO_SPOT or top.y < best.y:
+					best = top
+		if best != NO_SPOT:
+			return best
+	return NO_SPOT
+
+# Première place libre sur la colonne, au plus 50 cm au-dessus des pieds, avec 2 m libres au-dessus.
+func _pile_top(column: Vector2i, feet: Vector3, pending: Dictionary) -> Vector3i:
+	var feet_y := SmoothTerrain.point_of(feet).y
+	for y in range(feet_y + 2, feet_y - 8, -1):
+		var point := Vector3i(column.x, y, column.y)
+		if pending.has(point) or terrain.density(point) > 0.0:
+			var top := point + Vector3i.UP
+			if top.y > feet_y + 1:
+				return NO_SPOT
+			for height in range(1, 5):
+				var above := top + Vector3i.UP * height
+				if pending.has(above) or terrain.density(above) > 0.0:
+					return NO_SPOT
+			return top
+	return NO_SPOT
 
 func _aimed_ground(hit: Dictionary, reach: float) -> bool:
 	if not _valid_hit(hit, reach):
@@ -914,7 +1115,16 @@ func sculpt(hit: Dictionary, add: bool, kind: int = SmoothTerrain.DIRT, cells: i
 		updates[point] = [SmoothTerrain.ADDED if add else SmoothTerrain.DUG, kind if add else -1]
 	if updates.is_empty():
 		_notify(message if not message.is_empty() else ("Déjà plein ici." if add else "Rien à creuser ici."))
-	return _apply_terrain(updates)
+	last_gesture_points = updates.size()
+	# 0.0.7.3 : en Survie, la terre, le sable, l'argile, la boue ou le gravier creusés sont rejetés derrière soi.
+	var dug := []
+	if not add and game_mode == Inventory.SURVIVAL:
+		for point: Vector3i in updates:
+			dug.append([point, terrain.materials.get(point, terrain.natural_kind(point))])
+	var done := _apply_terrain(updates)
+	if done and not dug.is_empty():
+		_throw_behind(dug)
+	return done
 
 # Aplanir : bosses coupées à la hauteur visée, sur un disque autour. 0.0.5.10 : n'ajoute jamais de matière
 # (les creux restent : seul Poser ajoute).
@@ -1416,7 +1626,16 @@ func place_target(hit: Dictionary, kind: int) -> bool:
 			return flatten(hit, cells)
 		2:
 			return smooth(hit, cells)
-	return sculpt(hit, true, kind, cells)
+	# 0.0.7.3 : en Survie, poser utilise ce qu'on tient (une poignée par sous-cellule) ; en Créatif, illimité.
+	if game_mode == Inventory.SURVIVAL:
+		cells = mini(cells, Inventory.count(inventory.held()))
+		if cells <= 0:
+			_notify("Rien à poser en main.")
+			return false
+	var done := sculpt(hit, true, kind, cells)
+	if done and game_mode == Inventory.SURVIVAL:
+		inventory.use_held(last_gesture_points)
+	return done
 
 func _edit_place_target(hit: Dictionary, kind: int) -> bool:
 	if not _valid_hit(hit, player.place_reach):
@@ -1508,6 +1727,7 @@ func _create_hud() -> void:
 	inventory_ui = InventoryUI.new()
 	add_child(inventory_ui)
 	inventory_ui.setup(inventory, text_scale)
+	inventory_ui.overflow.connect(drop_items)
 	hint = Label.new()
 	hint.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_WIDE)
 	hint.offset_bottom = -inventory_ui.hud_height() - 8
@@ -1838,6 +2058,7 @@ func _make_rock(rock: Dictionary, id: String) -> StaticBody3D:
 	body.set_meta("id", id)
 	body.set_meta("hits", 0)
 	# 0.0.6.4 : rocher de calcaire ; rognon de silex caché au milieu, visible quand on le creuse.
+	body.set_meta("look", 1 if rock.get("calcaire", false) else 0)
 	if rock.get("calcaire", false):
 		for child in body.get_children():
 			if child is MeshInstance3D:
@@ -2027,7 +2248,7 @@ func _show_column_pebbles(column: Vector2i) -> void:
 		var placed: PackedFloat32Array = by_shape.get(group, PackedFloat32Array())
 		placed.append_array([basis.x.x, basis.y.x, basis.z.x, at.x, basis.x.y, basis.y.y, basis.z.y, at.y, basis.x.z, basis.y.z, basis.z.z, at.z, 1.0, 1.0, 1.0, 1.0, look, 0.0, 0.0, 0.0])
 		by_shape[group] = placed
-		bodies.append([pebble.id, size, shape, diameter, at])
+		bodies.append([pebble.id, size, shape, diameter, at, int(look)])
 	pebble_shapes[column] = by_shape
 	pebble_bodies[column] = bodies
 	_pebble_block_changed(column)
@@ -2047,6 +2268,8 @@ func _build_pebble_bodies(column: Vector2i) -> void:
 		body.set_meta("id", spec[0])
 		body.set_meta("pebble", Vector2i(size, spec[2]))
 		body.set_meta("column", column)
+		# 0.0.7.3 : aspect (0 pierre, 1 calcaire, 2 silex) : objet ramassé ou éclats.
+		body.set_meta("look", spec[5] if spec.size() > 5 else 0)
 		body.collision_layer = 3 if size >= 6 else 2
 		body.collision_mask = 0
 		var collision := CollisionShape3D.new()
@@ -2142,6 +2365,10 @@ func strike_pebble(body: StaticBody3D) -> bool:
 		pebble_hits.erase(id)
 		broken_pebbles[id] = true
 		objects_dirty = true
+		# 0.0.7.3 : le caillou cassé donne des éclats (250 g au plus chacun), qui tombent à côté du joueur.
+		var weight: float = Inventory.PEBBLE_WEIGHTS[kind.x - 1]
+		var pieces := maxi(1, ceili(weight / 250.0))
+		drop_pieces(PEBBLE_PIECES[int(body.get_meta("look", 0))], pieces, roundf(weight / pieces), at)
 	_show_column_pebbles(column)
 	# Colonne visée : ses collisions refaites tout de suite (elle est près du joueur).
 	_build_pebble_bodies(column)
@@ -2211,7 +2438,11 @@ func _strike_stone(point: Vector3i, at: Vector3) -> bool:
 		return true
 	stone_target = Vector3i(999999, 0, 0)
 	stone_hits = 0
-	return _apply_terrain({point: [SmoothTerrain.DUG, -1]})
+	var done := _apply_terrain({point: [SmoothTerrain.DUG, -1]})
+	# 0.0.7.3 : la sous-cellule cassée donne deux morceaux (250 g en tout), qui tombent à côté du joueur.
+	if done:
+		drop_pieces(STONE_PIECES.get(kind, "eclat_pierre"), 2, STONE_PIECE_WEIGHT, at)
+	return done
 
 # 0.0.6 : rocher creusé à la pioche, une sous-cellule de 50 cm par coup (cubes alignés sur le terrain) ;
 # la forme se creuse là où l'on frappe. Sauvegarde : objets.json, « rochers_entames » (cubes retirés par rocher).
@@ -2245,6 +2476,7 @@ func mine_rock(body: StaticBody3D, hit: Dictionary = {}) -> bool:
 	removed.append([chosen.x, chosen.y, chosen.z])
 	carved_rocks[id] = removed
 	objects_dirty = true
+	drop_pieces("eclat_calcaire" if body.get_meta("look", 0) == 1 else "eclat_pierre", 2, STONE_PIECE_WEIGHT, aim)
 	if not _apply_carving(body):
 		carved_rocks.erase(id)
 		mined_rocks[id] = true
@@ -2322,6 +2554,9 @@ func _save_objects() -> bool:
 	data.rochers_mines = mined_rocks.keys()
 	data.rochers_entames = carved_rocks.duplicate(true)
 	data.cailloux_casses = broken_pebbles.keys()
+	# 0.0.7.3 : objets posés au sol (ground_items.gd).
+	if is_instance_valid(ground):
+		data.objets_au_sol = ground.to_array()
 	var ok := Store.write_json(save_folder.path_join(Store.OBJECTS_FILE), data)
 	if ok:
 		objects_dirty = false

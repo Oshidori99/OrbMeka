@@ -54,6 +54,10 @@ const ACTIONS := {
 	"block_next": {"label": "Case suivante (barre)", "default": {"mouse": MOUSE_BUTTON_WHEEL_DOWN}, "fixed": []},
 	# 0.0.7.2 : ouvrir ou fermer l'inventaire : O et I en même temps (choix de l'utilisateur, O pour « Open », I pour « Inventory »).
 	"inventory": {"label": "Inventaire", "default": {"key": KEY_O, "second": {"key": KEY_I}}, "by_letter": true, "fixed": []},
+	# 0.0.7.3 : ramasser l'objet visé (R, comme Courir : R ramasse seulement si un objet est visé) et récupérer une
+	# poignée de matière en vrac (R et I maintenus en même temps) ; choix de l'utilisateur.
+	"pick_up": {"label": "Ramasser", "default": {"key": KEY_R}, "by_letter": true, "fixed": []},
+	"gather": {"label": "Récupérer une poignée (maintenir)", "default": {"key": KEY_R, "second": {"key": KEY_I}}, "by_letter": true, "fixed": []},
 	# 0.0.5.10 : pinceau du clic droit (Poser, Aplanir, Lisser) et taille du geste (1/8, 1/4, 1/2 bloc), modifiables.
 	"brush_next": {"label": "Pinceau suivant (clic droit)", "default": {"key": KEY_B, "second": {"key": KEY_T}}, "fixed": []},
 	# 0.0.5.14 : molette vers le haut = plus grand (inversé, demande de l'utilisateur).
@@ -494,7 +498,7 @@ const GROUPS := {
 	"Mouvements": ["move_forward", "move_back", "move_left", "move_right", "jump", "crouch", "sprint", "fly"],
 	"Blocs": ["break_block", "place_block", "brush_next", "size_up", "size_down"],
 	# 0.0.7.2 : nouvelle partie : l'inventaire et le choix de la case de la barre d'objets.
-	"Inventaire": ["inventory", "block_previous", "block_next"],
+	"Inventaire": ["inventory", "block_previous", "block_next", "pick_up", "gather"],
 	"Vitesses": ["speed_up", "speed_down", "walk_up", "walk_down", "run_up", "run_down", "break_up", "break_down", "place_up", "place_down"],
 	"Vitesses — réinitialiser": ["move_reset", "walk_reset", "run_reset", "break_reset", "place_reset", "speed_reset_all"],
 	"Raccourcis": ["worlds_menu", "world_info_page", "change_view"],

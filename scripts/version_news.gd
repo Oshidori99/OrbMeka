@@ -3,8 +3,10 @@ extends RefCounted
 # Les versions de la génération sont celles enregistrées avec chaque monde (world_generation.gd) ; la version des menus
 # compte les changements des menus depuis 0.0.6 (1 : menus de 0.0.5.37 et avant). À compléter à chaque version.
 const Generation = preload("res://scripts/world_generation.gd")
-const MENUS_VERSION := 5
+const MENUS_VERSION := 6
 const MENUS := [
+	{"menu": "Inventaire", "version": "0.0.7.3", "text": "Survie : deux mains et quatre poches, poids sous chaque case, icônes rondes"},
+	{"menu": "Contrôles", "version": "0.0.7.3", "text": "Inventaire : Ramasser (R) et Récupérer une poignée (R + I)"},
 	{"menu": "Inventaire", "version": "0.0.7.2", "text": "nouveau (O + I) : grille de 5 × 10, barre d'objets, catégories en Créatif"},
 	{"menu": "Contrôles", "version": "0.0.7.2", "text": "partie Inventaire : O + I, case précédente et suivante de la barre"},
 	{"menu": "Paramètres", "version": "0.0.7.1", "text": "onglet Monde en partie : mode de jeu Survie ou Créatif"},

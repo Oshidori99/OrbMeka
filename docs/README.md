@@ -1,6 +1,20 @@
-# OrbMeka™ — prototype 0.0.7.2
+# OrbMeka™ — prototype 0.0.7.3
 
 Godot 4.7 / GDScript. Formes et couleurs simples ; assets externes seulement sous licence vérifiée (sons CC0, assets/sounds/CREDITS.txt).
+
+## 0.0.7.3 — Mains, poches et objets au sol
+Version locale (3 sur 4). Génération inchangée (version 32). Décision de l'utilisateur du 15.11.2026 (issue #40) : presque pas d'inventaire au début.
+- **Survie : deux mains et quatre poches**, plus de grille ni de cases grisées. Barre : case 1 main gauche, case 2 main droite (400 g chacune), cases 3 à 6 les poches (150 g en tout) ; plus tard, sacs et paniers ajouteront des cases (10 au plus). Poids sous chaque case (rien sous une case vide) et total des poches en bas à droite. Poids toujours en 4 chiffres, de 1,000 à 999,9 par unité (mg, g, kg, Mg).
+- **Piles** : seuls des objets vraiment identiques s'empilent (même objet, même taille, même poids), selon le poids permis.
+- **Creuser en Survie** : la terre, le sable, l'argile, la boue ou le gravier ne donnent pas d'objet : ils sont rejetés derrière soi en petit tas ; jamais dans le trou qu'on creuse, jamais assez haut pour boucher un passage (2 m libres au-dessus) ; mur derrière : sur le côté.
+- **Récupérer une poignée** (R et I maintenus, Contrôles → Inventaire) : visée sur un tas ou le sol, une poignée après 1 s (plus long que creuser) ; dans les mains, puis les poches. Poids : sable 120 g, terre 100 g, argile 130 g, boue 150 g, gravier 140 g. **Poser** utilise une poignée par sous-cellule.
+- **Pierre cassée à la pioche** (aussi en Créatif) : deux petits morceaux de 125 g par sous-cellule tombent à côté du joueur ; cailloux cassés et rochers creusés aussi. **Ramasser** (R, comme Courir : seulement si un objet est visé) : main gauche, sinon main droite, puis poches ; aussi les petits cailloux et silex du monde (jusqu'à 400 g).
+- **Objets au sol** : tout petits modèles, chacun visible à sa place, dessinés ensemble par type ; sauvegardés dans objets.json (« objets_au_sol »). Ce qui ne tient plus dans l'inventaire est posé au sol, jamais perdu.
+- **Icônes** : rondes pour les matières (demande de l'utilisateur), ovales pour les cailloux, anguleuses pour les éclats ; nombre dans le coin. Gravier ajouté aux Matériaux naturels.
+- Pas encore de pioche en Survie ; pas encore de lancer d'objets.
+
+Tests réussis : inventory (68 vérifications : poids, piles, mains, poches, R, R + I, terre rejetée, morceaux au sol, sauvegarde), shortcuts_selection, prototype, controls, controls_groups, key_combos, smooth_terrain, trees, breaking, reach, game_mode, pause_settings, pause, settings_walk, interface_info, menu, run_mode, crouch, fly, swim, water, history_resume (+ tests juridiques). Captures hors écran : Survie en jeu et inventaire, Créatif.
+À tester manuellement : R et R + I au clavier (R fait aussi courir), creuser en Survie près d'un mur ou dans un tunnel, aspect des morceaux au sol.
 
 ## 0.0.7.2 — Inventaire et barre d'objets
 Version locale (2 sur 4). Génération inchangée (version 32).

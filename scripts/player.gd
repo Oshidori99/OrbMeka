@@ -207,6 +207,9 @@ func _unhandled_input(event: InputEvent) -> void:
 			return
 	if Input.mouse_mode != Input.MOUSE_MODE_CAPTURED:
 		return
+	# 0.0.7.3 : Ramasser (R par défaut) : l'objet visé (au sol, ou un petit caillou), main gauche puis droite.
+	if event.is_action_pressed("pick_up") and is_instance_valid(world) and world.has_method("pick_up"):
+		world.pick_up(get_target())
 	# Casser, poser, changer de bloc : touches ou boutons de Paramètres → Contrôles.
 	# Un clic avec ↑, ↓ ou ⌫ (0.0.4.6) règle la casse ou la pose : il ne casse ni ne pose.
 	if event.is_action_pressed("break_block"):
@@ -417,7 +420,11 @@ func _physics_process(delta: float) -> void:
 	else:
 		update_crouch(active, Input.is_action_pressed("crouch"), Input.is_action_just_pressed("crouch"))
 	# En vol, Espace monte : ce n'est pas un saut qui arrête la course (Maintenir conditionnel).
-	update_run(active, Input.is_action_pressed("sprint"), Input.is_action_just_pressed("sprint"), direction != Vector2.ZERO, jump_requested and not flying)
+	# 0.0.7.3 : R + I maintenus (Récupérer une poignée) : R ne fait pas courir pendant ce temps.
+	var gathering := active and Input.is_action_pressed("gather")
+	update_run(active, Input.is_action_pressed("sprint") and not gathering, Input.is_action_just_pressed("sprint") and not gathering, direction != Vector2.ZERO, jump_requested and not flying)
+	if is_instance_valid(world) and world.has_method("step_gather"):
+		world.step_gather(delta, gathering)
 	var changes := {}
 	var resets := []
 	for target in ["walk", "run", "break", "place"]:
