@@ -3,18 +3,22 @@ extends RefCounted
 # Un inventaire par mode de jeu, gardés tous les deux.
 # - Créatif : grille de 5 lignes × 10 colonnes et barre d'objets de 10 cases ; objets pris dans les catégories, illimités.
 # - Survie (0.0.7.3, décision du 15.11.2026, issue #40) : presque pas d'inventaire. Seulement deux mains (case 1 : main
-#   gauche, case 2 : main droite, 1 kg à elles deux) et quatre poches (cases 3 à 6, 500 g en tout ; 0.0.7.4). Plus tard, sacs et paniers
-#   ajouteront des cases (10 au plus dans la barre). Le reste se pose au sol.
-# Objet d'une case : {"objet": identifiant, "nombre": n} (+ « taille » pour un caillou, « poids » pour un éclat) ;
-# sans « nombre » : illimité (Créatif). Case vide : {}. Seuls des objets vraiment identiques s'empilent.
-# Sauvegarde dans joueur.json (« inventaire »).
+#   gauche, case 2 : main droite, 1 kg à elles deux) et quatre poches (cases 3 à 6, 500 g en tout ; 0.0.7.4). Plus tard,
+#   sacs et paniers ajouteront des cases (10 au plus dans la barre). Le reste se pose au sol.
+# Contenu d'une case :
+# - matière (poignées, toutes pareilles) : {"objet": id, "nombre": n} ;
+# - objet unique (caillou, éclat, fruit ; 0.0.7.5) : {"objet": id, "pile": [objet, …]} : chacun garde TOUTES ses
+#   caractéristiques (taille, poids, forme, orientation, couleur, coups reçus), ramassé, porté, reposé ou sauvegardé ;
+#   des objets du même type mais de tailles différentes vont dans la même case ; le dernier pris est le premier reposé ;
+# - illimité (Créatif) : sans « nombre » ni « pile » ({"objet": id} + modèle, par exemple « taille » pour un caillou).
+# Case vide : {}. Sauvegarde dans joueur.json (« inventaire »).
 const COLUMNS := 10
 const ROWS := 5
 const GRID_SIZE := COLUMNS * ROWS
 const BAR_SIZE := 10
 const SURVIVAL := "survival"
 const CREATIVE := "creative"
-const FORMAT := 2
+const FORMAT := 3
 # Survie : mains et poches (cases de la barre), limites en grammes.
 const HANDS := [0, 1]
 const POCKETS := [2, 3, 4, 5]
@@ -23,12 +27,19 @@ const HANDS_LIMIT := 1000.0
 const POCKETS_LIMIT := 500.0
 # Valeur d'outil de la pioche (même valeur que world.gd PICKAXE) ; -1 : main vide ou objet sans usage.
 const PICKAXE := 3
-# Poids d'un caillou selon sa taille (1 à 7, comme rocks.gd), en grammes (gardés en 0.0.7.4, les mains et les poches portent plus).
-# Tailles 6 et 7 : trop gros pour être ramassés.
+# Poids d'un caillou selon sa taille (1 à 7, comme rocks.gd), en grammes. Tailles 6 et 7 : trop gros pour être ramassés.
 const PEBBLE_WEIGHTS := [50.0, 120.0, 250.0, 400.0, 700.0, 1200.0, 2000.0]
 const PICKABLE_SIZE := 5
+# 0.0.7.5 : pommes en trois tailles (taille 2 : la normale) et cinq couleurs, comme les vraies.
+const APPLE_WEIGHTS := [130.0, 200.0, 300.0]
+const APPLE_SIZES := [0.075, 0.105, 0.13]
+const APPLE_COLORS := [Color("#6aa531"), Color("#b5281c"), Color("#dcbb2c"), Color("#7a4a26"), Color("#c9452a")]
+const APPLE_COLOR_NAMES := ["verte", "rouge", "jaune", "brune", "rouge et jaune"]
+# Caractéristiques gardées pour chaque objet unique (et leur type).
+const INSTANCE_FIELDS := {"taille": TYPE_INT, "poids": TYPE_FLOAT, "forme": TYPE_INT, "rotation": TYPE_FLOAT, "couleur": TYPE_INT, "coups": TYPE_INT}
 # Matières : valeurs de smooth_terrain.gd (SAND 0, STONE 1, DIRT 2, CLAY 4, MUD 5, DARK_STONE 6, GRAVEL 8, LIMESTONE 9,
 # FLINT 11). Poids : une poignée (une sous-cellule de 50 cm) ; décision du 14.11.2026.
+# « forme » : objet unique (caillou, éclat, fruit) ; « aspect » : rendu des pierres (0 pierre, 1 calcaire, 2 silex).
 const ITEMS := {
 	"sable": {"nom": "Sable", "matiere": 0, "poids": 120.0, "couleur": Color("#c9a467")},
 	"terre": {"nom": "Terre", "matiere": 2, "poids": 100.0, "couleur": Color("#6e4a2c")},
@@ -41,21 +52,29 @@ const ITEMS := {
 	"silex": {"nom": "Silex", "matiere": 11, "poids": 250.0, "couleur": Color("#2e2e33")},
 	"pioche": {"nom": "Pioche", "outil": PICKAXE, "poids": 0.0, "couleur": Color("#8d9196")},
 	# 0.0.7.3 : cailloux ramassés au sol (« taille » 1 à 7).
-	"caillou": {"nom": "Caillou", "forme": "caillou", "couleur": Color("#7d7a75")},
-	"caillou_calcaire": {"nom": "Caillou de calcaire", "forme": "caillou", "couleur": Color("#c4bca8")},
-	"caillou_silex": {"nom": "Rognon de silex", "forme": "caillou", "couleur": Color("#2e2e33")},
+	"caillou": {"nom": "Caillou", "forme": "caillou", "aspect": 0, "couleur": Color("#7d7a75")},
+	"caillou_calcaire": {"nom": "Caillou de calcaire", "forme": "caillou", "aspect": 1, "couleur": Color("#c4bca8")},
+	"caillou_silex": {"nom": "Rognon de silex", "forme": "caillou", "aspect": 2, "couleur": Color("#2e2e33")},
 	# 0.0.7.3 : morceaux de pierre cassée à la pioche (« poids » propre à chacun).
-	"eclat_pierre": {"nom": "Éclat de pierre", "forme": "eclat", "couleur": Color("#7d7a75")},
+	"eclat_pierre": {"nom": "Éclat de pierre", "forme": "eclat", "aspect": 0, "couleur": Color("#7d7a75")},
 	"eclat_pierre_sombre": {"nom": "Éclat de pierre sombre", "forme": "eclat", "couleur": Color("#4a4744")},
-	"eclat_calcaire": {"nom": "Éclat de calcaire", "forme": "eclat", "couleur": Color("#c4bca8")},
-	"eclat_silex": {"nom": "Éclat de silex", "forme": "eclat", "couleur": Color("#2e2e33")},
+	"eclat_calcaire": {"nom": "Éclat de calcaire", "forme": "eclat", "aspect": 1, "couleur": Color("#c4bca8")},
+	"eclat_silex": {"nom": "Éclat de silex", "forme": "eclat", "aspect": 2, "couleur": Color("#2e2e33")},
 	"charbon": {"nom": "Morceau de charbon", "forme": "eclat", "couleur": Color("#18181b")},
+	# 0.0.7.5 : fruits (onglet Fruits en Créatif).
+	"pomme": {"nom": "Pomme", "forme": "fruit", "couleur": Color("#b5281c")},
+	"noisette": {"nom": "Noisette", "forme": "fruit", "poids": 3.0, "couleur": Color("#8a5a2b")},
 }
-# Catégories de l'inventaire en Créatif, dans l'ordre des onglets. La pioche : en Créatif seulement, pour l'instant.
+# Catégories de l'inventaire en Créatif, dans l'ordre des onglets (0.0.7.5 : Cailloux et Fruits ; l'onglet Inventaire,
+# tout à droite, est dans inventory_ui.gd). Objets illimités : identifiant, avec leur modèle (CATALOG_MODELS).
 const CATEGORIES := [
 	{"id": "natural", "nom": "Matériaux naturels", "objets": ["sable", "terre", "argile", "boue", "gravier", "pierre", "calcaire", "pierre_sombre", "silex"]},
+	{"id": "pebbles", "nom": "Cailloux", "objets": ["caillou", "caillou_calcaire", "caillou_silex"]},
+	{"id": "fruits", "nom": "Fruits", "objets": ["pomme", "noisette"]},
 	{"id": "tools", "nom": "Outils", "objets": ["pioche"]},
 ]
+# Pour l'instant une seule version par objet : cailloux de taille 4, pomme rouge de taille 2.
+const CATALOG_MODELS := {"caillou": {"taille": 4}, "caillou_calcaire": {"taille": 4}, "caillou_silex": {"taille": 4}, "pomme": {"taille": 2, "couleur": 1}}
 
 signal changed
 
@@ -100,33 +119,82 @@ func usable(area: String, index: int) -> bool:
 func bar_slots() -> Array:
 	return range(BAR_SIZE).filter(func(index): return usable("bar", index))
 
+# --- Objets ---
+
+static func is_object(value: Dictionary) -> bool:
+	return ITEMS.get(value.get("objet", ""), {}).has("forme")
+
+static func catalog_item(id: String) -> Dictionary:
+	var value := {"objet": id}
+	value.merge(CATALOG_MODELS.get(id, {}))
+	return value
+
+# Caractéristiques d'un objet (sans son identifiant) / objet complet à plat {"objet": id, …} (au sol, illimité).
+static func traits(value: Dictionary) -> Dictionary:
+	var kept := {}
+	for field in INSTANCE_FIELDS:
+		if value.has(field):
+			kept[field] = value[field]
+	return kept
+
+static func flat(id: String, instance: Dictionary) -> Dictionary:
+	var value := {"objet": id}
+	value.merge(traits(instance))
+	return value
+
+# Un seul objet (ou une poignée) prêt à mettre dans une case.
+static func single(flat_value: Dictionary) -> Dictionary:
+	if is_object(flat_value):
+		return {"objet": flat_value.objet, "pile": [traits(flat_value)]}
+	return {"objet": flat_value.objet, "nombre": 1}
+
 # --- Poids et piles ---
 
+static func instance_weight(id: String, instance: Dictionary) -> float:
+	if instance.has("poids"):
+		return float(instance.poids)
+	var spec: Dictionary = ITEMS.get(id, {})
+	if instance.has("taille"):
+		var size := int(instance.taille)
+		if id == "pomme":
+			return APPLE_WEIGHTS[clampi(size, 1, APPLE_WEIGHTS.size()) - 1]
+		if spec.get("forme", "") == "caillou":
+			return PEBBLE_WEIGHTS[clampi(size, 1, PEBBLE_WEIGHTS.size()) - 1]
+	if id == "pomme":
+		return APPLE_WEIGHTS[1]
+	return float(spec.get("poids", 0.0))
+
+# Poids d'une unité : le dernier objet d'une pile (celui qui sortira en premier), une poignée, ou le modèle illimité.
 static func unit_weight(value: Dictionary) -> float:
 	var id: String = value.get("objet", "")
-	if value.has("poids"):
-		return float(value.poids)
-	if value.has("taille"):
-		return PEBBLE_WEIGHTS[clampi(int(value.taille), 1, PEBBLE_WEIGHTS.size()) - 1]
-	return float(ITEMS.get(id, {}).get("poids", 0.0))
+	if value.has("pile") and not value.pile.is_empty():
+		return instance_weight(id, value.pile[-1])
+	return instance_weight(id, value)
 
 static func count(value: Dictionary) -> int:
+	if value.has("pile"):
+		return value.pile.size()
 	return int(value.get("nombre", 0))
 
 static func unlimited(value: Dictionary) -> bool:
-	return not value.is_empty() and not value.has("nombre")
+	return not value.is_empty() and not value.has("nombre") and not value.has("pile")
 
 static func stack_weight(value: Dictionary) -> float:
-	return 0.0 if unlimited(value) else unit_weight(value) * count(value)
+	if unlimited(value):
+		return 0.0
+	if value.has("pile"):
+		var total := 0.0
+		for instance: Dictionary in value.pile:
+			total += instance_weight(value.objet, instance)
+		return total
+	return unit_weight(value) * count(value)
 
-# Objets vraiment identiques (même objet, même taille, même poids) : ils s'empilent.
+# Même type d'objet : il s'empile dans la même case (0.0.7.5 : même de tailles différentes, chacun gardé à part).
+# Illimités : seulement s'ils ont le même modèle.
 static func same_kind(a: Dictionary, b: Dictionary) -> bool:
-	if a.is_empty() or b.is_empty():
+	if a.is_empty() or b.is_empty() or a.get("objet") != b.get("objet") or unlimited(a) != unlimited(b):
 		return false
-	for key in ["objet", "taille", "poids"]:
-		if a.get(key) != b.get(key):
-			return false
-	return unlimited(a) == unlimited(b)
+	return not unlimited(a) or traits(a) == traits(b)
 
 func _weight_of(indexes: Array, except: int) -> float:
 	var total := 0.0
@@ -141,7 +209,7 @@ func pockets_weight(except: int = -1) -> float:
 func hands_weight(except: int = -1) -> float:
 	return _weight_of(HANDS, except)
 
-# Poids encore permis dans une case (Survie) : ce que laissent les autres cases du même groupe (mains ou poches) ;
+# Poids encore permis pour une case entière (Survie) : ce que laissent les autres cases du même groupe ;
 # sans limite en Créatif.
 func room(area: String, index: int) -> float:
 	if mode == CREATIVE:
@@ -154,26 +222,61 @@ func room(area: String, index: int) -> float:
 		return POCKETS_LIMIT - pockets_weight(index)
 	return 0.0
 
-# Objet posé au sol à la main (clic droit) : caillou, éclat… (pas les matières, qui se posent dans le terrain).
-static func is_object(value: Dictionary) -> bool:
-	return ITEMS.get(value.get("objet", ""), {}).has("forme")
+# Sépare les « amount » premiers objets d'une pile (ou poignées) du reste : [début, reste].
+static func _split(value: Dictionary, amount: int) -> Array:
+	var first := value.duplicate(true)
+	var rest := value.duplicate(true)
+	if value.has("pile"):
+		first.pile = value.pile.slice(0, amount)
+		rest.pile = value.pile.slice(amount)
+	else:
+		first.nombre = amount
+		rest.nombre = count(value) - amount
+	return [first if count(first) > 0 else {}, rest if count(rest) > 0 else {}]
 
-# Combien de cet objet tiennent dans la case (en plus de ce qui y est déjà, s'il est identique).
+# Combien des premiers objets de « value » tiennent encore dans la case (en plus de ce qui y est, s'il est du même type).
 func fit_count(area: String, index: int, value: Dictionary) -> int:
-	if not usable(area, index) or value.is_empty():
+	if not usable(area, index) or value.is_empty() or (mode == SURVIVAL and unlimited(value)):
 		return 0
 	var there := item(area, index)
 	if not there.is_empty() and not same_kind(there, value):
 		return 0
 	if unlimited(value):
 		return 1 if there.is_empty() else 0
+	if mode == CREATIVE:
+		return count(value)
+	var free := room(area, index) - stack_weight(there) + 0.001
+	var fits := 0
+	if value.has("pile"):
+		for instance: Dictionary in value.pile:
+			free -= instance_weight(value.objet, instance)
+			if free < 0.0:
+				break
+			fits += 1
+		return fits
 	var unit := unit_weight(value)
-	var already := count(there)
-	if unit <= 0.0 or mode == CREATIVE:
-		return 1000000
-	return maxi(int(floor((room(area, index) + 0.001) / unit)) - already, 0)
+	return count(value) if unit <= 0.0 else mini(int(floor(free / unit)), count(value))
 
-# Met un objet (une pile) dans une case : s'il est identique, s'empile autant que le poids le permet ; sinon échange,
+# Ajoute ce qui tient de « value » dans la case (vide, ou du même type) ; rend ce qui reste.
+func _merge_into(area: String, index: int, value: Dictionary) -> Dictionary:
+	var moved := fit_count(area, index, value)
+	if moved <= 0:
+		return value
+	var parts := _split(value, moved) if not unlimited(value) else [value, {}]
+	var there := item(area, index)
+	if there.is_empty():
+		_store()[area][index] = parts[0].duplicate(true)
+	else:
+		var merged := there.duplicate(true)
+		if merged.has("pile"):
+			merged.pile.append_array(parts[0].pile.duplicate(true))
+		else:
+			merged.nombre = count(merged) + count(parts[0])
+		_store()[area][index] = merged
+	changed.emit()
+	return parts[1]
+
+# Met un objet (une pile) dans une case : s'il est du même type, s'empile autant que le poids le permet ; sinon échange,
 # si l'objet tient dans la case. Rend ce qui reste à tenir (l'objet de la case, le reste de la pile, ou {}).
 func put(area: String, index: int, value: Dictionary) -> Dictionary:
 	if not usable(area, index):
@@ -185,56 +288,69 @@ func put(area: String, index: int, value: Dictionary) -> Dictionary:
 		return there
 	if not valid_item(value) or (mode == SURVIVAL and unlimited(value)):
 		return value
-	if not there.is_empty() and same_kind(there, value) and not unlimited(value):
-		var moved := mini(fit_count(area, index, value), count(value))
-		if moved <= 0:
-			return value
-		there = there.duplicate()
-		there.nombre = count(there) + moved
-		_store()[area][index] = there
-		changed.emit()
-		var rest := value.duplicate()
-		rest.nombre = count(value) - moved
-		return rest if rest.nombre > 0 else {}
+	if there.is_empty() or (same_kind(there, value) and not unlimited(value)):
+		return _merge_into(area, index, value)
 	# Échange : l'objet doit tenir seul dans la case.
 	if mode == SURVIVAL and stack_weight(value) > room(area, index) + 0.001:
 		return value
-	_store()[area][index] = value.duplicate()
+	_store()[area][index] = value.duplicate(true)
 	changed.emit()
 	return there
 
 func take(area: String, index: int) -> Dictionary:
 	return put(area, index, {}) if usable(area, index) else {}
 
-# Ajoute des objets (ramasser, récupérer) : d'abord sur une pile identique, puis dans une case vide.
-# Survie : main gauche, main droite, puis poches. Rend le nombre ajouté.
+func _places() -> Array:
+	if mode == SURVIVAL:
+		return (HANDS + POCKETS).map(func(index): return ["bar", index])
+	return bar_slots().map(func(index): return ["bar", index]) + range(GRID_SIZE).map(func(index): return ["grid", index])
+
+# Range des objets n'importe où (retour d'un objet tenu dans l'écran d'inventaire) : d'abord sur un même type, puis dans
+# une case vide. Rend le nombre ajouté.
 func add(value: Dictionary) -> int:
 	if not valid_item(value) or unlimited(value):
 		return 0
-	var left := count(value)
-	var order: Array = HANDS + POCKETS if mode == SURVIVAL else bar_slots().map(func(index): return ["bar", index]) + range(GRID_SIZE).map(func(index): return ["grid", index])
-	var places: Array = order.map(func(entry): return entry if entry is Array else ["bar", entry])
+	var rest := value
 	for pass_same in [true, false]:
-		for place in places:
-			if left <= 0:
+		for place in _places():
+			if rest.is_empty():
 				break
 			var there := item(place[0], place[1])
-			if pass_same != (not there.is_empty()):
+			if pass_same == there.is_empty():
 				continue
-			if not there.is_empty() and not same_kind(there, value):
-				continue
-			var moved := mini(fit_count(place[0], place[1], value), left)
-			if moved <= 0:
-				continue
-			var stack := value.duplicate()
-			stack.nombre = count(there) + moved
-			_store()[place[0]][place[1]] = stack
-			left -= moved
-	if left != count(value):
-		changed.emit()
-	return count(value) - left
+			rest = _merge_into(place[0], place[1], rest)
+	return count(value) - count(rest)
 
-# Retire un objet de la case en main (poser) ; illimité : rien ne change. Faux s'il n'y a rien.
+# 0.0.7.5 (demande de l'utilisateur) : ramasser ou récupérer va dans la case choisie de la barre ; si toute la barre est
+# pleine, dans une case libre de l'inventaire. Rend {"added": nombre ajouté, "reason": "" | "occupee" | "lourd" | "plein"}.
+func add_to_selected(value: Dictionary) -> Dictionary:
+	if not valid_item(value) or unlimited(value):
+		return {"added": 0, "reason": "plein"}
+	var rest := _merge_into("bar", selected(), value)
+	var bar_full := bar_slots().all(func(index): return not item("bar", index).is_empty())
+	if not rest.is_empty() and bar_full:
+		for pass_same in [true, false]:
+			for index in range(GRID_SIZE):
+				if rest.is_empty() or not usable("grid", index):
+					continue
+				var there := item("grid", index)
+				if pass_same == there.is_empty():
+					continue
+				rest = _merge_into("grid", index, rest)
+	var added := count(value) - count(rest)
+	var reason := ""
+	if added < count(value):
+		var chosen := held()
+		var other := not chosen.is_empty() and not same_kind(chosen, value)
+		if other and not bar_full:
+			reason = "occupee"
+		elif other or mode == CREATIVE:
+			reason = "plein"
+		else:
+			reason = "lourd"
+	return {"added": added, "reason": reason}
+
+# Retire des poignées de la case en main (poser une matière) ; illimité : rien ne change. Faux s'il n'y en a pas assez.
 func use_held(amount: int = 1) -> bool:
 	var there := held()
 	if there.is_empty():
@@ -243,11 +359,27 @@ func use_held(amount: int = 1) -> bool:
 		return true
 	if count(there) < amount:
 		return false
-	there = there.duplicate()
-	there.nombre = count(there) - amount
-	_store().bar[selected()] = there if there.nombre > 0 else {}
+	var parts := _split(there, count(there) - amount)
+	_store().bar[selected()] = parts[0]
 	changed.emit()
 	return true
+
+# 0.0.7.5 : prend en main un seul objet à reposer : le dernier pris (pile) ; illimité : une copie de son modèle.
+# Rend l'objet à plat {"objet": id, …caractéristiques}, ou {}.
+func pop_held() -> Dictionary:
+	var there := held()
+	if there.is_empty():
+		return {}
+	if unlimited(there):
+		return there.duplicate(true)
+	if there.has("pile"):
+		var kept := there.duplicate(true)
+		var last: Dictionary = kept.pile.pop_back()
+		_store().bar[selected()] = kept if not kept.pile.is_empty() else {}
+		changed.emit()
+		return flat(there.objet, last)
+	use_held(1)
+	return {"objet": there.objet}
 
 func first_free() -> Array:
 	for area in ["bar", "grid"]:
@@ -277,7 +409,7 @@ func cycle(direction: int) -> void:
 func held() -> Dictionary:
 	return item("bar", selected())
 
-# Valeur pour le monde : matière à poser, PICKAXE, ou -1 (main vide, caillou, éclat).
+# Valeur pour le monde : matière à poser, PICKAXE, ou -1 (main vide, caillou, éclat, fruit).
 func held_kind() -> int:
 	var id: String = held().get("objet", "")
 	if not ITEMS.has(id):
@@ -288,14 +420,29 @@ static func item_name(value: Dictionary) -> String:
 	var id: String = value.get("objet", "")
 	return ITEMS[id].nom if ITEMS.has(id) else ""
 
+static func _valid_traits(value: Variant) -> bool:
+	if not value is Dictionary:
+		return false
+	for field in value:
+		if not INSTANCE_FIELDS.has(field) or not (value[field] is int or value[field] is float):
+			return false
+	if value.has("taille") and (int(value.taille) < 1 or int(value.taille) > PEBBLE_WEIGHTS.size()):
+		return false
+	if value.has("couleur") and (int(value.couleur) < 0 or int(value.couleur) >= APPLE_COLORS.size()):
+		return false
+	return not value.has("poids") or float(value.poids) > 0.0
+
 static func valid_item(value: Variant) -> bool:
 	if not value is Dictionary or not ITEMS.has(value.get("objet")):
 		return false
 	if value.has("nombre") and not ((value.nombre is int or value.nombre is float) and int(value.nombre) > 0):
 		return false
-	if value.has("taille") and not ((value.taille is int or value.taille is float) and int(value.taille) >= 1 and int(value.taille) <= PEBBLE_WEIGHTS.size()):
-		return false
-	return not value.has("poids") or ((value.poids is int or value.poids is float) and float(value.poids) > 0.0)
+	if value.has("pile"):
+		return value.pile is Array and not value.pile.is_empty() and is_object(value) and value.pile.all(_valid_traits)
+	var rest: Dictionary = value.duplicate()
+	rest.erase("objet")
+	rest.erase("nombre")
+	return _valid_traits(rest)
 
 # Poids en 4 chiffres, chaque unité de 1,000 à 999,9 (décision du 14.11.2026) : mg, g, kg, Mg ; virgule française.
 static func format_weight(grams: float) -> String:
@@ -317,7 +464,6 @@ static func _step(value: float) -> float:
 
 # --- Sauvegarde (joueur.json) ---
 const SAVE_NAMES := {SURVIVAL: "survie", CREATIVE: "creatif"}
-const SAVED_FIELDS := ["objet", "nombre", "taille", "poids"]
 
 func to_dict() -> Dictionary:
 	var data := {"format": FORMAT}
@@ -329,25 +475,40 @@ func to_dict() -> Dictionary:
 static func _saved(value: Dictionary) -> Variant:
 	if not valid_item(value):
 		return null
-	var kept := {}
-	for field in SAVED_FIELDS:
-		if value.has(field):
-			kept[field] = value[field]
+	var kept := {"objet": value.objet}
+	if value.has("pile"):
+		kept.pile = value.pile.map(func(instance): return traits(instance))
+	elif value.has("nombre"):
+		kept.nombre = int(value.nombre)
+	else:
+		kept.merge(traits(value))
 	return kept
 
+static func _clean_traits(value: Dictionary) -> Dictionary:
+	var kept := {}
+	for field in traits(value):
+		kept[field] = int(value[field]) if INSTANCE_FIELDS[field] == TYPE_INT else float(value[field])
+	return kept
+
+# Lecture d'une case ; formats 1 et 2 (0.0.7.2 à 0.0.7.4) : un caillou ou un éclat avec « nombre » devient une pile.
 static func _read(value: Variant) -> Dictionary:
 	if not valid_item(value):
 		return {}
 	var kept := {"objet": value.objet}
-	for field in ["nombre", "taille"]:
-		if value.has(field):
-			kept[field] = int(value[field])
-	if value.has("poids"):
-		kept.poids = float(value.poids)
+	if value.has("pile"):
+		kept.pile = value.pile.map(func(instance): return _clean_traits(instance))
+	elif value.has("nombre") and is_object(value):
+		var one := _clean_traits(value)
+		kept.pile = []
+		for index in range(int(value.nombre)):
+			kept.pile.append(one.duplicate())
+	elif value.has("nombre"):
+		kept.nombre = int(value.nombre)
+	else:
+		kept.merge(_clean_traits(value))
 	return kept
 
 # Lecture tolérante : ancien monde sans inventaire, objet inconnu ou case en trop : ignorés, sans erreur.
-# Format 1 (0.0.7.2) : objets sans « nombre » (illimités) ; en Survie il n'y en avait aucun.
 func from_dict(data: Variant) -> void:
 	_stores = {SURVIVAL: _empty_store(), CREATIVE: _empty_store()}
 	if data is Dictionary:

@@ -1,41 +1,54 @@
 extends Node3D
-# 0.0.7.3 : objets posés au sol (morceaux de pierre cassée, cailloux, poignées qui ne tiennent plus dans les mains).
+# 0.0.7.3 : objets posés au sol (morceaux de pierre cassée, cailloux, fruits, poignées qui ne tiennent plus en main).
 # Décision du 15.11.2026 (issue #40) : chaque objet reste visible tel quel, à sa place (pas de tas fusionnés) ;
-# les objets du même type sont dessinés ensemble (un MultiMesh par type), ce qui reste léger même avec beaucoup d'objets.
-# Petits modèles (quelques centimètres). Chaque objet a une petite collision ronde pour le viser (R : ramasser) ;
-# elle n'arrête pas le joueur. Sauvegarde : objets.json, « objets_au_sol ».
+# les objets du même type sont dessinés ensemble (un MultiMesh par type et par forme), léger même avec beaucoup d'objets.
+# 0.0.7.5 : chaque objet garde toutes ses caractéristiques (inventory.gd : taille, poids, forme, orientation, couleur,
+# coups reçus) ; cailloux et éclats ont le même rendu que les cailloux du monde (matière des pierres, aspect pierre,
+# calcaire ou silex), si bien qu'un caillou ramassé puis reposé est exactement le même.
+# Chaque objet a une petite collision ronde pour le viser (R : ramasser) ; elle n'arrête pas le joueur.
+# Sauvegarde : objets.json, « objets_au_sol ».
 const Inventory = preload("res://scripts/inventory.gd")
 const Rocks = preload("res://scripts/rocks.gd")
 # Au-delà, les plus anciens disparaissent (seulement s'ils sont très nombreux).
 const MAX_ITEMS := 3000
 const FALL_SECONDS := 0.35
-# Taille d'un éclat et d'une poignée, en mètres (les cailloux gardent leur taille).
+# Taille d'un éclat et d'une poignée, en mètres (les cailloux et les fruits gardent leur taille).
 const PIECE_SIZE := 0.07
 const HANDFUL_SIZE := 0.08
+const HAZELNUT_SIZE := 0.025
 const AIM_RADIUS := 0.09
 
 signal changed
 
-# {"item": objet (une seule unité), "position": Vector3, "rotation": float, "shape": forme 1 à 7}
+# Matière des pierres du monde (world.gd, aspect par objet : données propres à chaque instance).
+var stone_material: Material
+# {"item": objet à plat {"objet": id, …caractéristiques}, "position": Vector3}
 var entries: Array = []
 var bodies: Array = []
 var _drawn: Dictionary = {}
 var _materials: Dictionary = {}
 var _dirty := false
 var rng := RandomNumberGenerator.new()
+static var _sphere: SphereMesh
 
 func _ready() -> void:
 	name = "GroundItems"
 	rng.randomize()
 
-# Ajoute un objet tombé de « from » jusqu'au sol, près de « near » ; rend son numéro.
-# spread : écart au hasard autour de « near » (0 : exactement là, objet posé à la main).
+# Ajoute un objet (à plat) tombé de « from » jusqu'au sol, près de « near » ; rend son numéro.
+# spread : écart au hasard autour de « near » (0 : exactement là, objet posé à la main). Forme et orientation : celles
+# de l'objet ; un objet qui n'en a pas encore (éclat neuf) en reçoit une, gardée ensuite.
 func drop(value: Dictionary, from: Vector3, near: Vector3, rest_height: Callable, spread: float = 0.25) -> int:
-	var single := value.duplicate()
-	single.erase("nombre")
+	var item := value.duplicate(true)
+	item.erase("nombre")
+	if Inventory.is_object(item):
+		if not item.has("forme"):
+			item.forme = rng.randi_range(1, 7)
+		if not item.has("rotation"):
+			item.rotation = rng.randf_range(0.0, TAU)
 	var spot := near + Vector3(rng.randf_range(-spread, spread), 0.0, rng.randf_range(-spread, spread))
 	var ground: float = rest_height.call(spot)
-	var entry := {"item": single, "position": Vector3(spot.x, ground + _lift(single), spot.z), "rotation": rng.randf_range(0.0, TAU), "shape": rng.randi_range(1, 7)}
+	var entry := {"item": item, "position": Vector3(spot.x, ground + lift(item), spot.z)}
 	entries.append(entry)
 	while entries.size() > MAX_ITEMS:
 		remove(0)
@@ -43,12 +56,12 @@ func drop(value: Dictionary, from: Vector3, near: Vector3, rest_height: Callable
 	_add_body(index)
 	_dirty = true
 	changed.emit()
-	# Chute courte et visible : le petit corps glisse du point cassé jusqu'au sol.
+	# Chute courte et visible : le petit objet glisse du point cassé jusqu'au sol.
 	if is_inside_tree() and from.distance_to(entry.position) > 0.05:
 		var falling := MeshInstance3D.new()
-		falling.mesh = _mesh(single, entry.shape)
-		falling.material_override = _material(single)
-		falling.scale = Vector3.ONE * _size(single)
+		falling.mesh = _mesh(item)
+		falling.material_override = _plain_material(item)
+		falling.basis = _basis(item)
 		add_child(falling)
 		falling.global_position = from
 		entry.hidden = true
@@ -78,25 +91,61 @@ func remove(index: int) -> Dictionary:
 func index_of(body: Node) -> int:
 	return int(body.get_meta("ground_index", -1)) if is_instance_valid(body) else -1
 
-static func _size(value: Dictionary) -> float:
-	if value.has("taille"):
-		return Rocks.PEBBLE_SIZES[clampi(int(value.taille), 1, 7) - 1]
-	return PIECE_SIZE if Inventory.ITEMS.get(value.get("objet", ""), {}).get("forme", "") == "eclat" else HANDFUL_SIZE
+static func _kind(value: Dictionary) -> String:
+	return Inventory.ITEMS.get(value.get("objet", ""), {}).get("forme", "")
 
-static func _lift(value: Dictionary) -> float:
-	return _size(value) * 0.3
+# Diamètre de l'objet, en mètres : un caillou rapetisse de 20 % par coup déjà reçu (comme dans le monde).
+static func size_of(value: Dictionary) -> float:
+	match _kind(value):
+		"caillou":
+			return Rocks.PEBBLE_SIZES[clampi(int(value.get("taille", 3)), 1, 7) - 1] * (1.0 - 0.2 * int(value.get("coups", 0)))
+		"fruit":
+			if value.get("objet") == "pomme":
+				return Inventory.APPLE_SIZES[clampi(int(value.get("taille", 2)), 1, 3) - 1]
+			return HAZELNUT_SIZE
+		"eclat":
+			return PIECE_SIZE
+	return HANDFUL_SIZE
 
-func _mesh(value: Dictionary, shape: int) -> Mesh:
-	return Rocks.pebble_mesh(shape if value.has("taille") or Inventory.ITEMS.get(value.get("objet", ""), {}).get("forme", "") == "eclat" else 1)
+# Hauteur du centre au-dessus du sol (cailloux : comme ceux du monde).
+static func lift(value: Dictionary) -> float:
+	if _kind(value) == "caillou":
+		return Rocks.pebble_lift(clampi(int(value.get("taille", 3)), 1, 7), clampi(int(value.get("forme", 1)), 1, 7)) * (1.0 - 0.2 * int(value.get("coups", 0)))
+	return size_of(value) * (0.5 if _kind(value) == "fruit" else 0.3)
 
-func _material(value: Dictionary) -> StandardMaterial3D:
-	var id: String = value.get("objet", "")
-	if not _materials.has(id):
+static func _basis(value: Dictionary) -> Basis:
+	return Basis(Vector3.UP, float(value.get("rotation", 0.0))).scaled(Vector3.ONE * size_of(value))
+
+func _mesh(value: Dictionary) -> Mesh:
+	if _kind(value) == "fruit":
+		if _sphere == null:
+			_sphere = SphereMesh.new()
+			_sphere.radius = 0.5
+			_sphere.height = 1.0
+			_sphere.radial_segments = 12
+			_sphere.rings = 6
+		return _sphere
+	return Rocks.pebble_mesh(clampi(int(value.get("forme", 1)), 1, 7))
+
+# Aspect des pierres (0 pierre, 1 calcaire, 2 silex) ou -1 : couleur unie.
+static func _look(value: Dictionary) -> int:
+	return int(Inventory.ITEMS.get(value.get("objet", ""), {}).get("aspect", -1))
+
+func _color(value: Dictionary) -> Color:
+	if value.get("objet") == "pomme":
+		return Inventory.APPLE_COLORS[clampi(int(value.get("couleur", 1)), 0, Inventory.APPLE_COLORS.size() - 1)]
+	return Inventory.ITEMS.get(value.get("objet", ""), {}).get("couleur", Color.GRAY)
+
+func _plain_material(value: Dictionary) -> Material:
+	if _look(value) >= 0 and stone_material != null:
+		return stone_material
+	var key := "%s/%d" % [value.get("objet", ""), int(value.get("couleur", -1))]
+	if not _materials.has(key):
 		var made := StandardMaterial3D.new()
-		made.albedo_color = Inventory.ITEMS.get(id, {}).get("couleur", Color.GRAY)
-		made.roughness = 0.92
-		_materials[id] = made
-	return _materials[id]
+		made.albedo_color = _color(value)
+		made.roughness = 0.5 if _kind(value) == "fruit" else 0.92
+		_materials[key] = made
+	return _materials[key]
 
 func _add_body(index: int) -> void:
 	var entry: Dictionary = entries[index]
@@ -108,7 +157,7 @@ func _add_body(index: int) -> void:
 	body.collision_mask = 0
 	var shape := CollisionShape3D.new()
 	var sphere := SphereShape3D.new()
-	sphere.radius = maxf(_size(entry.item) * 0.5, AIM_RADIUS)
+	sphere.radius = maxf(size_of(entry.item) * 0.5, AIM_RADIUS)
 	shape.shape = sphere
 	body.add_child(shape)
 	body.position = entry.position
@@ -120,15 +169,17 @@ func _process(_delta: float) -> void:
 		_dirty = false
 		_redraw()
 
-# Un dessin par objet et par forme : tous les objets du même type ensemble.
+# Un dessin par type, forme et couleur : tous les objets semblables ensemble ; l'aspect des pierres par objet.
 func _redraw() -> void:
 	var groups := {}
 	for entry: Dictionary in entries:
 		if entry.get("hidden", false):
 			continue
-		var key: String = "%s/%d" % [entry.item.objet, entry.shape]
+		var item: Dictionary = entry.item
+		var stone := _look(item) >= 0 and stone_material != null
+		var key: String = "pierre/%d" % int(item.get("forme", 1)) if stone else "%s/%d/%d" % [item.objet, int(item.get("forme", 1)), int(item.get("couleur", -1))]
 		if not groups.has(key):
-			groups[key] = {"item": entry.item, "shape": entry.shape, "list": []}
+			groups[key] = {"item": item, "stone": stone, "list": []}
 		groups[key].list.append(entry)
 	for key in _drawn.keys():
 		if not groups.has(key):
@@ -142,22 +193,28 @@ func _redraw() -> void:
 			drawn.name = "Objets"
 			drawn.multimesh = MultiMesh.new()
 			drawn.multimesh.transform_format = MultiMesh.TRANSFORM_3D
-			drawn.multimesh.mesh = _mesh(group.item, group.shape)
-			drawn.material_override = _material(group.item)
+			# Pierres : comme les cailloux du monde, couleur blanche et aspect dans les données de chaque objet.
+			drawn.multimesh.use_colors = group.stone
+			drawn.multimesh.use_custom_data = group.stone
+			drawn.multimesh.mesh = _mesh(group.item)
+			drawn.material_override = _plain_material(group.item)
 			add_child(drawn)
 			_drawn[key] = drawn
 		var multi := drawn.multimesh
 		multi.instance_count = group.list.size()
 		for at in range(group.list.size()):
 			var entry: Dictionary = group.list[at]
-			var basis := Basis(Vector3.UP, entry.rotation).scaled(Vector3.ONE * _size(entry.item))
-			multi.set_instance_transform(at, Transform3D(basis, entry.position))
+			multi.set_instance_transform(at, Transform3D(_basis(entry.item), entry.position))
+			if group.stone:
+				multi.set_instance_color(at, Color.WHITE)
+				multi.set_instance_custom_data(at, Color(float(_look(entry.item)), 0.0, 0.0, 0.0))
 
 # --- Sauvegarde (objets.json) ---
 
 func to_array() -> Array:
-	return entries.map(func(entry): return {"objet": Inventory._saved(entry.item), "position": [entry.position.x, entry.position.y, entry.position.z], "rotation": entry.rotation, "forme": entry.shape})
+	return entries.map(func(entry): return {"objet": Inventory._saved(entry.item), "position": [entry.position.x, entry.position.y, entry.position.z]})
 
+# Format de 0.0.7.3 et 0.0.7.4 compris (forme et orientation à part : elles rejoignent l'objet).
 func from_array(data: Variant) -> void:
 	entries.clear()
 	for body in bodies:
@@ -173,10 +230,15 @@ func from_array(data: Variant) -> void:
 		if value.is_empty():
 			continue
 		value.erase("nombre")
+		if Inventory.is_object(value):
+			if not value.has("forme"):
+				value.forme = clampi(int(saved.get("forme", 1)), 1, 7)
+			if not value.has("rotation"):
+				value.rotation = float(saved.get("rotation", 0.0))
 		var at: Array = saved.position
 		if not at.all(func(v): return v is float or v is int):
 			continue
-		entries.append({"item": value, "position": Vector3(float(at[0]), float(at[1]), float(at[2])), "rotation": float(saved.get("rotation", 0.0)), "shape": clampi(int(saved.get("forme", 1)), 1, 7)})
+		entries.append({"item": value, "position": Vector3(float(at[0]), float(at[1]), float(at[2]))})
 		_add_body(entries.size() - 1)
 		if entries.size() >= MAX_ITEMS:
 			break

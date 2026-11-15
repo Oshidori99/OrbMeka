@@ -59,7 +59,7 @@ class Slot extends Control:
 		if not plain:
 			draw_rect(rect, Color(0.32, 0.32, 0.34, 0.5) if locked else Color(0.13, 0.14, 0.16, 0.85))
 		if not item.is_empty():
-			var icon: Texture2D = ItemIcons.texture(item.get("objet", ""))
+			var icon: Texture2D = ItemIcons.for_value(item)
 			if icon != null:
 				draw_texture_rect(icon, rect.grow(-side * 0.08), false)
 			var amount := Inventory.count(item)
@@ -121,6 +121,9 @@ var cursor: Slot
 var cursor_item := {}
 var cursor_from: Array = []
 var category := 0
+# 0.0.7.5 : onglet Inventaire (après les catégories) ; objets des onglets sur 2 lignes au plus.
+const INVENTORY_TAB := 4
+const CATALOG_ROWS := 2
 
 func setup(owner_inventory: RefCounted, scale: float) -> void:
 	inventory = owner_inventory
@@ -260,10 +263,16 @@ func _build_screen() -> void:
 	creative_box.add_child(tabs)
 	var group := ButtonGroup.new()
 	var tab_px := roundi(side * 0.72)
-	for index in range(Inventory.CATEGORIES.size()):
+	# 0.0.7.5 : onglets Matériaux naturels, Cailloux, Fruits, Outils, puis, tout à droite, Inventaire (la grille).
+	for index in range(Inventory.CATEGORIES.size() + 1):
+		if index == Inventory.CATEGORIES.size():
+			var push := Control.new()
+			push.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+			tabs.add_child(push)
 		var tab := Button.new()
-		tab.icon = ItemIcons.natural_tab(tab_px) if Inventory.CATEGORIES[index].id == "natural" else ItemIcons.tools_tab(tab_px)
-		tab.tooltip_text = Inventory.CATEGORIES[index].nom
+		var id: String = Inventory.CATEGORIES[index].id if index < Inventory.CATEGORIES.size() else "inventory"
+		tab.icon = ItemIcons.tab(id, tab_px)
+		tab.tooltip_text = Inventory.CATEGORIES[index].nom if index < Inventory.CATEGORIES.size() else "Inventaire"
 		tab.toggle_mode = true
 		tab.button_group = group
 		tab.focus_mode = Control.FOCUS_NONE
@@ -274,9 +283,10 @@ func _build_screen() -> void:
 		tab.pressed.connect(show_category.bind(index))
 		tabs.add_child(tab)
 		tab_buttons.append(tab)
+	# Objets de l'onglet choisi, sur plusieurs lignes s'il y en a beaucoup.
 	catalog = _row(Inventory.COLUMNS)
 	creative_box.add_child(catalog)
-	for index in range(Inventory.COLUMNS):
+	for index in range(Inventory.COLUMNS * CATALOG_ROWS):
 		var slot := Slot.new(side)
 		slot.clicked.connect(_on_catalog.bind(index))
 		catalog.add_child(slot)
@@ -392,7 +402,9 @@ func refresh() -> void:
 	for index in range(Inventory.GRID_SIZE):
 		grid_slots[index].show_item(inventory.item("grid", index))
 	hud_gap.visible = not creative
-	grid_box.visible = creative
+	# 0.0.7.5 : en Créatif, la grille seulement dans l'onglet Inventaire ; sinon les objets de l'onglet et la barre.
+	grid_box.visible = creative and category == INVENTORY_TAB
+	catalog.visible = category != INVENTORY_TAB
 	panel_gap.visible = creative
 	creative_box.visible = creative
 	creative_bar.visible = creative
@@ -407,14 +419,17 @@ func refresh() -> void:
 	if not message.has_meta("said"):
 		message.text = _hint()
 
+# index : un onglet d'objets (0 à 3) ou INVENTORY_TAB (la grille de 5 × 10, tout à droite).
 func show_category(index: int) -> void:
-	category = clampi(index, 0, Inventory.CATEGORIES.size() - 1)
+	category = clampi(index, 0, INVENTORY_TAB)
 	tab_buttons[category].set_pressed_no_signal(true)
-	var objects: Array = Inventory.CATEGORIES[category].objets
+	var objects: Array = Inventory.CATEGORIES[category].objets if category < INVENTORY_TAB else []
 	for slot_index in range(catalog_slots.size()):
 		var slot: Slot = catalog_slots[slot_index]
 		slot.visible = slot_index < objects.size()
-		slot.show_item({"objet": objects[slot_index]} if slot_index < objects.size() else {})
+		slot.show_item(Inventory.catalog_item(objects[slot_index]) if slot_index < objects.size() else {})
+	if inventory != null:
+		refresh()
 
 func open() -> void:
 	message.remove_meta("said")
@@ -458,10 +473,12 @@ func _on_slot(button: int, area: String, index: int) -> void:
 	_show_cursor()
 
 func _on_catalog(button: int, index: int) -> void:
+	if category >= INVENTORY_TAB:
+		return
 	var objects: Array = Inventory.CATEGORIES[category].objets
 	if index >= objects.size():
 		return
-	var value := {"objet": objects[index]}
+	var value := Inventory.catalog_item(objects[index])
 	if button == MOUSE_BUTTON_RIGHT:
 		var free: Array = inventory.first_free()
 		if free.is_empty():

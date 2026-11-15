@@ -1,6 +1,18 @@
-# OrbMeka™ — prototype 0.0.7.4
+# OrbMeka™ — prototype 0.0.7.5
 
 Godot 4.7 / GDScript. Formes et couleurs simples ; assets externes seulement sous licence vérifiée (sons CC0, assets/sounds/CREDITS.txt).
+
+## 0.0.7.5 — Objets uniques, cueillette, pommes de toutes les couleurs
+Version locale (1 sur 4, correction demandée par l'utilisateur). Génération inchangée (version 32) ; les mondes gardent les mêmes arbres.
+- **Chaque objet garde toutes ses caractéristiques** (taille, forme, orientation, poids, couleur, coups reçus), ramassé, porté, reposé ou sauvegardé : un rognon de silex reposé est le même qu'avant. Des objets du même type mais de tailles différentes vont dans la même case, chacun gardé à part ; le dernier pris est le premier reposé. Cailloux et éclats au sol ont le rendu des cailloux du monde.
+- **Ramasser (R) et récupérer (R + I) remplissent la case choisie** de la barre ; si toute la barre est pleine, une case libre de l'inventaire ; si seule la case choisie est prise : message, l'objet reste au sol.
+- **Cueillir** (Survie et Créatif) : R en visant vraiment une pomme ou une noisette dans un pommier ou un noisetier (rien à travers le tronc). Le fruit disparaît de cet arbre seulement ; sauvegardé dans objets.json (« fruits_cueillis »).
+- **Pommes en trois tailles** (7,5, 10,5 et 13 cm ; la taille 2, la normale, un peu plus grande qu'avant) et **cinq couleurs** : verte, rouge, jaune, brune, moitié rouge moitié jaune. Pommes et noisettes refaites dans le jeu en petits fruits lisses, dessinés en série (un même petit modèle pour tous : léger).
+- **Créatif** : onglets en images Matériaux naturels (un seul tas de pierre, terre et sable), Cailloux (pierre, calcaire, silex, taille 4), Fruits (pomme rouge, noisette), Outils, et tout à droite Inventaire (un petit sac) : la grille de 5 lignes n'apparaît que là ; sinon les objets de l'onglet et la barre.
+- Anciennes sauvegardes (0.0.7.3, 0.0.7.4) relues : cailloux et éclats deviennent des objets uniques.
+
+Tests réussis : inventory (92 vérifications : caractéristiques gardées, piles, case choisie, cueillette en visant, onglets), trees (modèles sans fruits, fruits retrouvés), forests, smooth_terrain, shortcuts_selection, prototype, action_timing, window_resize, fps_creation, display_settings, breaking, reach, game_mode, menu, plants, world_consistency, terrain_visuals, history_resume (+ tests juridiques). Captures hors écran : onglets, objets au sol, pommier, pomme de près.
+À tester manuellement : cueillir en visant (marge de visée), aspect des pommes dans les arbres et sur le Web.
 
 ## 0.0.7.4 — Inventaire plus joli, mains et poches plus grandes
 Version publiée (4 sur 4, correction demandée par l'utilisateur). Génération inchangée (version 32).
