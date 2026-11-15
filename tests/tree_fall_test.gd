@@ -1,6 +1,6 @@
 extends SceneTree
 # 0.0.7.9 : abattre un arbre (temps selon l'épaisseur du bois visé, anneau de chargement), il tombe vers le joueur et
-# se couche (branches au-dessus du sol), reste tombé une fois rouvert ; le couper en deux là où on vise ; 15 cm au plus.
+# se couche (branches au-dessus du sol), reste tombé une fois rouvert ; le couper en deux là où on vise ; 30 cm au plus (0.0.7.10).
 const Trees = preload("res://scripts/trees.gd")
 const Inventory = preload("res://scripts/inventory.gd")
 var checks := 0
@@ -46,10 +46,10 @@ func _run() -> void:
 	await frames(2)
 	var first_aim: Dictionary = player.get_target()
 	check(not first_aim.is_empty() and first_aim.collider == tree, "aiming at the trunk (" + (str(first_aim.collider.name) + " at " + str(first_aim.position) if not first_aim.is_empty() else "nothing") + ", tree at " + str(tree.global_position) + ", eye at " + str(player.camera.global_position) + ")")
-	# 0.0.7.9 : temps selon l'épaisseur du bois visé : 8 s × (épaisseur / 10 cm)^2,5.
+	# 0.0.7.10 : temps selon l'épaisseur du bois visé : 8 s par tranche de 10 cm.
 	check(not world.step_chop(0.01, true) and world.chop_thickness > 0.0 and world.chop_thickness <= 0.15, "thickness measured at the aimed point (%.1f cm)" % (world.chop_thickness * 100.0))
 	var standing_thickness: float = world.chop_thickness
-	var expected: float = maxf(8.0 * pow(world.chop_thickness / 0.1, 2.5), 0.5)
+	var expected: float = maxf(8.0 * world.chop_thickness / 0.1, 0.5)
 	check(is_equal_approx(world.chop_seconds, expected), "chop time from thickness (%.2f s)" % world.chop_seconds)
 	check(not world.step_chop(world.chop_seconds * 0.5 - 0.01, true), "half way not cut yet")
 	world._update_ring()
@@ -137,7 +137,7 @@ func _run() -> void:
 	await frames(2)
 	world.pick_up({"collider": world.ground.bodies[index], "position": world.ground.entries[index].position})
 	check(world.inventory.item("bar", 5).get("objet") in ["tronc", "branche"], "R picks up the piece of wood")
-	# Trop épais à mains nues en Survie (plus de 15 cm) : impossible.
+	# Trop épais à mains nues en Survie (plus de 30 cm) : impossible.
 	world.set_game_mode(Inventory.SURVIVAL)
 	var big: Node3D = Trees.tree_body(Trees.LINDEN, 5)
 	big.set_meta("id", "tilleul-essai")
@@ -148,7 +148,7 @@ func _run() -> void:
 	player.camera.look_at(big.global_position + Vector3.UP * 0.6)
 	await frames(2)
 	var big_aim: Dictionary = player.get_target()
-	check(not big_aim.is_empty() and big_aim.collider == big and not world.step_chop(30.0, true) and world.chop_thickness > 0.15 and not big.has_meta("falling"), "a trunk thicker than 15 cm cannot be cut by hand (%.0f cm)" % (world.chop_thickness * 100.0))
+	check(not big_aim.is_empty() and big_aim.collider == big and not world.step_chop(30.0, true) and world.chop_thickness > 0.30 and not big.has_meta("falling"), "a trunk thicker than 30 cm cannot be cut by hand (%.0f cm)" % (world.chop_thickness * 100.0))
 	root.remove_child(world)
 	world.queue_free()
 	await process_frame

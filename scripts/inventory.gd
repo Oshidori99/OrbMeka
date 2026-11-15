@@ -125,9 +125,11 @@ func usable(area: String, index: int) -> bool:
 		return false
 	return mode == CREATIVE or (area == "bar" and (index in HANDS or index in POCKETS))
 
-# Cases de la barre montrées : toutes en Créatif ; en Survie, les mains et les poches.
+# Cases de la barre montrées : toutes en Créatif ; en Survie, les mains et les poches. 0.0.7.10 : objet lourd porté à
+# deux mains : une seule case pour les deux mains (l'autre main n'est plus une case : une de moins dans la barre).
 func bar_slots() -> Array:
-	return range(BAR_SIZE).filter(func(index): return usable("bar", index))
+	var heavy := two_handed()
+	return range(BAR_SIZE).filter(func(index): return usable("bar", index) and not (heavy >= 0 and index in HANDS and index != heavy))
 
 # --- Objets ---
 
@@ -378,6 +380,11 @@ func add_to_selected(value: Dictionary) -> Dictionary:
 	if not valid_item(value) or unlimited(value):
 		return {"added": 0, "reason": "plein"}
 	var rest := _merge_into("bar", selected(), value)
+	# 0.0.7.10 (Survie) : case choisie pleine : dans l'autre main libre (la droite d'abord), qu'on voit le tenir.
+	if mode == SURVIVAL and not rest.is_empty():
+		for index in [HANDS[1], HANDS[0]]:
+			if not rest.is_empty() and index != selected() and index in bar_slots():
+				rest = _merge_into("bar", index, rest)
 	var bar_full := bar_slots().all(func(index): return not item("bar", index).is_empty())
 	if not rest.is_empty() and bar_full:
 		for pass_same in [true, false]:
@@ -447,6 +454,10 @@ func selected() -> int:
 func select(index: int) -> bool:
 	if not usable("bar", index):
 		return false
+	# 0.0.7.10 : l'autre main tient aussi l'objet lourd : c'est la même case.
+	var heavy := two_handed()
+	if heavy >= 0 and index in HANDS:
+		index = heavy
 	_store().selected = index
 	changed.emit()
 	return true
@@ -458,6 +469,9 @@ func cycle(direction: int) -> void:
 	select(open[wrapi(at + direction, 0, open.size())])
 
 func held() -> Dictionary:
+	var heavy := two_handed()
+	if heavy >= 0 and selected() in HANDS:
+		return item("bar", heavy)
 	return item("bar", selected())
 
 # Valeur pour le monde : matière à poser, PICKAXE, ou -1 (main vide, caillou, éclat, fruit).

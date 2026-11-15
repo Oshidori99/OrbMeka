@@ -176,6 +176,10 @@ func _ready() -> void:
 	hand_view = FirstPersonHand.new()
 	camera.add_child(hand_view)
 	hand_view.setup(skin, Callable(world, "_kind_material") if world.has_method("_kind_material") else Callable())
+	# 0.0.7.10 : main gauche, la même en miroir.
+	left_hand_view = FirstPersonHand.new()
+	camera.add_child(left_hand_view)
+	left_hand_view.setup(skin, Callable(world, "_kind_material") if world.has_method("_kind_material") else Callable(), true)
 	# Capture only after the player explicitly clicks in the game.
 	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
 
@@ -295,6 +299,8 @@ func _make_pickaxe() -> void:
 	_update_pickaxe()
 
 var hand_view: Node3D
+var left_hand_view: Node3D
+var _left_item := {}
 const PICKAXE_KIND := 3
 
 # 0.0.7.6 : objet montré dans la main (world.apply_held).
@@ -302,12 +308,26 @@ func show_held(value: Dictionary) -> void:
 	if is_instance_valid(hand_view):
 		hand_view.show_item(value)
 		hand_view.visible = view == "first" and value.get("objet", "") != "pioche"
+	if is_instance_valid(left_hand_view):
+		left_hand_view.visible = view == "first"
+
+# 0.0.7.10 : ce que tient chaque main (main gauche à gauche de l'écran, main droite à droite).
+func show_hands(left_value: Dictionary, right_value: Dictionary, both_hands: bool = false) -> void:
+	_left_item = left_value
+	if is_instance_valid(left_hand_view):
+		left_hand_view.show_item(left_value)
+		left_hand_view.set_both(both_hands)
+	if is_instance_valid(hand_view):
+		hand_view.set_both(both_hands)
+	show_held(right_value)
 
 func _update_pickaxe() -> void:
 	if is_instance_valid(pickaxe) and is_instance_valid(world):
 		pickaxe.visible = selected_type == world.PICKAXE and view == "first"
 	if is_instance_valid(hand_view):
 		hand_view.visible = view == "first" and selected_type != PICKAXE_KIND
+	if is_instance_valid(left_hand_view):
+		left_hand_view.visible = view == "first"
 
 # Coup de pioche : elle s'abat puis revient (0,25 s).
 func swing_pickaxe() -> void:
@@ -593,6 +613,8 @@ func sync_body() -> void:
 	body_key = key
 	if is_instance_valid(hand_view):
 		hand_view.set_skin(skin)
+	if is_instance_valid(left_hand_view):
+		left_hand_view.set_skin(skin)
 	for old in [body, body_shadow]:
 		if is_instance_valid(old):
 			remove_child(old)

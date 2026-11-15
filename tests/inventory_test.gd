@@ -187,7 +187,7 @@ func _run() -> void:
 	check(world.inventory.selected() == 5, "key 6: last pocket")
 	world.player.cycle_block(1)
 	check(world.inventory.selected() == 0, "wheel goes round hands and pockets")
-	# Morceaux de pierre au sol, ramassés avec R : main gauche, puis main droite (objets différents), puis poches.
+	# Morceaux de pierre au sol, ramassés avec R : la main choisie (gauche), puis l'autre main libre (droite), puis poches.
 	world.drop_pieces("eclat_pierre", 2, 125.0, world.player.global_position + Vector3.UP)
 	world.drop_pieces("charbon", 1, 125.0, world.player.global_position + Vector3.UP)
 	check(world.ground.entries.size() == 3 and world.ground.entries.all(func(entry): return world.player.global_position.distance_to(entry.position) < 2.0), "pieces fall beside the player")
@@ -196,10 +196,7 @@ func _run() -> void:
 	check(world.inventory.item("bar", 0).objet == "eclat_pierre" and Inventory.count(world.inventory.item("bar", 0)) == 2 and Inventory.stack_weight(world.inventory.item("bar", 0)) == 250.0, "pieces of the same kind go together in the chosen slot (left hand)")
 	var coal: Dictionary = world.ground.entries[0].item.duplicate()
 	world.pick_up({"collider": world.ground.bodies[0], "position": world.ground.entries[0].position})
-	check(world.ground.entries.size() == 1, "coal refused: the chosen hand holds stone pieces")
-	world.inventory.select(1)
-	world.pick_up({"collider": world.ground.bodies[0], "position": world.ground.entries[0].position})
-	check(world.inventory.item("bar", 1).objet == "charbon" and world.ground.entries.is_empty(), "another hand chosen: the coal goes there")
+	check(world.inventory.item("bar", 1).get("objet") == "charbon" and world.ground.entries.is_empty(), "chosen hand busy: the coal goes to the other (right) hand (0.0.7.10)")
 	check(ui.hud_slots[0].title == "Éclat de pierre" and ui.hud_slots[0].note == "250,0 g" and ui.hud_slots[1].note == "125,0 g" and ui.hud_slots[2].title == "" and ui.hud_slots[2].note == "", "name then weight under each slot, nothing under an empty one")
 	check(world.inventory.add({"objet": "terre", "nombre": 6}) == 1 and ui.weights_label.text.ends_with("Poches : 325,0 g / 500,0 g"), "pockets: 500 g in all (one handful of earth of 325 g, 0.0.7.6)")
 	# Reposer un objet tenu (clic droit) : il retourne au sol là où l'on vise.
@@ -315,6 +312,7 @@ func _data_checks() -> void:
 	check(mixed.add_to_selected({"objet": "caillou", "pile": [{"taille": 5}]}).added == 1 and mixed.add_to_selected({"objet": "caillou", "pile": [{"taille": 7}, {"taille": 7}]}).added == 1 and mixed.add_to_selected({"objet": "caillou", "pile": [{"taille": 7}]}).reason == "lourd", "3 kg in the hands at most: the second big stone is refused")
 	mixed.select(1)
 	check(mixed.two_handed() == 0 and mixed.add_to_selected({"objet": "sable", "nombre": 1}).added == 0 and mixed.carry_factor() < 0.7, "carried with both hands: the other hand takes nothing, walking is slower")
+	check(not (1 in mixed.bar_slots()) and mixed.bar_slots().size() == 5 and mixed.selected() == 0 and mixed.held().get("objet") == "caillou", "both hands in one slot: one slot less in the bar, choosing the other hand chooses it (0.0.7.10)")
 	mixed.select(0)
 	var rng := RandomNumberGenerator.new()
 	rng.seed = 3

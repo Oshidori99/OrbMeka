@@ -25,6 +25,8 @@ class Slot extends Control:
 	var chosen := false
 	var plain := false
 	var side := 46.0
+	# 0.0.7.10 : largeur (une case double pour un objet porté à deux mains : les deux mains réunies).
+	var width := 46.0
 	var title := ""
 	var note := ""
 	var font_px := 11
@@ -34,10 +36,17 @@ class Slot extends Control:
 
 	func _init(box_side: float, text_lines: bool = false, text_px: int = 11) -> void:
 		side = box_side
+		width = box_side
 		font_px = text_px
 		with_text = text_lines
 		custom_minimum_size = Vector2(side, side + (2.0 * (font_px + 3.0) + 2.0 if with_text else 0.0))
 		size = custom_minimum_size
+
+	func set_width(new_width: float) -> void:
+		width = new_width
+		custom_minimum_size.x = width
+		size.x = width
+		queue_redraw()
 
 	func show_item(value: Dictionary, is_locked: bool = false, is_chosen: bool = false, weight_note: String = "") -> void:
 		item = value
@@ -57,23 +66,24 @@ class Slot extends Control:
 			accept_event()
 
 	func _draw() -> void:
-		var rect := Rect2(Vector2.ZERO, Vector2(side, side))
+		var rect := Rect2(Vector2.ZERO, Vector2(width, side))
+		var square := Rect2(Vector2((width - side) * 0.5, 0.0), Vector2(side, side))
 		if not plain:
 			draw_rect(rect, Color(0.32, 0.32, 0.34, 0.5) if locked else Color(0.13, 0.14, 0.16, 0.85))
 		if not item.is_empty():
 			var icon: Texture2D = ItemIcons.for_value(item)
 			if icon != null:
-				draw_texture_rect(icon, rect.grow(-side * 0.08), false)
+				draw_texture_rect(icon, square.grow(-side * 0.08), false)
 			var amount := Inventory.count(item)
 			if amount > 1:
 				var font := ThemeDB.fallback_font
 				var text := str(amount)
 				var px := maxi(11, roundi(side * 0.28))
-				var at := Vector2(side - 4.0 - font.get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1, px).x, side - 5.0)
+				var at := Vector2(width - 4.0 - font.get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1, px).x, side - 5.0)
 				draw_string_outline(font, at, text, HORIZONTAL_ALIGNMENT_LEFT, -1, px, 3, Color(0, 0, 0, 0.85))
 				draw_string(font, at, text, HORIZONTAL_ALIGNMENT_LEFT, -1, px, Color.WHITE)
 		if item.is_empty() and picture != null:
-			draw_texture_rect(picture, rect.grow(-side * 0.12), false, Color(1, 1, 1, 0.45))
+			draw_texture_rect(picture, square.grow(-side * 0.12), false, Color(1, 1, 1, 0.45))
 		if locked:
 			draw_rect(rect, Color(0.55, 0.55, 0.57, 0.4))
 		if not plain:
@@ -90,12 +100,12 @@ class Slot extends Control:
 		if text.is_empty():
 			return
 		var font := ThemeDB.fallback_font
-		var room := side + 10.0
+		var room := width + 10.0
 		var shown := text
 		while shown.length() > 2 and font.get_string_size(shown, HORIZONTAL_ALIGNMENT_LEFT, -1, font_px).x > room:
 			shown = shown.left(shown.length() - 2) + "…"
-		var width := font.get_string_size(shown, HORIZONTAL_ALIGNMENT_LEFT, -1, font_px).x
-		var at := Vector2((side - width) * 0.5, baseline)
+		var text_width := font.get_string_size(shown, HORIZONTAL_ALIGNMENT_LEFT, -1, font_px).x
+		var at := Vector2((width - text_width) * 0.5, baseline)
 		draw_string_outline(font, at, shown, HORIZONTAL_ALIGNMENT_LEFT, -1, font_px, 3, Color(0, 0, 0, 0.8))
 		draw_string(font, at, shown, HORIZONTAL_ALIGNMENT_LEFT, -1, font_px, color)
 
@@ -430,13 +440,19 @@ func refresh() -> void:
 		var value: Dictionary = inventory.item("bar", index)
 		hud_slots[index].visible = index in shown
 		# 0.0.7.8 : objet porté à deux mains : l'autre main grisée.
-		var busy: bool = inventory.two_handed() >= 0 and index in Inventory.HANDS and index != inventory.two_handed()
+		var heavy: int = inventory.two_handed()
+		var busy: bool = heavy >= 0 and index in Inventory.HANDS and index != heavy
+		# 0.0.7.10 : les deux mains réunies en une case double ; l'autre main disparaît de la barre.
+		chosen = chosen or (heavy == index and inventory.selected() in Inventory.HANDS)
 		hud_slots[index].show_item(value, busy, chosen, _note(index))
+		_set_double(hud_slots[index], index == heavy)
 		var panel_slot: Slot = _creative_bar_slots[index] if creative or not _survival_bar_slots.has(index) else _survival_bar_slots[index]
 		bar_slots.append(panel_slot)
 		for slot in [_creative_bar_slots.get(index), _survival_bar_slots.get(index)]:
 			if slot != null:
 				slot.show_item(value, busy, chosen, _note(index))
+				_set_double(slot, index == heavy)
+				slot.visible = not busy
 	for index in range(Inventory.GRID_SIZE):
 		grid_slots[index].show_item(inventory.item("grid", index))
 	hud_gap.visible = not creative
@@ -569,3 +585,10 @@ func _follow_mouse() -> void:
 func _process(_delta: float) -> void:
 	if is_open():
 		_follow_mouse()
+
+# 0.0.7.10 : case simple ou double (deux cases et l'écart entre elles).
+func _set_double(slot: Slot, double: bool) -> void:
+	var gap := 0.0
+	if slot.get_parent() is BoxContainer or slot.get_parent() is GridContainer:
+		gap = float(slot.get_parent().get_theme_constant("separation" if slot.get_parent() is BoxContainer else "h_separation"))
+	slot.set_width(slot.side * 2.0 + gap if double else slot.side)

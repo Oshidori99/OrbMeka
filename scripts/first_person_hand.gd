@@ -17,6 +17,9 @@ const PALM := Vector3(0.0, 0.014, -0.045)
 const MAX_ITEM := 0.07
 
 var hand: Node3D
+# 0.0.7.10 : main gauche : la main droite en miroir gauche-droite (pouce toujours en haut), à gauche de l'écran.
+var left := false
+var rest := REST
 var held: Node3D
 var skin_material: StandardMaterial3D
 # Matière des pierres du monde selon l'aspect (0 pierre, 1 calcaire, 2 silex) ; vide : couleur unie.
@@ -24,15 +27,22 @@ var stone_material := Callable()
 var _materials := {}
 var _tween: Tween
 
-func setup(skin_id: String, stone: Callable = Callable()) -> void:
-	name = "Main"
+func setup(skin_id: String, stone: Callable = Callable(), left_hand: bool = false) -> void:
+	left = left_hand
+	name = "MainGauche" if left else "Main"
 	stone_material = stone
 	var fingers := Vector3(-0.3, 0.32, -1.0).normalized()
 	var palm := Vector3(0.0, 1.0, 0.75).normalized()
 	palm = (palm - fingers * palm.dot(fingers)).normalized()
 	# Dans Godot (export glTF), le modèle a les doigts vers -Z, la paume vers +Y et le pouce vers +X.
 	basis = Basis(fingers.cross(palm), palm, -fingers).scaled(Vector3.ONE * SCALE)
-	position = REST
+	rest = REST
+	if left:
+		# Miroir par le plan vertical de la caméra (gauche ↔ droite) : le haut reste en haut.
+		var mirror := Basis.from_scale(Vector3(-1.0, 1.0, 1.0))
+		basis = mirror * basis
+		rest = Vector3(-REST.x, REST.y, REST.z)
+	position = rest
 	var scene: PackedScene = load(MODEL) if ResourceLoader.exists(MODEL) else null
 	if scene != null:
 		hand = scene.instantiate()
@@ -81,13 +91,13 @@ func show_item(value: Dictionary) -> void:
 		match spec.get("forme", ""):
 			"caillou", "eclat":
 				made.mesh = Rocks.pebble_mesh(clampi(int(shown.get("forme", 1)), 1, 7))
-				size = minf(Rocks.PEBBLE_SIZES[clampi(int(shown.get("taille", 2)), 1, 7) - 1], MAX_ITEM) if spec.forme == "caillou" else 0.05
+				size = minf(Rocks.PEBBLE_SIZES[clampi(int(shown.get("taille", 2)), 1, 7) - 1], _max_item()) if spec.forme == "caillou" else 0.05
 				made.material_override = _stone(spec)
 				made.scale = Vector3(size, size * (1.0 if spec.forme == "caillou" else 0.6), size)
 				made.position.y = size * 0.25
 			"fruit":
 				made.mesh = Trees._fruit_mesh(Trees.APPLE if id == "pomme" else Trees.HAZEL, id == "pomme" and int(shown.get("couleur", 1)) == 4)
-				size = minf(float(shown.get("diametre", Inventory.APPLE_SIZES[1] if id == "pomme" else 0.025)), MAX_ITEM)
+				size = minf(float(shown.get("diametre", Inventory.APPLE_SIZES[1] if id == "pomme" else 0.025)), _max_item())
 				if id == "pomme" and int(shown.get("couleur", 1)) != 4:
 					made.material_override = _plain(Inventory.APPLE_COLORS[clampi(int(shown.get("couleur", 1)), 0, 4)])
 				made.scale = Vector3.ONE * size * 0.5
@@ -100,7 +110,7 @@ func show_item(value: Dictionary) -> void:
 				stick.height = 1.0
 				stick.radial_segments = 8
 				made.mesh = stick
-				var thick := minf(float(shown.get("epaisseur", 3.0)) / 100.0, 0.05)
+				var thick := minf(float(shown.get("epaisseur", 3.0)) / 100.0, 0.05 if not both else 0.12)
 				made.material_override = Trees.material(clampi(int(shown.get("essence", 0)), 0, 3), "bark")
 				made.scale = Vector3(thick, minf(float(shown.get("longueur", 1.0)), 0.3), thick)
 				made.rotation.z = PI * 0.5
@@ -150,7 +160,32 @@ func nudge() -> void:
 		return
 	if _tween != null:
 		_tween.kill()
-	position = REST
+	position = rest
 	_tween = create_tween()
-	_tween.tween_property(self, "position", REST + Vector3(-0.01, -0.03, 0.02), 0.08).set_ease(Tween.EASE_OUT)
-	_tween.tween_property(self, "position", REST, 0.14).set_ease(Tween.EASE_IN_OUT)
+	_tween.tween_property(self, "position", rest + Vector3(0.01 if left else -0.01, -0.03, 0.02), 0.08).set_ease(Tween.EASE_OUT)
+	_tween.tween_property(self, "position", rest, 0.14).set_ease(Tween.EASE_IN_OUT)
+
+# 0.0.7.10 (demande de l'utilisateur) : objet lourd porté à deux mains : les deux mains glissent vers le centre de
+# l'écran (l'objet tenu entre elles), puis reviennent à leur place quand on le lâche.
+const TWO_HANDS_REST := Vector3(0.15, -0.25, -0.5)
+var both := false
+
+func set_both(value: bool) -> void:
+	if value == both:
+		return
+	both = value
+	rest = Vector3(TWO_HANDS_REST.x * (-1.0 if left else 1.0), TWO_HANDS_REST.y, TWO_HANDS_REST.z) if both else Vector3(REST.x * (-1.0 if left else 1.0), REST.y, REST.z)
+	# Main droite : l'objet glisse au milieu, entre les deux mains (repère de la caméra ramené à celui de la main).
+	if is_instance_valid(held) and not left:
+		held.position = PALM + (basis.inverse() * Vector3(-TWO_HANDS_REST.x, 0.03, 0.0) if both else Vector3.ZERO)
+	if not is_inside_tree():
+		position = rest
+		return
+	if _tween != null:
+		_tween.kill()
+	_tween = create_tween()
+	_tween.tween_property(self, "position", rest, 0.2).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN_OUT)
+
+# Objet tenu : petit dans une main ; plus grand (jusqu'à 16 cm) porté à deux mains, entre elles.
+func _max_item() -> float:
+	return 0.16 if both else MAX_ITEM

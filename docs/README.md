@@ -1,6 +1,18 @@
-# OrbMeka™ — prototype 0.0.7.9
+# OrbMeka™ — prototype 0.0.7.10
 
 Godot 4.7 / GDScript. Formes et couleurs simples ; assets externes seulement sous licence vérifiée (sons CC0, assets/sounds/CREDITS.txt).
+
+## 0.0.7.10 — Main gauche, porter à deux mains (case double), ramasser dans l'autre main, couper jusqu'à 30 cm, nom automatique, statistiques du monde
+Version locale (3 sur 4). Génération inchangée (version 32).
+- **Main gauche** à la première personne : la main droite en miroir (pouce en haut), sans Blender. En Survie, la case 1 est dans la main gauche, la case 2 dans la main droite ; une poche choisie : son objet sorti dans la main droite si elle est libre. En Créatif : l'objet choisi dans la main droite.
+- **Porter à deux mains** : un objet de plus de 1,5 kg prend les deux mains : une seule case double dans la barre et dans l'inventaire (une case de moins), les deux mains glissent vers le centre et tiennent l'objet entre elles.
+- **Ramasser (R)** : dans la case choisie ; si elle est pleine, dans l'autre main libre (la droite d'abord), au lieu d'être refusé.
+- **Couper à mains nues jusqu'à 30 cm** (avant 15 cm) ; temps : 8 s par tranche de 10 cm (30 cm : 24 s). Mesure toujours au-dessus de l'évasement des racines (vérifiée : même valeur tout autour du tronc).
+- **Nom automatique** : un monde créé sans nom prend le suivant de la série T (T56 après T55), montré en gris dans le champ.
+- **Statistiques du monde** (statistiques.json, dans son dossier) : version qui l'a créé, dernière ouverture (date, heure, version), nombre d'ouvertures, temps de jeu (pauses non comptées), dans Pause → Infos du monde. Anciens mondes : « inconnue » jusqu'à leur prochaine ouverture.
+
+Tests réussis : world_stats (nouveau, 7 vérifications), inventory (case double, autre main), tree_fall (30 cm, 8 s par 10 cm) et les autres tests touchés (+ tests juridiques). Captures hors écran : deux mains en Survie, objet lourd à deux mains, inventaire avec case double.
+À tester manuellement : tenir des objets dans chaque main, ramasser un objet lourd puis le lâcher (mains qui reviennent), couper un tronc de 20 à 30 cm, créer un monde sans nom, statistiques après une partie.
 
 ## 0.0.7.9 — Couper en deux là où on vise, temps selon l'épaisseur, arbres posés sur leurs appuis, pas de vol en Survie, terre sur rocher, travois au sol, noms dans l'inventaire Créatif
 Version locale (2 sur 4). Génération inchangée (version 32).

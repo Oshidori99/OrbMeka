@@ -51,6 +51,9 @@ var fps_label: Label
 var fps_elapsed := 0.0
 const FPS_INTERVAL := 0.5
 var creation_text := "Création : inconnue"
+# 0.0.7.10 : statistiques du monde (WorldMetadata) et temps de jeu de cette partie, ajouté à chaque sauvegarde.
+var world_stats: Dictionary = {}
+var played_since_save := 0.0
 var notice := ""
 var notice_time := 0.0
 # 0.0.5 : dossier du monde (world_store.gd) ; vide = rien n'est enregistré (monde lancé seul, tests).
@@ -783,10 +786,29 @@ func held_text() -> String:
 	var name := Inventory.item_name(inventory.held())
 	return name if not name.is_empty() else "Main vide"
 
+# 0.0.7.10 (demande de l'utilisateur) : ce que montre chaque main. Créatif : l'objet choisi dans la main droite, la
+# gauche vide. Survie : case 1 dans la main gauche, case 2 dans la main droite ; une poche choisie : son objet sorti dans
+# la main droite si elle est libre ; objet lourd à deux mains : tenu par la main droite, la gauche le soutient (vide).
+func left_hand_item() -> Dictionary:
+	if game_mode != Inventory.SURVIVAL or inventory.two_handed() >= 0:
+		return {}
+	return inventory.item("bar", Inventory.HANDS[0])
+
+func right_hand_item() -> Dictionary:
+	if game_mode != Inventory.SURVIVAL:
+		return inventory.held()
+	var heavy := inventory.two_handed()
+	if heavy >= 0:
+		return inventory.item("bar", heavy)
+	var right: Dictionary = inventory.item("bar", Inventory.HANDS[1])
+	if inventory.selected() in Inventory.POCKETS and right.is_empty():
+		return inventory.held()
+	return right
+
 func apply_held() -> void:
 	if is_instance_valid(player):
 		player.selected_type = inventory.held_kind()
-		player.show_held(inventory.held())
+		player.show_hands(left_hand_item(), right_hand_item(), game_mode == Inventory.SURVIVAL and inventory.two_handed() >= 0)
 		# 0.0.7.8 : plus lent quand les mains portent lourd.
 		player.carry_slow = inventory.carry_factor()
 
@@ -871,7 +893,7 @@ var chop_time := 0.0
 # 0.0.7.9 : épaisseur du bois visé (m) et temps de coupe à mains nues (s).
 var chop_thickness := 0.0
 var chop_seconds := 0.0
-const MAX_HAND_THICKNESS := 0.15
+const MAX_HAND_THICKNESS := 0.30
 # 0.0.7.9 : écart entre deux morceaux d'un arbre coupé (la coupe se voit).
 const CUT_GAP := 0.12
 # Sauvegarde (objets.json) : arbres tombés {id: {"direction": [x, z], "position": [x, y, z]}} et arbres coupés {id: true}.
@@ -898,13 +920,15 @@ func step_chop(delta: float, holding: bool) -> bool:
 	if tree != chop_target or chop_seconds <= 0.0:
 		chop_target = tree
 		chop_time = 0.0
-		# 0.0.7.9 : temps selon l'épaisseur du bois à l'endroit visé : 8 s pour 10 cm, (épaisseur / 10 cm)^2,5 ; 15 cm au plus.
+		# 0.0.7.10 : temps selon l'épaisseur du bois visé : 8 s par tranche de 10 cm (30 cm : 24 s) ; 30 cm au plus à mains nues.
 		var model: Node3D = tree.get_node_or_null("Modele")
 		var local: Vector3 = (tree.global_transform * (model.transform if model != null else Transform3D.IDENTITY)).affine_inverse() * hit.position
+		# 0.0.7.10 : jamais plus bas que 30 cm au-dessus du pied (l'évasement des racines grossirait la mesure).
+		local.y = maxf(local.y, 0.3)
 		chop_thickness = Trees.wood_thickness(int(tree.get_meta("kind", 0)), int(tree.get_meta("size", 3)), int(tree.get_meta("form", 0)), local) * tree.scale.x
-		chop_seconds = maxf(CHOP_SECONDS * pow(chop_thickness / 0.1, 2.5), 0.5)
+		chop_seconds = maxf(CHOP_SECONDS * chop_thickness / 0.1, 0.5)
 	if game_mode == Inventory.SURVIVAL and chop_thickness > MAX_HAND_THICKNESS + 0.001:
-		_notify("Trop épais à mains nues : %d cm (15 cm au plus)." % roundi(chop_thickness * 100.0))
+		_notify("Trop épais à mains nues : %d cm (30 cm au plus)." % roundi(chop_thickness * 100.0))
 		return false
 	var seconds := CHOP_SECONDS_CREATIVE if game_mode == Inventory.CREATIVE else chop_seconds
 	chop_time += delta
@@ -2185,6 +2209,9 @@ func save_now() -> bool:
 	# 0.0.5.11 : ce qui tombe encore est posé à sa place avant d'enregistrer.
 	settle_all()
 	var ok := Store.write_json(save_folder.path_join(Store.PLAYER_FILE), player_data())
+	world_stats.temps_de_jeu = float(world_stats.get("temps_de_jeu", 0.0)) + played_since_save
+	played_since_save = 0.0
+	ok = WorldMetadata.write_stats(save_folder, world_stats) and ok
 	# 0.0.5.19 : rochers minés.
 	ok = _save_objects() and ok
 	# 0.0.6.6 : eau (niveaux des lacs, eau libre), seulement si elle a bougé.
@@ -2469,6 +2496,7 @@ func _process(delta: float) -> void:
 	_update_underwater()
 	_update_water(delta)
 	# Sauvegarde régulière (petits fichiers, seulement les zones modifiées : pas de saccade).
+	played_since_save += delta
 	autosave_time += delta
 	if autosave_time >= AUTOSAVE_SECONDS:
 		save_now()
@@ -2563,7 +2591,7 @@ func get_world_info_text(level: int = 2) -> String:
 Personnage : %s
 %s
 %s
-%s" % [coordinates_text(), who, creation_text, zones_text(), _world_info_body(level)]
+%s" % [coordinates_text(), who, WorldMetadata.stats_text(creation_text, world_stats, float(world_stats.get("temps_de_jeu", 0.0)) + played_since_save), zones_text(), _world_info_body(level)]
 
 # 0.0.5.1 : mesures en direct (aussi dans le navigateur) : zones, temps de chargement et de recalcul, images/s.
 func zones_text() -> String:
@@ -2589,6 +2617,7 @@ func _notification(what: int) -> void:
 
 func _read_creation_date() -> void:
 	creation_text = WorldMetadata.read_creation(save_folder)
+	world_stats = WorldMetadata.opened(save_folder)
 
 static func format_creation_date(value: Variant) -> String:
 	return WorldMetadata.format_creation_date(value)

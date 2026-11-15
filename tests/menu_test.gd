@@ -21,7 +21,8 @@ func _run() -> void:
 	test_path = "res://.godot/catalog-test-%d.json" % Time.get_ticks_usec()
 	var catalog := Catalog.new(test_path)
 	check(catalog.worlds.is_empty(), "fresh catalog is empty")
-	check(catalog.create_world(" 	 ").is_empty(), "blank name rejected")
+	var automatic: Dictionary = catalog.create_world(" 	 ")
+	check(automatic.get("name") == "T1" and catalog.delete_world(automatic.id), "blank name: automatic name T1 (0.0.7.10), removed again")
 	check(catalog.create_world("x".repeat(49)).is_empty(), "name longer than 48 characters rejected")
 	var first: Dictionary = catalog.create_world("  Ma plaine  ")
 	check(not first.is_empty() and first.name == "Ma plaine", "world is created with trimmed name")
@@ -64,9 +65,10 @@ func _run() -> void:
 	await process_frame
 	check(app.page == "create" and app.name_field.has_focus(), "create page focuses the name field")
 	check(app.pages.create.find_children("*", "LineEdit", true, false).size() == 2, "creation form has name and seed fields")
-	app.name_field.text = " "
+	check(app.name_field.placeholder_text.begins_with(app.catalog.next_auto_name()), "empty name field shows the automatic name (0.0.7.10)")
+	app.name_field.text = "Ma plaine"
 	app.create_button.pressed.emit()
-	check(app.page == "create" and not app.form_error.text.is_empty(), "form explains empty-name error")
+	check(app.page == "create" and not app.form_error.text.is_empty(), "form explains a name error")
 	app.name_field.text = "Troisième monde"
 	app.create_button.pressed.emit()
 	await physics_frame
