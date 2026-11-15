@@ -46,7 +46,8 @@ Suivi du travail : GitHub Project https://github.com/users/Oshidori99/projects/1
   petit plafond d'environ 1 m au plus ; pierre qui ne tombe pas ; poutres pour soutenir la terre.
 
 ## Ordre des séries
-0.0.7 — Gameplay et inventaire, 0.0.8 — Animaux, 0.1 — Enfin un jeu (commencement), 0.1.1 — Paramètres 3.
+0.0.7 — Inventaire (porter, ramasser, modes Créatif et Survie), 0.0.8 — Fabrication et survie (bâtons, fibres,
+fabrication à la main, outils, vie, nuit), 0.0.9 — Animaux, 0.1 — Enfin un jeu (commencement), 0.1.1 — Paramètres 3.
 Le contenu de chaque série est dans sa milestone GitHub. Dans une même 0.x, chaque thème n'a qu'une seule série.
 
 ## Tests
