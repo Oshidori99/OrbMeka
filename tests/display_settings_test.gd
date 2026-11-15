@@ -65,7 +65,7 @@ func _run() -> void:
 	check(app.history_text.get_theme_font_size("normal_font_size") == 26 and app.shortcut_hints.get_theme_font_size("font_size") == 23, "text size scales particular sizes")
 	app.show_page("worlds")
 	app.open_world(item.id)
-	check(app.active_world.selected_block_label.get_theme_font_size("font_size") == 27, "text size applies to in-game texts")
+	check(app.active_world.fps_label.get_theme_font_size("font_size") == 30, "text size applies to in-game texts (0.0.7.2 : FPS, plus de « Bloc sélectionné »)")
 	app.return_to_worlds()
 	app.show_page("settings")
 	apply(app, {"text_px": "18"})
