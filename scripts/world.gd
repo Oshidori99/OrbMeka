@@ -765,8 +765,9 @@ func _rebuild_lawn_tile(tile: Vector2i) -> void:
 const BRUSH_NAMES := ["Poser", "Aplanir", "Lisser"]
 const SIZE_NAMES := ["1/8 de bloc", "1/4 de bloc", "1/2 bloc"]
 const SIZE_CELLS := [1, 2, 4]
-# Matières qu'on peut poser. 0.0.7.2 : plus pierre, calcaire, pierre sombre et silex (inventaire, Matériaux naturels).
-const PLACEABLE := [0, 2, SmoothTerrain.CLAY, SmoothTerrain.MUD, SmoothTerrain.STONE, SmoothTerrain.LIMESTONE, SmoothTerrain.DARK_STONE, SmoothTerrain.FLINT]
+# Matières qu'on peut poser. 0.0.7.2 : plus pierre, calcaire, pierre sombre et silex (inventaire, Matériaux naturels) ;
+# 0.0.7.6 : plus le gravier (oublié en 0.0.7.3) : toutes les matières de l'inventaire se posent.
+const PLACEABLE := [0, 2, SmoothTerrain.CLAY, SmoothTerrain.MUD, SmoothTerrain.STONE, SmoothTerrain.LIMESTONE, SmoothTerrain.DARK_STONE, SmoothTerrain.FLINT, SmoothTerrain.GRAVEL]
 # 0.0.5.13 : la pioche. 0.0.7.2 : plus de choix de matière (molette, touches 1 à 5, texte en haut à gauche) :
 # l'objet en main est la case choisie de la barre d'objets (inventory.gd) ; player.selected_type en est la valeur
 # (matière, PICKAXE, ou -1 : main vide).
@@ -785,6 +786,7 @@ func held_text() -> String:
 func apply_held() -> void:
 	if is_instance_valid(player):
 		player.selected_type = inventory.held_kind()
+		player.show_held(inventory.held())
 
 func set_game_mode(new_mode: String) -> void:
 	game_mode = new_mode
@@ -851,6 +853,8 @@ const PEBBLE_PIECES := ["eclat_pierre", "eclat_calcaire", "eclat_silex"]
 
 func _create_ground_items() -> void:
 	ground = GroundItems.new()
+	# 0.0.7.5 : cailloux et éclats au sol avec la matière des cailloux du monde (même aspect une fois reposés).
+	ground.stone_material = _pebble_material()
 	add_child(ground)
 	ground.from_array(objects_data.get("objets_au_sol"))
 	ground.changed.connect(func(): objects_dirty = true)
@@ -878,6 +882,7 @@ func drop_pieces(id: String, pieces: int, weight: float, from: Vector3) -> void:
 		ground.drop({"objet": id, "poids": weight}, from, _beside_player(), _rest_height)
 
 # 0.0.7.4 : poser au sol l'objet en main (clic droit), un à la fois, là où l'on vise (à portée de pose).
+# 0.0.7.5 : c'est le dernier objet pris dans la case, avec toutes ses caractéristiques (forme, taille, orientation…).
 func put_down_held(hit: Dictionary) -> bool:
 	var value := inventory.held()
 	if not Inventory.is_object(value) or not is_instance_valid(ground):
@@ -888,30 +893,112 @@ func put_down_held(hit: Dictionary) -> bool:
 	if player.camera.global_position.distance_to(hit.position) > player.place_reach + 0.01:
 		_notify("Trop loin : %s m au plus." % str(snappedf(player.place_reach, 0.1)).replace(".", ","))
 		return false
-	if not inventory.use_held(1):
+	var one := inventory.pop_held()
+	if one.is_empty():
 		return false
-	var single := value.duplicate()
-	single.nombre = 1
-	ground.drop(single, hit.position + Vector3.UP * 0.3, hit.position, _rest_height, 0.0)
+	ground.drop(one, hit.position + Vector3.UP * 0.3, hit.position, _rest_height, 0.0)
 	show_choice("%s posé au sol" % Inventory.item_name(value))
 	return true
 
-# Objets qui ne tiennent plus dans l'inventaire : posés au sol devant le joueur, jamais perdus.
+# Objets qui ne tiennent plus dans l'inventaire : posés au sol devant le joueur, jamais perdus (chacun tel qu'il est).
 func drop_items(value: Dictionary) -> void:
 	if not is_instance_valid(ground) or not is_instance_valid(player):
 		return
 	var near := player.global_position - player.global_transform.basis.z * 0.6
-	for index in range(maxi(Inventory.count(value), 1)):
-		ground.drop(value, player.global_position + Vector3.UP, near, _rest_height)
+	var units: Array = value.pile.map(func(instance): return Inventory.flat(value.objet, instance)) if value.has("pile") else []
+	if units.is_empty():
+		for index in range(maxi(Inventory.count(value), 1)):
+			units.append({"objet": value.objet})
+	for unit in units:
+		ground.drop(unit, player.global_position + Vector3.UP, near, _rest_height)
 
-func _full_message(value: Dictionary) -> String:
-	if game_mode == Inventory.CREATIVE:
-		return "Inventaire plein."
-	return "Mains et poches pleines (%s)." % Inventory.format_weight(Inventory.unit_weight(value))
+# Message quand rien n'a pu être pris (inventory.add_to_selected).
+func _refused_message(reason: String, value: Dictionary) -> String:
+	match reason:
+		"occupee":
+			return "Case choisie occupée : choisissez une case vide (molette ou chiffres)."
+		"lourd":
+			return "Trop lourd pour cette case (%s)." % Inventory.format_weight(Inventory.unit_weight(value))
+	return "Inventaire plein." if game_mode == Inventory.CREATIVE else "Mains et poches pleines."
 
-# R : ramasser l'objet visé (objet au sol ou petit caillou du monde) : main gauche, sinon main droite, puis poches.
+# --- 0.0.7.5 : cueillir (demande de l'utilisateur : il faut vraiment viser la pomme ou la noisette) ---
+# Les fruits des arbres proches (colonne du joueur et voisines) sont des petites sphères (trees.gd fruit_spots) ; le rayon
+# de visée doit en traverser une, à portée, sans rien de solide devant (tronc, sol). Une marge de FRUIT_AIM sur leur rayon
+# rend la visée moins difficile. Le fruit cueilli disparaît de cet arbre seulement (Trees.apply_picked) ; sauvegardé.
+const FRUIT_AIM := 1.5
+
+func aimed_fruit(hit: Dictionary) -> Dictionary:
+	if not is_instance_valid(player):
+		return {}
+	var origin: Vector3 = player.camera.global_position
+	var direction: Vector3 = -player.camera.global_transform.basis.z
+	var reach: float = player.break_reach
+	# Rien de solide devant le fruit : le point visé (tronc, sol, rocher) doit être plus loin.
+	if not hit.is_empty():
+		reach = minf(reach, origin.distance_to(hit.position) + 0.15)
+	var best := {}
+	var here := _player_column()
+	for dx in [-1, 0, 1]:
+		for dz in [-1, 0, 1]:
+			for tree in column_objects.get(here + Vector2i(dx, dz), []):
+				if not is_instance_valid(tree) or not tree.is_in_group("trees") or not tree.has_meta("kind"):
+					continue
+				if tree.global_position.distance_to(origin) > reach + 12.0:
+					continue
+				var spots: Array = Trees.fruit_spots(tree.get_meta("kind"), tree.get_meta("size"), tree.get_meta("form"))
+				if spots.is_empty():
+					continue
+				var picked: Array = picked_fruits.get(str(tree.get_meta("id", "")), [])
+				var place: Transform3D = tree.global_transform
+				var scale: float = place.basis.get_scale().x
+				for number in range(spots.size()):
+					if number in picked:
+						continue
+					var center: Vector3 = place * spots[number][0]
+					var radius: float = maxf(spots[number][1] * scale * FRUIT_AIM, 0.05)
+					var offset: Vector3 = origin - center
+					var along: float = offset.dot(direction)
+					var gap: float = along * along - (offset.length_squared() - radius * radius)
+					if gap < 0.0:
+						continue
+					var distance: float = -along - sqrt(gap)
+					if distance < 0.0:
+						distance = -along + sqrt(gap)
+					if distance < 0.0 or distance > reach:
+						continue
+					if best.is_empty() or distance < best.distance:
+						best = {"tree": tree, "number": number, "spot": spots[number], "distance": distance}
+	return best
+
+func _pick_fruit(fruit: Dictionary) -> bool:
+	var tree: Node3D = fruit.tree
+	var spot: Array = fruit.spot
+	var apple: bool = int(tree.get_meta("kind")) == Trees.APPLE
+	# 0.0.7.6 : le fruit garde sa vraie taille dans l'arbre (diamètre, en mètres) : reposé, il reste le même.
+	var diameter := snappedf(float(spot[1]) * 2.0 * tree.global_transform.basis.get_scale().x, 0.001)
+	var value := {"objet": "pomme", "pile": [{"taille": int(spot[2]), "couleur": int(spot[3]), "diametre": diameter}]} if apple else {"objet": "noisette", "pile": [{"diametre": diameter}]}
+	var result := inventory.add_to_selected(value)
+	if result.added == 0:
+		_notify(_refused_message(result.reason, value))
+		return true
+	var id := str(tree.get_meta("id", ""))
+	var picked: Array = picked_fruits.get(id, [])
+	picked.append(int(fruit.number))
+	picked_fruits[id] = picked
+	objects_dirty = true
+	Trees.apply_picked(tree, picked)
+	var name: String = ("Pomme " + Inventory.APPLE_COLOR_NAMES[int(spot[3])]) if apple else "Noisette"
+	show_choice("%s (%s)" % [name, Inventory.format_weight(Inventory.unit_weight(value))])
+	return true
+
+# R : ramasser l'objet visé (objet au sol ou petit caillou du monde), avec toutes ses caractéristiques.
+# 0.0.7.5 (demande de l'utilisateur) : dans la case choisie de la barre ; barre pleine : dans une case libre de l'inventaire.
 # Faux si rien n'est visé (R garde alors son autre usage : courir).
+# 0.0.7.5 : aussi cueillir une pomme ou une noisette, seulement si la visée passe vraiment par elle.
 func pick_up(hit: Dictionary) -> bool:
+	var fruit := aimed_fruit(hit)
+	if not fruit.is_empty():
+		return _pick_fruit(fruit)
 	if hit.is_empty() or not is_instance_valid(hit.get("collider")):
 		return false
 	var collider: Node = hit.collider
@@ -925,23 +1012,29 @@ func pick_up(hit: Dictionary) -> bool:
 		var index: int = ground.index_of(collider)
 		if index < 0:
 			return false
-		value = ground.entries[index].item.duplicate()
-		value.nombre = 1
-		if inventory.add(value) == 0:
-			_notify(_full_message(value))
+		value = Inventory.single(ground.entries[index].item)
+		var result := inventory.add_to_selected(value)
+		if result.added == 0:
+			_notify(_refused_message(result.reason, value))
 			return true
 		ground.remove(index)
 	else:
 		var size: int = collider.get_meta("pebble").x
-		value = {"objet": PEBBLE_ITEMS[clampi(int(collider.get_meta("look", 0)), 0, 2)], "nombre": 1, "taille": size}
 		if size > Inventory.PICKABLE_SIZE:
 			_notify("Trop gros pour être ramassé : cassez-le d'abord.")
 			return true
-		if inventory.add(value) == 0:
-			_notify(_full_message(value))
+		# Le caillou du monde garde sa taille, sa forme, son orientation et les coups déjà reçus.
+		var instance := {"taille": size, "forme": int(collider.get_meta("pebble").y), "rotation": deg_to_rad(float(collider.get_meta("rotation", 0.0)))}
+		if int(pebble_hits.get(collider.get_meta("id"), 0)) > 0:
+			instance.coups = int(pebble_hits.get(collider.get_meta("id"), 0))
+		value = {"objet": PEBBLE_ITEMS[clampi(int(collider.get_meta("look", 0)), 0, 2)], "pile": [instance]}
+		var result := inventory.add_to_selected(value)
+		if result.added == 0:
+			_notify(_refused_message(result.reason, value))
 			return true
 		var column: Vector2i = collider.get_meta("column")
 		broken_pebbles[collider.get_meta("id")] = true
+		pebble_hits.erase(collider.get_meta("id"))
 		objects_dirty = true
 		_show_column_pebbles(column)
 		_build_pebble_bodies(column)
@@ -949,7 +1042,7 @@ func pick_up(hit: Dictionary) -> bool:
 	return true
 
 # R + I maintenus : prendre une poignée de matière en vrac (terre, sable, argile, boue, gravier) là où l'on vise,
-# après GATHER_SECONDS (plus long que creuser). Survie seulement ; elle va dans les mains, puis les poches.
+# après GATHER_SECONDS (plus long que creuser). Survie seulement ; dans la case choisie (0.0.7.5), comme ramasser.
 const GATHER_SECONDS := 1.0
 const GATHER_ITEMS := {SmoothTerrain.SAND: "sable", SmoothTerrain.DIRT: "terre", SmoothTerrain.CLAY: "argile", SmoothTerrain.MUD: "boue", SmoothTerrain.GRAVEL: "gravier", SmoothTerrain.NEEDLES: "terre"}
 var gather_point := Vector3i(999999, 0, 0)
@@ -993,8 +1086,9 @@ func step_gather(delta: float, holding: bool) -> bool:
 		_notify("%s… %d %%" % [handful_text(id), int(gather_time / GATHER_SECONDS * 100.0)])
 		return false
 	gather_time = 0.0
-	if inventory.add({"objet": id, "nombre": 1}) == 0:
-		_notify(_full_message({"objet": id}))
+	var result := inventory.add_to_selected({"objet": id, "nombre": 1})
+	if result.added == 0:
+		_notify(_refused_message(result.reason, {"objet": id}))
 		return false
 	_apply_terrain({point: [SmoothTerrain.DUG, -1]})
 	show_choice("%s (%s)" % [handful_text(id), Inventory.format_weight(Inventory.unit_weight({"objet": id}))])
@@ -2051,6 +2145,12 @@ func _read_objects() -> void:
 func _read_carved(data: Dictionary) -> void:
 	for id in data.get("cailloux_casses", []):
 		broken_pebbles[id] = true
+	# 0.0.7.5 : fruits cueillis, par arbre (numéros des fruits du modèle, trees.gd fruit_spots).
+	var picked: Variant = data.get("fruits_cueillis", {})
+	if picked is Dictionary:
+		for id in picked:
+			if picked[id] is Array:
+				picked_fruits[str(id)] = picked[id].filter(func(number): return number is int or number is float).map(func(number): return int(number))
 	var carved: Dictionary = data.get("rochers_entames", {})
 	for id in carved:
 		carved_rocks[id] = carved[id].map(func(entry): return [int(entry[0]), int(entry[1]), int(entry[2])])
@@ -2140,6 +2240,8 @@ func _show_column_objects(column: Vector2i) -> void:
 		made.rotation.y = deg_to_rad(float(tree.rotation))
 		made.scale = Vector3.ONE * float(tree.taille)
 		made.set_meta("id", tree.id)
+		if picked_fruits.has(str(tree.id)):
+			Trees.apply_picked(made, picked_fruits[str(tree.id)])
 		made.set_meta("column", column)
 		_rocks_parent().add_child(made)
 		_column_object(column, made)
@@ -2230,6 +2332,8 @@ func _column_object(column: Vector2i, node: Node) -> void:
 # sur la couche 2 : le joueur passe sur les petits sans buter, les deux plus gros (couches 1 et 2) l'arrêtent.
 # Cassés : objets.json, « cailloux_casses » (identifiants) ; coups déjà donnés : seulement pendant la partie.
 var broken_pebbles: Dictionary = {}
+# 0.0.7.5 : fruits cueillis : identifiant de l'arbre → numéros des fruits.
+var picked_fruits: Dictionary = {}
 var pebble_hits: Dictionary = {}
 var column_pebbles: Dictionary = {}
 
@@ -2270,7 +2374,7 @@ func _show_column_pebbles(column: Vector2i) -> void:
 		var placed: PackedFloat32Array = by_shape.get(group, PackedFloat32Array())
 		placed.append_array([basis.x.x, basis.y.x, basis.z.x, at.x, basis.x.y, basis.y.y, basis.z.y, at.y, basis.x.z, basis.y.z, basis.z.z, at.z, 1.0, 1.0, 1.0, 1.0, look, 0.0, 0.0, 0.0])
 		by_shape[group] = placed
-		bodies.append([pebble.id, size, shape, diameter, at, int(look)])
+		bodies.append([pebble.id, size, shape, diameter, at, int(look), float(pebble.rotation)])
 	pebble_shapes[column] = by_shape
 	pebble_bodies[column] = bodies
 	_pebble_block_changed(column)
@@ -2292,6 +2396,7 @@ func _build_pebble_bodies(column: Vector2i) -> void:
 		body.set_meta("column", column)
 		# 0.0.7.3 : aspect (0 pierre, 1 calcaire, 2 silex) : objet ramassé ou éclats.
 		body.set_meta("look", spec[5] if spec.size() > 5 else 0)
+		body.set_meta("rotation", spec[6] if spec.size() > 6 else 0.0)
 		body.collision_layer = 3 if size >= 6 else 2
 		body.collision_mask = 0
 		var collision := CollisionShape3D.new()
@@ -2576,6 +2681,7 @@ func _save_objects() -> bool:
 	data.rochers_mines = mined_rocks.keys()
 	data.rochers_entames = carved_rocks.duplicate(true)
 	data.cailloux_casses = broken_pebbles.keys()
+	data.fruits_cueillis = picked_fruits.duplicate(true)
 	# 0.0.7.3 : objets posés au sol (ground_items.gd).
 	if is_instance_valid(ground):
 		data.objets_au_sol = ground.to_array()

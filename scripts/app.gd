@@ -977,6 +977,7 @@ func open_world(id: String) -> void:
 	active_world.set_coordinates_visible(settings.values.show_coords == "on")
 	active_world.player.crouch_toggle = settings.control_options.crouch_mode == "toggle"
 	active_world.player.run_mode = settings.control_options.run_mode
+	active_world.player.fly_stop_on_ground = settings.control_options.get("fly_mode", "ground") == "ground"
 	# 0.0.4.15 : vitesses changées en jeu → Attributs → Vitesses actuelles, en direct.
 	active_world.player.speeds_changed.connect(_on_player_speeds)
 	active_world.player.click_modifiers = Controls.click_modifiers(settings.controls)

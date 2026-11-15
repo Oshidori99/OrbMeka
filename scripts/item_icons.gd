@@ -22,12 +22,42 @@ static func texture(id: String) -> Texture2D:
 	else:
 		match spec.get("forme", ""):
 			"caillou":
-				image = _pebble(spec.couleur, id.hash())
+				image = _pebble(spec.couleur, id.hash(), id == "caillou_silex")
 			"eclat":
 				image = _chip(spec.couleur, id.hash(), id == "eclat_silex" or id == "charbon")
+			"fruit":
+				image = _apple(Inventory.APPLE_COLORS[1], -1) if id == "pomme" else _hazelnut(spec.couleur)
 			_:
 				image = _pile(id, spec.couleur)
 	return _keep(id, image)
+
+# 0.0.7.5 : icône d'un objet précis (une pomme a sa couleur).
+static func for_value(value: Dictionary) -> Texture2D:
+	var id: String = value.get("objet", "")
+	if id == "pomme":
+		var shown: Dictionary = value.pile[-1] if value.has("pile") and not value.pile.is_empty() else value
+		var color := clampi(int(shown.get("couleur", 1)), 0, Inventory.APPLE_COLORS.size() - 1)
+		var key := "pomme/%d" % color
+		if _cache.has(key):
+			return _cache[key]
+		return _keep(key, _apple(Inventory.APPLE_COLORS[color], color))
+	return texture(id)
+
+# Onglets du Créatif (0.0.7.5) : un caillou, une pomme, un petit sac (Inventaire).
+static func tab(id: String, height: int) -> Texture2D:
+	match id:
+		"natural":
+			return natural_tab(height)
+		"tools":
+			return tools_tab(height)
+		"inventory":
+			var key := "#sac%d" % height
+			return _cache[key] if _cache.has(key) else _keep(key, _svg(BAG_SVG, maxi(height, 12)))
+	var source: Texture2D = texture("caillou" if id == "pebbles" else "pomme")
+	var image := source.get_image()
+	image.resize(maxi(height, 12), maxi(height, 12), Image.INTERPOLATE_LANCZOS)
+	var key := "#%s%d" % [id, height]
+	return _cache[key] if _cache.has(key) else _keep(key, image)
 
 static func hand() -> Texture2D:
 	return _cache["#main"] if _cache.has("#main") else _keep("#main", _svg(HAND_SVG, SIZE))
@@ -35,21 +65,21 @@ static func hand() -> Texture2D:
 static func pocket() -> Texture2D:
 	return _cache["#poche"] if _cache.has("#poche") else _keep("#poche", _svg(POCKET_SVG, SIZE))
 
-# Onglet Matériaux naturels : cinq petits tas côte à côte.
+# Onglet Matériaux naturels : un tas de pierre, de terre et de sable.
 static func natural_tab(height: int) -> Texture2D:
 	var key := "#naturels%d" % height
 	if _cache.has(key):
 		return _cache[key]
-	var piles := ["gravier", "argile", "sable", "terre", "pierre"]
+	# 0.0.7.5 (demande de l'utilisateur) : une seule image carrée, un tas de pierre (derrière), de terre et de sable.
 	var small := maxi(height, 12)
-	var image := Image.create(roundi(small * 2.6), small, false, Image.FORMAT_RGBA8)
+	var image := Image.create(small, small, false, Image.FORMAT_RGBA8)
 	image.fill(Color(0, 0, 0, 0))
-	for index in range(piles.size()):
-		var pile := _pile(piles[index], Inventory.ITEMS[piles[index]].couleur)
-		var side := roundi(small * (0.78 if index % 2 == 0 else 0.92))
+	# [matière, taille, gauche, bas] en fractions de l'image.
+	for placed in [["pierre", 0.72, 0.14, 0.76], ["terre", 0.62, 0.0, 1.0], ["sable", 0.62, 0.38, 1.0]]:
+		var pile := _pile(placed[0], Inventory.ITEMS[placed[0]].couleur)
+		var side := roundi(small * placed[1])
 		pile.resize(side, side, Image.INTERPOLATE_LANCZOS)
-		var x := roundi(index * (image.get_width() - side) / float(piles.size() - 1))
-		image.blend_rect(pile, Rect2i(0, 0, side, side), Vector2i(x, small - side))
+		image.blend_rect(pile, Rect2i(0, 0, side, side), Vector2i(roundi(small * placed[2]), roundi(small * placed[3]) - side))
 	return _keep(key, image)
 
 static func tools_tab(height: int) -> Texture2D:
@@ -229,7 +259,9 @@ static func _chunks(id: String, x: int, y: int, salt: int, g: float, seeds: Arra
 
 # --- Caillou et éclat ---
 
-static func _pebble(base: Color, salt: int) -> Image:
+# 0.0.7.6 : rognon de silex comme dans le monde (demande de l'utilisateur) : croûte blanchâtre et taches sombres,
+# toujours le même.
+static func _pebble(base: Color, salt: int, flint: bool = false) -> Image:
 	var image := _blank()
 	var center := Vector2(SIZE * 0.5, SIZE * 0.56)
 	var radius := Vector2(SIZE * 0.4, SIZE * 0.29)
@@ -246,7 +278,10 @@ static func _pebble(base: Color, salt: int) -> Image:
 			var m := 0.55 + 0.6 * maxf(normal.dot(light), 0.0) + (g - 0.5) * 0.14 + (_noise(x, y, 5.0, salt) - 0.5) * 0.16
 			if g < 0.05:
 				m *= 0.7
-			var color := Color(base.r * m, base.g * m, base.b * m)
+			var tone := base
+			if flint:
+				tone = Color("#3b3b42") if _noise(x, y, 7.0, salt + 3) > 0.6 else Color("#d6d1c4")
+			var color := Color(tone.r * m, tone.g * m, tone.b * m)
 			color.a = clampf((1.0 - r) * radius.y, 0.0, 1.0)
 			image.set_pixel(x, y, color.clamp())
 	return image
@@ -288,7 +323,137 @@ static func _chip(base: Color, salt: int, glassy: bool) -> Image:
 			image.set_pixel(x, y, color.clamp())
 	return image
 
+# --- Fruits (0.0.7.5) ---
+
+static func _segment_distance(point: Vector2, a: Vector2, b: Vector2) -> float:
+	var along := clampf((point - a).dot(b - a) / (b - a).length_squared(), 0.0, 1.0)
+	return point.distance_to(a + (b - a) * along)
+
+# Pomme ronde, creusée en haut, avec reflet, petits points clairs, queue et feuille. color_index 4 : moitié rouge,
+# moitié jaune (rouge du côté du soleil, en haut à gauche).
+static func _apple(base: Color, color_index: int) -> Image:
+	var image := _blank()
+	var center := Vector2(SIZE * 0.5, SIZE * 0.57)
+	var radius := Vector2(SIZE * 0.36, SIZE * 0.34)
+	_shadow(image, center + Vector2(2.0, radius.y * 0.85), Vector2(radius.x * 0.95, SIZE * 0.07))
+	var light := Vector3(-0.45, -0.6, 0.66).normalized()
+	for y in range(SIZE):
+		for x in range(SIZE):
+			var d := Vector2((x + 0.5 - center.x) / radius.x, (y + 0.5 - center.y) / radius.y)
+			# Un peu plus large en haut qu'en bas.
+			d.x *= 1.0 + 0.08 * d.y
+			var r := d.length()
+			if r >= 1.0:
+				continue
+			var normal := Vector3(d.x, d.y, sqrt(1.0 - r * r)).normalized()
+			var color := base
+			if color_index == 4:
+				color = Inventory.APPLE_COLORS[1].lerp(Inventory.APPLE_COLORS[2], smoothstep(-0.5, 0.7, d.x * 0.8 + d.y * 0.6))
+			var m := 0.5 + 0.62 * maxf(normal.dot(light), 0.0)
+			# Creux de la queue, en haut au milieu.
+			m *= 1.0 - 0.35 * maxf(0.0, 1.0 - Vector2(d.x * 2.6, (d.y + 0.82) * 3.2).length())
+			var g := _hash(x, y, 77)
+			if g > 0.965:
+				m += 0.28
+			var shade := Color(color.r * m, color.g * m, color.b * m)
+			# Reflet brillant.
+			var spot := maxf(0.0, 1.0 - Vector2(d.x + 0.38, d.y + 0.38).length() * 4.0)
+			shade = shade.lerp(Color(1, 1, 1), spot * 0.7)
+			shade.a = clampf((1.0 - r) * radius.y, 0.0, 1.0)
+			image.set_pixel(x, y, shade.clamp())
+	# Queue brune et feuille verte.
+	var stem_a := Vector2(SIZE * 0.5, SIZE * 0.3)
+	var stem_b := Vector2(SIZE * 0.56, SIZE * 0.12)
+	var leaf := Vector2(SIZE * 0.66, SIZE * 0.17)
+	for y in range(SIZE):
+		for x in range(SIZE):
+			var at := Vector2(x + 0.5, y + 0.5)
+			var stem := _segment_distance(at, stem_a, stem_b)
+			if stem < 1.6:
+				image.set_pixel(x, y, Color("#4a2e17").lerp(image.get_pixel(x, y), clampf(stem - 0.6, 0.0, 1.0)))
+				continue
+			var local := (at - leaf).rotated(0.5)
+			var e := Vector2(local.x / (SIZE * 0.13), local.y / (SIZE * 0.06)).length()
+			if e < 1.0:
+				var green := Color("#4f8f2a") * (1.05 - 0.25 * (local.y / (SIZE * 0.06)))
+				green.a = clampf((1.0 - e) * SIZE * 0.06, 0.0, 1.0)
+				image.set_pixel(x, y, image.get_pixel(x, y).blend(green.clamp()))
+	return image
+
+# Noisette : coque brune luisante, base plus claire et rugueuse, petite pointe.
+static func _hazelnut(base: Color) -> Image:
+	var image := _blank()
+	var center := Vector2(SIZE * 0.5, SIZE * 0.55)
+	var radius := Vector2(SIZE * 0.3, SIZE * 0.33)
+	_shadow(image, center + Vector2(2.0, radius.y * 0.85), Vector2(radius.x * 0.95, SIZE * 0.06))
+	var light := Vector3(-0.45, -0.6, 0.66).normalized()
+	for y in range(SIZE):
+		for x in range(SIZE):
+			var d := Vector2((x + 0.5 - center.x) / radius.x, (y + 0.5 - center.y) / radius.y)
+			# Plus pointue en haut.
+			d.x *= 1.0 + 0.35 * maxf(0.0, -d.y)
+			var r := d.length()
+			if r >= 1.0:
+				continue
+			var normal := Vector3(d.x, d.y, sqrt(1.0 - r * r)).normalized()
+			var m := 0.5 + 0.62 * maxf(normal.dot(light), 0.0)
+			var color := base
+			# Base claire et rugueuse (là où la noisette tenait à sa collerette).
+			if d.y > 0.45:
+				color = Color("#c9a675")
+				m *= 0.85 + 0.3 * _hash(x, y, 13)
+			else:
+				m += (_noise(x * 0.6, y * 3.0, 3.0, 21) - 0.5) * 0.25
+			var shade := Color(color.r * m, color.g * m, color.b * m)
+			shade = shade.lerp(Color(1, 1, 1), maxf(0.0, 1.0 - Vector2(d.x + 0.35, d.y + 0.3).length() * 4.0) * 0.55)
+			shade.a = clampf((1.0 - r) * radius.y, 0.0, 1.0)
+			image.set_pixel(x, y, shade.clamp())
+	return image
+
 # --- Dessins vectoriels (originaux, faits pour OrbMeka) ---
+
+# 0.0.7.7 : silhouettes de l'équipement à venir (cases grisées de l'écran de Survie) : sac, panier, travois, chariot.
+static func equipment(kind: String) -> Texture2D:
+	var key := "#equipement_" + kind
+	if _cache.has(key):
+		return _cache[key]
+	var source: String = {"sac": BAG_SVG, "panier": BASKET_SVG, "travois": TRAVOIS_SVG, "chariot": CART_SVG}.get(kind, BAG_SVG)
+	return _keep(key, _svg(source, SIZE))
+
+const BASKET_SVG := "<svg xmlns='http://www.w3.org/2000/svg' width='64' height='64' viewBox='0 0 64 64'>
+<path d='M16 28 Q16 8 32 8 Q48 8 48 28' fill='none' stroke='#3a2414' stroke-width='5' stroke-linecap='round'/>
+<path d='M16 28 Q16 8 32 8 Q48 8 48 28' fill='none' stroke='#c99a5b' stroke-width='2.4' stroke-linecap='round'/>
+<path d='M8 28 H56 L50 56 H14 Z' fill='#c99a5b' stroke='#3a2414' stroke-width='3' stroke-linejoin='round'/>
+<path d='M11 36 H53 M12 44 H52 M13 51 H51' stroke='#8a6233' stroke-width='2'/>
+<path d='M20 28 L21 56 M32 28 V56 M44 28 L43 56' stroke='#8a6233' stroke-width='2'/>
+</svg>"
+
+const TRAVOIS_SVG := "<svg xmlns='http://www.w3.org/2000/svg' width='64' height='64' viewBox='0 0 64 64'>
+<path d='M12 10 L28 56 M52 10 L36 56' stroke='#3a2414' stroke-width='6' stroke-linecap='round'/>
+<path d='M12 10 L28 56 M52 10 L36 56' stroke='#b07a42' stroke-width='3' stroke-linecap='round'/>
+<path d='M19 30 H45 M22 38 H42 M24 45 H40' stroke='#3a2414' stroke-width='4' stroke-linecap='round'/>
+<path d='M19 30 H45 M22 38 H42 M24 45 H40' stroke='#d9a46a' stroke-width='2' stroke-linecap='round'/>
+<path d='M24 22 Q32 14 40 22 L38 30 H26 Z' fill='#8c5b2c' stroke='#3a2414' stroke-width='2.4' stroke-linejoin='round'/>
+</svg>"
+
+const CART_SVG := "<svg xmlns='http://www.w3.org/2000/svg' width='64' height='64' viewBox='0 0 64 64'>
+<path d='M8 20 H48 L44 40 H12 Z' fill='#b07a42' stroke='#3a2414' stroke-width='3' stroke-linejoin='round'/>
+<path d='M48 22 L58 14' stroke='#3a2414' stroke-width='4' stroke-linecap='round'/>
+<path d='M18 26 V36 M28 26 V36 M38 26 V36' stroke='#8a6233' stroke-width='2'/>
+<circle cx='19' cy='46' r='8' fill='#6d747b' stroke='#22272c' stroke-width='3'/>
+<circle cx='39' cy='46' r='8' fill='#6d747b' stroke='#22272c' stroke-width='3'/>
+<circle cx='19' cy='46' r='2.2' fill='#22272c'/>
+<circle cx='39' cy='46' r='2.2' fill='#22272c'/>
+</svg>"
+
+const BAG_SVG := "<svg xmlns='http://www.w3.org/2000/svg' width='64' height='64' viewBox='0 0 64 64'>
+<path d='M22 20 Q22 8 32 8 Q42 8 42 20' fill='none' stroke='#3a2414' stroke-width='5' stroke-linecap='round'/>
+<path d='M22 20 Q22 8 32 8 Q42 8 42 20' fill='none' stroke='#a7743f' stroke-width='2.4' stroke-linecap='round'/>
+<path d='M14 24 Q12 56 20 58 H44 Q52 56 50 24 Z' fill='#b07a42' stroke='#3a2414' stroke-width='3' stroke-linejoin='round'/>
+<path d='M14 24 H50 V31 H14 Z' fill='#8c5b2c' stroke='#3a2414' stroke-width='2.4' stroke-linejoin='round'/>
+<rect x='28' y='27' width='8' height='9' rx='2' fill='#e1b54c' stroke='#5a3d10' stroke-width='1.6'/>
+<path d='M20 38 Q19 50 23 54' fill='none' stroke='#d9a46a' stroke-width='2' stroke-linecap='round'/>
+</svg>"
 
 const PICKAXE_SVG := "<svg xmlns='http://www.w3.org/2000/svg' width='64' height='64' viewBox='0 0 64 64'>
 <path d='M15 57 L40 17' stroke='#2b1c12' stroke-width='9' stroke-linecap='round'/>

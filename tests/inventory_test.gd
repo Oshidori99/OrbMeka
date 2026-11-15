@@ -63,9 +63,19 @@ func _run() -> void:
 	check(ui.grid_slots.size() == 50 and ui.bar_slots.size() == 10 and ui.panel.get_parent() == ui.screen, "grid of 5 × 10 and the bar of 10")
 	var panel_style: StyleBoxFlat = ui.panel.get_theme_stylebox("panel")
 	check(panel_style.bg_color.a < 1.0 and panel_style.bg_color.a > 0.5, "panel slightly transparent")
-	check(ui.creative_box.visible and ui.tab_buttons.size() == 2 and ui.tab_buttons[0].text == "" and ui.tab_buttons[0].icon != null and ui.tab_buttons[0].tooltip_text == "Matériaux naturels" and ui.tab_buttons[1].icon != null and ui.tab_buttons[1].tooltip_text == "Outils", "creative: picture tabs (five piles, the pickaxe), names as tooltips")
+	var tab_names: Array = ui.tab_buttons.map(func(tab): return tab.tooltip_text)
+	check(ui.creative_box.visible and tab_names == ["Matériaux naturels", "Cailloux", "Fruits", "Outils", "Inventaire"] and ui.tab_buttons.all(func(tab): return tab.text == "" and tab.icon != null), "creative: picture tabs, Inventaire at the right (0.0.7.5)")
+	check(ui.tab_buttons[4].get_index() == ui.tab_buttons[3].get_index() + 2, "Inventaire tab pushed to the right")
 	var natural: Array = ui.catalog_slots.filter(func(slot): return slot.visible).map(func(slot): return slot.item.objet)
 	check(natural == ["sable", "terre", "argile", "boue", "gravier", "pierre", "calcaire", "pierre_sombre", "silex"], "natural materials listed (gravier 0.0.7.3)")
+	check(ui.catalog.visible and not ui.grid_box.visible and ui.creative_bar.visible, "creative: the items of the tab and only the bar")
+	ui.show_category(1)
+	check(ui.catalog_slots.filter(func(slot): return slot.visible).map(func(slot): return slot.item) == [{"objet": "caillou", "taille": 4}, {"objet": "caillou_calcaire", "taille": 4}, {"objet": "caillou_silex", "taille": 4}], "Cailloux: stone, limestone, flint, size 4")
+	ui.show_category(2)
+	check(ui.catalog_slots.filter(func(slot): return slot.visible).map(func(slot): return slot.item) == [{"objet": "pomme", "taille": 2, "couleur": 1}, {"objet": "noisette"}], "Fruits: a red apple of size 2, a hazelnut")
+	ui.show_category(4)
+	check(not ui.catalog.visible and ui.grid_box.visible and ui.creative_bar.visible, "Inventaire tab: the grid of 5 rows and the bar")
+	ui.show_category(0)
 	check(ui.grid_slots.all(func(slot): return not slot.locked) and ui.bar_slots.all(func(slot): return not slot.locked and slot.visible), "creative: nothing greyed, 10 bar slots")
 	# Prendre dans une catégorie, poser dans la barre.
 	ui._on_catalog(MOUSE_BUTTON_LEFT, 1)
@@ -75,7 +85,7 @@ func _run() -> void:
 	ui._on_catalog(MOUSE_BUTTON_LEFT, 5)
 	ui._on_slot(MOUSE_BUTTON_LEFT, "grid", 12)
 	check(world.inventory.item("grid", 12).objet == "pierre", "and in the grid")
-	ui.show_category(1)
+	ui.show_category(3)
 	ui._on_catalog(MOUSE_BUTTON_RIGHT, 0)
 	check(world.inventory.item("bar", 1).objet == "pioche", "right click on Outils: pickaxe in the first free slot")
 	# Déplacer d'une case à l'autre, échanger, vider.
@@ -99,13 +109,61 @@ func _run() -> void:
 	world.player.cycle_block(1)
 	check(world.inventory.selected() == 0, "wheel wraps to the first slot")
 	check(ui.hud_slots[0].chosen and ui.hud_slots[0].item.objet == "terre", "bar shows the chosen slot and its item")
+	# 0.0.7.6 : main à la première personne, qui tient l'objet choisi ; gravier enfin posable ; caillou de taille 6 ramassable.
+	check(world.player.hand_view != null and world.player.hand_view.held.get_child_count() >= 1 and world.player.hand_view.visible, "the first-person hand holds the chosen item")
+	check(world.PLACEABLE.has(world.SmoothTerrain.GRAVEL) and Inventory.PICKABLE_SIZE == 6 and Inventory.PEBBLE_WEIGHTS[5] == 1100.0 and Inventory.HANDS_LIMIT == 1400.0, "gravel can be placed; size 6 pebbles (1,1 kg) fit in the hands (1,4 kg)")
 	check(world.PLACEABLE.has(world.SmoothTerrain.STONE) and world.PLACEABLE.has(world.SmoothTerrain.FLINT), "stone kinds can be placed")
-	# Créatif : un morceau de pierre (pioche) se ramasse aussi ; il va dans la première case libre.
+	# Créatif : un morceau de pierre (pioche) se ramasse aussi. 0.0.7.5 : dans la case choisie, avec ses caractéristiques.
 	world.drop_pieces("eclat_calcaire", 1, 125.0, world.player.global_position + Vector3.UP)
 	check(world.ground.entries.size() == 1, "creative: stone pieces fall too")
+	var piece: Dictionary = world.ground.entries[0].item.duplicate()
+	check(piece.has("forme") and piece.has("rotation") and piece.poids == 125.0, "a piece on the ground has its own shape and turn")
 	world.pick_up({"collider": world.ground.bodies[0], "position": world.ground.entries[0].position})
-	check(world.ground.entries.is_empty() and world.inventory.item("bar", 3) == {"objet": "eclat_calcaire", "poids": 125.0, "nombre": 1}, "creative: piece picked up into the first free slot")
+	check(world.ground.entries.size() == 1 and world.notice.contains("occupée"), "chosen slot taken by another item: refused, the piece stays")
+	world.inventory.select(3)
+	world.pick_up({"collider": world.ground.bodies[0], "position": world.ground.entries[0].position})
+	check(world.ground.entries.is_empty() and world.inventory.item("bar", 3) == {"objet": "eclat_calcaire", "pile": [Inventory.traits(piece)]}, "picked up into the chosen slot, with all its characteristics")
 	world.inventory.take("bar", 3)
+	# Barre pleine : dans une case libre de l'inventaire.
+	for index in range(10):
+		if world.inventory.item("bar", index).is_empty():
+			world.inventory.put("bar", index, {"objet": "sable"})
+	world.drop_pieces("eclat_pierre", 1, 125.0, world.player.global_position + Vector3.UP)
+	world.pick_up({"collider": world.ground.bodies[0], "position": world.ground.entries[0].position})
+	check(world.ground.entries.is_empty() and world.inventory.item("grid", 0).objet == "eclat_pierre", "full bar: into a free slot of the inventory")
+	world.inventory.take("grid", 0)
+	for index in range(3, 10):
+		world.inventory.take("bar", index)
+	# Cueillir (0.0.7.5) : seulement en visant vraiment une pomme.
+	var Trees = world.Trees
+	var tree: Node3D = Trees.tree_body(Trees.APPLE, 3)
+	tree.set_meta("id", "pommier-essai")
+	world.add_child(tree)
+	tree.global_position = world.player.global_position + Vector3(2.0, 0.0, 0.0)
+	var column: Vector2i = world._player_column()
+	world.column_objects[column] = world.column_objects.get(column, []) + [tree]
+	var eye: Vector3 = world.player.camera.global_position
+	var nearest: Vector3 = Vector3.ZERO
+	for spot in Trees.fruit_spots(Trees.APPLE, 3):
+		var at: Vector3 = tree.global_transform * spot[0]
+		if nearest == Vector3.ZERO or eye.distance_to(at) < eye.distance_to(nearest):
+			nearest = at
+	var saved_turn: Vector3 = world.player.camera.rotation
+	world.player.camera.look_at(nearest + Vector3(0.0, 0.0, 0.001))
+	check(Trees.fruit_spots(Trees.APPLE, 3).size() > 10 and not world.aimed_fruit({}).is_empty(), "aiming right at an apple finds it")
+	world.inventory.select(3)
+	check(world.pick_up({}) and world.inventory.item("bar", 3).objet == "pomme" and world.picked_fruits.get("pommier-essai", []).size() == 1 and tree.get_node_or_null("Modele/Fruits") != null, "R picks the apple; it disappears from this tree only")
+	var apple_traits: Dictionary = world.inventory.item("bar", 3).pile[0]
+	check(apple_traits.taille in [1, 2, 3] and apple_traits.couleur in [0, 1, 2, 3, 4] and float(apple_traits.get("diametre", 0.0)) > 0.04, "the apple keeps its size, colour and true diameter from the tree")
+	world.player.camera.look_at(nearest + Vector3(0.0, 3.0, 0.0))
+	world.player.camera.look_at(eye + Vector3(0.0, 5.0, 0.3))
+	check(world.aimed_fruit({}).is_empty(), "looking at the sky: no fruit")
+	world.player.camera.rotation = saved_turn
+	world.column_objects[column].erase(tree)
+	tree.queue_free()
+	world.picked_fruits.erase("pommier-essai")
+	world.inventory.take("bar", 3)
+	world.inventory.select(0)
 	# Survie (0.0.7.3) : deux mains (cases 1 et 2) et quatre poches (cases 3 à 6), rien de grisé, pas de grille.
 	app.pause_game()
 	app.pause_settings_button.pressed.emit()
@@ -116,10 +174,11 @@ func _run() -> void:
 	check(world.inventory.mode == Inventory.SURVIVAL and world.inventory.selected() == 0 and world.player.selected_type == -1, "survival: own empty inventory, left hand chosen")
 	var shown: Array = range(10).filter(func(index): return ui.hud_slots[index].visible)
 	check(world.inventory.bar_slots() == [0, 1, 2, 3, 4, 5] and shown == [0, 1, 2, 3, 4, 5] and ui.hud_gap.visible, "survival bar: 2 hands, a gap, 4 pockets")
-	check(ui.weights_label.visible and ui.weights_label.text == "Mains : 0,000 g / 1,000 kg\nPoches : 0,000 g / 500,0 g", "hands and pockets weight at the bottom right")
+	check(ui.weights_label.visible and ui.weights_label.text == "Mains : 0,000 g / 1,400 kg\nPoches : 0,000 g / 500,0 g", "hands and pockets weight at the bottom right")
 	action(app, "inventory")
-	check(ui.is_open() and not ui.creative_box.visible and not ui.grid_box.visible and ui.survival_box.visible and ui.hands_weight.text == "0,000 g / 1,000 kg" and ui.pockets_weight.text == "0,000 g / 500,0 g", "survival screen: a row for the hands, a row for the pockets, no grid")
+	check(ui.is_open() and not ui.creative_box.visible and not ui.grid_box.visible and ui.survival_box.visible and ui.hands_weight.text == "0,000 g / 1,400 kg" and ui.pockets_weight.text == "0,000 g / 500,0 g", "survival screen: a row for the hands, a row for the pockets, no grid")
 	check(ui.bar_slots.size() == 10 and ui.survival_box.is_ancestor_of(ui.bar_slots[0]) and ui.survival_box.is_ancestor_of(ui.bar_slots[5]), "survival slots are in the hands and pockets rows")
+	check(ui.equipment_slots.size() == 8 and ui.equipment_slots.all(func(slot): return slot.locked and slot.item.is_empty() and slot.picture != null) and ui.survival_area.is_ancestor_of(ui.equipment_slots[0]), "equipment to come at the right: 2 bags, 2 baskets, 2 travois, 2 carts, greyed (0.0.7.7)")
 	action(app, "inventory")
 	check(not ui.is_open(), "O + I closes it again")
 	key(world, KEY_7)
@@ -134,16 +193,21 @@ func _run() -> void:
 	check(world.ground.entries.size() == 3 and world.ground.entries.all(func(entry): return world.player.global_position.distance_to(entry.position) < 2.0), "pieces fall beside the player")
 	for index in range(2):
 		world.pick_up({"collider": world.ground.bodies[0], "position": world.ground.entries[0].position})
-	check(world.inventory.item("bar", 0) == {"objet": "eclat_pierre", "poids": 125.0, "nombre": 2}, "identical pieces stack in the left hand")
+	check(world.inventory.item("bar", 0).objet == "eclat_pierre" and Inventory.count(world.inventory.item("bar", 0)) == 2 and Inventory.stack_weight(world.inventory.item("bar", 0)) == 250.0, "pieces of the same kind go together in the chosen slot (left hand)")
+	var coal: Dictionary = world.ground.entries[0].item.duplicate()
 	world.pick_up({"collider": world.ground.bodies[0], "position": world.ground.entries[0].position})
-	check(world.inventory.item("bar", 1).objet == "charbon" and world.ground.entries.is_empty(), "another kind goes to the right hand")
+	check(world.ground.entries.size() == 1, "coal refused: the chosen hand holds stone pieces")
+	world.inventory.select(1)
+	world.pick_up({"collider": world.ground.bodies[0], "position": world.ground.entries[0].position})
+	check(world.inventory.item("bar", 1).objet == "charbon" and world.ground.entries.is_empty(), "another hand chosen: the coal goes there")
 	check(ui.hud_slots[0].title == "Éclat de pierre" and ui.hud_slots[0].note == "250,0 g" and ui.hud_slots[1].note == "125,0 g" and ui.hud_slots[2].title == "" and ui.hud_slots[2].note == "", "name then weight under each slot, nothing under an empty one")
-	check(world.inventory.add({"objet": "terre", "nombre": 6}) == 5 and ui.weights_label.text.ends_with("Poches : 500,0 g / 500,0 g"), "pockets: 500 g in all (five handfuls of earth, not six)")
+	check(world.inventory.add({"objet": "terre", "nombre": 6}) == 1 and ui.weights_label.text.ends_with("Poches : 325,0 g / 500,0 g"), "pockets: 500 g in all (one handful of earth of 325 g, 0.0.7.6)")
 	# Reposer un objet tenu (clic droit) : il retourne au sol là où l'on vise.
 	world.inventory.select(1)
 	world.player.brush = 0
 	var spot: Vector3 = world.player.global_position - world.player.global_transform.basis.z * 1.5
 	check(world.place_target({"collider": world.ground, "position": spot}, world.player.selected_type) and world.inventory.item("bar", 1).is_empty() and world.ground.entries.size() == 1 and Vector2(world.ground.entries[0].position.x - spot.x, world.ground.entries[0].position.z - spot.z).length() < 0.01, "right click puts the held piece down where aimed")
+	check(world.ground.entries[0].item == coal, "put back exactly as it was (shape, turn, weight)")
 	world.pick_up({"collider": world.ground.bodies[0], "position": world.ground.entries[0].position})
 	world.inventory.select(0)
 	world.drop_items({"objet": "terre", "nombre": 1})
@@ -227,13 +291,13 @@ func _data_checks() -> void:
 	check(bag.put("bar", 0, {"objet": "terre"}) == {"objet": "terre"} and bag.item("bar", 0).is_empty() and bag.put("bar", 7, {"objet": "terre", "nombre": 1}) == {"objet": "terre", "nombre": 1}, "survival: no unlimited items, no slot 8")
 	# Poids et piles (0.0.7.3).
 	# 0.0.7.4 : 1 kg pour les deux mains ensemble, 500 g pour les quatre poches ensemble.
-	check(bag.add({"objet": "terre", "nombre": 12}) == 12 and Inventory.count(bag.item("bar", 0)) == 10 and bag.item("bar", 1).is_empty() and Inventory.count(bag.item("bar", 2)) == 2, "1 kg for both hands together: 10 handfuls of earth, then the pockets")
-	check(bag.add({"objet": "caillou", "nombre": 1, "taille": 4}) == 0, "a 400 g pebble no longer fits anywhere")
-	check(bag.add({"objet": "caillou", "nombre": 3, "taille": 1}) == 3 and Inventory.count(bag.item("bar", 3)) == 3 and bag.pockets_weight() == 350.0, "pockets: three 50 g pebbles (350 g of 500 g)")
-	check(not Inventory.same_kind({"objet": "caillou", "taille": 1, "nombre": 1}, {"objet": "caillou", "taille": 2, "nombre": 1}), "pebbles of another size do not stack")
+	check(bag.add({"objet": "terre", "nombre": 12}) == 5 and Inventory.count(bag.item("bar", 0)) == 4 and bag.item("bar", 1).is_empty() and Inventory.count(bag.item("bar", 2)) == 1, "1,4 kg for both hands: 4 handfuls of earth (325 g), then 1 in the pockets (0.0.7.6)")
+	check(bag.add({"objet": "caillou", "pile": [{"taille": 4}]}) == 0, "a 400 g pebble no longer fits anywhere")
+	check(bag.add({"objet": "caillou", "pile": [{"taille": 1, "forme": 2}, {"taille": 1, "forme": 5}, {"taille": 1, "forme": 7}]}) == 3 and Inventory.count(bag.item("bar", 1)) == 2 and Inventory.count(bag.item("bar", 3)) == 1 and bag.hands_weight() == 1400.0 and bag.pockets_weight() == 375.0, "three 50 g pebbles: two in the right hand (100 g left), one in a pocket")
+	check(Inventory.same_kind({"objet": "caillou", "pile": [{"taille": 1}]}, {"objet": "caillou", "pile": [{"taille": 2}]}) and not Inventory.same_kind({"objet": "caillou", "pile": [{"taille": 1}]}, {"objet": "caillou_silex", "pile": [{"taille": 1}]}), "pebbles of different sizes share a slot, not different kinds (0.0.7.5)")
 	check(bag.put("bar", 4, {"objet": "silex", "nombre": 1}) == {"objet": "silex", "nombre": 1}, "a 250 g stone does not fit in the 150 g left in the pockets")
 	bag.select(0)
-	check(bag.use_held(3) and Inventory.count(bag.held()) == 7 and bag.held_kind() == 2, "placing uses handfuls")
+	check(bag.use_held(3) and Inventory.count(bag.held()) == 1 and bag.held_kind() == 2, "placing uses handfuls")
 	var icons := Inventory.ITEMS.keys().all(func(id): return ItemIcons.texture(id) != null and ItemIcons.texture(id).get_width() == ItemIcons.SIZE)
 	check(icons and ItemIcons.hand() != null and ItemIcons.pocket() != null and ItemIcons.natural_tab(34) != null and ItemIcons.texture("sable") == ItemIcons.texture("sable"), "an icon for every item, hand and pocket pictures, made once")
 	var weights := [[0.0, "0,000 g"], [0.5, "500,0 mg"], [1.0, "1,000 g"], [12.5, "12,50 g"], [150.0, "150,0 g"], [999.96, "1,000 kg"], [1000.0, "1,000 kg"], [12345.0, "12,35 kg"], [999999.0, "1,000 Mg"], [2500000.0, "2,500 Mg"]]
@@ -241,4 +305,22 @@ func _data_checks() -> void:
 	var saved_bag := Inventory.new()
 	saved_bag.mode = Inventory.SURVIVAL
 	saved_bag.from_dict(JSON.parse_string(JSON.stringify(bag.to_dict())))
-	check(saved_bag.item("bar", 3) == {"objet": "caillou", "nombre": 3, "taille": 1} and saved_bag.item("bar", 0) == {"objet": "terre", "nombre": 7}, "counts and sizes saved")
+	check(saved_bag.item("bar", 1) == {"objet": "caillou", "pile": [{"taille": 1, "forme": 2}, {"taille": 1, "forme": 5}]} and saved_bag.item("bar", 3) == {"objet": "caillou", "pile": [{"taille": 1, "forme": 7}]} and saved_bag.item("bar", 0) == {"objet": "terre", "nombre": 1}, "each object saved with its own characteristics")
+	# 0.0.7.5 : le dernier pris est le premier reposé ; chacun garde sa taille.
+	var mixed := Inventory.new()
+	mixed.mode = Inventory.SURVIVAL
+	mixed.set_mode(Inventory.SURVIVAL)
+	check(mixed.add_to_selected({"objet": "caillou_silex", "pile": [{"taille": 4, "forme": 3, "rotation": 1.25}]}).added == 1 and mixed.add_to_selected({"objet": "caillou_silex", "pile": [{"taille": 1, "forme": 6}]}).added == 1, "a big then a small flint nodule in the same hand")
+	check(Inventory.stack_weight(mixed.held()) == 450.0 and mixed.pop_held() == {"objet": "caillou_silex", "taille": 1, "forme": 6} and mixed.pop_held() == {"objet": "caillou_silex", "taille": 4, "forme": 3, "rotation": 1.25} and mixed.held().is_empty(), "put down: the small one first, then the big one, each unchanged")
+	check(mixed.add_to_selected({"objet": "caillou", "pile": [{"taille": 5}]}).added == 1 and mixed.add_to_selected({"objet": "caillou", "pile": [{"taille": 6}]}).reason == "lourd", "too heavy for the hands: refused")
+	mixed.select(2)
+	check(mixed.add_to_selected({"objet": "sable", "nombre": 1}).added == 1 and mixed.item("bar", 2).objet == "sable", "into the chosen pocket")
+	mixed.select(3)
+	mixed.put("bar", 3, {"objet": "noisette", "pile": [{}]})
+	check(mixed.add_to_selected({"objet": "sable", "nombre": 1}).reason == "occupee", "chosen slot taken, other slots free: refused (choose another)")
+	# Anciennes sauvegardes (0.0.7.3, 0.0.7.4) : cailloux et éclats avec « nombre » deviennent des piles.
+	var old := Inventory.new()
+	old.from_dict({"format": 2, "survie": {"barre": [{"objet": "caillou", "nombre": 2, "taille": 3}, {"objet": "eclat_pierre", "nombre": 1, "poids": 125.0}], "main": 0}})
+	old.set_mode(Inventory.SURVIVAL)
+	check(old.item("bar", 0) == {"objet": "caillou", "pile": [{"taille": 3}, {"taille": 3}]} and old.item("bar", 1) == {"objet": "eclat_pierre", "pile": [{"poids": 125.0}]}, "old saves read as piles")
+	check(ItemIcons.for_value({"objet": "pomme", "pile": [{"taille": 2, "couleur": 0}]}) != ItemIcons.for_value({"objet": "pomme", "pile": [{"taille": 2, "couleur": 1}]}) and ItemIcons.tab("inventory", 34) != null and ItemIcons.tab("fruits", 34) != null, "apple icon follows its colour; tab pictures")

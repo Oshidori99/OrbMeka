@@ -3,6 +3,18 @@ Du plus récent au plus ancien. Ce fichier est mis à jour à chaque version.
 
 === Thème « Gameplay et inventaire » (0.0.7) ===
 
+0.0.7.7 — Enjamber, pentes plus lentes, équipement à venir
+Génération du terrain : version 32 · Menus : version 10.
+Enjamber les petits obstacles (45 cm) ; marcher moins vite en montée raide ; cases grisées Sac, Panier, Travois, Chariot.
+
+0.0.7.6 — Une main qui tient l'objet, poids réalistes
+Génération du terrain : version 32 · Menus : version 9.
+Main à la première personne (Blender) ; pentes plus faciles ; gravier posable ; poids réalistes ; caillou de taille 6 ; fruits reposés identiques ; option « Arrêter de voler au sol ».
+
+0.0.7.5 — Objets uniques, cueillette, pommes de toutes les couleurs
+Génération du terrain : version 32 · Menus : version 8.
+Chaque objet garde ses caractéristiques ; ramasser dans la case choisie ; cueillir pommes et noisettes en les visant ; pommes en 3 tailles et 5 couleurs ; onglets Cailloux, Fruits, Inventaire.
+
 0.0.7.4 — Inventaire plus joli, mains et poches plus grandes
 Génération du terrain : version 32 · Menus : version 7.
 Icônes en petits tas texturés, onglets en images, lignes des mains (1 kg) et des poches (500 g), nom et poids sous les cases ; clic droit pour reposer un caillou.

@@ -132,6 +132,7 @@ func _run() -> void:
 		same = same and old.ground_height(column) == terrain.ground_height(column) and old.surface_kind(column) == terrain.surface_kind(column)
 	check(same, "the relief and the ground do not change with the trees")
 	# 0.0.6.10 : modèles légers faits dans Blender (assets/trees) ; 0.0.6.11 : un modèle par taille, de plus en plus haut.
+	# 0.0.7.5 : pommes et noisettes retirées du modèle (dessinées à part, en série) : deux surfaces, sauf le pin (pommes de pin).
 	var models_ok := true
 	var heights := []
 	for kind in [Trees.APPLE, Trees.HAZEL, Trees.PINE, Trees.LINDEN]:
@@ -141,7 +142,7 @@ func _run() -> void:
 			var far: ArrayMesh = Trees.mesh(kind, size, true)
 			var high: float = near.get_aabb().size.y
 			heights.append(snappedf(high, 0.1))
-			models_ok = models_ok and near.get_surface_count() == (2 if kind == Trees.LINDEN else 3) and far.get_surface_count() >= 1 and Trees.triangles(near) < 15000 and Trees.triangles(far) * 5 < Trees.triangles(near) and high > last
+			models_ok = models_ok and near.get_surface_count() == (3 if kind == Trees.PINE else 2) and (Trees.fruit_spots(kind, size).size() > 0) == (kind in [Trees.APPLE, Trees.HAZEL]) and far.get_surface_count() >= 1 and Trees.triangles(near) < 15000 and Trees.triangles(far) * 5 < Trees.triangles(near) and high > last
 			var leaves: StandardMaterial3D = near.surface_get_material(1)
 			models_ok = models_ok and leaves.transparency == BaseMaterial3D.TRANSPARENCY_ALPHA_SCISSOR and leaves.albedo_texture != null
 			last = high

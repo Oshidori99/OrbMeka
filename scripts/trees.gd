@@ -10,6 +10,7 @@ extends RefCounted
 # 0.0.6.12 : pin sylvestre (7 à 21 m, tronc nu sur la moitié de sa hauteur une fois adulte, touffes d'aiguilles, pommes de pin)
 # et tilleul (6 à 20 m, couronne ovale dense, feuilles en cœur).
 const Plants = preload("res://scripts/plants.gd")
+const Inventory = preload("res://scripts/inventory.gd")
 const APPLE := 0
 const HAZEL := 1
 const PINE := 2
@@ -63,6 +64,11 @@ static func material(kind: int, role: String) -> StandardMaterial3D:
 				made.roughness = 1.0
 			_:
 				made.albedo_color = FRUIT_COLORS[kind]
+				# 0.0.7.5 : couleur de chaque pomme dans ses données de série ou ses sommets (_series, _fruit_mesh).
+				if kind == APPLE:
+					made.albedo_color = Color.WHITE
+					made.vertex_color_use_as_albedo = true
+					made.vertex_color_is_srgb = true
 				made.roughness = 0.45 if kind == APPLE else 0.7
 		_materials[key] = made
 	return _materials[key]
@@ -139,9 +145,200 @@ static func _load(kind: int, size: int, far: bool, form := 0) -> ArrayMesh:
 				normals[index] = (points[index] - center).normalized().lerp(Vector3.UP, 0.3).normalized()
 			arrays[Mesh.ARRAY_NORMAL] = normals
 			arrays[Mesh.ARRAY_TANGENT] = null
+		# 0.0.7.5 : pommes et noisettes retrouvées et refaites (taille, couleur, place gardée pour la cueillette).
+		# Ils ne restent pas dans le modèle de l'arbre : ils sont dessinés à part, en série (fruit_node).
+		if (kind == APPLE or kind == HAZEL) and role == "fruit" and not far:
+			_fruits[_fruit_key(kind, size, form)] = _find_fruits(arrays, kind)
+			continue
 		result.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arrays)
 		result.surface_set_material(result.get_surface_count() - 1, material(kind, role))
 	return result
+
+# --- 0.0.7.5 : fruits (pommes et noisettes) ---
+# Demande de l'utilisateur : pommes en trois tailles et cinq couleurs, comme les vraies (inventory.gd : APPLE_SIZES,
+# APPLE_COLORS) ; cueillir une pomme ou une noisette en la visant (R). Les fruits du modèle Blender (un petit polyèdre
+# chacun) sont retrouvés au chargement du modèle (une fois), retirés du modèle et dessinés à part, en série (un même
+# petit modèle de fruit lisse pour tous, MultiMesh), à la même place.
+# Chaque pomme a une taille (1, 2 ou 3 ; la 2 un peu plus grande qu'avant) et une couleur, toujours les mêmes (selon sa
+# place) ; moitié rouge moitié jaune : rouge du côté du soleil. Leur place est gardée (fruit_spots) pour la visée ; un
+# arbre dont on a cueilli des fruits reçoit sa propre série de fruits restants (apply_picked).
+const APPLE_SCALES := [0.8, 1.12, 1.38]
+const FRUIT_RINGS := 5
+const FRUIT_SIDES := 8
+# Fruits de chaque modèle : clé « espèce_taille_forme » → [[centre, rayon, taille 1 à 3, couleur], …] (repère de l'arbre).
+static var _fruits: Dictionary = {}
+
+static func _fruit_key(kind: int, size: int, form: int) -> String:
+	return "%d_%d_%d" % [kind, clampi(size, 1, SIZES), clampi(form, 0, FORMS - 1)]
+
+# Retrouve les fruits d'une surface : sommets reliés par leurs triangles (ou au même endroit) = un fruit.
+static func _find_fruits(arrays: Array, kind: int) -> Array:
+	var points: PackedVector3Array = arrays[Mesh.ARRAY_VERTEX]
+	var indices: PackedInt32Array = arrays[Mesh.ARRAY_INDEX]
+	var count := points.size()
+	# Tableau ordinaire : partagé avec les fonctions ci-dessous (un tableau « Packed » y serait copié).
+	var parent := []
+	parent.resize(count)
+	for index in range(count):
+		parent[index] = index
+	var find := func(start: int) -> int:
+		var at := start
+		while parent[at] != at:
+			parent[at] = parent[parent[at]]
+			at = parent[at]
+		return at
+	var join := func(a: int, b: int) -> void:
+		var ra: int = find.call(a)
+		var rb: int = find.call(b)
+		if ra != rb:
+			parent[ra] = rb
+	var corners := indices if not indices.is_empty() else PackedInt32Array(range(count))
+	for at in range(0, corners.size() - 2, 3):
+		join.call(corners[at], corners[at + 1])
+		join.call(corners[at], corners[at + 2])
+	var same_place := {}
+	for index in range(count):
+		var key := Vector3i((points[index] * 1000.0).round())
+		if same_place.has(key):
+			join.call(index, same_place[key])
+		else:
+			same_place[key] = index
+	var groups := {}
+	for index in range(count):
+		var root: int = find.call(index)
+		if not groups.has(root):
+			groups[root] = []
+		groups[root].append(points[index])
+	var spots := []
+	for root in groups:
+		var list: Array = groups[root]
+		var center := Vector3.ZERO
+		for point in list:
+			center += point
+		center /= list.size()
+		var radius := 0.0
+		for point in list:
+			radius += center.distance_to(point)
+		radius /= list.size()
+		var seed := hash(Vector3i((center * 100.0).round()))
+		var size: int = absi(seed) % 3 + 1 if kind == APPLE else 2
+		var tint: int = absi(seed / 3) % Inventory.APPLE_COLORS.size() if kind == APPLE else -1
+		spots.append([center, radius * (APPLE_SCALES[size - 1] if kind == APPLE else 1.0), size, tint])
+	# Ordre fixe (numéro de chaque fruit, gardé dans la sauvegarde des fruits cueillis).
+	spots.sort_custom(func(a, b): return [a[0].x, a[0].y, a[0].z] < [b[0].x, b[0].y, b[0].z])
+	return spots
+
+# Modèle d'un fruit, rayon 1 : sphère lisse (FRUIT_RINGS × FRUIT_SIDES) ; pomme un peu aplatie, creusée en haut et en
+# bas ; noisette un peu pointue. two_tone : pomme moitié rouge moitié jaune (rouge du côté du soleil), couleur dans les
+# sommets ; sinon sommets blancs et couleur de chaque fruit dans ses données (MultiMesh).
+static var _fruit_meshes: Dictionary = {}
+
+static func _fruit_mesh(kind: int, two_tone: bool) -> ArrayMesh:
+	var key := "%d_%s" % [kind, two_tone]
+	if _fruit_meshes.has(key):
+		return _fruit_meshes[key]
+	var vertices := PackedVector3Array()
+	var normals := PackedVector3Array()
+	var colors := PackedColorArray()
+	var faces := PackedInt32Array()
+	for ring in range(FRUIT_RINGS + 1):
+		var polar := PI * ring / FRUIT_RINGS
+		for side in range(FRUIT_SIDES + 1):
+			var around := TAU * side / FRUIT_SIDES
+			var direction := Vector3(sin(polar) * cos(around), cos(polar), sin(polar) * sin(around))
+			var shape := direction * Vector3(1.0, 0.9 if kind == APPLE else 1.15, 1.0)
+			if kind == APPLE and ring == 0:
+				shape.y = 0.62
+			elif kind == APPLE and ring == FRUIT_RINGS:
+				shape.y = -0.8
+			vertices.append(shape)
+			normals.append(direction)
+			var color := Color.WHITE
+			if two_tone:
+				color = Inventory.APPLE_COLORS[1].lerp(Inventory.APPLE_COLORS[2], smoothstep(-0.6, 0.6, direction.x * 0.7 - direction.y * 0.4 + direction.z * 0.3))
+			colors.append(color)
+	for ring in range(FRUIT_RINGS):
+		for side in range(FRUIT_SIDES):
+			var a := ring * (FRUIT_SIDES + 1) + side
+			var b := a + FRUIT_SIDES + 1
+			faces.append_array([a, b, a + 1, a + 1, b, b + 1])
+	var arrays := []
+	arrays.resize(Mesh.ARRAY_MAX)
+	arrays[Mesh.ARRAY_VERTEX] = vertices
+	arrays[Mesh.ARRAY_NORMAL] = normals
+	arrays[Mesh.ARRAY_COLOR] = colors
+	arrays[Mesh.ARRAY_INDEX] = faces
+	var made := ArrayMesh.new()
+	made.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arrays)
+	made.surface_set_material(0, material(kind, "fruit"))
+	_fruit_meshes[key] = made
+	return made
+
+# Fruits d'un modèle (repère de l'arbre, avant son échelle et sa rotation) ; le modèle est lu s'il ne l'est pas.
+static func fruit_spots(kind: int, size: int, form: int = 0) -> Array:
+	if kind != APPLE and kind != HAZEL:
+		return []
+	mesh(kind, size, false, form)
+	return _fruits.get(_fruit_key(kind, size, form), [])
+
+# Séries de fruits (MultiMesh) d'un modèle, sans les fruits cueillis (skip) : une pour les fruits d'une seule couleur,
+# une pour les pommes moitié rouge moitié jaune. Sans fruit cueilli : partagées par tous les arbres du même modèle.
+static var _fruit_series: Dictionary = {}
+
+static func _series(kind: int, size: int, form: int, skip: Dictionary) -> Array:
+	var key := _fruit_key(kind, size, form)
+	if skip.is_empty() and _fruit_series.has(key):
+		return _fruit_series[key]
+	var lists := [[], []]
+	var spots := fruit_spots(kind, size, form)
+	for number in range(spots.size()):
+		if not skip.has(number):
+			lists[1 if kind == APPLE and spots[number][3] == 4 else 0].append(spots[number])
+	var made := []
+	for two_tone in [false, true]:
+		var list: Array = lists[1 if two_tone else 0]
+		if list.is_empty():
+			continue
+		var series := MultiMesh.new()
+		series.transform_format = MultiMesh.TRANSFORM_3D
+		series.use_colors = true
+		series.mesh = _fruit_mesh(kind, two_tone)
+		series.instance_count = list.size()
+		for at in range(list.size()):
+			var spot: Array = list[at]
+			series.set_instance_transform(at, Transform3D(Basis.IDENTITY.scaled(Vector3.ONE * spot[1]), spot[0]))
+			var color: Color = FRUIT_COLORS[kind] if kind != APPLE else (Color.WHITE if two_tone else Inventory.APPLE_COLORS[spot[3]])
+			series.set_instance_color(at, color)
+		made.append(series)
+	if skip.is_empty():
+		_fruit_series[key] = made
+	return made
+
+# Fruits d'un arbre (nœud « Fruits » de son modèle), visibles de près seulement, comme le modèle détaillé.
+static func fruit_node(kind: int, size: int, form: int, skip: Dictionary = {}) -> Node3D:
+	var holder := Node3D.new()
+	holder.name = "Fruits"
+	for series in _series(kind, size, form, skip):
+		var drawn := MultiMeshInstance3D.new()
+		drawn.multimesh = series
+		drawn.visibility_range_end = DETAIL_END
+		drawn.visibility_range_end_margin = 2.0
+		holder.add_child(drawn)
+	return holder
+
+# Arbre dont on a cueilli des fruits (numéros dans « picked ») : ses fruits restants seulement.
+static func apply_picked(body: Node3D, picked: Array) -> void:
+	var model: Node3D = body.get_node_or_null("Modele")
+	if model == null or not body.has_meta("kind"):
+		return
+	var old: Node = model.get_node_or_null("Fruits")
+	if old != null:
+		model.remove_child(old)
+		old.free()
+	var skip := {}
+	for number in picked:
+		skip[int(number)] = true
+	model.add_child(fruit_node(body.get_meta("kind"), body.get_meta("size"), body.get_meta("form"), skip))
 
 # Collision simple : le tronc (pommier) ou le pied de la touffe (noisetier) : [rayon, hauteur].
 static func trunk(kind: int, size: int = 3) -> Vector2:
@@ -159,6 +356,10 @@ static func tree_body(kind: int, size: int, vine := false, form := 0) -> StaticB
 	var body := StaticBody3D.new()
 	body.name = "Arbre"
 	body.add_to_group("trees")
+	# 0.0.7.5 : espèce, taille et forme du modèle (fruits à cueillir).
+	body.set_meta("kind", kind)
+	body.set_meta("size", clampi(size, 1, SIZES))
+	body.set_meta("form", clampi(form, 0, FORMS - 1))
 	var model := Node3D.new()
 	model.name = "Modele"
 	body.add_child(model)
@@ -168,6 +369,9 @@ static func tree_body(kind: int, size: int, vine := false, form := 0) -> StaticB
 	near.visibility_range_end = DETAIL_END
 	near.visibility_range_end_margin = 2.0
 	model.add_child(near)
+	# 0.0.7.5 : pommes et noisettes dessinées à part, en série (fruit_node).
+	if kind == APPLE or kind == HAZEL:
+		model.add_child(fruit_node(kind, clampi(size, 1, SIZES), clampi(form, 0, FORMS - 1)))
 	var far := MeshInstance3D.new()
 	far.name = "Loin"
 	far.mesh = mesh(kind, size, true, form)

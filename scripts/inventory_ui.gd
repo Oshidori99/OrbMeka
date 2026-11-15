@@ -29,6 +29,8 @@ class Slot extends Control:
 	var note := ""
 	var font_px := 11
 	var with_text := false
+	# 0.0.7.7 : silhouette grise d'une case vide (équipement à venir).
+	var picture: Texture2D
 
 	func _init(box_side: float, text_lines: bool = false, text_px: int = 11) -> void:
 		side = box_side
@@ -59,7 +61,7 @@ class Slot extends Control:
 		if not plain:
 			draw_rect(rect, Color(0.32, 0.32, 0.34, 0.5) if locked else Color(0.13, 0.14, 0.16, 0.85))
 		if not item.is_empty():
-			var icon: Texture2D = ItemIcons.texture(item.get("objet", ""))
+			var icon: Texture2D = ItemIcons.for_value(item)
 			if icon != null:
 				draw_texture_rect(icon, rect.grow(-side * 0.08), false)
 			var amount := Inventory.count(item)
@@ -70,6 +72,8 @@ class Slot extends Control:
 				var at := Vector2(side - 4.0 - font.get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1, px).x, side - 5.0)
 				draw_string_outline(font, at, text, HORIZONTAL_ALIGNMENT_LEFT, -1, px, 3, Color(0, 0, 0, 0.85))
 				draw_string(font, at, text, HORIZONTAL_ALIGNMENT_LEFT, -1, px, Color.WHITE)
+		if item.is_empty() and picture != null:
+			draw_texture_rect(picture, rect.grow(-side * 0.12), false, Color(1, 1, 1, 0.45))
 		if locked:
 			draw_rect(rect, Color(0.55, 0.55, 0.57, 0.4))
 		if not plain:
@@ -121,6 +125,9 @@ var cursor: Slot
 var cursor_item := {}
 var cursor_from: Array = []
 var category := 0
+# 0.0.7.5 : onglet Inventaire (après les catégories) ; objets des onglets sur 2 lignes au plus.
+const INVENTORY_TAB := 4
+const CATALOG_ROWS := 2
 
 func setup(owner_inventory: RefCounted, scale: float) -> void:
 	inventory = owner_inventory
@@ -260,10 +267,16 @@ func _build_screen() -> void:
 	creative_box.add_child(tabs)
 	var group := ButtonGroup.new()
 	var tab_px := roundi(side * 0.72)
-	for index in range(Inventory.CATEGORIES.size()):
+	# 0.0.7.5 : onglets Matériaux naturels, Cailloux, Fruits, Outils, puis, tout à droite, Inventaire (la grille).
+	for index in range(Inventory.CATEGORIES.size() + 1):
+		if index == Inventory.CATEGORIES.size():
+			var push := Control.new()
+			push.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+			tabs.add_child(push)
 		var tab := Button.new()
-		tab.icon = ItemIcons.natural_tab(tab_px) if Inventory.CATEGORIES[index].id == "natural" else ItemIcons.tools_tab(tab_px)
-		tab.tooltip_text = Inventory.CATEGORIES[index].nom
+		var id: String = Inventory.CATEGORIES[index].id if index < Inventory.CATEGORIES.size() else "inventory"
+		tab.icon = ItemIcons.tab(id, tab_px)
+		tab.tooltip_text = Inventory.CATEGORIES[index].nom if index < Inventory.CATEGORIES.size() else "Inventaire"
 		tab.toggle_mode = true
 		tab.button_group = group
 		tab.focus_mode = Control.FOCUS_NONE
@@ -274,9 +287,10 @@ func _build_screen() -> void:
 		tab.pressed.connect(show_category.bind(index))
 		tabs.add_child(tab)
 		tab_buttons.append(tab)
+	# Objets de l'onglet choisi, sur plusieurs lignes s'il y en a beaucoup.
 	catalog = _row(Inventory.COLUMNS)
 	creative_box.add_child(catalog)
-	for index in range(Inventory.COLUMNS):
+	for index in range(Inventory.COLUMNS * CATALOG_ROWS):
 		var slot := Slot.new(side)
 		slot.clicked.connect(_on_catalog.bind(index))
 		catalog.add_child(slot)
@@ -306,10 +320,15 @@ func _build_screen() -> void:
 		slot.clicked.connect(_on_slot.bind("bar", index))
 		creative_bar.add_child(slot)
 		creative_slots[index] = slot
-	# Survie : ligne des mains, puis ligne des poches.
+	# Survie : ligne des mains, puis ligne des poches ; à droite (0.0.7.7), l'équipement à venir.
+	survival_area = HBoxContainer.new()
+	survival_area.add_theme_constant_override("separation", 24)
+	column.add_child(survival_area)
 	survival_box = VBoxContainer.new()
 	survival_box.add_theme_constant_override("separation", GAP + 4)
-	column.add_child(survival_box)
+	survival_box.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	survival_area.add_child(survival_box)
+	_build_equipment(survival_area, side)
 	var survival_slots := {}
 	hands_weight = _survival_row(ItemIcons.hand(), Inventory.HANDS, side, survival_slots, "Mains")
 	pockets_weight = _survival_row(ItemIcons.pocket(), Inventory.POCKETS, side, survival_slots, "Poches")
@@ -327,6 +346,31 @@ func _build_screen() -> void:
 	cursor.visible = false
 	screen.add_child(cursor)
 	show_category(0)
+
+# 0.0.7.7 (demande de l'utilisateur) : à droite de l'écran de Survie, ce qu'on pourra porter plus tard, deux cases de
+# chaque, grisées et vides : sacs, paniers (bientôt), travois (deux bâtons qu'on traîne, plus tard), chariots (à roues,
+# bien plus tard). Quand on en portera, leurs cases apparaîtront en bas à gauche (rien pour l'instant).
+const EQUIPMENT := [["sac", "Sac (bientôt)"], ["panier", "Panier (bientôt)"], ["travois", "Travois : deux bâtons qu'on traîne (plus tard)"], ["chariot", "Chariot à roues (bien plus tard)"]]
+var survival_area: HBoxContainer
+var equipment_slots: Array = []
+
+func _build_equipment(parent: Node, side: float) -> void:
+	var box := VBoxContainer.new()
+	box.add_theme_constant_override("separation", GAP)
+	parent.add_child(box)
+	box.add_child(_label("Équipement", 14))
+	var grid := _row(2)
+	box.add_child(grid)
+	var small := roundf(side * 0.85)
+	for kind in EQUIPMENT:
+		for index in range(2):
+			var slot := Slot.new(small)
+			slot.locked = true
+			slot.picture = ItemIcons.equipment(kind[0])
+			slot.tooltip_text = kind[1]
+			slot.name = "Equipement_%s_%d" % [kind[0], index]
+			grid.add_child(slot)
+			equipment_slots.append(slot)
 
 var _creative_bar_slots := {}
 var _survival_bar_slots := {}
@@ -392,11 +436,14 @@ func refresh() -> void:
 	for index in range(Inventory.GRID_SIZE):
 		grid_slots[index].show_item(inventory.item("grid", index))
 	hud_gap.visible = not creative
-	grid_box.visible = creative
+	# 0.0.7.5 : en Créatif, la grille seulement dans l'onglet Inventaire ; sinon les objets de l'onglet et la barre.
+	grid_box.visible = creative and category == INVENTORY_TAB
+	catalog.visible = category != INVENTORY_TAB
 	panel_gap.visible = creative
 	creative_box.visible = creative
 	creative_bar.visible = creative
 	survival_box.visible = not creative
+	survival_area.visible = not creative
 	weights_label.visible = not creative
 	var hands_text := _carried(inventory.hands_weight(), Inventory.HANDS_LIMIT)
 	var pockets_text := _carried(inventory.pockets_weight(), Inventory.POCKETS_LIMIT)
@@ -407,14 +454,17 @@ func refresh() -> void:
 	if not message.has_meta("said"):
 		message.text = _hint()
 
+# index : un onglet d'objets (0 à 3) ou INVENTORY_TAB (la grille de 5 × 10, tout à droite).
 func show_category(index: int) -> void:
-	category = clampi(index, 0, Inventory.CATEGORIES.size() - 1)
+	category = clampi(index, 0, INVENTORY_TAB)
 	tab_buttons[category].set_pressed_no_signal(true)
-	var objects: Array = Inventory.CATEGORIES[category].objets
+	var objects: Array = Inventory.CATEGORIES[category].objets if category < INVENTORY_TAB else []
 	for slot_index in range(catalog_slots.size()):
 		var slot: Slot = catalog_slots[slot_index]
 		slot.visible = slot_index < objects.size()
-		slot.show_item({"objet": objects[slot_index]} if slot_index < objects.size() else {})
+		slot.show_item(Inventory.catalog_item(objects[slot_index]) if slot_index < objects.size() else {})
+	if inventory != null:
+		refresh()
 
 func open() -> void:
 	message.remove_meta("said")
@@ -458,10 +508,12 @@ func _on_slot(button: int, area: String, index: int) -> void:
 	_show_cursor()
 
 func _on_catalog(button: int, index: int) -> void:
+	if category >= INVENTORY_TAB:
+		return
 	var objects: Array = Inventory.CATEGORIES[category].objets
 	if index >= objects.size():
 		return
-	var value := {"objet": objects[index]}
+	var value := Inventory.catalog_item(objects[index])
 	if button == MOUSE_BUTTON_RIGHT:
 		var free: Array = inventory.first_free()
 		if free.is_empty():

@@ -379,6 +379,7 @@ func _apply_to_game() -> void:
 	active_world.update_zones(active_world.player_coordinates())
 	active_world.player.crouch_toggle = settings.control_options.crouch_mode == "toggle"
 	active_world.player.run_mode = settings.control_options.run_mode
+	active_world.player.fly_stop_on_ground = settings.control_options.get("fly_mode", "ground") == "ground"
 
 # 0.0.7 : section Monde (en partie seulement) : mode de jeu du monde ouvert, Survie à gauche, Créatif à droite.
 # Enregistré aussitôt avec le monde (worlds.json et monde.json) ; pour l'instant, ne change rien d'autre.

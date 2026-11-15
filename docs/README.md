@@ -1,6 +1,41 @@
-# OrbMeka™ — prototype 0.0.7.4
+# OrbMeka™ — prototype 0.0.7.7
 
 Godot 4.7 / GDScript. Formes et couleurs simples ; assets externes seulement sous licence vérifiée (sons CC0, assets/sounds/CREDITS.txt).
+
+## 0.0.7.7 — Enjamber, pentes plus lentes, équipement à venir
+Version publiée (4 sur 4 : avec 0.0.7.5 et 0.0.7.6). Génération inchangée (version 32).
+- **Enjamber** : un obstacle bas devant soi (caillou, marche du terrain), jusqu'à 45 cm, se passe en avançant, sans sauter ; la vue suit en douceur. Plus haut (ou une pente) : on monte en marchant ou on saute.
+- **Pentes raides** : en montée, on marche moins vite (jusqu'à moitié moins près de la pente la plus raide qu'on puisse monter) ; en descente et de côté, vitesse normale.
+- **Équipement à venir** (écran d'inventaire en Survie, à droite) : 2 cases Sac, 2 Panier, 2 Travois (deux bâtons qu'on traîne), 2 Chariot (à roues), grisées, avec leur silhouette ; leurs cases de contenu apparaîtront en bas à gauche quand on les portera.
+- Issues pour plus tard : animations des bras (#224, #225, série 0.0.8) et des jambes et des pattes (#226, #227, série 0.0.9) ; écran de ce qu'on porte (#219) et objet en main en vue de derrière (#201) en 0.0.8.
+
+Tests réussis : step_over (nouveau : pentes, caillou enjambé, mur bloquant), inventory (équipement), et 35 autres (déplacement, contrôles, interface, arbres, terrain) (+ tests juridiques). Capture hors écran : écran de Survie avec l'équipement.
+À tester manuellement : enjamber des cailloux et des marches en jouant, monter une pente raide, sur le Web aussi.
+
+## 0.0.7.6 — Une main qui tient l'objet, poids réalistes
+Version locale (2 sur 4, correction demandée par l'utilisateur). Génération inchangée (version 32).
+- **Main à la première personne** (#201) : main droite en bas à droite, petite, faite dans Blender (sources_blender/main/generer_main.py → assets/hands/main_droite.glb), couleur de peau du personnage ; elle tient l'objet choisi (petit tas de terre ou de sable, caillou, éclat, pomme, noisette) et bouge un peu quand on creuse ou qu'on pose. Pioche : son propre dessin, la main est cachée.
+- **Pentes** : on monte un peu plus facilement les petites pentes (jusqu'à 52° au lieu de 45°), et on reste collé au sol en descente.
+- **Tout se pose** : le gravier se pose enfin (oublié en 0.0.7.3) ; matières dans le terrain, cailloux, éclats et fruits au sol ; la pioche ne se pose pas.
+- **Poids plus réalistes** (une grosse poignée d'environ 0,25 L × la densité) : terre 325 g, sable et boue 400 g, gravier 440 g, argile 450 g, pierre, calcaire et silex 650 g, pierre sombre 750 g. Mains : 1,400 kg en tout ; caillou de taille 6 : 1,100 kg, il se ramasse maintenant.
+- **Silex** : l'icône du rognon a l'aspect des rognons du monde (blanchâtre, taches sombres), toujours la même.
+- **Fruits reposés identiques** : une pomme ou une noisette cueillie garde sa vraie taille dans l'arbre ; au sol et dans la main, même petit modèle que dans l'arbre (avec le dégradé rouge et jaune).
+- **Contrôles → Arrêter de voler au sol** : Exception (par défaut, à gauche) : en volant, descendre jusqu'à toucher le sol arrête le vol ; Toujours : on vole encore au sol.
+
+Tests réussis : inventory (main, gravier, taille 6, diamètre des fruits), fly (Exception et Toujours), trees, forests, smooth_terrain, controls, controls_groups, key_combos, crouch_mode, run_mode, shortcuts_selection, prototype, action_timing, window_resize, fps_creation, display_settings, breaking, reach, game_mode, menu, body, character, jump_profile, crouch, swim, settings_walk, interface_info, pause, pause_settings, history_resume (+ tests juridiques). Captures hors écran : la main avec terre, pomme, silex, sable, main vide.
+À tester manuellement : monter les pentes, place et taille de la main en jouant, vol qui s'arrête au sol.
+
+## 0.0.7.5 — Objets uniques, cueillette, pommes de toutes les couleurs
+Version locale (1 sur 4, correction demandée par l'utilisateur). Génération inchangée (version 32) ; les mondes gardent les mêmes arbres.
+- **Chaque objet garde toutes ses caractéristiques** (taille, forme, orientation, poids, couleur, coups reçus), ramassé, porté, reposé ou sauvegardé : un rognon de silex reposé est le même qu'avant. Des objets du même type mais de tailles différentes vont dans la même case, chacun gardé à part ; le dernier pris est le premier reposé. Cailloux et éclats au sol ont le rendu des cailloux du monde.
+- **Ramasser (R) et récupérer (R + I) remplissent la case choisie** de la barre ; si toute la barre est pleine, une case libre de l'inventaire ; si seule la case choisie est prise : message, l'objet reste au sol.
+- **Cueillir** (Survie et Créatif) : R en visant vraiment une pomme ou une noisette dans un pommier ou un noisetier (rien à travers le tronc). Le fruit disparaît de cet arbre seulement ; sauvegardé dans objets.json (« fruits_cueillis »).
+- **Pommes en trois tailles** (7,5, 10,5 et 13 cm ; la taille 2, la normale, un peu plus grande qu'avant) et **cinq couleurs** : verte, rouge, jaune, brune, moitié rouge moitié jaune. Pommes et noisettes refaites dans le jeu en petits fruits lisses, dessinés en série (un même petit modèle pour tous : léger).
+- **Créatif** : onglets en images Matériaux naturels (un seul tas de pierre, terre et sable), Cailloux (pierre, calcaire, silex, taille 4), Fruits (pomme rouge, noisette), Outils, et tout à droite Inventaire (un petit sac) : la grille de 5 lignes n'apparaît que là ; sinon les objets de l'onglet et la barre.
+- Anciennes sauvegardes (0.0.7.3, 0.0.7.4) relues : cailloux et éclats deviennent des objets uniques.
+
+Tests réussis : inventory (92 vérifications : caractéristiques gardées, piles, case choisie, cueillette en visant, onglets), trees (modèles sans fruits, fruits retrouvés), forests, smooth_terrain, shortcuts_selection, prototype, action_timing, window_resize, fps_creation, display_settings, breaking, reach, game_mode, menu, plants, world_consistency, terrain_visuals, history_resume (+ tests juridiques). Captures hors écran : onglets, objets au sol, pommier, pomme de près.
+À tester manuellement : cueillir en visant (marge de visée), aspect des pommes dans les arbres et sur le Web.
 
 ## 0.0.7.4 — Inventaire plus joli, mains et poches plus grandes
 Version publiée (4 sur 4, correction demandée par l'utilisateur). Génération inchangée (version 32).
