@@ -155,6 +155,49 @@ func _mesh(value: Dictionary) -> Mesh:
 		return _sticks[step]
 	return Rocks.pebble_mesh(clampi(int(value.get("forme", 1)), 1, 7))
 
+# 0.0.7.12 : petit feuillage d'un rameau : quelques feuilles en croix sur la moitié fine du bâton (un seul modèle,
+# repère du bâton : y le long du bâton de 0 à 1, x et z en travers ; mis à la taille de chaque rameau par leaf_basis).
+static var _tuft: ArrayMesh
+
+static func leaf_tuft() -> ArrayMesh:
+	if _tuft != null:
+		return _tuft
+	var points := PackedVector3Array()
+	var normals := PackedVector3Array()
+	var uvs := PackedVector2Array()
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 712
+	for leaf in range(14):
+		var y := rng.randf_range(0.1, 0.48)
+		# Vers les côtés et vers le haut seulement (bâton couché : -z du modèle est le haut), pas dans le sol.
+		var angle := rng.randf_range(0.0, PI)
+		var out := Vector3(cos(angle), 0.0, -sin(angle))
+		var size := rng.randf_range(0.09, 0.16)
+		var base := Vector3(0.0, y, 0.0) + out * 0.02
+		var tip := base + (out * 0.9 + Vector3(0.0, 0.35, 0.0)).normalized() * size * 2.0
+		var side := out.cross(Vector3.UP).normalized() * size * 0.55
+		var corners := [base - side, base + side, tip + side, tip - side]
+		var uv := [Vector2(0, 1), Vector2(1, 1), Vector2(1, 0), Vector2(0, 0)]
+		for index in [0, 1, 2, 0, 2, 3]:
+			points.append(corners[index])
+			normals.append((out + Vector3.UP * 0.5).normalized())
+			uvs.append(uv[index])
+	var arrays := []
+	arrays.resize(Mesh.ARRAY_MAX)
+	arrays[Mesh.ARRAY_VERTEX] = points
+	arrays[Mesh.ARRAY_NORMAL] = normals
+	arrays[Mesh.ARRAY_TEX_UV] = uvs
+	_tuft = ArrayMesh.new()
+	_tuft.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arrays)
+	return _tuft
+
+# Couché comme son bâton (le bout fin vers +y du modèle), à sa longueur ; feuilles à la taille d'un vrai rameau.
+static func leaf_basis(value: Dictionary) -> Basis:
+	var length := float(value.get("longueur", 0.5))
+	var across := clampf(length * 0.6, 0.25, 0.9)
+	var turn := Basis(Vector3.UP, float(value.get("rotation", 0.0)))
+	return turn * Basis(Vector3.RIGHT, PI * 0.5) * Basis.from_scale(Vector3(across, length, across))
+
 # Aspect des pierres (0 pierre, 1 calcaire, 2 silex) ou -1 : couleur unie.
 static func _look(value: Dictionary) -> int:
 	return int(Inventory.ITEMS.get(value.get("objet", ""), {}).get("aspect", -1))
@@ -235,6 +278,12 @@ func _redraw() -> void:
 		if not groups.has(key):
 			groups[key] = {"item": item, "stone": stone, "list": []}
 		groups[key].list.append(entry)
+		# 0.0.7.12 : rameau : son petit feuillage (le même pour tous, aux feuilles de son essence).
+		if Inventory.ITEMS.get(item.objet, {}).get("feuilles", false):
+			var leaves_key := "feuilles/%d" % int(item.get("essence", 0))
+			if not groups.has(leaves_key):
+				groups[leaves_key] = {"item": item, "stone": false, "leaves": true, "list": []}
+			groups[leaves_key].list.append(entry)
 	for key in _drawn.keys():
 		if not groups.has(key):
 			_drawn[key].queue_free()
@@ -250,14 +299,17 @@ func _redraw() -> void:
 			# Pierres : comme les cailloux du monde, couleur blanche et aspect dans les données de chaque objet.
 			drawn.multimesh.use_colors = group.stone or _kind(group.item) == "fruit"
 			drawn.multimesh.use_custom_data = group.stone
-			drawn.multimesh.mesh = _mesh(group.item)
-			drawn.material_override = _plain_material(group.item)
+			drawn.multimesh.mesh = leaf_tuft() if group.get("leaves", false) else _mesh(group.item)
+			drawn.material_override = Trees.material(clampi(int(group.item.get("essence", 0)), 0, 3), "leaves") if group.get("leaves", false) else _plain_material(group.item)
 			add_child(drawn)
 			_drawn[key] = drawn
 		var multi := drawn.multimesh
 		multi.instance_count = group.list.size()
 		for at in range(group.list.size()):
 			var entry: Dictionary = group.list[at]
+			if group.get("leaves", false):
+				multi.set_instance_transform(at, Transform3D(leaf_basis(entry.item), entry.position))
+				continue
 			multi.set_instance_transform(at, Transform3D(_basis(entry.item), entry.position))
 			if group.stone:
 				multi.set_instance_color(at, Color.WHITE)

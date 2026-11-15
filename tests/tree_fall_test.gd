@@ -1,8 +1,11 @@
 extends SceneTree
-# 0.0.7.9 : abattre un arbre (temps selon l'épaisseur du bois visé, anneau de chargement), il tombe vers le joueur et
-# se couche (branches au-dessus du sol), reste tombé une fois rouvert ; le couper en deux là où on vise ; 40 cm au plus et
-# 5 s par tranche de 10 cm (0.0.7.11) ; tronc presque sans feuilles = bois (0.0.7.11) ; tailles justes après chaque coupe.
+# Arbres abattus et coupés : temps selon l'épaisseur visée (5 s par tranche de 10 cm, 40 cm au plus à mains nues,
+# 0.0.7.11), anneau, chute vers le joueur, arbre couché sur le sol, gardé une fois rouvert.
+# 0.0.7.12 : couper SEULEMENT la pièce visée (tree_parts.gd) : tronc couché coupé en deux (pied nu = bûche à sa taille,
+# le haut écarté et tourné), une branche cassée = un bâton à sa taille (les autres restent), une seule tige de noisetier
+# tombe, abattre plus haut laisse une souche ; tailles justes ; rouvert ; ramassé avec R.
 const Trees = preload("res://scripts/trees.gd")
+const TreeParts = preload("res://scripts/tree_parts.gd")
 const Inventory = preload("res://scripts/inventory.gd")
 var checks := 0
 var failures := 0
@@ -23,8 +26,8 @@ func frames(count: int) -> void:
 		await process_frame
 		await physics_frame
 
-func make_tree(world: Node3D, id: String, at: Vector3) -> Node3D:
-	var tree: Node3D = Trees.tree_body(Trees.HAZEL, 1)
+func make_tree(world: Node3D, id: String, kind: int, size: int, at: Vector3) -> Node3D:
+	var tree: Node3D = Trees.tree_body(kind, size)
 	tree.set_meta("id", id)
 	var column: Vector2i = world._player_column()
 	tree.set_meta("column", column)
@@ -32,6 +35,16 @@ func make_tree(world: Node3D, id: String, at: Vector3) -> Node3D:
 	tree.global_position = Vector3(at.x, world.terrain.height_at(at.x, at.z) - 0.05, at.z)
 	world.column_objects[column] = world.column_objects.get(column, []) + [tree]
 	return tree
+
+func parts_of(world: Node3D, id: String) -> Array:
+	return world.column_objects[world._player_column()].filter(func(node): return is_instance_valid(node) and not node.is_queued_for_deletion() and node.get_meta("id", "") == id)
+
+func look(player: Node3D, point: Vector3) -> void:
+	player.camera.look_at(point)
+	await frames(2)
+
+func new_wood(world: Node3D, before: int) -> Array:
+	return world.ground.entries.slice(before).map(func(entry): return entry.item)
 
 func _run() -> void:
 	var world: Node3D = load("res://scenes/world.tscn").instantiate()
@@ -41,134 +54,191 @@ func _run() -> void:
 	player.set_physics_process(false)
 	world.set_game_mode(Inventory.SURVIVAL)
 	var feet: Vector3 = player.global_position
-	var tree := make_tree(world, "noisetier-essai", feet + Vector3(1.6, 0.0, 0.0))
+	world.picked_fruits["pommier-essai"] = range(300)
+	# --- A. Pommier visé près du pied : temps selon l'épaisseur, puis il tombe en entier, depuis la racine. ---
+	var apple := make_tree(world, "pommier-essai", Trees.APPLE, 1, feet + Vector3(1.6, 0.0, 0.0))
 	await frames(5)
-	player.camera.look_at(tree.global_position + Vector3.UP * 0.5)
-	await frames(2)
-	var first_aim: Dictionary = player.get_target()
-	check(not first_aim.is_empty() and first_aim.collider == tree, "aiming at the trunk (" + (str(first_aim.collider.name) + " at " + str(first_aim.position) if not first_aim.is_empty() else "nothing") + ", tree at " + str(tree.global_position) + ", eye at " + str(player.camera.global_position) + ")")
-	# 0.0.7.11 : temps selon l'épaisseur du bois visé : 5 s par tranche de 10 cm.
-	check(not world.step_chop(0.01, true) and world.chop_thickness > 0.0 and world.chop_thickness <= 0.15, "thickness measured at the aimed point (%.1f cm)" % (world.chop_thickness * 100.0))
-	var standing_thickness: float = world.chop_thickness
+	await look(player, apple.global_position + Vector3.UP * 0.3)
+	var foot_aim: Dictionary = world.aimed_wood(player.get_target())
+	var skeleton: Dictionary = TreeParts.skeleton(Trees.APPLE, 1, 0)
+	check(not foot_aim.is_empty() and foot_aim.tree == apple and skeleton.pieces[foot_aim.piece].root, "aiming at the trunk near its foot")
+	check(not world.step_chop(0.01, true) and world.chop_thickness > 0.05 and world.chop_thickness <= 0.40, "thickness measured at the aimed point (%.1f cm)" % (world.chop_thickness * 100.0))
 	var expected: float = maxf(5.0 * world.chop_thickness / 0.1, 0.5)
+	check(is_equal_approx(world.chop_seconds, expected), "chop time from thickness: 5 s per 10 cm (%.2f s)" % world.chop_seconds)
 	check(world.MAX_HAND_THICKNESS == 0.40 and is_equal_approx(world.CHOP_SECONDS * 0.40 / 0.1, 20.0), "40 cm at most by hand, 20 s for 40 cm")
-	# 0.0.7.11 : le bas d'un petit pommier porte quelques rameaux feuillus (has_leaves vrai) : c'est quand même du bois.
 	check(Trees.has_leaves(Trees.APPLE, 1, 0, -1.0, 0.9) and Trees.is_bare_wood(Trees.APPLE, 1, 0, -1.0, 0.9), "a trunk with a few low leafy twigs is bare wood")
-	check(not Trees.is_bare_wood(Trees.APPLE, 1, 0, -1.0, 2.0) and not Trees.is_bare_wood(Trees.APPLE, 1, 0, 2.0, 5.0), "a piece with much of the crown is not")
-	check(is_equal_approx(world.chop_seconds, expected), "chop time from thickness (%.2f s)" % world.chop_seconds)
 	check(not world.step_chop(world.chop_seconds * 0.5 - 0.01, true), "half way not cut yet")
 	world._update_ring()
 	check(world.ring.visible and absf(world.ring.progress - 0.5) < 0.01, "the ring is half full")
-	check(world.step_chop(world.chop_seconds * 0.5 + 0.1, true) and tree.has_meta("falling"), "then the tree falls")
+	check(world.step_chop(world.chop_seconds * 0.5 + 0.1, true) and apple.has_meta("falling") and parts_of(world, "pommier-essai").size() == 1, "aimed near the foot: the whole tree falls from the root")
 	await frames(150)
-	var up: Vector3 = tree.global_basis.y.normalized()
-	var toward: Vector3 = (feet - tree.global_position) * Vector3(1, 0, 1)
-	check(absf(up.y) < 0.2 and up.dot(toward.normalized()) > 0.7, "lying down, fallen toward the player")
-	check(world.fallen_trees.has("noisetier-essai") and world.fallen_trees["noisetier-essai"].has("position"), "the fallen tree is remembered")
-	# Rien du modèle sous le vrai sol (à quelques centimètres près).
-	var detail: MeshInstance3D = tree.get_node("Modele/Detail")
+	var up: Vector3 = apple.global_basis.y.normalized()
+	var toward: Vector3 = (feet - apple.global_position) * Vector3(1, 0, 1)
+	check(absf(up.y) < 0.25 and up.dot(toward.normalized()) > 0.7, "lying down, fallen toward the player")
+	check(world.fallen_trees.has("pommier-essai") and world.fallen_trees["pommier-essai"].has("position"), "the fallen tree is remembered")
+	var detail: MeshInstance3D = apple.get_node("Modele/Detail")
 	var points: PackedVector3Array = detail.mesh.surface_get_arrays(0)[Mesh.ARRAY_VERTEX]
 	var below := 0
-	var place: Transform3D = detail.global_transform
 	for index in range(0, points.size(), 7):
-		var at: Vector3 = place * points[index]
-		if at.y < world._ground_at(at, tree) - 0.1:
+		var at: Vector3 = detail.global_transform * points[index]
+		if at.y < world._ground_at(at, apple) - 0.1:
 			below += 1
 	check(below == 0, "branches pushed above the ground (%d points below)" % below)
-	# Rouvert : un nouvel arbre avec le même numéro est couché tout de suite.
-	var again := make_tree(world, "noisetier-essai", feet + Vector3(1.6, 0.0, 0.0))
+	var again := make_tree(world, "pommier-essai", Trees.APPLE, 1, feet + Vector3(1.6, 0.0, 0.0))
 	world._restore_fallen(again)
-	check(absf(again.global_basis.y.normalized().y) < 0.2 and again.global_position.distance_to(tree.global_position) < 0.05, "restored lying at the same place")
+	check(absf(again.global_basis.y.normalized().y) < 0.25 and again.global_position.distance_to(apple.global_position) < 0.05, "restored lying at the same place")
 	world.column_objects[world._player_column()].erase(again)
-	again.queue_free()
-	# 0.0.7.9 : couper en deux à l'endroit visé : le bas (bois nu) devient un tronc ou une branche au sol, à sa longueur ;
-	# le haut (branches et feuilles) reste couché à sa place, avec sa forme.
+	again.free()
+	# --- B. Tronc couché coupé sous les premières branches : le pied nu devient une bûche, le haut reste couché. ---
 	world.set_game_mode(Inventory.CREATIVE)
+	var trunk := 0
+	for number in range(skeleton.pieces.size()):
+		if skeleton.pieces[number].root and skeleton.pieces[number].length > skeleton.pieces[trunk].length:
+			trunk = number
+	var stem: Dictionary = skeleton.pieces[trunk]
+	var scale: float = apple.scale.x
+	await look(player, world._model_of(apple) * (stem.start + stem.direction * 0.6))
+	var trunk_aim: Dictionary = world.aimed_wood(player.get_target())
+	check(not trunk_aim.is_empty() and trunk_aim.tree == apple and trunk_aim.piece == trunk and absf(trunk_aim.t - 0.6) < 0.15, "aiming at the lying trunk (t %.2f)" % trunk_aim.get("t", -1.0))
+	var pivot: Vector3 = world._model_of(apple) * (stem.start + stem.direction * float(trunk_aim.get("t", 0.6)))
+	var lying_basis: Basis = apple.global_basis
 	var before: int = world.ground.entries.size()
-	var trunk_point: Vector3 = tree.global_position + tree.global_basis.y.normalized() * 0.15
-	player.camera.look_at(trunk_point)
-	await frames(2)
-	var aimed: Dictionary = player.get_target()
-	check(not aimed.is_empty() and aimed.collider.get_meta("arbre", aimed.collider) == tree, "aiming at the fallen trunk")
-	check(world.step_chop(1.1, true) and world.fallen_trees["noisetier-essai"].get("cuts", []).size() == 1, "cut in two (creative: 1 s)")
+	check(world.step_chop(1.1, true), "cut (creative: 1 s)")
 	await frames(30)
-	var wood: Array = world.ground.entries.slice(before).map(func(entry): return entry.item)
-	check(wood.size() == 1 and wood[0].objet in ["tronc", "branche"], "the bare lower part is one piece of wood on the ground")
-	var cut_at: float = world.fallen_trees["noisetier-essai"].cuts[0]
-	check(not wood.is_empty() and absf(wood[0].longueur - cut_at * tree.scale.x) < 0.02, "its length is the real one (%.2f m)" % (wood[0].longueur if not wood.is_empty() else 0.0))
-	check(wood.all(func(item): return item.essence == Trees.HAZEL and item.age >= 1 and item.age <= 5 and item.souplesse >= 1 and item.poids > 0.0), "it has its essence, age, suppleness and weight")
-	check(is_instance_valid(tree) and tree.has_meta("range") and absf(float(tree.get_meta("range")[0]) - cut_at) < 0.002 and not world.cut_trees.has("noisetier-essai"), "the leafy top stays, lying")
-	var kept: int = tree.get_node("Modele/Detail").mesh.get_surface_count()
-	check(kept >= 1, "the top keeps its shape")
-	# 0.0.7.11 : tailles : le haut commence à la coupe et finit à la cime ; avec le bois, la longueur de l'arbre entier.
-	var top_height: float = Trees.top(Trees.HAZEL, 1, 0)
-	var top_box: AABB = Trees.mesh_range(Trees.HAZEL, 1, 0, cut_at, top_height + 1.0).get_aabb()
-	check(absf(top_box.end.y - top_height) < 0.01 and top_box.position.y > cut_at - 0.2 and top_box.position.y < cut_at + 0.2, "the top goes from the cut (%.2f, mesh from %.2f) to the treetop (%.2f)" % [cut_at, top_box.position.y, top_box.end.y])
-	check(not wood.is_empty() and absf(wood[0].longueur + (top_height - cut_at) * tree.scale.x - top_height * tree.scale.x) < 0.02, "wood + top = the whole tree's length")
-	# Comme en jouant (0.0.7.9) : on s'approche du haut couché (seul le tronc est solide), on le recoupe dans la couronne,
-	# une fente se voit entre les deux morceaux, et le bois coupé a la taille du tronc.
-	var wood_piece: Dictionary = wood[0]
-
-	# 0.0.7.11 : pas plus fin qu'au point visé pour abattre, ni mesuré dans l'évasement des racines (5 cm du pied).
-	var flare: float = Trees.wood_thickness(Trees.HAZEL, 1, 0, Vector3(0.0, 0.05, 0.0)) * tree.scale.x
-	check(wood_piece.epaisseur >= wood_piece.fin and wood_piece.epaisseur / 100.0 >= standing_thickness * 0.95 and wood_piece.epaisseur / 100.0 < flare * 0.99, "the cut wood keeps its real thickness (%.1f to %.1f cm, standing %.1f cm, root flare %.1f cm)" % [wood_piece.fin, wood_piece.epaisseur, standing_thickness * 100.0, flare * 100.0])
-	var solid_shapes: int = tree.get_children().filter(func(child): return child is CollisionShape3D).size()
-	var aim: Node = tree.get_node_or_null("Visee")
-	check(solid_shapes <= 1 and aim != null and aim.collision_layer == 2 and (player.collision_mask & 2) == 0, "only the trunk is solid, the crown can be walked into and still aimed at")
-	var axis: Vector3 = tree.global_basis.y.normalized()
-	var crown_spot: Vector3 = tree.global_position + axis * 1.2 + axis.cross(Vector3.UP).normalized() * 0.6
-	var standing := Transform3D(Basis.IDENTITY, Vector3(crown_spot.x, world._ground_at(crown_spot, tree) + 0.4, crown_spot.z))
-	var blocked := KinematicCollision3D.new()
-	var hit_crown: bool = player.test_move(standing, -axis.cross(Vector3.UP).normalized() * 0.5, blocked)
-	check(not hit_crown, "the player walks into the lying crown")
-	var crown_cut: Vector3 = tree.global_position + axis * 1.4
-	player.camera.look_at(crown_cut)
-	await frames(2)
-	var crown_aim: Dictionary = player.get_target()
-	check(not crown_aim.is_empty() and crown_aim.collider.get_meta("arbre", crown_aim.collider) == tree, "aiming at the crown")
-	var pieces_before: int = world.column_objects[world._player_column()].filter(func(node): return is_instance_valid(node) and node.get_meta("id", "") == "noisetier-essai").size()
-	world.step_chop(1.1, true)
-	var pieces: Array = world.column_objects[world._player_column()].filter(func(node): return is_instance_valid(node) and node.get_meta("id", "") == "noisetier-essai")
-	check(pieces.size() == pieces_before + 1, "the crown is cut in two")
-	if pieces.size() >= 2:
-		var gap: float = pieces[-1].global_position.distance_to(pieces[0].global_position)
-		check(absf(gap - world.CUT_GAP) < 0.03, "a visible gap between the two pieces (%.2f m)" % gap)
-		# 0.0.7.11 : coupé là où on visait (le long du tronc), et les deux morceaux se suivent sans rien perdre.
-		var cuts: Array = world.fallen_trees["noisetier-essai"].cuts
-		var second: float = float(cuts[-1])
-		var aimed_height: float = (crown_aim.position - pieces[0].global_position).dot(axis) / tree.scale.x
-		check(absf(second - aimed_height) < 0.02, "cut where aimed (%.2f m, aimed %.2f m)" % [second, aimed_height])
-		var ranges: Array = pieces.map(func(node): return node.get_meta("range"))
-		ranges.sort_custom(func(a, b): return float(a[0]) < float(b[0]))
-		check(ranges.size() == 2 and absf(float(ranges[0][0]) - cut_at) < 0.002 and absf(float(ranges[0][1]) - second) < 0.002 and absf(float(ranges[1][0]) - second) < 0.002, "the two pieces follow each other: %s" % str(ranges))
-	# Rouvert : le haut seulement.
-	var reopened := make_tree(world, "noisetier-essai", feet + Vector3(1.6, 0.0, 0.0))
+	var cuts: Array = world.tree_cuts.get("pommier-essai", {}).get("coupes", [])
+	check(cuts.size() == 1 and int(cuts[0][0]) == trunk and absf(float(cuts[0][1]) - float(trunk_aim.get("t", 0.0))) < 0.002, "cut where aimed (%s)" % str(cuts))
+	var cut_t: float = float(cuts[0][1]) if not cuts.is_empty() else 0.6
+	var wood: Array = new_wood(world, before)
+	check(wood.size() == 1 and wood[0].objet == "tronc" and absf(wood[0].longueur - cut_t * scale) < 0.03, "the bare foot is one log at its real length (%.2f m, cut at %.2f m)" % [wood[0].longueur if not wood.is_empty() else 0.0, cut_t * scale])
+	var flare: float = Trees.wood_thickness(Trees.APPLE, 1, 0, Vector3(0.0, 0.05, 0.0)) * scale
+	check(not wood.is_empty() and wood[0].epaisseur >= wood[0].fin and wood[0].epaisseur / 100.0 > 0.05 and wood[0].epaisseur / 100.0 < flare * 0.99, "the log keeps its real thickness, not the root flare (%.1f to %.1f cm, flare %.1f cm)" % [wood[0].fin if not wood.is_empty() else 0.0, wood[0].epaisseur if not wood.is_empty() else 0.0, flare * 100.0])
+	var pieces := parts_of(world, "pommier-essai")
+	check(pieces.size() == 1 and int(pieces[0].get_meta("part", 0)) == 1, "the leafy top stays, lying (the foot node became wood)")
+	var top: Node3D = pieces[0] if not pieces.is_empty() else apple
+	var cut_end: Vector3 = world._model_of(top) * (stem.start + stem.direction * cut_t)
+	check(absf(cut_end.distance_to(pivot) - world.CUT_GAP) < 0.03, "a visible gap at the cut (%.2f m)" % cut_end.distance_to(pivot))
+	var turn: float = top.global_basis.y.normalized().angle_to(lying_basis.y.normalized())
+	check(absf(turn - world.CUT_TURN) < 0.03, "the cut piece is turned aside (%.1f°)" % rad_to_deg(turn))
+	check(top.get_node("Modele").get_children().any(func(child): return child.name.begins_with("Coupe") and child.mesh.get_surface_count() > 0), "light wood face on the cut end")
+	var span: Array = TreeParts.main_span(Trees.APPLE, 1, 0, cuts, 1)
+	check(span.size() == 3 and int(span[0]) == trunk and absf(float(span[1]) - cut_t) < 0.002 and absf(float(span[2]) - stem.length) < 0.01, "the top goes from the cut to the treetop: log + top = the whole trunk")
+	# --- C. Une branche du haut cassée : seulement elle, un bâton à sa taille ; les autres restent. ---
+	var branch := -1
+	var sibling := -1
+	for number in range(skeleton.pieces.size()):
+		var piece: Dictionary = skeleton.pieces[number]
+		if piece.parent == trunk and piece.attach > cut_t + 0.1 and piece.length > 0.5:
+			if branch < 0:
+				branch = number
+			elif sibling < 0:
+				sibling = number
+	var bough: Dictionary = skeleton.pieces[branch]
+	var share_before := TreeParts.leaf_share(Trees.APPLE, 1, 0, cuts, 1)
+	await look(player, world._model_of(top) * (bough.start + bough.direction * bough.length * 0.5))
+	var branch_aim: Dictionary = world.aimed_wood(player.get_target())
+	# (Une autre branche peut être devant : c'est elle qu'on vise alors.)
+	check(not branch_aim.is_empty() and branch_aim.tree == top and not skeleton.pieces[branch_aim.piece].root, "aiming at one branch")
+	if not branch_aim.is_empty():
+		branch = branch_aim.piece
+		bough = skeleton.pieces[branch]
+	before = world.ground.entries.size()
+	check(world.step_chop(1.1, true), "the branch is broken")
+	await frames(30)
+	cuts = world.tree_cuts["pommier-essai"].coupes
+	var stick: Array = new_wood(world, before)
+	var broken_t: float = float(cuts[-1][1])
+	check(cuts.size() == 2 and int(cuts[-1][0]) == branch and stick.size() == 1 and absf(stick[0].longueur - (bough.length - broken_t) * scale) < 0.03, "it is one stick at its real length (%.2f m)" % (stick[0].longueur if not stick.is_empty() else 0.0))
+	var share_after := TreeParts.leaf_share(Trees.APPLE, 1, 0, cuts, 1)
+	check(share_after < share_before and share_after > share_before * 0.5, "only this branch's leaves are gone (%.0f%% then %.0f%%)" % [share_before * 100.0, share_after * 100.0])
+	check(sibling < 0 or TreeParts.assignment(Trees.APPLE, 1, 0, cuts).ranges[1].has(sibling), "the other branches stay")
+	check(parts_of(world, "pommier-essai").size() == 1, "no new lying piece for a branch")
+	# 0.0.7.12 : avec ses feuilles : un rameau, nommé selon son arbre (un seul petit feuillage pour tous).
+	check(not stick.is_empty() and stick[0].objet == "rameau" and Inventory.item_name(stick[0]) == "Rameau de pommier" and Inventory.item_name({"objet": "rameau", "essence": Trees.HAZEL}) == "Tige de noisetier", "a leafy branch is a twig named after its tree")
+	check(world.ground.get_children().any(func(child): return child is MultiMeshInstance3D and child.multimesh.mesh == world.ground.leaf_tuft()), "its leaves are drawn on the ground")
+	# --- D. Noisetier : une tige coupée à 1 m : seulement elle tombe, les autres restent debout. ---
+	var hazel := make_tree(world, "noisetier-essai", Trees.HAZEL, 1, feet + Vector3(0.0, 0.0, 1.9))
+	world.picked_fruits["noisetier-essai"] = range(300)
+	await frames(5)
+	var bush: Dictionary = TreeParts.skeleton(Trees.HAZEL, 1, 0)
+	var stems: Array = []
+	for number in range(bush.pieces.size()):
+		if bush.pieces[number].root and bush.pieces[number].tip.y > 0.5:
+			stems.append(number)
+	check(stems.size() >= 3, "the hazel has several stems (%d)" % stems.size())
+	# La tige la plus proche du joueur, visée à 1 m de son pied.
+	stems.sort_custom(func(a, b): return (world._model_of(hazel) * bush.pieces[a].tip).distance_to(feet) < (world._model_of(hazel) * bush.pieces[b].tip).distance_to(feet))
+	var cane: Dictionary = bush.pieces[stems[0]]
+	await look(player, world._model_of(hazel) * (cane.start + cane.direction * 1.0))
+	var cane_aim: Dictionary = world.aimed_wood(player.get_target())
+	check(not cane_aim.is_empty() and cane_aim.tree == hazel and bush.pieces[cane_aim.piece].root, "aiming at one hazel stem")
+	var aimed_stem: int = cane_aim.get("piece", stems[0])
+	check(world.step_chop(1.1, true) and not hazel.has_meta("falling") and not world.fallen_trees.has("noisetier-essai"), "the bush stays standing")
+	var falling := parts_of(world, "noisetier-essai").filter(func(node): return node.has_meta("falling"))
+	check(falling.size() == 1, "only the cut stem falls")
+	await frames(150)
+	var hazel_cuts: Array = world.tree_cuts["noisetier-essai"].coupes
+	var others := stems.filter(func(number): return number != aimed_stem)
+	check(others.all(func(number): return TreeParts.assignment(Trees.HAZEL, 1, 0, hazel_cuts).ranges[0].has(number) and absf(TreeParts.assignment(Trees.HAZEL, 1, 0, hazel_cuts).ranges[0][number].y - bush.pieces[number].length) < 0.2), "the other stems stay whole")
+	var state: String = world.tree_cuts["noisetier-essai"].morceaux.get("1", {}).get("etat", "")
+	check(state in ["couche", "bois"], "the stem has fallen and lies (%s)" % state)
+	var cane_span: Array = TreeParts.main_span(Trees.HAZEL, 1, 0, hazel_cuts, 1)
+	check(cane_span.size() == 3 and int(cane_span[0]) == aimed_stem and absf(float(cane_span[1]) - float(hazel_cuts[0][1])) < 0.002, "the fallen stem starts at the cut")
+	if state == "couche":
+		var lying_cane: Array = parts_of(world, "noisetier-essai").filter(func(node): return int(node.get_meta("part", 0)) == 1)
+		check(lying_cane.size() == 1 and absf(lying_cane[0].global_basis.y.normalized().y) < 0.5, "the stem lies on the ground")
+	# Rouvert : la tige couchée revient à sa place.
+	var saved_cane: Dictionary = world.tree_cuts["noisetier-essai"].morceaux.get("1", {})
+	var reopened := make_tree(world, "noisetier-essai", Trees.HAZEL, 1, feet + Vector3(0.0, 0.0, 1.9))
+	var count_before: int = parts_of(world, "noisetier-essai").size()
 	world._restore_fallen(reopened)
-	world._restore_pieces(reopened)
-	check(reopened.has_meta("range") and absf(float(reopened.get_meta("range")[0]) - cut_at) < 0.002, "reopened: only the top is there")
-	world.column_objects[world._player_column()].erase(reopened)
-	reopened.queue_free()
-	# Ramasser le morceau de bois (R).
+	world._restore_parts(reopened)
+	var count_after: int = parts_of(world, "noisetier-essai").size()
+	check(count_after == count_before + (1 if saved_cane.get("etat", "") == "couche" else 0), "reopened: the bush and its lying stem come back")
+	for node in parts_of(world, "noisetier-essai"):
+		if node != hazel and (node == reopened or (int(node.get_meta("part", 0)) == 1 and count_after > count_before and node == parts_of(world, "noisetier-essai")[-1])):
+			world.column_objects[world._player_column()].erase(node)
+			node.free()
+	# --- E. Pommier debout coupé à 65 cm (sous ses branches) : une souche reste, le haut tombe depuis la coupe. ---
+	world.picked_fruits["pommier-haut"] = range(300)
+	# Le haut couché du premier pommier (entre le joueur et ce nouvel arbre) retiré de l'essai.
+	for node in parts_of(world, "pommier-essai"):
+		world.column_objects[world._player_column()].erase(node)
+		node.free()
+	var tall := make_tree(world, "pommier-haut", Trees.APPLE, 1, feet + Vector3(0.0, 0.0, -1.9))
+	await frames(5)
+	var high_point: Vector3 = world._model_of(tall) * (stem.start + stem.direction * 0.65)
+	await look(player, high_point)
+	var high_aim: Dictionary = world.aimed_wood(player.get_target())
+	check(not high_aim.is_empty() and high_aim.tree == tall and high_aim.piece == trunk, "aiming at the trunk at 65 cm (%s, %s)" % [str(high_aim.get("tree")), str(high_aim.get("piece"))])
+	world.step_chop(1.1, true)
+	check(not tall.has_meta("falling") and not world.fallen_trees.has("pommier-haut") and parts_of(world, "pommier-haut").size() == 2, "a stump stays, the top falls")
+	var stump_height := 0.0
+	for child in tall.get_children():
+		if child is CollisionShape3D:
+			stump_height = child.shape.height
+	var high_t: float = float(world.tree_cuts["pommier-haut"].coupes[0][1])
+	check(absf(stump_height - (stem.start + stem.direction * high_t).y) < 0.1, "the stump is as high as the cut (%.2f m)" % stump_height)
+	await frames(150)
+	# --- F. Ramasser le bâton (R). ---
 	world.inventory.select(5)
-	var index: int = before
-	# Viser le morceau ; les noisettes du haut (toujours là) mises de côté pour ce test.
-	world.picked_fruits["noisetier-essai"] = range(200)
-	player.camera.look_at(world.ground.entries[index].position)
-	await frames(2)
+	var index: int = world.ground.entries.size() - 1
+	for at in range(world.ground.entries.size()):
+		if world.ground.entries[at].item.get("objet") == "branche" or world.ground.entries[at].item.get("objet") == "tronc":
+			index = at
+	await look(player, world.ground.entries[index].position)
 	world.pick_up({"collider": world.ground.bodies[index], "position": world.ground.entries[index].position})
 	check(world.inventory.item("bar", 5).get("objet") in ["tronc", "branche"], "R picks up the piece of wood")
-	# Trop épais à mains nues en Survie (plus de 40 cm) : impossible.
+	# --- G. Trop épais à mains nues en Survie (plus de 40 cm) : impossible. ---
 	world.set_game_mode(Inventory.SURVIVAL)
-	var big: Node3D = Trees.tree_body(Trees.LINDEN, 5)
-	big.set_meta("id", "tilleul-essai")
-	big.set_meta("column", world._player_column())
-	world._rocks_parent().add_child(big)
-	big.global_position = Vector3(feet.x - 2.5, world.terrain.height_at(feet.x - 2.5, feet.z) - 0.05, feet.z)
+	# Les morceaux tombés (posés sur leurs branches, entre le joueur et ce tilleul) retirés de l'essai.
+	for id in ["pommier-haut", "noisetier-essai"]:
+		for node in parts_of(world, id):
+			world.column_objects[world._player_column()].erase(node)
+			node.free()
+	var big := make_tree(world, "tilleul-essai", Trees.LINDEN, 5, feet + Vector3(-3.0, 0.0, 0.0))
 	await frames(3)
-	player.camera.look_at(big.global_position + Vector3.UP * 0.6)
-	await frames(2)
-	var big_aim: Dictionary = player.get_target()
-	check(not big_aim.is_empty() and big_aim.collider == big and not world.step_chop(30.0, true) and world.chop_thickness > 0.40 and not big.has_meta("falling"), "a trunk thicker than 40 cm cannot be cut by hand (%.0f cm)" % (world.chop_thickness * 100.0))
+	await look(player, big.global_position + Vector3.UP * 0.6)
+	check(not world.step_chop(30.0, true) and world.chop_thickness > 0.40 and not big.has_meta("falling") and parts_of(world, "tilleul-essai").size() == 1, "a trunk thicker than 40 cm cannot be cut by hand (%.0f cm)" % (world.chop_thickness * 100.0))
 	root.remove_child(world)
 	world.queue_free()
 	await process_frame

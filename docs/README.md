@@ -1,9 +1,22 @@
-# OrbMeka™ — prototype 0.0.7.11
+# OrbMeka™ — prototype 0.0.7.12
 
 Godot 4.7 / GDScript. Formes et couleurs simples ; assets externes seulement sous licence vérifiée (sons CC0, assets/sounds/CREDITS.txt).
 
+## 0.0.7.12 — Couper seulement la branche ou la tige visée, souche, une seule tige de noisetier, rameaux avec feuilles, coupe visible, tige tombée posée sur ses branches
+Version publiée (avec 0.0.7.11). Génération inchangée (version 32).
+- **Couper seulement ce qu'on vise** (scripts/tree_parts.gd) : dans les modèles Blender, chaque tronc, tige et branche est un tube séparé ; on vise la vraie branche (plus seulement le tronc), et seule elle est coupée, à l'endroit visé, avec ses petites branches et ses feuilles. Plus tard, la hache en coupera plusieurs d'un coup.
+- **Branche cassée = rameau au sol**, à sa vraie taille : « Tige de noisetier », « Rameau de pommier », de pin, de tilleul ; un même petit feuillage pour tous (icône et au sol). Sans feuilles : un bâton (branche ou tronc).
+- **Abattre à la hauteur visée** : près du pied (moins de 50 cm), l'arbre tombe depuis la racine ; plus haut, une souche reste debout (coupe nette, face claire) et le haut tombe depuis la coupe.
+- **Noisetier** : une seule tige tombe, celle qu'on vise ; les autres restent debout.
+- **Coupe visible** : face de bois clair sur chaque coupe ; arbre couché coupé : le morceau écarté de 40 cm et tourné de 20° (12 cm se cachaient dans les feuilles).
+- **Tige ou haut tombé posé sur ses branches** (avant : feuillage écrasé à plat) ; une tige légère (moins de 8 cm) presque sans plier.
+- Gardé dans objets.json (« arbres_branches »). Les arbres coupés en 0.0.7.9 à 0.0.7.11 gardent l'ancienne coupe.
+
+Tests réussis : tree_fall (44 vérifications : chute depuis la racine, pied nu = bûche à sa taille, coupe au point visé, écart et tour, branche seule = rameau nommé et dessiné, une tige de noisetier, souche à la hauteur de la coupe, monde rouvert, ramassé avec R, 40 cm au plus) et les tests touchés (+ tests juridiques). Captures hors écran : souche nette, branche cassée, noisetier avant et après, tige couchée sur ses branches.
+À tester manuellement : casser une brindille de noisetier et voir le rameau au sol puis dans l'inventaire ; abattre un pommier à hauteur de poitrine ; une tige de noisetier ; rouvrir le monde. Dans la main, le rameau est encore dessiné comme un bâton (sans feuilles).
+
 ## 0.0.7.11 — Couper à mains nues jusqu'à 40 cm (5 s par 10 cm), tronc devenu du bois ramassable, bois à sa vraie épaisseur
-Version locale (4 sur 4 ; publiée avec 0.0.7.12, à la demande de l'utilisateur). Génération inchangée (version 32).
+Version locale (publiée avec 0.0.7.12, à la demande de l'utilisateur). Génération inchangée (version 32).
 - **Couper à mains nues jusqu'à 40 cm** (avant 30 cm) ; temps : 5 s par tranche de 10 cm (40 cm : 20 s).
 - **Le tronc devient du bois** : les petits arbres ont des rameaux feuillus dès 40 cm, donc le bas du tronc restait entier. Maintenant, un morceau coupé qui porte moins de 10 % des feuilles de l'arbre devient aussitôt un tronc ou une branche au sol, à ramasser avec R.
 - **Bois à sa vraie épaisseur** : le gros bout est mesuré à 30 cm du pied au moins (avant, dans l'évasement des racines).

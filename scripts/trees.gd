@@ -455,8 +455,102 @@ static func top(kind: int, size: int, form: int) -> float:
 	return mesh(kind, size, false, form).get_aabb().end.y
 
 static func wood_thickness(kind: int, size: int, form: int, local: Vector3) -> float:
+	var rings := slice_rings(kind, size, form, local.y)
+	if rings.is_empty():
+		return 0.03
+	var aimed := Vector2(local.x, local.z)
+	var ring := []
+	var best_area := -1.0
+	var nearest := INF
+	var nearest_ring := []
+	for points in rings:
+		var box := Rect2(points[0], Vector2.ZERO)
+		var away := INF
+		for point in points:
+			box = box.expand(point)
+			away = minf(away, point.distance_to(aimed))
+		if box.grow(0.01).has_point(aimed) and box.get_area() > best_area:
+			best_area = box.get_area()
+			ring = points
+		if away < nearest:
+			nearest = away
+			nearest_ring = points
+	if ring.is_empty():
+		ring = nearest_ring
+	# Largeur la plus petite, sur 18 directions.
+	var thinnest := INF
+	for step in range(18):
+		var across := Vector2.from_angle(PI * step / 18.0)
+		var low := INF
+		var high := -INF
+		for point in ring:
+			var along: float = point.dot(across)
+			low = minf(low, along)
+			high = maxf(high, along)
+		thinnest = minf(thinnest, high - low)
+	return clampf(thinnest, 0.005, 1.5)
+
+# 0.0.7.11 : faces coupées : à la hauteur d'une coupe, un disque de bois clair par tronc, tige ou branche tranchée
+# (enveloppe de chaque anneau d'écorce), dans le repère du modèle ; gardé en commun par hauteur.
+static func cut_faces(kind: int, size: int, form: int, height: float) -> ArrayMesh:
+	var key := "coupe_%s_%.3f" % [_fruit_key(kind, size, form), height]
+	if _meshes.has(key):
+		return _meshes[key]
+	var points := PackedVector3Array()
+	var normals := PackedVector3Array()
+	var uvs := PackedVector2Array()
+	for ring in slice_rings(kind, size, form, height):
+		var hull := Geometry2D.convex_hull(PackedVector2Array(ring))
+		if hull.size() < 4:
+			continue
+		var center := Vector2.ZERO
+		for at in range(hull.size() - 1):
+			center += hull[at]
+		center /= hull.size() - 1
+		var radius := 0.0
+		for point in hull:
+			radius = maxf(radius, point.distance_to(center))
+		for at in range(hull.size() - 1):
+			for corner in [center, hull[at], hull[at + 1]]:
+				points.append(Vector3(corner.x, height, corner.y))
+				normals.append(Vector3.UP)
+				# Cernes : u = distance au cœur (0 au centre, 1 à l'écorce).
+				uvs.append(Vector2((corner - center).length() / maxf(radius, 0.001), 0.0))
+	var made := ArrayMesh.new()
+	if not points.is_empty():
+		var arrays := []
+		arrays.resize(Mesh.ARRAY_MAX)
+		arrays[Mesh.ARRAY_VERTEX] = points
+		arrays[Mesh.ARRAY_NORMAL] = normals
+		arrays[Mesh.ARRAY_TEX_UV] = uvs
+		made.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arrays)
+		made.surface_set_material(0, cut_material())
+	_meshes[key] = made
+	return made
+
+# Bois clair, cernes légers vers l'écorce ; vu des deux côtés.
+static func cut_material() -> ShaderMaterial:
+	if not _materials.has("coupe"):
+		var shader := Shader.new()
+		shader.code = """shader_type spatial;
+render_mode cull_disabled;
+void fragment() {
+	float r = UV.x;
+	float rings = 0.5 + 0.5 * sin(r * 40.0);
+	vec3 wood = mix(vec3(0.86, 0.72, 0.50), vec3(0.74, 0.58, 0.38), rings * 0.35);
+	ALBEDO = mix(wood, vec3(0.42, 0.28, 0.18), smoothstep(0.86, 1.0, r));
+	ROUGHNESS = 0.9;
+}
+"""
+		var made := ShaderMaterial.new()
+		made.shader = shader
+		_materials["coupe"] = made
+	return _materials["coupe"]
+
+# Anneaux d'écorce coupés par le plan horizontal à cette hauteur (un tableau de points 2D x, z par anneau).
+static func slice_rings(kind: int, size: int, form: int, at_height: float) -> Array:
 	var triangles := _bark(kind, size, form)
-	var height := local.y + 0.0007
+	var height := at_height + 0.0007
 	# Morceaux de la tranche : un segment par triangle coupé par le plan horizontal.
 	var ends := []
 	for at in range(0, triangles.size() - 2, 3):
@@ -471,9 +565,9 @@ static func wood_thickness(kind: int, size: int, form: int, local: Vector3) -> f
 		if crossing.size() == 2:
 			ends.append(crossing)
 	if ends.is_empty():
-		return 0.03
-	# Anneaux de la tranche : segments qui se touchent (bouts arrondis au mm près) ; on garde le plus grand anneau qui
-	# entoure le point visé (tronc, tige d'une touffe, branche), sinon le plus proche.
+		return []
+	# Anneaux de la tranche : segments qui se touchent (bouts arrondis au mm près) ; wood_thickness garde le plus grand
+	# anneau qui entoure le point visé (tronc, tige d'une touffe, branche), sinon le plus proche.
 	var groups := {}
 	var owner := []
 	for index in range(ends.size()):
@@ -500,38 +594,7 @@ static func wood_thickness(kind: int, size: int, form: int, local: Vector3) -> f
 			rings[root] = []
 		rings[root].append(ends[index][0])
 		rings[root].append(ends[index][1])
-	var aimed := Vector2(local.x, local.z)
-	var ring := []
-	var best_area := -1.0
-	var nearest := INF
-	var nearest_ring := []
-	for root in rings:
-		var points: Array = rings[root]
-		var box := Rect2(points[0], Vector2.ZERO)
-		var away := INF
-		for point in points:
-			box = box.expand(point)
-			away = minf(away, point.distance_to(aimed))
-		if box.grow(0.01).has_point(aimed) and box.get_area() > best_area:
-			best_area = box.get_area()
-			ring = points
-		if away < nearest:
-			nearest = away
-			nearest_ring = points
-	if ring.is_empty():
-		ring = nearest_ring
-	# Largeur la plus petite, sur 18 directions.
-	var thinnest := INF
-	for step in range(18):
-		var across := Vector2.from_angle(PI * step / 18.0)
-		var low := INF
-		var high := -INF
-		for point in ring:
-			var along: float = point.dot(across)
-			low = minf(low, along)
-			high = maxf(high, along)
-		thinnest = minf(thinnest, high - low)
-	return clampf(thinnest, 0.005, 1.5)
+	return rings.values()
 
 # Collision simple : le tronc (pommier) ou le pied de la touffe (noisetier) : [rayon, hauteur].
 static func trunk(kind: int, size: int = 3) -> Vector2:

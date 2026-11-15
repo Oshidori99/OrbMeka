@@ -29,6 +29,8 @@ static func texture(id: String) -> Texture2D:
 				image = _apple(Inventory.APPLE_COLORS[1], -1) if id == "pomme" else _hazelnut(spec.couleur)
 			"bois":
 				image = _stick(spec.couleur, id == "tronc", id.hash())
+				if spec.get("feuilles", false):
+					_leaves(image)
 			_:
 				image = _pile(id, spec.couleur)
 	return _keep(id, image)
@@ -352,6 +354,25 @@ static func _stick(base: Color, trunk: bool, salt: int) -> Image:
 			color.a = clampf(radius - distance, 0.0, 1.0)
 			image.set_pixel(x, y, color.clamp())
 	return image
+
+# 0.0.7.12 : rameau : quelques feuilles vertes le long du bout fin du bâton (une seule icône pour tous).
+static func _leaves(image: Image) -> void:
+	var spots := [[0.55, 0.42, 0.9], [0.66, 0.3, -0.6], [0.74, 0.36, 0.4], [0.62, 0.52, -1.2], [0.8, 0.22, 0.2], [0.47, 0.5, 0.7]]
+	for spot in spots:
+		var center := Vector2(SIZE * spot[0], SIZE * spot[1])
+		var along := Vector2.from_angle(spot[2])
+		var across := Vector2(-along.y, along.x)
+		for y in range(SIZE):
+			for x in range(SIZE):
+				var offset := Vector2(x + 0.5, y + 0.5) - center
+				var u := offset.dot(along) / (SIZE * 0.11)
+				var v := offset.dot(across) / (SIZE * 0.05)
+				var inside := 1.0 - (u * u + v * v)
+				if inside <= 0.0:
+					continue
+				var shade := 0.75 + 0.25 * (1.0 - absf(v)) - (0.12 if absf(v) < 0.12 else 0.0)
+				var leaf := Color(0.33 * shade, 0.58 * shade, 0.22 * shade, clampf(inside * 6.0, 0.0, 1.0))
+				image.set_pixel(x, y, image.get_pixel(x, y).blend(leaf))
 
 # --- Fruits (0.0.7.5) ---
 

@@ -74,7 +74,11 @@ const ITEMS := {
 	# 0.0.7.8 : bois d'un arbre coupé (#212) : tronc et branches, chacun unique.
 	"tronc": {"nom": "Tronc", "forme": "bois", "couleur": Color("#6b4a2e")},
 	"branche": {"nom": "Branche", "forme": "bois", "couleur": Color("#7a5634")},
+	# 0.0.7.12 (demande de l'utilisateur) : branche cassée avec ses feuilles (« Tige de noisetier », « Rameau de
+	# pommier »…) ; seule la taille compte : un même petit feuillage pour tous (icône, au sol).
+	"rameau": {"nom": "Rameau", "forme": "bois", "feuilles": true, "couleur": Color("#7a5634")},
 }
+const LEAFY_NAMES := ["Rameau de pommier", "Tige de noisetier", "Rameau de pin", "Rameau de tilleul"]
 # Catégories de l'inventaire en Créatif, dans l'ordre des onglets (0.0.7.5 : Cailloux et Fruits ; l'onglet Inventaire,
 # tout à droite, est dans inventory_ui.gd). Objets illimités : identifiant, avec leur modèle (CATALOG_MODELS).
 const CATEGORIES := [
@@ -483,6 +487,8 @@ func held_kind() -> int:
 
 static func item_name(value: Dictionary) -> String:
 	var id: String = value.get("objet", "")
+	if id == "rameau" and value.has("essence"):
+		return LEAFY_NAMES[clampi(int(value.essence), 0, LEAFY_NAMES.size() - 1)]
 	return ITEMS[id].nom if ITEMS.has(id) else ""
 
 static func _valid_traits(value: Variant) -> bool:
