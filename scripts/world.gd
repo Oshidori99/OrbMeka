@@ -872,6 +872,8 @@ var chop_time := 0.0
 var chop_thickness := 0.0
 var chop_seconds := 0.0
 const MAX_HAND_THICKNESS := 0.15
+# 0.0.7.9 : écart entre deux morceaux d'un arbre coupé (la coupe se voit).
+const CUT_GAP := 0.12
 # Sauvegarde (objets.json) : arbres tombés {id: {"direction": [x, z], "position": [x, y, z]}} et arbres coupés {id: true}.
 var fallen_trees: Dictionary = {}
 var cut_trees: Dictionary = {}
@@ -885,7 +887,8 @@ func step_chop(delta: float, holding: bool) -> bool:
 	var hit: Dictionary = player.get_target()
 	var tree: Node3D = null
 	if not hit.is_empty() and is_instance_valid(hit.get("collider")) and hit.collider.is_in_group("trees") and player.camera.global_position.distance_to(hit.position) <= player.break_reach + 0.01:
-		tree = hit.collider
+		# 0.0.7.9 : la tige de visée d'un morceau coupé renvoie à son arbre.
+		tree = hit.collider.get_meta("arbre", hit.collider)
 	if tree == null or tree.has_meta("falling"):
 		chop_target = null
 		chop_time = 0.0
@@ -988,6 +991,8 @@ func _update_slides(delta: float) -> void:
 # les côtés (une seule fois), fruits déplacés avec elles.
 func _lay_down(tree: Node3D, direction: Vector3) -> void:
 	_rest_pose(tree, direction)
+	tree.set_meta("lie_base", tree.global_position)
+	_piece_collision(tree, _tree_range(tree))
 	var id := str(tree.get_meta("id", ""))
 	var place := tree.global_position
 	fallen_trees[id] = {"direction": [direction.x, direction.z], "position": [place.x, place.y, place.z], "angle": float(tree.get_meta("lie_angle", PI * 0.5))}
@@ -1030,8 +1035,13 @@ func _ground_at(point: Vector3, tree: Node3D = null) -> float:
 	var top: Vector3i = terrain.point_of(Vector3(point.x, maxf(natural, point.y) + 3.0, point.z))
 	var bottom: int = terrain.point_of(Vector3(point.x, maxf(found, natural - 12.0), point.z)).y
 	for y in range(top.y, bottom - 1, -1):
-		if terrain.solid(Vector3i(top.x, y, top.z)):
-			return maxf(found, y * terrain.STEP)
+		var cell := Vector3i(top.x, y, top.z)
+		if terrain.solid(cell):
+			# Surface entre ce point plein et celui du dessus (selon leur densité, comme le terrain dessiné).
+			var inside: float = terrain.density(cell)
+			var above: float = terrain.density(cell + Vector3i.UP)
+			var share := clampf(inside / (inside - above), 0.0, 1.0) if inside > 0.0 and above < inside else 1.0
+			return maxf(found, (y + share) * terrain.STEP)
 	return found if found > -INF else natural
 
 # 0.0.7.9 (demande de l'utilisateur) : un tronc couché est rigide et repose sur ses points d'appui les plus hauts : on mesure
@@ -1181,6 +1191,8 @@ func _restore_fallen(tree: Node3D) -> void:
 		tree.global_position = Vector3(float(saved.position[0]), float(saved.position[1]), float(saved.position[2]))
 	else:
 		tree.global_position += Vector3.UP * _tree_lift(tree)
+	tree.set_meta("lie_base", tree.global_position)
+	_piece_collision(tree, _tree_range(tree))
 	_bend_into_ground(tree, direction)
 
 # 0.0.7.9 (demande de l'utilisateur) : couper un arbre couché EN DEUX, à l'endroit visé (plan à travers le tronc, à cette
@@ -1251,10 +1263,19 @@ func _drop_wood_part(tree: Node3D, part: Array, to_world: Transform3D) -> void:
 	var hi := minf(float(part[1]), Trees.top(kind, int(tree.get_meta("size", 3)), int(tree.get_meta("form", 0))))
 	var scale := tree.scale.x
 	var middle := (lo + hi) * 0.5
-	var thickness := Trees.wood_thickness(kind, int(tree.get_meta("size", 3)), int(tree.get_meta("form", 0)), Vector3(0.0, middle, 0.0)) * scale
+	# Ses deux vraies épaisseurs (à un cinquième de chaque bout, hors évasement des racines) : gros bout et petit bout ;
+	# poids selon leur moyenne.
+	var near_end := (hi - lo) * 0.2
+	var size := int(tree.get_meta("size", 3))
+	var form := int(tree.get_meta("form", 0))
+	var base_thick := Trees.wood_thickness(kind, size, form, Vector3(0.0, lo + near_end, 0.0)) * scale
+	var end_thick := Trees.wood_thickness(kind, size, form, Vector3(0.0, hi - near_end, 0.0)) * scale
+	var thickness := maxf(base_thick, end_thick)
 	var rng := RandomNumberGenerator.new()
 	rng.seed = hash(str(tree.get_meta("id", "")) + str(part))
-	var piece := Inventory.wood_piece("tronc" if thickness >= 0.04 else "branche", kind, thickness * 100.0, (hi - lo) * scale, rng)
+	var piece := Inventory.wood_piece("tronc" if thickness >= 0.04 else "branche", kind, (base_thick + end_thick) * 50.0, (hi - lo) * scale, rng)
+	piece.epaisseur = snappedf(thickness * 100.0, 0.1)
+	piece.fin = snappedf(minf(base_thick, end_thick) * 100.0, 0.1)
 	var along: Vector3 = (to_world.basis * Vector3.UP).normalized()
 	piece.rotation = atan2(along.x, along.z)
 	var spot: Vector3 = to_world * Vector3(0.0, middle, 0.0)
@@ -1276,20 +1297,61 @@ func _show_range(tree: Node3D, part: Array) -> void:
 	var far: Node3D = model.get_node_or_null("Loin")
 	if far != null:
 		far.visible = false
-	for child in tree.get_children():
-		if child is CollisionShape3D:
-			tree.remove_child(child)
-			child.free()
-	var box := cut_mesh.get_aabb()
-	var shape := BoxShape3D.new()
-	shape.size = Vector3(maxf(box.size.x, 0.1), maxf(box.size.y, 0.1), maxf(box.size.z, 0.1))
-	var collision := CollisionShape3D.new()
-	collision.shape = shape
-	collision.position = model.transform * box.get_center()
-	tree.add_child(collision)
+	_piece_collision(tree, part)
+	# Fente visible : chaque morceau est décalé de CUT_GAP par coupe avant lui, le long du tronc couché.
+	if not tree.has_meta("lie_base"):
+		tree.set_meta("lie_base", tree.global_position)
 	var saved: Dictionary = fallen_trees.get(str(tree.get_meta("id", "")), {})
+	var before := 0
+	for cut in saved.get("cuts", []):
+		if float(cut) <= float(part[0]) + 0.001:
+			before += 1
+	var lie_base: Vector3 = tree.get_meta("lie_base")
+	tree.global_position = lie_base + tree.global_basis.y.normalized() * CUT_GAP * before
 	var direction := Vector3(float(saved.get("direction", [0.0, -1.0])[0]), 0.0, float(saved.get("direction", [0.0, -1.0])[1])).normalized()
 	_bend_into_ground(tree, direction)
+
+# Collisions d'un arbre couché ou d'un morceau [lo, hi] : tronc solide, tige de visée pour couper.
+func _piece_collision(tree: Node3D, part: Array) -> void:
+	var kind := int(tree.get_meta("kind", 0))
+	var size := int(tree.get_meta("size", 3))
+	var form := int(tree.get_meta("form", 0))
+	var model: Node3D = tree.get_node_or_null("Modele")
+	if model == null:
+		return
+	for child in tree.get_children():
+		if child is CollisionShape3D or child.name == "Visee":
+			tree.remove_child(child)
+			child.free()
+	# 0.0.7.9 : seul le tronc reste solide (comme l'arbre entier couché) ; une tige invisible le long du morceau sert
+	# seulement à viser pour recouper (couche 2, comme les objets au sol) : on passe à travers la couronne.
+	var foot := Trees.trunk(kind, size)
+	var top := minf(float(part[1]), Trees.top(kind, size, form))
+	var low := maxf(float(part[0]), 0.0)
+	var trunk_end := minf(top, foot.y)
+	if trunk_end - low > 0.05:
+		var solid := CylinderShape3D.new()
+		solid.radius = foot.x
+		solid.height = trunk_end - low
+		var collision := CollisionShape3D.new()
+		collision.shape = solid
+		collision.transform = model.transform * Transform3D(Basis.IDENTITY, Vector3(0.0, (low + trunk_end) * 0.5, 0.0))
+		tree.add_child(collision)
+	if top - low > 0.05:
+		var aim := StaticBody3D.new()
+		aim.name = "Visee"
+		aim.add_to_group("trees")
+		aim.set_meta("arbre", tree)
+		aim.collision_layer = 2
+		aim.collision_mask = 0
+		var stem := CylinderShape3D.new()
+		stem.radius = maxf(foot.x, 0.12)
+		stem.height = top - low
+		var aim_shape := CollisionShape3D.new()
+		aim_shape.shape = stem
+		aim.add_child(aim_shape)
+		aim.transform = model.transform * Transform3D(Basis.IDENTITY, Vector3(0.0, (low + top) * 0.5, 0.0))
+		tree.add_child(aim)
 
 # Un deuxième morceau feuillu : un nouvel arbre couché à la même place, qui n'affiche que son morceau.
 func _piece_copy(tree: Node3D, part: Array) -> Node3D:
@@ -1298,6 +1360,7 @@ func _piece_copy(tree: Node3D, part: Array) -> Node3D:
 	copy.set_meta("column", tree.get_meta("column", Vector2i(999999, 0)))
 	copy.set_meta("upright", tree.get_meta("upright", tree.global_basis))
 	copy.set_meta("lie_angle", tree.get_meta("lie_angle", PI * 0.5))
+	copy.set_meta("lie_base", tree.get_meta("lie_base", tree.global_position))
 	tree.get_parent().add_child(copy)
 	copy.global_transform = tree.global_transform
 	var column: Vector2i = copy.get_meta("column")

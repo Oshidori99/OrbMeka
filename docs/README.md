@@ -11,8 +11,9 @@ Version locale (2 sur 4). Génération inchangée (version 32).
 - **Terre sur un rocher** : elle reste posée (avant : elle tombait à travers et disparaissait).
 - **Travois** : icône vue de côté, le bout arrière traîné sur le sol.
 - **Inventaire Créatif** : le nom sous chaque objet (onglets et cases).
+- **Corrections après essai** : seul le tronc est solide (on s'approche et on entre dans la couronne couchée ; une tige invisible permet encore de viser pour couper) ; fente de 12 cm entre deux morceaux (la coupe se voit) ; bois coupé à sa vraie épaisseur, gros bout et petit bout (mesure par tranche du modèle : l'ancienne donnait environ 18 cm au lieu de 60 pour un pommier moyen) ; mesure du sol de secours exacte.
 
-Tests réussis : tree_fall (20 vérifications : épaisseur, temps, chute, appuis, coupe en deux, réouverture, 15 cm au plus), trees, inventory, fly, game_mode, smooth_terrain, breaking, step_over, world_save, forests, plants, interface_info, catalog_restart (+ tests juridiques). Captures hors écran : arbre coupé en deux puis recoupé, inventaires Créatif et Survie, travois.
+Tests réussis : tree_fall (26 vérifications : épaisseur, temps, chute, appuis, coupe en deux, approcher la couronne, fente, taille du bois, réouverture, 15 cm au plus), trees, inventory, fly, game_mode, smooth_terrain, breaking, step_over, world_save, forests, plants, interface_info, catalog_restart (+ tests juridiques). Captures hors écran : arbre coupé en deux puis recoupé, inventaires Créatif et Survie, travois.
 À tester manuellement : couper en jouant (viser le tronc, puis la couronne), arbre tombé sur une bosse ou un tas, terre sur un rocher, ramasser un long tronc coupé.
 
 ## 0.0.7.8 — Abattre et couper les arbres, bâtons, porter lourd, poser partout, anneau de chargement, troncs solides

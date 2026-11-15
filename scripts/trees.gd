@@ -342,24 +342,28 @@ static func apply_picked(body: Node3D, picked: Array) -> void:
 		skip[int(number)] = true
 	model.add_child(fruit_node(body.get_meta("kind"), body.get_meta("size"), body.get_meta("form"), skip, body.get_meta("fruit_spots", [])))
 
-# 0.0.7.9 : épaisseur du bois (diamètre, en mètres, repère du modèle, avant l'échelle de l'arbre) à un point visé : on part
-# du sommet d'écorce le plus proche et on traverse le bois (contre sa normale) jusqu'à l'écorce d'en face, celle de la même
-# tige ou branche (les tiges voisines d'une touffe ne comptent pas). Sert au temps de coupe et aux troncs coupés (world.gd).
-# Les sommets d'écorce et leurs normales sont lus une fois par modèle.
+# 0.0.7.9 : épaisseur du bois (diamètre, en mètres, repère du modèle, avant l'échelle de l'arbre) à un point visé : on
+# tranche les triangles d'écorce à la hauteur du point, on garde l'anneau de la tige ou branche la plus proche (pas les
+# tiges voisines d'une touffe) et on prend sa largeur la plus petite (le vrai diamètre, même pour une branche penchée).
+# Sert au temps de coupe et aux troncs coupés (world.gd). Les triangles d'écorce sont lus une fois par modèle.
 static var _bark_points: Dictionary = {}
 
-static func _bark(kind: int, size: int, form: int) -> Array:
+static func _bark(kind: int, size: int, form: int) -> PackedVector3Array:
 	var key := _fruit_key(kind, size, form)
 	if not _bark_points.has(key):
-		var points := PackedVector3Array()
-		var normals := PackedVector3Array()
+		var triangles := PackedVector3Array()
 		var made := mesh(kind, size, false, form)
 		for surface in range(made.get_surface_count()):
 			if made.surface_get_material(surface) == material(kind, "bark"):
 				var arrays: Array = made.surface_get_arrays(surface)
-				points.append_array(arrays[Mesh.ARRAY_VERTEX])
-				normals.append_array(arrays[Mesh.ARRAY_NORMAL])
-		_bark_points[key] = [points, normals]
+				var points: PackedVector3Array = arrays[Mesh.ARRAY_VERTEX]
+				var indices: PackedInt32Array = arrays[Mesh.ARRAY_INDEX]
+				if indices.is_empty():
+					triangles.append_array(points)
+				else:
+					for index in indices:
+						triangles.append(points[index])
+		_bark_points[key] = triangles
 	return _bark_points[key]
 
 # 0.0.7.9 : morceau d'un arbre coupé : seulement les triangles dont le centre est entre lo et hi (hauteur dans le modèle,
@@ -422,29 +426,83 @@ static func top(kind: int, size: int, form: int) -> float:
 	return mesh(kind, size, false, form).get_aabb().end.y
 
 static func wood_thickness(kind: int, size: int, form: int, local: Vector3) -> float:
-	var bark := _bark(kind, size, form)
-	var points: PackedVector3Array = bark[0]
-	var normals: PackedVector3Array = bark[1]
-	if points.is_empty() or normals.size() != points.size():
-		return 0.1
-	var start := 0
+	var triangles := _bark(kind, size, form)
+	var height := local.y + 0.0007
+	# Morceaux de la tranche : un segment par triangle coupé par le plan horizontal.
+	var ends := []
+	for at in range(0, triangles.size() - 2, 3):
+		var crossing := []
+		for edge in [[0, 1], [1, 2], [2, 0]]:
+			var a: Vector3 = triangles[at + edge[0]]
+			var b: Vector3 = triangles[at + edge[1]]
+			if (a.y - height) * (b.y - height) < 0.0:
+				var share := (height - a.y) / (b.y - a.y)
+				var point := a.lerp(b, share)
+				crossing.append(Vector2(point.x, point.z))
+		if crossing.size() == 2:
+			ends.append(crossing)
+	if ends.is_empty():
+		return 0.03
+	# Anneaux de la tranche : segments qui se touchent (bouts arrondis au mm près) ; on garde le plus grand anneau qui
+	# entoure le point visé (tronc, tige d'une touffe, branche), sinon le plus proche.
+	var groups := {}
+	var owner := []
+	for index in range(ends.size()):
+		owner.append(index)
+	var find := func(index: int) -> int:
+		while owner[index] != index:
+			owner[index] = owner[owner[index]]
+			index = owner[index]
+		return index
+	for index in range(ends.size()):
+		for point in ends[index]:
+			var key := Vector2i(roundi(point.x * 500.0), roundi(point.y * 500.0))
+			if groups.has(key):
+				var first: int = find.call(groups[key])
+				var second: int = find.call(index)
+				if first != second:
+					owner[second] = first
+			else:
+				groups[key] = index
+	var rings := {}
+	for index in range(ends.size()):
+		var root: int = find.call(index)
+		if not rings.has(root):
+			rings[root] = []
+		rings[root].append(ends[index][0])
+		rings[root].append(ends[index][1])
+	var aimed := Vector2(local.x, local.z)
+	var ring := []
+	var best_area := -1.0
 	var nearest := INF
-	for index in range(points.size()):
-		var away := points[index].distance_squared_to(local)
+	var nearest_ring := []
+	for root in rings:
+		var points: Array = rings[root]
+		var box := Rect2(points[0], Vector2.ZERO)
+		var away := INF
+		for point in points:
+			box = box.expand(point)
+			away = minf(away, point.distance_to(aimed))
+		if box.grow(0.01).has_point(aimed) and box.get_area() > best_area:
+			best_area = box.get_area()
+			ring = points
 		if away < nearest:
 			nearest = away
-			start = index
-	var from := points[start]
-	var outward := normals[start].normalized()
-	var best := INF
-	for index in range(points.size()):
-		var toward := points[index] - from
-		var depth := -toward.dot(outward)
-		if depth < 0.005 or depth >= best or normals[index].dot(outward) > -0.3:
-			continue
-		if (toward + outward * depth).length() <= 0.35 * depth + 0.015:
-			best = depth
-	return clampf(best if best < INF else 0.03, 0.005, 1.5)
+			nearest_ring = points
+	if ring.is_empty():
+		ring = nearest_ring
+	# Largeur la plus petite, sur 18 directions.
+	var thinnest := INF
+	for step in range(18):
+		var across := Vector2.from_angle(PI * step / 18.0)
+		var low := INF
+		var high := -INF
+		for point in ring:
+			var along: float = point.dot(across)
+			low = minf(low, along)
+			high = maxf(high, along)
+		thinnest = minf(thinnest, high - low)
+	return clampf(thinnest, 0.005, 1.5)
 
 # Collision simple : le tronc (pommier) ou le pied de la touffe (noisetier) : [rayon, hauteur].
 static func trunk(kind: int, size: int = 3) -> Vector2:

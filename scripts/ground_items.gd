@@ -128,7 +128,12 @@ static func _basis(value: Dictionary) -> Basis:
 	var scale := size_of(value) * (0.5 if _kind(value) == "fruit" else 1.0)
 	return turn.scaled(Vector3.ONE * scale)
 
-static var _stick: CylinderMesh
+# 0.0.7.9 : bois conique : gros bout (« epaisseur ») et petit bout (« fin »), par pas de 5 %.
+static var _sticks: Dictionary = {}
+
+static func taper_step(value: Dictionary) -> int:
+	var thick := float(value.get("epaisseur", 3.0))
+	return clampi(roundi(float(value.get("fin", thick * 0.84)) / maxf(thick, 0.01) * 20.0), 4, 20)
 
 static func _two_tone(value: Dictionary) -> bool:
 	return value.get("objet") == "pomme" and int(value.get("couleur", 1)) == 4
@@ -138,14 +143,16 @@ func _mesh(value: Dictionary) -> Mesh:
 	if _kind(value) == "fruit":
 		return Trees._fruit_mesh(Trees.APPLE if value.get("objet") == "pomme" else Trees.HAZEL, _two_tone(value))
 	if _kind(value) == "bois":
-		if _stick == null:
-			_stick = CylinderMesh.new()
-			_stick.top_radius = 0.42
-			_stick.bottom_radius = 0.5
-			_stick.height = 1.0
-			_stick.radial_segments = 8
-			_stick.rings = 1
-		return _stick
+		var step := taper_step(value)
+		if not _sticks.has(step):
+			var stick := CylinderMesh.new()
+			stick.top_radius = 0.5 * step / 20.0
+			stick.bottom_radius = 0.5
+			stick.height = 1.0
+			stick.radial_segments = 10
+			stick.rings = 1
+			_sticks[step] = stick
+		return _sticks[step]
 	return Rocks.pebble_mesh(clampi(int(value.get("forme", 1)), 1, 7))
 
 # Aspect des pierres (0 pierre, 1 calcaire, 2 silex) ou -1 : couleur unie.
@@ -223,6 +230,8 @@ func _redraw() -> void:
 		var item: Dictionary = entry.item
 		var stone := _look(item) >= 0 and stone_material != null
 		var key: String = "pierre/%d" % int(item.get("forme", 1)) if stone else "%s/%d/%d/%d" % [item.objet, int(item.get("forme", 1)), int(item.get("couleur", -1)), int(item.get("essence", -1))]
+		if _kind(item) == "bois":
+			key += "/%d" % taper_step(item)
 		if not groups.has(key):
 			groups[key] = {"item": item, "stone": stone, "list": []}
 		groups[key].list.append(entry)

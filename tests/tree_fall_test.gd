@@ -48,6 +48,7 @@ func _run() -> void:
 	check(not first_aim.is_empty() and first_aim.collider == tree, "aiming at the trunk (" + (str(first_aim.collider.name) + " at " + str(first_aim.position) if not first_aim.is_empty() else "nothing") + ", tree at " + str(tree.global_position) + ", eye at " + str(player.camera.global_position) + ")")
 	# 0.0.7.9 : temps selon l'épaisseur du bois visé : 8 s × (épaisseur / 10 cm)^2,5.
 	check(not world.step_chop(0.01, true) and world.chop_thickness > 0.0 and world.chop_thickness <= 0.15, "thickness measured at the aimed point (%.1f cm)" % (world.chop_thickness * 100.0))
+	var standing_thickness: float = world.chop_thickness
 	var expected: float = maxf(8.0 * pow(world.chop_thickness / 0.1, 2.5), 0.5)
 	check(is_equal_approx(world.chop_seconds, expected), "chop time from thickness (%.2f s)" % world.chop_seconds)
 	check(not world.step_chop(world.chop_seconds * 0.5 - 0.01, true), "half way not cut yet")
@@ -83,7 +84,7 @@ func _run() -> void:
 	player.camera.look_at(trunk_point)
 	await frames(2)
 	var aimed: Dictionary = player.get_target()
-	check(not aimed.is_empty() and aimed.collider == tree, "aiming at the fallen trunk")
+	check(not aimed.is_empty() and aimed.collider.get_meta("arbre", aimed.collider) == tree, "aiming at the fallen trunk")
 	check(world.step_chop(1.1, true) and world.fallen_trees["noisetier-essai"].get("cuts", []).size() == 1, "cut in two (creative: 1 s)")
 	await frames(30)
 	var wood: Array = world.ground.entries.slice(before).map(func(entry): return entry.item)
@@ -94,6 +95,32 @@ func _run() -> void:
 	check(is_instance_valid(tree) and tree.has_meta("range") and absf(float(tree.get_meta("range")[0]) - cut_at) < 0.002 and not world.cut_trees.has("noisetier-essai"), "the leafy top stays, lying")
 	var kept: int = tree.get_node("Modele/Detail").mesh.get_surface_count()
 	check(kept >= 1, "the top keeps its shape")
+	# Comme en jouant (0.0.7.9) : on s'approche du haut couché (seul le tronc est solide), on le recoupe dans la couronne,
+	# une fente se voit entre les deux morceaux, et le bois coupé a la taille du tronc.
+	var wood_piece: Dictionary = wood[0]
+
+	check(wood_piece.epaisseur >= wood_piece.fin and wood_piece.epaisseur / 100.0 >= standing_thickness * 0.95, "the cut wood keeps its real thickness (%.1f to %.1f cm)" % [wood_piece.fin, wood_piece.epaisseur])
+	var solid_shapes: int = tree.get_children().filter(func(child): return child is CollisionShape3D).size()
+	var aim: Node = tree.get_node_or_null("Visee")
+	check(solid_shapes <= 1 and aim != null and aim.collision_layer == 2 and (player.collision_mask & 2) == 0, "only the trunk is solid, the crown can be walked into and still aimed at")
+	var axis: Vector3 = tree.global_basis.y.normalized()
+	var crown_spot: Vector3 = tree.global_position + axis * 1.2 + axis.cross(Vector3.UP).normalized() * 0.6
+	var standing := Transform3D(Basis.IDENTITY, Vector3(crown_spot.x, world._ground_at(crown_spot, tree) + 0.4, crown_spot.z))
+	var blocked := KinematicCollision3D.new()
+	var hit_crown: bool = player.test_move(standing, -axis.cross(Vector3.UP).normalized() * 0.5, blocked)
+	check(not hit_crown, "the player walks into the lying crown")
+	var crown_cut: Vector3 = tree.global_position + axis * 1.4
+	player.camera.look_at(crown_cut)
+	await frames(2)
+	var crown_aim: Dictionary = player.get_target()
+	check(not crown_aim.is_empty() and crown_aim.collider.get_meta("arbre", crown_aim.collider) == tree, "aiming at the crown")
+	var pieces_before: int = world.column_objects[world._player_column()].filter(func(node): return is_instance_valid(node) and node.get_meta("id", "") == "noisetier-essai").size()
+	world.step_chop(1.1, true)
+	var pieces: Array = world.column_objects[world._player_column()].filter(func(node): return is_instance_valid(node) and node.get_meta("id", "") == "noisetier-essai")
+	check(pieces.size() == pieces_before + 1, "the crown is cut in two")
+	if pieces.size() >= 2:
+		var gap: float = pieces[-1].global_position.distance_to(pieces[0].global_position)
+		check(absf(gap - world.CUT_GAP) < 0.03, "a visible gap between the two pieces (%.2f m)" % gap)
 	# Rouvert : le haut seulement.
 	var reopened := make_tree(world, "noisetier-essai", feet + Vector3(1.6, 0.0, 0.0))
 	world._restore_fallen(reopened)

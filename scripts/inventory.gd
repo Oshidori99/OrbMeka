@@ -42,7 +42,7 @@ const APPLE_COLOR_NAMES := ["verte", "rouge", "jaune", "brune", "rouge et jaune"
 const INSTANCE_FIELDS := {"taille": TYPE_INT, "poids": TYPE_FLOAT, "forme": TYPE_INT, "rotation": TYPE_FLOAT, "couleur": TYPE_INT, "coups": TYPE_INT, "diametre": TYPE_FLOAT,
 	# 0.0.7.8 : bâtons et troncs : longueur (m), épaisseur (cm), essence (espèce d'arbre), âge et souplesse (1 à 5,
 	# enregistrés dès maintenant ; leurs effets viendront avec la fabrication, #228).
-	"longueur": TYPE_FLOAT, "epaisseur": TYPE_FLOAT, "essence": TYPE_INT, "age": TYPE_INT, "souplesse": TYPE_INT}
+	"longueur": TYPE_FLOAT, "epaisseur": TYPE_FLOAT, "fin": TYPE_FLOAT, "essence": TYPE_INT, "age": TYPE_INT, "souplesse": TYPE_INT}
 # Matières : valeurs de smooth_terrain.gd (SAND 0, STONE 1, DIRT 2, CLAY 4, MUD 5, DARK_STONE 6, GRAVEL 8, LIMESTONE 9,
 # FLINT 11). Poids : une poignée. 0.0.7.6 (plus réaliste, accepté par l'utilisateur) : une grosse poignée d'environ 0,25 L × la
 # densité de la matière ; elle compte toujours pour une sous-cellule de 50 cm (règle de jeu).
