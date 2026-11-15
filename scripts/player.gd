@@ -451,6 +451,9 @@ func _physics_process(delta: float) -> void:
 	update_run(active, Input.is_action_pressed("sprint") and not gathering, Input.is_action_just_pressed("sprint") and not gathering, direction != Vector2.ZERO, jump_requested and not flying)
 	if is_instance_valid(world) and world.has_method("step_gather"):
 		world.step_gather(delta, gathering)
+	# 0.0.7.8 : clic gauche maintenu sur un arbre : l'abattre, puis le couper (anneau de chargement).
+	if is_instance_valid(world) and world.has_method("step_chop"):
+		world.step_chop(delta, active and Input.is_action_pressed("break_block") and not click_modified())
 	var changes := {}
 	var resets := []
 	for target in ["walk", "run", "break", "place"]:
@@ -789,6 +792,8 @@ func step_flight(delta: float, direction: Vector2, vertical: float) -> void:
 # [vitesse du glissement vers le bas d'une pente, réaction aux pas : plus c'est grand, moins ça glisse]
 const SLIP := {5: [4.0, 10.0], 4: [1.8, 16.0]}
 const MAX_SLOPE_DEGREES := 52.0
+# 0.0.7.8 : vitesse selon ce que portent les mains (inventory.gd carry_factor : 1 à 0,6), à pied et à la nage.
+var carry_slow := 1.0
 const SLIP_FLAT := 0.12
 
 # Déplacement voulu sur ce sol. Sur plat : presque normal, juste un petit retard ; en pente : on est tiré vers le bas.
@@ -878,7 +883,7 @@ func step_movement(delta: float, direction: Vector2, jump_requested: bool) -> vo
 	var forward := (crouch_forward if crouching else (run_forward if running else walk_forward)) * speed_scale * own
 	var back := (crouch_back if crouching else (run_back if running else walk_back)) * speed_scale * own
 	# 0.0.6.8 : dans l'eau peu profonde, on avance moins vite.
-	var local := Vector3(step.x * side, 0.0, step.y * (forward if step.y < 0.0 else back)) * wade
+	var local := Vector3(step.x * side, 0.0, step.y * (forward if step.y < 0.0 else back)) * wade * carry_slow
 	# Caméra un peu plus basse quand on est baissé.
 	var eye := maxf(0.2, eye_height - CROUCH_DROP) if crouching else eye_height
 	camera.position.y = move_toward(camera.position.y, eye, 4.0 * delta)

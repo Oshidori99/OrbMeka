@@ -108,18 +108,27 @@ static func size_of(value: Dictionary) -> float:
 			return HAZELNUT_SIZE
 		"eclat":
 			return PIECE_SIZE
+		# 0.0.7.8 : bâton ou tronc : son épaisseur (la longueur est à part).
+		"bois":
+			return float(value.get("epaisseur", 3.0)) / 100.0
 	return HANDFUL_SIZE
 
 # Hauteur du centre au-dessus du sol (cailloux : comme ceux du monde).
 static func lift(value: Dictionary) -> float:
 	if _kind(value) == "caillou":
 		return Rocks.pebble_lift(clampi(int(value.get("taille", 3)), 1, 7), clampi(int(value.get("forme", 1)), 1, 7)) * (1.0 - 0.2 * int(value.get("coups", 0)))
-	return size_of(value) * (0.5 if _kind(value) == "fruit" else 0.3)
+	return size_of(value) * (0.5 if _kind(value) in ["fruit", "bois"] else 0.3)
 
-# Fruits : le modèle des arbres (rayon 1) ; autres objets : diamètre 1.
+# Fruits : le modèle des arbres (rayon 1) ; bois : cylindre couché le long de son orientation ; autres : diamètre 1.
 static func _basis(value: Dictionary) -> Basis:
+	var turn := Basis(Vector3.UP, float(value.get("rotation", 0.0)))
+	if _kind(value) == "bois":
+		var thick := size_of(value)
+		return turn * Basis(Vector3.RIGHT, PI * 0.5) * Basis.from_scale(Vector3(thick, float(value.get("longueur", 1.0)), thick))
 	var scale := size_of(value) * (0.5 if _kind(value) == "fruit" else 1.0)
-	return Basis(Vector3.UP, float(value.get("rotation", 0.0))).scaled(Vector3.ONE * scale)
+	return turn.scaled(Vector3.ONE * scale)
+
+static var _stick: CylinderMesh
 
 static func _two_tone(value: Dictionary) -> bool:
 	return value.get("objet") == "pomme" and int(value.get("couleur", 1)) == 4
@@ -128,6 +137,15 @@ static func _two_tone(value: Dictionary) -> bool:
 func _mesh(value: Dictionary) -> Mesh:
 	if _kind(value) == "fruit":
 		return Trees._fruit_mesh(Trees.APPLE if value.get("objet") == "pomme" else Trees.HAZEL, _two_tone(value))
+	if _kind(value) == "bois":
+		if _stick == null:
+			_stick = CylinderMesh.new()
+			_stick.top_radius = 0.42
+			_stick.bottom_radius = 0.5
+			_stick.height = 1.0
+			_stick.radial_segments = 8
+			_stick.rings = 1
+		return _stick
 	return Rocks.pebble_mesh(clampi(int(value.get("forme", 1)), 1, 7))
 
 # Aspect des pierres (0 pierre, 1 calcaire, 2 silex) ou -1 : couleur unie.
@@ -155,6 +173,9 @@ func _plain_material(value: Dictionary) -> Material:
 	# Fruits : le matériau de leur modèle (celui des arbres), couleur de chaque pomme dans ses données.
 	if _kind(value) == "fruit":
 		return null
+	# Bois : l'écorce de son essence (comme les arbres).
+	if _kind(value) == "bois":
+		return Trees.material(clampi(int(value.get("essence", 0)), 0, 3), "bark")
 	var key := "%s/%d" % [value.get("objet", ""), int(value.get("couleur", -1))]
 	if not _materials.has(key):
 		var made := StandardMaterial3D.new()
@@ -172,9 +193,17 @@ func _add_body(index: int) -> void:
 	body.collision_layer = 2
 	body.collision_mask = 0
 	var shape := CollisionShape3D.new()
-	var sphere := SphereShape3D.new()
-	sphere.radius = maxf(size_of(entry.item) * 0.5, AIM_RADIUS)
-	shape.shape = sphere
+	if _kind(entry.item) == "bois":
+		# Bâton : une boîte sur toute sa longueur (facile à viser).
+		var stick := BoxShape3D.new()
+		var thick := maxf(size_of(entry.item), AIM_RADIUS * 1.5)
+		stick.size = Vector3(thick, thick, float(entry.item.get("longueur", 1.0)))
+		shape.shape = stick
+		body.rotation.y = float(entry.item.get("rotation", 0.0))
+	else:
+		var sphere := SphereShape3D.new()
+		sphere.radius = maxf(size_of(entry.item) * 0.5, AIM_RADIUS)
+		shape.shape = sphere
 	body.add_child(shape)
 	body.position = entry.position
 	add_child(body)
@@ -193,7 +222,7 @@ func _redraw() -> void:
 			continue
 		var item: Dictionary = entry.item
 		var stone := _look(item) >= 0 and stone_material != null
-		var key: String = "pierre/%d" % int(item.get("forme", 1)) if stone else "%s/%d/%d" % [item.objet, int(item.get("forme", 1)), int(item.get("couleur", -1))]
+		var key: String = "pierre/%d" % int(item.get("forme", 1)) if stone else "%s/%d/%d/%d" % [item.objet, int(item.get("forme", 1)), int(item.get("couleur", -1)), int(item.get("essence", -1))]
 		if not groups.has(key):
 			groups[key] = {"item": item, "stone": stone, "list": []}
 		groups[key].list.append(entry)

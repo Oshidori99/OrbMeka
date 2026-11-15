@@ -1,6 +1,20 @@
-# OrbMeka™ — prototype 0.0.7.7
+# OrbMeka™ — prototype 0.0.7.8
 
 Godot 4.7 / GDScript. Formes et couleurs simples ; assets externes seulement sous licence vérifiée (sons CC0, assets/sounds/CREDITS.txt).
+
+## 0.0.7.8 — Abattre et couper les arbres, bâtons, porter lourd, poser partout, anneau de chargement, troncs solides
+Version locale (1 sur 4). Génération inchangée (version 32).
+- **Abattre** : clic gauche maintenu sur un arbre, 8 s à mains nues (1 s en Créatif) ; il tombe vers le joueur (#229 pour la vie, plus tard).
+- **Arbre couché** : branches et feuilles repoussées hors du sol, fruits déplacés avec elles (toujours cueillables) ; glisse sur une pente raide ; reste tombé (objets.json « arbres_tombes »).
+- **Couper** un arbre tombé de taille 1 à 3 (8 s) : un tronc et 3 à 7 branches au sol (« arbres_coupes ») ; les gros restent couchés.
+- **Bâtons** (tronc, branche) : épaisseur, longueur, essence, âge (1 à 5), souplesse (1 à 5), poids ; effets plus tard (#228). Icône, dans la main, au sol avec l'écorce de l'arbre ; ramassés avec R.
+- **Porter lourd** : mains 3 kg ; au-delà de 1,5 kg dans une main, à deux mains (l'autre grisée) ; marche jusqu'à 40 % plus lente ; plus de 3 kg : ne se ramasse pas.
+- **Poser partout** : terre et autres matières aussi sur un rocher, un caillou ou un bloc.
+- **Anneau de chargement** autour de la croix (abattre, couper, R + I) ; plus de pourcentage écrit.
+- **Troncs solides** : la collision des arbres était ignorée (on les traversait) ; corrigé.
+
+Tests réussis : tree_fall (nouveau, 14 vérifications), inventory (100), et 36 autres (déplacement, arbres, terrain, interface) (+ tests juridiques). Captures hors écran : anneau, chute, arbre couché, bâtons.
+À tester manuellement : abattre et couper en jouant, glissade sur une vraie pente, porter un tronc (lenteur), poser de la terre sur un rocher.
 
 ## 0.0.7.7 — Enjamber, pentes plus lentes, équipement à venir
 Version publiée (4 sur 4 : avec 0.0.7.5 et 0.0.7.6). Génération inchangée (version 32).

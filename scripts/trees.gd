@@ -285,12 +285,14 @@ static func fruit_spots(kind: int, size: int, form: int = 0) -> Array:
 # une pour les pommes moitié rouge moitié jaune. Sans fruit cueilli : partagées par tous les arbres du même modèle.
 static var _fruit_series: Dictionary = {}
 
-static func _series(kind: int, size: int, form: int, skip: Dictionary) -> Array:
+# own_spots : fruits propres à un arbre (0.0.7.8 : arbre tombé, fruits déplacés avec lui) ; jamais gardées en commun.
+static func _series(kind: int, size: int, form: int, skip: Dictionary, own_spots: Array = []) -> Array:
 	var key := _fruit_key(kind, size, form)
-	if skip.is_empty() and _fruit_series.has(key):
+	var shared := skip.is_empty() and own_spots.is_empty()
+	if shared and _fruit_series.has(key):
 		return _fruit_series[key]
 	var lists := [[], []]
-	var spots := fruit_spots(kind, size, form)
+	var spots := own_spots if not own_spots.is_empty() else fruit_spots(kind, size, form)
 	for number in range(spots.size()):
 		if not skip.has(number):
 			lists[1 if kind == APPLE and spots[number][3] == 4 else 0].append(spots[number])
@@ -310,15 +312,15 @@ static func _series(kind: int, size: int, form: int, skip: Dictionary) -> Array:
 			var color: Color = FRUIT_COLORS[kind] if kind != APPLE else (Color.WHITE if two_tone else Inventory.APPLE_COLORS[spot[3]])
 			series.set_instance_color(at, color)
 		made.append(series)
-	if skip.is_empty():
+	if shared:
 		_fruit_series[key] = made
 	return made
 
 # Fruits d'un arbre (nœud « Fruits » de son modèle), visibles de près seulement, comme le modèle détaillé.
-static func fruit_node(kind: int, size: int, form: int, skip: Dictionary = {}) -> Node3D:
+static func fruit_node(kind: int, size: int, form: int, skip: Dictionary = {}, own_spots: Array = []) -> Node3D:
 	var holder := Node3D.new()
 	holder.name = "Fruits"
-	for series in _series(kind, size, form, skip):
+	for series in _series(kind, size, form, skip, own_spots):
 		var drawn := MultiMeshInstance3D.new()
 		drawn.multimesh = series
 		drawn.visibility_range_end = DETAIL_END
@@ -338,7 +340,7 @@ static func apply_picked(body: Node3D, picked: Array) -> void:
 	var skip := {}
 	for number in picked:
 		skip[int(number)] = true
-	model.add_child(fruit_node(body.get_meta("kind"), body.get_meta("size"), body.get_meta("form"), skip))
+	model.add_child(fruit_node(body.get_meta("kind"), body.get_meta("size"), body.get_meta("form"), skip, body.get_meta("fruit_spots", [])))
 
 # Collision simple : le tronc (pommier) ou le pied de la touffe (noisetier) : [rayon, hauteur].
 static func trunk(kind: int, size: int = 3) -> Vector2:
@@ -395,5 +397,6 @@ static func tree_body(kind: int, size: int, vine := false, form := 0) -> StaticB
 	var collision := CollisionShape3D.new()
 	collision.shape = shape
 	collision.position.y = foot.y / 2.0
-	model.add_child(collision)
+	# 0.0.7.8 : directement sous le corps de l'arbre (sous « Modele », Godot l'ignorait : on traversait les troncs).
+	body.add_child(collision)
 	return body

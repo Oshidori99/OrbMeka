@@ -27,6 +27,8 @@ static func texture(id: String) -> Texture2D:
 				image = _chip(spec.couleur, id.hash(), id == "eclat_silex" or id == "charbon")
 			"fruit":
 				image = _apple(Inventory.APPLE_COLORS[1], -1) if id == "pomme" else _hazelnut(spec.couleur)
+			"bois":
+				image = _stick(spec.couleur, id == "tronc", id.hash())
 			_:
 				image = _pile(id, spec.couleur)
 	return _keep(id, image)
@@ -320,6 +322,34 @@ static func _chip(base: Color, salt: int, glassy: bool) -> Image:
 			if inside < 4:
 				color = color.lerp(Color(1, 1, 1), 0.3)
 			color.a = inside / 4.0
+			image.set_pixel(x, y, color.clamp())
+	return image
+
+# --- Bois (0.0.7.8) : bâton en diagonale, écorce rayée, bout coupé clair ; tronc plus épais. ---
+
+static func _stick(base: Color, trunk: bool, salt: int) -> Image:
+	var image := _blank()
+	var start := Vector2(SIZE * 0.14, SIZE * 0.82)
+	var end := Vector2(SIZE * 0.86, SIZE * 0.2)
+	var radius := SIZE * (0.15 if trunk else 0.075)
+	var along := (end - start).normalized()
+	var across := Vector2(-along.y, along.x)
+	_shadow(image, (start + end) * 0.5 + Vector2(2.0, radius + 3.0), Vector2((end - start).length() * 0.45, SIZE * 0.06))
+	for y in range(SIZE):
+		for x in range(SIZE):
+			var at := Vector2(x + 0.5, y + 0.5)
+			var distance := _segment_distance(at, start, end)
+			if distance >= radius:
+				continue
+			var t := (at - start).dot(along)
+			var side := (at - start).dot(across) / radius
+			var m := 0.62 + 0.4 * (1.0 - absf(side + 0.35)) + (_noise(t * 0.25, side * 6.0, 1.0, salt) - 0.5) * 0.35
+			var color := Color(base.r * m, base.g * m, base.b * m)
+			# Bout coupé : bois clair et cernes.
+			if (end - at).dot(along) < radius * 0.5:
+				var ring := (at - end).length() / radius
+				color = Color("#d9b47c").darkened(0.18 * (1.0 if fmod(ring * 4.0, 1.0) < 0.25 else 0.0))
+			color.a = clampf(radius - distance, 0.0, 1.0)
 			image.set_pixel(x, y, color.clamp())
 	return image
 

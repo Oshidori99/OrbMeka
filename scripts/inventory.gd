@@ -23,7 +23,10 @@ const FORMAT := 3
 const HANDS := [0, 1]
 const POCKETS := [2, 3, 4, 5]
 # 0.0.7.4 (demande de l'utilisateur) : 1 kg pour les deux mains ensemble (0.0.7.6 : 1,4 kg), 500 g pour les quatre poches.
-const HANDS_LIMIT := 1400.0
+const HANDS_LIMIT := 3000.0
+# 0.0.7.8 (demande de l'utilisateur) : mains 3 kg en tout ; au-delà de TWO_HANDS dans une main, l'objet se porte à deux
+# mains (l'autre main ne prend plus rien) et on marche plus lentement (carry_factor).
+const TWO_HANDS := 1500.0
 const POCKETS_LIMIT := 500.0
 # Valeur d'outil de la pioche (même valeur que world.gd PICKAXE) ; -1 : main vide ou objet sans usage.
 const PICKAXE := 3
@@ -36,7 +39,10 @@ const APPLE_SIZES := [0.075, 0.105, 0.13]
 const APPLE_COLORS := [Color("#6aa531"), Color("#b5281c"), Color("#dcbb2c"), Color("#7a4a26"), Color("#c9452a")]
 const APPLE_COLOR_NAMES := ["verte", "rouge", "jaune", "brune", "rouge et jaune"]
 # Caractéristiques gardées pour chaque objet unique (et leur type).
-const INSTANCE_FIELDS := {"taille": TYPE_INT, "poids": TYPE_FLOAT, "forme": TYPE_INT, "rotation": TYPE_FLOAT, "couleur": TYPE_INT, "coups": TYPE_INT, "diametre": TYPE_FLOAT}
+const INSTANCE_FIELDS := {"taille": TYPE_INT, "poids": TYPE_FLOAT, "forme": TYPE_INT, "rotation": TYPE_FLOAT, "couleur": TYPE_INT, "coups": TYPE_INT, "diametre": TYPE_FLOAT,
+	# 0.0.7.8 : bâtons et troncs : longueur (m), épaisseur (cm), essence (espèce d'arbre), âge et souplesse (1 à 5,
+	# enregistrés dès maintenant ; leurs effets viendront avec la fabrication, #228).
+	"longueur": TYPE_FLOAT, "epaisseur": TYPE_FLOAT, "essence": TYPE_INT, "age": TYPE_INT, "souplesse": TYPE_INT}
 # Matières : valeurs de smooth_terrain.gd (SAND 0, STONE 1, DIRT 2, CLAY 4, MUD 5, DARK_STONE 6, GRAVEL 8, LIMESTONE 9,
 # FLINT 11). Poids : une poignée. 0.0.7.6 (plus réaliste, accepté par l'utilisateur) : une grosse poignée d'environ 0,25 L × la
 # densité de la matière ; elle compte toujours pour une sous-cellule de 50 cm (règle de jeu).
@@ -65,6 +71,9 @@ const ITEMS := {
 	# 0.0.7.5 : fruits (onglet Fruits en Créatif).
 	"pomme": {"nom": "Pomme", "forme": "fruit", "couleur": Color("#b5281c")},
 	"noisette": {"nom": "Noisette", "forme": "fruit", "poids": 3.0, "couleur": Color("#8a5a2b")},
+	# 0.0.7.8 : bois d'un arbre coupé (#212) : tronc et branches, chacun unique.
+	"tronc": {"nom": "Tronc", "forme": "bois", "couleur": Color("#6b4a2e")},
+	"branche": {"nom": "Branche", "forme": "bois", "couleur": Color("#7a5634")},
 }
 # Catégories de l'inventaire en Créatif, dans l'ordre des onglets (0.0.7.5 : Cailloux et Fruits ; l'onglet Inventaire,
 # tout à droite, est dans inventory_ui.gd). Objets illimités : identifiant, avec leur modèle (CATALOG_MODELS).
@@ -235,6 +244,38 @@ static func _split(value: Dictionary, amount: int) -> Array:
 		rest.nombre = count(value) - amount
 	return [first if count(first) > 0 else {}, rest if count(rest) > 0 else {}]
 
+# 0.0.7.8 : porté à deux mains (une main au-delà de TWO_HANDS) ; vitesse de marche selon le poids dans les mains :
+# 1 jusqu'à TWO_HANDS, puis jusqu'à 0,6 à HANDS_LIMIT.
+func two_handed() -> int:
+	if mode != SURVIVAL:
+		return -1
+	for index in HANDS:
+		if stack_weight(item("bar", index)) > TWO_HANDS:
+			return index
+	return -1
+
+func carry_factor() -> float:
+	if mode != SURVIVAL:
+		return 1.0
+	return 1.0 - 0.4 * clampf((hands_weight() - TWO_HANDS) / (HANDS_LIMIT - TWO_HANDS), 0.0, 1.0)
+
+# 0.0.7.8 : un tronc ou une branche (#212), à plat {"objet": …, caractéristiques} : épaisseur (cm), longueur (m),
+# essence, âge (1 très jeune à 5 vieux, un peu pourri) et souplesse (1 cassant à 5 très souple : surtout le bois jeune ;
+# noisetier plus souple, pin plus raide) ; taille 1 à 7 selon l'épaisseur ; poids : bois frais d'environ 0,75 kg/L.
+const WOOD_SIZES := [2.0, 3.0, 4.0, 6.0, 8.0, 11.0, 15.0]
+
+static func wood_piece(id: String, essence: int, thickness: float, length: float, rng: RandomNumberGenerator) -> Dictionary:
+	var age := clampi(int(round(rng.randfn(2.6, 1.0))), 1, 5)
+	var supple := clampi(6 - age + (1 if essence == 1 else 0) - (1 if essence == 2 else 0) + rng.randi_range(-1, 1), 1, 5)
+	var size := WOOD_SIZES.size()
+	for index in range(WOOD_SIZES.size()):
+		if thickness <= WOOD_SIZES[index]:
+			size = index + 1
+			break
+	var radius := thickness / 200.0
+	var weight := PI * radius * radius * length * 750000.0 * (0.7 if age == 5 else 1.0)
+	return {"objet": id, "taille": size, "epaisseur": snappedf(thickness, 0.1), "longueur": snappedf(length, 0.01), "essence": essence, "age": age, "souplesse": supple, "poids": snappedf(weight, 1.0), "forme": rng.randi_range(1, 7)}
+
 # Combien des premiers objets de « value » tiennent encore dans la case (en plus de ce qui y est, s'il est du même type).
 func fit_count(area: String, index: int, value: Dictionary) -> int:
 	if not usable(area, index) or value.is_empty() or (mode == SURVIVAL and unlimited(value)):
@@ -247,6 +288,15 @@ func fit_count(area: String, index: int, value: Dictionary) -> int:
 	if mode == CREATIVE:
 		return count(value)
 	var free := room(area, index) - stack_weight(there) + 0.001
+	# 0.0.7.8 : à deux mains : une main qui porte plus de TWO_HANDS laisse l'autre vide ; et une main ne dépasse
+	# TWO_HANDS que si l'autre est vide.
+	if area == "bar" and index in HANDS:
+		var other: int = HANDS[1] if index == HANDS[0] else HANDS[0]
+		var other_weight := stack_weight(item("bar", other))
+		if other_weight > TWO_HANDS:
+			return 0
+		if other_weight > 0.0:
+			free = minf(free, TWO_HANDS - stack_weight(there) + 0.001)
 	var fits := 0
 	if value.has("pile"):
 		for instance: Dictionary in value.pile:

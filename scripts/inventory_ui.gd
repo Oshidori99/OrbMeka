@@ -427,12 +427,14 @@ func refresh() -> void:
 		var chosen: bool = index == inventory.selected()
 		var value: Dictionary = inventory.item("bar", index)
 		hud_slots[index].visible = index in shown
-		hud_slots[index].show_item(value, false, chosen, _note(index))
+		# 0.0.7.8 : objet porté à deux mains : l'autre main grisée.
+		var busy: bool = inventory.two_handed() >= 0 and index in Inventory.HANDS and index != inventory.two_handed()
+		hud_slots[index].show_item(value, busy, chosen, _note(index))
 		var panel_slot: Slot = _creative_bar_slots[index] if creative or not _survival_bar_slots.has(index) else _survival_bar_slots[index]
 		bar_slots.append(panel_slot)
 		for slot in [_creative_bar_slots.get(index), _survival_bar_slots.get(index)]:
 			if slot != null:
-				slot.show_item(value, false, chosen, _note(index))
+				slot.show_item(value, busy, chosen, _note(index))
 	for index in range(Inventory.GRID_SIZE):
 		grid_slots[index].show_item(inventory.item("grid", index))
 	hud_gap.visible = not creative

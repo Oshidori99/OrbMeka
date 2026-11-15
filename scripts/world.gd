@@ -787,6 +787,8 @@ func apply_held() -> void:
 	if is_instance_valid(player):
 		player.selected_type = inventory.held_kind()
 		player.show_held(inventory.held())
+		# 0.0.7.8 : plus lent quand les mains portent lourd.
+		player.carry_slow = inventory.carry_factor()
 
 func set_game_mode(new_mode: String) -> void:
 	game_mode = new_mode
@@ -838,6 +840,268 @@ func _show_aim(on: bool) -> void:
 # Message quand une pioche manque : en Créatif, elle est dans l'inventaire (Outils) ; pas encore en Survie.
 func _needs_pickaxe(subject: String) -> String:
 	return subject + (" avec la pioche (inventaire : O + I, onglet Outils)." if game_mode == Inventory.CREATIVE else " avec une pioche : pas encore en Survie.")
+
+
+# --- 0.0.7.8 : anneau de chargement, abattre et couper les arbres (demande de l'utilisateur) ---
+const ProgressRing = preload("res://scripts/progress_ring.gd")
+var ring: Control
+var ring_value := 0.0
+var ring_frame := -10
+
+# Montre l'anneau de chargement (0 à 1) pour cette image ; il disparaît dès qu'on ne le montre plus.
+func show_ring(value: float) -> void:
+	ring_value = value
+	ring_frame = Engine.get_process_frames()
+
+func _update_ring() -> void:
+	if is_instance_valid(ring):
+		ring.progress = ring_value if Engine.get_process_frames() - ring_frame <= 1 else 0.0
+
+# Abattre : clic gauche maintenu sur un arbre debout, CHOP_SECONDS à mains nues (Créatif : CHOP_SECONDS_CREATIVE) ;
+# il tombe vers le joueur (plus tard, avec la vie, il faudra se décaler : #229). Arbre tombé de taille 1 à CUTTABLE_SIZE :
+# le même geste le coupe en un tronc et des branches posés au sol (bâtons, #212), à ramasser avec R.
+const CHOP_SECONDS := 8.0
+const CHOP_SECONDS_CREATIVE := 1.0
+const CUTTABLE_SIZE := 3
+const TREE_FALL_SECONDS := 1.6
+var chop_target: Node3D
+var chop_time := 0.0
+# Sauvegarde (objets.json) : arbres tombés {id: {"direction": [x, z], "position": [x, y, z]}} et arbres coupés {id: true}.
+var fallen_trees: Dictionary = {}
+var cut_trees: Dictionary = {}
+var sliding_trees: Array = []
+
+func step_chop(delta: float, holding: bool) -> bool:
+	if not holding or not is_instance_valid(player):
+		chop_target = null
+		chop_time = 0.0
+		return false
+	var hit: Dictionary = player.get_target()
+	var tree: Node3D = null
+	if not hit.is_empty() and is_instance_valid(hit.get("collider")) and hit.collider.is_in_group("trees") and player.camera.global_position.distance_to(hit.position) <= player.break_reach + 0.01:
+		tree = hit.collider
+	if tree == null or tree.has_meta("falling"):
+		chop_target = null
+		chop_time = 0.0
+		return false
+	var id := str(tree.get_meta("id", ""))
+	var lying := fallen_trees.has(id)
+	if lying and int(tree.get_meta("size", 3)) > CUTTABLE_SIZE:
+		_notify("Trop gros pour être coupé à mains nues.")
+		return false
+	if tree != chop_target:
+		chop_target = tree
+		chop_time = 0.0
+	var seconds := CHOP_SECONDS_CREATIVE if game_mode == Inventory.CREATIVE else CHOP_SECONDS
+	chop_time += delta
+	show_ring(chop_time / seconds)
+	if chop_time < seconds:
+		return false
+	chop_target = null
+	chop_time = 0.0
+	if lying:
+		cut_tree(tree)
+	else:
+		fell_tree(tree)
+	return true
+
+# Tombe vers le joueur, depuis sa base, en accélérant ; puis il se couche (et glisse si la pente est raide).
+func fell_tree(tree: Node3D) -> void:
+	var toward := player.global_position - tree.global_position
+	toward.y = 0.0
+	var direction := toward.normalized() if toward.length() > 0.05 else Vector3.FORWARD
+	var id := str(tree.get_meta("id", ""))
+	fallen_trees[id] = {"direction": [direction.x, direction.z]}
+	objects_dirty = true
+	tree.set_meta("falling", true)
+	var upright: Basis = tree.global_basis
+	var axis := Vector3.UP.cross(direction).normalized()
+	var lift := _tree_lift(tree)
+	var base := tree.global_position
+	var tilt := func(t: float) -> void:
+		if is_instance_valid(tree):
+			tree.global_basis = Basis(axis, t * PI * 0.5) * upright
+			tree.global_position = base + Vector3.UP * lift * t
+	var landed := func() -> void:
+		if is_instance_valid(tree):
+			tree.remove_meta("falling")
+			_start_slide(tree, direction)
+	var fall := create_tween()
+	fall.tween_method(tilt, 0.0, 1.0, TREE_FALL_SECONDS).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
+	fall.tween_callback(landed)
+	_impact_sound(base)
+
+# Le tronc couché repose sur le sol : son centre à la hauteur de son rayon.
+func _tree_lift(tree: Node3D) -> float:
+	return Trees.trunk(int(tree.get_meta("kind", 0)), int(tree.get_meta("size", 3))).x * tree.scale.x * 0.5
+
+func _tree_length(tree: Node3D) -> float:
+	return Trees.mesh(int(tree.get_meta("kind", 0)), int(tree.get_meta("size", 3)), false, int(tree.get_meta("form", 0))).get_aabb().size.y * tree.scale.x
+
+# Glissade : sur une pente raide (plus de SLIDE_DEGREES sous le milieu du tronc), l'arbre couché glisse vers le bas,
+# en accélérant puis freiné par le frottement ; il s'arrête sur un terrain plus plat ou après SLIDE_MAX_SECONDS.
+const SLIDE_DEGREES := 25.0
+const SLIDE_MAX_SECONDS := 4.0
+
+func _start_slide(tree: Node3D, direction: Vector3) -> void:
+	sliding_trees.append({"tree": tree, "direction": direction, "speed": Vector3.ZERO, "time": 0.0})
+	_update_slides(0.0)
+
+func _update_slides(delta: float) -> void:
+	for slide in sliding_trees.duplicate():
+		var tree: Node3D = slide.tree
+		if not is_instance_valid(tree):
+			sliding_trees.erase(slide)
+			continue
+		var middle: Vector3 = tree.global_position + slide.direction * _tree_length(tree) * 0.45
+		var step := 0.5
+		var gradient := Vector2(terrain.height_at(middle.x + step, middle.z) - terrain.height_at(middle.x - step, middle.z), terrain.height_at(middle.x, middle.z + step) - terrain.height_at(middle.x, middle.z - step)) / (2.0 * step)
+		var slope := rad_to_deg(atan(gradient.length()))
+		slide.time += delta
+		if slope > SLIDE_DEGREES and slide.time < SLIDE_MAX_SECONDS:
+			var downhill := Vector3(-gradient.x, 0.0, -gradient.y).normalized()
+			var pull := 9.8 * (sin(deg_to_rad(slope)) - 0.45 * cos(deg_to_rad(slope)))
+			slide.speed += downhill * pull * delta
+		else:
+			slide.speed = slide.speed.move_toward(Vector3.ZERO, 6.0 * delta)
+		if slide.speed.length() > 0.01 and slide.time < SLIDE_MAX_SECONDS + 1.0:
+			var moved: Vector3 = tree.global_position + slide.speed * delta
+			moved.y = terrain.height_at(moved.x, moved.z) - 0.05 + _tree_lift(tree)
+			tree.global_position = moved
+			continue
+		sliding_trees.erase(slide)
+		_lay_down(tree, slide.direction)
+
+# Arbre couché, arrêté : place gardée, branches et feuilles qui entreraient dans le sol repoussées au-dessus et sur
+# les côtés (une seule fois), fruits déplacés avec elles.
+func _lay_down(tree: Node3D, direction: Vector3) -> void:
+	var id := str(tree.get_meta("id", ""))
+	var place := tree.global_position
+	fallen_trees[id] = {"direction": [direction.x, direction.z], "position": [place.x, place.y, place.z]}
+	objects_dirty = true
+	_bend_into_ground(tree, direction)
+
+func _bend_into_ground(tree: Node3D, direction: Vector3) -> void:
+	var model: Node3D = tree.get_node_or_null("Modele")
+	if model == null:
+		return
+	var to_world := tree.global_transform * model.transform
+	var to_local := to_world.affine_inverse()
+	var base := tree.global_position
+	var heights := _ground_grid(tree)
+	var push := func(point: Vector3) -> Vector3:
+		var world_point: Vector3 = to_world * point
+		var ground: float = _grid_height(heights, world_point) + 0.04
+		if world_point.y >= ground:
+			return point
+		var sink := ground - world_point.y
+		var side := world_point - base
+		side -= direction * side.dot(direction)
+		side.y = 0.0
+		world_point.y = ground
+		if side.length() > 0.01:
+			world_point += side.normalized() * sink * 0.6
+		return to_local * world_point
+	for part in ["Detail", "Loin"]:
+		var shown: MeshInstance3D = model.get_node_or_null(part)
+		if shown == null or shown.mesh == null:
+			continue
+		var bent := ArrayMesh.new()
+		for surface in range(shown.mesh.get_surface_count()):
+			var arrays: Array = shown.mesh.surface_get_arrays(surface)
+			var points: PackedVector3Array = arrays[Mesh.ARRAY_VERTEX]
+			for index in range(points.size()):
+				points[index] = push.call(points[index])
+			arrays[Mesh.ARRAY_VERTEX] = points
+			bent.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arrays)
+			bent.surface_set_material(surface, shown.mesh.surface_get_material(surface))
+		shown.mesh = bent
+	# Fruits : déplacés comme les branches qui les portent.
+	var kind := int(tree.get_meta("kind", 0))
+	var spots := Trees.fruit_spots(kind, int(tree.get_meta("size", 3)), int(tree.get_meta("form", 0)))
+	if not spots.is_empty():
+		var moved := []
+		for spot in spots:
+			moved.append([push.call(spot[0]), spot[1], spot[2], spot[3]])
+		tree.set_meta("fruit_spots", moved)
+		Trees.apply_picked(tree, picked_fruits.get(str(tree.get_meta("id", "")), []))
+
+# Hauteurs du sol sous l'arbre couché, tous les 50 cm (peu de calculs, même pour un grand arbre).
+func _ground_grid(tree: Node3D) -> Dictionary:
+	var reach := _tree_length(tree) + 3.0
+	var center := tree.global_position
+	var grid := {"origin": Vector2(center.x - reach, center.z - reach), "step": 0.5, "size": int(reach * 4.0) + 2, "values": PackedFloat32Array()}
+	grid.values.resize(grid.size * grid.size)
+	for row in range(grid.size):
+		for column in range(grid.size):
+			var at: Vector2 = grid.origin + Vector2(column, row) * grid.step
+			grid.values[row * grid.size + column] = terrain.height_at(at.x, at.y)
+	return grid
+
+func _grid_height(grid: Dictionary, point: Vector3) -> float:
+	var local: Vector2 = (Vector2(point.x, point.z) - grid.origin) / grid.step
+	var column := clampi(floori(local.x), 0, grid.size - 2)
+	var row := clampi(floori(local.y), 0, grid.size - 2)
+	var fx := clampf(local.x - column, 0.0, 1.0)
+	var fz := clampf(local.y - row, 0.0, 1.0)
+	var values: PackedFloat32Array = grid.values
+	var top := lerpf(values[row * grid.size + column], values[row * grid.size + column + 1], fx)
+	var bottom := lerpf(values[(row + 1) * grid.size + column], values[(row + 1) * grid.size + column + 1], fx)
+	return lerpf(top, bottom, fz)
+
+# Arbre déjà tombé (monde rouvert, colonne revue) : couché tout de suite à sa place.
+func _restore_fallen(tree: Node3D) -> void:
+	var saved: Dictionary = fallen_trees.get(str(tree.get_meta("id", "")), {})
+	if saved.is_empty():
+		return
+	var direction := Vector3(float(saved.direction[0]), 0.0, float(saved.direction[1])).normalized()
+	if direction.length() < 0.5:
+		direction = Vector3.FORWARD
+	var axis := Vector3.UP.cross(direction).normalized()
+	tree.global_basis = Basis(axis, PI * 0.5) * tree.global_basis
+	if saved.has("position"):
+		tree.global_position = Vector3(float(saved.position[0]), float(saved.position[1]), float(saved.position[2]))
+	else:
+		tree.global_position += Vector3.UP * _tree_lift(tree)
+	_bend_into_ground(tree, direction)
+
+# Couper un arbre couché (taille 1 à CUTTABLE_SIZE) : un tronc et des branches tombent au sol, chacun unique.
+const BRANCHES := [3, 5, 7]
+const TRUNK_THICKNESS := [5.0, 8.0, 11.0]
+const TRUNK_LENGTH := [1.0, 1.5, 2.0]
+
+func cut_tree(tree: Node3D) -> void:
+	var id := str(tree.get_meta("id", ""))
+	var kind := int(tree.get_meta("kind", 0))
+	var size := clampi(int(tree.get_meta("size", 1)), 1, CUTTABLE_SIZE)
+	var saved: Dictionary = fallen_trees.get(id, {})
+	var direction := Vector3(float(saved.get("direction", [0.0, -1.0])[0]), 0.0, float(saved.get("direction", [0.0, -1.0])[1])).normalized()
+	var side := Vector3(-direction.z, 0.0, direction.x)
+	var rng := RandomNumberGenerator.new()
+	rng.seed = hash(id)
+	var base := tree.global_position
+	var length := _tree_length(tree)
+	# L'arbre quitte le monde d'abord : les morceaux se posent sur le sol, pas sur son tronc.
+	if tree.get_parent() != null:
+		tree.get_parent().remove_child(tree)
+	var pieces := [Inventory.wood_piece("tronc", kind, TRUNK_THICKNESS[size - 1], TRUNK_LENGTH[size - 1], rng)]
+	for index in range(BRANCHES[size - 1]):
+		pieces.append(Inventory.wood_piece("branche", kind, rng.randf_range(1.5, 4.0), rng.randf_range(0.4, 1.2), rng))
+	for index in range(pieces.size()):
+		var along := 0.6 if index == 0 else rng.randf_range(0.35, 0.95) * length
+		var near: Vector3 = base + direction * along + side * (0.0 if index == 0 else rng.randf_range(-1.2, 1.2))
+		var piece: Dictionary = pieces[index]
+		piece.rotation = atan2(-direction.x, -direction.z) + (0.0 if index == 0 else rng.randf_range(-0.8, 0.8))
+		ground.drop(piece, near + Vector3.UP * 0.4, near, _rest_height, 0.0)
+	cut_trees[id] = true
+	fallen_trees.erase(id)
+	objects_dirty = true
+	var column: Vector2i = tree.get_meta("column", Vector2i(999999, 0))
+	if column_objects.has(column):
+		column_objects[column].erase(tree)
+	tree.queue_free()
+	_impact_sound(base)
+	show_choice("Arbre coupé : un tronc et %d branches" % (pieces.size() - 1))
 
 # --- 0.0.7.3 : objets au sol, ramasser (R), récupérer une poignée (R + I), terre rejetée derrière soi (Survie) ---
 const GroundItems = preload("res://scripts/ground_items.gd")
@@ -945,7 +1209,7 @@ func aimed_fruit(hit: Dictionary) -> Dictionary:
 					continue
 				if tree.global_position.distance_to(origin) > reach + 12.0:
 					continue
-				var spots: Array = Trees.fruit_spots(tree.get_meta("kind"), tree.get_meta("size"), tree.get_meta("form"))
+				var spots: Array = tree.get_meta("fruit_spots", Trees.fruit_spots(tree.get_meta("kind"), tree.get_meta("size"), tree.get_meta("form")))
 				if spots.is_empty():
 					continue
 				var picked: Array = picked_fruits.get(str(tree.get_meta("id", "")), [])
@@ -1083,7 +1347,7 @@ func step_gather(delta: float, holding: bool) -> bool:
 	var id: String = GATHER_ITEMS[kind]
 	gather_time += delta
 	if gather_time < GATHER_SECONDS:
-		_notify("%s… %d %%" % [handful_text(id), int(gather_time / GATHER_SECONDS * 100.0)])
+		show_ring(gather_time / GATHER_SECONDS)
 		return false
 	gather_time = 0.0
 	var result := inventory.add_to_selected({"objet": id, "nombre": 1})
@@ -1150,7 +1414,8 @@ func _pile_top(column: Vector2i, feet: Vector3, pending: Dictionary) -> Vector3i
 			return top
 	return NO_SPOT
 
-func _aimed_ground(hit: Dictionary, reach: float) -> bool:
+# 0.0.7.8 : any_surface (poser) : aussi sur un rocher, un caillou ou un bloc (demande de l'utilisateur : poser partout).
+func _aimed_ground(hit: Dictionary, reach: float, any_surface: bool = false) -> bool:
 	if not _valid_hit(hit, reach):
 		# 0.0.6 : jamais un clic sans réponse : on dit pourquoi rien ne se passe.
 		if hit.is_empty() or not is_instance_valid(hit.get("collider")):
@@ -1160,7 +1425,8 @@ func _aimed_ground(hit: Dictionary, reach: float) -> bool:
 		else:
 			_notify("Visez le sol pour le sculpter.")
 		return false
-	if not hit.collider.is_in_group("ground"):
+	var surface: bool = hit.collider.is_in_group("ground") or (any_surface and (hit.collider.is_in_group("rocks") or hit.collider.is_in_group("pebbles") or hit.collider.is_in_group("blocks")))
+	if not surface:
 		_notify("Visez le sol pour le sculpter.")
 		return false
 	return true
@@ -1203,7 +1469,7 @@ func _inside_player(point: Vector3i) -> bool:
 
 # Creuser (add false) ou poser (add true, matière kind).
 func sculpt(hit: Dictionary, add: bool, kind: int = SmoothTerrain.DIRT, cells: int = 1, pickaxe: bool = false) -> bool:
-	if not _aimed_ground(hit, player.place_reach if add else player.break_reach):
+	if not _aimed_ground(hit, player.place_reach if add else player.break_reach, add):
 		return false
 	var center := SmoothTerrain.point_of(hit.position + hit.normal * (0.15 if add else -0.3))
 	var updates := {}
@@ -1839,6 +2105,9 @@ func _create_hud() -> void:
 	crosshair.offset_bottom = 24
 	crosshair.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	layer.add_child(crosshair)
+	# 0.0.7.8 : anneau de chargement autour de la croix (abattre, couper, récupérer).
+	ring = ProgressRing.new()
+	layer.add_child(ring)
 	# 0.0.7.2 : barre d'objets en bas au centre, écran d'inventaire (inventory_ui.gd) ; les messages juste au-dessus.
 	inventory_ui = InventoryUI.new()
 	add_child(inventory_ui)
@@ -1904,6 +2173,9 @@ func _process(delta: float) -> void:
 	if not is_instance_valid(player):
 		return
 	_update_fps(delta)
+	_update_ring()
+	if not sliding_trees.is_empty():
+		_update_slides(delta)
 	_update_collisions()
 	_update_underwater()
 	_update_water(delta)
@@ -2145,6 +2417,14 @@ func _read_objects() -> void:
 func _read_carved(data: Dictionary) -> void:
 	for id in data.get("cailloux_casses", []):
 		broken_pebbles[id] = true
+	# 0.0.7.8 : arbres tombés et arbres coupés.
+	var fallen: Variant = data.get("arbres_tombes", {})
+	if fallen is Dictionary:
+		for id in fallen:
+			if fallen[id] is Dictionary and fallen[id].get("direction") is Array and fallen[id].direction.size() == 2:
+				fallen_trees[str(id)] = fallen[id]
+	for id in data.get("arbres_coupes", []):
+		cut_trees[str(id)] = true
 	# 0.0.7.5 : fruits cueillis, par arbre (numéros des fruits du modèle, trees.gd fruit_spots).
 	var picked: Variant = data.get("fruits_cueillis", {})
 	if picked is Dictionary:
@@ -2235,6 +2515,9 @@ func _show_column_objects(column: Vector2i) -> void:
 				_column_object(column, made)
 	# 0.0.6.9 (#149) : arbres fruitiers de la colonne (génération 21), détaillés de près, simplifiés au loin.
 	for tree in terrain.trees_in_zone(column):
+		# 0.0.7.8 : arbre coupé : plus là.
+		if cut_trees.has(str(tree.id)):
+			continue
 		var made := Trees.tree_body(int(tree.espece), int(tree.get("classe", 3)), tree.get("liane", false), int(tree.get("forme", 0)))
 		made.position = Vector3(tree.x, terrain.height_at(tree.x, tree.z) - 0.05, tree.z)
 		made.rotation.y = deg_to_rad(float(tree.rotation))
@@ -2245,6 +2528,7 @@ func _show_column_objects(column: Vector2i) -> void:
 		made.set_meta("column", column)
 		_rocks_parent().add_child(made)
 		_column_object(column, made)
+		_restore_fallen(made)
 	# 0.0.6.16 (#182) : plantes à fibres de la colonne (génération 27).
 	var plant_list: Array = terrain.plants_in_zone(column)
 	if not plant_list.is_empty():
@@ -2682,6 +2966,8 @@ func _save_objects() -> bool:
 	data.rochers_entames = carved_rocks.duplicate(true)
 	data.cailloux_casses = broken_pebbles.keys()
 	data.fruits_cueillis = picked_fruits.duplicate(true)
+	data.arbres_tombes = fallen_trees.duplicate(true)
+	data.arbres_coupes = cut_trees.keys()
 	# 0.0.7.3 : objets posés au sol (ground_items.gd).
 	if is_instance_valid(ground):
 		data.objets_au_sol = ground.to_array()

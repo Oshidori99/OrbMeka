@@ -92,6 +92,19 @@ func show_item(value: Dictionary) -> void:
 					made.material_override = _plain(Inventory.APPLE_COLORS[clampi(int(shown.get("couleur", 1)), 0, 4)])
 				made.scale = Vector3.ONE * size * 0.5
 				made.position.y = size * 0.45
+			# 0.0.7.8 : bâton ou tronc en travers de la paume (raccourci pour ne pas cacher le jeu).
+			"bois":
+				var stick := CylinderMesh.new()
+				stick.top_radius = 0.42
+				stick.bottom_radius = 0.5
+				stick.height = 1.0
+				stick.radial_segments = 8
+				made.mesh = stick
+				var thick := minf(float(shown.get("epaisseur", 3.0)) / 100.0, 0.05)
+				made.material_override = Trees.material(clampi(int(shown.get("essence", 0)), 0, 3), "bark")
+				made.scale = Vector3(thick, minf(float(shown.get("longueur", 1.0)), 0.3), thick)
+				made.rotation.z = PI * 0.5
+				made.position.y = thick * 0.5
 	# La paume regarde vers +Y (repère de la main) : l'objet repose dessus.
 	made.position = Vector3(0.0, made.position.y, 0.0)
 	held.add_child(made)
