@@ -29,6 +29,8 @@ class Slot extends Control:
 	var note := ""
 	var font_px := 11
 	var with_text := false
+	# 0.0.7.7 : silhouette grise d'une case vide (équipement à venir).
+	var picture: Texture2D
 
 	func _init(box_side: float, text_lines: bool = false, text_px: int = 11) -> void:
 		side = box_side
@@ -70,6 +72,8 @@ class Slot extends Control:
 				var at := Vector2(side - 4.0 - font.get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1, px).x, side - 5.0)
 				draw_string_outline(font, at, text, HORIZONTAL_ALIGNMENT_LEFT, -1, px, 3, Color(0, 0, 0, 0.85))
 				draw_string(font, at, text, HORIZONTAL_ALIGNMENT_LEFT, -1, px, Color.WHITE)
+		if item.is_empty() and picture != null:
+			draw_texture_rect(picture, rect.grow(-side * 0.12), false, Color(1, 1, 1, 0.45))
 		if locked:
 			draw_rect(rect, Color(0.55, 0.55, 0.57, 0.4))
 		if not plain:
@@ -316,10 +320,15 @@ func _build_screen() -> void:
 		slot.clicked.connect(_on_slot.bind("bar", index))
 		creative_bar.add_child(slot)
 		creative_slots[index] = slot
-	# Survie : ligne des mains, puis ligne des poches.
+	# Survie : ligne des mains, puis ligne des poches ; à droite (0.0.7.7), l'équipement à venir.
+	survival_area = HBoxContainer.new()
+	survival_area.add_theme_constant_override("separation", 24)
+	column.add_child(survival_area)
 	survival_box = VBoxContainer.new()
 	survival_box.add_theme_constant_override("separation", GAP + 4)
-	column.add_child(survival_box)
+	survival_box.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	survival_area.add_child(survival_box)
+	_build_equipment(survival_area, side)
 	var survival_slots := {}
 	hands_weight = _survival_row(ItemIcons.hand(), Inventory.HANDS, side, survival_slots, "Mains")
 	pockets_weight = _survival_row(ItemIcons.pocket(), Inventory.POCKETS, side, survival_slots, "Poches")
@@ -337,6 +346,31 @@ func _build_screen() -> void:
 	cursor.visible = false
 	screen.add_child(cursor)
 	show_category(0)
+
+# 0.0.7.7 (demande de l'utilisateur) : à droite de l'écran de Survie, ce qu'on pourra porter plus tard, deux cases de
+# chaque, grisées et vides : sacs, paniers (bientôt), travois (deux bâtons qu'on traîne, plus tard), chariots (à roues,
+# bien plus tard). Quand on en portera, leurs cases apparaîtront en bas à gauche (rien pour l'instant).
+const EQUIPMENT := [["sac", "Sac (bientôt)"], ["panier", "Panier (bientôt)"], ["travois", "Travois : deux bâtons qu'on traîne (plus tard)"], ["chariot", "Chariot à roues (bien plus tard)"]]
+var survival_area: HBoxContainer
+var equipment_slots: Array = []
+
+func _build_equipment(parent: Node, side: float) -> void:
+	var box := VBoxContainer.new()
+	box.add_theme_constant_override("separation", GAP)
+	parent.add_child(box)
+	box.add_child(_label("Équipement", 14))
+	var grid := _row(2)
+	box.add_child(grid)
+	var small := roundf(side * 0.85)
+	for kind in EQUIPMENT:
+		for index in range(2):
+			var slot := Slot.new(small)
+			slot.locked = true
+			slot.picture = ItemIcons.equipment(kind[0])
+			slot.tooltip_text = kind[1]
+			slot.name = "Equipement_%s_%d" % [kind[0], index]
+			grid.add_child(slot)
+			equipment_slots.append(slot)
 
 var _creative_bar_slots := {}
 var _survival_bar_slots := {}
@@ -409,6 +443,7 @@ func refresh() -> void:
 	creative_box.visible = creative
 	creative_bar.visible = creative
 	survival_box.visible = not creative
+	survival_area.visible = not creative
 	weights_label.visible = not creative
 	var hands_text := _carried(inventory.hands_weight(), Inventory.HANDS_LIMIT)
 	var pockets_text := _carried(inventory.pockets_weight(), Inventory.POCKETS_LIMIT)

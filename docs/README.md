@@ -1,6 +1,16 @@
-# OrbMeka™ — prototype 0.0.7.6
+# OrbMeka™ — prototype 0.0.7.7
 
 Godot 4.7 / GDScript. Formes et couleurs simples ; assets externes seulement sous licence vérifiée (sons CC0, assets/sounds/CREDITS.txt).
+
+## 0.0.7.7 — Enjamber, pentes plus lentes, équipement à venir
+Version publiée (4 sur 4 : avec 0.0.7.5 et 0.0.7.6). Génération inchangée (version 32).
+- **Enjamber** : un obstacle bas devant soi (caillou, marche du terrain), jusqu'à 45 cm, se passe en avançant, sans sauter ; la vue suit en douceur. Plus haut (ou une pente) : on monte en marchant ou on saute.
+- **Pentes raides** : en montée, on marche moins vite (jusqu'à moitié moins près de la pente la plus raide qu'on puisse monter) ; en descente et de côté, vitesse normale.
+- **Équipement à venir** (écran d'inventaire en Survie, à droite) : 2 cases Sac, 2 Panier, 2 Travois (deux bâtons qu'on traîne), 2 Chariot (à roues), grisées, avec leur silhouette ; leurs cases de contenu apparaîtront en bas à gauche quand on les portera.
+- Issues pour plus tard : animations des bras (#224, #225, série 0.0.8) et des jambes et des pattes (#226, #227, série 0.0.9) ; écran de ce qu'on porte (#219) et objet en main en vue de derrière (#201) en 0.0.8.
+
+Tests réussis : step_over (nouveau : pentes, caillou enjambé, mur bloquant), inventory (équipement), et 35 autres (déplacement, contrôles, interface, arbres, terrain) (+ tests juridiques). Capture hors écran : écran de Survie avec l'équipement.
+À tester manuellement : enjamber des cailloux et des marches en jouant, monter une pente raide, sur le Web aussi.
 
 ## 0.0.7.6 — Une main qui tient l'objet, poids réalistes
 Version locale (2 sur 4, correction demandée par l'utilisateur). Génération inchangée (version 32).

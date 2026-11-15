@@ -802,6 +802,53 @@ static func slip_motion(kind: int, normal: Vector3, wanted: Vector2, current: Ve
 		target += downhill * SLIP[kind][0]
 	return current.lerp(target, clampf(SLIP[kind][1] * delta, 0.0, 1.0))
 
+# 0.0.7.7 (demande de l'utilisateur) : vitesse en montée selon la pente (1 : plat ou descente ; SLOPE_SLOWEST au plus
+# raide qu'on puisse monter). Seule la part du pas qui va vers le haut de la pente compte.
+const SLOPE_EASY_DEGREES := 12.0
+const SLOPE_SLOWEST := 0.5
+
+static func slope_factor(normal: Vector3, move: Vector2) -> float:
+	if move.length() < 0.001 or normal.y >= 0.999:
+		return 1.0
+	var angle := rad_to_deg(acos(clampf(normal.y, -1.0, 1.0)))
+	var steep := clampf((angle - SLOPE_EASY_DEGREES) / (MAX_SLOPE_DEGREES - SLOPE_EASY_DEGREES), 0.0, 1.0)
+	var downhill := Vector2(normal.x, normal.z).normalized()
+	var uphill := clampf(-move.normalized().dot(downhill), 0.0, 1.0)
+	return lerpf(1.0, SLOPE_SLOWEST, steep * uphill)
+
+# 0.0.7.7 (demande de l'utilisateur) : enjamber. Un obstacle bas devant soi (caillou, marche du terrain), jusqu'à
+# STEP_HEIGHT, se passe en avançant, sans sauter : le corps monte d'un coup sur l'obstacle, la vue suit en douceur.
+# Seulement au sol et s'il y a la place au-dessus et un appui de l'autre côté.
+const STEP_HEIGHT := 0.45
+
+func step_over(motion: Vector3) -> bool:
+	var blocked := KinematicCollision3D.new()
+	if not is_on_floor() or motion.length() < 0.0005 or not test_move(global_transform, motion, blocked):
+		return false
+	# Seulement contre un bord presque vertical (une pente se monte en marchant, elle ne s'enjambe pas).
+	if blocked.get_normal().y > cos(floor_max_angle):
+		return false
+	var up := Vector3(0.0, STEP_HEIGHT, 0.0)
+	if test_move(global_transform, up):
+		return false
+	var raised := global_transform.translated(up)
+	# Un peu plus loin que le pas : le pied doit passer par-dessus le bord.
+	var ahead_motion := motion.normalized() * maxf(motion.length(), 0.12)
+	if test_move(raised, ahead_motion):
+		return false
+	var ahead := raised.translated(ahead_motion)
+	var landing := KinematicCollision3D.new()
+	if not test_move(ahead, -up - Vector3(0.0, 0.05, 0.0), landing):
+		return false
+	if landing.get_normal().y < cos(floor_max_angle):
+		return false
+	var rise: float = (ahead.origin + landing.get_travel()).y - global_position.y
+	if rise <= 0.02:
+		return false
+	global_position.y += rise + 0.01
+	camera.position.y = maxf(camera.position.y - rise, 0.2)
+	return true
+
 # The same movement step is used by gameplay and windowless physics tests.
 func step_movement(delta: float, direction: Vector2, jump_requested: bool) -> void:
 	if actions.tick_jump(delta, is_on_floor(), jump_requested):
@@ -836,6 +883,11 @@ func step_movement(delta: float, direction: Vector2, jump_requested: bool) -> vo
 	var eye := maxf(0.2, eye_height - CROUCH_DROP) if crouching else eye_height
 	camera.position.y = move_toward(camera.position.y, eye, 4.0 * delta)
 	var movement := global_transform.basis * local
+	# 0.0.7.7 : en montée sur une pente raide, on marche moins vite (jusqu'à moitié moins près de la pente maximale).
+	if is_on_floor():
+		var slowed := slope_factor(get_floor_normal(), Vector2(movement.x, movement.z))
+		movement.x *= slowed
+		movement.z *= slowed
 	if is_on_floor() and is_instance_valid(world) and world.has_method("ground_kind_under"):
 		var slip := slip_motion(world.ground_kind_under(position), get_floor_normal(), Vector2(movement.x, movement.z), Vector2(velocity.x, velocity.z), delta)
 		movement.x = slip.x
@@ -847,6 +899,7 @@ func step_movement(delta: float, direction: Vector2, jump_requested: bool) -> vo
 		movement.z += current.y
 	velocity.x = movement.x
 	velocity.z = movement.z
+	step_over(Vector3(movement.x, 0.0, movement.z) * delta)
 	move_and_slide()
 	velocity.y = 0.0 if is_on_floor() or is_on_ceiling() else end_speed
 	position.x = clampf(position.x, -world.build_limit - 1.0, world.build_limit + 1.0)

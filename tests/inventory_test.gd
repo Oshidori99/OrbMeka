@@ -178,6 +178,7 @@ func _run() -> void:
 	action(app, "inventory")
 	check(ui.is_open() and not ui.creative_box.visible and not ui.grid_box.visible and ui.survival_box.visible and ui.hands_weight.text == "0,000 g / 1,400 kg" and ui.pockets_weight.text == "0,000 g / 500,0 g", "survival screen: a row for the hands, a row for the pockets, no grid")
 	check(ui.bar_slots.size() == 10 and ui.survival_box.is_ancestor_of(ui.bar_slots[0]) and ui.survival_box.is_ancestor_of(ui.bar_slots[5]), "survival slots are in the hands and pockets rows")
+	check(ui.equipment_slots.size() == 8 and ui.equipment_slots.all(func(slot): return slot.locked and slot.item.is_empty() and slot.picture != null) and ui.survival_area.is_ancestor_of(ui.equipment_slots[0]), "equipment to come at the right: 2 bags, 2 baskets, 2 travois, 2 carts, greyed (0.0.7.7)")
 	action(app, "inventory")
 	check(not ui.is_open(), "O + I closes it again")
 	key(world, KEY_7)

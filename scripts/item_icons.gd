@@ -412,6 +412,40 @@ static func _hazelnut(base: Color) -> Image:
 
 # --- Dessins vectoriels (originaux, faits pour OrbMeka) ---
 
+# 0.0.7.7 : silhouettes de l'équipement à venir (cases grisées de l'écran de Survie) : sac, panier, travois, chariot.
+static func equipment(kind: String) -> Texture2D:
+	var key := "#equipement_" + kind
+	if _cache.has(key):
+		return _cache[key]
+	var source: String = {"sac": BAG_SVG, "panier": BASKET_SVG, "travois": TRAVOIS_SVG, "chariot": CART_SVG}.get(kind, BAG_SVG)
+	return _keep(key, _svg(source, SIZE))
+
+const BASKET_SVG := "<svg xmlns='http://www.w3.org/2000/svg' width='64' height='64' viewBox='0 0 64 64'>
+<path d='M16 28 Q16 8 32 8 Q48 8 48 28' fill='none' stroke='#3a2414' stroke-width='5' stroke-linecap='round'/>
+<path d='M16 28 Q16 8 32 8 Q48 8 48 28' fill='none' stroke='#c99a5b' stroke-width='2.4' stroke-linecap='round'/>
+<path d='M8 28 H56 L50 56 H14 Z' fill='#c99a5b' stroke='#3a2414' stroke-width='3' stroke-linejoin='round'/>
+<path d='M11 36 H53 M12 44 H52 M13 51 H51' stroke='#8a6233' stroke-width='2'/>
+<path d='M20 28 L21 56 M32 28 V56 M44 28 L43 56' stroke='#8a6233' stroke-width='2'/>
+</svg>"
+
+const TRAVOIS_SVG := "<svg xmlns='http://www.w3.org/2000/svg' width='64' height='64' viewBox='0 0 64 64'>
+<path d='M12 10 L28 56 M52 10 L36 56' stroke='#3a2414' stroke-width='6' stroke-linecap='round'/>
+<path d='M12 10 L28 56 M52 10 L36 56' stroke='#b07a42' stroke-width='3' stroke-linecap='round'/>
+<path d='M19 30 H45 M22 38 H42 M24 45 H40' stroke='#3a2414' stroke-width='4' stroke-linecap='round'/>
+<path d='M19 30 H45 M22 38 H42 M24 45 H40' stroke='#d9a46a' stroke-width='2' stroke-linecap='round'/>
+<path d='M24 22 Q32 14 40 22 L38 30 H26 Z' fill='#8c5b2c' stroke='#3a2414' stroke-width='2.4' stroke-linejoin='round'/>
+</svg>"
+
+const CART_SVG := "<svg xmlns='http://www.w3.org/2000/svg' width='64' height='64' viewBox='0 0 64 64'>
+<path d='M8 20 H48 L44 40 H12 Z' fill='#b07a42' stroke='#3a2414' stroke-width='3' stroke-linejoin='round'/>
+<path d='M48 22 L58 14' stroke='#3a2414' stroke-width='4' stroke-linecap='round'/>
+<path d='M18 26 V36 M28 26 V36 M38 26 V36' stroke='#8a6233' stroke-width='2'/>
+<circle cx='19' cy='46' r='8' fill='#6d747b' stroke='#22272c' stroke-width='3'/>
+<circle cx='39' cy='46' r='8' fill='#6d747b' stroke='#22272c' stroke-width='3'/>
+<circle cx='19' cy='46' r='2.2' fill='#22272c'/>
+<circle cx='39' cy='46' r='2.2' fill='#22272c'/>
+</svg>"
+
 const BAG_SVG := "<svg xmlns='http://www.w3.org/2000/svg' width='64' height='64' viewBox='0 0 64 64'>
 <path d='M22 20 Q22 8 32 8 Q42 8 42 20' fill='none' stroke='#3a2414' stroke-width='5' stroke-linecap='round'/>
 <path d='M22 20 Q22 8 32 8 Q42 8 42 20' fill='none' stroke='#a7743f' stroke-width='2.4' stroke-linecap='round'/>
