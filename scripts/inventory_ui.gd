@@ -291,7 +291,8 @@ func _build_screen() -> void:
 	catalog = _row(Inventory.COLUMNS)
 	creative_box.add_child(catalog)
 	for index in range(Inventory.COLUMNS * CATALOG_ROWS):
-		var slot := Slot.new(side)
+		# 0.0.7.9 : le nom sous chaque objet (demande de l'utilisateur).
+		var slot := Slot.new(side, true, _text_px())
 		slot.clicked.connect(_on_catalog.bind(index))
 		catalog.add_child(slot)
 		catalog_slots.append(slot)
@@ -302,7 +303,8 @@ func _build_screen() -> void:
 	grid_box = _row(Inventory.COLUMNS)
 	column.add_child(grid_box)
 	for index in range(Inventory.GRID_SIZE):
-		var slot := Slot.new(side)
+		# 0.0.7.9 : le nom sous chaque objet (demande de l'utilisateur).
+		var slot := Slot.new(side, true, _text_px())
 		slot.clicked.connect(_on_slot.bind("grid", index))
 		grid_box.add_child(slot)
 		grid_slots.append(slot)

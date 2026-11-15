@@ -1048,9 +1048,13 @@ func is_stone(point: Vector3i) -> bool:
 	var kind: int = materials.get(point, natural_kind(point))
 	return density(point) > 0.0 and kind in ROCKS
 
+# 0.0.7.9 : appuis hors du terrain (dessus d'un rocher, d'un caillou ou d'un bloc) : la matière posée dessus ne tombe pas
+# au travers (world.gd, sauvegardés dans objets.json « appuis »).
+var supports: Dictionary = {}
+
 func solid(point: Vector3i) -> bool:
 	# La Roche-mère porte tout (jamais changée : on ne casse que jusqu'à la pierre au-dessus).
-	return point.y <= mother_rock_top or density(point) > 0.0
+	return point.y <= mother_rock_top or density(point) > 0.0 or supports.has(point)
 
 # Après un changement : le point, ceux au-dessus et autour sont à vérifier.
 func wake(point: Vector3i) -> void:

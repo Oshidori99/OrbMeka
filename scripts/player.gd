@@ -761,6 +761,10 @@ var fly_stop_on_ground := true
 var fly_airborne := false
 
 func update_fly(active: bool, just_pressed: bool) -> void:
+	# 0.0.7.9 (demande de l'utilisateur) : pas de vol en Survie.
+	if is_instance_valid(world) and world.get("game_mode") == "survival":
+		flying = false
+		return
 	if active and just_pressed:
 		flying = not flying
 		fly_airborne = false

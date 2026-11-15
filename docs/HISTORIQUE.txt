@@ -3,6 +3,10 @@ Du plus récent au plus ancien. Ce fichier est mis à jour à chaque version.
 
 === Thème « Gameplay et inventaire » (0.0.7) ===
 
+0.0.7.9 — Couper en deux là où on vise, temps selon l'épaisseur, arbres posés sur leurs appuis, pas de vol en Survie, terre sur rocher, travois au sol, noms dans l'inventaire Créatif
+Génération du terrain : version 32 · Menus : version 10.
+Arbre couché coupé en deux au point visé (bois nu = tronc au sol à sa taille) ; temps selon l'épaisseur (15 cm au plus) ; tronc posé sur ses appuis, jamais dans le sol ; pas de vol en Survie ; terre qui tient sur un rocher ; travois au sol ; noms sous les objets.
+
 0.0.7.8 — Abattre et couper les arbres, bâtons, porter lourd, poser partout, anneau de chargement, troncs solides
 Génération du terrain : version 32 · Menus : version 10.
 Arbres abattus (8 s), couchés, qui glissent ; coupés en tronc et branches (âge, souplesse) ; mains 3 kg à deux mains ; matière posée sur rochers ; anneau de chargement ; troncs enfin solides.

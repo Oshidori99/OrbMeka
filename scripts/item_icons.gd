@@ -458,18 +458,26 @@ const BASKET_SVG := "<svg xmlns='http://www.w3.org/2000/svg' width='64' height='
 <path d='M20 28 L21 56 M32 28 V56 M44 28 L43 56' stroke='#8a6233' stroke-width='2'/>
 </svg>"
 
+# 0.0.7.9 (demande de l'utilisateur) : travois traîné, vu de côté : une bande de sol en bas, les deux bâtons qui montent
+# doucement vers la droite (le bout tenu), le bout arrière couché sur le sol avec des traces derrière, la charge ficelée
+# dessus (avant : il avait l'air de flotter).
 const TRAVOIS_SVG := "<svg xmlns='http://www.w3.org/2000/svg' width='64' height='64' viewBox='0 0 64 64'>
-<path d='M12 10 L28 56 M52 10 L36 56' stroke='#3a2414' stroke-width='6' stroke-linecap='round'/>
-<path d='M12 10 L28 56 M52 10 L36 56' stroke='#b07a42' stroke-width='3' stroke-linecap='round'/>
-<path d='M19 30 H45 M22 38 H42 M24 45 H40' stroke='#3a2414' stroke-width='4' stroke-linecap='round'/>
-<path d='M19 30 H45 M22 38 H42 M24 45 H40' stroke='#d9a46a' stroke-width='2' stroke-linecap='round'/>
-<path d='M24 22 Q32 14 40 22 L38 30 H26 Z' fill='#8c5b2c' stroke='#3a2414' stroke-width='2.4' stroke-linejoin='round'/>
+<path d='M1 55 H63 V62 H1 Z' fill='#7a5a34' stroke='#3a2414' stroke-width='2'/>
+<path d='M1 55 H63' stroke='#6f9a3c' stroke-width='3'/>
+<path d='M2 58.5 H11 M4 60.5 H9' stroke='#4a341c' stroke-width='1.6' stroke-linecap='round'/>
+<path d='M10 53 L60 25 M16 54 L62 31' stroke='#3a2414' stroke-width='6' stroke-linecap='round'/>
+<path d='M10 53 L60 25 M16 54 L62 31' stroke='#b07a42' stroke-width='3' stroke-linecap='round'/>
+<path d='M22 46 L26 50 M34 39 L38 44 M46 32 L50 37' stroke='#3a2414' stroke-width='4' stroke-linecap='round'/>
+<path d='M22 46 L26 50 M34 39 L38 44 M46 32 L50 37' stroke='#d9a46a' stroke-width='2' stroke-linecap='round'/>
+<path d='M19 47 Q19 31 31 29 Q41 27 44 34 Z' fill='#8c5b2c' stroke='#3a2414' stroke-width='2.4' stroke-linejoin='round'/>
+<path d='M25 43 L29 30 M35 37 L37 28' stroke='#e1b54c' stroke-width='1.6'/>
 </svg>"
 
 const CART_SVG := "<svg xmlns='http://www.w3.org/2000/svg' width='64' height='64' viewBox='0 0 64 64'>
 <path d='M8 20 H48 L44 40 H12 Z' fill='#b07a42' stroke='#3a2414' stroke-width='3' stroke-linejoin='round'/>
 <path d='M48 22 L58 14' stroke='#3a2414' stroke-width='4' stroke-linecap='round'/>
 <path d='M18 26 V36 M28 26 V36 M38 26 V36' stroke='#8a6233' stroke-width='2'/>
+<ellipse cx='30' cy='56' rx='24' ry='3' fill='#000000' opacity='0.28'/>
 <circle cx='19' cy='46' r='8' fill='#6d747b' stroke='#22272c' stroke-width='3'/>
 <circle cx='39' cy='46' r='8' fill='#6d747b' stroke='#22272c' stroke-width='3'/>
 <circle cx='19' cy='46' r='2.2' fill='#22272c'/>

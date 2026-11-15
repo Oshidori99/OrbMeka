@@ -342,6 +342,110 @@ static func apply_picked(body: Node3D, picked: Array) -> void:
 		skip[int(number)] = true
 	model.add_child(fruit_node(body.get_meta("kind"), body.get_meta("size"), body.get_meta("form"), skip, body.get_meta("fruit_spots", [])))
 
+# 0.0.7.9 : épaisseur du bois (diamètre, en mètres, repère du modèle, avant l'échelle de l'arbre) à un point visé : on part
+# du sommet d'écorce le plus proche et on traverse le bois (contre sa normale) jusqu'à l'écorce d'en face, celle de la même
+# tige ou branche (les tiges voisines d'une touffe ne comptent pas). Sert au temps de coupe et aux troncs coupés (world.gd).
+# Les sommets d'écorce et leurs normales sont lus une fois par modèle.
+static var _bark_points: Dictionary = {}
+
+static func _bark(kind: int, size: int, form: int) -> Array:
+	var key := _fruit_key(kind, size, form)
+	if not _bark_points.has(key):
+		var points := PackedVector3Array()
+		var normals := PackedVector3Array()
+		var made := mesh(kind, size, false, form)
+		for surface in range(made.get_surface_count()):
+			if made.surface_get_material(surface) == material(kind, "bark"):
+				var arrays: Array = made.surface_get_arrays(surface)
+				points.append_array(arrays[Mesh.ARRAY_VERTEX])
+				normals.append_array(arrays[Mesh.ARRAY_NORMAL])
+		_bark_points[key] = [points, normals]
+	return _bark_points[key]
+
+# 0.0.7.9 : morceau d'un arbre coupé : seulement les triangles dont le centre est entre lo et hi (hauteur dans le modèle,
+# le long du tronc), écorce, feuilles et trous ; gardé en commun par morceau.
+static func mesh_range(kind: int, size: int, form: int, lo: float, hi: float) -> ArrayMesh:
+	var key := "morceau_%s_%.3f_%.3f" % [_fruit_key(kind, size, form), lo, hi]
+	if _meshes.has(key):
+		return _meshes[key]
+	var full := mesh(kind, size, false, form)
+	var made := ArrayMesh.new()
+	for surface in range(full.get_surface_count()):
+		var arrays := full.surface_get_arrays(surface)
+		var points: PackedVector3Array = arrays[Mesh.ARRAY_VERTEX]
+		var indices: PackedInt32Array = arrays[Mesh.ARRAY_INDEX]
+		var kept := PackedInt32Array()
+		for at in range(0, indices.size() - 2, 3):
+			var middle := (points[indices[at]].y + points[indices[at + 1]].y + points[indices[at + 2]].y) / 3.0
+			if middle >= lo and middle < hi:
+				kept.append_array([indices[at], indices[at + 1], indices[at + 2]])
+		if kept.is_empty():
+			continue
+		# Seulement les sommets de ce morceau (taille et collision justes, moins de mémoire).
+		var count := points.size()
+		var remap := {}
+		var order := PackedInt32Array()
+		for index in kept:
+			if not remap.has(index):
+				remap[index] = order.size()
+				order.append(index)
+		for kind_index in range(Mesh.ARRAY_MAX):
+			if kind_index == Mesh.ARRAY_INDEX or arrays[kind_index] == null:
+				continue
+			var source = arrays[kind_index]
+			var stride: int = source.size() / count
+			var packed = source.slice(0, 0)
+			for index in order:
+				for part in range(stride):
+					packed.append(source[index * stride + part])
+			arrays[kind_index] = packed
+		for at in range(kept.size()):
+			kept[at] = remap[kept[at]]
+		arrays[Mesh.ARRAY_INDEX] = kept
+		made.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arrays)
+		made.surface_set_material(made.get_surface_count() - 1, full.surface_get_material(surface))
+	_meshes[key] = made
+	return made
+
+# Feuilles entre lo et hi : un morceau sans feuilles est du bois nu (il devient un tronc ou un bâton).
+static func has_leaves(kind: int, size: int, form: int, lo: float, hi: float) -> bool:
+	var full := mesh(kind, size, false, form)
+	for surface in range(full.get_surface_count()):
+		if full.surface_get_material(surface) != material(kind, "leaves"):
+			continue
+		for point in full.surface_get_arrays(surface)[Mesh.ARRAY_VERTEX]:
+			if point.y >= lo and point.y < hi:
+				return true
+	return false
+
+static func top(kind: int, size: int, form: int) -> float:
+	return mesh(kind, size, false, form).get_aabb().end.y
+
+static func wood_thickness(kind: int, size: int, form: int, local: Vector3) -> float:
+	var bark := _bark(kind, size, form)
+	var points: PackedVector3Array = bark[0]
+	var normals: PackedVector3Array = bark[1]
+	if points.is_empty() or normals.size() != points.size():
+		return 0.1
+	var start := 0
+	var nearest := INF
+	for index in range(points.size()):
+		var away := points[index].distance_squared_to(local)
+		if away < nearest:
+			nearest = away
+			start = index
+	var from := points[start]
+	var outward := normals[start].normalized()
+	var best := INF
+	for index in range(points.size()):
+		var toward := points[index] - from
+		var depth := -toward.dot(outward)
+		if depth < 0.005 or depth >= best or normals[index].dot(outward) > -0.3:
+			continue
+		if (toward + outward * depth).length() <= 0.35 * depth + 0.015:
+			best = depth
+	return clampf(best if best < INF else 0.03, 0.005, 1.5)
+
 # Collision simple : le tronc (pommier) ou le pied de la touffe (noisetier) : [rayon, hauteur].
 static func trunk(kind: int, size: int = 3) -> Vector2:
 	return TRUNKS[kind][clampi(size, 1, SIZES) - 1]

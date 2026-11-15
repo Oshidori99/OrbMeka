@@ -1,6 +1,19 @@
-# OrbMeka™ — prototype 0.0.7.8
+# OrbMeka™ — prototype 0.0.7.9
 
 Godot 4.7 / GDScript. Formes et couleurs simples ; assets externes seulement sous licence vérifiée (sons CC0, assets/sounds/CREDITS.txt).
+
+## 0.0.7.9 — Couper en deux là où on vise, temps selon l'épaisseur, arbres posés sur leurs appuis, pas de vol en Survie, terre sur rocher, travois au sol, noms dans l'inventaire Créatif
+Version locale (2 sur 4). Génération inchangée (version 32).
+- **Couper en deux** un arbre couché, à l'endroit visé (tous les arbres, plus seulement les petits) : chaque morceau garde sa vraie forme et sa taille. Un morceau sans feuilles devient aussitôt un tronc (ou une branche) au sol, à sa longueur et à son épaisseur exactes ; un morceau avec branches et feuilles reste couché et peut être recoupé. Gardé dans objets.json (« arbres_tombes » : coupes et morceaux devenus du bois).
+- **Temps de coupe selon l'épaisseur** du bois visé : 8 s pour 10 cm, 8 s × (épaisseur / 10 cm)^2,5 (15 cm : environ 22 s) ; plus de 15 cm : impossible à mains nues (message) ; Créatif : 1 s. L'épaisseur est celle de la tige visée (une touffe de noisetier compte tige par tige).
+- **Arbre couché sur ses appuis** : tronc rigide posé sur ses points les plus hauts (bosse, tas de terre, rocher), jamais dans le sol ; branches du dessous écrasées vers les côtés, sans soulever le tronc. Mesure du vrai sol (terrain creusé ou posé, rochers) ; grille du sol corrigée (elle restait parfois vide).
+- **Pas de vol en Survie** (le vol s'arrête en passant en Survie).
+- **Terre sur un rocher** : elle reste posée (avant : elle tombait à travers et disparaissait).
+- **Travois** : icône vue de côté, le bout arrière traîné sur le sol.
+- **Inventaire Créatif** : le nom sous chaque objet (onglets et cases).
+
+Tests réussis : tree_fall (20 vérifications : épaisseur, temps, chute, appuis, coupe en deux, réouverture, 15 cm au plus), trees, inventory, fly, game_mode, smooth_terrain, breaking, step_over, world_save, forests, plants, interface_info, catalog_restart (+ tests juridiques). Captures hors écran : arbre coupé en deux puis recoupé, inventaires Créatif et Survie, travois.
+À tester manuellement : couper en jouant (viser le tronc, puis la couronne), arbre tombé sur une bosse ou un tas, terre sur un rocher, ramasser un long tronc coupé.
 
 ## 0.0.7.8 — Abattre et couper les arbres, bâtons, porter lourd, poser partout, anneau de chargement, troncs solides
 Version locale (1 sur 4). Génération inchangée (version 32).
