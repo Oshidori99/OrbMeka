@@ -1,6 +1,16 @@
-# OrbMeka™ — prototype 0.0.7.12
+# OrbMeka™ — prototype 0.0.7.13
 
 Godot 4.7 / GDScript. Formes et couleurs simples ; assets externes seulement sous licence vérifiée (sons CC0, assets/sounds/CREDITS.txt).
+
+## 0.0.7.13 — Vrai diamètre des branches et du bois coupé, mains nues jusqu'à 80 cm (2,5 s par 10 cm), morceaux tombés qui ne flottent plus
+Version locale (1 sur 4). Génération inchangée (version 32).
+- **Vrai diamètre** (captures de l'utilisateur : bois au sol plus petit que la souche, faces de coupe trop grandes) : l'épaisseur d'une branche ou d'une tige est mesurée par une vraie tranche de cette seule pièce (largeur la plus petite), plus par la distance moyenne à son axe, qui doublait presque sur une branche courbée. Sert au temps de coupe, aux faces claires, au bois au sol et à sa collision.
+- **Bois au sol** : toujours le même modèle de bâton pour tous (dessiné en série, léger), à la vraie longueur et au vrai diamètre du morceau, à sa place.
+- **Mains nues jusqu'à 80 cm**, 2,5 s par tranche de 10 cm (80 cm : 20 s).
+- **Morceau tombé qui ne flotte plus** : posé sur ses branches d'après 90 % de ses points (une branche dans un rocher ne soulève plus tout), 50 cm au plus.
+
+Tests réussis : tree_fall (45 vérifications : bûche au vrai diamètre du tronc et à sa place, 80 cm et 2,5 s par 10 cm…) et les tests touchés (+ tests juridiques). Captures hors écran : souche, haut tombé à côté, faces de coupe à la taille du tronc, rameau au sol.
+À tester manuellement : couper un petit arbre près d'un rocher ; comparer la bûche au sol et la souche.
 
 ## 0.0.7.12 — Couper seulement la branche ou la tige visée, souche, une seule tige de noisetier, rameaux avec feuilles, coupe visible, tige tombée posée sur ses branches
 Version publiée (avec 0.0.7.11). Génération inchangée (version 32).

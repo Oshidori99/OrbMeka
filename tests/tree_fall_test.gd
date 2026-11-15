@@ -62,10 +62,10 @@ func _run() -> void:
 	var foot_aim: Dictionary = world.aimed_wood(player.get_target())
 	var skeleton: Dictionary = TreeParts.skeleton(Trees.APPLE, 1, 0)
 	check(not foot_aim.is_empty() and foot_aim.tree == apple and skeleton.pieces[foot_aim.piece].root, "aiming at the trunk near its foot")
-	check(not world.step_chop(0.01, true) and world.chop_thickness > 0.05 and world.chop_thickness <= 0.40, "thickness measured at the aimed point (%.1f cm)" % (world.chop_thickness * 100.0))
-	var expected: float = maxf(5.0 * world.chop_thickness / 0.1, 0.5)
-	check(is_equal_approx(world.chop_seconds, expected), "chop time from thickness: 5 s per 10 cm (%.2f s)" % world.chop_seconds)
-	check(world.MAX_HAND_THICKNESS == 0.40 and is_equal_approx(world.CHOP_SECONDS * 0.40 / 0.1, 20.0), "40 cm at most by hand, 20 s for 40 cm")
+	check(not world.step_chop(0.01, true) and world.chop_thickness > 0.05 and world.chop_thickness <= 0.80, "thickness measured at the aimed point (%.1f cm)" % (world.chop_thickness * 100.0))
+	var expected: float = maxf(2.5 * world.chop_thickness / 0.1, 0.5)
+	check(is_equal_approx(world.chop_seconds, expected), "chop time from thickness: 2.5 s per 10 cm (%.2f s)" % world.chop_seconds)
+	check(world.MAX_HAND_THICKNESS == 0.80 and is_equal_approx(world.CHOP_SECONDS * 0.80 / 0.1, 20.0), "80 cm at most by hand, 20 s for 80 cm")
 	check(Trees.has_leaves(Trees.APPLE, 1, 0, -1.0, 0.9) and Trees.is_bare_wood(Trees.APPLE, 1, 0, -1.0, 0.9), "a trunk with a few low leafy twigs is bare wood")
 	check(not world.step_chop(world.chop_seconds * 0.5 - 0.01, true), "half way not cut yet")
 	world._update_ring()
@@ -108,12 +108,16 @@ func _run() -> void:
 	var cuts: Array = world.tree_cuts.get("pommier-essai", {}).get("coupes", [])
 	check(cuts.size() == 1 and int(cuts[0][0]) == trunk and absf(float(cuts[0][1]) - float(trunk_aim.get("t", 0.0))) < 0.002, "cut where aimed (%s)" % str(cuts))
 	var cut_t: float = float(cuts[0][1]) if not cuts.is_empty() else 0.6
+	# Le pied nu devient une bûche au sol (dessinée en série, légère), à sa vraie taille et à sa place.
 	var wood: Array = new_wood(world, before)
 	check(wood.size() == 1 and wood[0].objet == "tronc" and absf(wood[0].longueur - cut_t * scale) < 0.03, "the bare foot is one log at its real length (%.2f m, cut at %.2f m)" % [wood[0].longueur if not wood.is_empty() else 0.0, cut_t * scale])
 	var flare: float = Trees.wood_thickness(Trees.APPLE, 1, 0, Vector3(0.0, 0.05, 0.0)) * scale
-	check(not wood.is_empty() and wood[0].epaisseur >= wood[0].fin and wood[0].epaisseur / 100.0 > 0.05 and wood[0].epaisseur / 100.0 < flare * 0.99, "the log keeps its real thickness, not the root flare (%.1f to %.1f cm, flare %.1f cm)" % [wood[0].fin if not wood.is_empty() else 0.0, wood[0].epaisseur if not wood.is_empty() else 0.0, flare * 100.0])
+	var foot_thickness: float = Trees.wood_thickness(Trees.APPLE, 1, 0, Vector3(0.0, 0.4, 0.0)) * scale
+	check(not wood.is_empty() and wood[0].epaisseur >= wood[0].fin and absf(wood[0].epaisseur / 100.0 - foot_thickness) < foot_thickness * 0.15 and wood[0].epaisseur / 100.0 < flare * 0.99, "the log has the trunk's real diameter (%.1f to %.1f cm, trunk %.1f cm, root flare %.1f cm)" % [wood[0].fin if not wood.is_empty() else 0.0, wood[0].epaisseur if not wood.is_empty() else 0.0, foot_thickness * 100.0, flare * 100.0])
+	var log_spot: Vector3 = world.ground.entries[before].position if world.ground.entries.size() > before else Vector3.INF
+	check(log_spot.distance_to(pivot * Vector3(1, 0, 1) + Vector3(0, log_spot.y, 0)) < cut_t * scale, "the log lies where the foot was")
 	var pieces := parts_of(world, "pommier-essai")
-	check(pieces.size() == 1 and int(pieces[0].get_meta("part", 0)) == 1, "the leafy top stays, lying (the foot node became wood)")
+	check(pieces.size() == 1 and int(pieces[0].get_meta("part", 0)) == 1, "the leafy top stays, lying")
 	var top: Node3D = pieces[0] if not pieces.is_empty() else apple
 	var cut_end: Vector3 = world._model_of(top) * (stem.start + stem.direction * cut_t)
 	check(absf(cut_end.distance_to(pivot) - world.CUT_GAP) < 0.03, "a visible gap at the cut (%.2f m)" % cut_end.distance_to(pivot))
@@ -228,7 +232,7 @@ func _run() -> void:
 	await look(player, world.ground.entries[index].position)
 	world.pick_up({"collider": world.ground.bodies[index], "position": world.ground.entries[index].position})
 	check(world.inventory.item("bar", 5).get("objet") in ["tronc", "branche"], "R picks up the piece of wood")
-	# --- G. Trop épais à mains nues en Survie (plus de 40 cm) : impossible. ---
+	# --- G. Trop épais à mains nues en Survie (plus de 80 cm) : impossible. ---
 	world.set_game_mode(Inventory.SURVIVAL)
 	# Les morceaux tombés (posés sur leurs branches, entre le joueur et ce tilleul) retirés de l'essai.
 	for id in ["pommier-haut", "noisetier-essai"]:
@@ -238,7 +242,7 @@ func _run() -> void:
 	var big := make_tree(world, "tilleul-essai", Trees.LINDEN, 5, feet + Vector3(-3.0, 0.0, 0.0))
 	await frames(3)
 	await look(player, big.global_position + Vector3.UP * 0.6)
-	check(not world.step_chop(30.0, true) and world.chop_thickness > 0.40 and not big.has_meta("falling") and parts_of(world, "tilleul-essai").size() == 1, "a trunk thicker than 40 cm cannot be cut by hand (%.0f cm)" % (world.chop_thickness * 100.0))
+	check(not world.step_chop(30.0, true) and world.chop_thickness > 0.80 and not big.has_meta("falling") and parts_of(world, "tilleul-essai").size() == 1, "a trunk thicker than 80 cm cannot be cut by hand (%.0f cm)" % (world.chop_thickness * 100.0))
 	root.remove_child(world)
 	world.queue_free()
 	await process_frame

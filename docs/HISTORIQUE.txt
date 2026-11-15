@@ -3,6 +3,10 @@ Du plus récent au plus ancien. Ce fichier est mis à jour à chaque version.
 
 === Thème « Gameplay et inventaire » (0.0.7) ===
 
+0.0.7.13 — Vrai diamètre des branches et du bois coupé, mains nues jusqu'à 80 cm (2,5 s par 10 cm), morceaux tombés qui ne flottent plus
+Génération du terrain : version 32 · Menus : version 10.
+Diamètre mesuré par une vraie tranche de la branche (faces de coupe et bois à leur taille) ; coupe à mains nues jusqu'à 80 cm, 2,5 s par 10 cm ; morceau tombé posé sur ses branches sans flotter (rochers).
+
 0.0.7.12 — Couper seulement la branche ou la tige visée, souche, une seule tige de noisetier, rameaux avec feuilles, coupe visible, tige tombée posée sur ses branches
 Génération du terrain : version 32 · Menus : version 10.
 Branche cassée = rameau au sol (« Tige de noisetier »…) ; abattre plus haut laisse une souche ; noisetier : une tige à la fois ; face claire et écart de 40 cm à 20° ; coupe nette ; tige tombée sur ses branches.

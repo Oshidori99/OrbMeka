@@ -83,11 +83,15 @@ static func skeleton(kind: int, size: int, form: int) -> Dictionary:
 		var arrays := full.surface_get_arrays(piece.surface)
 		var points: PackedVector3Array = arrays[Mesh.ARRAY_VERTEX]
 		var indices: PackedInt32Array = arrays[Mesh.ARRAY_INDEX]
+		var corners := PackedVector3Array()
 		for triangle in piece.triangles:
 			var at: int = triangle * 3
 			var center := (points[indices[at]] + points[indices[at + 1]] + points[indices[at + 2]]) / 3.0
 			surfaces[piece.surface].owner[triangle] = number
 			surfaces[piece.surface].param[triangle] = along(piece, center)
+			corners.append_array([points[indices[at]], points[indices[at + 1]], points[indices[at + 2]]])
+		# 0.0.7.13 : triangles de la pièce (vraie tranche : true_thickness).
+		piece.corners = corners
 	# Feuilles, trous, cônes : à la pièce la plus proche.
 	var grid := _grid(pieces)
 	var leaves := 0
@@ -268,7 +272,40 @@ static func along(piece: Dictionary, point: Vector3) -> float:
 static func _segment_distance(piece: Dictionary, point: Vector3) -> float:
 	return point.distance_to(piece.start + piece.direction * along(piece, point))
 
-# Épaisseur (diamètre, repère du modèle) d'une pièce à t mètres de son départ.
+# 0.0.7.13 (l'utilisateur : « des petits arbres cotés comme des gros ») : vrai diamètre d'une pièce à t mètres de son
+# départ (repère du modèle) : tranche de SES triangles par le plan perpendiculaire à son axe, puis la largeur la plus
+# petite sur 18 directions (une tranche un peu oblique d'une branche courbée reste juste). Le profil (thickness) mesurait
+# la distance moyenne à l'axe : presque le double sur une branche courbée.
+static func true_thickness(piece: Dictionary, t: float) -> float:
+	var corners: PackedVector3Array = piece.get("corners", PackedVector3Array())
+	var axis: Vector3 = piece.direction
+	var center: Vector3 = piece.start + axis * clampf(t, 0.0, piece.length)
+	var side: Vector3 = axis.cross(Vector3.UP if absf(axis.y) < 0.9 else Vector3.RIGHT).normalized()
+	var other: Vector3 = axis.cross(side).normalized()
+	var flat := PackedVector2Array()
+	for at in range(0, corners.size() - 2, 3):
+		for edge in [[0, 1], [1, 2], [2, 0]]:
+			var a: Vector3 = corners[at + edge[0]]
+			var b: Vector3 = corners[at + edge[1]]
+			var da := (a - center).dot(axis)
+			var db := (b - center).dot(axis)
+			if da * db < 0.0:
+				var point := a.lerp(b, da / (da - db)) - center
+				flat.append(Vector2(point.dot(side), point.dot(other)))
+	if flat.size() < 3:
+		return thickness(piece, t)
+	var thinnest := INF
+	for step in range(18):
+		var across := Vector2.from_angle(PI * step / 18.0)
+		var low := INF
+		var high := -INF
+		for point in flat:
+			low = minf(low, point.dot(across))
+			high = maxf(high, point.dot(across))
+		thinnest = minf(thinnest, high - low)
+	return clampf(thinnest, 0.005, 1.5)
+
+# Épaisseur approchée (diamètre, repère du modèle) d'une pièce à t mètres de son départ : rapide, pour viser.
 static func thickness(piece: Dictionary, t: float) -> float:
 	var bin := clampi(int(t / piece.length * PROFILE_BINS), 0, PROFILE_BINS - 1)
 	return maxf(piece.profile[bin] * 2.0, 0.005)
@@ -503,7 +540,7 @@ static func cut_faces(kind: int, size: int, form: int, cuts: Array, part: int) -
 		if part != before and part != after:
 			continue
 		var center: Vector3 = piece.start + piece.direction * t
-		var radius := thickness(piece, t) * 0.5
+		var radius := true_thickness(piece, t) * 0.5
 		var axis: Vector3 = piece.direction
 		var side: Vector3 = axis.cross(Vector3.UP if absf(axis.y) < 0.9 else Vector3.RIGHT).normalized()
 		var other: Vector3 = axis.cross(side).normalized()
