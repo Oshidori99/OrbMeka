@@ -404,14 +404,38 @@ static func assignment(kind: int, size: int, form: int, cuts: Array) -> Dictiona
 	_assignments[key] = result
 	return result
 
+# 0.0.7.16 (monde T56 : deux coupes à 15 cm sur un tronc de pin, sans triangle ni branche entre elles : même taille,
+# la première gagnait et la seconde restait vide, le petit bout collé au haut) : à taille égale, l'ensemble le plus
+# petit est celui de la pièce la plus profonde, puis la coupe la plus loin sur la pièce.
 static func _part_of(pieces: Array, cuts: Array, sizes: Array, owner: int, param: float) -> int:
 	var best := 0
-	var smallest := 1 << 30
 	for index in range(cuts.size()):
-		if sizes[index] < smallest and detaches(pieces, cuts[index], owner, param):
+		if not detaches(pieces, cuts[index], owner, param):
+			continue
+		if best == 0 or _smaller(pieces, cuts, sizes, index, best - 1):
 			best = index + 1
-			smallest = sizes[index]
 	return best
+
+static func _smaller(pieces: Array, cuts: Array, sizes: Array, a: int, b: int) -> bool:
+	if sizes[a] != sizes[b]:
+		return sizes[a] < sizes[b]
+	var depth_a: int = pieces[int(cuts[a][0])].depth
+	var depth_b: int = pieces[int(cuts[b][0])].depth
+	if depth_a != depth_b:
+		return depth_a > depth_b
+	return float(cuts[a][1]) > float(cuts[b][1])
+
+# Ancienne règle (jusqu'à 0.0.7.15) : à taille égale, la première coupe gagnait. Coupes devenues vides ainsi, à retirer
+# d'une sauvegarde ancienne (world.gd, _restore_parts) : leurs numéros (1 = première coupe).
+static func old_empty_cuts(kind: int, size: int, form: int, cuts: Array) -> Array:
+	var sizes := _sizes_for(kind, size, form, cuts)
+	var empty := []
+	for index in range(cuts.size()):
+		for earlier in range(index):
+			if sizes[earlier] == sizes[index] and int(cuts[earlier][0]) == int(cuts[index][0]) and float(cuts[earlier][1]) < float(cuts[index][1]):
+				empty.append(index + 1)
+				break
+	return empty
 
 # Modèle d'un morceau (seulement ses triangles).
 static func part_mesh(kind: int, size: int, form: int, cuts: Array, part: int) -> ArrayMesh:

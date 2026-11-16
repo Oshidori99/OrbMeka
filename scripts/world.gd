@@ -1184,7 +1184,7 @@ func cut_wood(tree: Node3D, number: int, t: float, point: Vector3) -> void:
 		if piece.tip.y <= 0.5:
 			return
 		t = maxf(t, 0.03)
-	var entry: Dictionary = tree_cuts.get(id, {"coupes": [], "morceaux": {}})
+	var entry: Dictionary = tree_cuts.get(id, {"coupes": [], "morceaux": {}, "v": 2})
 	var cuts: Array = entry.coupes
 	# 0.0.7.15 (monde T56 : une coupe enregistrée deux fois, morceau vide) : pas deux coupes à moins de MIN_CUT_GAP sur
 	# la même pièce, ni tout au bout d'une pièce (rien à détacher).
@@ -1456,6 +1456,23 @@ func _restore_parts(tree: Node3D) -> void:
 	var entry: Dictionary = tree_cuts.get(id, {})
 	if entry.is_empty() or entry.get("coupes", []).is_empty():
 		return
+	# 0.0.7.16 : sauvegarde d'avant (sans « v ») : les coupes restées vides avec l'ancienne règle sont retirées (morceaux
+	# renumérotés) : l'arbre reste tel que le joueur le voyait.
+	if int(entry.get("v", 1)) < 2:
+		var empty: Array = TreeParts.old_empty_cuts(int(tree.get_meta("kind", 0)), int(tree.get_meta("size", 3)), int(tree.get_meta("form", 0)), entry.coupes)
+		empty.reverse()
+		for number in empty:
+			entry.coupes.remove_at(number - 1)
+			var shifted := {}
+			for key in entry.morceaux:
+				var part := int(key)
+				if part < number:
+					shifted[str(part)] = entry.morceaux[key]
+				elif part > number:
+					shifted[str(part - 1)] = entry.morceaux[key]
+			entry.morceaux = shifted
+		entry.v = 2
+		objects_dirty = true
 	var lying := fallen_trees.has(id)
 	_show_part(tree, not lying)
 	if lying:

@@ -221,6 +221,45 @@ func _run() -> void:
 		check(far_end.y > near_end.y + 0.15, "tilted: the end over the obstacle is higher (%.2f m over %.2f m)" % [far_end.y, near_end.y])
 		check(clearance(world, fallen) < 0.15, "it still touches the ground somewhere (%.2f m)" % clearance(world, fallen))
 		check(absf(axis.y) < 0.8, "it lies (not standing up)")
+	# --- 0.0.7.16 : tous les arbres (4 espèces, tailles 1 à 5, 3 formes) : deux coupes à 6 cm l'une de l'autre, tout le
+	# long du tronc et de 3 branches : le petit bout est toujours son propre morceau (jamais vide), le reste aussi. ---
+	var wrong := []
+	var tried := 0
+	for kind in [Trees.APPLE, Trees.HAZEL, Trees.PINE, Trees.LINDEN]:
+		for size in range(1, 6):
+			for form in range(3):
+				var made: Dictionary = TreeParts.skeleton(kind, size, form)
+				var targets := [trunk_of(made)]
+				for number in range(made.pieces.size()):
+					if not made.pieces[number].root and made.pieces[number].length > 0.5 and targets.size() < 4:
+						targets.append(number)
+				for number in targets:
+					var length: float = made.pieces[number].length
+					var at := 0.2
+					while at + 0.06 < length - 0.1:
+						var cuts := [[number, at], [number, at + 0.06]]
+						var ranges: Array = TreeParts.assignment(kind, size, form, cuts).ranges
+						tried += 1
+						var bit_ok: bool = ranges[1].has(number) and absf(ranges[1][number].x - at) < 0.001 and absf(ranges[1][number].y - (at + 0.06)) < 0.001
+						var rest_ok: bool = ranges[2].has(number) and absf(ranges[2][number].x - (at + 0.06)) < 0.001
+						if not bit_ok or not rest_ok:
+							wrong.append("%s %d f%d piece %d at %.2f" % [Trees.KIND_NAMES[kind], size, form, number, at])
+						at += 0.37
+	check(wrong.is_empty() and tried > 500, "two cuts 6 cm apart, all trees, sizes and forms: never an empty piece (%d tried, %d wrong %s)" % [tried, wrong.size(), str(wrong.slice(0, 5))])
+	# --- 0.0.7.16 : le pin du monde T56 (taille 2, forme 2) : deux coupes à 15 cm sur le tronc, sans triangle entre elles. ---
+	var pine_cuts := [[5, 1.239], [5, 2.053], [5, 2.207]]
+	var pine_ranges: Array = TreeParts.assignment(Trees.PINE, 2, 1, pine_cuts).ranges
+	check(pine_ranges[3].has(5) and absf(pine_ranges[3][5].x - 2.207) < 0.001, "the third cut is not empty: the top beyond it is its own piece")
+	check(pine_ranges[2].has(5) and absf(pine_ranges[2][5].x - 2.053) < 0.001 and absf(pine_ranges[2][5].y - 2.207) < 0.001, "the short trunk bit is its own piece (2.053 to 2.207)")
+	check(TreeParts.leaf_share(Trees.PINE, 2, 1, pine_cuts, 2) < Trees.BARE_LEAF_SHARE, "the short bit is bare: it becomes wood to pick up")
+	check(TreeParts.old_empty_cuts(Trees.PINE, 2, 1, pine_cuts) == [3], "with the old rule the third cut was empty")
+	# Sauvegarde d'avant : la coupe vide est retirée à l'ouverture, l'arbre reste tel que le joueur le voyait.
+	world.tree_cuts["pin-t56"] = {"coupes": pine_cuts.duplicate(true), "morceaux": {"1": {"etat": "bois"}, "2": {"etat": "bois"}, "3": {"etat": "bois"}}}
+	var pine_node := make(world, "pin-t56", Trees.PINE, 2, spot + Vector3(6.0, 0.0, 0.0))
+	pine_node.set_meta("form", 1)
+	world._restore_parts(pine_node)
+	var migrated: Dictionary = world.tree_cuts["pin-t56"]
+	check(migrated.coupes.size() == 2 and not migrated.morceaux.has("3") and int(migrated.get("v", 0)) == 2, "an old save is repaired on opening (%s)" % str(migrated.coupes))
 	root.remove_child(world)
 	world.queue_free()
 	await process_frame

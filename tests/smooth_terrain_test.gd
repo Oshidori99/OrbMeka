@@ -310,6 +310,36 @@ func _run() -> void:
 	world.terrain.wake(far_hole)
 	world.settle_all()
 	check(world.terrain.density(dirt_base) > 0.0 and world.terrain.density(dirt_base + Vector3i(0, -1, 0)) > 0.0, "a hole 2 m away (not right below) does not make the pile fall")
+	# 0.0.7.16 : petit plafond de terre. Une galerie de 1 m de large sous la terre : son plafond tient.
+	var tunnel: Vector3i = SmoothTerrain.point_of(Vector3(-50.25, -2.0, 50.25))
+	for x in range(0, 8):
+		for dz in range(0, 2):
+			world.terrain.set_density(tunnel + Vector3i(x, 0, dz), SmoothTerrain.DUG)
+			world.terrain_dirty[SmoothTerrain.point_zone(tunnel + Vector3i(x, 0, dz))] = true
+			world.terrain.wake(tunnel + Vector3i(x, 0, dz))
+	world.settle_all()
+	var roof_kept := 0
+	for x in range(0, 8):
+		for dz in range(0, 2):
+			if world.terrain.density(tunnel + Vector3i(x, 1, dz)) > 0.0:
+				roof_kept += 1
+	check(roof_kept == 16, "a 1 m wide dirt tunnel keeps its ceiling (%d of 16)" % roof_kept)
+	# Une salle de 4 m de large : le milieu de son plafond tombe (plus de 1 m de tout mur), les bords tiennent.
+	var room: Vector3i = SmoothTerrain.point_of(Vector3(-60.25, -2.0, 60.25))
+	for x in range(0, 8):
+		for dz in range(0, 8):
+			world.terrain.set_density(room + Vector3i(x, 0, dz), SmoothTerrain.DUG)
+			world.terrain_dirty[SmoothTerrain.point_zone(room + Vector3i(x, 0, dz))] = true
+			world.terrain.wake(room + Vector3i(x, 0, dz))
+	world.settle_all()
+	check(world.terrain.density(room + Vector3i(0, 1, 0)) > 0.0 and world.terrain.density(room + Vector3i(4, 1, 4)) <= 0.0, "a 4 m wide room: the edges of the ceiling hold, the middle falls")
+	# Du sable en plafond tombe toujours.
+	var sand_roof: Vector3i = tunnel + Vector3i(3, 1, 0)
+	world.terrain.set_density(sand_roof, 0.5, SmoothTerrain.SAND)
+	world.terrain_dirty[SmoothTerrain.point_zone(sand_roof)] = true
+	world.terrain.wake(sand_roof)
+	world.settle_all()
+	check(world.terrain.material(sand_roof) != SmoothTerrain.SAND or world.terrain.density(sand_roof) <= 0.0, "sand in a ceiling still falls")
 	check(world.save_now(), "saved")
 	var changed: Dictionary = world.terrain.changes.duplicate()
 	var zone_file := FOLDER.path_join(Zones.zone_file(SmoothTerrain.point_zone(point)))
@@ -318,9 +348,13 @@ func _run() -> void:
 	close(world)
 	world = open(FOLDER)
 	var same: bool = world.terrain.changes.size() == changed.size()
+	var differ := []
 	for key in changed:
-		same = same and absf(world.terrain.changes.get(key, 9.0) - changed[key]) < 0.001
-	check(same, "same sculpted terrain after reopening")
+		if absf(world.terrain.changes.get(key, 9.0) - changed[key]) >= 0.001:
+			same = false
+			if differ.size() < 4:
+				differ.append([key, changed[key], world.terrain.changes.get(key, 9.0)])
+	check(same, "same sculpted terrain after reopening (%d then %d points %s)" % [changed.size(), world.terrain.changes.size(), str(differ)])
 	check(world.terrain.material(sand_point) == SmoothTerrain.SAND, "same materials after reopening")
 	world.finish_terrain()
 	check(world.terrain_pieces[Vector3i(2, -1, 2)].get_child(1).shape is ConcavePolygonShape3D, "sculpted zone rebuilt at opening")

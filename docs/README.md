@@ -1,6 +1,16 @@
-# OrbMeka™ — prototype 0.0.7.15
+# OrbMeka™ — prototype 0.0.7.16
 
 Godot 4.7 / GDScript. Formes et couleurs simples ; assets externes seulement sous licence vérifiée (sons CC0, assets/sounds/CREDITS.txt).
+
+## 0.0.7.16 — Petit plafond de terre qui tient (galeries de 2 m), petit bout de tronc entre deux coupes proches enfin à part, anciens arbres réparés à l'ouverture
+Version publiée (avec 0.0.7.13 à 0.0.7.15). Génération inchangée (version 32).
+- **Petit plafond de terre** (l'utilisateur : le plafond d'une grotte s'est effondré en chaîne) : la terre et l'argile sans rien dessous tiennent si un mur porté est à 1 m au plus sur le côté. Une galerie de 2 m de large garde son plafond ; au milieu d'une grande salle, la terre tombe. Le sable, la boue, la neige et le gravier tombent toujours.
+- **Petit bout de tronc** (monde T56, pin coupé deux fois à 15 cm d'écart) : sans triangle ni branche entre les deux coupes, la seconde coupe restait vide et le petit bout collé au haut couché (impossible à ramasser). Départage corrigé (pièce la plus profonde, puis coupe la plus loin) ; vérifié sur tous les arbres, tailles et formes (2 221 essais de coupes à 6 cm).
+- **Anciens arbres réparés à l'ouverture** : dans une sauvegarde d'avant, la coupe restée vide est retirée (l'arbre reste tel qu'on le voyait) ; on peut ensuite recouper.
+- Vérifié sur une copie du monde T56 (l'original n'est pas touché) : pin réparé, recoupé : bûche de 15 cm au sol, haut à part.
+
+Tests réussis : smooth_terrain (galerie de 1 m qui tient, salle de 4 m dont le milieu tombe, sable en plafond qui tombe), tree_stress (483 vérifications), tree_fall et les tests touchés (+ tests juridiques).
+À tester manuellement : creuser une galerie et une grande salle dans la terre ; recouper un petit bout de tronc. En Survie, un tronc épais même court reste trop lourd pour les mains (bûche de 15 cm d'un pin de 33 cm : 9,4 kg).
 
 ## 0.0.7.15 — Arbres tombés posés comme en vrai (léger sur ses branches, lourd sur son tronc), bois juste entre deux coupes proches, pas deux coupes au même endroit, test d'endurance
 Version locale (3 sur 4). Génération inchangée (version 32).
