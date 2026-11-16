@@ -83,11 +83,15 @@ static func skeleton(kind: int, size: int, form: int) -> Dictionary:
 		var arrays := full.surface_get_arrays(piece.surface)
 		var points: PackedVector3Array = arrays[Mesh.ARRAY_VERTEX]
 		var indices: PackedInt32Array = arrays[Mesh.ARRAY_INDEX]
+		var corners := PackedVector3Array()
 		for triangle in piece.triangles:
 			var at: int = triangle * 3
 			var center := (points[indices[at]] + points[indices[at + 1]] + points[indices[at + 2]]) / 3.0
 			surfaces[piece.surface].owner[triangle] = number
 			surfaces[piece.surface].param[triangle] = along(piece, center)
+			corners.append_array([points[indices[at]], points[indices[at + 1]], points[indices[at + 2]]])
+		# 0.0.7.13 : triangles de la pièce (vraie tranche : true_thickness).
+		piece.corners = corners
 	# Feuilles, trous, cônes : à la pièce la plus proche.
 	var grid := _grid(pieces)
 	var leaves := 0
@@ -268,7 +272,40 @@ static func along(piece: Dictionary, point: Vector3) -> float:
 static func _segment_distance(piece: Dictionary, point: Vector3) -> float:
 	return point.distance_to(piece.start + piece.direction * along(piece, point))
 
-# Épaisseur (diamètre, repère du modèle) d'une pièce à t mètres de son départ.
+# 0.0.7.13 (l'utilisateur : « des petits arbres cotés comme des gros ») : vrai diamètre d'une pièce à t mètres de son
+# départ (repère du modèle) : tranche de SES triangles par le plan perpendiculaire à son axe, puis la largeur la plus
+# petite sur 18 directions (une tranche un peu oblique d'une branche courbée reste juste). Le profil (thickness) mesurait
+# la distance moyenne à l'axe : presque le double sur une branche courbée.
+static func true_thickness(piece: Dictionary, t: float) -> float:
+	var corners: PackedVector3Array = piece.get("corners", PackedVector3Array())
+	var axis: Vector3 = piece.direction
+	var center: Vector3 = piece.start + axis * clampf(t, 0.0, piece.length)
+	var side: Vector3 = axis.cross(Vector3.UP if absf(axis.y) < 0.9 else Vector3.RIGHT).normalized()
+	var other: Vector3 = axis.cross(side).normalized()
+	var flat := PackedVector2Array()
+	for at in range(0, corners.size() - 2, 3):
+		for edge in [[0, 1], [1, 2], [2, 0]]:
+			var a: Vector3 = corners[at + edge[0]]
+			var b: Vector3 = corners[at + edge[1]]
+			var da := (a - center).dot(axis)
+			var db := (b - center).dot(axis)
+			if da * db < 0.0:
+				var point := a.lerp(b, da / (da - db)) - center
+				flat.append(Vector2(point.dot(side), point.dot(other)))
+	if flat.size() < 3:
+		return thickness(piece, t)
+	var thinnest := INF
+	for step in range(18):
+		var across := Vector2.from_angle(PI * step / 18.0)
+		var low := INF
+		var high := -INF
+		for point in flat:
+			low = minf(low, point.dot(across))
+			high = maxf(high, point.dot(across))
+		thinnest = minf(thinnest, high - low)
+	return clampf(thinnest, 0.005, 1.5)
+
+# Épaisseur approchée (diamètre, repère du modèle) d'une pièce à t mètres de son départ : rapide, pour viser.
 static func thickness(piece: Dictionary, t: float) -> float:
 	var bin := clampi(int(t / piece.length * PROFILE_BINS), 0, PROFILE_BINS - 1)
 	return maxf(piece.profile[bin] * 2.0, 0.005)
@@ -341,15 +378,23 @@ static func assignment(kind: int, size: int, form: int, cuts: Array) -> Dictiona
 			of[triangle] = _part_of(pieces, cuts, sizes, info.owner[triangle], info.param[triangle])
 			if info.leaves:
 				leaves[of[triangle]] += 1
-			if info.bark:
-				var spans: Dictionary = ranges[of[triangle]]
-				var owner: int = info.owner[triangle]
-				var t: float = info.param[triangle]
-				if spans.has(owner):
-					spans[owner] = Vector2(minf(spans[owner].x, t), maxf(spans[owner].y, t))
-				else:
-					spans[owner] = Vector2(t, t)
 		parts.append(of)
+	# 0.0.7.15 : étendue exacte de chaque pièce dans chaque morceau, d'une coupe à l'autre (tronçons entre les coupes de
+	# la pièce, chacun au morceau de son milieu). Avant : d'après les centres des triangles, qui confondait deux coupes
+	# proches (monde T56 : un tronçon de 23 cm devenu un tronc de 9,5 m) et oubliait un tronçon trop court.
+	for number in range(pieces.size()):
+		var bounds := [0.0, float(pieces[number].length)]
+		for cut in cuts:
+			if int(cut[0]) == number:
+				bounds.append(clampf(float(cut[1]), 0.0, pieces[number].length))
+		bounds.sort()
+		for index in range(bounds.size() - 1):
+			var low: float = bounds[index]
+			var high: float = bounds[index + 1]
+			if high - low < 0.0005:
+				continue
+			var spans: Dictionary = ranges[_part_of(pieces, cuts, sizes, number, (low + high) * 0.5)]
+			spans[number] = Vector2(minf(spans[number].x, low), maxf(spans[number].y, high)) if spans.has(number) else Vector2(low, high)
 	var fruits := PackedInt32Array()
 	for fruit in made.fruits:
 		fruits.append(_part_of(pieces, cuts, sizes, fruit[0], fruit[1]))
@@ -359,14 +404,38 @@ static func assignment(kind: int, size: int, form: int, cuts: Array) -> Dictiona
 	_assignments[key] = result
 	return result
 
+# 0.0.7.16 (monde T56 : deux coupes à 15 cm sur un tronc de pin, sans triangle ni branche entre elles : même taille,
+# la première gagnait et la seconde restait vide, le petit bout collé au haut) : à taille égale, l'ensemble le plus
+# petit est celui de la pièce la plus profonde, puis la coupe la plus loin sur la pièce.
 static func _part_of(pieces: Array, cuts: Array, sizes: Array, owner: int, param: float) -> int:
 	var best := 0
-	var smallest := 1 << 30
 	for index in range(cuts.size()):
-		if sizes[index] < smallest and detaches(pieces, cuts[index], owner, param):
+		if not detaches(pieces, cuts[index], owner, param):
+			continue
+		if best == 0 or _smaller(pieces, cuts, sizes, index, best - 1):
 			best = index + 1
-			smallest = sizes[index]
 	return best
+
+static func _smaller(pieces: Array, cuts: Array, sizes: Array, a: int, b: int) -> bool:
+	if sizes[a] != sizes[b]:
+		return sizes[a] < sizes[b]
+	var depth_a: int = pieces[int(cuts[a][0])].depth
+	var depth_b: int = pieces[int(cuts[b][0])].depth
+	if depth_a != depth_b:
+		return depth_a > depth_b
+	return float(cuts[a][1]) > float(cuts[b][1])
+
+# Ancienne règle (jusqu'à 0.0.7.15) : à taille égale, la première coupe gagnait. Coupes devenues vides ainsi, à retirer
+# d'une sauvegarde ancienne (world.gd, _restore_parts) : leurs numéros (1 = première coupe).
+static func old_empty_cuts(kind: int, size: int, form: int, cuts: Array) -> Array:
+	var sizes := _sizes_for(kind, size, form, cuts)
+	var empty := []
+	for index in range(cuts.size()):
+		for earlier in range(index):
+			if sizes[earlier] == sizes[index] and int(cuts[earlier][0]) == int(cuts[index][0]) and float(cuts[earlier][1]) < float(cuts[index][1]):
+				empty.append(index + 1)
+				break
+	return empty
 
 # Modèle d'un morceau (seulement ses triangles).
 static func part_mesh(kind: int, size: int, form: int, cuts: Array, part: int) -> ArrayMesh:
@@ -503,7 +572,7 @@ static func cut_faces(kind: int, size: int, form: int, cuts: Array, part: int) -
 		if part != before and part != after:
 			continue
 		var center: Vector3 = piece.start + piece.direction * t
-		var radius := thickness(piece, t) * 0.5
+		var radius := true_thickness(piece, t) * 0.5
 		var axis: Vector3 = piece.direction
 		var side: Vector3 = axis.cross(Vector3.UP if absf(axis.y) < 0.9 else Vector3.RIGHT).normalized()
 		var other: Vector3 = axis.cross(side).normalized()
@@ -556,19 +625,9 @@ static func main_span(kind: int, size: int, form: int, cuts: Array, part: int) -
 			best = number
 	if best < 0:
 		return []
-	# Bouts exacts : la pièce entière, sauf aux coupes qui la bordent (les centres des triangles en sont loin).
+	# Bouts exacts : d'une coupe à l'autre (étendues calculées par assignment).
 	var span: Vector2 = spans[best]
-	var low := 0.0
-	var high: float = pieces[best].length
-	for cut in cuts:
-		if int(cut[0]) != best:
-			continue
-		var t := float(cut[1])
-		if t <= span.x + 0.2:
-			low = maxf(low, t)
-		elif t >= span.y - 0.2:
-			high = minf(high, t)
-	return [best, low, high]
+	return [best, span.x, span.y]
 
 # Fruits d'un modèle cachés pour un morceau (ceux qui sont sur un autre morceau).
 static func hidden_fruits(kind: int, size: int, form: int, cuts: Array, part: int) -> Array:

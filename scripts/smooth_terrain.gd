@@ -1063,12 +1063,33 @@ func wake(point: Vector3i) -> void:
 			for dz in range(-1, 2):
 				unstable[point + Vector3i(dx, dy, dz)] = true
 
+const CEILING_REACH := 2
+
+# Un mur porté (plein, avec du plein dessous, ou pierre) sur un des 4 côtés, à CEILING_REACH points au plus, en ne
+# passant que par du plein.
+func _held_by_sides(point: Vector3i) -> bool:
+	for side in SIDES:
+		for reach in range(1, CEILING_REACH + 1):
+			var beside: Vector3i = point + side * reach
+			if not solid(beside):
+				break
+			if is_stone(beside) or solid(beside + Vector3i.DOWN):
+				return true
+	return false
+
 # Où tombe ou glisse ce point (lui-même s'il tient).
 func fall_target(point: Vector3i) -> Vector3i:
 	if point.y <= mother_rock_top or not solid(point) or is_stone(point):
 		return point
 	var below := point + Vector3i.DOWN
+	var loose: bool = materials.get(point, natural_kind(point)) in [SAND, MUD, SNOW, GRAVEL]
 	if not solid(below):
+		# 0.0.7.16 (l'utilisateur : en cassant un tronc, le plafond de terre d'une grotte s'est effondré en chaîne) : la
+		# terre et l'argile tiennent en petit plafond, accrochées sur le côté à moins de CEILING_REACH points (1 m) d'un
+		# mur porté. Une galerie de 2 m de large tient ; au milieu d'une grande salle, la terre tombe. Le sable, la boue,
+		# la neige et le gravier tombent toujours.
+		if not loose and _held_by_sides(point):
+			return point
 		return below
 	# Talus : un côté libre, et assez de vide en dessous de ce côté.
 	# Sable et boue (0.0.5.20) glissent ; terre et argile tiennent mieux.

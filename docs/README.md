@@ -1,6 +1,47 @@
-# OrbMeka™ — prototype 0.0.7.12
+# OrbMeka™ — prototype 0.0.7.16
 
 Godot 4.7 / GDScript. Formes et couleurs simples ; assets externes seulement sous licence vérifiée (sons CC0, assets/sounds/CREDITS.txt).
+
+## 0.0.7.16 — Petit plafond de terre qui tient (galeries de 2 m), petit bout de tronc entre deux coupes proches enfin à part, anciens arbres réparés à l'ouverture
+Version publiée (avec 0.0.7.13 à 0.0.7.15). Génération inchangée (version 32).
+- **Petit plafond de terre** (l'utilisateur : le plafond d'une grotte s'est effondré en chaîne) : la terre et l'argile sans rien dessous tiennent si un mur porté est à 1 m au plus sur le côté. Une galerie de 2 m de large garde son plafond ; au milieu d'une grande salle, la terre tombe. Le sable, la boue, la neige et le gravier tombent toujours.
+- **Petit bout de tronc** (monde T56, pin coupé deux fois à 15 cm d'écart) : sans triangle ni branche entre les deux coupes, la seconde coupe restait vide et le petit bout collé au haut couché (impossible à ramasser). Départage corrigé (pièce la plus profonde, puis coupe la plus loin) ; vérifié sur tous les arbres, tailles et formes (2 221 essais de coupes à 6 cm).
+- **Anciens arbres réparés à l'ouverture** : dans une sauvegarde d'avant, la coupe restée vide est retirée (l'arbre reste tel qu'on le voyait) ; on peut ensuite recouper.
+- Vérifié sur une copie du monde T56 (l'original n'est pas touché) : pin réparé, recoupé : bûche de 15 cm au sol, haut à part.
+
+Tests réussis : smooth_terrain (galerie de 1 m qui tient, salle de 4 m dont le milieu tombe, sable en plafond qui tombe), tree_stress (483 vérifications), tree_fall et les tests touchés (+ tests juridiques).
+À tester manuellement : creuser une galerie et une grande salle dans la terre ; recouper un petit bout de tronc. En Survie, un tronc épais même court reste trop lourd pour les mains (bûche de 15 cm d'un pin de 33 cm : 9,4 kg).
+
+## 0.0.7.15 — Arbres tombés posés comme en vrai (léger sur ses branches, lourd sur son tronc), bois juste entre deux coupes proches, pas deux coupes au même endroit, test d'endurance
+Version locale (3 sur 4). Génération inchangée (version 32).
+- **Comme en vrai** (demande de l'utilisateur) : un arbre **léger** (noisetier, taille 1) couché garde son bout lourd (pied ou bout coupé) au sol et ne penche qu'autant que ses branches l'exigent (20° au plus ; au-delà, elles plient). Un arbre **lourd** (tailles 2 à 5) repose sur son tronc : ses branches du dessous s'écartent nettement sur les côtés. Fini le soulèvement d'un bloc qui laissait un bout en l'air.
+- **Reposé après chaque coupe** : un morceau couché qui perd les branches qui le portaient se repose (avant : il restait en l'air, de 25 cm à 1 m).
+- **Bois juste entre deux coupes proches** (trouvé dans le monde T56 de l'utilisateur, lu sans le modifier) : un tronçon de 23 cm devenait un tronc de 9,5 m. Les bouts de chaque morceau se calculent maintenant d'une coupe à l'autre.
+- **Pas deux coupes au même endroit** (moins de 5 cm sur la même pièce) ni tout au bout : plus de morceau vide.
+- **Test d'endurance** (tests/tree_stress_test.gd, nouveau) : 12 arbres (4 espèces, tailles 1 à 3) abattus en hauteur, recoupés couchés (coupes proches comprises), branches cassées, bois recassé ; après chaque geste : rien de perdu ni en double, aucun bois plus grand que son arbre, aucun morceau vide, aucun morceau couché en l'air ; noisetier tombé sur un obstacle : penché, un bout porté, l'autre au sol.
+
+Tests réussis : tree_stress (477 vérifications, nouveau), tree_fall (54) et les tests touchés (+ tests juridiques). Captures hors écran : petit pommier couché (pied au sol), gros pommier couché (tronc au sol, branches écartées), pommier coupé couché (bûche à côté, haut au sol).
+À tester manuellement : abattre et recouper un noisetier et un petit pommier ; regarder qu'aucun bout ne flotte ; recasser une bûche.
+
+## 0.0.7.14 — Recasser le bois au sol là où on vise, plus de trou en cassant un tronc, de nouveau 40 cm à mains nues
+Version locale (2 sur 4). Génération inchangée (version 32).
+- **Recasser le bois au sol** : clic gauche maintenu sur un tronc, une branche, un bâton ou un rameau au sol (temps selon l'épaisseur au point visé) : il se coupe en deux là où on vise. Chaque moitié garde sa vraie longueur, ses épaisseurs (gros bout et petit bout), son essence, son âge et sa souplesse ; poids selon son volume. Un rameau garde ses feuilles sur la moitié fine (l'autre devient une branche ou un tronc). Pas à moins de 5 cm d'un bout.
+- **Plus de trou en cassant un tronc** (l'utilisateur : « parfois ça creuse ») : viser du bois au sol, ou une branche devant le sol, ne creuse jamais.
+- **De nouveau 40 cm au plus à mains nues** (80 cm rendait la future hache inutile), 2,5 s par tranche de 10 cm (40 cm : 10 s).
+- CLAUDE.md : prévenir avant d'exécuter une demande incohérente ou moins bonne qu'une autre ; ne jamais commencer avant « vas-y ».
+
+Tests réussis : tree_fall (54 vérifications : bâton et tronc au sol recassés, longueurs, épaisseurs et poids des moitiés, feuilles sur la moitié fine, jamais de trou, 40 cm et 10 s…) et les tests touchés (+ tests juridiques). Capture hors écran : tronc et rameau au sol coupés en deux.
+À tester manuellement : recasser un tronc puis une moitié ; viser un tronc posé sur l'herbe sans creuser.
+
+## 0.0.7.13 — Vrai diamètre des branches et du bois coupé, mains nues jusqu'à 80 cm (2,5 s par 10 cm), morceaux tombés qui ne flottent plus
+Version locale (1 sur 4). Génération inchangée (version 32).
+- **Vrai diamètre** (captures de l'utilisateur : bois au sol plus petit que la souche, faces de coupe trop grandes) : l'épaisseur d'une branche ou d'une tige est mesurée par une vraie tranche de cette seule pièce (largeur la plus petite), plus par la distance moyenne à son axe, qui doublait presque sur une branche courbée. Sert au temps de coupe, aux faces claires, au bois au sol et à sa collision.
+- **Bois au sol** : toujours le même modèle de bâton pour tous (dessiné en série, léger), à la vraie longueur et au vrai diamètre du morceau, à sa place.
+- **Mains nues jusqu'à 80 cm**, 2,5 s par tranche de 10 cm (80 cm : 20 s).
+- **Morceau tombé qui ne flotte plus** : posé sur ses branches d'après 90 % de ses points (une branche dans un rocher ne soulève plus tout), 50 cm au plus.
+
+Tests réussis : tree_fall (45 vérifications : bûche au vrai diamètre du tronc et à sa place, 80 cm et 2,5 s par 10 cm…) et les tests touchés (+ tests juridiques). Captures hors écran : souche, haut tombé à côté, faces de coupe à la taille du tronc, rameau au sol.
+À tester manuellement : couper un petit arbre près d'un rocher ; comparer la bûche au sol et la souche.
 
 ## 0.0.7.12 — Couper seulement la branche ou la tige visée, souche, une seule tige de noisetier, rameaux avec feuilles, coupe visible, tige tombée posée sur ses branches
 Version publiée (avec 0.0.7.11). Génération inchangée (version 32).

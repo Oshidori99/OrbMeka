@@ -3,6 +3,22 @@ Du plus récent au plus ancien. Ce fichier est mis à jour à chaque version.
 
 === Thème « Gameplay et inventaire » (0.0.7) ===
 
+0.0.7.16 — Petit plafond de terre qui tient (galeries de 2 m), petit bout de tronc entre deux coupes proches enfin à part, anciens arbres réparés à l'ouverture
+Génération du terrain : version 32 · Menus : version 10.
+Terre et argile tiennent en plafond à 1 m d'un mur (sable, boue, neige, gravier tombent) ; coupe vide entre deux coupes proches corrigée sur tous les arbres (2 221 essais) ; sauvegardes d'avant réparées.
+
+0.0.7.15 — Arbres tombés posés comme en vrai (léger sur ses branches, lourd sur son tronc), bois juste entre deux coupes proches, pas deux coupes au même endroit, test d'endurance
+Génération du terrain : version 32 · Menus : version 10.
+Morceau couché reposé après chaque coupe (bout lourd au sol, 20° au plus) ; plus de tronc de 9,5 m entre deux coupes proches (monde T56) ; coupe en double refusée ; 477 vérifications sur 12 arbres.
+
+0.0.7.14 — Recasser le bois au sol là où on vise, plus de trou en cassant un tronc, de nouveau 40 cm à mains nues
+Génération du terrain : version 32 · Menus : version 10.
+Tronc, branche, bâton ou rameau au sol coupé en deux au point visé (longueurs, épaisseurs et poids justes, feuilles sur la moitié fine) ; viser du bois ne creuse plus ; 40 cm au plus à mains nues (la hache plus tard).
+
+0.0.7.13 — Vrai diamètre des branches et du bois coupé, mains nues jusqu'à 80 cm (2,5 s par 10 cm), morceaux tombés qui ne flottent plus
+Génération du terrain : version 32 · Menus : version 10.
+Diamètre mesuré par une vraie tranche de la branche (faces de coupe et bois à leur taille) ; coupe à mains nues jusqu'à 80 cm, 2,5 s par 10 cm ; morceau tombé posé sur ses branches sans flotter (rochers).
+
 0.0.7.12 — Couper seulement la branche ou la tige visée, souche, une seule tige de noisetier, rameaux avec feuilles, coupe visible, tige tombée posée sur ses branches
 Génération du terrain : version 32 · Menus : version 10.
 Branche cassée = rameau au sol (« Tige de noisetier »…) ; abattre plus haut laisse une souche ; noisetier : une tige à la fois ; face claire et écart de 40 cm à 20° ; coupe nette ; tige tombée sur ses branches.
