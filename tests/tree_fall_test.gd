@@ -62,10 +62,10 @@ func _run() -> void:
 	var foot_aim: Dictionary = world.aimed_wood(player.get_target())
 	var skeleton: Dictionary = TreeParts.skeleton(Trees.APPLE, 1, 0)
 	check(not foot_aim.is_empty() and foot_aim.tree == apple and skeleton.pieces[foot_aim.piece].root, "aiming at the trunk near its foot")
-	check(not world.step_chop(0.01, true) and world.chop_thickness > 0.05 and world.chop_thickness <= 0.80, "thickness measured at the aimed point (%.1f cm)" % (world.chop_thickness * 100.0))
+	check(not world.step_chop(0.01, true) and world.chop_thickness > 0.05 and world.chop_thickness <= 0.40, "thickness measured at the aimed point (%.1f cm)" % (world.chop_thickness * 100.0))
 	var expected: float = maxf(2.5 * world.chop_thickness / 0.1, 0.5)
 	check(is_equal_approx(world.chop_seconds, expected), "chop time from thickness: 2.5 s per 10 cm (%.2f s)" % world.chop_seconds)
-	check(world.MAX_HAND_THICKNESS == 0.80 and is_equal_approx(world.CHOP_SECONDS * 0.80 / 0.1, 20.0), "80 cm at most by hand, 20 s for 80 cm")
+	check(world.MAX_HAND_THICKNESS == 0.40 and is_equal_approx(world.CHOP_SECONDS * 0.40 / 0.1, 10.0), "40 cm at most by hand, 10 s for 40 cm")
 	check(Trees.has_leaves(Trees.APPLE, 1, 0, -1.0, 0.9) and Trees.is_bare_wood(Trees.APPLE, 1, 0, -1.0, 0.9), "a trunk with a few low leafy twigs is bare wood")
 	check(not world.step_chop(world.chop_seconds * 0.5 - 0.01, true), "half way not cut yet")
 	world._update_ring()
@@ -232,7 +232,53 @@ func _run() -> void:
 	await look(player, world.ground.entries[index].position)
 	world.pick_up({"collider": world.ground.bodies[index], "position": world.ground.entries[index].position})
 	check(world.inventory.item("bar", 5).get("objet") in ["tronc", "branche"], "R picks up the piece of wood")
-	# --- G. Trop épais à mains nues en Survie (plus de 80 cm) : impossible. ---
+	# --- F2. 0.0.7.14 : recasser le bois au sol là où on vise ; jamais de trou en le visant. ---
+	# Les morceaux tombés (leurs branches passeraient au-dessus du bâton) retirés de l'essai.
+	for id in ["pommier-haut", "noisetier-essai", "pommier-essai"]:
+		for node in parts_of(world, id):
+			world.column_objects[world._player_column()].erase(node)
+			node.free()
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 14
+	var rod := Inventory.wood_piece("rameau", Trees.HAZEL, 3.0, 1.0, rng)
+	rod.epaisseur = 4.0
+	rod.fin = 2.0
+	rod.rotation = 0.0
+	var rod_spot: Vector3 = feet + Vector3(1.0, 0.0, -1.0)
+	var ground_before: int = world.ground.entries.size()
+	world.ground.drop(rod, rod_spot, rod_spot, world._ground_at, 0.0)
+	await frames(3)
+	var rod_index: int = world.ground.entries.size() - 1
+	var rod_entry: Dictionary = world.ground.entries[rod_index]
+	# Visé à 30 cm du gros bout (l'axe va du gros bout vers le petit, le long de +z pour une rotation 0).
+	var rod_point: Vector3 = (rod_entry.position as Vector3) + Vector3(0.0, 0.0, -0.2)
+	await look(player, rod_point)
+	var rod_hit: Dictionary = player.get_target()
+	check(not rod_hit.is_empty() and rod_hit.collider == world.ground.bodies[rod_index], "aiming at the stick on the ground")
+	check(not world.break_target(rod_hit), "aiming at wood on the ground never digs")
+	var whole_weight: float = float(rod_entry.item.poids)
+	var rod_share: float = world._wood_share(rod_entry, rod_hit.get("position", rod_point))
+	world.set_game_mode(Inventory.CREATIVE)
+	check(world._step_chop_parts(1.1, rod_hit), "the stick on the ground is cut in two")
+	var halves: Array = world.ground.entries.slice(ground_before).map(func(entry): return entry.item)
+	halves.sort_custom(func(a, b): return a.epaisseur > b.epaisseur)
+	# Coupé au point touché (le dessus du bâton, à quelques centimètres du point visé).
+	check(absf(rod_share - 0.3) < 0.1, "cut near the aimed point (%.2f of the stick)" % rod_share)
+	check(halves.size() == 2 and absf(halves[0].longueur - rod_share) < 0.015 and absf(halves[1].longueur - (1.0 - rod_share)) < 0.015, "each half has its real length (%s)" % str(halves.map(func(h): return h.longueur)))
+	check(halves.size() == 2 and halves[0].epaisseur == 4.0 and absf(halves[0].fin - halves[1].epaisseur) < 0.01 and halves[1].fin == 2.0 and absf(halves[0].fin - lerpf(4.0, 2.0, rod_share)) < 0.06, "thicknesses follow along the stick (%s)" % str(halves.map(func(h): return [h.epaisseur, h.fin])))
+	check(halves.size() == 2 and halves[0].objet in ["tronc", "branche"] and halves[1].objet == "rameau", "the leaves stay on the thin half")
+	check(halves.size() == 2 and absf(halves[0].poids + halves[1].poids - whole_weight) <= 2.0, "the weights add up (%s g)" % str(halves.map(func(h): return h.poids)))
+	# Un tronc au sol se recasse aussi.
+	var log_piece := Inventory.wood_piece("tronc", Trees.APPLE, 15.0, 1.2, rng)
+	log_piece.rotation = 0.0
+	world.ground.drop(log_piece, rod_spot + Vector3(1.0, 0.0, 0.0), rod_spot + Vector3(1.0, 0.0, 0.0), world._ground_at, 0.0)
+	await frames(3)
+	var log_index: int = world.ground.entries.size() - 1
+	await look(player, world.ground.entries[log_index].position)
+	var log_hit: Dictionary = player.get_target()
+	var before_log: int = world.ground.entries.size()
+	check(world._step_chop_parts(1.1, log_hit) and world.ground.entries.size() == before_log + 1, "a log on the ground is cut in two too")
+	# --- G. Trop épais à mains nues en Survie (plus de 40 cm) : impossible. ---
 	world.set_game_mode(Inventory.SURVIVAL)
 	# Les morceaux tombés (posés sur leurs branches, entre le joueur et ce tilleul) retirés de l'essai.
 	for id in ["pommier-haut", "noisetier-essai"]:
@@ -242,7 +288,7 @@ func _run() -> void:
 	var big := make_tree(world, "tilleul-essai", Trees.LINDEN, 5, feet + Vector3(-3.0, 0.0, 0.0))
 	await frames(3)
 	await look(player, big.global_position + Vector3.UP * 0.6)
-	check(not world.step_chop(30.0, true) and world.chop_thickness > 0.80 and not big.has_meta("falling") and parts_of(world, "tilleul-essai").size() == 1, "a trunk thicker than 80 cm cannot be cut by hand (%.0f cm)" % (world.chop_thickness * 100.0))
+	check(not world.step_chop(30.0, true) and world.chop_thickness > 0.40 and not big.has_meta("falling") and parts_of(world, "tilleul-essai").size() == 1, "a trunk thicker than 40 cm cannot be cut by hand (%.0f cm)" % (world.chop_thickness * 100.0))
 	root.remove_child(world)
 	world.queue_free()
 	await process_frame

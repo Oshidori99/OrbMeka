@@ -8,6 +8,11 @@ Suivi du travail : GitHub Project https://github.com/users/Oshidori99/projects/1
 ## Communication
 - Répondre en français, de façon **très synthétique**.
 - L'utilisateur n'est pas expert Git : expliquer les étapes simplement.
+- **Prévenir avant d'exécuter** : si une demande contredit une demande précédente, ne se suit pas logiquement, ou semble
+  une moins bonne idée qu'une autre, le dire d'abord (« attention, je pense que… ») avec l'alternative, puis attendre.
+  Le choix final revient toujours à l'utilisateur.
+- **Ne jamais commencer le travail avant « vas-y »** : d'abord un plan court (lots effort moyen / élevé, points à
+  éclaircir), puis attendre que l'utilisateur dise « vas-y ».
 
 ## Juridique (prioritaire)
 - Signaler **immédiatement** tout risque à l'utilisateur : droit suisse/UE, autres jeux et éditeurs (surtout le jeu de blocs le plus connu), licences, données personnelles.

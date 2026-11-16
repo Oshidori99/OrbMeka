@@ -894,8 +894,8 @@ var chop_time := 0.0
 # 0.0.7.9 : épaisseur du bois visé (m) et temps de coupe à mains nues (s).
 var chop_thickness := 0.0
 var chop_seconds := 0.0
-# 0.0.7.11 : 40 cm au plus à mains nues (avant : 30 cm) ; 0.0.7.13 : 80 cm.
-const MAX_HAND_THICKNESS := 0.80
+# 0.0.7.11 : 40 cm au plus à mains nues (avant : 30 cm) ; 0.0.7.14 : de nouveau 40 cm (80 cm rendait la future hache inutile).
+const MAX_HAND_THICKNESS := 0.40
 # 0.0.7.9 : écart entre deux morceaux d'un arbre coupé (la coupe se voit) ; 0.0.7.12 : 40 cm et 20° (12 cm : caché par les feuilles).
 const CUT_GAP := 0.40
 const CUT_TURN := 0.3490659  # 20°
@@ -1045,6 +1045,10 @@ func _aim_thickness(aim: Dictionary) -> float:
 
 func _step_chop_parts(delta: float, hit: Dictionary) -> bool:
 	var aim := aimed_wood(hit)
+	# 0.0.7.14 : bois au sol visé (tronc, branche, bâton, rameau) : le recasser là où on vise.
+	var lying := _ground_wood(hit)
+	if lying >= 0 and (aim.is_empty() or aim.distance > player.camera.global_position.distance_to(hit.position)):
+		return _step_chop_ground(delta, lying, hit.position)
 	if aim.is_empty():
 		chop_target = null
 		chop_time = 0.0
@@ -1068,6 +1072,96 @@ func _step_chop_parts(delta: float, hit: Dictionary) -> bool:
 	chop_time = 0.0
 	chop_aim = {}
 	cut_wood(aim.tree, aim.piece, aim.t, aim.point)
+	return true
+
+# --- 0.0.7.14 (demande de l'utilisateur) : recasser le bois au sol en deux, là où on vise ---
+# Bois au sol visé (numéro de l'objet au sol), à portée, ou -1.
+func _ground_wood(hit: Dictionary) -> int:
+	if hit.is_empty() or not is_instance_valid(hit.get("collider")) or not hit.collider.is_in_group("ground_items") or not is_instance_valid(player):
+		return -1
+	if player.camera.global_position.distance_to(hit.position) > player.break_reach + 0.01:
+		return -1
+	var index: int = ground.index_of(hit.collider)
+	if index < 0 or Inventory.ITEMS.get(ground.entries[index].item.get("objet", ""), {}).get("forme", "") != "bois":
+		return -1
+	return index
+
+# Axe d'un bois au sol (du gros bout vers le petit bout) et part s (0 au gros bout, 1 au petit) du point visé.
+func _wood_axis(entry: Dictionary) -> Vector3:
+	var turn := float(entry.item.get("rotation", 0.0))
+	return Vector3(sin(turn), 0.0, cos(turn))
+
+func _wood_share(entry: Dictionary, point: Vector3) -> float:
+	var length := float(entry.item.get("longueur", 1.0))
+	return clampf((point - (entry.position as Vector3)).dot(_wood_axis(entry)) / maxf(length, 0.01) + 0.5, 0.0, 1.0)
+
+func _step_chop_ground(delta: float, index: int, point: Vector3) -> bool:
+	var entry: Dictionary = ground.entries[index]
+	var item: Dictionary = entry.item
+	var share := _wood_share(entry, point)
+	var thick := float(item.get("epaisseur", 3.0))
+	var thickness := lerpf(thick, float(item.get("fin", thick)), share) / 100.0
+	if chop_aim.get("sol") != ground.bodies[index] or chop_seconds <= 0.0:
+		chop_aim = {"sol": ground.bodies[index]}
+		chop_target = null
+		chop_time = 0.0
+		chop_thickness = thickness
+		chop_seconds = maxf(CHOP_SECONDS * thickness / 0.1, 0.5)
+	if game_mode == Inventory.SURVIVAL and chop_thickness > MAX_HAND_THICKNESS + 0.001:
+		_notify("Trop épais à mains nues : %d cm (%d cm au plus)." % [roundi(chop_thickness * 100.0), roundi(MAX_HAND_THICKNESS * 100.0)])
+		return false
+	var seconds := CHOP_SECONDS_CREATIVE if game_mode == Inventory.CREATIVE else chop_seconds
+	chop_time += delta
+	show_ring(chop_time / seconds)
+	if chop_time < seconds:
+		return false
+	chop_time = 0.0
+	chop_aim = {}
+	return split_wood(index, point)
+
+# Coupe un bois au sol en deux au point visé : chaque moitié garde sa vraie longueur, ses épaisseurs (gros bout, petit
+# bout), son essence, son âge, sa souplesse ; poids selon son volume. Un rameau garde ses feuilles sur la moitié fine.
+const MIN_WOOD_PIECE := 0.05
+
+func split_wood(index: int, point: Vector3) -> bool:
+	var entry: Dictionary = ground.entries[index]
+	var item: Dictionary = entry.item
+	var length := float(item.get("longueur", 1.0))
+	var share := _wood_share(entry, point)
+	if share * length < MIN_WOOD_PIECE or (1.0 - share) * length < MIN_WOOD_PIECE:
+		_notify("Trop près du bout pour être coupé là.")
+		return false
+	var thick := float(item.get("epaisseur", 3.0))
+	var thin := float(item.get("fin", thick))
+	var middle := lerpf(thick, thin, share)
+	var volume := func(a: float, b: float, l: float) -> float: return l * (a * a + a * b + b * b)
+	var whole: float = volume.call(thick, thin, length)
+	var axis := _wood_axis(entry)
+	var big_end: Vector3 = (entry.position as Vector3) - axis * length * 0.5
+	var halves := []
+	for side in range(2):
+		var piece := item.duplicate(true)
+		var from := 0.0 if side == 0 else share
+		var to := share if side == 0 else 1.0
+		piece.longueur = snappedf((to - from) * length, 0.01)
+		piece.epaisseur = snappedf(lerpf(thick, thin, from), 0.1)
+		piece.fin = snappedf(lerpf(thick, thin, to), 0.1)
+		piece.poids = maxf(snappedf(float(item.get("poids", 1.0)) * volume.call(piece.epaisseur, piece.fin, piece.longueur) / maxf(whole, 0.000001), 1.0), 1.0)
+		piece.taille = Inventory.WOOD_SIZES.size()
+		for size in range(Inventory.WOOD_SIZES.size()):
+			if (piece.epaisseur + piece.fin) * 0.5 <= Inventory.WOOD_SIZES[size]:
+				piece.taille = size + 1
+				break
+		# Rameau : les feuilles restent sur la moitié fine ; l'autre moitié devient un tronc ou une branche.
+		if item.objet != "rameau" or side == 0:
+			piece.objet = "tronc" if piece.epaisseur >= 4.0 else "branche"
+		var spot: Vector3 = big_end + axis * ((from + to) * 0.5 * length + (side * 2 - 1) * 0.02)
+		halves.append([piece, spot])
+	ground.remove(index)
+	for half in halves:
+		ground.drop(half[0], half[1], half[1], _ground_at, 0.0)
+	_impact_sound(point)
+	show_choice("Coupé en deux : %s et %s" % [Inventory.item_name(halves[0][0]), Inventory.item_name(halves[1][0])])
 	return true
 
 func cut_wood(tree: Node3D, number: int, t: float, point: Vector3) -> void:
@@ -2754,6 +2848,10 @@ func _valid_hit(hit: Dictionary, reach: float) -> bool:
 func break_target(hit: Dictionary) -> bool:
 	# 0.0.6.9 : les arbres ne se coupent pas (série 0.0.6).
 	if not hit.is_empty() and is_instance_valid(hit.get("collider")) and hit.collider.is_in_group("trees"):
+		return false
+	# 0.0.7.14 (l'utilisateur : « quand j'essaie de casser des troncs, parfois ça creuse ») : bois au sol visé, ou branche
+	# devant le sol visé : on casse (step_chop), on ne creuse jamais.
+	if _ground_wood(hit) >= 0 or not aimed_wood(hit).is_empty():
 		return false
 	# 0.0.5.19 : un rocher se mine à la pioche (sinon un message).
 	# 0.0.6.3 : un caillou se casse à la pioche, en 1 à 3 coups selon sa taille.

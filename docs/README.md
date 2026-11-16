@@ -1,6 +1,16 @@
-# OrbMeka™ — prototype 0.0.7.13
+# OrbMeka™ — prototype 0.0.7.14
 
 Godot 4.7 / GDScript. Formes et couleurs simples ; assets externes seulement sous licence vérifiée (sons CC0, assets/sounds/CREDITS.txt).
+
+## 0.0.7.14 — Recasser le bois au sol là où on vise, plus de trou en cassant un tronc, de nouveau 40 cm à mains nues
+Version locale (2 sur 4). Génération inchangée (version 32).
+- **Recasser le bois au sol** : clic gauche maintenu sur un tronc, une branche, un bâton ou un rameau au sol (temps selon l'épaisseur au point visé) : il se coupe en deux là où on vise. Chaque moitié garde sa vraie longueur, ses épaisseurs (gros bout et petit bout), son essence, son âge et sa souplesse ; poids selon son volume. Un rameau garde ses feuilles sur la moitié fine (l'autre devient une branche ou un tronc). Pas à moins de 5 cm d'un bout.
+- **Plus de trou en cassant un tronc** (l'utilisateur : « parfois ça creuse ») : viser du bois au sol, ou une branche devant le sol, ne creuse jamais.
+- **De nouveau 40 cm au plus à mains nues** (80 cm rendait la future hache inutile), 2,5 s par tranche de 10 cm (40 cm : 10 s).
+- CLAUDE.md : prévenir avant d'exécuter une demande incohérente ou moins bonne qu'une autre ; ne jamais commencer avant « vas-y ».
+
+Tests réussis : tree_fall (54 vérifications : bâton et tronc au sol recassés, longueurs, épaisseurs et poids des moitiés, feuilles sur la moitié fine, jamais de trou, 40 cm et 10 s…) et les tests touchés (+ tests juridiques). Capture hors écran : tronc et rameau au sol coupés en deux.
+À tester manuellement : recasser un tronc puis une moitié ; viser un tronc posé sur l'herbe sans creuser.
 
 ## 0.0.7.13 — Vrai diamètre des branches et du bois coupé, mains nues jusqu'à 80 cm (2,5 s par 10 cm), morceaux tombés qui ne flottent plus
 Version locale (1 sur 4). Génération inchangée (version 32).
