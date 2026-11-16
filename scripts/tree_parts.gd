@@ -378,15 +378,23 @@ static func assignment(kind: int, size: int, form: int, cuts: Array) -> Dictiona
 			of[triangle] = _part_of(pieces, cuts, sizes, info.owner[triangle], info.param[triangle])
 			if info.leaves:
 				leaves[of[triangle]] += 1
-			if info.bark:
-				var spans: Dictionary = ranges[of[triangle]]
-				var owner: int = info.owner[triangle]
-				var t: float = info.param[triangle]
-				if spans.has(owner):
-					spans[owner] = Vector2(minf(spans[owner].x, t), maxf(spans[owner].y, t))
-				else:
-					spans[owner] = Vector2(t, t)
 		parts.append(of)
+	# 0.0.7.15 : étendue exacte de chaque pièce dans chaque morceau, d'une coupe à l'autre (tronçons entre les coupes de
+	# la pièce, chacun au morceau de son milieu). Avant : d'après les centres des triangles, qui confondait deux coupes
+	# proches (monde T56 : un tronçon de 23 cm devenu un tronc de 9,5 m) et oubliait un tronçon trop court.
+	for number in range(pieces.size()):
+		var bounds := [0.0, float(pieces[number].length)]
+		for cut in cuts:
+			if int(cut[0]) == number:
+				bounds.append(clampf(float(cut[1]), 0.0, pieces[number].length))
+		bounds.sort()
+		for index in range(bounds.size() - 1):
+			var low: float = bounds[index]
+			var high: float = bounds[index + 1]
+			if high - low < 0.0005:
+				continue
+			var spans: Dictionary = ranges[_part_of(pieces, cuts, sizes, number, (low + high) * 0.5)]
+			spans[number] = Vector2(minf(spans[number].x, low), maxf(spans[number].y, high)) if spans.has(number) else Vector2(low, high)
 	var fruits := PackedInt32Array()
 	for fruit in made.fruits:
 		fruits.append(_part_of(pieces, cuts, sizes, fruit[0], fruit[1]))
@@ -593,19 +601,9 @@ static func main_span(kind: int, size: int, form: int, cuts: Array, part: int) -
 			best = number
 	if best < 0:
 		return []
-	# Bouts exacts : la pièce entière, sauf aux coupes qui la bordent (les centres des triangles en sont loin).
+	# Bouts exacts : d'une coupe à l'autre (étendues calculées par assignment).
 	var span: Vector2 = spans[best]
-	var low := 0.0
-	var high: float = pieces[best].length
-	for cut in cuts:
-		if int(cut[0]) != best:
-			continue
-		var t := float(cut[1])
-		if t <= span.x + 0.2:
-			low = maxf(low, t)
-		elif t >= span.y - 0.2:
-			high = minf(high, t)
-	return [best, low, high]
+	return [best, span.x, span.y]
 
 # Fruits d'un modèle cachés pour un morceau (ceux qui sont sur un autre morceau).
 static func hidden_fruits(kind: int, size: int, form: int, cuts: Array, part: int) -> Array:

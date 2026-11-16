@@ -74,7 +74,7 @@ func _run() -> void:
 	await frames(150)
 	var up: Vector3 = apple.global_basis.y.normalized()
 	var toward: Vector3 = (feet - apple.global_position) * Vector3(1, 0, 1)
-	check(absf(up.y) < 0.25 and up.dot(toward.normalized()) > 0.7, "lying down, fallen toward the player")
+	check(absf(up.y) < 0.4 and up.dot(toward.normalized()) > 0.7, "lying down, fallen toward the player")
 	check(world.fallen_trees.has("pommier-essai") and world.fallen_trees["pommier-essai"].has("position"), "the fallen tree is remembered")
 	var detail: MeshInstance3D = apple.get_node("Modele/Detail")
 	var points: PackedVector3Array = detail.mesh.surface_get_arrays(0)[Mesh.ARRAY_VERTEX]
@@ -86,7 +86,7 @@ func _run() -> void:
 	check(below == 0, "branches pushed above the ground (%d points below)" % below)
 	var again := make_tree(world, "pommier-essai", Trees.APPLE, 1, feet + Vector3(1.6, 0.0, 0.0))
 	world._restore_fallen(again)
-	check(absf(again.global_basis.y.normalized().y) < 0.25 and again.global_position.distance_to(apple.global_position) < 0.05, "restored lying at the same place")
+	check(absf(again.global_basis.y.normalized().y) < 0.4 and again.global_position.distance_to(apple.global_position) < 0.05, "restored lying at the same place")
 	world.column_objects[world._player_column()].erase(again)
 	again.free()
 	# --- B. Tronc couché coupé sous les premières branches : le pied nu devient une bûche, le haut reste couché. ---
@@ -97,13 +97,21 @@ func _run() -> void:
 			trunk = number
 	var stem: Dictionary = skeleton.pieces[trunk]
 	var scale: float = apple.scale.x
-	await look(player, world._model_of(apple) * (stem.start + stem.direction * 0.6))
+	# 0.0.7.15 : un pommier de taille 1 (léger) repose sur ses branches : on vise le tronc de côté, sous les branches.
+	var trunk_spot: Vector3 = world._model_of(apple) * (stem.start + stem.direction * 0.6)
+	var beside: Vector3 = apple.global_basis.y.normalized().cross(Vector3.UP).normalized()
+	var eye: Vector3 = trunk_spot + beside * 0.9 + Vector3.UP * 0.1
+	player.global_position = eye - Vector3.UP * 1.6
+	await frames(1)
+	player.camera.global_position = eye
+	await look(player, trunk_spot)
 	var trunk_aim: Dictionary = world.aimed_wood(player.get_target())
 	check(not trunk_aim.is_empty() and trunk_aim.tree == apple and trunk_aim.piece == trunk and absf(trunk_aim.t - 0.6) < 0.15, "aiming at the lying trunk (t %.2f)" % trunk_aim.get("t", -1.0))
 	var pivot: Vector3 = world._model_of(apple) * (stem.start + stem.direction * float(trunk_aim.get("t", 0.6)))
 	var lying_basis: Basis = apple.global_basis
 	var before: int = world.ground.entries.size()
 	check(world.step_chop(1.1, true), "cut (creative: 1 s)")
+	player.global_position = feet
 	await frames(30)
 	var cuts: Array = world.tree_cuts.get("pommier-essai", {}).get("coupes", [])
 	check(cuts.size() == 1 and int(cuts[0][0]) == trunk and absf(float(cuts[0][1]) - float(trunk_aim.get("t", 0.0))) < 0.002, "cut where aimed (%s)" % str(cuts))
@@ -120,9 +128,10 @@ func _run() -> void:
 	check(pieces.size() == 1 and int(pieces[0].get_meta("part", 0)) == 1, "the leafy top stays, lying")
 	var top: Node3D = pieces[0] if not pieces.is_empty() else apple
 	var cut_end: Vector3 = world._model_of(top) * (stem.start + stem.direction * cut_t)
-	check(absf(cut_end.distance_to(pivot) - world.CUT_GAP) < 0.03, "a visible gap at the cut (%.2f m)" % cut_end.distance_to(pivot))
+	# Écarté de CUT_GAP et tourné de CUT_TURN, puis reposé sur ses appuis (0.0.7.15) : l'écart et le tour restent nets.
+	check(cut_end.distance_to(pivot) > world.CUT_GAP * 0.6 and cut_end.distance_to(pivot) < 1.2, "a visible gap at the cut (%.2f m)" % cut_end.distance_to(pivot))
 	var turn: float = top.global_basis.y.normalized().angle_to(lying_basis.y.normalized())
-	check(absf(turn - world.CUT_TURN) < 0.03, "the cut piece is turned aside (%.1f°)" % rad_to_deg(turn))
+	check(turn > world.CUT_TURN * 0.5, "the cut piece is turned aside (%.1f°)" % rad_to_deg(turn))
 	check(top.get_node("Modele").get_children().any(func(child): return child.name.begins_with("Coupe") and child.mesh.get_surface_count() > 0), "light wood face on the cut end")
 	var span: Array = TreeParts.main_span(Trees.APPLE, 1, 0, cuts, 1)
 	check(span.size() == 3 and int(span[0]) == trunk and absf(float(span[1]) - cut_t) < 0.002 and absf(float(span[2]) - stem.length) < 0.01, "the top goes from the cut to the treetop: log + top = the whole trunk")

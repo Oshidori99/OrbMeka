@@ -3,6 +3,10 @@ Du plus récent au plus ancien. Ce fichier est mis à jour à chaque version.
 
 === Thème « Gameplay et inventaire » (0.0.7) ===
 
+0.0.7.15 — Arbres tombés posés comme en vrai (léger sur ses branches, lourd sur son tronc), bois juste entre deux coupes proches, pas deux coupes au même endroit, test d'endurance
+Génération du terrain : version 32 · Menus : version 10.
+Morceau couché reposé après chaque coupe (bout lourd au sol, 20° au plus) ; plus de tronc de 9,5 m entre deux coupes proches (monde T56) ; coupe en double refusée ; 477 vérifications sur 12 arbres.
+
 0.0.7.14 — Recasser le bois au sol là où on vise, plus de trou en cassant un tronc, de nouveau 40 cm à mains nues
 Génération du terrain : version 32 · Menus : version 10.
 Tronc, branche, bâton ou rameau au sol coupé en deux au point visé (longueurs, épaisseurs et poids justes, feuilles sur la moitié fine) ; viser du bois ne creuse plus ; 40 cm au plus à mains nues (la hache plus tard).

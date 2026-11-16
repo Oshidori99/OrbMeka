@@ -962,6 +962,7 @@ func step_chop(delta: float, holding: bool) -> bool:
 # Sauvegarde : tree_cuts[id] = {"coupes": [[pièce, t], …], "morceaux": {"k": {"etat": "couche" ou "bois", place}}}.
 const TreeParts = preload("res://scripts/tree_parts.gd")
 const ROOT_CUT_HEIGHT := 0.5
+const MIN_CUT_GAP := 0.05
 var tree_cuts: Dictionary = {}
 var chop_aim: Dictionary = {}
 
@@ -1185,14 +1186,17 @@ func cut_wood(tree: Node3D, number: int, t: float, point: Vector3) -> void:
 		t = maxf(t, 0.03)
 	var entry: Dictionary = tree_cuts.get(id, {"coupes": [], "morceaux": {}})
 	var cuts: Array = entry.coupes
+	# 0.0.7.15 (monde T56 : une coupe enregistrée deux fois, morceau vide) : pas deux coupes à moins de MIN_CUT_GAP sur
+	# la même pièce, ni tout au bout d'une pièce (rien à détacher).
+	if t > float(piece.length) - MIN_CUT_GAP or cuts.any(func(other): return int(other[0]) == number and absf(float(other[1]) - t) < MIN_CUT_GAP):
+		_notify("Trop près d'une coupe ou du bout pour couper là.")
+		return
 	cuts.append([number, snappedf(t, 0.001)])
 	entry.coupes = cuts
 	tree_cuts[id] = entry
 	objects_dirty = true
 	var cut := cuts.size()
 	_show_part(tree, not lying)
-	if lying:
-		_bend_into_ground(tree, _lying_direction(tree))
 	if not piece.root:
 		# Avec ses feuilles : un rameau (« Tige de noisetier »…) ; sans : un bâton.
 		var leafy := TreeParts.leaf_share(kind, size, form, cuts, cut) > 0.0
@@ -1205,6 +1209,11 @@ func cut_wood(tree: Node3D, number: int, t: float, point: Vector3) -> void:
 		var made := _part_node(tree, cut)
 		_place_split(tree, made, number, t)
 		show_choice("Coupé en deux" + (" : bois au sol, à ramasser avec R" if _bare_to_wood(made) else ""))
+	# 0.0.7.15 : le morceau couché qui reste se repose (il a pu perdre les branches qui le portaient).
+	if lying:
+		_settle(tree)
+		_bend_into_ground(tree, _lying_direction(tree))
+		_save_part(tree)
 	if lying and _bare_to_wood(tree):
 		show_choice("Coupé : bois au sol, à ramasser avec R")
 	_all_wood(id)
@@ -1308,6 +1317,7 @@ func _place_split(tree: Node3D, made: Node3D, number: int, t: float) -> void:
 	made.global_basis = turned
 	var model: Node3D = made.get_node("Modele")
 	made.global_position = pivot + along * CUT_GAP - turned * (model.transform * at)
+	_settle(made)
 	_bend_into_ground(made, _lying_direction(made))
 	_save_part(made)
 
@@ -1349,7 +1359,6 @@ func _fall_part(tree: Node3D, part: int, number: int, t: float) -> void:
 		made.remove_meta("falling")
 		var from: float = (made.global_basis * local).dot(direction)
 		_rest_pose(made, direction, maxf(from, 0.0), radius)
-		_lift_on_branches(made)
 		_part_collision(made, false)
 		_bend_into_ground(made, direction)
 		_save_part(made)
@@ -1360,39 +1369,8 @@ func _fall_part(tree: Node3D, part: int, number: int, t: float) -> void:
 	fall.tween_callback(landed)
 	tree_cuts[str(tree.get_meta("id", ""))].morceaux[str(part)] = {"etat": "chute"}
 
-# 0.0.7.12 (demande de l'utilisateur) : une tige ou un haut d'arbre tombé repose sur ses branches, qui plient un peu,
-# au lieu de s'aplatir au sol : posé sur sa tige fine, tout le feuillage du dessous était ramené au ras du sol (une
-# galette). On le soulève d'une part de la profondeur des points enfoncés (le reste plie : _bend_into_ground) :
-# BRANCH_SPRING pour un gros tronc, LIGHT_SPRING pour une tige fine et légère (moins de 8 cm, ex. noisetier).
-# 0.0.7.13 (captures de l'utilisateur : petit arbre en l'air contre un rocher) : pas le point le plus enfoncé (une
-# branche dans un rocher soulevait tout), mais celui sous lequel restent 90 % des points ; jamais plus de MAX_LIFT.
-const BRANCH_SPRING := 0.5
-const LIGHT_SPRING := 0.7
-const MAX_LIFT := 0.5
-
-func _lift_on_branches(made: Node3D) -> void:
-	var spring := BRANCH_SPRING
-	var main := TreeParts.main_span(int(made.get_meta("kind", 0)), int(made.get_meta("size", 3)), int(made.get_meta("form", 0)), _cuts_of(made), int(made.get_meta("part", 0)))
-	if not main.is_empty():
-		var piece: Dictionary = TreeParts.skeleton(int(made.get_meta("kind", 0)), int(made.get_meta("size", 3)), int(made.get_meta("form", 0))).pieces[main[0]]
-		if TreeParts.true_thickness(piece, float(main[1])) * made.scale.x < 0.08:
-			spring = LIGHT_SPRING
-	var detail: MeshInstance3D = made.get_node_or_null("Modele/Detail")
-	if detail == null or detail.mesh == null:
-		return
-	var heights := _ground_grid(made)
-	var place: Transform3D = detail.global_transform
-	var depths := []
-	for surface in range(detail.mesh.get_surface_count()):
-		var points: PackedVector3Array = detail.mesh.surface_get_arrays(surface)[Mesh.ARRAY_VERTEX]
-		for index in range(0, points.size(), 3):
-			var at: Vector3 = place * points[index]
-			depths.append(_grid_height(heights, at) - at.y)
-	if depths.is_empty():
-		return
-	depths.sort()
-	var deep: float = maxf(depths[int(depths.size() * 0.9)], 0.0)
-	made.global_position.y += minf(deep * spring, MAX_LIFT)
+# 0.0.7.12 à 0.0.7.14 : un morceau tombé était ensuite soulevé d'un bloc (« posé sur ses branches ») : un bout pouvait
+# rester en l'air. 0.0.7.15 : remplacé par de vrais appuis dans _rest_pose (léger : branches ; lourd : tronc).
 
 # Morceau couché presque sans feuilles : il devient du bois au sol (jamais une souche debout), dessiné en série avec
 # tous les bâtons (léger), à sa vraie taille et à sa place. Vrai s'il l'est devenu.
@@ -1481,6 +1459,12 @@ func _restore_parts(tree: Node3D) -> void:
 	var lying := fallen_trees.has(id)
 	_show_part(tree, not lying)
 	if lying:
+		# 0.0.7.15 : sa place après s'être reposé (sinon : celle de sa chute).
+		var own: Dictionary = entry.morceaux.get("0", {})
+		if own.get("position") is Array and own.get("base") is Array:
+			var c: Array = own.base
+			tree.global_basis = Basis(Vector3(c[0], c[1], c[2]), Vector3(c[3], c[4], c[5]), Vector3(c[6], c[7], c[8]))
+			tree.global_position = Vector3(float(own.position[0]), float(own.position[1]), float(own.position[2]))
 		_bend_into_ground(tree, _lying_direction(tree))
 	for part in range(1, entry.coupes.size() + 1):
 		var saved: Dictionary = entry.morceaux.get(str(part), {})
@@ -1646,6 +1630,11 @@ func _rest_pose(tree: Node3D, direction: Vector3, from := 0.0, given_radius := -
 			continue
 		samples.append(Vector2(distance, _ground_at(base + direction * distance, tree) + thickness))
 		distance += step
+	# 0.0.7.15 (demande de l'utilisateur, physique réelle) : un arbre léger (noisetier, taille 1) repose aussi sur ses
+	# branches : il peut rester penché, un bout au sol et l'autre porté par ses branches (les feuilles s'écrasent un peu).
+	# Un arbre lourd repose sur son tronc : ses branches du dessous s'écartent sur les côtés (_bend_into_ground).
+	if _light_tree(tree):
+		samples.append_array(_branch_supports(tree, axis, upright, base, direction))
 	# Ligne d'appui : au-dessus de tous les points, la plus basse au tiers du tronc.
 	var best_height := -INF
 	var best_slope := 0.0
@@ -1666,19 +1655,143 @@ func _rest_pose(tree: Node3D, direction: Vector3, from := 0.0, given_radius := -
 				break
 		if not above:
 			continue
-		var score := start + slope * reach * 0.35
+		var score := start + slope * (from + reach * 0.35)
 		if score < best_score:
 			best_score = score
 			best_height = start
 			best_slope = slope
 	if best_height == -INF:
 		best_height = base.y
+	# 0.0.7.15 (captures : petit pommier couché, le pied en l'air sur sa couronne) : arbre léger : son bout lourd (le pied,
+	# ou le bout coupé) reste au sol ; il ne monte en pente qu'autant que ses branches l'exigent (au plus LIGHT_MAX_SLOPE,
+	# environ 20° : au-delà, sous son poids, ses branches plient, _bend_into_ground ; à 45°, il paraissait encore debout).
+	if _light_tree(tree) and not samples.is_empty():
+		var foot: Vector2 = samples[0]
+		for point in samples:
+			if absf(point.x - from) < absf(foot.x - from):
+				foot = point
+		var slope := 0.0
+		for point in samples:
+			if point.x > foot.x + 0.3:
+				slope = maxf(slope, (point.y - foot.y) / (point.x - foot.x))
+		best_slope = minf(slope, LIGHT_MAX_SLOPE)
+		best_height = foot.y - best_slope * foot.x
 	var pitch := atan(best_slope)
 	var angle := PI * 0.5 - pitch
 	tree.global_basis = Basis(axis, angle) * upright
 	# Le pied de l'arbre (axe du tronc) sur la ligne d'appui, déjà à un rayon au-dessus du sol.
 	tree.global_position = Vector3(base.x, best_height, base.z)
 	tree.set_meta("lie_angle", angle)
+
+# 0.0.7.15 (test d'endurance : morceau couché en l'air après une coupe, il reposait sur des branches parties avec l'autre
+# morceau) : un morceau couché se repose après chaque coupe, comme un objet rigide : il descend jusqu'à toucher (tronc,
+# branches ; feuilles un peu écrasées ; arbre lourd : ses branches plient davantage), puis bascule autour de ce point
+# jusqu'à ce que l'autre côté touche aussi.
+const SETTLE_MAX_TILT := 0.35
+const LIGHT_MAX_SLOPE := 0.36
+
+func _settle(node: Node3D) -> void:
+	var detail: MeshInstance3D = node.get_node_or_null("Modele/Detail")
+	if detail == null or detail.mesh == null:
+		return
+	var kind := int(node.get_meta("kind", 0))
+	var size := int(node.get_meta("size", 3))
+	var form := int(node.get_meta("form", 0))
+	var light := _light_tree(node)
+	var leaves := Trees.material(kind, "leaves")
+	var main := TreeParts.main_span(kind, size, form, _cuts_of(node), int(node.get_meta("part", 0)))
+	var model: Node3D = node.get_node("Modele")
+	var axis_start := Vector3.ZERO
+	var axis_dir := Vector3.UP
+	var axis_radius := 0.1
+	if not main.is_empty():
+		var piece: Dictionary = TreeParts.skeleton(kind, size, form).pieces[main[0]]
+		axis_start = piece.start
+		axis_dir = piece.direction
+		axis_radius = TreeParts.true_thickness(piece, (float(main[1]) + float(main[2])) * 0.5) * 0.5 + 0.05
+	var heights := _ground_grid(node)
+	var place: Transform3D = detail.global_transform
+	var points := []
+	for surface in range(detail.mesh.get_surface_count()):
+		var is_leaf: bool = detail.mesh.surface_get_material(surface) == leaves
+		if is_leaf and not light:
+			continue
+		var vertices: PackedVector3Array = detail.mesh.surface_get_arrays(surface)[Mesh.ARRAY_VERTEX]
+		for index in range(0, vertices.size(), 2):
+			var local: Vector3 = model.transform * vertices[index]
+			var on_axis := (local - axis_start).length() if axis_dir == Vector3.ZERO else (local - axis_start - axis_dir * (local - axis_start).dot(axis_dir)).length()
+			var trunk_point: bool = not is_leaf and on_axis <= axis_radius
+			if not light and not trunk_point:
+				continue
+			var allow := LEAF_SQUASH if is_leaf else (0.02 if trunk_point else 0.05)
+			var at: Vector3 = place * vertices[index]
+			points.append([at, at.y - _grid_height(heights, at) + allow, trunk_point])
+	if points.is_empty():
+		return
+	# Comme à la chute (_rest_pose) : le bout lourd (début de sa pièce principale : le bout coupé ou le pied) se pose sur
+	# le sol (tronc seulement) ; le morceau ne penche qu'autant que ses appuis plus loin l'exigent (léger : branches et
+	# feuilles ; lourd : son tronc seulement, ses branches plient), au plus SETTLE_MAX_TILT.
+	var along := (node.global_basis * axis_dir)
+	along.y = 0.0
+	along = along.normalized() if along.length() > 0.05 else Vector3.FORWARD
+	var anchor_world: Vector3 = node.global_transform * (model.transform * (axis_start + axis_dir * (float(main[1]) if not main.is_empty() else 0.0)))
+	var lift := -INF
+	for point in points:
+		if point[2] and ((point[0] as Vector3) - anchor_world).dot(along) < 0.5:
+			lift = maxf(lift, -float(point[1]))
+	if lift == -INF:
+		for point in points:
+			lift = maxf(lift, -float(point[1]))
+	var slope := -SETTLE_MAX_TILT
+	for point in points:
+		var x: float = ((point[0] as Vector3) - anchor_world).dot(along)
+		if x > 0.3:
+			slope = maxf(slope, (-float(point[1]) - lift) / x)
+	# Pente finale (la sienne plus le changement) au plus SETTLE_MAX_TILT dans un sens ou dans l'autre.
+	var axis_world: Vector3 = node.global_basis * axis_dir
+	var current := axis_world.y / maxf(Vector2(axis_world.x, axis_world.z).length(), 0.05)
+	slope = clampf(current + slope, -SETTLE_MAX_TILT, SETTLE_MAX_TILT) - current
+	# Pente : rotation autour d'un axe horizontal en travers du morceau, au bout lourd ; puis la hauteur.
+	var tilt := atan(absf(slope))
+	var hinge := Vector3.UP.cross(along).normalized()
+	var turn := Basis(hinge, tilt)
+	if (turn * along).y * slope < 0.0:
+		turn = Basis(hinge, -tilt)
+	if absf(slope) > 0.0005:
+		node.global_transform = Transform3D(turn, anchor_world - turn * anchor_world) * node.global_transform
+	node.global_position.y += lift
+
+# Arbre léger : noisetier ou plus petite taille (ses fines branches le portent).
+func _light_tree(tree: Node3D) -> bool:
+	return int(tree.get_meta("kind", 0)) == Trees.HAZEL or int(tree.get_meta("size", 3)) <= 1
+
+# Appuis des branches d'un arbre léger couché : pour chaque tranche de 30 cm le long de la chute, la hauteur où doit être
+# l'axe pour qu'aucune branche ne rentre dans le sol (feuilles : LEAF_SQUASH de plus, elles s'écrasent).
+const LEAF_SQUASH := 0.12
+
+func _branch_supports(tree: Node3D, axis: Vector3, upright: Basis, base: Vector3, direction: Vector3) -> Array:
+	var model: Node3D = tree.get_node_or_null("Modele")
+	var detail: MeshInstance3D = tree.get_node_or_null("Modele/Detail")
+	if model == null or detail == null or detail.mesh == null:
+		return []
+	var lying := Basis(axis, PI * 0.5) * upright
+	var heights := _ground_grid(tree)
+	var leaves := Trees.material(int(tree.get_meta("kind", 0)), "leaves")
+	var bins := {}
+	for surface in range(detail.mesh.get_surface_count()):
+		var squash := LEAF_SQUASH if detail.mesh.surface_get_material(surface) == leaves else 0.02
+		var points: PackedVector3Array = detail.mesh.surface_get_arrays(surface)[Mesh.ARRAY_VERTEX]
+		for index in range(0, points.size(), 2):
+			var offset: Vector3 = lying * (model.transform * points[index])
+			var along := offset.dot(direction)
+			var need: float = _grid_height(heights, base + Vector3(offset.x, 0.0, offset.z)) - offset.y - squash
+			var bin := roundi(along / 0.3)
+			if not bins.has(bin) or need > bins[bin]:
+				bins[bin] = need
+	var supports := []
+	for bin in bins:
+		supports.append(Vector2(bin * 0.3, bins[bin]))
+	return supports
 
 func _bend_into_ground(tree: Node3D, direction: Vector3) -> void:
 	var model: Node3D = tree.get_node_or_null("Modele")
@@ -1688,6 +1801,9 @@ func _bend_into_ground(tree: Node3D, direction: Vector3) -> void:
 	var to_local := to_world.affine_inverse()
 	var base := tree.global_position
 	var heights := _ground_grid(tree)
+	# 0.0.7.15 : arbre lourd : les branches du dessous s'écartent nettement sur les côtés (léger : à peine).
+	var spread := 0.15 if _light_tree(tree) else 0.6
+	var spread_max := 0.1 if _light_tree(tree) else 0.6
 	var push := func(point: Vector3) -> Vector3:
 		var world_point: Vector3 = to_world * point
 		var ground: float = _grid_height(heights, world_point) + 0.04
@@ -1699,7 +1815,7 @@ func _bend_into_ground(tree: Node3D, direction: Vector3) -> void:
 		side.y = 0.0
 		world_point.y = ground
 		if side.length() > 0.01:
-			world_point += side.normalized() * minf(sink * 0.15, 0.1)
+			world_point += side.normalized() * minf(sink * spread, spread_max)
 		return to_local * world_point
 	for part in ["Detail", "Loin"]:
 		var shown: MeshInstance3D = model.get_node_or_null(part)

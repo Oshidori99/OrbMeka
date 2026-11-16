@@ -1,6 +1,17 @@
-# OrbMeka™ — prototype 0.0.7.14
+# OrbMeka™ — prototype 0.0.7.15
 
 Godot 4.7 / GDScript. Formes et couleurs simples ; assets externes seulement sous licence vérifiée (sons CC0, assets/sounds/CREDITS.txt).
+
+## 0.0.7.15 — Arbres tombés posés comme en vrai (léger sur ses branches, lourd sur son tronc), bois juste entre deux coupes proches, pas deux coupes au même endroit, test d'endurance
+Version locale (3 sur 4). Génération inchangée (version 32).
+- **Comme en vrai** (demande de l'utilisateur) : un arbre **léger** (noisetier, taille 1) couché garde son bout lourd (pied ou bout coupé) au sol et ne penche qu'autant que ses branches l'exigent (20° au plus ; au-delà, elles plient). Un arbre **lourd** (tailles 2 à 5) repose sur son tronc : ses branches du dessous s'écartent nettement sur les côtés. Fini le soulèvement d'un bloc qui laissait un bout en l'air.
+- **Reposé après chaque coupe** : un morceau couché qui perd les branches qui le portaient se repose (avant : il restait en l'air, de 25 cm à 1 m).
+- **Bois juste entre deux coupes proches** (trouvé dans le monde T56 de l'utilisateur, lu sans le modifier) : un tronçon de 23 cm devenait un tronc de 9,5 m. Les bouts de chaque morceau se calculent maintenant d'une coupe à l'autre.
+- **Pas deux coupes au même endroit** (moins de 5 cm sur la même pièce) ni tout au bout : plus de morceau vide.
+- **Test d'endurance** (tests/tree_stress_test.gd, nouveau) : 12 arbres (4 espèces, tailles 1 à 3) abattus en hauteur, recoupés couchés (coupes proches comprises), branches cassées, bois recassé ; après chaque geste : rien de perdu ni en double, aucun bois plus grand que son arbre, aucun morceau vide, aucun morceau couché en l'air ; noisetier tombé sur un obstacle : penché, un bout porté, l'autre au sol.
+
+Tests réussis : tree_stress (477 vérifications, nouveau), tree_fall (54) et les tests touchés (+ tests juridiques). Captures hors écran : petit pommier couché (pied au sol), gros pommier couché (tronc au sol, branches écartées), pommier coupé couché (bûche à côté, haut au sol).
+À tester manuellement : abattre et recouper un noisetier et un petit pommier ; regarder qu'aucun bout ne flotte ; recasser une bûche.
 
 ## 0.0.7.14 — Recasser le bois au sol là où on vise, plus de trou en cassant un tronc, de nouveau 40 cm à mains nues
 Version locale (2 sur 4). Génération inchangée (version 32).
