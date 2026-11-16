@@ -1,6 +1,18 @@
-# OrbMeka™ — prototype 0.0.7.18
+# OrbMeka™ — prototype 0.0.7.19
 
 Godot 4.7 / GDScript. Formes et couleurs simples ; assets externes seulement sous licence vérifiée (sons CC0, assets/sounds/CREDITS.txt).
+
+## 0.0.7.19 — 4 kg par main et 8 kg à deux, volume (1,5 L et 3 L), nombre au plus par main (8 noisettes…), barres de poids et de volume, refus expliqués
+Version locale (3 sur 4). Génération inchangée (version 32).
+- **Poids** (demande de l'utilisateur) : 4 kg par main, 8 kg à deux mains ; au-delà de ce que tient une main, l'objet se porte à deux mains et la marche ralentit (jusqu'à 60 % à 8 kg). Poches : 500 g.
+- **Volume** : 1,5 L par main, 3 L à deux mains, 0,5 L dans les poches. Une poignée de terre ou de sable : 0,25 L (12 poignées à deux mains). Le bois compte par sa longueur (1 L par mètre) : un bâton de 3,5 m est trop encombrant, une bûche de 15 cm × 60 cm (8 kg) se porte à deux mains.
+- **Nombre au plus par main** (petits objets qui tomberaient) : 8 noisettes, 2 pommes, 4 cailloux ou éclats (le double à deux mains).
+- **Refus expliqués** : « Trop lourd », « Trop encombrant » ou « 8 noisettes au plus dans une main ».
+- **Barres** comme la batterie d'un téléphone, avec le pourcentage dedans : vert, jaune dès 60 %, orange dès 80 %, rouge à 100 %. En jeu (en bas à droite) : la petite image de la main ou de la poche, une barre (la limite la plus proche, kg ou L) et le texte un peu plus petit. Dans l'inventaire : le texte (poids et volume), puis dessous, centrées, deux petites barres côte à côte (poids à gauche, volume à droite).
+- Poids des matières inchangés (une poignée réelle) ; une poignée remplit toujours une sous-cellule (règle de jeu).
+
+Tests réussis : inventory (105 vérifications : 12 poignées à deux mains, 8 kg au plus, noisettes 8 et 16, bâton de 3,5 m refusé, bûche de 8 kg à deux mains, textes, barres) et les tests touchés (+ tests juridiques). Captures hors écran : barres en jeu et dans l'inventaire.
+À tester manuellement : ramasser jusqu'aux limites en Survie, lire les messages ; marcher chargé.
 
 ## 0.0.7.18 — Onglet Bois en Créatif (un tronc et une branche de chaque arbre), bois nommé selon son arbre
 Version locale (2 sur 4). Génération inchangée (version 32).

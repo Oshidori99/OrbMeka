@@ -2215,7 +2215,14 @@ func _refused_message(reason: String, value: Dictionary) -> String:
 		"occupee":
 			return "Case choisie occupée : choisissez une case vide (molette ou chiffres)."
 		"lourd":
-			return "Trop lourd pour cette case (%s)." % Inventory.format_weight(Inventory.unit_weight(value))
+			return "Trop lourd (%s) : 4 kg par main, 8 kg à deux mains, 500 g dans les poches." % Inventory.format_weight(Inventory.unit_weight(value))
+		# 0.0.7.19 : volume et nombre.
+		"encombrant":
+			var first: Dictionary = value.pile[-1] if value.has("pile") and not value.pile.is_empty() else value
+			return "Trop encombrant (%s) : 1,5 L par main, 3 L à deux mains, 0,5 L dans les poches." % Inventory.format_volume(Inventory.instance_volume(value.get("objet", ""), first))
+		"nombre":
+			var limit := Inventory.hand_count(value.get("objet", ""))
+			return "%d %s au plus dans une main (%d à deux mains)." % [limit, Inventory.plural_name(value), limit * 2]
 	return "Inventaire plein." if game_mode == Inventory.CREATIVE else "Mains et poches pleines."
 
 # --- 0.0.7.5 : cueillir (demande de l'utilisateur : il faut vraiment viser la pomme ou la noisette) ---
