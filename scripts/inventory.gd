@@ -79,6 +79,9 @@ const ITEMS := {
 	"rameau": {"nom": "Rameau", "forme": "bois", "feuilles": true, "couleur": Color("#7a5634")},
 }
 const LEAFY_NAMES := ["Rameau de pommier", "Tige de noisetier", "Rameau de pin", "Rameau de tilleul"]
+# 0.0.7.18 : bois du Créatif : tronc (gros bout, petit bout) puis branche (cm), 1 m de long.
+const CATALOG_WOOD := [20.0, 18.0, 4.0, 3.4]
+const ESSENCE_NAMES := ["pommier", "noisetier", "pin", "tilleul"]
 # Catégories de l'inventaire en Créatif, dans l'ordre des onglets (0.0.7.5 : Cailloux et Fruits ; l'onglet Inventaire,
 # tout à droite, est dans inventory_ui.gd). Objets illimités : identifiant, avec leur modèle (CATALOG_MODELS).
 const CATEGORIES := [
@@ -86,6 +89,9 @@ const CATEGORIES := [
 	{"id": "pebbles", "nom": "Cailloux", "objets": ["caillou", "caillou_calcaire", "caillou_silex"]},
 	{"id": "fruits", "nom": "Fruits", "objets": ["pomme", "noisette"]},
 	{"id": "tools", "nom": "Outils", "objets": ["pioche"]},
+	# 0.0.7.18 (demande de l'utilisateur) : pour chaque espèce, un tronc (20 cm × 1 m) et une branche (4 cm × 1 m),
+	# séparés ; « objet:essence » (catalog_item).
+	{"id": "wood", "nom": "Bois", "objets": ["tronc:0", "branche:0", "tronc:1", "branche:1", "tronc:2", "branche:2", "tronc:3", "branche:3"]},
 ]
 # Pour l'instant une seule version par objet : cailloux de taille 4, pomme rouge de taille 2.
 const CATALOG_MODELS := {"caillou": {"taille": 4}, "caillou_calcaire": {"taille": 4}, "caillou_silex": {"taille": 4}, "pomme": {"taille": 2, "couleur": 1}}
@@ -141,6 +147,19 @@ static func is_object(value: Dictionary) -> bool:
 	return ITEMS.get(value.get("objet", ""), {}).has("forme")
 
 static func catalog_item(id: String) -> Dictionary:
+	# 0.0.7.18 : bois du Créatif : « tronc:2 » = un tronc de pin, toujours le même (graine fixe), illimité.
+	if id.contains(":"):
+		var parts := id.split(":")
+		var essence := int(parts[1])
+		var trunk: bool = parts[0] == "tronc"
+		var rng := RandomNumberGenerator.new()
+		rng.seed = hash(id)
+		var wood := wood_piece(parts[0], essence, CATALOG_WOOD[0] if trunk else CATALOG_WOOD[2], 1.0, rng)
+		wood.epaisseur = CATALOG_WOOD[0] if trunk else CATALOG_WOOD[2]
+		wood.fin = CATALOG_WOOD[1] if trunk else CATALOG_WOOD[3]
+		wood.age = 2
+		wood.forme = 1
+		return wood
 	var value := {"objet": id}
 	value.merge(CATALOG_MODELS.get(id, {}))
 	return value
@@ -489,6 +508,9 @@ static func item_name(value: Dictionary) -> String:
 	var id: String = value.get("objet", "")
 	if id == "rameau" and value.has("essence"):
 		return LEAFY_NAMES[clampi(int(value.essence), 0, LEAFY_NAMES.size() - 1)]
+	# 0.0.7.18 : tronc et branche nommés selon leur arbre (« Tronc de pin », « Branche de noisetier »).
+	if id in ["tronc", "branche"] and value.has("essence"):
+		return "%s de %s" % [ITEMS[id].nom, ESSENCE_NAMES[clampi(int(value.essence), 0, ESSENCE_NAMES.size() - 1)]]
 	return ITEMS[id].nom if ITEMS.has(id) else ""
 
 static func _valid_traits(value: Variant) -> bool:

@@ -54,6 +54,9 @@ class Slot extends Control:
 		chosen = is_chosen
 		note = weight_note
 		title = Inventory.item_name(value) if with_text else ""
+		# 0.0.7.18 : bois : sous la case, l'arbre seulement (le nom complet coupé ne se lisait pas) ; tout au survol.
+		if with_text and value.get("objet", "") in ["tronc", "branche", "rameau"] and value.has("essence"):
+			title = Inventory.ESSENCE_NAMES[clampi(int(value.essence), 0, 3)].capitalize()
 		var name := Inventory.item_name(value)
 		if not value.is_empty() and not Inventory.unlimited(value):
 			name += " × %d (%s)" % [Inventory.count(value), Inventory.format_weight(Inventory.stack_weight(value))]
@@ -136,7 +139,8 @@ var cursor_item := {}
 var cursor_from: Array = []
 var category := 0
 # 0.0.7.5 : onglet Inventaire (après les catégories) ; objets des onglets sur 2 lignes au plus.
-const INVENTORY_TAB := 4
+# 0.0.7.18 : après les onglets d'objets (Bois compris), toujours le dernier.
+const INVENTORY_TAB := 5
 const CATALOG_ROWS := 2
 
 func setup(owner_inventory: RefCounted, scale: float) -> void:
@@ -474,7 +478,7 @@ func refresh() -> void:
 	if not message.has_meta("said"):
 		message.text = _hint()
 
-# index : un onglet d'objets (0 à 3) ou INVENTORY_TAB (la grille de 5 × 10, tout à droite).
+# index : un onglet d'objets (0 à 4) ou INVENTORY_TAB (la grille de 5 × 10, tout à droite).
 func show_category(index: int) -> void:
 	category = clampi(index, 0, INVENTORY_TAB)
 	tab_buttons[category].set_pressed_no_signal(true)

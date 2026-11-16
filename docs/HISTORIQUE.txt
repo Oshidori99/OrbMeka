@@ -3,6 +3,10 @@ Du plus récent au plus ancien. Ce fichier est mis à jour à chaque version.
 
 === Thème « Gameplay et inventaire » (0.0.7) ===
 
+0.0.7.18 — Onglet Bois en Créatif (un tronc et une branche de chaque arbre), bois nommé selon son arbre
+Génération du terrain : version 32 · Menus : version 10.
+Tronc 20 cm × 1 m et branche 4 cm × 1 m pour pommier, noisetier, pin et tilleul ; « Tronc de pin », « Branche de noisetier » ; l'arbre écrit sous chaque case.
+
 0.0.7.17 — Menu des actions (B + T) : clic gauche Creuser / Casser, Casser / Récupérer des objets, Récupérer des matériaux ; clic droit Poser, Aplanir, Lisser
 Génération du terrain : version 32 · Menus : version 10.
 Deux lignes de cases avec image et petit texte, molette pour choisir, T pour changer de ligne, fermé par clic, Échap, Entrée ou un moment ; seul Creuser creuse ; clic court = ramasser.

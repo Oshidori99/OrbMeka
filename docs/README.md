@@ -1,6 +1,14 @@
-# OrbMeka™ — prototype 0.0.7.17
+# OrbMeka™ — prototype 0.0.7.18
 
 Godot 4.7 / GDScript. Formes et couleurs simples ; assets externes seulement sous licence vérifiée (sons CC0, assets/sounds/CREDITS.txt).
+
+## 0.0.7.18 — Onglet Bois en Créatif (un tronc et une branche de chaque arbre), bois nommé selon son arbre
+Version locale (2 sur 4). Génération inchangée (version 32).
+- **Onglet Bois** (Créatif, après Outils, demande de l'utilisateur) : pour le pommier, le noisetier, le pin et le tilleul, un **tronc** (20 cm d'épaisseur, 18 cm au petit bout, 1 m) et une **branche** (4 cm, 1 m), séparés, illimités, toujours les mêmes. Sous chaque case, le nom de l'arbre ; le nom complet au survol.
+- **Bois nommé selon son arbre** partout : « Tronc de pin », « Branche de noisetier » (comme les rameaux, « Tige de noisetier »).
+
+Tests réussis : inventory (onglet Bois : 8 objets, tailles, noms, image de l'onglet) et les tests touchés (+ tests juridiques). Capture hors écran : onglet Bois.
+À tester manuellement : prendre un tronc de l'onglet Bois, le poser, le recasser.
 
 ## 0.0.7.17 — Menu des actions (B + T) : clic gauche Creuser / Casser, Casser / Récupérer des objets, Récupérer des matériaux ; clic droit Poser, Aplanir, Lisser
 Version locale (1 sur 4). Génération inchangée (version 32).
