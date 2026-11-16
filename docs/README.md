@@ -1,6 +1,16 @@
-# OrbMeka™ — prototype 0.0.7.16
+# OrbMeka™ — prototype 0.0.7.17
 
 Godot 4.7 / GDScript. Formes et couleurs simples ; assets externes seulement sous licence vérifiée (sons CC0, assets/sounds/CREDITS.txt).
+
+## 0.0.7.17 — Menu des actions (B + T) : clic gauche Creuser / Casser, Casser / Récupérer des objets, Récupérer des matériaux ; clic droit Poser, Aplanir, Lisser
+Version locale (1 sur 4). Génération inchangée (version 32).
+- **Menu des actions** (scripts/action_menu.gd, demande de l'utilisateur) : B + T ouvre deux lignes de cases au-dessus de la barre d'objets. En haut, le **clic gauche** : *Creuser / Casser* (creuse le terrain, coupe le bois visé), *Casser / Récupérer des objets* (ne creuse jamais : clic maintenu = casser, clic court = ramasser), *Récupérer des matériaux* (clic maintenu = une poignée de terre, de sable…). En bas, le **clic droit** : *Poser*, *Aplanir*, *Lisser*.
+- Chaque case : une petite image et un petit texte, juste assez large pour tout le texte. La ligne active est claire, la case choisie entourée de jaune.
+- **Molette** : choisir (aussitôt pris en compte) ; **T** (ou B + T) : l'autre ligne ; **un clic, Échap ou Entrée** ferment le menu (Échap n'ouvre pas la pause), ou **un moment sans rien** (2,5 s). R reste le raccourci pour ramasser, R + I pour une poignée.
+- La ligne d'aide en haut à gauche rappelle ce que font les deux clics.
+
+Tests réussis : action_menu (nouveau, 23 vérifications : disposition, molette, T, fermeture, seul Creuser creuse) et 17 autres tests touchés (+ tests juridiques). Captures hors écran : menu ouvert sur chaque ligne.
+À tester manuellement : B + T en jouant, molette, T, Échap (sans pause) ; clic court sur un caillou ou un bâton en mode Casser / Récupérer ; clic maintenu sur la terre en mode Récupérer des matériaux (Survie).
 
 ## 0.0.7.16 — Petit plafond de terre qui tient (galeries de 2 m), petit bout de tronc entre deux coupes proches enfin à part, anciens arbres réparés à l'ouverture
 Version publiée (avec 0.0.7.13 à 0.0.7.15). Génération inchangée (version 32).

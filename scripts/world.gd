@@ -2986,6 +2986,9 @@ func break_target(hit: Dictionary) -> bool:
 	# devant le sol visé : on casse (step_chop), on ne creuse jamais.
 	if _ground_wood(hit) >= 0 or not aimed_wood(hit).is_empty():
 		return false
+	# 0.0.7.17 : « Récupérer des matériaux » ne casse rien (step_gather).
+	if player.left_mode == 2:
+		return false
 	# 0.0.5.19 : un rocher se mine à la pioche (sinon un message).
 	# 0.0.6.3 : un caillou se casse à la pioche, en 1 à 3 coups selon sa taille.
 	if not hit.is_empty() and is_instance_valid(hit.get("collider")) and hit.collider.is_in_group("pebbles"):
@@ -3002,6 +3005,9 @@ func break_target(hit: Dictionary) -> bool:
 			_notify(_needs_pickaxe("Les rochers se cassent"))
 			return false
 		return mine_rock(hit.collider, hit)
+	# 0.0.7.17 : « Casser / Récupérer des objets » ne creuse jamais le terrain.
+	if player.left_mode == 1:
+		return false
 	var pickaxe: bool = player.selected_type == PICKAXE
 	# 0.0.6 : pierre à la pioche : une sous-cellule de 50 cm par coup, là où l'on vise ; pierre sombre : 2 coups.
 	if pickaxe and _aimed_ground(hit, player.break_reach):
@@ -3108,6 +3114,32 @@ func _create_selection() -> void:
 	selection.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	add_child(selection)
 
+# --- 0.0.7.17 : menu des actions (B + T, action_menu.gd) ---
+# Clic gauche : 0 Creuser / Casser (creuse le terrain, coupe le bois visé), 1 Casser / Récupérer des objets (ne creuse
+# jamais : clic maintenu casse, clic court ramasse), 2 Récupérer des matériaux (clic maintenu : une poignée de terre,
+# de sable…). Clic droit : le pinceau (Poser, Aplanir, Lisser). R reste le raccourci pour ramasser.
+const ActionMenu = preload("res://scripts/action_menu.gd")
+const LEFT_MODES := ["creuser / casser", "casser / récupérer des objets", "récupérer des matériaux"]
+var action_menu: Control
+
+static func action_hint(left_mode: int, brush: int) -> String:
+	return "Clic gauche : %s · clic droit : %s · changer : B + T · taille : B + molette · inventaire : O + I" % [LEFT_MODES[clampi(left_mode, 0, 2)], BRUSH_NAMES[clampi(brush, 0, 2)].to_lower()]
+
+func open_action_menu() -> void:
+	if is_instance_valid(action_menu) and is_instance_valid(player):
+		action_menu.open(player.left_mode, player.brush)
+
+func _on_action_chosen(row: int, index: int) -> void:
+	if row == 0:
+		player.left_mode = index
+		show_choice("Clic gauche : " + ActionMenu.ROWS[0][index])
+	else:
+		player.brush = index
+		show_choice("Clic droit : " + ActionMenu.ROWS[1][index])
+	var exploration: Label = find_child("ExplorationNotice", true, false)
+	if exploration != null:
+		exploration.text = action_hint(player.left_mode, player.brush)
+
 func _create_hud() -> void:
 	var layer := CanvasLayer.new()
 	add_child(layer)
@@ -3120,7 +3152,7 @@ func _create_hud() -> void:
 	# 0.0.7.2 : plus de « Bloc sélectionné » en haut à gauche : l'objet en main se voit dans la barre d'objets.
 	var exploration := Label.new()
 	exploration.name = "ExplorationNotice"
-	exploration.text = "Clic gauche : creuser · clic droit : pinceau (B + T) · taille : B + molette · inventaire : O + I"
+	exploration.text = action_hint(0, 0)
 	exploration.add_theme_font_size_override("font_size",roundi(14 * text_scale))
 	exploration.add_theme_color_override("font_shadow_color",Color.BLACK)
 	exploration.add_theme_constant_override("shadow_outline_size",3)
@@ -3158,6 +3190,12 @@ func _create_hud() -> void:
 	add_child(inventory_ui)
 	inventory_ui.setup(inventory, text_scale)
 	inventory_ui.overflow.connect(drop_items)
+	# 0.0.7.17 : menu des actions (B + T), au-dessus des messages.
+	action_menu = ActionMenu.new()
+	action_menu.text_scale = text_scale
+	action_menu.bottom_margin = inventory_ui.hud_height() + 56.0
+	layer.add_child(action_menu)
+	action_menu.chosen.connect(_on_action_chosen)
 	hint = Label.new()
 	hint.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_WIDE)
 	hint.offset_bottom = -inventory_ui.hud_height() - 8
@@ -3205,6 +3243,9 @@ func apply_text_scale(scale: float) -> void:
 		exploration.add_theme_font_size_override("font_size",roundi(14 * text_scale))
 		fps_label.add_theme_font_size_override("font_size",roundi(20 * text_scale))
 		fps_label.get_parent().add_theme_constant_override("separation",roundi(5 * text_scale))
+		if is_instance_valid(action_menu):
+			action_menu.text_scale = text_scale
+			action_menu.queue_redraw()
 
 # 0.0.5.9 : choix du joueur (matière, pinceau, taille), en bas, seulement quand il change.
 func show_choice(message: String) -> void:
@@ -3264,7 +3305,7 @@ Y : se baisser. R : courir (mode dans Contrôles).
 ↑ ↓ + A : tout le déplacement plus ou moins vite ; + W : marche, + R : course,
 ⌫ + touche : par défaut ; ⌫ deux fois : tout.
 Espace deux fois : voler (Espace monte, Y descend) ; encore deux fois : arrêter.
-Clic gauche : creuser ; clic droit : pinceau (B + T : poser, aplanir, lisser).
+Menu des actions (B + T, molette pour choisir, T pour l'autre ligne) : clic gauche creuser / casser, casser / récupérer des objets ou récupérer des matériaux ; clic droit poser, aplanir ou lisser.
 B + molette : taille du geste (1/8, 1/4, 1/2 bloc). Molette ou 1 à 0 : barre d'objets. O + I : inventaire.
 Échap : pause. F1 : liste des mondes. F3 : Informations.
 F4 : vue (première personne, de derrière, de devant).

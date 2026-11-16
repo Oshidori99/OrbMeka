@@ -3,6 +3,10 @@ Du plus récent au plus ancien. Ce fichier est mis à jour à chaque version.
 
 === Thème « Gameplay et inventaire » (0.0.7) ===
 
+0.0.7.17 — Menu des actions (B + T) : clic gauche Creuser / Casser, Casser / Récupérer des objets, Récupérer des matériaux ; clic droit Poser, Aplanir, Lisser
+Génération du terrain : version 32 · Menus : version 10.
+Deux lignes de cases avec image et petit texte, molette pour choisir, T pour changer de ligne, fermé par clic, Échap, Entrée ou un moment ; seul Creuser creuse ; clic court = ramasser.
+
 0.0.7.16 — Petit plafond de terre qui tient (galeries de 2 m), petit bout de tronc entre deux coupes proches enfin à part, anciens arbres réparés à l'ouverture
 Génération du terrain : version 32 · Menus : version 10.
 Terre et argile tiennent en plafond à 1 m d'un mur (sable, boue, neige, gravier tombent) ; coupe vide entre deux coupes proches corrigée sur tous les arbres (2 221 essais) ; sauvegardes d'avant réparées.

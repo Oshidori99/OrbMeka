@@ -147,6 +147,11 @@ var world: Node3D
 # (0 : 1/8, 1 : 1/4, 2 : 1/2 bloc ; B + molette). Un texte en bas les rappelle au changement seulement.
 var brush := 0
 var brush_size := 0
+# 0.0.7.17 : ce que fait le clic gauche (menu B + T) : 0 creuser / casser, 1 casser / récupérer des objets (clic court :
+# ramasser), 2 récupérer des matériaux.
+var left_mode := 0
+const QUICK_CLICK := 0.25
+var _break_pressed_at := 0
 var wait_jump_release := false
 
 func _ready() -> void:
@@ -190,6 +195,10 @@ func _input(event: InputEvent) -> void:
 		actions.stop_placing()
 	if event.is_action_released("break_block"):
 		actions.stop_breaking()
+		# 0.0.7.17 : « Casser / Récupérer des objets » : un clic court ramasse l'objet visé (comme R).
+		if left_mode == 1 and _break_pressed_at > 0 and Time.get_ticks_msec() - _break_pressed_at < QUICK_CLICK * 1000.0 and Input.mouse_mode == Input.MOUSE_MODE_CAPTURED and is_instance_valid(world) and world.has_method("pick_up"):
+			world.pick_up(get_target())
+		_break_pressed_at = 0
 
 func _unhandled_input(event: InputEvent) -> void:
 	if Engine.get_process_frames() <= input_ready_frame:
@@ -227,12 +236,17 @@ func _unhandled_input(event: InputEvent) -> void:
 	# Un clic avec ↑, ↓ ou ⌫ (0.0.4.6) règle la casse ou la pose : il ne casse ni ne pose.
 	if event.is_action_pressed("break_block"):
 		if not click_modified():
+			_break_pressed_at = Time.get_ticks_msec()
 			begin_breaking()
 	elif event.is_action_pressed("place_block"):
 		if not click_modified():
 			begin_placement()
 	elif event.is_action_pressed("brush_next"):
-		cycle_brush()
+		# 0.0.7.17 : B + T ouvre le menu des actions (molette : choisir, T : autre ligne).
+		if is_instance_valid(world) and world.has_method("open_action_menu"):
+			world.open_action_menu()
+		else:
+			cycle_brush()
 	elif event.is_action_pressed("size_up") or event.is_action_pressed("size_down"):
 		cycle_size(1 if event.is_action_pressed("size_up") else -1)
 	elif (event.is_action_pressed("block_previous") or event.is_action_pressed("block_next")) and wheel_modifiers.any(func(code): return Input.is_physical_key_pressed(code)):
@@ -467,13 +481,15 @@ func _physics_process(delta: float) -> void:
 		update_crouch(active, Input.is_action_pressed("crouch"), Input.is_action_just_pressed("crouch"))
 	# En vol, Espace monte : ce n'est pas un saut qui arrête la course (Maintenir conditionnel).
 	# 0.0.7.3 : R + I maintenus (Récupérer une poignée) : R ne fait pas courir pendant ce temps.
-	var gathering := active and Input.is_action_pressed("gather")
+	var breaking_held := active and Input.is_action_pressed("break_block") and not click_modified()
+	# 0.0.7.17 : « Récupérer des matériaux » : le clic gauche maintenu prend une poignée (comme R + I).
+	var gathering := active and (Input.is_action_pressed("gather") or (left_mode == 2 and breaking_held))
 	update_run(active, Input.is_action_pressed("sprint") and not gathering, Input.is_action_just_pressed("sprint") and not gathering, direction != Vector2.ZERO, jump_requested and not flying)
 	if is_instance_valid(world) and world.has_method("step_gather"):
 		world.step_gather(delta, gathering)
 	# 0.0.7.8 : clic gauche maintenu sur un arbre : l'abattre, puis le couper (anneau de chargement).
 	if is_instance_valid(world) and world.has_method("step_chop"):
-		world.step_chop(delta, active and Input.is_action_pressed("break_block") and not click_modified())
+		world.step_chop(delta, breaking_held and left_mode != 2)
 	var changes := {}
 	var resets := []
 	for target in ["walk", "run", "break", "place"]:
