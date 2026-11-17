@@ -89,14 +89,15 @@ static func default_of(key: String, web: bool = OS.has_feature("web")) -> float:
 const WEB_CHOICES := {"grass_density": "low", "quality": "performance", "shadows": "near", "antialiasing": "off"}
 static func choice_default(key: String, web: bool = OS.has_feature("web")) -> String:
 	return WEB_CHOICES[key] if web and WEB_CHOICES.has(key) else CHOICES[key].default
-# 0.0.7.21 : préréglages de « Qualité d'affichage ». Beauté : l'affichage d'avant 0.0.7.21 ; Équilibré (défaut sur PC) :
+# 0.0.7.21 : préréglages de « Qualité d'affichage ». Beauté : l'affichage d'avant 0.0.7.21, et depuis 0.0.7.22 (demande de
+# l'utilisateur) 16 zones et lointain +24 ; Équilibré (défaut sur PC) :
 # ombres un peu moins loin, herbe un peu moins dense (même portée) ; Performance (défaut sur le Web) : toutes les
 # concessions (sur le Web, ses distances courtes, WEB_DEFAULTS). Les optimisations qui ne changent pas l'image valent pour tous.
 const QUALITY_KEYS := ["grass_density", "grass_zones", "view_distance", "far_extra", "shadows", "antialiasing"]
 const PRESETS := {
 	"performance": {"grass_density": "low", "grass_zones": 3.0, "view_distance": 6.0, "far_extra": 10.0, "shadows": "near", "antialiasing": "off"},
 	"balanced": {"grass_density": "reduced", "grass_zones": 4.0, "view_distance": 8.0, "far_extra": 16.0, "shadows": "medium", "antialiasing": "on"},
-	"beauty": {"grass_density": "medium", "grass_zones": 4.0, "view_distance": 8.0, "far_extra": 16.0, "shadows": "far", "antialiasing": "on"},
+	"beauty": {"grass_density": "medium", "grass_zones": 4.0, "view_distance": 16.0, "far_extra": 24.0, "shadows": "far", "antialiasing": "on"},
 }
 
 static func preset_values(name: String, web: bool = OS.has_feature("web")) -> Dictionary:

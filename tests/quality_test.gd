@@ -26,7 +26,7 @@ func _run() -> void:
 	for key in Settings.CHOICES:
 		web[key] = Settings.choice_default(key, true)
 	check(web.quality == "performance" and Settings.matching_preset(web, true) == "performance" and web.view_distance == 5.0, "Web defaults: Performance with the short Web distances")
-	check(Settings.PRESETS.beauty.grass_density == "medium" and Settings.PRESETS.beauty.shadows == "far" and Settings.PRESETS.beauty.view_distance == 8.0, "Beauté keeps the look of before (medium grass, shadows to 64 m)")
+	check(Settings.PRESETS.beauty.grass_density == "medium" and Settings.PRESETS.beauty.shadows == "far" and Settings.PRESETS.beauty.view_distance == 16.0 and Settings.PRESETS.beauty.far_extra == 24.0, "Beauté: the look of before (medium grass, shadows to 64 m), 16 zones and +24 since 0.0.7.22")
 	var app: Control = load("res://scenes/main.tscn").instantiate()
 	app.settings = settings
 	app.catalog = load("res://scripts/world_catalog.gd").new(fixture + ".worlds")
@@ -42,7 +42,7 @@ func _run() -> void:
 	check(settings.values.quality == "performance" and settings.values.grass_density == "low" and settings.values.shadows == "near" and settings.values.antialiasing == "off" and settings.values.view_distance == 6.0 and app.setting_fields.view_distance.text == Settings.number_text(6.0) and app.choice_buttons.shadows.near.button_pressed, "Performance sets every quality setting, shown at once")
 	check(app.get_viewport().msaa_3d == Viewport.MSAA_DISABLED, "Performance turns antialiasing off")
 	app._choose("quality", "beauty")
-	check(settings.values.quality == "beauty" and settings.values.grass_density == "medium" and settings.values.shadows == "far" and settings.values.view_distance == 8.0 and app.get_viewport().msaa_3d == Viewport.MSAA_2X, "Beauté sets the look of before")
+	check(settings.values.quality == "beauty" and settings.values.grass_density == "medium" and settings.values.shadows == "far" and settings.values.view_distance == 16.0 and settings.values.far_extra == 24.0 and app.get_viewport().msaa_3d == Viewport.MSAA_2X, "Beauté sets the look of before")
 	app._choose("shadows", "near")
 	check(settings.values.quality == "custom" and app.choice_buttons.quality.custom.button_pressed and settings.values.shadows == "near", "changing one setting by hand: Personnalisé")
 	app._choose("shadows", "far")
