@@ -26,6 +26,8 @@ const LINDEN_TRUNKS := [Vector2(0.14, 1.3), Vector2(0.24, 2.0), Vector2(0.35, 2.
 const TRUNKS := [APPLE_TRUNKS, HAZEL_TRUNKS, PINE_TRUNKS, LINDEN_TRUNKS]
 # Distances d'affichage (m) : détaillé jusqu'à DETAIL_END, simplifié jusqu'à FAR_END, ensuite rien.
 const DETAIL_END := 40.0
+# 0.0.7.21 : distance du modèle détaillé pour les arbres créés ensuite (qualité Performance : 28 m, sinon DETAIL_END).
+static var detail_end := DETAIL_END
 const FAR_END := 150.0
 const FOLDER := "res://assets/trees/"
 const FILES := ["pommier", "noisetier", "pin", "tilleul"]
@@ -323,7 +325,7 @@ static func fruit_node(kind: int, size: int, form: int, skip: Dictionary = {}, o
 	for series in _series(kind, size, form, skip, own_spots):
 		var drawn := MultiMeshInstance3D.new()
 		drawn.multimesh = series
-		drawn.visibility_range_end = DETAIL_END
+		drawn.visibility_range_end = detail_end
 		drawn.visibility_range_end_margin = 2.0
 		holder.add_child(drawn)
 	return holder
@@ -617,7 +619,7 @@ static func triangles(made: Mesh) -> int:
 	return count
 
 # Arbre posé dans le monde : corps immobile (collision du tronc), modèle détaillé de près, simplifié au loin.
-static func tree_body(kind: int, size: int, vine := false, form := 0) -> StaticBody3D:
+static func tree_body(kind: int, size: int, vine := false, form := 0, series := false) -> StaticBody3D:
 	var body := StaticBody3D.new()
 	body.name = "Arbre"
 	body.add_to_group("trees")
@@ -628,40 +630,22 @@ static func tree_body(kind: int, size: int, vine := false, form := 0) -> StaticB
 	var model := Node3D.new()
 	model.name = "Modele"
 	body.add_child(model)
-	var near := MeshInstance3D.new()
-	near.name = "Detail"
-	near.mesh = mesh(kind, size, false, form)
-	near.visibility_range_end = DETAIL_END
-	near.visibility_range_end_margin = 2.0
-	model.add_child(near)
-	# 0.0.7.20 : de près, l'ombre est portée par le modèle simplifié (tronc, grosses branches et quelques grandes plaques
-	# de feuillage : environ 7 fois moins de sommets) ; le modèle détaillé ne porte plus d'ombre. Un arbre coupé ou
-	# couché reprend l'ombre de son modèle détaillé (own_shadow).
-	near.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-	var shade := MeshInstance3D.new()
-	shade.name = "Ombre"
-	shade.mesh = mesh(kind, size, true, form)
-	shade.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_SHADOWS_ONLY
-	shade.visibility_range_end = DETAIL_END
-	shade.visibility_range_end_margin = 2.0
-	model.add_child(shade)
+	# 0.0.7.21 : arbre intact d'une colonne (series) : dessiné avec les arbres pareils de sa colonne (series_nodes), un
+	# dessin pour tous ; il reprend ses propres modèles (add_meshes) dès qu'on y touche (coupe, chute).
+	if series:
+		body.set_meta("series", true)
+	else:
+		add_meshes(model, kind, size, form)
 	# 0.0.7.5 : pommes et noisettes dessinées à part, en série (fruit_node).
 	if kind == APPLE or kind == HAZEL:
 		model.add_child(fruit_node(kind, clampi(size, 1, SIZES), clampi(form, 0, FORMS - 1)))
-	var far := MeshInstance3D.new()
-	far.name = "Loin"
-	far.mesh = mesh(kind, size, true, form)
-	far.visibility_range_begin = DETAIL_END
-	far.visibility_range_begin_margin = 2.0
-	far.visibility_range_end = FAR_END
-	model.add_child(far)
 	# 0.0.6.16 : liane enroulée sur le tronc (tilleuls du cœur des forêts de feuillus), visible de près seulement.
 	if vine:
 		var climb := MeshInstance3D.new()
 		climb.name = "Liane"
 		var base := trunk(kind, size)
 		climb.mesh = Plants.vine_mesh(base.x, base.y + 1.5)
-		climb.visibility_range_end = DETAIL_END
+		climb.visibility_range_end = detail_end
 		climb.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 		model.add_child(climb)
 	var foot := trunk(kind, size)
@@ -674,3 +658,62 @@ static func tree_body(kind: int, size: int, vine := false, form := 0) -> StaticB
 	# 0.0.7.8 : directement sous le corps de l'arbre (sous « Modele », Godot l'ignorait : on traversait les troncs).
 	body.add_child(collision)
 	return body
+
+# Modèles propres d'un arbre : détaillé de près, ombre simplifiée de près, simplifié de loin.
+static func add_meshes(model: Node3D, kind: int, size: int, form: int) -> void:
+	var near := MeshInstance3D.new()
+	near.name = "Detail"
+	near.mesh = mesh(kind, size, false, form)
+	near.visibility_range_end = detail_end
+	near.visibility_range_end_margin = 2.0
+	# 0.0.7.20 : de près, l'ombre est portée par le modèle simplifié (tronc, grosses branches et quelques grandes plaques
+	# de feuillage : environ 7 fois moins de sommets) ; le modèle détaillé ne porte plus d'ombre. Un arbre coupé ou
+	# couché reprend l'ombre de son modèle détaillé (own_shadow).
+	near.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	model.add_child(near)
+	var shade := MeshInstance3D.new()
+	shade.name = "Ombre"
+	shade.mesh = mesh(kind, size, true, form)
+	shade.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_SHADOWS_ONLY
+	shade.visibility_range_end = detail_end
+	shade.visibility_range_end_margin = 2.0
+	model.add_child(shade)
+	var far := MeshInstance3D.new()
+	far.name = "Loin"
+	far.mesh = mesh(kind, size, true, form)
+	far.visibility_range_begin = detail_end
+	far.visibility_range_begin_margin = 2.0
+	far.visibility_range_end = FAR_END
+	model.add_child(far)
+
+# 0.0.7.21 : arbres pareils (espèce, taille, forme) d'une colonne dessinés d'un coup : détaillés, ombre et loin, comme
+# add_meshes (places : transformations des modèles dans le repère du parent).
+static func series_nodes(kind: int, size: int, form: int, places: Array) -> Array[MultiMeshInstance3D]:
+	var made: Array[MultiMeshInstance3D] = []
+	for part in ["Detail", "Ombre", "Loin"]:
+		var series := MultiMesh.new()
+		series.transform_format = MultiMesh.TRANSFORM_3D
+		series.mesh = mesh(kind, size, part != "Detail", form)
+		series.instance_count = places.size()
+		for index in range(places.size()):
+			series.set_instance_transform(index, places[index])
+		var node := MultiMeshInstance3D.new()
+		node.name = "Serie" + part
+		node.multimesh = series
+		# Places gardées (aussi pour les tests : sans fenêtre, Godot ne garde pas celles de la série).
+		node.set_meta("places", places)
+		match part:
+			"Detail":
+				node.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+				node.visibility_range_end = detail_end
+				node.visibility_range_end_margin = 2.0
+			"Ombre":
+				node.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_SHADOWS_ONLY
+				node.visibility_range_end = detail_end
+				node.visibility_range_end_margin = 2.0
+			"Loin":
+				node.visibility_range_begin = detail_end
+				node.visibility_range_begin_margin = 2.0
+				node.visibility_range_end = FAR_END
+		made.append(node)
+	return made

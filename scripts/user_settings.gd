@@ -84,9 +84,32 @@ const WEB_DEFAULTS := {"grass_zones": 2.0, "view_distance": 5.0, "far_distance":
 static func default_of(key: String, web: bool = OS.has_feature("web")) -> float:
 	return WEB_DEFAULTS[key] if web and WEB_DEFAULTS.has(key) else SPECS[key].default
 # 0.0.6.20 : herbe peu dense par défaut sur le Web (le joueur peut la remettre dans Vidéo).
-const WEB_CHOICES := {"grass_density": "low"}
+const WEB_CHOICES := {"grass_density": "low", "quality": "performance", "shadows": "near", "antialiasing": "off"}
 static func choice_default(key: String, web: bool = OS.has_feature("web")) -> String:
 	return WEB_CHOICES[key] if web and WEB_CHOICES.has(key) else CHOICES[key].default
+# 0.0.7.21 : préréglages de « Qualité d'affichage ». Beauté : l'affichage d'avant 0.0.7.21 ; Équilibré (défaut sur PC) :
+# ombres un peu moins loin, herbe un peu moins dense (même portée) ; Performance (défaut sur le Web) : toutes les
+# concessions (sur le Web, ses distances courtes, WEB_DEFAULTS). Les optimisations qui ne changent pas l'image valent pour tous.
+const QUALITY_KEYS := ["grass_density", "grass_zones", "view_distance", "far_distance", "shadows", "antialiasing"]
+const PRESETS := {
+	"performance": {"grass_density": "low", "grass_zones": 3.0, "view_distance": 6.0, "far_distance": 16.0, "shadows": "near", "antialiasing": "off"},
+	"balanced": {"grass_density": "reduced", "grass_zones": 4.0, "view_distance": 8.0, "far_distance": 24.0, "shadows": "medium", "antialiasing": "on"},
+	"beauty": {"grass_density": "medium", "grass_zones": 4.0, "view_distance": 8.0, "far_distance": 24.0, "shadows": "far", "antialiasing": "on"},
+}
+
+static func preset_values(name: String, web: bool = OS.has_feature("web")) -> Dictionary:
+	var result: Dictionary = PRESETS[name].duplicate()
+	if web and name == "performance":
+		result.merge(WEB_DEFAULTS, true)
+	return result
+
+# Préréglage dont toutes les valeurs correspondent, sinon « custom » (Personnalisé).
+static func matching_preset(current: Dictionary, web: bool = OS.has_feature("web")) -> String:
+	for name in PRESETS:
+		var preset := preset_values(name, web)
+		if preset.keys().all(func(key: String): return current.get(key) == preset[key]):
+			return name
+	return "custom"
 # Réglages à choix (0.0.3.4 ; profondeur 0.0.3.5), affichés en boutons ; options dans l'ordre d'affichage.
 const CHOICES := {
 	"text_detail": {"label": "Synthèse des textes", "options": {"minus": "−", "default": "Par défaut", "plus": "+"}, "default": "default"},
@@ -95,7 +118,15 @@ const CHOICES := {
 	# 0.0.3.14 : coordonnées du joueur affichées en jeu, en haut à droite.
 	"show_coords": {"label": "Afficher les coordonnées", "options": {"on": "Oui", "off": "Non"}, "default": "off"},
 	# 0.0.5.4 : brins par carré de 50 cm (terrain_materials.gd) ; moins = plus rapide, surtout sur le Web.
-	"grass_density": {"label": "Densité de l'herbe", "options": {"low": "Basse", "medium": "Moyenne", "high": "Haute"}, "default": "medium"},
+	# 0.0.7.21 : « Réduite » (140 brins), celle du réglage Équilibré, devenue le défaut.
+	"grass_density": {"label": "Densité de l'herbe", "options": {"low": "Basse", "reduced": "Réduite", "medium": "Moyenne", "high": "Haute"}, "default": "reduced"},
+	# 0.0.7.21 (demande de l'utilisateur) : qualité d'affichage en tête de Vidéo ; règle d'un coup les réglages de
+	# QUALITY_KEYS (PRESETS) ; « Personnalisé » dès qu'un d'eux ne correspond plus à un préréglage.
+	"quality": {"label": "Qualité d'affichage", "options": {"performance": "Performance", "balanced": "Équilibré", "beauty": "Beauté", "custom": "Personnalisé"}, "default": "balanced"},
+	# 0.0.7.21 : ombres du soleil : jusqu'à 64 m (Loin, comme avant), 48 m (Moyennes) ou 32 m (Proches, un seul niveau).
+	"shadows": {"label": "Ombres", "options": {"near": "Proches", "medium": "Moyennes", "far": "Loin"}, "default": "medium"},
+	# 0.0.7.21 : anticrénelage (MSAA 2×) : bords lisses ; sans, un peu en escalier mais plus rapide.
+	"antialiasing": {"label": "Anticrénelage", "options": {"on": "Oui", "off": "Non"}, "default": "on"},
 	# 0.0.3.16 : personnage choisi (Paramètres → Personnage), enregistré dans personnage.json.
 	# 0.0.3.23 : enfants de 9 et 14 ans (à la place de « boy » et « girl »), quatre nouveaux animaux.
 	"character": {"label": "Personnage", "options": {"boy9": "Garçon 9 ans", "girl9": "Fille 9 ans", "boy14": "Garçon 14 ans", "girl14": "Fille 14 ans", "man": "Homme", "woman": "Femme", "cat": "Chat", "brioche": "Brioche", "squirrel": "Écureuil", "fox": "Renard", "turtle": "Tortue", "rabbit": "Lapin bleu"}, "default": "boy14"},
@@ -153,6 +184,9 @@ func _init(path: String = DEFAULT_PATH) -> void:
 	control_options = Controls.default_options()
 	_read_controls()
 	_read_menus()
+	# 0.0.7.21 : qualité d'affichage toujours d'accord avec les réglages lus (anciens fichiers : Personnalisé, ou le
+	# préréglage auquel ils correspondent).
+	values.quality = matching_preset(values)
 
 # Dossier des fichiers du joueur (user://parametres) ; les tests gardent leurs fichiers à part.
 func folder() -> String:
@@ -368,6 +402,11 @@ func apply_texts(texts: Dictionary) -> bool:
 			last_error = "%s : choix inconnu." % CHOICES[key].label
 			return false
 		candidate[key] = choice
+	# 0.0.7.21 : un préréglage choisi s'applique à ses réglages ; sinon, la qualité suit les réglages (Personnalisé dès
+	# que l'un d'eux ne correspond plus).
+	if PRESETS.has(texts.get("quality", "")) and texts.get("quality_chosen", false):
+		candidate.merge(preset_values(texts.quality), true)
+	candidate.quality = matching_preset(candidate)
 	# Chaque menu dans son fichier, écrit d'abord à côté (.tmp) puis remplacé d'un coup.
 	for menu in FILES:
 		var part := {}

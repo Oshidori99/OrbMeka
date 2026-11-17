@@ -375,6 +375,7 @@ func _apply_to_game() -> void:
 	active_world.set_grass_distance(float(settings.values.grass_zones) * 8.0)
 	active_world.load_distance = int(settings.values.view_distance)
 	active_world.far_distance = int(settings.values.far_distance)
+	active_world.set_shadows(settings.values.shadows)
 	active_world.update_terrain_view(true)
 	active_world.update_zones(active_world.player_coordinates())
 	active_world.player.crouch_toggle = settings.control_options.crouch_mode == "toggle"
@@ -461,9 +462,11 @@ func _autosave() -> bool:
 	for key in setting_fields:
 		texts[key] = setting_fields[key].text
 	texts.merge(choice_values, true)
+	texts.quality_chosen = quality_chosen
 	if not settings.apply_texts(texts):
 		settings_message.text = settings.last_error
 		return false
+	_show_quality()
 	apply_appearance()
 	_apply_to_game()
 	if layout_pending():
@@ -495,7 +498,21 @@ func apply_layout() -> void:
 
 func _choose(key: String, option: String) -> void:
 	_set_choice(key, option)
+	# 0.0.7.21 : un préréglage de qualité choisi règle ses réglages (Performance, Équilibré, Beauté).
+	quality_chosen = key == "quality"
 	_autosave()
+	quality_chosen = false
+
+var quality_chosen := false
+
+# 0.0.7.21 : réglages de la qualité d'affichage remis à jour à l'écran après chaque enregistrement.
+func _show_quality() -> void:
+	for key in UserSettings.QUALITY_KEYS + ["quality"]:
+		if setting_fields.has(key):
+			setting_fields[key].text = UserSettings.number_text(settings.values[key])
+			_sync_slider(key)
+		elif choice_buttons.has(key):
+			_set_choice(key, settings.values[key])
 
 # Entrée dans un champ : enregistre, applique tout (taille des menus comprise) et affiche
 # les valeurs telles qu'enregistrées.

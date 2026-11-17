@@ -25,6 +25,38 @@ static func skeleton(kind: int, size: int, form: int) -> Dictionary:
 	var key := _key(kind, size, form)
 	if _skeletons.has(key):
 		return _skeletons[key]
+	# 0.0.7.21 : squelette calculé d'avance (tools/squelettes.gd), relu en 1 ms environ (calcul : 37 à 97 ms, à la
+	# première coupe de chaque modèle) ; recalculé si le modèle a changé depuis (empreinte différente).
+	var stored := _stored(kind, size, form)
+	if not stored.is_empty():
+		_skeletons[key] = stored
+		return stored
+	return compute_skeleton(kind, size, form)
+
+const STORED_FOLDER := "res://assets/trees/squelettes/"
+
+static func stored_path(kind: int, size: int, form: int) -> String:
+	return STORED_FOLDER + _key(kind, size, form) + ".res"
+
+# Empreinte du modèle : nombre de sommets et de triangles de chaque surface.
+static func fingerprint(kind: int, size: int, form: int) -> String:
+	var full := Trees.mesh(kind, size, false, form)
+	var parts := ["v1"]
+	for surface in range(full.get_surface_count()):
+		parts.append("%d/%d" % [full.surface_get_array_len(surface), full.surface_get_array_index_len(surface)])
+	return ",".join(parts)
+
+static func _stored(kind: int, size: int, form: int) -> Dictionary:
+	var path := stored_path(kind, size, form)
+	if not ResourceLoader.exists(path):
+		return {}
+	var holder: Resource = load(path)
+	if holder == null or str(holder.get_meta("empreinte", "")) != fingerprint(kind, size, form):
+		return {}
+	return holder.get_meta("squelette", {})
+
+static func compute_skeleton(kind: int, size: int, form: int) -> Dictionary:
+	var key := _key(kind, size, form)
 	var full := Trees.mesh(kind, size, false, form)
 	var bark_material := Trees.material(kind, "bark")
 	var leaf_material := Trees.material(kind, "leaves")

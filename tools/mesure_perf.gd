@@ -15,8 +15,15 @@ func report(key: String, value: Variant) -> void:
 	print("MESURE %s = %s" % [key, str(value)])
 
 # Temps de chaque image (ms) pendant « count » images.
+# 0.0.7.21 : aussi, par image, le calcul du jeu (processeur : _process, physique) et l'affichage (processeur et carte
+# graphique), moyennés dans last_split.
+var last_split := {}
+
 func sample(count: int, on_frame: Callable = Callable()) -> Array:
 	var times := []
+	var split := {"jeu": 0.0, "physique": 0.0, "rendu_cpu": 0.0, "rendu_gpu": 0.0}
+	var viewport := root.get_viewport_rid()
+	RenderingServer.viewport_set_measure_render_time(viewport, true)
 	var last := Time.get_ticks_usec()
 	for index in range(count):
 		if on_frame.is_valid():
@@ -25,6 +32,13 @@ func sample(count: int, on_frame: Callable = Callable()) -> Array:
 		var now := Time.get_ticks_usec()
 		times.append((now - last) / 1000.0)
 		last = now
+		split.jeu += Performance.get_monitor(Performance.TIME_PROCESS) * 1000.0
+		split.physique += Performance.get_monitor(Performance.TIME_PHYSICS_PROCESS) * 1000.0
+		split.rendu_cpu += RenderingServer.viewport_get_measured_render_time_cpu(viewport) + RenderingServer.get_frame_setup_time_cpu()
+		split.rendu_gpu += RenderingServer.viewport_get_measured_render_time_gpu(viewport)
+	for key in split:
+		split[key] = snappedf(split[key] / maxf(count, 1), 0.01)
+	last_split = split
 	return times
 
 func summary(prefix: String, times: Array) -> void:
@@ -38,6 +52,8 @@ func summary(prefix: String, times: Array) -> void:
 	report(prefix + ".ms_p95", snappedf(sorted[int(sorted.size() * 0.95)], 0.01))
 	report(prefix + ".ms_max", snappedf(sorted[-1], 0.01))
 	report(prefix + ".images_lentes_50ms", times.filter(func(value): return value > 50.0).size())
+	report(prefix + ".images_sous_100fps", times.filter(func(value): return value > 10.0).size())
+	report(prefix + ".temps_ms", str(last_split))
 
 func render_stats(prefix: String) -> void:
 	report(prefix + ".dessins", Performance.get_monitor(Performance.RENDER_TOTAL_DRAW_CALLS_IN_FRAME))
@@ -45,6 +61,39 @@ func render_stats(prefix: String) -> void:
 	report(prefix + ".triangles", Performance.get_monitor(Performance.RENDER_TOTAL_PRIMITIVES_IN_FRAME))
 	report(prefix + ".memoire_mo", snappedf(Performance.get_monitor(Performance.MEMORY_STATIC) / 1048576.0, 0.1))
 	report(prefix + ".memoire_video_mo", snappedf(Performance.get_monitor(Performance.RENDER_VIDEO_MEM_USED) / 1048576.0, 0.1))
+
+# 0.0.7.21 : ce qui peut être dessiné (dans le champ de la caméra, à portée de sa distance d'affichage), par sorte
+# (nom du nœud ou de son parent) : surfaces (un dessin chacune, sans compter les ombres).
+func draw_breakdown(prefix: String, world: Node3D) -> void:
+	var camera: Camera3D = world.player.camera
+	var counts := {}
+	for node: GeometryInstance3D in world.find_children("*", "GeometryInstance3D", true, false):
+		if not node.is_visible_in_tree():
+			continue
+		var box: AABB = node.get_aabb()
+		var center: Vector3 = node.global_transform * box.get_center()
+		var distance := camera.global_position.distance_to(center)
+		if node.visibility_range_end > 0.0 and distance > node.visibility_range_end + box.size.length():
+			continue
+		if distance < node.visibility_range_begin - box.size.length():
+			continue
+		if not camera.is_position_in_frustum(center) and distance > box.size.length():
+			continue
+		var mesh: Mesh = node.multimesh.mesh if node is MultiMeshInstance3D and node.multimesh != null else (node.mesh if node is MeshInstance3D else null)
+		var surfaces := mesh.get_surface_count() if mesh != null else 1
+		var name := str(node.name).rstrip("0123456789@_")
+		if name.begins_with("@") or name in ["Detail", "Loin", "Ombre", "Coupe"]:
+			name = str(node.get_parent().name).rstrip("0123456789@_") + "/" + name
+		if name.begins_with("Terrain") or name.begins_with("Lointain"):
+			name = name.left(8)
+		var look: Material = node.material_override if node.material_override != null else (mesh.surface_get_material(0) if mesh != null and mesh.get_surface_count() > 0 else null)
+		var look_name: String = "" if look == null else (look.resource_name if not look.resource_name.is_empty() else (str(look.albedo_texture.resource_path.get_file()) if look is BaseMaterial3D and look.albedo_texture != null else (look.shader.resource_path.get_file() if look is ShaderMaterial and look.shader != null else look.get_class())))
+		var kind := "%s %s %s" % [node.get_class().replace("Instance3D", ""), name.left(20), look_name.left(22)]
+		counts[kind] = counts.get(kind, 0) + surfaces
+	var sorted := counts.keys()
+	sorted.sort_custom(func(a, b): return counts[a] > counts[b])
+	for key in sorted.slice(0, 14):
+		report(prefix + ".dessins_par_sorte." + key.replace(" ", "_"), counts[key])
 
 func _run() -> void:
 	DisplayServer.window_set_vsync_mode(DisplayServer.VSYNC_DISABLED)
@@ -123,6 +172,44 @@ func measure_world() -> void:
 	var walking: Array = await sample(steps, walk)
 	world.perf_on = false
 	summary("foret.marche", walking)
+	report("foret.files_apres_marche", "terrain %d, lointain %d, arbres %d" % [world.terrain_queue.size(), world.far_queue.size(), world.tree_queue.size()])
+	# 0.0.7.21 : vol à 15 m/s pendant 6 s (temps réel) : images, et colonnes à 2 zones ou moins du joueur pas encore
+	# construites (le monde suit-il ?).
+	var flight_times := []
+	var unbuilt_max := 0
+	var unbuilt_frames := 0
+	var flight_start := Time.get_ticks_usec()
+	var last_frame := flight_start
+	var flight_from: Vector3 = player.global_position
+	while Time.get_ticks_usec() - flight_start < 6_000_000:
+		var seconds := (Time.get_ticks_usec() - flight_start) / 1_000_000.0
+		var fx: float = flight_from.x + 15.0 * seconds
+		player.global_position = Vector3(fx, world.terrain.height_at(fx, flight_from.z) + 4.0, flight_from.z)
+		await process_frame
+		var now := Time.get_ticks_usec()
+		flight_times.append((now - last_frame) / 1000.0)
+		last_frame = now
+		var here: Vector2i = world._player_column()
+		var unbuilt := 0
+		for dx in range(-2, 3):
+			for dz in range(-2, 3):
+				var column := here + Vector2i(dx, dz)
+				if world.shown_columns.has(column) and not world.built_columns.has(column):
+					unbuilt += 1
+		unbuilt_max = maxi(unbuilt_max, unbuilt)
+		if unbuilt > 0:
+			unbuilt_frames += 1
+	last_split = {}
+	summary("vol", flight_times)
+	report("vol.colonnes_proches_pas_finies_max", unbuilt_max)
+	report("vol.images_avec_colonne_proche_pas_finie", "%d sur %d" % [unbuilt_frames, flight_times.size()])
+	# 0.0.7.21 : monde entièrement construit autour (files vides, 20 s au plus), immobile : images et dessins.
+	var wait_start := Time.get_ticks_msec()
+	while (not world.terrain_queue.is_empty() or not world.far_queue.is_empty() or not world.tree_queue.is_empty()) and Time.get_ticks_msec() - wait_start < 20000:
+		await process_frame
+	report("complet.attente_s", snappedf((Time.get_ticks_msec() - wait_start) / 1000.0, 0.1))
+	summary("complet", await sample(240))
+	render_stats("complet")
 	# Temps par tâche du monde pendant la traversée (total, plus long, nombre de fois > 20 ms).
 	var names: Array = world.perf.keys()
 	names.sort_custom(func(a, b): return world.perf[a].total > world.perf[b].total)
@@ -141,6 +228,7 @@ func measure_world() -> void:
 	player.global_position = Vector3(center.x, world.terrain.height_at(center.x, center.z) + 1.0, center.z)
 	await sample(30)
 	render_stats("foret")
+	draw_breakdown("foret", world)
 	# Première coupe : squelette du modèle (froid) puis la coupe.
 	var tree: Node3D = null
 	for node in world.column_objects.get(world._player_column(), []):

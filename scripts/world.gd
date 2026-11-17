@@ -96,6 +96,7 @@ func _half_zones() -> int:
 
 func _ready() -> void:
 	# 0.0.6 : taille du monde selon sa version de génération.
+	Trees.detail_end = tree_detail_end
 	base_size = Vector3(base_side(_half_zones()), 1, base_side(_half_zones()))
 	build_limit = base_side(_half_zones()) / 2 - 3
 	base_zones_low = Vector2i(-_half_zones(), -_half_zones())
@@ -301,9 +302,30 @@ func _setup_environment() -> void:
 	if is_compat():
 		sun.directional_shadow_mode = DirectionalLight3D.SHADOW_ORTHOGONAL
 		sun.directional_shadow_max_distance = 40.0
+	# 0.0.7.21 : distance des ombres selon Paramètres → Vidéo → Ombres (set_shadows).
+	sun_light = sun
+	set_shadows(shadow_quality)
 	apply_compat_light(environment, sun)
 	add_child(sun)
 
+
+# 0.0.7.21 : ombres du soleil : Loin (64 m, deux niveaux : comme avant), Moyennes (48 m), Proches (32 m, un seul niveau).
+# Rendu Compatibility (Web) : toujours un seul niveau, 40 m au plus (0.0.6.19).
+const SHADOW_DISTANCES := {"near": 32.0, "medium": 48.0, "far": 64.0}
+var shadow_quality := "medium"
+# 0.0.7.21 : qualité Performance : arbres simplifiés dès 28 m (sinon Trees.DETAIL_END, 40 m).
+const PERFORMANCE_TREE_DETAIL := 28.0
+var tree_detail_end := Trees.DETAIL_END
+var sun_light: DirectionalLight3D
+
+func set_shadows(quality: String) -> void:
+	shadow_quality = quality if SHADOW_DISTANCES.has(quality) else "medium"
+	if sun_light == null:
+		return
+	var distance: float = SHADOW_DISTANCES[shadow_quality]
+	var single := is_compat() or shadow_quality == "near"
+	sun_light.directional_shadow_mode = DirectionalLight3D.SHADOW_ORTHOGONAL if single else DirectionalLight3D.SHADOW_PARALLEL_2_SPLITS
+	sun_light.directional_shadow_max_distance = minf(distance, 40.0) if is_compat() else distance
 func _create_ground() -> void:
 	var ground := StaticBody3D.new()
 	ground.name = "Ground"
@@ -532,7 +554,7 @@ var column_objects: Dictionary = {}
 func column_shown(column: Vector2i) -> bool:
 	return shown_columns.has(column)
 
-func _process_terrain_queue() -> void:
+func _process_terrain_queue(budget_usec: int = TERRAIN_BUDGET_USEC) -> void:
 	# Sous terre, les grottes d'abord ; en surface, seulement quand le reste du terrain est prêt.
 	if is_instance_valid(player) and (player.position.y < CAVE_DEEP) != cave_underground:
 		_update_caves(view_center)
@@ -558,7 +580,7 @@ func _process_terrain_queue() -> void:
 	# avant, une zone commencée à la fin du budget pouvait le dépasser de 10 ms.
 	while not terrain_queue.is_empty():
 		var step_started := Time.get_ticks_usec()
-		if step_started > started and step_started - started + terrain_step_usec > TERRAIN_BUDGET_USEC:
+		if step_started > started and step_started - started + terrain_step_usec > budget_usec:
 			break
 		_terrain_step()
 		terrain_step_usec = terrain_step_usec * 0.8 + (Time.get_ticks_usec() - step_started) * 0.2
@@ -575,7 +597,7 @@ var terrain_step_usec := 2000.0
 const HEIGHT_ROWS := 3
 var column_height_rows: Dictionary = {}
 const SurfaceJob = preload("res://scripts/surface_job.gd")
-const SURFACE_STEP_USEC := 3000
+const SURFACE_STEP_USEC := 1500
 var surface_job: RefCounted
 var surface_job_edits := 0
 var cave_job: RefCounted
@@ -1118,6 +1140,7 @@ func step_chop(delta: float, holding: bool) -> bool:
 	var lying := fallen_trees.has(id)
 	if tree != chop_target or chop_seconds <= 0.0:
 		chop_target = tree
+		_leave_series(tree)
 		chop_time = 0.0
 		# 0.0.7.11 : temps selon l'épaisseur du bois visé : 5 s par tranche de 10 cm (40 cm : 20 s) ; 40 cm au plus à mains nues.
 		var model: Node3D = tree.get_node_or_null("Modele")
@@ -1199,7 +1222,9 @@ func aimed_wood(hit: Dictionary) -> Dictionary:
 				var from: Vector3 = to_model * origin
 				var toward: Vector3 = (to_model.basis * direction).normalized()
 				var detail: MeshInstance3D = tree.get_node_or_null("Modele/Detail")
-				if detail != null and detail.mesh != null and detail.mesh.get_aabb().grow(0.3).intersects_ray(from, toward) == null:
+				# 0.0.7.21 : arbre dessiné en série (sans modèle à lui) : la boîte de son modèle.
+				var shown: Mesh = detail.mesh if detail != null else (Trees.mesh(int(tree.get_meta("kind", 0)), int(tree.get_meta("size", 3)), false, int(tree.get_meta("form", 0))) if tree.has_meta("series") else null)
+				if shown != null and shown.get_aabb().grow(0.3).intersects_ray(from, toward) == null:
 					continue
 				var kind := int(tree.get_meta("kind", 0))
 				var size := int(tree.get_meta("size", 3))
@@ -1417,6 +1442,7 @@ func _lying_direction(tree: Node3D) -> Vector3:
 
 # Le morceau d'un nœud d'arbre : son modèle, ses faces coupées, ses fruits, sa collision (arbre debout : souche).
 func _show_part(tree: Node3D, standing: bool) -> void:
+	_leave_series(tree)
 	var cuts := _cuts_of(tree)
 	var model: Node3D = tree.get_node_or_null("Modele")
 	if model == null or cuts.is_empty():
@@ -1450,6 +1476,7 @@ func _show_part(tree: Node3D, standing: bool) -> void:
 	_part_collision(tree, standing)
 
 func _part_collision(tree: Node3D, standing: bool) -> void:
+	_leave_series(tree)
 	var model: Node3D = tree.get_node_or_null("Modele")
 	if model == null:
 		return
@@ -1500,6 +1527,7 @@ func _part_node(tree: Node3D, part: int) -> Node3D:
 
 # Arbre couché coupé : le bout détaché écarté de CUT_GAP le long de la pièce coupée et tourné de CUT_TURN autour de la coupe.
 func _place_split(tree: Node3D, made: Node3D, number: int, t: float) -> void:
+	_leave_series(tree)
 	var piece: Dictionary = TreeParts.skeleton(int(tree.get_meta("kind", 0)), int(tree.get_meta("size", 3)), int(tree.get_meta("form", 0))).pieces[number]
 	var at: Vector3 = piece.start + piece.direction * t
 	var place := _model_of(tree)
@@ -1524,6 +1552,7 @@ func _save_part(made: Node3D) -> void:
 
 # Le haut d'un arbre (ou une tige) coupé debout tombe vers le joueur depuis la coupe, puis se couche à côté de la souche.
 func _fall_part(tree: Node3D, part: int, number: int, t: float) -> void:
+	_leave_series(tree)
 	var made := _part_node(tree, part)
 	made.set_meta("falling", true)
 	var piece: Dictionary = TreeParts.skeleton(int(tree.get_meta("kind", 0)), int(tree.get_meta("size", 3)), int(tree.get_meta("form", 0))).pieces[number]
@@ -1698,6 +1727,7 @@ func fell_tree(tree: Node3D) -> void:
 	var id := str(tree.get_meta("id", ""))
 	fallen_trees[id] = {"direction": [direction.x, direction.z]}
 	objects_dirty = true
+	_leave_series(tree)
 	tree.set_meta("falling", true)
 	var upright: Basis = tree.global_basis
 	tree.set_meta("upright", upright)
@@ -1900,6 +1930,7 @@ const SETTLE_MAX_TILT := 0.35
 const LIGHT_MAX_SLOPE := 0.36
 
 func _settle(node: Node3D) -> void:
+	_leave_series(node)
 	var detail: MeshInstance3D = node.get_node_or_null("Modele/Detail")
 	if detail == null or detail.mesh == null:
 		return
@@ -1979,6 +2010,7 @@ func _light_tree(tree: Node3D) -> bool:
 const LEAF_SQUASH := 0.12
 
 func _branch_supports(tree: Node3D, axis: Vector3, upright: Basis, base: Vector3, direction: Vector3) -> Array:
+	_leave_series(tree)
 	var model: Node3D = tree.get_node_or_null("Modele")
 	var detail: MeshInstance3D = tree.get_node_or_null("Modele/Detail")
 	if model == null or detail == null or detail.mesh == null:
@@ -2003,6 +2035,7 @@ func _branch_supports(tree: Node3D, axis: Vector3, upright: Basis, base: Vector3
 	return supports
 
 func _bend_into_ground(tree: Node3D, direction: Vector3) -> void:
+	_leave_series(tree)
 	var model: Node3D = tree.get_node_or_null("Modele")
 	if model == null:
 		return
@@ -2117,6 +2150,7 @@ func _tree_range(tree: Node3D) -> Array:
 	return tree.get_meta("range", [-1.0, Trees.top(int(tree.get_meta("kind", 0)), int(tree.get_meta("size", 3)), int(tree.get_meta("form", 0))) + 1.0])
 
 func cut_tree(tree: Node3D, at_world: Vector3) -> void:
+	_leave_series(tree)
 	var id := str(tree.get_meta("id", ""))
 	var kind := int(tree.get_meta("kind", 0))
 	var size := int(tree.get_meta("size", 3))
@@ -2198,6 +2232,7 @@ func _drop_wood_part(tree: Node3D, part: Array, to_world: Transform3D) -> void:
 
 # N'affiche que le morceau [lo, hi] de cet arbre (modèle découpé, branches au-dessus du sol, collision à sa mesure).
 func _show_range(tree: Node3D, part: Array) -> void:
+	_leave_series(tree)
 	var kind := int(tree.get_meta("kind", 0))
 	var size := int(tree.get_meta("size", 3))
 	var form := int(tree.get_meta("form", 0))
@@ -2225,7 +2260,7 @@ func _show_range(tree: Node3D, part: Array) -> void:
 		var face := MeshInstance3D.new()
 		face.name = "Coupe"
 		face.mesh = Trees.cut_faces(kind, size, form, height)
-		face.visibility_range_end = Trees.DETAIL_END
+		face.visibility_range_end = Trees.detail_end
 		model.add_child(face)
 	_piece_collision(tree, part)
 	# Fente visible : chaque morceau est décalé de CUT_GAP par coupe avant lui, le long du tronc couché ; 0.0.7.11 : et tourné
@@ -2254,6 +2289,7 @@ func _show_range(tree: Node3D, part: Array) -> void:
 
 # Collisions d'un arbre couché ou d'un morceau [lo, hi] : tronc solide, tige de visée pour couper.
 func _piece_collision(tree: Node3D, part: Array) -> void:
+	_leave_series(tree)
 	var kind := int(tree.get_meta("kind", 0))
 	var size := int(tree.get_meta("size", 3))
 	var form := int(tree.get_meta("form", 0))
@@ -3506,9 +3542,7 @@ func _process(delta: float) -> void:
 	_settle_terrain(delta)
 	_process_hide_queue()
 	update_terrain_view(false, Vector2i(floori(player.position.x / SmoothTerrain.ZONE_SIZE), floori(player.position.z / SmoothTerrain.ZONE_SIZE)))
-	_process_far_queue()
-	_process_terrain_queue()
-	_process_tree_queue()
+	_process_background_work()
 	_update_pebble_blocks()
 	# Image calme (rien à construire) : un modèle d'arbre de plus préparé d'avance.
 	if terrain_queue.is_empty() and far_queue.is_empty() and tree_queue.is_empty():
@@ -3516,6 +3550,54 @@ func _process(delta: float) -> void:
 	hint.text = notice if notice_time > 0.0 else ""
 	_update_coordinates()
 
+
+# 0.0.7.21 : travail de fond (terrain, arbres, lointain) dans un seul budget par image, selon la limite d'images par
+# seconde : l'image garde le temps du rendu et du jeu (FRAME_BASE_USEC). Avant : chaque file avait le sien (jusqu'à
+# 15 ms en tout : images sous 100 par seconde en marchant). Terrain la moitié, arbres jusqu'aux trois quarts, lointain
+# le reste ; s'il reste du temps, encore du terrain. Ouverture du monde : le plus grand budget.
+const FRAME_BASE_USEC := 5000
+const WORK_MIN_USEC := 1500
+const WORK_MAX_USEC := 8000
+
+func work_budget() -> int:
+	if opening_columns:
+		return WORK_MAX_USEC
+	var fps: int = Engine.max_fps if Engine.max_fps > 0 else 144
+	var budget := int(1_000_000.0 / fps) - FRAME_BASE_USEC
+	# Web (rendu Compatibility) : le rendu y prend bien plus de l'image.
+	if is_compat():
+		budget = mini(budget, 4000)
+	return clampi(budget, WORK_MIN_USEC, WORK_MAX_USEC)
+
+func _process_background_work() -> void:
+	var budget := work_budget()
+	var start := Time.get_ticks_usec()
+	var at := start
+	# Une colonne à 2 zones ou moins attend (la file va des plus proches aux plus loin) : tout le budget pour le terrain.
+	if not terrain_queue.is_empty():
+		var first: Vector2i = terrain_queue[0]
+		if maxi(absi(first.x - view_center.x), absi(first.y - view_center.y)) <= 2:
+			_process_terrain_queue(budget)
+			if perf_on:
+				_perf("terrain_file", start)
+			return
+	_process_terrain_queue(budget / 2)
+	if perf_on:
+		_perf("terrain_file", at)
+		at = Time.get_ticks_usec()
+	_process_tree_queue(maxi(start + budget * 3 / 4 - Time.get_ticks_usec(), 300))
+	if perf_on:
+		_perf("arbres_file", at)
+		at = Time.get_ticks_usec()
+	_process_far_queue(maxi(start + budget - Time.get_ticks_usec(), 500))
+	if perf_on:
+		_perf("lointain", at)
+		at = Time.get_ticks_usec()
+	var left := start + budget - Time.get_ticks_usec()
+	if left > 500 and not terrain_queue.is_empty():
+		_process_terrain_queue(left)
+		if perf_on:
+			_perf("terrain_file", at)
 # Même chose que _process, chaque tâche chronométrée (mesures seulement).
 func _process_measured(delta: float) -> void:
 	var at := Time.get_ticks_usec()
@@ -3560,14 +3642,8 @@ func _process_measured(delta: float) -> void:
 	update_terrain_view(false, Vector2i(floori(player.position.x / SmoothTerrain.ZONE_SIZE), floori(player.position.z / SmoothTerrain.ZONE_SIZE)))
 	_perf("terrain_vue", at)
 	at = Time.get_ticks_usec()
-	_process_far_queue()
-	_perf("lointain", at)
-	at = Time.get_ticks_usec()
-	_process_terrain_queue()
-	_perf("terrain_file", at)
-	at = Time.get_ticks_usec()
-	_process_tree_queue()
-	_perf("arbres_file", at)
+	_process_background_work()
+	_perf("travail_de_fond", at)
 	at = Time.get_ticks_usec()
 	_update_pebble_blocks()
 	_perf("cailloux", at)
@@ -3915,6 +3991,7 @@ func _show_column_objects(column: Vector2i, progressive := false) -> void:
 			tree_queue.append([column, tree])
 		else:
 			_make_column_tree(column, tree)
+	_rebuild_dirty_series()
 	if perf_on:
 		_perf("objets_arbres", at)
 		at = Time.get_ticks_usec()
@@ -3952,30 +4029,77 @@ var _river_material: ShaderMaterial
 var tree_queue: Array = []
 const TREE_BUDGET_USEC := 3000
 
-func _process_tree_queue() -> void:
-	var deadline := Time.get_ticks_usec() + TREE_BUDGET_USEC
+func _process_tree_queue(budget_usec: int = TREE_BUDGET_USEC) -> void:
+	var deadline := Time.get_ticks_usec() + budget_usec
 	while not tree_queue.is_empty() and Time.get_ticks_usec() < deadline:
 		var next: Array = tree_queue.pop_front()
 		if built_columns.has(next[0]):
 			_make_column_tree(next[0], next[1])
+	_rebuild_dirty_series()
 
 func _make_column_tree(column: Vector2i, tree: Dictionary) -> void:
 	# 0.0.7.8 : arbre coupé : plus là.
-	if cut_trees.has(str(tree.id)):
+	var id := str(tree.id)
+	if cut_trees.has(id):
 		return
-	var made := Trees.tree_body(int(tree.espece), int(tree.get("classe", 3)), tree.get("liane", false), int(tree.get("forme", 0)))
+	# 0.0.7.21 : arbre intact (ni tombé ni coupé) : dessiné en série avec ceux de sa colonne (_rebuild_series).
+	var intact: bool = not fallen_trees.has(id) and tree_cuts.get(id, {}).get("coupes", []).is_empty()
+	var made := Trees.tree_body(int(tree.espece), int(tree.get("classe", 3)), tree.get("liane", false), int(tree.get("forme", 0)), intact)
 	made.position = Vector3(tree.x, terrain.height_at(tree.x, tree.z) - 0.05, tree.z)
 	made.rotation.y = deg_to_rad(float(tree.rotation))
 	made.scale = Vector3.ONE * float(tree.taille)
 	made.set_meta("id", tree.id)
-	if picked_fruits.has(str(tree.id)):
-		Trees.apply_picked(made, picked_fruits[str(tree.id)])
+	if picked_fruits.has(id):
+		Trees.apply_picked(made, picked_fruits[id])
 	made.set_meta("column", column)
 	_rocks_parent().add_child(made)
 	_column_object(column, made)
+	if intact:
+		series_dirty[column] = true
+		return
 	_restore_fallen(made)
 	_restore_pieces(made)
 	_restore_parts(made)
+
+# 0.0.7.21 : arbres intacts dessinés en série, par colonne et par modèle (espèce, taille, forme) : un dessin par modèle
+# au lieu d'un par arbre (en forêt : bien moins de dessins par image, surtout sur le Web). Colonne → ses nœuds.
+var column_series: Dictionary = {}
+var series_dirty: Dictionary = {}
+
+func _rebuild_series(column: Vector2i) -> void:
+	series_dirty.erase(column)
+	for node in column_series.get(column, []):
+		if is_instance_valid(node):
+			node.free()
+	column_series.erase(column)
+	var groups := {}
+	for tree in column_objects.get(column, []):
+		if not is_instance_valid(tree) or not tree.has_meta("series"):
+			continue
+		var key := Vector3i(int(tree.get_meta("kind")), int(tree.get_meta("size")), int(tree.get_meta("form")))
+		if not groups.has(key):
+			groups[key] = []
+		var model: Node3D = tree.get_node("Modele")
+		groups[key].append(tree.transform * model.transform)
+	var made: Array = []
+	for key: Vector3i in groups:
+		for node in Trees.series_nodes(key.x, key.y, key.z, groups[key]):
+			_rocks_parent().add_child(node)
+			made.append(node)
+	if not made.is_empty():
+		column_series[column] = made
+
+func _rebuild_dirty_series() -> void:
+	for column: Vector2i in series_dirty.keys():
+		_rebuild_series(column)
+
+# L'arbre quitte la série (on le coupe, il tombe) : il reprend ses propres modèles, aussitôt dessinés à la même place.
+func _leave_series(tree: Node3D) -> void:
+	if not is_instance_valid(tree) or not tree.has_meta("series"):
+		return
+	tree.remove_meta("series")
+	Trees.add_meshes(tree.get_node("Modele"), int(tree.get_meta("kind")), int(tree.get_meta("size")), int(tree.get_meta("form")))
+	_rebuild_series(tree.get_meta("column", Vector2i(999999, 0)))
 func _show_column_river(column: Vector2i) -> void:
 	var vertices := PackedVector3Array()
 	var uvs := PackedVector2Array()
@@ -4209,6 +4333,11 @@ func _hide_column_objects(column: Vector2i) -> void:
 			node.free()
 	column_objects.erase(column)
 	tree_queue = tree_queue.filter(func(next: Array): return next[0] != column)
+	for node in column_series.get(column, []):
+		if is_instance_valid(node):
+			node.free()
+	column_series.erase(column)
+	series_dirty.erase(column)
 	_hide_column_pebbles(column)
 
 # Disque d'eau (surface plate, vue de dessus et de dessous) ; 0.0.5.20 : allongé (half : demi-segment du lac).
@@ -4509,10 +4638,10 @@ func _build_far_tile(tile: Vector2i, deadline: int = FAR_NO_LIMIT) -> bool:
 	far_tiles[tile] = piece
 	return true
 
-func _process_far_queue() -> void:
+func _process_far_queue(budget_usec: int = FAR_BUDGET_USEC) -> void:
 	# Beaucoup de carrés à faire à l'ouverture du monde : deux fois plus de temps par image. 0.0.6.18 (#175) : seulement
 	# à l'ouverture (en vol, la file dépasse souvent 20 carrés : 8 ms par image en plus du terrain, des à-coups).
-	var deadline := Time.get_ticks_usec() + (FAR_BUDGET_USEC * 2 if far_opening and far_queue.size() > 20 else FAR_BUDGET_USEC)
+	var deadline := Time.get_ticks_usec() + (budget_usec * 2 if far_opening and far_queue.size() > 20 else budget_usec)
 	if far_queue.is_empty():
 		far_opening = false
 	while not far_queue.is_empty() and Time.get_ticks_usec() < deadline:

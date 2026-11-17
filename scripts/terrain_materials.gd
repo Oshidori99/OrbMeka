@@ -14,7 +14,8 @@ static func surface(ground := false, dirt := false) -> ShaderMaterial:
 # Densité (Paramètres → Vidéo → Densité de l'herbe) : brins par carré, donc par m² × 4.
 const GRASS_SHADER = preload("res://shaders/grass_blades.gdshader")
 const PATCH := 0.5
-const BLADES := {"low": 80, "medium": 200, "high": 440}
+# 0.0.7.21 : « reduced » (Équilibré, défaut sur PC) : un peu moins dense que « medium » (Beauté), même portée.
+const BLADES := {"low": 80, "reduced": 140, "medium": 200, "high": 440}
 # Herbe visible jusqu'à cette distance (m) ; au-delà, la surface verte du sol suffit.
 const GRASS_RANGE := 36.0
 const GRASS_NEAR := 16.0

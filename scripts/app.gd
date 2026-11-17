@@ -963,6 +963,8 @@ func open_world(id: String) -> void:
 	active_world.save_folder = catalog.world_folder(id)
 	active_world.text_scale = _text_scale()
 	active_world.grass_density = settings.values.grass_density
+	active_world.shadow_quality = settings.values.shadows
+	active_world.tree_detail_end = active_world.PERFORMANCE_TREE_DETAIL if settings.values.quality == "performance" else Trees.DETAIL_END
 	active_world.grass_distance = float(settings.values.grass_zones) * 8.0
 	active_world.load_distance = int(settings.values.view_distance)
 	active_world.far_distance = int(settings.values.far_distance)

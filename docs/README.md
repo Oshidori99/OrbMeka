@@ -1,6 +1,21 @@
-# OrbMeka™ — prototype 0.0.7.20
+# OrbMeka™ — prototype 0.0.7.21
 
 Godot 4.7 / GDScript. Formes et couleurs simples ; assets externes seulement sous licence vérifiée (sons CC0, assets/sounds/CREDITS.txt).
+
+## 0.0.7.21 — Qualité d'affichage en tête de Vidéo (Performance, Équilibré, Beauté), ombres et anticrénelage réglables, herbe « Réduite », travail de fond dans un budget par image (300 images par seconde en forêt), arbres intacts dessinés en série, branches des arbres calculées d'avance, garde-fou de vitesse
+Version locale (1 sur 4). Génération inchangée (version 32).
+- **Qualité d'affichage** (Paramètres → Vidéo, en premier, demande de l'utilisateur) : *Performance* (le plus rapide), *Équilibré* (défaut sur PC), *Beauté* (l'affichage d'avant) ; *Personnalisé* dès qu'on change à la main un de ses réglages. Elle règle d'un coup la densité et la distance de l'herbe, les distances d'affichage, les ombres et l'anticrénelage. Sur le Web : Performance par défaut.
+  - Équilibré : ombres jusqu'à 48 m (avant 64), herbe « Réduite » (140 brins au lieu de 200), mêmes distances.
+  - Performance : ombres 32 m en un seul niveau, herbe basse sur 24 m, distance 6 zones, lointain 16, sans anticrénelage, arbres simplifiés dès 28 m.
+- **Nouveaux réglages** : *Ombres* (Proches, Moyennes, Loin), *Anticrénelage* (Oui, Non), herbe *Réduite*.
+- **Travail de fond dans un budget par image** (terrain, arbres, lointain) selon la limite d'images par seconde (avant : jusqu'à 15 ms en tout, ce qui faisait passer sous 100 images par seconde en marchant). Les colonnes proches du joueur passent d'abord. Mesures (PC, sans limite) : forêt 140 → 300 images par seconde, images sous 100 par seconde en marchant 118 → 6 ; en vol à 15 m/s, le sol autour est toujours prêt.
+- **Arbres intacts dessinés en série** : par colonne et par modèle, un dessin pour tous ; un arbre reprend ses propres modèles dès qu'on le coupe ou qu'il tombe.
+- **Branches des arbres calculées d'avance** (assets/trees/squelettes, tools/squelettes.gd) : plus d'à-coup de 40 à 100 ms à la première coupe de chaque sorte d'arbre.
+- **Garde-fou de vitesse** (tests/perf_guard_test.gd) : en traversant une forêt, le travail de fond reste dans son budget, rien ne bloque une image et le monde suit.
+- Outil de mesure : temps de calcul et d'affichage séparés, vol rapide, monde entièrement construit.
+
+Tests réussis : quality (nouveau, 13 vérifications), perf_guard (nouveau), trees (arbres en série, squelettes enregistrés = calculés), tree_fall, tree_stress, breaking, run et les tests touchés (+ tests juridiques). Captures hors écran : Beauté, Équilibré, Performance.
+À tester manuellement : choisir chaque qualité dans Vidéo ; couper un arbre (il quitte la série sans clignoter) ; voler vite.
 
 ## 0.0.7.20 — Plus fluide : terrain calculé en petites étapes (plus d'à-coups en forêt), arbres créés peu à peu avec des ombres simplifiées, accueil deux fois plus rapide (forêt de pins, personnages au sol et chargés à la demande), shaders préparés d'avance sur le Web
 Version publiée (4 sur 4). Génération inchangée (version 32) : les mondes restent exactement les mêmes.
