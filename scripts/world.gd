@@ -581,6 +581,7 @@ var surface_job_edits := 0
 var cave_job: RefCounted
 var cave_job_edits := 0
 var terrain_edits := 0
+var opening_columns := true
 
 func _terrain_step() -> void:
 	var column: Vector2i = terrain_queue[0]
@@ -591,7 +592,13 @@ func _terrain_step() -> void:
 		return
 	var row: int = column_height_rows.get(column, 0)
 	var points: int = SmoothTerrain.POINTS + 2
-	if row < points and not heights_ready.has(column):
+	# À l'ouverture, colonnes juste autour du joueur d'un coup, comme avant 0.0.7.20 : il peut y marcher tout de suite. La file
+	# va des plus proches aux plus loin : la première colonne plus loin finit l'ouverture (ensuite, tout en petites étapes).
+	var close := false
+	if opening_columns:
+		close = maxi(absi(column.x - view_center.x), absi(column.y - view_center.y)) <= 1
+		opening_columns = close
+	if row < points and not heights_ready.has(column) and not close:
 		var at := Time.get_ticks_usec()
 		for x in range(row, mini(row + HEIGHT_ROWS, points)):
 			for z in range(points):
@@ -615,7 +622,7 @@ func _terrain_step() -> void:
 		var zone: Vector3i = pending.back()
 		# 0.0.7.20 : zone plate (carré partagé) : tout de suite ; sinon sa surface est calculée en petites étapes
 		# (surface_job.gd, 3 ms au plus par image), puis la zone est montée d'un coup.
-		if terrain.is_flat(zone):
+		if close or terrain.is_flat(zone):
 			surface_job = null
 			pending.pop_back()
 			rebuild_terrain_piece(zone)
