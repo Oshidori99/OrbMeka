@@ -86,7 +86,9 @@ const WEB_DEFAULTS := {"grass_zones": 2.0, "view_distance": 5.0, "far_extra": 7.
 static func default_of(key: String, web: bool = OS.has_feature("web")) -> float:
 	return WEB_DEFAULTS[key] if web and WEB_DEFAULTS.has(key) else SPECS[key].default
 # 0.0.6.20 : herbe peu dense par défaut sur le Web (le joueur peut la remettre dans Vidéo).
-const WEB_CHOICES := {"grass_density": "low", "quality": "performance", "shadows": "near", "antialiasing": "off"}
+# 0.0.7.23 (mesures Web sur une petite carte graphique) : Performance sur le Web sans ombres, herbe très basse.
+const WEB_CHOICES := {"grass_density": "minimal", "quality": "performance", "shadows": "off", "antialiasing": "off"}
+const WEB_PERFORMANCE := {"grass_density": "minimal", "shadows": "off"}
 static func choice_default(key: String, web: bool = OS.has_feature("web")) -> String:
 	return WEB_CHOICES[key] if web and WEB_CHOICES.has(key) else CHOICES[key].default
 # 0.0.7.21 : préréglages de « Qualité d'affichage ». Beauté : l'affichage d'avant 0.0.7.21, et depuis 0.0.7.22 (demande de
@@ -104,6 +106,7 @@ static func preset_values(name: String, web: bool = OS.has_feature("web")) -> Di
 	var result: Dictionary = PRESETS[name].duplicate()
 	if web and name == "performance":
 		result.merge(WEB_DEFAULTS, true)
+		result.merge(WEB_PERFORMANCE, true)
 	return result
 
 # Préréglage dont toutes les valeurs correspondent, sinon « custom » (Personnalisé).
@@ -122,12 +125,12 @@ const CHOICES := {
 	"show_coords": {"label": "Afficher les coordonnées", "options": {"on": "Oui", "off": "Non"}, "default": "off"},
 	# 0.0.5.4 : brins par carré de 50 cm (terrain_materials.gd) ; moins = plus rapide, surtout sur le Web.
 	# 0.0.7.21 : « Réduite » (140 brins), celle du réglage Équilibré, devenue le défaut.
-	"grass_density": {"label": "Densité de l'herbe", "options": {"low": "Basse", "reduced": "Réduite", "medium": "Moyenne", "high": "Haute"}, "default": "reduced"},
+	"grass_density": {"label": "Densité de l'herbe", "options": {"minimal": "Très basse", "low": "Basse", "reduced": "Réduite", "medium": "Moyenne", "high": "Haute"}, "default": "reduced"},
 	# 0.0.7.21 (demande de l'utilisateur) : qualité d'affichage en tête de Vidéo ; règle d'un coup les réglages de
 	# QUALITY_KEYS (PRESETS) ; « Personnalisé » dès qu'un d'eux ne correspond plus à un préréglage.
 	"quality": {"label": "Qualité d'affichage", "options": {"performance": "Performance", "balanced": "Équilibré", "beauty": "Beauté", "custom": "Personnalisé"}, "default": "balanced"},
 	# 0.0.7.21 : ombres du soleil : jusqu'à 64 m (Loin, comme avant), 48 m (Moyennes) ou 32 m (Proches, un seul niveau).
-	"shadows": {"label": "Ombres", "options": {"near": "Proches", "medium": "Moyennes", "far": "Loin"}, "default": "medium"},
+	"shadows": {"label": "Ombres", "options": {"off": "Aucune", "near": "Proches", "medium": "Moyennes", "far": "Loin"}, "default": "medium"},
 	# 0.0.7.21 : anticrénelage (MSAA 2×) : bords lisses ; sans, un peu en escalier mais plus rapide.
 	"antialiasing": {"label": "Anticrénelage", "options": {"on": "Oui", "off": "Non"}, "default": "on"},
 	# 0.0.3.16 : personnage choisi (Paramètres → Personnage), enregistré dans personnage.json.

@@ -74,6 +74,7 @@ func _run() -> void:
 	check(panel.get_global_rect().position.y >= 0 and panel.get_global_rect().end.y <= 720, "creation form with mode fits 1280 by 720")
 	app.name_field.text = "Monde normal"
 	app.create_button.pressed.emit()
+	app.finish_loading()
 	check(app.page == "playing" and app.active_world.player.jump_speed == Settings.SPECS.jump_speed.default and app.active_world.player.walk_forward == Settings.SPECS.walk_forward.default, "default world ignores global attributes")
 	check(app.active_world.player.actions.place_interval == Settings.SPECS.place_ms.default / 1000.0, "default world keeps default block interval")
 	check(app.active_world.get_world_info_text().contains("Mode : Par défaut"), "F3 info shows default mode")
@@ -85,6 +86,7 @@ func _run() -> void:
 	check(app.create_mode == Catalog.MODE_DEVELOPER and app.create_developer_button.button_pressed and not app.create_default_button.button_pressed, "developer button selects developer mode")
 	app.name_field.text = "Monde dev"
 	app.create_button.pressed.emit()
+	app.finish_loading()
 	check(app.active_world.player.jump_speed == Settings.SPECS.jump_speed.max and app.active_world.player.walk_forward == Settings.SPECS.walk_forward.max, "developer world uses global attributes")
 	check(app.active_world.get_world_info_text().contains("Mode : Mode développeur"), "F3 info shows developer mode")
 	var dev_id: String = app.current_world_id

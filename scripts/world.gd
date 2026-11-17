@@ -106,6 +106,7 @@ func _ready() -> void:
 	_setup_environment()
 	# 0.0.5.1 : une seule matière pour tous les blocs, couleur portée par les sommets de chaque section.
 	TerrainMaterials.density = grass_density
+	TerrainMaterials.simple = simple_ground
 	TerrainMaterials.grass_range = grass_distance
 	block_material = TerrainMaterials.surface()
 	block_box = BoxShape3D.new()
@@ -136,6 +137,7 @@ func _ready() -> void:
 	inventory.mode = game_mode
 	inventory.from_dict(saved_player.get("inventaire"))
 	inventory.changed.connect(apply_held)
+	inventory.changed.connect(func(): inventory_unsaved = true)
 	_create_selection()
 	_create_hud()
 	apply_held()
@@ -316,16 +318,24 @@ var shadow_quality := "medium"
 # 0.0.7.21 : qualité Performance : arbres simplifiés dès 28 m (sinon Trees.DETAIL_END, 40 m).
 const PERFORMANCE_TREE_DETAIL := 28.0
 var tree_detail_end := Trees.DETAIL_END
+# 0.0.7.23 : qualité Performance : sol simplifié.
+var simple_ground := false
 var sun_light: DirectionalLight3D
 
 func set_shadows(quality: String) -> void:
-	shadow_quality = quality if SHADOW_DISTANCES.has(quality) else "medium"
+	shadow_quality = quality if SHADOW_DISTANCES.has(quality) or quality == "off" else "medium"
 	if sun_light == null:
+		return
+	# 0.0.7.23 : « Aucune » (Performance sur le Web) : pas d'ombres du soleil (sur une petite carte graphique, elles coûtent
+	# beaucoup : chaque objet est dessiné une fois de plus pour elles).
+	sun_light.shadow_enabled = shadow_quality != "off"
+	if shadow_quality == "off":
 		return
 	var distance: float = SHADOW_DISTANCES[shadow_quality]
 	var single := is_compat() or shadow_quality == "near"
 	sun_light.directional_shadow_mode = DirectionalLight3D.SHADOW_ORTHOGONAL if single else DirectionalLight3D.SHADOW_PARALLEL_2_SPLITS
 	sun_light.directional_shadow_max_distance = minf(distance, 40.0) if is_compat() else distance
+
 func _create_ground() -> void:
 	var ground := StaticBody3D.new()
 	ground.name = "Ground"
@@ -354,12 +364,29 @@ func _create_ground() -> void:
 
 # 0.0.5.5 : plus de collines de blocs ni de blocs de pierre (demande de l'utilisateur) ; 0.0.5.14 : petites
 # collines de terrain lisse selon la graine (smooth_terrain.gd). terrain_generator.gd (anciennes collines) reste.
+
+# 0.0.7.23 : écran de chargement (app.gd) : la graine du monde (montagnes, lacs, rivières, crevasses, grottes : 1 à 2 s sur
+# PC, bien plus sur le Web) préparée en petites étapes avant d'ouvrir le monde, la barre de progression avance.
+var prepared_terrain: SmoothTerrain = null
+
+static func flat_spots() -> Array:
+	return [[Vector2(0.5, 0.5), 9.0], [SAND_CENTER, SAND_RADIUS + 2.0]]
+
+static func prepare_terrain(seed: int, options: Dictionary) -> SmoothTerrain:
+	var made := SmoothTerrain.new()
+	made.setup(seed, flat_spots(), options, false)
+	return made
 func _create_terrain(start_at: Vector3 = Vector3.ZERO) -> void:
 	generated_hill_count = 0
 	generated_max_height = 0
 	# 0.0.5.14 : petites collines selon la graine, plates autour de l'apparition et de la plage.
 	if relief:
-		terrain.setup(terrain_seed, [[Vector2(0.5, 0.5), 9.0], [SAND_CENTER, SAND_RADIUS + 2.0]], generation_options)
+		# 0.0.7.23 : graine déjà préparée par étapes pendant l'écran de chargement (prepare_terrain), sinon d'un coup.
+		if prepared_terrain != null:
+			prepared_terrain.prepare_step(1 << 40)
+			terrain = prepared_terrain
+		else:
+			terrain.setup(terrain_seed, flat_spots(), generation_options)
 	_read_terrain_changes()
 	_read_objects()
 	# 0.0.6.6 (#124) : eau qui coule (lacs qui baissent, eau libre), relue depuis le dossier du monde.
@@ -3175,8 +3202,31 @@ func _save_zone(zone: Vector3i) -> bool:
 	return ok
 
 # Au retour aux mondes, à la pause, à la fermeture et toutes les 45 s : joueur et zones modifiées.
+
+# 0.0.7.23 : sur le Web, aussi WEB_SAVE_DELAY s après un changement (arbre coupé, terrain, objet, inventaire), une fois
+# que plus rien ne tombe : le navigateur recopie ses fichiers dans son stockage un peu après coup ; enregistré seulement en
+# fermant l'onglet, le dernier changement pouvait être perdu (mesures Web du 17.11.2026 : un arbre coupé revenu debout).
+const WEB_SAVE_DELAY := 2.0
+var unsaved_time := 0.0
+var inventory_unsaved := false
+
+func _save_due(delta: float) -> bool:
+	if autosave_time >= AUTOSAVE_SECONDS:
+		return true
+	if not OS.has_feature("web") and not web_save_test:
+		return false
+	if objects_dirty or not dirty_zones.is_empty() or inventory_unsaved:
+		unsaved_time += delta
+		return unsaved_time >= WEB_SAVE_DELAY and terrain.unstable.is_empty() and sliding_trees.is_empty()
+	unsaved_time = 0.0
+	return false
+
+# Tests : comme sur le Web.
+var web_save_test := false
 func save_now() -> bool:
 	autosave_time = 0.0
+	unsaved_time = 0.0
+	inventory_unsaved = false
 	if save_folder.is_empty() or not is_instance_valid(player):
 		return true
 	# 0.0.5.11 : ce qui tombe encore est posé à sa place avant d'enregistrer.
@@ -3521,6 +3571,7 @@ func _perf(name: String, since: int) -> void:
 func _process(delta: float) -> void:
 	if not is_instance_valid(player):
 		return
+	frame_usec = lerpf(frame_usec, delta * 1_000_000.0, 0.1)
 	_end_warm()
 	if perf_on:
 		_process_measured(delta)
@@ -3535,7 +3586,7 @@ func _process(delta: float) -> void:
 	# Sauvegarde régulière (petits fichiers, seulement les zones modifiées : pas de saccade).
 	played_since_save += delta
 	autosave_time += delta
-	if autosave_time >= AUTOSAVE_SECONDS:
+	if _save_due(delta):
 		save_now()
 	notice_time = maxf(0.0, notice_time - delta)
 	var captured := Input.mouse_mode == Input.MOUSE_MODE_CAPTURED
@@ -3567,12 +3618,20 @@ func _process(delta: float) -> void:
 const FRAME_BASE_USEC := 5000
 const WORK_MIN_USEC := 1500
 const WORK_MAX_USEC := 8000
+const SLOW_WORK_MAX_USEC := 30000
+# Durée moyenne d'une image (µs), pour le budget à petit nombre d'images.
+var frame_usec := 16_000.0
 
 func work_budget() -> int:
 	if opening_columns:
 		return WORK_MAX_USEC
 	var fps: int = Engine.max_fps if Engine.max_fps > 0 else 144
 	var budget := int(1_000_000.0 / fps) - FRAME_BASE_USEC
+	# 0.0.7.23 : sous 30 images par seconde (PC bon marché, Web : 8 à 13 mesurées), un quart de la durée réelle de l'image,
+	# au plus SLOW_WORK_MAX_USEC : à 8 images par seconde, le monde se construisait 6 à 7 fois moins vite qu'à 60.
+	if frame_usec > 33_000.0:
+		budget = maxi(budget, mini(int(frame_usec * 0.25), SLOW_WORK_MAX_USEC))
+		return budget
 	# Web (rendu Compatibility) : le rendu y prend bien plus de l'image.
 	if is_compat():
 		budget = mini(budget, 4000)
@@ -3593,6 +3652,7 @@ func ground_ready(at: Vector3) -> bool:
 	elif index < 0:
 		terrain_queue.push_front(column)
 	return false
+
 func _process_background_work() -> void:
 	var budget := work_budget()
 	var start := Time.get_ticks_usec()
@@ -3642,7 +3702,7 @@ func _process_measured(delta: float) -> void:
 	_perf("eau", at)
 	played_since_save += delta
 	autosave_time += delta
-	if autosave_time >= AUTOSAVE_SECONDS:
+	if _save_due(delta):
 		at = Time.get_ticks_usec()
 		save_now()
 		_perf("sauvegarde", at)

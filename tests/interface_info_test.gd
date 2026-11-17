@@ -63,6 +63,7 @@ func _run() -> void:
 	check(not app.list_message.text.contains("128") and app.get("world_details") == null, "generation details removed from world list")
 	check(not app.open_button.disabled and not app.rename_button.disabled and not app.delete_button.disabled and is_instance_valid(app.new_world_button), "world actions are retained")
 	app.open_button.pressed.emit()
+	app.finish_loading()
 	check(app.page == "playing" and app.active_world.terrain_seed == 123456789, "selected world still opens")
 	app.pause_game()
 	app.info_button.pressed.emit()

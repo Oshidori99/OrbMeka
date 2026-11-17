@@ -1,6 +1,20 @@
-# OrbMeka™ — prototype 0.0.7.22
+# OrbMeka™ — prototype 0.0.7.23
 
 Godot 4.7 / GDScript. Formes et couleurs simples ; assets externes seulement sous licence vérifiée (sons CC0, assets/sounds/CREDITS.txt).
+
+## 0.0.7.23 — Écran de chargement avec barre de progression, Performance plus légère (sol simplifié, ombres « Aucune » et herbe « Très basse » sur le Web), sauvegarde Web peu après chaque changement, voile des menus sans copie d'écran, monde construit plus vite quand le jeu est lent, accueil Web allégé
+Version locale (2 sur 4). Génération inchangée (version 32). D'après les mesures de la version Web sur une petite carte graphique (Chrome, Radeon 610M : 7 à 13 images par seconde).
+- **Écran de chargement** (demande de l'utilisateur) : ouvrir un monde depuis les menus affiche « Chargement du monde », l'étape (Montagnes, Lacs, Rivières, Crevasses, Grottes) et une barre ; la graine se prépare par étapes, puis le monde s'ouvre (environ 0,2 s sur PC au lieu de 2 s de gel ; sur le Web, 2,6 à 6,9 s de gel avant). Même monde qu'avant, vérifié.
+- **Qualité Performance plus légère** (PC bon marché et Web) : sol simplifié (bruit à une seule couche, gravier et relief fin effacés, mêmes couleurs) ; sur le Web, **pas d'ombres** et herbe **très basse**.
+- **Nouveaux choix** : Ombres *Aucune*, herbe *Très basse* (40 brins).
+- **Sauvegarde Web** : enregistrée 2 s après un changement (arbre coupé, terrain, objet, inventaire), une fois que plus rien ne tombe ; avant, seulement en fermant l'onglet, et le dernier changement pouvait être perdu.
+- **Voile des menus** : à l'accueil, posé par transparence (même image) au lieu de recopier l'écran à chaque image ; la recopie reste pour le flou de la pause.
+- **Monde construit plus vite quand le jeu est lent** : sous 30 images par seconde, le travail de fond prend un quart de l'image (30 ms au plus) ; à 8 images par seconde, le monde se construisait 6 à 7 fois moins vite.
+- **Accueil sur le Web** : moitié moins de pins, lointain jusqu'à environ 130 m, et la même construction plus rapide quand le jeu est lent (60 à 75 s mesurées pour le voir entier).
+- Pas encore fait : la coupe d'un arbre (20 à 60 ms sur PC, environ 300 ms sur le Web) ; il faut réécrire le découpage des morceaux.
+
+Tests réussis : loading_screen (nouveau), web_save (nouveau), quality (18 vérifications), perf_guard, menu_style (voile), et les tests touchés (34) (+ tests juridiques). Captures en rendu Web : Beauté, Performance Web, écran de chargement.
+À tester sur le Web (Claude Code web, même ordinateur que la première fois) : temps de chargement, images par seconde dans chaque qualité, et la sauvegarde (couper un arbre, attendre 3 s, recharger la page).
 
 ## 0.0.7.22 — Arrêt au bord du terrain pas encore construit (sans tomber), colonnes autour du point d'arrivée construites à l'ouverture, calcul du terrain repris où il en était, Beauté à 16 zones et lointain +24
 Version locale (1 sur 4). Génération inchangée (version 32).

@@ -1910,6 +1910,36 @@ var _preparing := false
 var _river_lists: Array = []
 var _river_at := 0
 
+
+# 0.0.7.23 : avancement de la préparation (0 à 1) et son étape, pour la barre de l'écran de chargement.
+const PREPARE_WEIGHTS := [0.25, 0.3, 0.05, 0.25, 0.0, 0.05, 0.1]
+const PREPARE_NAMES := ["Montagnes", "Lacs", "Lacs", "Rivières", "Rivières", "Crevasses", "Grottes"]
+
+func prepare_progress() -> float:
+	if _prepare_stage < 0:
+		return 1.0
+	var inside := 0.0
+	match _prepare_stage:
+		0:
+			inside = _mountain_at / float(4 * maxi(40, half_zones + 8))
+		1:
+			inside = _lake_choice_at / float(64 * 64)
+		2:
+			inside = (_river_at + half_zones) / float(2 * half_zones)
+		3:
+			inside = _river_at / float(maxi(1, _river_lists[1].size())) if _river_lists.size() > 1 else 1.0
+		5:
+			inside = _crevasse_row / float(2 * half_zones)
+		6:
+			inside = _cave_at / float(2 * half_zones)
+	var done := 0.0
+	for stage in range(mini(_prepare_stage, PREPARE_WEIGHTS.size())):
+		done += PREPARE_WEIGHTS[stage]
+	var weight: float = PREPARE_WEIGHTS[_prepare_stage] if _prepare_stage < PREPARE_WEIGHTS.size() else 0.0
+	return clampf(done + weight * clampf(inside, 0.0, 1.0), 0.0, 1.0)
+
+func prepare_stage_name() -> String:
+	return PREPARE_NAMES[_prepare_stage] if _prepare_stage >= 0 and _prepare_stage < PREPARE_NAMES.size() else "Rivières"
 func prepare_step(budget_usec: int) -> bool:
 	if _prepare_stage < 0:
 		return true

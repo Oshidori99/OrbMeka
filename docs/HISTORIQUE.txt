@@ -3,6 +3,10 @@ Du plus récent au plus ancien. Ce fichier est mis à jour à chaque version.
 
 === Thème « Gameplay et inventaire » (0.0.7) ===
 
+0.0.7.23 — Écran de chargement avec barre de progression, Performance plus légère (sol simplifié, ombres « Aucune » et herbe « Très basse » sur le Web), sauvegarde Web peu après chaque changement, voile des menus sans copie d'écran, monde construit plus vite quand le jeu est lent, accueil Web allégé
+Génération du terrain : version 32 · Menus : version 10.
+D'après les mesures Web sur une petite carte graphique : graine préparée par étapes pendant le chargement, sol simple en Performance, budget de fond au quart de l'image sous 30 images par seconde.
+
 0.0.7.22 — Arrêt au bord du terrain pas encore construit (sans tomber), colonnes autour du point d'arrivée construites à l'ouverture, calcul du terrain repris où il en était, Beauté à 16 zones et lointain +24
 Génération du terrain : version 32 · Menus : version 10.
 Le joueur attend au bord d'une colonne pas prête (« Chargement du terrain… »), elle passe en tête de file ; ouverture : 3 × 3 colonnes d'un coup.

@@ -447,12 +447,24 @@ Nom, graine, mode, constructions et position sauvegardés." % Catalog.MAX_NAME_L
 	folder_name_field.text_submitted.connect(func(_text: String): confirm_new_folder())
 	_button("Créer le dossier", folder_page, confirm_new_folder)
 	_button("Annuler", folder_page, func(): show_page("worlds"))
+	# 0.0.7.23 : écran de chargement d'un monde : la graine préparée par étapes, une barre et l'étape en cours.
+	var loading_page := _page(stack, "Chargement du monde")
+	pages.loading = _page_root(loading_page)
+	loading_text = _text_label()
+	loading_text.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	loading_page.add_child(loading_text)
+	loading_bar = ProgressBar.new()
+	loading_bar.min_value = 0.0
+	loading_bar.max_value = 100.0
+	loading_bar.show_percentage = true
+	_min_size(loading_bar, Vector2(320, 28))
+	loading_page.add_child(loading_bar)
 	var old_world_page := _page(stack, "Monde d'une ancienne version")
 	pages.old_world_confirm = _page_root(old_world_page)
 	old_world_message = _text_label()
 	old_world_message.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	old_world_page.add_child(old_world_message)
-	_button("Ouvrir quand même", old_world_page, func(): open_world(pending_old_world))
+	_button("Ouvrir quand même", old_world_page, func(): open_world_loading(pending_old_world))
 	old_world_cancel_button = _button("Annuler", old_world_page, func(): show_page("worlds"))
 	var rename_page := _page(stack, "Renommer le monde")
 	pages.rename = _page_root(rename_page)
@@ -535,6 +547,10 @@ F4 : Changer de vue"
 func _update_backdrop() -> void:
 	# En pause : monde visible derrière, assombri et flouté. À l'accueil : fond 3D à peine voilé.
 	var paused_world := is_instance_valid(active_world)
+	# 0.0.7.23 : sans flou (accueil), voile posé par transparence (même image, sans recopier l'écran à chaque image).
+	var wanted: Shader = BackdropShader if paused_world else VeilShader
+	if backdrop.material.shader != wanted:
+		backdrop.material.shader = wanted
 	backdrop.material.set_shader_parameter("blur", 2.5 if paused_world else 0.0)
 	backdrop.material.set_shader_parameter("tint", Color(0.07, 0.04, 0.13, 0.5 if paused_world else 0.12))
 	# Launcher (0.0.4.1) : on sort du jeu (fond gris uni, panneau sobre, titre de fenêtre).
@@ -910,7 +926,7 @@ func create_named_world() -> void:
 		return
 	if not folder.is_empty() and shelves_on():
 		shelves.put_in_folder(item.id, folder)
-	open_world(item.id)
+	open_world_loading(item.id)
 
 func open_selected_world() -> void:
 	var selection := world_list.get_selected_items()
@@ -923,7 +939,7 @@ func open_selected_world() -> void:
 		return
 	var item: Dictionary = catalog.find_world(id)
 	if not is_old_world(item):
-		open_world(id)
+		open_world_loading(id)
 		return
 	pending_old_world = id
 	old_world_message.text = "« %s » a été créé avec la génération version %d ; cette version du jeu utilise la version %d.
@@ -944,7 +960,7 @@ func _draw_old_world_marks() -> void:
 			var y := rect.position.y - world_list.get_v_scroll_bar().value + (rect.size.y + font.get_ascent(font_size) - font.get_descent(font_size)) / 2.0
 			world_list.draw_string(font, Vector2(world_list.size.x - 30.0, y), "!", HORIZONTAL_ALIGNMENT_LEFT, -1, font_size, Color("#ffd23f"))
 
-func open_world(id: String) -> void:
+func open_world(id: String, prepared: RefCounted = null) -> void:
 	var item: Dictionary = catalog.find_world(id)
 	if item.is_empty() or is_instance_valid(active_world):
 		return
@@ -967,6 +983,7 @@ func open_world(id: String) -> void:
 	active_world.grass_density = settings.values.grass_density
 	active_world.shadow_quality = settings.values.shadows
 	active_world.tree_detail_end = active_world.PERFORMANCE_TREE_DETAIL if settings.values.quality == "performance" else Trees.DETAIL_END
+	active_world.simple_ground = settings.values.quality == "performance"
 	active_world.grass_distance = float(settings.values.grass_zones) * 8.0
 	active_world.load_distance = int(settings.values.view_distance)
 	active_world.far_distance = int(settings.values.view_distance + settings.values.far_extra)
@@ -976,6 +993,7 @@ func open_world(id: String) -> void:
 	active_world.world_mode_text = Catalog.MODE_NAMES[Catalog.MODE_DEVELOPER if developer else Catalog.MODE_DEFAULT]
 	# 0.0.7.2 : mode de jeu du monde (Paramètres → Monde) : inventaire de Survie ou de Créatif.
 	active_world.game_mode = item.get("game_mode", Catalog.GAME_CREATIVE)
+	active_world.prepared_terrain = prepared
 	add_child(active_world)
 	shortcut_hints.show()
 	# Monde par défaut : réglages ignorés ; monde développeur : réglages globaux.
@@ -991,6 +1009,55 @@ func open_world(id: String) -> void:
 	active_world.player.wheel_modifiers = Controls.wheel_modifiers(settings.controls)
 	# Opening from a menu is an explicit request to play immediately.
 	active_world.player.resume_controls()
+
+# 0.0.7.23 : ouvrir un monde depuis les menus : écran de chargement. La graine (montagnes, lacs, rivières, crevasses,
+# grottes : 1 à 2 s sur PC, bien plus sur le Web, d'un coup avant) se prépare par étapes, la barre avance ; puis le monde
+# s'ouvre (environ 0,2 s sur PC). open_world reste d'un coup (tests).
+const LOADING_STEP_USEC := 30000
+var loading_id := ""
+var loading_terrain: RefCounted
+var loading_ready := false
+
+func open_world_loading(id: String) -> void:
+	var item: Dictionary = catalog.find_world(id)
+	if item.is_empty() or is_instance_valid(active_world) or not loading_id.is_empty():
+		return
+	var focus := get_viewport().gui_get_focus_owner()
+	if focus != null:
+		focus.release_focus()
+	loading_id = id
+	loading_ready = false
+	loading_terrain = WorldRules.prepare_terrain(item.seed, item.get("generation", {}).duplicate(true))
+	loading_bar.value = 0.0
+	loading_text.text = "« %s » : préparation…" % item.name
+	show_page("loading")
+
+func _process_loading() -> void:
+	if loading_id.is_empty():
+		return
+	if loading_ready:
+		finish_loading()
+		return
+	var done: bool = loading_terrain.prepare_step(LOADING_STEP_USEC)
+	loading_bar.value = loading_terrain.prepare_progress() * 100.0
+	loading_text.text = "%s…" % loading_terrain.prepare_stage_name()
+	if done:
+		# Une image encore, barre pleine, avant l'ouverture (environ 0,2 s sans image).
+		loading_ready = true
+		loading_bar.value = 100.0
+		loading_text.text = "Ouverture du monde…"
+
+# Tout de suite (tests).
+func finish_loading() -> void:
+	if loading_id.is_empty():
+		return
+	loading_terrain.prepare_step(1 << 40)
+	var id := loading_id
+	var prepared: RefCounted = loading_terrain
+	loading_id = ""
+	loading_terrain = null
+	loading_ready = false
+	open_world(id, prepared)
 
 func return_to_worlds() -> void:
 	get_tree().paused = false
@@ -1041,6 +1108,7 @@ func open_history() -> void:
 	show_page("history")
 
 func _process(_delta: float) -> void:
+	_process_loading()
 	# 0.0.7.20 : Paramètres ouverts une fois : les modèles des personnages lus en arrière-plan, un par image,
 	# celui du joueur d'abord (avant : tous lus au démarrage de l'accueil).
 	if characters_reading and not CharacterPreview.load_next_model(choice_values.get("character", "")):
@@ -1124,6 +1192,9 @@ func _input(event: InputEvent) -> void:
 		get_viewport().set_input_as_handled()
 
 func _cancel_page() -> void:
+	# 0.0.7.23 : pendant le chargement d'un monde, Échap ne fait rien.
+	if page == "loading":
+		return
 	# 0.0.7.2 : Échap ferme d'abord l'inventaire ouvert (retour au jeu), sans mettre en pause.
 	if page == "playing" and is_instance_valid(active_world) and active_world.inventory_open:
 		active_world.close_inventory()

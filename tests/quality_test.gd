@@ -70,5 +70,12 @@ func _run() -> void:
 	check(app.active_world.shadow_quality == "near" and is_equal_approx(app.active_world.sun_light.directional_shadow_max_distance, 32.0) and app.active_world.sun_light.directional_shadow_mode == DirectionalLight3D.SHADOW_ORTHOGONAL, "near shadows: 32 m, one level")
 	app.active_world.set_shadows("far")
 	check(is_equal_approx(app.active_world.sun_light.directional_shadow_max_distance, 64.0) and app.active_world.sun_light.directional_shadow_mode == DirectionalLight3D.SHADOW_PARALLEL_2_SPLITS, "far shadows: 64 m, two levels (as before)")
+	# 0.0.7.23 : Performance sur le Web : sans ombres, herbe très basse ; « Aucune » coupe les ombres du soleil.
+	var web_performance: Dictionary = Settings.preset_values("performance", true)
+	check(web_performance.shadows == "off" and web_performance.grass_density == "minimal" and Settings.preset_values("performance", false).shadows == "near", "Performance on the Web: no shadows, very low grass (PC: near shadows)")
+	app.active_world.set_shadows("off")
+	check(not app.active_world.sun_light.shadow_enabled and app.active_world.shadow_quality == "off", "shadows « Aucune »: the sun casts none")
+	app.active_world.set_shadows("medium")
+	check(app.active_world.sun_light.shadow_enabled, "shadows back on")
 	print("RESULT: %d quality checks, %d failures" % [checks, failures])
 	quit(0 if failures == 0 else 1)
