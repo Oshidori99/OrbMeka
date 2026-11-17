@@ -3,7 +3,7 @@
 Godot 4.7 / GDScript. Formes et couleurs simples ; assets externes seulement sous licence vérifiée (sons CC0, assets/sounds/CREDITS.txt).
 
 ## 0.0.7.21 — Qualité d'affichage en tête de Vidéo (Performance, Équilibré, Beauté), ombres et anticrénelage réglables, distance lointaine en plus de la distance d'affichage (« +16 »), herbe « Réduite », travail de fond dans un budget par image (300 images par seconde en forêt), arbres intacts dessinés en série, branches des arbres calculées d'avance, garde-fou de vitesse, Jouer du launcher sur plusieurs lignes
-Version locale (1 sur 4). Génération inchangée (version 32).
+Version publiée (sur demande). Génération inchangée (version 32).
 - **Qualité d'affichage** (Paramètres → Vidéo, en premier, demande de l'utilisateur) : *Performance* (le plus rapide), *Équilibré* (défaut sur PC), *Beauté* (l'affichage d'avant) ; *Personnalisé* dès qu'on change à la main un de ses réglages. Elle règle d'un coup la densité et la distance de l'herbe, les distances d'affichage, les ombres et l'anticrénelage. Sur le Web : Performance par défaut.
   - Équilibré : ombres jusqu'à 48 m (avant 64), herbe « Réduite » (140 brins au lieu de 200), mêmes distances.
   - Performance : ombres 32 m en un seul niveau, herbe basse sur 24 m, distance 6 zones, lointain 16, sans anticrénelage, arbres simplifiés dès 28 m.
