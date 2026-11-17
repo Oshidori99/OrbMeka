@@ -92,7 +92,7 @@ func _run() -> void:
 	app.settings_button.pressed.emit()
 	check(app.pages.settings.get_child(0).text == "Paramètres" and app.setting_fields.size() == Settings.SPECS.size() and app.setting_resets.size() == Settings.SPECS.size() + Settings.CHOICES.size(), "Paramètres contains one numeric field per number and one reset button per setting")
 	for field in app.setting_fields:
-		check(app.setting_fields[field].text == Settings.number_text(settings.values[field]) and app.setting_fields[field].placeholder_text == Settings.number_text(Settings.SPECS[field].default), "active value and default placeholder: " + field)
+		check(app.setting_fields[field].text == Settings.field_text(field, settings.values[field]) and app.setting_fields[field].placeholder_text == Settings.field_text(field, Settings.SPECS[field].default), "active value and default placeholder: " + field)
 		var before := {}
 		for other in app.setting_fields:
 			before[other] = app.setting_fields[other].text
@@ -101,7 +101,7 @@ func _run() -> void:
 		for other in before:
 			if other != field and app.setting_fields[other].text != before[other]:
 				others_unchanged = false
-		check(others_unchanged and app.setting_fields[field].text == Settings.number_text(Settings.SPECS[field].default), "reset affects only " + field)
+		check(others_unchanged and app.setting_fields[field].text == Settings.field_text(field, Settings.SPECS[field].default), "reset affects only " + field)
 	for field in desired:
 		app.setting_fields[field].text = desired[field]
 	app.apply_user_settings()
