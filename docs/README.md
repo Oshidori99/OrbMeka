@@ -1,6 +1,50 @@
-# OrbMeka™ — prototype 0.0.7.16
+# OrbMeka™ — prototype 0.0.7.20
 
 Godot 4.7 / GDScript. Formes et couleurs simples ; assets externes seulement sous licence vérifiée (sons CC0, assets/sounds/CREDITS.txt).
+
+## 0.0.7.20 — Plus fluide : terrain calculé en petites étapes (plus d'à-coups en forêt), arbres créés peu à peu avec des ombres simplifiées, accueil deux fois plus rapide (forêt de pins, personnages au sol et chargés à la demande), shaders préparés d'avance sur le Web
+Version publiée (4 sur 4). Génération inchangée (version 32) : les mondes restent exactement les mêmes.
+- **Terrain en petites étapes** (scripts/surface_job.gd) : la surface d'une zone se calcule en morceaux de 3 ms au plus par image (avant : 27 à 160 ms d'un coup, surtout près des grottes). Résultat identique, vérifié zone par zone.
+- **Arbres créés peu à peu** : en se déplaçant, quelques arbres par image (avant : tous ceux d'une colonne d'un coup, jusqu'à 100 ms en forêt). À l'ouverture et autour du joueur, tout de suite.
+- **Ombres des arbres simplifiées** : de près, l'ombre vient du modèle simplifié (tronc, grosses branches, quelques grandes plaques de feuillage, environ 7 fois moins de sommets). Un arbre coupé ou couché garde l'ombre de son modèle détaillé.
+- **Accueil** : première image en 1,5 s au lieu de 3,4 s ; le petit monde se construit ensuite, sans gel (les montagnes, lacs, rivières, crevasses et grottes de sa graine, environ 2 s d'un coup avant, se calculent en petites étapes, même résultat). **Forêt de pins** en fond (pins du jeu, dessinés en série, simplifiés au loin). Le renard et le lapin restent **au sol** (plus de vol).
+- **Personnages à la demande** : à l'accueil, seulement ceux de la vitrine ; les autres se lisent en ouvrant les Paramètres, un par image, celui du joueur d'abord. Les aperçus de la page Personnage se montent quand on la regarde.
+- **Accueil calme** (PC) : les modèles d'arbres se préparent d'avance, un par image ; ouvrir un monde arrête tout de suite.
+- **Web** (rendu Compatibility) : à l'ouverture d'un monde, chaque sorte de modèle est dessinée une fois, invisible, pour préparer ses shaders (mesuré sur PC en rendu Web : pire image en marchant 263 → 26 ms). Pas sur PC, où Godot les prépare déjà.
+- Mesures (PC sur secteur, tools/mesure_perf.gd) : marche en forêt 45–51 → 139 images/s, images de plus de 50 ms 89–115 → 0.
+
+Tests réussis : surface_job (nouveau : zones par étapes = d'un coup ; graine par étapes = d'un coup, deux graines), character (modèles lus à la demande), menu_style (vitrine : pins en série, personnages au sol, sol construit après la première image) et les tests touchés (+ tests juridiques).
+À tester manuellement : l'accueil (forêt de pins), marcher en forêt, les ombres des arbres de près ; la version Web (demander à Claude Code web de la mesurer).
+
+## 0.0.7.19 — 4 kg par main et 8 kg à deux, volume (1,5 L et 3 L), nombre au plus par main (8 noisettes…), barres de poids et de volume, refus expliqués
+Version locale (3 sur 4). Génération inchangée (version 32).
+- **Poids** (demande de l'utilisateur) : 4 kg par main, 8 kg à deux mains ; au-delà de ce que tient une main, l'objet se porte à deux mains et la marche ralentit (jusqu'à 60 % à 8 kg). Poches : 500 g.
+- **Volume** : 1,5 L par main, 3 L à deux mains, 0,5 L dans les poches. Une poignée de terre ou de sable : 0,25 L (12 poignées à deux mains). Le bois compte par sa longueur (1 L par mètre) : un bâton de 3,5 m est trop encombrant, une bûche de 15 cm × 60 cm (8 kg) se porte à deux mains.
+- **Nombre au plus par main** (petits objets qui tomberaient) : 8 noisettes, 2 pommes, 4 cailloux ou éclats (le double à deux mains).
+- **Refus expliqués** : « Trop lourd », « Trop encombrant » ou « 8 noisettes au plus dans une main ».
+- **Barres** comme la batterie d'un téléphone, avec le pourcentage dedans : vert, jaune dès 60 %, orange dès 80 %, rouge à 100 %. En jeu (en bas à droite) : la petite image de la main ou de la poche, une barre (la limite la plus proche, kg ou L) et le texte un peu plus petit. Dans l'inventaire : le texte (poids et volume), puis dessous, centrées, deux petites barres côte à côte (poids à gauche, volume à droite).
+- Poids des matières inchangés (une poignée réelle) ; une poignée remplit toujours une sous-cellule (règle de jeu).
+
+Tests réussis : inventory (105 vérifications : 12 poignées à deux mains, 8 kg au plus, noisettes 8 et 16, bâton de 3,5 m refusé, bûche de 8 kg à deux mains, textes, barres) et les tests touchés (+ tests juridiques). Captures hors écran : barres en jeu et dans l'inventaire.
+À tester manuellement : ramasser jusqu'aux limites en Survie, lire les messages ; marcher chargé.
+
+## 0.0.7.18 — Onglet Bois en Créatif (un tronc et une branche de chaque arbre), bois nommé selon son arbre
+Version locale (2 sur 4). Génération inchangée (version 32).
+- **Onglet Bois** (Créatif, après Outils, demande de l'utilisateur) : pour le pommier, le noisetier, le pin et le tilleul, un **tronc** (20 cm d'épaisseur, 18 cm au petit bout, 1 m) et une **branche** (4 cm, 1 m), séparés, illimités, toujours les mêmes. Sous chaque case, le nom de l'arbre ; le nom complet au survol.
+- **Bois nommé selon son arbre** partout : « Tronc de pin », « Branche de noisetier » (comme les rameaux, « Tige de noisetier »).
+
+Tests réussis : inventory (onglet Bois : 8 objets, tailles, noms, image de l'onglet) et les tests touchés (+ tests juridiques). Capture hors écran : onglet Bois.
+À tester manuellement : prendre un tronc de l'onglet Bois, le poser, le recasser.
+
+## 0.0.7.17 — Menu des actions (B + T) : clic gauche Creuser / Casser, Casser / Récupérer des objets, Récupérer des matériaux ; clic droit Poser, Aplanir, Lisser
+Version locale (1 sur 4). Génération inchangée (version 32).
+- **Menu des actions** (scripts/action_menu.gd, demande de l'utilisateur) : B + T ouvre deux lignes de cases au-dessus de la barre d'objets. En haut, le **clic gauche** : *Creuser / Casser* (creuse le terrain, coupe le bois visé), *Casser / Récupérer des objets* (ne creuse jamais : clic maintenu = casser, clic court = ramasser), *Récupérer des matériaux* (clic maintenu = une poignée de terre, de sable…). En bas, le **clic droit** : *Poser*, *Aplanir*, *Lisser*.
+- Chaque case : une petite image et un petit texte, juste assez large pour tout le texte. La ligne active est claire, la case choisie entourée de jaune.
+- **Molette** : choisir (aussitôt pris en compte) ; **T** (ou B + T) : l'autre ligne ; **un clic, Échap ou Entrée** ferment le menu (Échap n'ouvre pas la pause), ou **un moment sans rien** (2,5 s). R reste le raccourci pour ramasser, R + I pour une poignée.
+- La ligne d'aide en haut à gauche rappelle ce que font les deux clics.
+
+Tests réussis : action_menu (nouveau, 23 vérifications : disposition, molette, T, fermeture, seul Creuser creuse) et 17 autres tests touchés (+ tests juridiques). Captures hors écran : menu ouvert sur chaque ligne.
+À tester manuellement : B + T en jouant, molette, T, Échap (sans pause) ; clic court sur un caillou ou un bâton en mode Casser / Récupérer ; clic maintenu sur la terre en mode Récupérer des matériaux (Survie).
 
 ## 0.0.7.16 — Petit plafond de terre qui tient (galeries de 2 m), petit bout de tronc entre deux coupes proches enfin à part, anciens arbres réparés à l'ouverture
 Version publiée (avec 0.0.7.13 à 0.0.7.15). Génération inchangée (version 32).

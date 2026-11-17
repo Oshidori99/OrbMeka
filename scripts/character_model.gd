@@ -19,14 +19,14 @@ static func build(id: String, skin: String) -> Node3D:
 # Modèles détaillés faits dans Blender (personnages.blend, rangé hors du dépôt dans ../Archives OrbMeka/Blender), exportés en .glb.
 # Les autres personnages gardent leurs volumes simples ci-dessous.
 const MODELS := {
-	"brioche": preload("res://assets/characters/brioche.glb"),
-	"cat": preload("res://assets/characters/cat.glb"),
+	"brioche": "res://assets/characters/brioche.glb",
+	"cat": "res://assets/characters/cat.glb",
 }
 
 # La matière « Skin » du modèle prend la couleur de peau choisie ; les animaux sont agrandis.
 static func _blender_model(id: String, skin: String) -> Node3D:
 	var model := Node3D.new()
-	var scene: Node3D = CharacterPreview.MODELS.get(id, MODELS.get(id)).instantiate()
+	var scene: Node3D = (CharacterPreview.model_scene(id) if CharacterPreview.MODELS.has(id) else load(MODELS[id])).instantiate()
 	model.add_child(scene)
 	if not CharacterPreview.is_human(id):
 		model.scale = Vector3.ONE * CAT_SCALE

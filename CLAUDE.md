@@ -69,6 +69,7 @@ utiliser -Jobs 2 si le PC est en mode économie d'énergie ou si d'autres gros p
 Godot console : C:\Users\Dev\Desktop\Godot_v4.7.2-stable_win64.exe\Godot_v4.7.2-stable_win64_console.exe
 Un seul test : `& '<Godot console>' --headless --path . --script res://tests/<nom>_test.gd`.
 Ce qui ne peut être vérifié qu'en jouant (aspect, souris) est signalé comme « à tester manuellement ».
+Web : ne pas mesurer dans le navigateur intégré de Claude (environ 1 FPS) ni y ouvrir itch.io (vérification anti-robot impossible) ; mesurer l'export Web autrement ou demander à l'utilisateur.
 
 ## Rythme de publication
 Publier une version sur 4, ou dès que l'utilisateur dit « publie », puis remettre le compteur à zéro.

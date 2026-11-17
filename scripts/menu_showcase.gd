@@ -12,35 +12,30 @@ extends Node3D
 # 2 ou 3, choisis parmi les nouveautés : liste NEWS_RUNNERS ([id, peau], peau vide pour un animal).
 # Chacun prend son modèle Blender, sinon une forme simple (character_model.gd, partagé avec le jeu).
 # Le reste du fichier (sol, gazon, plage, ciel, caméra) ne change pas d'une version à l'autre.
-const NEWS_VERSION := "0.0.7.16"
-const NEWS_TEXT := "Nouveau : les galeries de terre tiennent, les grandes salles s'effondrent !
-Les arbres tombés reposent comme en vrai, le bois garde sa taille."
+const NEWS_VERSION := "0.0.7.20"
+const NEWS_TEXT := "Nouveau : un jeu plus fluide, moins d'à-coups en forêt !
+Et une forêt de pins à l'accueil."
 
-# 0.0.3.25 : les trois nouveautés de 0.0.3.23 en aller-retour au-dessus de l'herbe libre, devant la place
-# de sable et pierre (sous le panneau des menus, vers la droite), chacune sur sa rangée.
-# 0.0.4.5 (gardé ensuite) : elles volent, montent et descendent en avançant (FLY_LOW à FLY_HIGH, cycle FLY_CYCLE s,
-# décalé par rangée). Pas encore d'animation de vol : le modèle glisse, tourné vers où il va.
+# 0.0.3.25 : les nouveautés en aller-retour sur l'herbe libre, devant la place de sable et pierre (sous le panneau des
+# menus, vers la droite), chacune sur sa rangée.
+# 0.0.7.20 : au sol (avant : elles volaient, 0.0.4.5) ; le renard court, le lapin marche. Pas encore d'animation :
+# le modèle glisse, tourné vers où il va.
 const NEWS_RUNNERS := [["fox", ""], ["rabbit", ""]]
 const NEWS_Z := [6.3, 7.1]
 const RUN_FROM := 5.4
 const RUN_TO := 9.2
-const RUN_SPEEDS := [3.0, 2.8]
+const RUN_SPEEDS := [3.0, 1.4]
 # 0.0.4.2 et suivantes : le renard (première rangée) accélère peu à peu jusqu'à FOX_TOP puis ralentit,
 # comme ↑ puis ↓ maintenus ; cycle de FOX_CYCLE secondes.
 const FOX_TOP := 7.5
 const FOX_CYCLE := 6.0
 var travelled_by := [3.1, 6.2]
-const GROUND_TOP := 0.0
 const NEWS_HEIGHT := 1
-const FLY_LOW := 0.6
-const FLY_HIGH := 3.6
-const FLY_CYCLE := 5.0
 const Trees = preload("res://scripts/trees.gd")
-# [espèce, taille 1 à 5, place, rotation]
-const NEWS_TREES := [[2, 3, Vector2(2.6, 9.6), 0.4], [3, 2, Vector2(10.6, 3.2), 1.9], [0, 2, Vector2(2.2, 3.6), 3.1]]
 const CharacterModel = preload("res://scripts/character_model.gd")
 var runners: Array[Node3D] = []
 var runner_ids: Array[String] = []
+var runner_ground: Array[float] = []
 
 func _build_news() -> void:
 	for index in range(NEWS_RUNNERS.size()):
@@ -51,26 +46,65 @@ func _build_news() -> void:
 		add_child(runner)
 		runners.append(runner)
 		runner_ids.append(id)
-	# 0.0.6.9 : un pommier, un noisetier et un jeune pommier autour de la plage (arbres du jeu, trees.gd).
-	# Comme dans le jeu, seulement sur l'herbe : chaque arbre prend le coin d'herbe le plus proche de sa place.
-	for tree in NEWS_TREES:
-		var spot := _grass_near(tree[2])
-		if spot == Vector2.INF:
-			continue
-		var body := Trees.tree_body(tree[0], tree[1])
-		body.position = Vector3(spot.x, terrain.height_at(spot.x, spot.y) - 0.05, spot.y)
-		body.rotation.y = tree[3]
-		add_child(body)
+		runner_ground.append(terrain.height_at((RUN_FROM + RUN_TO) * 0.5, NEWS_Z[index]))
 	_animate_news(0.0)
 
-func _grass_near(wanted: Vector2) -> Vector2:
-	for ring in range(0, 25):
-		for step in range(maxi(1, ring * 6)):
-			var at := wanted + Vector2.from_angle(TAU * step / maxi(1, ring * 6)) * ring * 0.5
-			var column := Vector2i(roundi(at.x / 0.5), roundi(at.y / 0.5))
-			if at.distance_to(BEACH_CENTER) > BEACH_RADIUS + 1.5 and not terrain.is_desert(at) and terrain.surface_kind(column) in [-1, Terrain.DIRT] and not terrain.muddy(column):
-				return at
-	return Vector2.INF
+# 0.0.7.20 : forêt de pins en fond (pins du jeu, trees.gd), seulement du côté que regarde la caméra, sur l'herbe.
+# Dessinés en série (un dessin par modèle, MultiMesh) ; détaillés jusqu'à PINE_DETAIL de la caméra, simplifiés et sans
+# ombre au-delà, jusqu'à PINE_FAR (dans la brume). Quatre modèles seulement (tailles 4 et 5, deux formes), un par image.
+const PINE_COUNT := 120
+const PINE_CLEAR := 11.0
+const PINE_FAR := 110.0
+const PINE_DETAIL := 25.0
+const PINE_GAP := 3.2
+const PINE_SIZES := [4, 5]
+const PINE_FORMS := [0, 1]
+
+func _plan_pines() -> void:
+	var rng := RandomNumberGenerator.new()
+	rng.seed = SCENE_SEED
+	var eye := Vector2(camera.position.x, camera.position.z)
+	var ahead := Vector2(-camera.basis.z.x, -camera.basis.z.z).normalized()
+	var placed: Array[Vector2] = []
+	var groups := {}
+	for attempt in range(PINE_COUNT * 10):
+		if placed.size() >= PINE_COUNT:
+			break
+		var at := BEACH_CENTER + Vector2.from_angle(rng.randf() * TAU) * sqrt(rng.randf_range(PINE_CLEAR * PINE_CLEAR, PINE_FAR * PINE_FAR))
+		var size: int = PINE_SIZES[rng.randi() % PINE_SIZES.size()]
+		var form: int = PINE_FORMS[rng.randi() % PINE_FORMS.size()]
+		var turn := rng.randf() * TAU
+		var grow := rng.randf_range(0.9, 1.1)
+		if (at - eye).normalized().dot(ahead) < 0.25 or at.distance_to(eye) < 9.0 or not _grass_at(at):
+			continue
+		if placed.any(func(other: Vector2): return other.distance_to(at) < PINE_GAP):
+			continue
+		placed.append(at)
+		var far := at.distance_to(eye) > PINE_DETAIL
+		var key := [size, form, far]
+		if not groups.has(key):
+			groups[key] = []
+		groups[key].append(Transform3D(Basis(Vector3.UP, turn).scaled(Vector3.ONE * grow), Vector3(at.x, terrain.height_at(at.x, at.y) - 0.05, at.y)))
+	for key in groups:
+		build_queue.append(_build_pines.bind(key[0], key[1], key[2], groups[key]))
+
+func _build_pines(size: int, form: int, far: bool, places: Array) -> void:
+	var series := MultiMesh.new()
+	series.transform_format = MultiMesh.TRANSFORM_3D
+	series.mesh = Trees.mesh(Trees.PINE, size, far, form)
+	series.instance_count = places.size()
+	for index in range(places.size()):
+		series.set_instance_transform(index, places[index])
+	var node := MultiMeshInstance3D.new()
+	node.name = "Pins"
+	node.multimesh = series
+	if far:
+		node.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	add_child(node, true)
+
+func _grass_at(at: Vector2) -> bool:
+	var column := Vector2i(roundi(at.x / 0.5), roundi(at.y / 0.5))
+	return at.distance_to(BEACH_CENTER) > BEACH_RADIUS + 1.5 and not terrain.is_desert(at) and terrain.surface_kind(column) in [-1, Terrain.DIRT] and not terrain.muddy(column) and terrain.lake_at(at).is_empty()
 
 func _animate_news(delta: float) -> void:
 	# Aller-retour décalé ; demi-tour net au bout de la place.
@@ -83,8 +117,7 @@ func _animate_news(delta: float) -> void:
 		var travelled: float = travelled_by[index]
 		var x := RUN_FROM + pingpong(travelled, length)
 		var forward := fmod(travelled, 2.0 * length) < length
-		var height := FLY_LOW + (FLY_HIGH - FLY_LOW) * (0.5 - 0.5 * cos(TAU * (elapsed / FLY_CYCLE + index / 3.0)))
-		runners[index].position = Vector3(x, GROUND_TOP + height, NEWS_Z[index])
+		runners[index].position = Vector3(x, runner_ground[index], NEWS_Z[index])
 		runners[index].rotation.y = PI / 2.0 if forward else -PI / 2.0
 
 # ===== FIN DE LA VITRINE =====
@@ -114,14 +147,14 @@ var elapsed := 0.0
 
 func _ready() -> void:
 	_setup_environment()
-	_plan_ground()
-
 	_build_orb()
-	_build_news()
 	camera = Camera3D.new()
 	camera.fov = 60
 	add_child(camera)
 	_place_camera()
+	# 0.0.7.20 : le sol (graine préparée en petites étapes), les personnages et les pins après la première
+	# image : l'accueil s'affiche d'abord (ciel, orbe, menus), le petit monde apparaît ensuite.
+	build_queue.append(_plan_ground)
 
 func _process(delta: float) -> void:
 	elapsed += delta
@@ -187,12 +220,15 @@ var terrain := Terrain.new()
 # 0.0.5.37 : construit petit à petit, les morceaux les plus proches d'abord : le menu s'affiche tout de suite et
 # reste fluide (surtout sur le Web, qui n'a qu'un seul fil de calcul).
 const BUILD_BUDGET_USEC := 6000
+# 0.0.7.20 : durée d'une petite étape (graine, surface d'une zone).
+const STEP_USEC := 3000
+const SurfaceJob = preload("res://scripts/surface_job.gd")
 var build_queue: Array[Callable] = []
 var ground_material: ShaderMaterial
 var water_material: ShaderMaterial
 
 func _plan_ground() -> void:
-	terrain.setup(SCENE_SEED, [[Vector2(TOWER_CELL) + Vector2(1.5, 1.5), 5.0], [BEACH_CENTER, BEACH_RADIUS + 4.0]], Generation.defaults())
+	terrain.setup(SCENE_SEED, [[Vector2(TOWER_CELL) + Vector2(1.5, 1.5), 5.0], [BEACH_CENTER, BEACH_RADIUS + 4.0]], Generation.defaults(), false)
 	ground_material = TerrainMaterials.surface(true)
 	# 0.0.6.17 : le sol lit les minerais et la litière (CUSTOM0) ; pas les rochers ni les cailloux (rendu Web).
 	ground_material.set_shader_parameter("terrain_layers", true)
@@ -203,13 +239,29 @@ func _plan_ground() -> void:
 	water_material.shader = preload("res://shaders/water.gdshader")
 	water_material.set_shader_parameter("tone", 0.85 if RenderingServer.get_current_rendering_method() == "gl_compatibility" else 1.0)
 	TerrainMaterials.density = "low"
+	# 0.0.7.20 : montagnes, lacs, rivières, crevasses et grottes de la graine en petites étapes (avant : 1,4 s d'un coup).
+	build_queue.push_front(_plan_zones)
+	build_queue.push_front(_prepare_seed)
+
+func _prepare_seed() -> void:
+	if not terrain.prepare_step(STEP_USEC):
+		build_queue.push_front(_prepare_seed)
+
+func _plan_zones() -> void:
 	var near_low := Vector2i(SHOWCASE_ZONES.x, SHOWCASE_ZONES.x)
 	var near_high := Vector2i(SHOWCASE_ZONES.y, SHOWCASE_ZONES.y)
 	var eye := Vector2(TOWER_CELL) / 8.0
-	var zones: Array = terrain.surface_zones(near_low, near_high).keys()
-	zones.sort_custom(func(a: Vector3i, b: Vector3i): return Vector2(a.x, a.z).distance_to(eye) < Vector2(b.x, b.z).distance_to(eye))
-	for zone: Vector3i in zones:
-		build_queue.append(_build_zone.bind(zone))
+	# 0.0.7.20 : colonne par colonne, les plus proches d'abord (avant : toutes d'un coup, 0,2 s) ; chaque colonne ajoute
+	# ses zones à construire.
+	var columns: Array[Vector2i] = []
+	for x in range(near_low.x, near_high.x + 1):
+		for z in range(near_low.y, near_high.y + 1):
+			columns.append(Vector2i(x, z))
+	columns.sort_custom(func(a: Vector2i, b: Vector2i): return Vector2(a).distance_to(eye) < Vector2(b).distance_to(eye))
+	for column in columns:
+		build_queue.append(_plan_column.bind(column))
+	build_queue.append(_build_news)
+	build_queue.append(_plan_pines)
 	var near_area := Rect2(Vector2(near_low) * 8.0, Vector2(near_high - near_low + Vector2i.ONE) * 8.0)
 	var tiles: Array[Vector2i] = []
 	for x in range(FAR_TILES.position.x, FAR_TILES.end.x):
@@ -234,19 +286,37 @@ func _plan_ground() -> void:
 	for tile in grass:
 		build_queue.append(_build_grass.bind(tile, lawn_node))
 
+func _plan_column(column: Vector2i) -> void:
+	for zone: Vector3i in terrain.surface_zones(column, column):
+		build_queue.push_front(_build_zone.bind(zone))
+
 func _continue_building() -> void:
 	var deadline := Time.get_ticks_usec() + BUILD_BUDGET_USEC
 	while not build_queue.is_empty() and Time.get_ticks_usec() < deadline:
-		build_queue.pop_front().call()
+		var step: Callable = build_queue.pop_front()
+		var at := Time.get_ticks_usec()
+		step.call()
+		# 0.0.7.20 : étapes trop longues notées (mesures : tools/mesure_perf.gd).
+		var ms := (Time.get_ticks_usec() - at) / 1000.0
+		if ms > 30.0 and slow_steps.size() < 20:
+			slow_steps.append("%s %.0f ms" % [step.get_method(), ms])
+
+var slow_steps: Array[String] = []
 
 # Tout d'un coup (tests, captures).
 func finish_building() -> void:
 	while not build_queue.is_empty():
 		build_queue.pop_front().call()
 
-func _build_zone(zone: Vector3i) -> void:
+func _build_zone(zone: Vector3i, job: RefCounted = null) -> void:
+	# 0.0.7.20 : surface calculée en petites étapes (surface_job.gd), comme dans la partie.
+	if job == null:
+		job = SurfaceJob.new(terrain, zone)
+	if not job.step(STEP_USEC):
+		build_queue.push_front(_build_zone.bind(zone, job))
+		return
 	# 0.0.6.18 : sommets partagés, triangles par indices (comme dans la partie).
-	var surface: Array = terrain.zone_surface(zone)
+	var surface: Array = job.result
 	if surface[6].is_empty():
 		return
 	var arrays := []

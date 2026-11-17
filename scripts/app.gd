@@ -553,6 +553,7 @@ func show_page(next_page: String) -> void:
 	var previous_page := page
 	# 0.0.4.14 : en entrant dans Paramètres, titres réduits ou développés selon le choix d'ouverture.
 	if next_page == "settings" and page != "settings":
+		characters_reading = true
 		apply_fold_open()
 	# En quittant Paramètres, la taille des menus réglée s'applique.
 	if page == "settings" and next_page != "settings" and layout_pending():
@@ -1036,6 +1037,17 @@ func open_history() -> void:
 	show_page("history")
 
 func _process(_delta: float) -> void:
+	# 0.0.7.20 : Paramètres ouverts une fois : les modèles des personnages lus en arrière-plan, un par image,
+	# celui du joueur d'abord (avant : tous lus au démarrage de l'accueil).
+	if characters_reading and not CharacterPreview.load_next_model(choice_values.get("character", "")):
+		characters_reading = false
+	# 0.0.7.20 : accueil calme (petit monde fini, pas de partie) : modèles d'arbres préparés d'avance, un par image (PC ;
+	# rendu Compatibility : rien, un modèle y prend 50 à 100 ms). Ouvrir un monde arrête tout de suite.
+	if not is_instance_valid(active_world) and showcase.is_inside_tree() and showcase.build_queue.is_empty():
+		if not trees_read:
+			trees_read = true
+			Trees.read_ahead(Trees.FORMS)
+		Trees.warm_next()
 	if launcher_child != -1 and not OS.is_process_running(launcher_child):
 		launcher_child = -1
 		get_window().mode = launcher_window_mode

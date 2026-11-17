@@ -23,11 +23,19 @@ const FORMAT := 3
 const HANDS := [0, 1]
 const POCKETS := [2, 3, 4, 5]
 # 0.0.7.4 (demande de l'utilisateur) : 1 kg pour les deux mains ensemble (0.0.7.6 : 1,4 kg), 500 g pour les quatre poches.
-const HANDS_LIMIT := 3000.0
-# 0.0.7.8 (demande de l'utilisateur) : mains 3 kg en tout ; au-delà de TWO_HANDS dans une main, l'objet se porte à deux
-# mains (l'autre main ne prend plus rien) et on marche plus lentement (carry_factor).
-const TWO_HANDS := 1500.0
+# 0.0.7.19 (demande de l'utilisateur) : 4 kg par main, 8 kg à deux mains ; et un volume : 1,5 L par main, 3 L à deux
+# mains, 0,5 L pour les poches (instance_volume : le bois compte par sa longueur, 1 L par mètre). Au-delà de ce que tient
+# une main (poids, volume ou nombre), l'objet se porte à deux mains (l'autre main ne prend plus rien) et on marche plus
+# lentement (carry_factor). Petits objets qui tomberaient : un nombre au plus par main (HAND_COUNTS).
+const HANDS_LIMIT := 8000.0
+const TWO_HANDS := 4000.0
+const HAND_VOLUME := 1.5
+const HANDS_VOLUME := 3.0
 const POCKETS_LIMIT := 500.0
+const POCKETS_VOLUME := 0.5
+const HAND_COUNTS := {"noisette": 8, "pomme": 2, "caillou": 4, "eclat": 4}
+const HANDFUL_VOLUME := 0.25
+const WOOD_LITERS_PER_METER := 1.0
 # Valeur d'outil de la pioche (même valeur que world.gd PICKAXE) ; -1 : main vide ou objet sans usage.
 const PICKAXE := 3
 # Poids d'un caillou selon sa taille (1 à 7, comme rocks.gd), en grammes. 0.0.7.6 : la taille 6 (1,1 kg) se ramasse ; la 7, non.
@@ -79,6 +87,9 @@ const ITEMS := {
 	"rameau": {"nom": "Rameau", "forme": "bois", "feuilles": true, "couleur": Color("#7a5634")},
 }
 const LEAFY_NAMES := ["Rameau de pommier", "Tige de noisetier", "Rameau de pin", "Rameau de tilleul"]
+# 0.0.7.18 : bois du Créatif : tronc (gros bout, petit bout) puis branche (cm), 1 m de long.
+const CATALOG_WOOD := [20.0, 18.0, 4.0, 3.4]
+const ESSENCE_NAMES := ["pommier", "noisetier", "pin", "tilleul"]
 # Catégories de l'inventaire en Créatif, dans l'ordre des onglets (0.0.7.5 : Cailloux et Fruits ; l'onglet Inventaire,
 # tout à droite, est dans inventory_ui.gd). Objets illimités : identifiant, avec leur modèle (CATALOG_MODELS).
 const CATEGORIES := [
@@ -86,6 +97,9 @@ const CATEGORIES := [
 	{"id": "pebbles", "nom": "Cailloux", "objets": ["caillou", "caillou_calcaire", "caillou_silex"]},
 	{"id": "fruits", "nom": "Fruits", "objets": ["pomme", "noisette"]},
 	{"id": "tools", "nom": "Outils", "objets": ["pioche"]},
+	# 0.0.7.18 (demande de l'utilisateur) : pour chaque espèce, un tronc (20 cm × 1 m) et une branche (4 cm × 1 m),
+	# séparés ; « objet:essence » (catalog_item).
+	{"id": "wood", "nom": "Bois", "objets": ["tronc:0", "branche:0", "tronc:1", "branche:1", "tronc:2", "branche:2", "tronc:3", "branche:3"]},
 ]
 # Pour l'instant une seule version par objet : cailloux de taille 4, pomme rouge de taille 2.
 const CATALOG_MODELS := {"caillou": {"taille": 4}, "caillou_calcaire": {"taille": 4}, "caillou_silex": {"taille": 4}, "pomme": {"taille": 2, "couleur": 1}}
@@ -141,6 +155,19 @@ static func is_object(value: Dictionary) -> bool:
 	return ITEMS.get(value.get("objet", ""), {}).has("forme")
 
 static func catalog_item(id: String) -> Dictionary:
+	# 0.0.7.18 : bois du Créatif : « tronc:2 » = un tronc de pin, toujours le même (graine fixe), illimité.
+	if id.contains(":"):
+		var parts := id.split(":")
+		var essence := int(parts[1])
+		var trunk: bool = parts[0] == "tronc"
+		var rng := RandomNumberGenerator.new()
+		rng.seed = hash(id)
+		var wood := wood_piece(parts[0], essence, CATALOG_WOOD[0] if trunk else CATALOG_WOOD[2], 1.0, rng)
+		wood.epaisseur = CATALOG_WOOD[0] if trunk else CATALOG_WOOD[2]
+		wood.fin = CATALOG_WOOD[1] if trunk else CATALOG_WOOD[3]
+		wood.age = 2
+		wood.forme = 1
+		return wood
 	var value := {"objet": id}
 	value.merge(CATALOG_MODELS.get(id, {}))
 	return value
@@ -205,6 +232,62 @@ static func stack_weight(value: Dictionary) -> float:
 		return total
 	return unit_weight(value) * count(value)
 
+# 0.0.7.19 : volume (litres) d'un objet ou d'une poignée : poignée 0,25 L ; bois : sa longueur (1 L par mètre : une bûche
+# se tient dans les bras, c'est son poids qui la limite) ; fruit : sa boule ; caillou, éclat : son poids / 2,6 kg par L.
+static func instance_volume(id: String, instance: Dictionary) -> float:
+	var spec: Dictionary = ITEMS.get(id, {})
+	if spec.has("matiere"):
+		return HANDFUL_VOLUME
+	if spec.has("outil"):
+		return 0.0
+	match spec.get("forme", ""):
+		"bois":
+			return float(instance.get("longueur", 1.0)) * WOOD_LITERS_PER_METER
+		"fruit":
+			var diameter: float = float(instance.get("diametre", APPLE_SIZES[1] if id == "pomme" else 0.02))
+			return 4.0 / 3.0 * PI * pow(diameter * 0.5, 3.0) * 1000.0
+		"caillou", "eclat":
+			return instance_weight(id, instance) / 2600.0
+	return instance_weight(id, instance) / 1000.0
+
+static func stack_volume(value: Dictionary) -> float:
+	if unlimited(value) or value.is_empty():
+		return 0.0
+	if value.has("pile"):
+		var total := 0.0
+		for instance: Dictionary in value.pile:
+			total += instance_volume(value.objet, instance)
+		return total
+	return instance_volume(value.objet, value) * count(value)
+
+# Combien au plus dans une main (petits objets qui tomberaient) ; 0 : pas de limite.
+static func hand_count(id: String) -> int:
+	if HAND_COUNTS.has(id):
+		return HAND_COUNTS[id]
+	return HAND_COUNTS.get(ITEMS.get(id, {}).get("forme", ""), 0)
+
+# Une main ne suffit pas : trop lourd, trop encombrant ou trop nombreux pour une main.
+static func needs_both_hands(value: Dictionary) -> bool:
+	if value.is_empty() or unlimited(value):
+		return false
+	var limit := hand_count(value.objet)
+	return stack_weight(value) > TWO_HANDS + 0.001 or stack_volume(value) > HAND_VOLUME + 0.0001 or (limit > 0 and count(value) > limit)
+
+# Nom au pluriel, en minuscules (« noisettes », « cailloux », « éclats de silex »).
+static func plural_name(value: Dictionary) -> String:
+	var name := item_name(value).to_lower()
+	var words := name.split(" ")
+	var first: String = words[0]
+	if first.ends_with("au") or first.ends_with("ou") and first in ["caillou", "bijou", "genou"]:
+		first += "x"
+	elif not first.ends_with("s") and not first.ends_with("x"):
+		first += "s"
+	words[0] = first
+	return " ".join(words)
+
+static func format_volume(liters: float) -> String:
+	return (("%.2f" if liters < 0.995 else "%.1f") % maxf(liters, 0.0)).replace(".", ",") + " L"
+
 # Même type d'objet : il s'empile dans la même case (0.0.7.5 : même de tailles différentes, chacun gardé à part).
 # Illimités : seulement s'ils ont le même modèle.
 static func same_kind(a: Dictionary, b: Dictionary) -> bool:
@@ -224,6 +307,47 @@ func pockets_weight(except: int = -1) -> float:
 
 func hands_weight(except: int = -1) -> float:
 	return _weight_of(HANDS, except)
+
+func _volume_of(indexes: Array, except: int) -> float:
+	var total := 0.0
+	for index in indexes:
+		if index != except:
+			total += stack_volume(item("bar", index))
+	return total
+
+func hands_volume(except: int = -1) -> float:
+	return _volume_of(HANDS, except)
+
+func pockets_volume(except: int = -1) -> float:
+	return _volume_of(POCKETS, except)
+
+# 0.0.7.19 : pourquoi le dernier objet n'a pas tenu (fit_count) : "lourd", "encombrant" ou "nombre".
+var last_refusal := ""
+
+# Une case de main peut-elle tenir ce poids, ce volume et ce nombre (l'autre main étant ce qu'elle est) ?
+func _hand_holds(index: int, id: String, weight: float, volume: float, amount: int) -> String:
+	var other: int = HANDS[1] if index == HANDS[0] else HANDS[0]
+	var other_value := item("bar", other)
+	var limit := hand_count(id)
+	if not other_value.is_empty():
+		if needs_both_hands(other_value):
+			return "lourd"
+		# Une seule main libre.
+		if weight > TWO_HANDS + 0.001:
+			return "lourd"
+		if volume > HAND_VOLUME + 0.0001:
+			return "encombrant"
+		if limit > 0 and amount > limit:
+			return "nombre"
+		return ""
+	# Les deux mains libres : une main, ou les deux pour un seul objet (ou une seule pile).
+	if weight > HANDS_LIMIT + 0.001:
+		return "lourd"
+	if volume > HANDS_VOLUME + 0.0001:
+		return "encombrant"
+	if limit > 0 and amount > limit * 2:
+		return "nombre"
+	return ""
 
 # Poids encore permis pour une case entière (Survie) : ce que laissent les autres cases du même groupe ;
 # sans limite en Créatif.
@@ -256,7 +380,7 @@ func two_handed() -> int:
 	if mode != SURVIVAL:
 		return -1
 	for index in HANDS:
-		if stack_weight(item("bar", index)) > TWO_HANDS:
+		if needs_both_hands(item("bar", index)):
 			return index
 	return -1
 
@@ -264,6 +388,12 @@ func carry_factor() -> float:
 	if mode != SURVIVAL:
 		return 1.0
 	return 1.0 - 0.4 * clampf((hands_weight() - TWO_HANDS) / (HANDS_LIMIT - TWO_HANDS), 0.0, 1.0)
+
+# 0.0.7.19 : remplissage (0 à 1) des mains et des poches : poids et volume (barres de l'inventaire et du jeu).
+func fill(group: String) -> Dictionary:
+	if group == "mains":
+		return {"poids": hands_weight() / HANDS_LIMIT, "volume": hands_volume() / HANDS_VOLUME}
+	return {"poids": pockets_weight() / POCKETS_LIMIT, "volume": pockets_volume() / POCKETS_VOLUME}
 
 # 0.0.7.8 : un tronc ou une branche (#212), à plat {"objet": …, caractéristiques} : épaisseur (cm), longueur (m),
 # essence, âge (1 très jeune à 5 vieux, un peu pourri) et souplesse (1 cassant à 5 très souple : surtout le bois jeune ;
@@ -293,26 +423,32 @@ func fit_count(area: String, index: int, value: Dictionary) -> int:
 		return 1 if there.is_empty() else 0
 	if mode == CREATIVE:
 		return count(value)
-	var free := room(area, index) - stack_weight(there) + 0.001
-	# 0.0.7.8 : à deux mains : une main qui porte plus de TWO_HANDS laisse l'autre vide ; et une main ne dépasse
-	# TWO_HANDS que si l'autre est vide.
-	if area == "bar" and index in HANDS:
-		var other: int = HANDS[1] if index == HANDS[0] else HANDS[0]
-		var other_weight := stack_weight(item("bar", other))
-		if other_weight > TWO_HANDS:
-			return 0
-		if other_weight > 0.0:
-			free = minf(free, TWO_HANDS - stack_weight(there) + 0.001)
+	# 0.0.7.19 : objet après objet : poids, volume et nombre (mains), poids et volume (poches).
+	last_refusal = ""
+	var weight := stack_weight(there)
+	var volume := stack_volume(there)
+	var amount := count(there)
 	var fits := 0
-	if value.has("pile"):
-		for instance: Dictionary in value.pile:
-			free -= instance_weight(value.objet, instance)
-			if free < 0.0:
-				break
-			fits += 1
-		return fits
-	var unit := unit_weight(value)
-	return count(value) if unit <= 0.0 else mini(int(floor(free / unit)), count(value))
+	for unit in range(count(value)):
+		var instance: Dictionary = value.pile[unit] if value.has("pile") else value
+		weight += instance_weight(value.objet, instance)
+		volume += instance_volume(value.objet, instance)
+		amount += 1
+		var why := ""
+		if area == "bar" and index in HANDS:
+			why = _hand_holds(index, value.objet, weight, volume, amount)
+		elif area == "bar" and index in POCKETS:
+			if pockets_weight(index) + weight > POCKETS_LIMIT + 0.001:
+				why = "lourd"
+			elif pockets_volume(index) + volume > POCKETS_VOLUME + 0.0001:
+				why = "encombrant"
+		else:
+			why = "lourd"
+		if not why.is_empty():
+			last_refusal = why
+			break
+		fits += 1
+	return fits
 
 # Ajoute ce qui tient de « value » dans la case (vide, ou du même type) ; rend ce qui reste.
 func _merge_into(area: String, index: int, value: Dictionary) -> Dictionary:
@@ -409,7 +545,7 @@ func add_to_selected(value: Dictionary) -> Dictionary:
 		elif other or mode == CREATIVE:
 			reason = "plein"
 		else:
-			reason = "lourd"
+			reason = last_refusal if not last_refusal.is_empty() else "lourd"
 	return {"added": added, "reason": reason}
 
 # Retire des poignées de la case en main (poser une matière) ; illimité : rien ne change. Faux s'il n'y en a pas assez.
@@ -489,6 +625,9 @@ static func item_name(value: Dictionary) -> String:
 	var id: String = value.get("objet", "")
 	if id == "rameau" and value.has("essence"):
 		return LEAFY_NAMES[clampi(int(value.essence), 0, LEAFY_NAMES.size() - 1)]
+	# 0.0.7.18 : tronc et branche nommés selon leur arbre (« Tronc de pin », « Branche de noisetier »).
+	if id in ["tronc", "branche"] and value.has("essence"):
+		return "%s de %s" % [ITEMS[id].nom, ESSENCE_NAMES[clampi(int(value.essence), 0, ESSENCE_NAMES.size() - 1)]]
 	return ITEMS[id].nom if ITEMS.has(id) else ""
 
 static func _valid_traits(value: Variant) -> bool:

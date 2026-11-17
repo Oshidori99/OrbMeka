@@ -20,6 +20,7 @@ const BackdropShader = preload("res://scripts/menu_backdrop.gdshader")
 const Licences = preload("res://scripts/licences.gd")
 const MenuSounds = preload("res://scripts/menu_sounds.gd")
 const CharacterVoices = preload("res://scripts/character_voices.gd")
+const Trees = preload("res://scripts/trees.gd")
 const MIN_WINDOW_SIZE := Vector2i(800, 450)
 const MENU_BASE_SIZE := Vector2(1280, 720)
 const MENU_BASE_WIDTH := 560.0
@@ -132,6 +133,8 @@ var key_combos := KeyCombos.new()
 var menu_sounds: Node
 var character_voices: Node
 var character_previews: Dictionary = {}
+var characters_reading := false
+var trees_read := false
 # Cartes du menu Personnage (0.0.3.22) : « boy9:light »… pour les humains, « cat », « fox »… pour les animaux.
 var character_buttons: Dictionary = {}
 var control_option_buttons: Dictionary = {}

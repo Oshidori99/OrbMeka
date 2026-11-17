@@ -328,6 +328,15 @@ static func fruit_node(kind: int, size: int, form: int, skip: Dictionary = {}, o
 		holder.add_child(drawn)
 	return holder
 
+# 0.0.7.20 : modèle détaillé changé (morceau, arbre couché) : il porte de nouveau sa propre ombre, sans l'ombre simplifiée.
+static func own_shadow(model: Node3D) -> void:
+	var shade: Node3D = model.get_node_or_null("Ombre")
+	if shade != null:
+		shade.visible = false
+	var detail: MeshInstance3D = model.get_node_or_null("Detail")
+	if detail != null:
+		detail.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_ON
+
 # Arbre dont on a cueilli des fruits (numéros dans « picked ») : ses fruits restants seulement.
 static func apply_picked(body: Node3D, picked: Array) -> void:
 	var model: Node3D = body.get_node_or_null("Modele")
@@ -625,6 +634,17 @@ static func tree_body(kind: int, size: int, vine := false, form := 0) -> StaticB
 	near.visibility_range_end = DETAIL_END
 	near.visibility_range_end_margin = 2.0
 	model.add_child(near)
+	# 0.0.7.20 : de près, l'ombre est portée par le modèle simplifié (tronc, grosses branches et quelques grandes plaques
+	# de feuillage : environ 7 fois moins de sommets) ; le modèle détaillé ne porte plus d'ombre. Un arbre coupé ou
+	# couché reprend l'ombre de son modèle détaillé (own_shadow).
+	near.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	var shade := MeshInstance3D.new()
+	shade.name = "Ombre"
+	shade.mesh = mesh(kind, size, true, form)
+	shade.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_SHADOWS_ONLY
+	shade.visibility_range_end = DETAIL_END
+	shade.visibility_range_end_margin = 2.0
+	model.add_child(shade)
 	# 0.0.7.5 : pommes et noisettes dessinées à part, en série (fruit_node).
 	if kind == APPLE or kind == HAZEL:
 		model.add_child(fruit_node(kind, clampi(size, 1, SIZES), clampi(form, 0, FORMS - 1)))

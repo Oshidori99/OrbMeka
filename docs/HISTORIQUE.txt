@@ -3,6 +3,22 @@ Du plus récent au plus ancien. Ce fichier est mis à jour à chaque version.
 
 === Thème « Gameplay et inventaire » (0.0.7) ===
 
+0.0.7.20 — Plus fluide : terrain calculé en petites étapes (plus d'à-coups en forêt), arbres créés peu à peu avec des ombres simplifiées, accueil deux fois plus rapide (forêt de pins, personnages au sol et chargés à la demande), shaders préparés d'avance sur le Web
+Génération du terrain : version 32 · Menus : version 10.
+Surface des zones, lacs, rivières, crevasses et grottes de la graine découpés (même résultat) ; arbres quelques-uns par image ; ombres par le modèle simplifié ; accueil : 1re image 3,4 → 1,5 s.
+
+0.0.7.19 — 4 kg par main et 8 kg à deux, volume (1,5 L et 3 L), nombre au plus par main (8 noisettes…), barres de poids et de volume, refus expliqués
+Génération du terrain : version 32 · Menus : version 10.
+Poignée 0,25 L, bois compté par sa longueur ; poches 500 g et 0,5 L ; barres comme une batterie (vert, jaune 60 %, orange 80 %, rouge 100 %) en jeu et dans l'inventaire.
+
+0.0.7.18 — Onglet Bois en Créatif (un tronc et une branche de chaque arbre), bois nommé selon son arbre
+Génération du terrain : version 32 · Menus : version 10.
+Tronc 20 cm × 1 m et branche 4 cm × 1 m pour pommier, noisetier, pin et tilleul ; « Tronc de pin », « Branche de noisetier » ; l'arbre écrit sous chaque case.
+
+0.0.7.17 — Menu des actions (B + T) : clic gauche Creuser / Casser, Casser / Récupérer des objets, Récupérer des matériaux ; clic droit Poser, Aplanir, Lisser
+Génération du terrain : version 32 · Menus : version 10.
+Deux lignes de cases avec image et petit texte, molette pour choisir, T pour changer de ligne, fermé par clic, Échap, Entrée ou un moment ; seul Creuser creuse ; clic court = ramasser.
+
 0.0.7.16 — Petit plafond de terre qui tient (galeries de 2 m), petit bout de tronc entre deux coupes proches enfin à part, anciens arbres réparés à l'ouverture
 Génération du terrain : version 32 · Menus : version 10.
 Terre et argile tiennent en plafond à 1 m d'un mur (sable, boue, neige, gravier tombent) ; coupe vide entre deux coupes proches corrigée sur tous les arbres (2 221 essais) ; sauvegardes d'avant réparées.

@@ -54,6 +54,9 @@ class Slot extends Control:
 		chosen = is_chosen
 		note = weight_note
 		title = Inventory.item_name(value) if with_text else ""
+		# 0.0.7.18 : bois : sous la case, l'arbre seulement (le nom complet coupé ne se lisait pas) ; tout au survol.
+		if with_text and value.get("objet", "") in ["tronc", "branche", "rameau"] and value.has("essence"):
+			title = Inventory.ESSENCE_NAMES[clampi(int(value.essence), 0, 3)].capitalize()
 		var name := Inventory.item_name(value)
 		if not value.is_empty() and not Inventory.unlimited(value):
 			name += " × %d (%s)" % [Inventory.count(value), Inventory.format_weight(Inventory.stack_weight(value))]
@@ -114,7 +117,9 @@ var text_scale := 1.0
 var hud_bar: HBoxContainer
 var hud_slots: Array = []
 var hud_gap: Control
-var weights_label: Label
+var weights_label: VBoxContainer
+# 0.0.7.19 : barres et textes des mains et des poches : en jeu {"mains": [barre, texte], …}.
+var hud_carried := {}
 var screen: Control
 var panel: PanelContainer
 var mode_label: Label
@@ -136,7 +141,8 @@ var cursor_item := {}
 var cursor_from: Array = []
 var category := 0
 # 0.0.7.5 : onglet Inventaire (après les catégories) ; objets des onglets sur 2 lignes au plus.
-const INVENTORY_TAB := 4
+# 0.0.7.18 : après les onglets d'objets (Bois compris), toujours le dernier.
+const INVENTORY_TAB := 5
 const CATALOG_ROWS := 2
 
 func setup(owner_inventory: RefCounted, scale: float) -> void:
@@ -179,12 +185,11 @@ func _build_hud() -> void:
 			hud_gap.custom_minimum_size = Vector2(14, 0)
 			hud_gap.mouse_filter = Control.MOUSE_FILTER_IGNORE
 			hud_bar.add_child(hud_gap)
-	# Poids portés, en bas à droite (Survie). 0.0.7.4 : 4 pixels plus grand (demande de l'utilisateur), mains et poches.
-	weights_label = _label("", 19)
+	# Poids portés, en bas à droite (Survie). 0.0.7.19 (demande de l'utilisateur) : pour les mains et les poches, une petite
+	# image (au lieu des mots), une barre (la limite la plus proche : poids ou volume) et le texte un peu plus petit.
+	weights_label = VBoxContainer.new()
 	weights_label.name = "CarriedWeight"
-	weights_label.add_theme_color_override("font_shadow_color", Color.BLACK)
-	weights_label.add_theme_constant_override("shadow_outline_size", 4)
-	weights_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	weights_label.add_theme_constant_override("separation", 4)
 	weights_label.anchor_left = 1.0
 	weights_label.anchor_right = 1.0
 	weights_label.anchor_top = 1.0
@@ -193,7 +198,29 @@ func _build_hud() -> void:
 	weights_label.grow_vertical = Control.GROW_DIRECTION_BEGIN
 	weights_label.offset_right = -18
 	weights_label.offset_bottom = -12
+	weights_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(weights_label)
+	for what in ["mains", "poches"]:
+		var row := HBoxContainer.new()
+		row.alignment = BoxContainer.ALIGNMENT_END
+		row.add_theme_constant_override("separation", 6)
+		row.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		weights_label.add_child(row)
+		var icon := TextureRect.new()
+		icon.texture = ItemIcons.hand() if what == "mains" else ItemIcons.pocket()
+		icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+		icon.custom_minimum_size = Vector2.ONE * roundf(24 * text_scale)
+		icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		row.add_child(icon)
+		var bar := FillBar.new(roundf(70 * text_scale), roundf(17 * text_scale), "kg")
+		bar.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+		row.add_child(bar)
+		var text := _label("", 15)
+		text.add_theme_color_override("font_shadow_color", Color.BLACK)
+		text.add_theme_constant_override("shadow_outline_size", 4)
+		row.add_child(text)
+		hud_carried[what] = [bar, text]
 
 # Hauteur occupée par la barre en bas (pour placer les messages au-dessus).
 func hud_height() -> float:
@@ -407,17 +434,81 @@ func _survival_row(picture: Texture2D, indexes: Array, side: float, slots: Dicti
 	filler.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	filler.custom_minimum_size = Vector2(24, 0)
 	row.add_child(filler)
-	var weight := _label("", 15)
-	weight.custom_minimum_size = Vector2(0, side)
-	weight.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	weight.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
-	row.add_child(weight)
+	# 0.0.7.19 (demande de l'utilisateur) : le texte (poids et volume, un peu plus petit), puis dessous, centrées, deux
+	# petites barres côte à côte : poids à gauche, volume à droite.
+	var box := VBoxContainer.new()
+	box.alignment = BoxContainer.ALIGNMENT_CENTER
+	box.custom_minimum_size = Vector2(0, side)
+	box.add_theme_constant_override("separation", 3)
+	row.add_child(box)
+	var weight := _label("", 13)
+	weight.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	box.add_child(weight)
+	var bars := HBoxContainer.new()
+	bars.alignment = BoxContainer.ALIGNMENT_CENTER
+	bars.add_theme_constant_override("separation", 8)
+	box.add_child(bars)
+	var heavy := FillBar.new(roundf(62 * text_scale), roundf(16 * text_scale), "kg")
+	heavy.tooltip_text = "Poids"
+	var bulky := FillBar.new(roundf(62 * text_scale), roundf(16 * text_scale), "L")
+	bulky.tooltip_text = "Volume"
+	bars.add_child(heavy)
+	bars.add_child(bulky)
+	panel_bars[what] = [heavy, bulky]
 	return weight
+
+# 0.0.7.19 : petite barre comme la batterie d'un téléphone, le pourcentage dedans : vert, jaune dès 60 %, orange dès
+# 80 %, rouge à 100 %. « unit » (kg ou L) écrit après le pourcentage.
+class FillBar extends Control:
+	var share := 0.0
+	var unit := ""
+	var bar_size := Vector2(60, 16)
+
+	func _init(width: float, height: float, what: String) -> void:
+		bar_size = Vector2(width, height)
+		unit = what
+		custom_minimum_size = bar_size
+		mouse_filter = Control.MOUSE_FILTER_PASS
+
+	func set_share(value: float, what: String = "") -> void:
+		share = maxf(value, 0.0)
+		if not what.is_empty():
+			unit = what
+		queue_redraw()
+
+	static func color_for(value: float) -> Color:
+		if value >= 0.999:
+			return Color("#d64545")
+		if value >= 0.8:
+			return Color("#e88a2e")
+		if value >= 0.6:
+			return Color("#e8c93a")
+		return Color("#5cb85c")
+
+	func _draw() -> void:
+		var cap := maxf(2.0, bar_size.x * 0.05)
+		var body := Rect2(Vector2.ZERO, Vector2(bar_size.x - cap, bar_size.y))
+		draw_rect(body, Color(0.05, 0.05, 0.06, 0.75))
+		var inner := body.grow(-2.0)
+		inner.size.x *= clampf(share, 0.0, 1.0)
+		if inner.size.x > 0.5:
+			draw_rect(inner, color_for(share))
+		draw_rect(body, Color(0.9, 0.9, 0.9, 0.9), false, 1.5)
+		draw_rect(Rect2(Vector2(body.end.x, bar_size.y * 0.3), Vector2(cap, bar_size.y * 0.4)), Color(0.9, 0.9, 0.9, 0.9))
+		var font := get_theme_default_font()
+		var size := maxi(int(bar_size.y * 0.68), 8)
+		var text := "%d %%%s" % [roundi(share * 100.0), (" " + unit) if not unit.is_empty() else ""]
+		var width := font.get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1, size).x
+		var at := Vector2((body.size.x - width) * 0.5, (bar_size.y + size * 0.72) * 0.5)
+		draw_string_outline(font, at, text, HORIZONTAL_ALIGNMENT_LEFT, -1, size, 3, Color(0, 0, 0, 0.8))
+		draw_string(font, at, text, HORIZONTAL_ALIGNMENT_LEFT, -1, size, Color.WHITE)
+
+var panel_bars := {}
 
 func _hint() -> String:
 	if inventory.mode == Inventory.CREATIVE:
 		return "Clic gauche : prendre ou poser · clic droit : vider la case (sur un objet du haut : dans la première case libre) · Échap : fermer"
-	return "Clic gauche : prendre ou poser (les objets identiques s'empilent, selon le poids) · Échap : fermer"
+	return "Clic gauche : prendre ou poser (les objets identiques s'empilent ; mains : 4 kg et 1,5 L chacune, 8 kg et 3 L à deux ; poches : 500 g et 0,5 L) · Échap : fermer"
 
 # Poids écrit sous une case (Survie seulement ; rien sous une case vide).
 func _note(index: int) -> String:
@@ -465,16 +556,26 @@ func refresh() -> void:
 	survival_box.visible = not creative
 	survival_area.visible = not creative
 	weights_label.visible = not creative
-	var hands_text := _carried(inventory.hands_weight(), Inventory.HANDS_LIMIT)
-	var pockets_text := _carried(inventory.pockets_weight(), Inventory.POCKETS_LIMIT)
-	hands_weight.text = hands_text
-	pockets_weight.text = pockets_text
-	weights_label.text = "Mains : %s\nPoches : %s" % [hands_text, pockets_text]
+	# 0.0.7.19 : poids et volume, barres (inventaire : les deux ; jeu : la limite la plus proche).
+	for what in ["mains", "poches"]:
+		var hands: bool = what == "mains"
+		var text := "%s · %s" % [_carried(inventory.hands_weight() if hands else inventory.pockets_weight(), Inventory.HANDS_LIMIT if hands else Inventory.POCKETS_LIMIT), "%s / %s" % [Inventory.format_volume(inventory.hands_volume() if hands else inventory.pockets_volume()), Inventory.format_volume(Inventory.HANDS_VOLUME if hands else Inventory.POCKETS_VOLUME)]]
+		var full: Dictionary = inventory.fill(what)
+		(hands_weight if hands else pockets_weight).text = text
+		var pair: Array = panel_bars.get("Mains" if hands else "Poches", [])
+		if pair.size() == 2:
+			pair[0].set_share(full.poids)
+			pair[1].set_share(full.volume)
+		var carried: Array = hud_carried.get(what, [])
+		if carried.size() == 2:
+			var heavier: bool = full.poids >= full.volume
+			carried[0].set_share(full.poids if heavier else full.volume, "kg" if heavier else "L")
+			carried[1].text = text
 	mode_label.text = "Créatif" if creative else "Survie"
 	if not message.has_meta("said"):
 		message.text = _hint()
 
-# index : un onglet d'objets (0 à 3) ou INVENTORY_TAB (la grille de 5 × 10, tout à droite).
+# index : un onglet d'objets (0 à 4) ou INVENTORY_TAB (la grille de 5 × 10, tout à droite).
 func show_category(index: int) -> void:
 	category = clampi(index, 0, INVENTORY_TAB)
 	tab_buttons[category].set_pressed_no_signal(true)
@@ -518,7 +619,14 @@ func _on_slot(button: int, area: String, index: int) -> void:
 		var before: Dictionary = cursor_item
 		var rest: Dictionary = inventory.put(area, index, cursor_item)
 		if rest == before:
-			_say("Trop lourd ici : %s au plus." % Inventory.format_weight(inventory.room(area, index)))
+			# 0.0.7.19 : dit pourquoi (poids, volume ou nombre).
+			match inventory.last_refusal:
+				"encombrant":
+					_say("Trop encombrant ici : 1,5 L par main, 3 L à deux mains, 0,5 L dans les poches.")
+				"nombre":
+					_say("%d %s au plus dans une main." % [Inventory.hand_count(before.get("objet", "")), Inventory.plural_name(before)])
+				_:
+					_say("Trop lourd ici : 4 kg par main, 8 kg à deux mains, 500 g dans les poches.")
 			return
 		cursor_item = rest
 		if rest.is_empty():

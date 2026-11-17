@@ -6,6 +6,7 @@ extends RefCounted
 # Le sol de la graine est calculé (base_density), seuls les points changés sont gardés et enregistrés.
 # Rendu lisse : « surface nets » (un sommet par sous-cellule traversée par la surface, au milieu des
 # passages de la surface sur ses arêtes), une pièce par zone. Zone sans changement : simple carré plat.
+const SurfaceJob = preload("res://scripts/surface_job.gd")
 const Generation = preload("res://scripts/world_generation.gd")
 var generation_options: Dictionary = {}
 const STEP := 0.5
@@ -74,7 +75,7 @@ var _deserts: Dictionary = {}
 # 0.0.6 : demi-largeur du monde, en zones (selon la version de génération).
 var half_zones := 24
 
-func setup(terrain_seed: int, flat_spots: Array = [], options: Dictionary = {}) -> void:
+func setup(terrain_seed: int, flat_spots: Array = [], options: Dictionary = {}, trace_rivers := true) -> void:
 	generation_options = Generation.normalized(options) if Generation.valid(options) else {}
 	_seed = terrain_seed
 	half_zones = Generation.half_zones(int(generation_options.get("version", 0)))
@@ -125,22 +126,30 @@ func setup(terrain_seed: int, flat_spots: Array = [], options: Dictionary = {}) 
 	_near_cache.clear()
 	_lakes_chosen.clear()
 	_lakes_chosen_ready = false
+	_lake_candidates = []
+	_lake_choice_at = 0
+	_prepare_stage = -1
 	_mountain_lake_zones.clear()
 	_cave_zones.clear()
 	_crevasse_zones.clear()
 	_crevasses_ready = false
+	_crevasse_row = 0
 	_cave_columns.clear()
 	_caves_ready = false
+	_cave_at = 0
 	_mountain_lakes_ready = false
 	_mountain_zones.clear()
 	_mountains_near_cache.clear()
 	_mountain_list.clear()
 	_mountain_list_ready = false
+	_mountain_at = 0
 	_lifts.clear()
 	# Génération 31 : rivières tracées tout de suite (elles abaissent des lacs : aucune hauteur ne doit être lue avant).
 	_lake_drops = {}
-	if _rivers_downhill:
+	if _rivers_downhill and trace_rivers:
 		rivers()
+	elif _rivers_downhill:
+		_prepare_stage = 0
 
 # Ce que la graine met dans une zone de 8 m : crête, trou, désert (toujours pareil pour une graine).
 func _zone_info(area: Vector2i) -> Dictionary:
@@ -410,13 +419,26 @@ const CAVE_ENTRANCE_NODES := 8
 func caves_in_zone(zone: Vector3i) -> Array:
 	if int(generation_options.get("version", 0)) < 14 or _noise == null:
 		return []
-	if not _caves_ready:
-		_caves_ready = true
-		for x in range(-half_zones, half_zones):
-			for z in range(-half_zones, half_zones):
-				_zone_caves(Vector2i(x, z), "cave_entrances", true)
-				_zone_caves(Vector2i(x, z), "cave_systems", false)
+	while _caves_part():
+		pass
 	return _cave_zones.get(zone, [])
+
+# 0.0.7.20 : grottes de tout le monde par rangées de zones (vrai tant qu'il en reste) ; même ordre que d'un coup.
+var _cave_at := 0
+
+func _caves_part() -> bool:
+	if _caves_ready:
+		return false
+	_caves_ready = true
+	var x := -half_zones + _cave_at
+	for z in range(-half_zones, half_zones):
+		_zone_caves(Vector2i(x, z), "cave_entrances", true)
+		_zone_caves(Vector2i(x, z), "cave_systems", false)
+	_cave_at += 1
+	if _cave_at < 2 * half_zones:
+		_caves_ready = false
+		return true
+	return false
 
 func _zone_caves(area: Vector2i, key: String, entrance: bool) -> void:
 	var chance: int = generation_options.get(key, 0)
@@ -506,14 +528,28 @@ var _crevasses_ready := false
 func _crevasses_near(area: Vector2i) -> Array:
 	if int(generation_options.get("version", 0)) < 14 or _noise == null:
 		return []
-	if not _crevasses_ready:
-		_crevasses_ready = true
-		var chance: int = generation_options.get("crevasses", 0)
-		if chance > 0:
-			for x in range(-half_zones, half_zones):
-				for z in range(-half_zones, half_zones):
-					_make_crevasse(Vector2i(x, z), chance)
+	while _crevasses_part():
+		pass
 	return _crevasse_zones.get(area, [])
+
+# 0.0.7.20 : crevasses de tout le monde par rangées de zones (vrai tant qu'il en reste) ; même ordre que d'un coup.
+var _crevasse_row := 0
+
+func _crevasses_part() -> bool:
+	if _crevasses_ready:
+		return false
+	_crevasses_ready = true
+	var chance: int = generation_options.get("crevasses", 0)
+	if chance <= 0:
+		return false
+	var x := -half_zones + _crevasse_row
+	for z in range(-half_zones, half_zones):
+		_make_crevasse(Vector2i(x, z), chance)
+	_crevasse_row += 1
+	if _crevasse_row < 2 * half_zones:
+		_crevasses_ready = false
+		return true
+	return false
 
 func _make_crevasse(area: Vector2i, chance: int) -> void:
 	var rng := RandomNumberGenerator.new()
@@ -665,295 +701,8 @@ func surface_zones(low_zone: Vector2i, high_zone: Vector2i) -> Dictionary:
 # 0.0.6.18 (#175) : chaque sommet une seule fois et les triangles par indices (environ 6 fois moins de sommets à
 # envoyer à la carte graphique et à garder, même image) : [sommets, normales, couleurs, UV, UV2, CUSTOM0, indices].
 func zone_surface(zone: Vector3i) -> Array:
-	var origin := zone * POINTS
-	var vertices := PackedVector3Array()
-	var normals := PackedVector3Array()
-	var colors := PackedColorArray()
-	var uvs := PackedVector2Array()
-	var uvs2 := PackedVector2Array()
-	# 0.0.6.4 : calcaire, charbon, silex (CUSTOM0 du maillage, 4 nombres par sommet).
-	var ore_colors := PackedColorArray()
-	var indices := PackedInt32Array()
-	var nearby: Array = []
-	var lowest := INF
-	var highest := -INF
-	for dx in range(-1, 2):
-		for dy in range(-1, 2):
-			for dz in range(-1, 2):
-				for point: Vector3i in by_zone.get(zone + Vector3i(dx, dy, dz), {}):
-					nearby.append(point)
-					lowest = minf(lowest, point.y)
-					highest = maxf(highest, point.y)
-	var ground := zone_heights(zone)
-	lowest = minf(lowest, floorf(ground.x / STEP))
-	highest = maxf(highest, ceilf(ground.y / STEP))
-	var cave_nodes := caves_in_zone(zone)
-	if not cave_nodes.is_empty():
-		lowest = minf(lowest, origin.y - 1)
-		highest = maxf(highest, origin.y + POINTS + 1)
-	var y_low := maxi(maxi(origin.y - 1, int(lowest) - 2), mother_rock_top - 2)
-	var y_high := mini(mini(origin.y + POINTS, int(highest) + 2), HIGH_POINT + 2)
-	if y_low >= y_high:
-		return [vertices, normals, colors, uvs, uvs2, PackedFloat32Array(), indices]
-	var size := POINTS + 2
-	var height := y_high - y_low + 1
-	var start := Vector3i(origin.x - 1, y_low, origin.z - 1)
-	var values := PackedFloat32Array()
-	values.resize(size * height * size)
-	var tops := PackedFloat64Array()
-	tops.resize(size * size)
-	for x in range(size):
-		for z in range(size):
-			var top := ground_height(Vector2i(start.x + x, start.z + z))
-			tops[x * size + z] = top
-			for y in range(height):
-				values[(x * height + y) * size + z] = clampf(top - (y_low + y) * STEP, -1.0, 1.0)
-	# 0.0.5.37 : grottes : seulement les points de chaque boule, et on retient les hauteurs touchées par colonne.
-	var cave_low := PackedInt32Array()
-	var cave_high := PackedInt32Array()
-	cave_low.resize(size * size)
-	cave_high.resize(size * size)
-	cave_low.fill(height)
-	cave_high.fill(-1)
-	for node in cave_nodes:
-		var middle: Vector3 = node.at / STEP - Vector3(start)
-		var radius: float = node.radius
-		var reach: float = (radius + 1.0) / STEP
-		var reach2 := reach * reach
-		var around := ceili(reach) + 1
-		var near := middle.round()
-		for x in range(maxi(0, int(near.x) - around), mini(size, int(near.x) + around + 1)):
-			var dx := x - middle.x
-			for z in range(maxi(0, int(near.z) - around), mini(size, int(near.z) + around + 1)):
-				var dz := z - middle.z
-				var flat := dx * dx + dz * dz
-				if flat >= reach2:
-					continue
-				for y in range(maxi(0, int(near.y) - around), mini(height, int(near.y) + around + 1)):
-					var dy := y - middle.y
-					var far2 := flat + dy * dy
-					if far2 >= reach2 or y_low + y <= mother_rock_top:
-						continue
-					var index := (x * height + y) * size + z
-					values[index] = minf(values[index], clampf(Vector3(x, y, z).distance_to(middle) * STEP - radius, -1.0, 1.0))
-					cave_low[x * size + z] = mini(cave_low[x * size + z], y)
-					cave_high[x * size + z] = maxi(cave_high[x * size + z], y)
-	var kinds := {}
-	for point: Vector3i in nearby:
-		var local := point - start
-		if local.x >= 0 and local.y >= 0 and local.z >= 0 and local.x < size and local.y < height and local.z < size:
-			values[(local.x * height + local.y) * size + local.z] = changes[point]
-			if materials.has(point):
-				kinds[local] = materials[point]
-	# Décalages des 8 coins d'une sous-cellule dans le tableau.
-	var corner_at := [Vector3i(0, 0, 0), Vector3i(1, 0, 0), Vector3i(0, 1, 0), Vector3i(1, 1, 0), Vector3i(0, 0, 1), Vector3i(1, 0, 1), Vector3i(0, 1, 1), Vector3i(1, 1, 1)]
-	var corner_place := PackedVector3Array()
-	var offsets := PackedInt32Array()
-	for corner: Vector3i in corner_at:
-		offsets.append((corner.x * height + corner.y) * size + corner.z)
-		corner_place.append(Vector3(corner))
-	var edge_from := PackedInt32Array(EDGE_FROM)
-	var edge_to := PackedInt32Array(EDGE_TO)
-	var paint_of := PackedVector4Array(KIND_PAINT)
-	var wet_of := PackedVector2Array(KIND_WET)
-	var cover_of := PackedVector2Array(KIND_COVER)
-	var ore_of := PackedColorArray(KIND_ORE)
-	# Un sommet par sous-cellule traversée : moyenne des passages sur ses 12 arêtes ; normale = pente de la densité.
-	# 0.0.6.2 : sommets des sous-cellules dans des tableaux simples (pas de dictionnaire) : plus rapide, même résultat.
-	var cell_slot := PackedInt32Array()
-	cell_slot.resize(size * height * size)
-	cell_slot.fill(-1)
-	var cell_vertex := PackedVector3Array()
-	var cell_normal := PackedVector3Array()
-	var cell_color := PackedColorArray()
-	var cell_uv := PackedVector2Array()
-	var cell_uv2 := PackedVector2Array()
-	var cell_ores := PackedColorArray()
-	var corners := PackedFloat32Array()
-	corners.resize(8)
-	# 0.0.5.25 : sans point changé, la surface ne passe qu'entre les hauteurs des 4 coins de chaque colonne :
-	# on ne regarde que celles-là (même résultat, bien plus rapide). Matière de chaque point gardée une seule fois.
-	var free := nearby.is_empty()
-	var low_cells := PackedInt32Array()
-	var high_cells := PackedInt32Array()
-	low_cells.resize((size - 1) * (size - 1))
-	high_cells.resize((size - 1) * (size - 1))
-	var slab_low := PackedInt32Array()
-	var slab_high := PackedInt32Array()
-	slab_low.resize(size - 1)
-	slab_high.resize(size - 1)
-	for x in range(size - 1):
-		var slab_min := height
-		var slab_max := -1
-		for z in range(size - 1):
-			var lowest_y := 0
-			var highest_y := height - 2
-			if free:
-				var a := tops[x * size + z]
-				var b := tops[x * size + z + 1]
-				var c := tops[(x + 1) * size + z]
-				var d := tops[(x + 1) * size + z + 1]
-				# 0.0.6.18 (#175) : exactement les sous-cellules que la surface traverse (un coin plein si y < hauteur / STEP) ; avant :
-				# 2 ou 3 de plus en bas et en haut de chaque colonne, examinées pour rien.
-				lowest_y = maxi(0, ceili(minf(minf(a, b), minf(c, d)) / STEP) - 1 - y_low)
-				highest_y = mini(height - 2, ceili(maxf(maxf(a, b), maxf(c, d)) / STEP) - 1 - y_low)
-				var hollow_low := mini(mini(cave_low[x * size + z], cave_low[x * size + z + 1]), mini(cave_low[(x + 1) * size + z], cave_low[(x + 1) * size + z + 1]))
-				var hollow_high := maxi(maxi(cave_high[x * size + z], cave_high[x * size + z + 1]), maxi(cave_high[(x + 1) * size + z], cave_high[(x + 1) * size + z + 1]))
-				if hollow_high >= 0:
-					hollow_low = maxi(0, hollow_low - 2)
-					hollow_high = mini(height - 2, hollow_high + 1)
-					if lowest_y > highest_y:
-						lowest_y = hollow_low
-						highest_y = hollow_high
-					else:
-						lowest_y = mini(lowest_y, hollow_low)
-						highest_y = maxi(highest_y, hollow_high)
-			low_cells[x * (size - 1) + z] = lowest_y
-			high_cells[x * (size - 1) + z] = highest_y
-			slab_min = mini(slab_min, lowest_y)
-			slab_max = maxi(slab_max, highest_y)
-		slab_low[x] = slab_min
-		slab_high[x] = slab_max
-	var known_kinds := PackedInt32Array()
-	known_kinds.resize(size * height * size)
-	known_kinds.fill(UNKNOWN_KIND)
-	for x in range(size - 1):
-		for z in range(size - 1):
-			for y in range(low_cells[x * (size - 1) + z], high_cells[x * (size - 1) + z] + 1):
-				var base := (x * height + y) * size + z
-				var solid := 0
-				for index in range(8):
-					var value := values[base + offsets[index]]
-					corners[index] = value
-					if value > 0.0:
-						solid += 1
-				if solid == 0 or solid == 8:
-					continue
-				# 0.0.6.18 : les 12 arêtes d'une sous-cellule dans une table (avant : 24 essais, dont 12 pour rien).
-				var sum := Vector3.ZERO
-				var count := 0
-				for edge in range(12):
-					var one := edge_from[edge]
-					var other := edge_to[edge]
-					var a := corners[one]
-					var b := corners[other]
-					if (a > 0.0) == (b > 0.0):
-						continue
-					sum += corner_place[one].lerp(corner_place[other], a / (a - b))
-					count += 1
-				var cell := Vector3i(x, y, z)
-				cell_slot[base] = cell_vertex.size()
-				cell_vertex.append((Vector3(start + cell) + sum / count) * STEP)
-				var slope := Vector3(
-					corners[1] + corners[3] + corners[5] + corners[7] - corners[0] - corners[2] - corners[4] - corners[6],
-					corners[2] + corners[3] + corners[6] + corners[7] - corners[0] - corners[1] - corners[4] - corners[5],
-					corners[4] + corners[5] + corners[6] + corners[7] - corners[0] - corners[1] - corners[2] - corners[3])
-				cell_normal.append((-slope).normalized() if slope.length_squared() > 0.000001 else Vector3.UP)
-				# Couleur des sommets (0.0.5.9) : alpha 0 = sable posé, bleu 0 = terre nue posée, blanc = sol de la graine ;
-				# 0.0.5.12 : vert 0 = pierre ; 0.0.5.18 : rouge 0 (avec vert 0) = Roche-mère. 0.0.6.18 : part de chaque
-				# matière lue dans une table (KIND_PAINT…) : mêmes nombres, sans une longue suite de conditions par coin.
-				var paint := Vector4.ZERO
-				var wet := Vector2.ZERO
-				var cover := Vector2.ZERO
-				var ore := Color(0.0, 0.0, 0.0, 0.0)
-				var weight := 0
-				for index in range(8):
-					if corners[index] > 0.0:
-						var kind_at: int = base + offsets[index]
-						var kind: int = known_kinds[kind_at]
-						if kind == UNKNOWN_KIND:
-							var corner: Vector3i = cell + corner_at[index]
-							kind = kinds[corner] if kinds.has(corner) else natural_kind(start + corner)
-							known_kinds[kind_at] = kind
-						var slot := kind + 1
-						if slot < 0 or slot >= KIND_SLOTS:
-							slot = 0
-						paint += paint_of[slot]
-						wet += wet_of[slot]
-						cover += cover_of[slot]
-						ore += ore_of[slot]
-						weight += 1
-				paint /= maxf(weight, 1)
-				cell_color.append(Color(1.0 - paint.w, 1.0 - paint.z, 1.0 - paint.y, 1.0 - paint.x))
-				# 0.0.5.20 : argile (U) et boue (V) ; 0.0.6 : neige (UV2.x) et gravier (UV2.y) ;
-				# 0.0.6.4 : calcaire, charbon, silex (CUSTOM0.rgb) ; 0.0.6.15 : litière d'aiguilles (CUSTOM0.a).
-				cell_uv.append(wet / maxf(weight, 1))
-				cell_uv2.append(cover / maxf(weight, 1))
-				cell_ores.append(ore / maxf(weight, 1))
-	# Une face par arête traversée, entre les 4 sous-cellules qui la partagent ; la zone garde les arêtes
-	# qui partent de ses propres points (pas de double avec la zone voisine).
-	var used := PackedInt32Array()
-	used.resize(cell_vertex.size())
-	used.fill(-1)
-	var triangle := PackedInt32Array()
-	triangle.resize(3)
-	var axes := [Vector3i(1, 0, 0), Vector3i(0, 1, 0), Vector3i(0, 0, 1)]
-	for axis_index in range(3):
-		var axis: Vector3i = axes[axis_index]
-		var side_a: Vector3i = axes[(axis_index + 1) % 3]
-		var side_b: Vector3i = axes[(axis_index + 2) % 3]
-		var step := (axis.x * height + axis.y) * size + axis.z
-		var step_a := (side_a.x * height + side_a.y) * size + side_a.z
-		var step_b := (side_b.x * height + side_b.y) * size + side_b.z
-		for x in range(1, size - 1):
-			for y in range(maxi(maxi(1, origin.y - y_low), slab_low[x]), mini(mini(height - 1, origin.y + POINTS - y_low), slab_high[x] + 1)):
-				if y + axis.y >= height:
-					continue
-				for z in range(1, size - 1):
-					if y < low_cells[x * (size - 1) + z] or y > high_cells[x * (size - 1) + z]:
-						continue
-					var index := (x * height + y) * size + z
-					var first := values[index]
-					if (first > 0.0) == (values[index + step] > 0.0):
-						continue
-					var q0 := cell_slot[index]
-					var q1 := cell_slot[index - step_a]
-					var q2 := cell_slot[index - step_a - step_b]
-					var q3 := cell_slot[index - step_b]
-					if q0 < 0 or q1 < 0 or q2 < 0 or q3 < 0:
-						continue
-					var outward := Vector3(axis) if first > 0.0 else -Vector3(axis)
-					# 0.0.5.14 : face coupée selon la diagonale qui garde les deux triangles tournés vers dehors
-					# (sur les pentes, l'autre coupe pouvait retourner un petit triangle).
-					var p0 := cell_vertex[q0]
-					var p1 := cell_vertex[q1]
-					var p2 := cell_vertex[q2]
-					var p3 := cell_vertex[q3]
-					var facing := absf((p2 - p0).cross(p1 - p0).dot(outward)) + absf((p3 - p0).cross(p2 - p0).dot(outward))
-					var other_facing := absf((p3 - p1).cross(p2 - p1).dot(outward)) + absf((p0 - p1).cross(p3 - p1).dot(outward))
-					var folded := signf((p2 - p0).cross(p1 - p0).dot(outward)) != signf((p3 - p0).cross(p2 - p0).dot(outward))
-					var other_folded := signf((p3 - p1).cross(p2 - p1).dot(outward)) != signf((p0 - p1).cross(p3 - p1).dot(outward))
-					var turned := (folded and not other_folded) or (folded == other_folded and other_facing > facing)
-					for half in range(2):
-						# Coupe [0, 1, 2] + [0, 2, 3], ou [1, 2, 3] + [1, 3, 0].
-						if turned:
-							triangle[0] = q1
-							triangle[1] = q2 if half == 0 else q3
-							triangle[2] = q3 if half == 0 else q0
-						else:
-							triangle[0] = q0
-							triangle[1] = q1 if half == 0 else q2
-							triangle[2] = q2 if half == 0 else q3
-						var a := cell_vertex[triangle[0]]
-						if (cell_vertex[triangle[2]] - a).cross(cell_vertex[triangle[1]] - a).dot(outward) < 0.0:
-							var swap := triangle[1]
-							triangle[1] = triangle[2]
-							triangle[2] = swap
-						for corner in range(3):
-							var slot := triangle[corner]
-							var mapped := used[slot]
-							if mapped < 0:
-								mapped = vertices.size()
-								used[slot] = mapped
-								vertices.append(cell_vertex[slot])
-								normals.append(cell_normal[slot])
-								colors.append(cell_color[slot])
-								uvs.append(cell_uv[slot])
-								uvs2.append(cell_uv2[slot])
-								ore_colors.append(cell_ores[slot])
-							indices.append(mapped)
-	# Une couleur par sommet, convertie d'un coup en 4 nombres (bien plus rapide qu'un petit tableau par sommet).
-	return [vertices, normals, colors, uvs, uvs2, ore_colors.to_byte_array().to_float32_array(), indices]
+	# 0.0.7.20 : le même calcul, découpable en petites étapes (surface_job.gd) ; ici, d'un coup.
+	return SurfaceJob.new(self, zone).run()
 
 # Les 12 arêtes d'une sous-cellule (coins 0 à 7 : bit 1 = X, 2 = Y, 4 = Z), dans l'ordre d'avant 0.0.6.18.
 const EDGE_FROM: Array[int] = [0, 0, 0, 1, 1, 2, 2, 3, 4, 4, 5, 6]
@@ -1261,15 +1010,32 @@ var _lakes_chosen: Dictionary = {}
 var _lakes_chosen_ready := false
 
 func _lake_choice() -> Dictionary:
+	while _lake_choice_part():
+		pass
+	return _lakes_chosen
+
+# 0.0.7.20 : le choix des lacs (environ 0,6 s) par morceaux de LAKE_CHOICE_PART zones, puis le tri ; vrai tant qu'il en
+# reste. Même résultat que d'un coup (même ordre des zones : x, puis z).
+const LAKE_CHOICE_PART := 16
+var _lake_candidates: Array = []
+var _lake_choice_at := 0
+
+func _lake_choice_part() -> bool:
 	if _lakes_chosen_ready:
-		return _lakes_chosen
+		return false
+	# Pendant le calcul, un appel imbriqué reçoit le choix (encore vide), comme avant.
 	_lakes_chosen_ready = true
-	var candidates := []
-	for x in range(-32, 32):
-		for z in range(-32, 32):
+	if _lake_choice_at < 64 * 64:
+		var x := -32 + _lake_choice_at / 64
+		for z in range(-32 + _lake_choice_at % 64, -32 + _lake_choice_at % 64 + LAKE_CHOICE_PART):
 			for lake in _raw_zone_lakes(Vector2i(x, z)):
 				if _lake_ok(lake):
-					candidates.append([lake, Vector2i(x, z)])
+					_lake_candidates.append([lake, Vector2i(x, z)])
+		_lake_choice_at += LAKE_CHOICE_PART
+		_lakes_chosen_ready = false
+		return true
+	var candidates := _lake_candidates
+	_lake_candidates = []
 	candidates.sort_custom(func(a, b):
 		if a[0].radius != b[0].radius:
 			return a[0].radius > b[0].radius
@@ -1289,7 +1055,7 @@ func _lake_choice() -> Dictionary:
 			if not _lakes_chosen.has(candidate[1]):
 				_lakes_chosen[candidate[1]] = []
 			_lakes_chosen[candidate[1]].append(lake)
-	return _lakes_chosen
+	return false
 
 func _zone_lakes(area: Vector2i) -> Array:
 	if _lake_cache.has(area):
@@ -1894,28 +1660,44 @@ var _mountain_list: Array = []
 var _mountain_list_ready := false
 
 func _all_mountains() -> Array:
-	if not _mountain_list_ready:
-		_mountain_list_ready = true
-		# 0.0.6.17 : jusqu'au bord des grands mondes (96 × 96 zones) ; ±40 zones avant (mêmes montagnes pour eux).
-		var reach := maxi(40, half_zones + 8)
-		for x in range(-reach, reach):
-			for z in range(-reach, reach):
+	while _mountains_part():
+		pass
+	return _mountain_list
+
+# 0.0.7.20 : la liste (environ 0,6 s) par rangées de zones (deux passages), puis le tri ; vrai tant qu'il en reste.
+# Même résultat que d'un coup (même ordre des zones).
+var _mountain_at := 0
+
+func _mountains_part() -> bool:
+	if _mountain_list_ready:
+		return false
+	# Pendant le calcul, un appel imbriqué reçoit la liste déjà trouvée, comme avant.
+	_mountain_list_ready = true
+	# 0.0.6.17 : jusqu'au bord des grands mondes (96 × 96 zones) ; ±40 zones avant (mêmes montagnes pour eux).
+	var reach := maxi(40, half_zones + 8)
+	var rows := 2 * reach
+	if _mountain_at < 2 * rows:
+		var x := -reach + _mountain_at % rows
+		for z in range(-reach, reach):
+			if _mountain_at < rows:
 				var found := _zone_mountain(Vector2i(x, z))
 				if not found.is_empty():
 					_mountain_list.append(found)
-		# 0.0.5.35 (version 13) : chaînes de montagnes, jamais près de l'apparition ni de la plage.
-		for x in range(-reach, reach):
-			for z in range(-reach, reach):
-				for peak in Generation.mountain_chain(_seed, Vector2i(x, z), generation_options):
-					var clear := true
-					for spot in _flat_spots:
-						clear = clear and peak.center.distance_to(spot[0]) >= spot[1] + peak.radius * peak.stretch + 10.0
-					if clear:
-						_mountain_list.append(peak)
-		# Jamais une montagne de sable sur une montagne de terre (elle la recouvrirait de sable).
-		var rocks := _mountain_list.filter(func(found): return not found.get("sand", false))
-		_mountain_list = _mountain_list.filter(func(found): return not found.get("sand", false) or rocks.all(func(rock): return rock.center.distance_to(found.center) > (rock.radius * rock.stretch + found.radius * found.stretch) * 1.1))
-	return _mountain_list
+				continue
+			# 0.0.5.35 (version 13) : chaînes de montagnes, jamais près de l'apparition ni de la plage.
+			for peak in Generation.mountain_chain(_seed, Vector2i(x, z), generation_options):
+				var clear := true
+				for spot in _flat_spots:
+					clear = clear and peak.center.distance_to(spot[0]) >= spot[1] + peak.radius * peak.stretch + 10.0
+				if clear:
+					_mountain_list.append(peak)
+		_mountain_at += 1
+		_mountain_list_ready = false
+		return true
+	# Jamais une montagne de sable sur une montagne de terre (elle la recouvrirait de sable).
+	var rocks := _mountain_list.filter(func(found): return not found.get("sand", false))
+	_mountain_list = _mountain_list.filter(func(found): return not found.get("sand", false) or rocks.all(func(rock): return rock.center.distance_to(found.center) > (rock.radius * rock.stretch + found.radius * found.stretch) * 1.1))
+	return false
 
 func _mountains_near(at: Vector2) -> Array:
 	var here := Vector2i(floori(at.x / ZONE_METERS), floori(at.y / ZONE_METERS))
@@ -2109,6 +1891,8 @@ var _rivers_ready := false
 var _river_zones: Dictionary = {}
 
 func rivers() -> Array:
+	if _prepare_stage >= 0 and not _preparing:
+		prepare_step(1 << 40)
 	if not _rivers_ready:
 		_rivers_ready = true
 		if _rivers_on:
@@ -2118,221 +1902,289 @@ func rivers() -> Array:
 				_build_rivers()
 	return _rivers
 
+# 0.0.7.20 : avec setup(..., false), montagnes, choix des lacs, rivières, crevasses et grottes de la graine (environ 2 s) en petites
+# étapes (vitrine de l'accueil, une par image) ; même résultat que setup() d'un coup. Ne rien lire du terrain avant la
+# fin (prepare_step vrai) ; rivers() termine d'un coup ce qui reste, au besoin.
+var _prepare_stage := -1
+var _preparing := false
+var _river_lists: Array = []
+var _river_at := 0
+
+func prepare_step(budget_usec: int) -> bool:
+	if _prepare_stage < 0:
+		return true
+	var deadline := Time.get_ticks_usec() + budget_usec
+	_preparing = true
+	# Comme rivers() : pendant le calcul, un appel imbriqué reçoit les rivières déjà tracées.
+	_rivers_ready = true
+	while true:
+		match _prepare_stage:
+			0:
+				if not _mountains_part():
+					_prepare_stage = 1
+			1:
+				if not _lake_choice_part():
+					_prepare_stage = 2
+					_river_lists = [[], [], {}]
+					_river_at = -half_zones
+			2:
+				_river_lake_row(_river_at, _river_lists)
+				_river_at += 1
+				if _river_at >= half_zones:
+					_prepare_stage = 3
+					_river_at = 0
+			3:
+				if _river_at < _river_lists[1].size():
+					_river_from(_river_lists[1][_river_at], _river_lists[0], _river_lists[1])
+					_river_at += 1
+				else:
+					_prepare_stage = 4
+			4:
+				_finish_rivers()
+				_river_lists = []
+				_prepare_stage = 5
+			5:
+				# Crevasses puis grottes (celles-ci lisent les hauteurs, qui comptent les crevasses).
+				if int(generation_options.get("version", 0)) < 14 or not _crevasses_part():
+					_prepare_stage = 6
+			_:
+				if int(generation_options.get("version", 0)) < 14 or not _caves_part():
+					_prepare_stage = -1
+		if _prepare_stage < 0 or Time.get_ticks_usec() >= deadline:
+			break
+	_preparing = false
+	_rivers_ready = _prepare_stage < 0
+	return _prepare_stage < 0
+
 # 0.0.6.22 (génération 30, #194) : chaque rivière part d'un lac de montagne, par son exutoire (le point le plus bas de
 # sa rive), l'eau au niveau du lac ; elle descend jusqu'à un lac de la plaine ou se jette dans une rivière déjà tracée,
 # au même niveau. Berges vérifiées tout du long (des deux côtés, aussi entre les points) : l'eau ne dépasse jamais la
 # berge la plus basse ; à l'arrivée, jamais plus haute que le lac. Les mondes d'avant gardent leurs rivières.
 func _build_rivers_from_lakes() -> void:
-	var limit: float = half_zones * ZONE_METERS - 6.0
-	var plains_lakes := []
-	var mountain_lakes := []
-	var seen := {}
+	var lists := _river_lake_lists()
+	for source_lake: Dictionary in lists[1]:
+		_river_from(source_lake, lists[0], lists[1])
+	_finish_rivers()
+
+# Lacs de plaine et lacs de montagne de tout le monde, chacun une seule fois (ordre des zones : x, puis z).
+func _river_lake_lists() -> Array:
+	var lists := [[], [], {}]
 	for x in range(-half_zones, half_zones):
-		for z in range(-half_zones, half_zones):
-			for lake in _zone_lakes(Vector2i(x, z)):
-				# Un lac est listé dans chaque zone qu'il touche : retenu une seule fois (par sa position).
-				var key := Vector2i(roundi(lake.start.x * 4.0), roundi(lake.start.y * 4.0))
-				if seen.has(key):
-					continue
-				seen[key] = true
-				if lake.has("on_mountain"):
-					mountain_lakes.append(lake)
-				else:
-					plains_lakes.append(lake)
-	for source_lake: Dictionary in mountain_lakes:
-		var source_id := lake_id(source_lake)
-		var level := lake_level(source_lake)
-		# Exutoire : le point du contour dont le sol, un peu plus loin dehors, est le plus bas.
-		var center: Vector2 = (source_lake.start + source_lake.end) / 2.0
-		var outlet := Vector2.INF
-		var outside := INF
-		var heading := Vector2.ZERO
-		for offset in lake_outline(source_lake, 36):
-			# Le contour est donné par rapport au milieu du lac.
-			var point: Vector2 = center + offset
-			var away := offset.normalized()
-			var lower := _base_height(point + away * 3.0)
-			# 0.0.6.24 (version 32) : sortie la plus douce (sol dehors sous le lac, mais le moins possible) ; avant : la plus
-			# basse, souvent au bord d'une falaise (l'eau tombait de 7 à 13 m dès la sortie).
-			var better: bool = (lower < level - 0.5 and (outside > level - 0.5 or lower > outside)) if _lakes_v32 else lower < outside
-			if better:
-				outside = lower
-				outlet = point
-				heading = away
-		if outlet == Vector2.INF or outside > level - 0.5 or absf(outlet.x) > limit or absf(outlet.y) > limit:
-			continue
-		var target := Vector2.INF
-		var target_level := INF
-		for lake in plains_lakes:
-			var middle: Vector2 = (lake.start + lake.end) / 2.0
-			if lake_level(lake) < level - 2.0 and (target == Vector2.INF or middle.distance_to(outlet) < target.distance_to(outlet)):
-				target = middle
-		if target == Vector2.INF or target.distance_to(outlet) > 450.0:
-			continue
-		var outward := heading
-		var at := outlet
-		var points := PackedVector2Array([at])
-		var grounds := PackedFloat32Array([_base_height(at)])
-		var climbed := 0.0
-		var joined := {}
-		var reached := {}
-		for index in range(300):
-			var best := Vector2.INF
-			var best_height := INF
-			var best_cost := INF
-			for turn in range(12):
-				var direction := Vector2.from_angle(TAU * turn / 12.0)
-				if heading != Vector2.ZERO and direction.dot(heading) < 0.4:
-					continue
-				var next := at + direction * RIVER_STEP
-				var height := _base_height(next)
-				var cost := height + 0.35 * next.distance_to(target)
-				if cost < best_cost:
-					best_cost = cost
-					best_height = height
-					best = next
-			if best == Vector2.INF or absf(best.x) > limit or absf(best.y) > limit:
-				break
-			var near_other_lake := false
-			for lake in mountain_lakes:
-				if (lake.start as Vector2).distance_to(source_lake.start) > 0.1:
-					near_other_lake = near_other_lake or _lake_distance(best, lake) < lake.radius + lake.get("bank", 0.0) + 2.7 + RIVER_BANK + 1.5
-			var hugs_source: bool = _lakes_v32 and index > 4 and _lake_distance(best, source_lake) < source_lake.radius + source_lake.get("bank", 0.0) + RIVER_BANK + 2.0
-			if near_other_lake or hugs_source or (index > 3 and _lake_distance(best, source_lake) < source_lake.radius + 1.0):
-				break
-			var loops := false
-			for earlier in range(points.size() - 3):
-				loops = loops or points[earlier].distance_to(best) < RIVER_STEP * 0.75
-			if loops:
-				break
-			climbed += maxf(0.0, best_height - grounds[grounds.size() - 1])
-			if climbed > 20.0:
-				break
-			heading = (best - at).normalized()
-			at = best
-			points.append(at)
-			grounds.append(best_height)
-			# Se jette dans une rivière déjà tracée (au même niveau, voir plus bas).
-			var other := river_near(at)
-			if not other.is_empty() and other.distance < other.width + RIVER_BANK + 1.0:
-				joined = other
-				break
-			# 0.0.6.24 (version 32) : près de la rive d'un lac de plaine, la rivière y entre tout droit (avant : elle pouvait
-			# longer la rive, séparée du lac par un petit mur).
-			if _lakes_v32:
-				var shore_lake := {}
-				for near_lake in _lakes_near(at):
-					if not near_lake.has("on_mountain") and _lake_distance(at, near_lake) < near_lake.radius + near_lake.get("bank", 0.0) + 6.0:
-						shore_lake = near_lake
-				if not shore_lake.is_empty():
-					var middle_of: Vector2 = (shore_lake.start + shore_lake.end) / 2.0
-					for step in range(8):
-						if not lake_at(at).is_empty():
-							break
-						at += (middle_of - at).normalized() * RIVER_STEP
-						points.append(at)
-						grounds.append(_base_height(at))
-			var lake := lake_at(at)
-			if not lake.is_empty():
-				reached = lake
-				break
-		if points.size() < 8 or (joined.is_empty() and (reached.is_empty() or reached.has("on_mountain"))):
-			continue
-		if _lakes_v32:
-			# Lit creusé 2,5 m dans le lac de départ, sans y dessiner d'eau.
-			points.insert(0, outlet - outward * 2.5)
-			grounds.insert(0, grounds[0])
-		var gap := SURFACE_GAP if _rivers_downhill else 0.0
-		var beds := PackedFloat32Array()
-		var widths := PackedFloat32Array()
-		var lengths := PackedFloat32Array()
-		for index in range(points.size()):
-			var width := 1.1 + 1.6 * index / float(points.size() - 1)
-			var before: Vector2 = points[maxi(index - 1, 0)]
-			var after: Vector2 = points[mini(index + 1, points.size() - 1)]
-			var across: Vector2 = (after - before).normalized().orthogonal()
-			# Berge la plus basse : des deux côtés, au bord de l'eau et plus loin, ici et à mi-chemin du point suivant.
-			var low_bank := INF
-			for along in [0.0, 0.5]:
-				var middle: Vector2 = points[index].lerp(after, along)
-				for side in [-1.0, 1.0]:
-					for reach in [width * 0.6, width, width + RIVER_BANK]:
-						low_bank = minf(low_bank, _base_height(middle + across * side * reach))
-			var bed: float = minf(grounds[index] - RIVER_DEPTH, low_bank - RIVER_WATER - 0.15)
-			# L'eau sort du lac à son niveau et y reste tant qu'elle traverse la rive (sinon, le bord de l'eau du lac
-			# resterait en l'air au-dessus du lit) ; elle descend ensuite.
-			var in_rim: bool = _lake_distance(points[index], source_lake) < source_lake.radius + source_lake.get("bank", 0.0) + width + RIVER_BANK
-			if index == 0 or (in_rim and beds[index - 1] >= level - RIVER_WATER - gap - 0.001):
-				bed = level - RIVER_WATER - gap
-			else:
-				bed = minf(bed, beds[index - 1] - 0.02)
-			lengths.append(0.0 if index == 0 else lengths[index - 1] + RIVER_STEP)
-			beds.append(bed)
-			widths.append(width)
-		# 0.0.6.24 (version 32) : pente limitée (RIVER_MAX_FALL par pas de 2 m) : avant une chute, le lit se creuse plus tôt et
-		# descend petit à petit (avant : d'un coup, un trou où l'eau tombait). La sortie du lac reste à son niveau.
-		# Le lit qui touche encore le lac de départ reste à son niveau (sinon le bord du lac resterait en l'air) : ces premiers
-		# points (keep) ne sont jamais abaissés.
-		var keep := 2
-		while keep < points.size() and _lake_distance(points[keep], source_lake) < source_lake.radius + source_lake.get("bank", 0.0) + widths[keep] * 2.0 + RIVER_BANK + 1.0:
-			keep += 1
-		if _lakes_v32:
-			for index in range(beds.size() - 2, keep - 1, -1):
-				beds[index] = minf(beds[index], beds[index + 1] + RIVER_MAX_FALL)
-		# Arrivée (0.0.6.23) : l'eau finit juste sous la surface du lac ou de la rivière où elle se jette, et ne descend jamais
-		# plus bas (avant : elle passait sous le niveau du lac et se voyait dessous) ; dans un lac, le ruban continue 2,5 m.
-		var last := points.size() - 1
-		var end_water: float = lake_level(reached) if joined.is_empty() else joined.bed + RIVER_WATER
-		var end_bed := end_water - SURFACE_GAP - RIVER_WATER
-		if not _rivers_downhill:
-			# Génération 30 (0.0.6.22), gardée telle quelle.
-			beds[last] = minf(beds[last], end_water - RIVER_WATER - 0.05)
-			_add_river(points, beds, widths, lengths)
-			continue
-		# Génération 31 : la rivière ne passe jamais sous l'eau où elle arrive. Dans une rivière : au même niveau, et
-		# écartée si son lit passe nettement plus bas. Dans un lac de plaine : le lac est abaissé jusqu'à l'eau la plus
-		# basse de la rivière (idée de l'utilisateur, 13.11.2026), au plus MAX_LAKE_DROP mètres ; l'eau de la rivière
-		# finit 2 cm sous sa surface, le ruban continue 2,5 m dans le lac.
-		var lowest := INF
-		for bed: float in beds:
-			lowest = minf(lowest, bed + RIVER_WATER)
-		if not joined.is_empty():
-			if lowest < end_water - 0.3:
+		_river_lake_row(x, lists)
+	return lists
+
+func _river_lake_row(x: int, lists: Array) -> void:
+	var seen: Dictionary = lists[2]
+	for z in range(-half_zones, half_zones):
+		for lake in _zone_lakes(Vector2i(x, z)):
+			# Un lac est listé dans chaque zone qu'il touche : retenu une seule fois (par sa position).
+			var key := Vector2i(roundi(lake.start.x * 4.0), roundi(lake.start.y * 4.0))
+			if seen.has(key):
 				continue
-			for index in range(beds.size()):
-				beds[index] = maxf(beds[index], end_bed)
-			beds[last] = end_bed
-			_add_river(points, beds, widths, lengths)
-			_rivers[_rivers.size() - 1].fixe = keep
-			continue
-		var lake_key := lake_id(reached)
-		var lowered: float = minf(_lake_drops.get(lake_key, end_water), lowest)
-		if end_water - lowered > MAX_LAKE_DROP:
-			continue
-		_lake_drops[lake_key] = lowered
-		# Le ruban s'arrête au bord de l'eau du lac (deux eaux transparentes l'une sur l'autre faisaient une tache sombre).
-		var edge: float = reached.radius + reached.get("bank", 0.0) * 0.4
-		var outside_point: Vector2 = points[last - 1]
-		var inside_point: Vector2 = points[last]
-		for step in range(12):
-			var middle_point := outside_point.lerp(inside_point, 0.5)
-			if _lake_distance(middle_point, reached) < edge:
-				inside_point = middle_point
+			seen[key] = true
+			if lake.has("on_mountain"):
+				lists[1].append(lake)
 			else:
-				outside_point = middle_point
-		lengths[last] = lengths[last - 1] + points[last - 1].distance_to(outside_point)
-		points[last] = outside_point
+				lists[0].append(lake)
+
+# Une rivière, depuis un lac de montagne (rien si elle ne trouve pas de chemin).
+func _river_from(source_lake: Dictionary, plains_lakes: Array, mountain_lakes: Array) -> void:
+	var limit: float = half_zones * ZONE_METERS - 6.0
+	var source_id := lake_id(source_lake)
+	var level := lake_level(source_lake)
+	# Exutoire : le point du contour dont le sol, un peu plus loin dehors, est le plus bas.
+	var center: Vector2 = (source_lake.start + source_lake.end) / 2.0
+	var outlet := Vector2.INF
+	var outside := INF
+	var heading := Vector2.ZERO
+	for offset in lake_outline(source_lake, 36):
+		# Le contour est donné par rapport au milieu du lac.
+		var point: Vector2 = center + offset
+		var away := offset.normalized()
+		var lower := _base_height(point + away * 3.0)
+		# 0.0.6.24 (version 32) : sortie la plus douce (sol dehors sous le lac, mais le moins possible) ; avant : la plus
+		# basse, souvent au bord d'une falaise (l'eau tombait de 7 à 13 m dès la sortie).
+		var better: bool = (lower < level - 0.5 and (outside > level - 0.5 or lower > outside)) if _lakes_v32 else lower < outside
+		if better:
+			outside = lower
+			outlet = point
+			heading = away
+	if outlet == Vector2.INF or outside > level - 0.5 or absf(outlet.x) > limit or absf(outlet.y) > limit:
+		return
+	var target := Vector2.INF
+	var target_level := INF
+	for lake in plains_lakes:
+		var middle: Vector2 = (lake.start + lake.end) / 2.0
+		if lake_level(lake) < level - 2.0 and (target == Vector2.INF or middle.distance_to(outlet) < target.distance_to(outlet)):
+			target = middle
+	if target == Vector2.INF or target.distance_to(outlet) > 450.0:
+		return
+	var outward := heading
+	var at := outlet
+	var points := PackedVector2Array([at])
+	var grounds := PackedFloat32Array([_base_height(at)])
+	var climbed := 0.0
+	var joined := {}
+	var reached := {}
+	for index in range(300):
+		var best := Vector2.INF
+		var best_height := INF
+		var best_cost := INF
+		for turn in range(12):
+			var direction := Vector2.from_angle(TAU * turn / 12.0)
+			if heading != Vector2.ZERO and direction.dot(heading) < 0.4:
+				continue
+			var next := at + direction * RIVER_STEP
+			var height := _base_height(next)
+			var cost := height + 0.35 * next.distance_to(target)
+			if cost < best_cost:
+				best_cost = cost
+				best_height = height
+				best = next
+		if best == Vector2.INF or absf(best.x) > limit or absf(best.y) > limit:
+			break
+		var near_other_lake := false
+		for lake in mountain_lakes:
+			if (lake.start as Vector2).distance_to(source_lake.start) > 0.1:
+				near_other_lake = near_other_lake or _lake_distance(best, lake) < lake.radius + lake.get("bank", 0.0) + 2.7 + RIVER_BANK + 1.5
+		var hugs_source: bool = _lakes_v32 and index > 4 and _lake_distance(best, source_lake) < source_lake.radius + source_lake.get("bank", 0.0) + RIVER_BANK + 2.0
+		if near_other_lake or hugs_source or (index > 3 and _lake_distance(best, source_lake) < source_lake.radius + 1.0):
+			break
+		var loops := false
+		for earlier in range(points.size() - 3):
+			loops = loops or points[earlier].distance_to(best) < RIVER_STEP * 0.75
+		if loops:
+			break
+		climbed += maxf(0.0, best_height - grounds[grounds.size() - 1])
+		if climbed > 20.0:
+			break
+		heading = (best - at).normalized()
+		at = best
+		points.append(at)
+		grounds.append(best_height)
+		# Se jette dans une rivière déjà tracée (au même niveau, voir plus bas).
+		var other := river_near(at)
+		if not other.is_empty() and other.distance < other.width + RIVER_BANK + 1.0:
+			joined = other
+			break
+		# 0.0.6.24 (version 32) : près de la rive d'un lac de plaine, la rivière y entre tout droit (avant : elle pouvait
+		# longer la rive, séparée du lac par un petit mur).
 		if _lakes_v32:
-			# Lit creusé 2,5 m dans le lac (raccord net), sans y dessiner d'eau (celle du lac suffit).
-			points.append(points[points.size() - 1] + (points[points.size() - 1] - points[points.size() - 2]).normalized() * 2.5)
-			beds.append(0.0)
-			widths.append(widths[widths.size() - 1])
-			lengths.append(lengths[lengths.size() - 1] + 2.5)
+			var shore_lake := {}
+			for near_lake in _lakes_near(at):
+				if not near_lake.has("on_mountain") and _lake_distance(at, near_lake) < near_lake.radius + near_lake.get("bank", 0.0) + 6.0:
+					shore_lake = near_lake
+			if not shore_lake.is_empty():
+				var middle_of: Vector2 = (shore_lake.start + shore_lake.end) / 2.0
+				for step in range(8):
+					if not lake_at(at).is_empty():
+						break
+					at += (middle_of - at).normalized() * RIVER_STEP
+					points.append(at)
+					grounds.append(_base_height(at))
+		var lake := lake_at(at)
+		if not lake.is_empty():
+			reached = lake
+			break
+	if points.size() < 8 or (joined.is_empty() and (reached.is_empty() or reached.has("on_mountain"))):
+		return
+	if _lakes_v32:
+		# Lit creusé 2,5 m dans le lac de départ, sans y dessiner d'eau.
+		points.insert(0, outlet - outward * 2.5)
+		grounds.insert(0, grounds[0])
+	var gap := SURFACE_GAP if _rivers_downhill else 0.0
+	var beds := PackedFloat32Array()
+	var widths := PackedFloat32Array()
+	var lengths := PackedFloat32Array()
+	for index in range(points.size()):
+		var width := 1.1 + 1.6 * index / float(points.size() - 1)
+		var before: Vector2 = points[maxi(index - 1, 0)]
+		var after: Vector2 = points[mini(index + 1, points.size() - 1)]
+		var across: Vector2 = (after - before).normalized().orthogonal()
+		# Berge la plus basse : des deux côtés, au bord de l'eau et plus loin, ici et à mi-chemin du point suivant.
+		var low_bank := INF
+		for along in [0.0, 0.5]:
+			var middle: Vector2 = points[index].lerp(after, along)
+			for side in [-1.0, 1.0]:
+				for reach in [width * 0.6, width, width + RIVER_BANK]:
+					low_bank = minf(low_bank, _base_height(middle + across * side * reach))
+		var bed: float = minf(grounds[index] - RIVER_DEPTH, low_bank - RIVER_WATER - 0.15)
+		# L'eau sort du lac à son niveau et y reste tant qu'elle traverse la rive (sinon, le bord de l'eau du lac
+		# resterait en l'air au-dessus du lit) ; elle descend ensuite.
+		var in_rim: bool = _lake_distance(points[index], source_lake) < source_lake.radius + source_lake.get("bank", 0.0) + width + RIVER_BANK
+		if index == 0 or (in_rim and beds[index - 1] >= level - RIVER_WATER - gap - 0.001):
+			bed = level - RIVER_WATER - gap
+		else:
+			bed = minf(bed, beds[index - 1] - 0.02)
+		lengths.append(0.0 if index == 0 else lengths[index - 1] + RIVER_STEP)
+		beds.append(bed)
+		widths.append(width)
+	# 0.0.6.24 (version 32) : pente limitée (RIVER_MAX_FALL par pas de 2 m) : avant une chute, le lit se creuse plus tôt et
+	# descend petit à petit (avant : d'un coup, un trou où l'eau tombait). La sortie du lac reste à son niveau.
+	# Le lit qui touche encore le lac de départ reste à son niveau (sinon le bord du lac resterait en l'air) : ces premiers
+	# points (keep) ne sont jamais abaissés.
+	var keep := 2
+	while keep < points.size() and _lake_distance(points[keep], source_lake) < source_lake.radius + source_lake.get("bank", 0.0) + widths[keep] * 2.0 + RIVER_BANK + 1.0:
+		keep += 1
+	if _lakes_v32:
+		for index in range(beds.size() - 2, keep - 1, -1):
+			beds[index] = minf(beds[index], beds[index + 1] + RIVER_MAX_FALL)
+	# Arrivée (0.0.6.23) : l'eau finit juste sous la surface du lac ou de la rivière où elle se jette, et ne descend jamais
+	# plus bas (avant : elle passait sous le niveau du lac et se voyait dessous) ; dans un lac, le ruban continue 2,5 m.
+	var last := points.size() - 1
+	var end_water: float = lake_level(reached) if joined.is_empty() else joined.bed + RIVER_WATER
+	var end_bed := end_water - SURFACE_GAP - RIVER_WATER
+	if not _rivers_downhill:
+		# Génération 30 (0.0.6.22), gardée telle quelle.
+		beds[last] = minf(beds[last], end_water - RIVER_WATER - 0.05)
 		_add_river(points, beds, widths, lengths)
-		_rivers[_rivers.size() - 1].lac = reached
-		if _lakes_v32:
-			_rivers[_rivers.size() - 1].sans_fin = true
+		return
+	# Génération 31 : la rivière ne passe jamais sous l'eau où elle arrive. Dans une rivière : au même niveau, et
+	# écartée si son lit passe nettement plus bas. Dans un lac de plaine : le lac est abaissé jusqu'à l'eau la plus
+	# basse de la rivière (idée de l'utilisateur, 13.11.2026), au plus MAX_LAKE_DROP mètres ; l'eau de la rivière
+	# finit 2 cm sous sa surface, le ruban continue 2,5 m dans le lac.
+	var lowest := INF
+	for bed: float in beds:
+		lowest = minf(lowest, bed + RIVER_WATER)
+	if not joined.is_empty():
+		if lowest < end_water - 0.3:
+			return
+		for index in range(beds.size()):
+			beds[index] = maxf(beds[index], end_bed)
+		beds[last] = end_bed
+		_add_river(points, beds, widths, lengths)
 		_rivers[_rivers.size() - 1].fixe = keep
+		return
+	var lake_key := lake_id(reached)
+	var lowered: float = minf(_lake_drops.get(lake_key, end_water), lowest)
+	if end_water - lowered > MAX_LAKE_DROP:
+		return
+	_lake_drops[lake_key] = lowered
+	# Le ruban s'arrête au bord de l'eau du lac (deux eaux transparentes l'une sur l'autre faisaient une tache sombre).
+	var edge: float = reached.radius + reached.get("bank", 0.0) * 0.4
+	var outside_point: Vector2 = points[last - 1]
+	var inside_point: Vector2 = points[last]
+	for step in range(12):
+		var middle_point := outside_point.lerp(inside_point, 0.5)
+		if _lake_distance(middle_point, reached) < edge:
+			inside_point = middle_point
+		else:
+			outside_point = middle_point
+	lengths[last] = lengths[last - 1] + points[last - 1].distance_to(outside_point)
+	points[last] = outside_point
+	if _lakes_v32:
+		# Lit creusé 2,5 m dans le lac (raccord net), sans y dessiner d'eau (celle du lac suffit).
+		points.append(points[points.size() - 1] + (points[points.size() - 1] - points[points.size() - 2]).normalized() * 2.5)
+		beds.append(0.0)
+		widths.append(widths[widths.size() - 1])
+		lengths.append(lengths[lengths.size() - 1] + 2.5)
+	_add_river(points, beds, widths, lengths)
+	_rivers[_rivers.size() - 1].lac = reached
+	if _lakes_v32:
+		_rivers[_rivers.size() - 1].sans_fin = true
+	_rivers[_rivers.size() - 1].fixe = keep
+
+func _finish_rivers() -> void:
 	# Fin des lacs abaissés : chaque rivière qui arrive dans un lac finit sous sa surface (niveau final, plusieurs rivières
 	# pouvant abaisser le même lac), aussi le long de sa rive (le bord du lac a baissé avec lui).
 	for river: Dictionary in _rivers:

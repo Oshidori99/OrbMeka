@@ -57,7 +57,7 @@ static func tab(id: String, height: int) -> Texture2D:
 		"inventory":
 			var key := "#sac%d" % height
 			return _cache[key] if _cache.has(key) else _keep(key, _svg(BAG_SVG, maxi(height, 12)))
-	var source: Texture2D = texture("caillou" if id == "pebbles" else "pomme")
+	var source: Texture2D = texture("caillou" if id == "pebbles" else ("tronc" if id == "wood" else "pomme"))
 	var image := source.get_image()
 	image.resize(maxi(height, 12), maxi(height, 12), Image.INTERPOLATE_LANCZOS)
 	var key := "#%s%d" % [id, height]
