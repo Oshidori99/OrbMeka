@@ -124,6 +124,8 @@ func _build_interface() -> void:
 	launcher_latest_button.theme_type_variation = "OrbLaunch"
 	launcher_latest_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_min_size(launcher_latest_button, Vector2(0, 64))
+	# 0.0.7.21 : le nom de la dernière version (long) passe à la ligne : la flèche ▼ reste toujours visible à droite.
+	launcher_latest_button.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	launcher_arrow_button = _button("▼", play_row, func(): show_all_versions(not launcher_scroll.visible))
 	launcher_arrow_button.theme_type_variation = "OrbLaunch"
 	launcher_arrow_button.toggle_mode = true
@@ -963,9 +965,11 @@ func open_world(id: String) -> void:
 	active_world.save_folder = catalog.world_folder(id)
 	active_world.text_scale = _text_scale()
 	active_world.grass_density = settings.values.grass_density
+	active_world.shadow_quality = settings.values.shadows
+	active_world.tree_detail_end = active_world.PERFORMANCE_TREE_DETAIL if settings.values.quality == "performance" else Trees.DETAIL_END
 	active_world.grass_distance = float(settings.values.grass_zones) * 8.0
 	active_world.load_distance = int(settings.values.view_distance)
-	active_world.far_distance = int(settings.values.far_distance)
+	active_world.far_distance = int(settings.values.view_distance + settings.values.far_extra)
 	var developer: bool = item.get("mode", Catalog.MODE_DEFAULT) == Catalog.MODE_DEVELOPER
 	active_world.developer_mode = developer
 	active_world.developer_used = item.get("developer_used", developer)

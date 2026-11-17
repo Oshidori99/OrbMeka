@@ -87,6 +87,9 @@ scripts/surface_job.gd (0.0.7.20) : le même calcul de surface d'une zone, déco
 (3 ms au plus par image en jeu) ; smooth_terrain.prepare_step prépare de même la graine (montagnes,
 lacs, rivières, crevasses, grottes) pour la vitrine de l'accueil. Résultats identiques (tests/surface_job_test.gd).
 tools/mesure_perf.gd (0.0.7.20) : mesures sur PC (accueil, ouverture, marche en forêt), fenêtre hors écran.
+tools/squelettes.gd (0.0.7.21) : calcule d'avance les branches de chaque modèle d'arbre (assets/trees/squelettes/,
+à relancer si un modèle change). Paramètres → Vidéo → Qualité d'affichage : préréglages dans user_settings.gd (PRESETS).
+tests/perf_guard_test.gd (0.0.7.21) : garde-fou de vitesse (travail de fond dans son budget par image).
 
 MONDES PERSONNALISÉS (0.0.5.16)
 scripts/world_generation.gd définit les dix fréquences et l'algorithme personnalisé version 1.

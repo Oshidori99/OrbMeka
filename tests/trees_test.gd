@@ -162,9 +162,31 @@ func _run() -> void:
 	check(shown.size() == 1, "the tree is shown in the world")
 	if shown.size() == 1:
 		var body: StaticBody3D = shown[0]
-		var detail: MeshInstance3D = body.get_node("Modele/Detail")
-		var far: MeshInstance3D = body.get_node("Modele/Loin")
-		check(detail.visibility_range_end == Trees.DETAIL_END and far.visibility_range_begin == Trees.DETAIL_END and far.visibility_range_end == Trees.FAR_END, "detailed up to %d m, simplified up to %d m, then nothing" % [Trees.DETAIL_END, Trees.FAR_END])
+		# 0.0.7.21 : arbre intact dessiné en série avec ceux de sa colonne (détaillé, ombre, loin), un dessin par modèle.
+		var column: Vector2i = body.get_meta("column")
+		var series: Array = world.column_series.get(column, [])
+		var detail: MultiMeshInstance3D = null
+		var far: MultiMeshInstance3D = null
+		for node in series:
+			if node.name.begins_with("SerieDetail") and node.multimesh.mesh == Trees.mesh(int(body.get_meta("kind")), int(body.get_meta("size")), false, int(body.get_meta("form"))):
+				detail = node
+			if node.name.begins_with("SerieLoin") and node.multimesh.mesh == Trees.mesh(int(body.get_meta("kind")), int(body.get_meta("size")), true, int(body.get_meta("form"))):
+				far = node
+		check(body.has_meta("series") and body.get_node_or_null("Modele/Detail") == null and detail != null and far != null, "an intact tree is drawn in series with the same trees of its column")
+		if detail != null and far != null:
+			check(detail.visibility_range_end == Trees.DETAIL_END and far.visibility_range_begin == Trees.DETAIL_END and far.visibility_range_end == Trees.FAR_END, "detailed up to %d m, simplified up to %d m, then nothing" % [Trees.DETAIL_END, Trees.FAR_END])
+			var placed := false
+			for place: Transform3D in detail.get_meta("places", []):
+				placed = placed or place.origin.is_equal_approx(body.transform * (body.get_node("Modele") as Node3D).transform.origin)
+			check(placed, "the series draws it at its place")
+		var count_before: int = detail.multimesh.instance_count if detail != null else 0
+		world._leave_series(body)
+		var own: MeshInstance3D = body.get_node_or_null("Modele/Detail")
+		var left := 0
+		for node in world.column_series.get(column, []):
+			if node.name.begins_with("SerieDetail") and node.multimesh.mesh == Trees.mesh(int(body.get_meta("kind")), int(body.get_meta("size")), false, int(body.get_meta("form"))):
+				left = node.multimesh.instance_count
+		check(own != null and not body.has_meta("series") and left == count_before - 1 and body.get_node_or_null("Modele/Ombre") != null and body.get_node_or_null("Modele/Loin") != null, "touched (cut, falling): it takes back its own models and leaves the series")
 		check(body.find_children("*", "CollisionShape3D", true, false).any(func(child): return child.shape is CylinderShape3D), "the trunk is solid")
 		var ground: float = world.terrain.height_at(tree.x, tree.z)
 		check(absf(body.position.y - ground) < 0.2, "standing on the ground")
@@ -196,6 +218,20 @@ func _run() -> void:
 			has_hole = has_hole or look.albedo_color.is_equal_approx(Color(0.05, 0.035, 0.025))
 		holes_ok = holes_ok and has_hole == (kind != Trees.HAZEL)
 	check(files_ok and holes_ok, "Blender models for the three forms of every size; trunk hole on the third form of apple, pine and linden, not hazel")
+	# 0.0.7.21 : squelettes calculés d'avance (tools/squelettes.gd) : les mêmes que calculés, relus vite, pour les 60 modèles.
+	const TreeParts = preload("res://scripts/tree_parts.gd")
+	var stored_ok := true
+	for kind in range(4):
+		for size in range(1, 6):
+			for form in range(3):
+				stored_ok = stored_ok and ResourceLoader.exists(TreeParts.stored_path(kind, size, form))
+	var slowest := 0.0
+	for spec in [[Trees.APPLE, 5, 0], [Trees.PINE, 3, 2], [Trees.HAZEL, 1, 1]]:
+		var at := Time.get_ticks_usec()
+		var read: Dictionary = TreeParts._stored(spec[0], spec[1], spec[2])
+		slowest = maxf(slowest, (Time.get_ticks_usec() - at) / 1000.0)
+		stored_ok = stored_ok and not read.is_empty() and str(read) == str(TreeParts.compute_skeleton(spec[0], spec[1], spec[2]))
+	check(stored_ok, "every tree skeleton stored, the same as computed (read in %.1f ms at most)" % slowest)
 	var formed: StaticBody3D = Trees.tree_body(Trees.LINDEN, 3, false, 1)
 	check((formed.get_node("Modele/Detail") as MeshInstance3D).mesh == Trees.mesh(Trees.LINDEN, 3, false, 1), "a tree shows the model of its form")
 	formed.free()

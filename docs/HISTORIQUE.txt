@@ -3,6 +3,10 @@ Du plus récent au plus ancien. Ce fichier est mis à jour à chaque version.
 
 === Thème « Gameplay et inventaire » (0.0.7) ===
 
+0.0.7.21 — Qualité d'affichage en tête de Vidéo (Performance, Équilibré, Beauté), ombres et anticrénelage réglables, distance lointaine en plus de la distance d'affichage (« +16 »), herbe « Réduite », travail de fond dans un budget par image (300 images par seconde en forêt), arbres intacts dessinés en série, branches des arbres calculées d'avance, garde-fou de vitesse, Jouer du launcher sur plusieurs lignes
+Génération du terrain : version 32 · Menus : version 10.
+Équilibré par défaut sur PC (ombres 48 m, herbe 140 brins), Performance sur le Web ; terrain, arbres et lointain dans un seul budget selon la limite d'images ; squelettes enregistrés (assets/trees/squelettes).
+
 0.0.7.20 — Plus fluide : terrain calculé en petites étapes (plus d'à-coups en forêt), arbres créés peu à peu avec des ombres simplifiées, accueil deux fois plus rapide (forêt de pins, personnages au sol et chargés à la demande), shaders préparés d'avance sur le Web
 Génération du terrain : version 32 · Menus : version 10.
 Surface des zones, lacs, rivières, crevasses et grottes de la graine découpés (même résultat) ; arbres quelques-uns par image ; ombres par le modèle simplifié ; accueil : 1re image 3,4 → 1,5 s.
