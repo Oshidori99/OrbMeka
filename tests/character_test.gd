@@ -38,10 +38,18 @@ func _run() -> void:
 	await process_frame
 	var tabs: Array = app.settings_tabs.keys()
 	check(tabs.find("character") == tabs.find("controls") + 1 and tabs.find("attributes") == tabs.find("character") + 1 and app.settings_tabs.character.text == "Personnage", "Personnage tab between Contrôles and Attributs")
+	# 0.0.7.20 : à l'accueil, pas les modèles des autres personnages (seulement ceux de la vitrine) ; aucun aperçu monté.
+	check(not CharacterPreview.model_loaded("boy9") and not CharacterPreview.model_loaded("girl14") and app.character_previews.values().all(func(preview): return preview.viewport == null), "home reads only the showcase models, no preview built")
 	app.show_page("settings")
 	app.settings_tabs.character.pressed.emit()
 	await process_frame
 	await process_frame
+	# 0.0.7.20 : un modèle lu ou monté par image : tous là en moins d'une seconde.
+	for frame in range(60):
+		if app.character_previews.keys().all(func(card_id): return app.character_previews[card_id].viewport != null or not CharacterPreview.MODELS.has(card_id.get_slice(":", 0))):
+			break
+		await process_frame
+	check(CharacterPreview.MODELS.keys().all(func(id): return CharacterPreview.model_loaded(id)), "opening Paramètres reads every character model")
 	# Six humains × trois peaux (claire, brune, foncée, de haut en bas), puis les six animaux.
 	var cards: Dictionary = app.character_buttons
 	var expected := []

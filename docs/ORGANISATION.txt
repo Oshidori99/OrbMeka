@@ -83,6 +83,10 @@ scripts/smooth_terrain.gd : densité par point (calculée depuis la graine, seul
 changés sont gardés), surface lisse par zone, gestes creuser / ajouter de 50 cm.
 Les points changés sont enregistrés dans le champ « densite » des fichiers de zone
 (format 3 ; le format 2, blocs seuls, reste lisible). Base indestructible à 4 m sous le sol.
+scripts/surface_job.gd (0.0.7.20) : le même calcul de surface d'une zone, découpé en petites étapes
+(3 ms au plus par image en jeu) ; smooth_terrain.prepare_step prépare de même la graine (montagnes,
+lacs, rivières, crevasses, grottes) pour la vitrine de l'accueil. Résultats identiques (tests/surface_job_test.gd).
+tools/mesure_perf.gd (0.0.7.20) : mesures sur PC (accueil, ouverture, marche en forêt), fenêtre hors écran.
 
 MONDES PERSONNALISÉS (0.0.5.16)
 scripts/world_generation.gd définit les dix fréquences et l'algorithme personnalisé version 1.

@@ -42,7 +42,16 @@ F3 : "), "menus share one theme; in-game shortcuts F1, F3 are plain text (no F2 
 	# Fond 3D de l'accueil.
 	var showcase: Node3D = app.showcase
 	check(showcase.is_inside_tree() and showcase.camera.is_current(), "home shows the 3D showcase with its own camera")
+	# 0.0.7.20 : à la première image, seulement ciel, orbe et caméra ; le sol, les personnages et les pins ensuite.
+	check(showcase.runners.is_empty() and showcase.find_children("*", "MultiMeshInstance3D", true, false).is_empty(), "showcase ground built after the first image")
 	showcase.finish_building()
+	# 0.0.7.20 : forêt de pins en fond, en série (quelques dessins pour plus de 100 pins), détaillés près, simplifiés loin.
+	var pines: Array = showcase.find_children("Pins*", "MultiMeshInstance3D", true, false)
+	var pine_count := 0
+	for node: MultiMeshInstance3D in pines:
+		pine_count += node.multimesh.instance_count
+	check(pines.size() <= 8 and pine_count >= 100, "pine forest drawn in series (%d pines, %d draws)" % [pine_count, pines.size()])
+	check(pines.any(func(node): return node.cast_shadow == GeometryInstance3D.SHADOW_CASTING_SETTING_OFF) and pines.any(func(node): return node.cast_shadow != GeometryInstance3D.SHADOW_CASTING_SETTING_OFF), "near pines with shadows, far ones simplified without")
 	check(showcase.find_children("*", "MultiMeshInstance3D", true, false).size() >= 3, "showcase shows the game's flat lawn (0.0.5.5)")
 	# 0.0.3.23 : trois nouveautés (trop de personnages pour les montrer tous) ; 0.0.3.25 : elles courent.
 	check(showcase.runners.size() >= 2 and showcase.runners.size() <= 3 and showcase.runner_ids.all(func(id): return CharacterPreview.CHARACTERS.has(id)), "showcase shows 2 or 3 characters of the menu")
@@ -64,7 +73,7 @@ F3 : "), "menus share one theme; in-game shortcuts F1, F3 are plain text (no F2 
 	for button in [app.new_world_button, app.rename_button, app.duplicate_button, app.world_settings_button, app.delete_button]:
 		check(button.text.length() <= 2 and not button.tooltip_text.is_empty(), "icon button with tooltip: " + button.tooltip_text)
 	check(app.delete_button.tooltip_text == "Supprimer" and app.rename_button.tooltip_text == "Renommer", "icons keep their action names")
-	# Vitrine : vols au-dessus de l'herbe libre devant la place (0.0.4.5 : de haut en bas), sans toucher place, colline ni tour, tournées vers où elles vont.
+	# Vitrine : au sol sur l'herbe libre devant la place (0.0.7.20 : plus de vol), sans toucher place, colline ni tour, tournées vers où elles vont.
 	var in_lane := true
 	var turned := {}
 	var heights := []
@@ -74,15 +83,15 @@ F3 : "), "menus share one theme; in-game shortcuts F1, F3 are plain text (no F2 
 		for index in range(showcase.runners.size()):
 			var runner: Node3D = showcase.runners[index]
 			heights.append(runner.position.y)
-			in_lane = in_lane and runner.position.y >= showcase.FLY_LOW - 0.01 and runner.position.y <= showcase.FLY_HIGH + 0.01 and runner.position.x >= 5.0 and runner.position.x <= 11.0 and runner.position.z > 5.0 and runner.position.z < 8.0
+			in_lane = in_lane and absf(runner.position.y - showcase.terrain.height_at(runner.position.x, runner.position.z)) < 0.3 and runner.position.x >= 5.0 and runner.position.x <= 11.0 and runner.position.z > 5.0 and runner.position.z < 8.0
 			var moved: float = runner.position.x - before[index]
 			# Hors des demi-tours (une image peut aller au bout puis revenir).
 			var far_from_ends: bool = minf(runner.position.x, before[index]) > showcase.RUN_FROM + 0.25 and maxf(runner.position.x, before[index]) < showcase.RUN_TO - 0.25
 			if far_from_ends and absf(moved) > 0.01:
 				# Le modèle regarde vers +Z : rotation de +90° = vers +X.
 				turned[signf(moved) == signf(sin(runner.rotation.y))] = true
-	check(in_lane, "fliers stay above the free grass lane, between low and high")
-	check(heights.min() < 1.2 and heights.max() > 3.0, "fliers go up and down")
+	check(in_lane, "runners stay on the free grass lane, on the ground")
+	check(heights.max() - heights.min() < 0.3, "no more flying (0.0.7.20)")
 	check(turned.has(true) and not turned.has(false), "runners face where they run")
 	check(app.backdrop.material.get_shader_parameter("blur") == 0.0, "home backdrop keeps the 3D scene sharp")
 	# Pause semi-transparente.

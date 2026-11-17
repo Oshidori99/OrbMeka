@@ -29,16 +29,46 @@ const CHARACTERS := {
 }
 # Personnages modélisés dans Blender (personnages.blend, rangé hors du dépôt dans ../Archives OrbMeka/Blender) : aperçu en 3D.
 # La matière « Skin » prend la couleur de peau choisie.
+# 0.0.7.20 : chemins seulement, chaque modèle lu à sa première demande (model_scene) : l'accueil ne lit que ceux de la
+# vitrine ; les autres un par image à l'ouverture des Paramètres (load_next_model), celui du joueur d'abord.
 const MODELS := {
-	"boy9": preload("res://assets/characters/boy9.glb"),
-	"girl9": preload("res://assets/characters/girl9.glb"),
-	"boy14": preload("res://assets/characters/boy14.glb"),
-	"girl14": preload("res://assets/characters/girl14.glb"),
-	"squirrel": preload("res://assets/characters/squirrel.glb"),
-	"fox": preload("res://assets/characters/fox.glb"),
-	"turtle": preload("res://assets/characters/turtle.glb"),
-	"rabbit": preload("res://assets/characters/rabbit.glb"),
+	"boy9": "res://assets/characters/boy9.glb",
+	"girl9": "res://assets/characters/girl9.glb",
+	"boy14": "res://assets/characters/boy14.glb",
+	"girl14": "res://assets/characters/girl14.glb",
+	"squirrel": "res://assets/characters/squirrel.glb",
+	"fox": "res://assets/characters/fox.glb",
+	"turtle": "res://assets/characters/turtle.glb",
+	"rabbit": "res://assets/characters/rabbit.glb",
 }
+static var _scenes: Dictionary = {}
+# Une seule lecture ou mise en place de modèle par image, pour tous les aperçus (pas d'à-coup en ouvrant la page).
+static var _busy_frame := -1
+
+static func model_scene(id: String) -> PackedScene:
+	if not _scenes.has(id):
+		_scenes[id] = load(MODELS[id])
+	return _scenes[id]
+
+static func model_loaded(id: String) -> bool:
+	return _scenes.has(id)
+
+static func _take_frame() -> bool:
+	var frame := Engine.get_process_frames()
+	if _busy_frame == frame:
+		return false
+	_busy_frame = frame
+	return true
+
+# Lit le prochain modèle pas encore lu (first d'abord), si l'image n'a encore rien lu ; faux quand tous le sont.
+static func load_next_model(first := "") -> bool:
+	for id in [first] + MODELS.keys():
+		if MODELS.has(id) and not _scenes.has(id):
+			if _take_frame():
+				model_scene(id)
+			return true
+	return false
+
 # Hauteur vue par l'aperçu 3D d'un humain, en mètres : enfants et adultes à la même échelle.
 const HUMAN_VIEW := 1.85
 # 0.0.3.22 : trois tons de peau pour les quatre humains (pas pour les chats), dans l'ordre du menu.
@@ -58,7 +88,8 @@ static func tone_color(skin_id: String) -> Color:
 var character := "boy14":
 	set(value):
 		character = value
-		_sync_model()
+		_model_wanted = true
+		_sync_when_seen()
 		queue_redraw()
 var skin := "light":
 	set(value):
@@ -71,6 +102,26 @@ var camera: Camera3D
 var model: Node3D
 # Une seule matière de peau par aperçu : changer de peau ne recrée pas le modèle.
 var skin_material := StandardMaterial3D.new()
+
+# 0.0.7.20 : le modèle n'est monté qu'une fois l'aperçu visible et son fichier lu (avant : les 16 aperçus et leurs
+# modèles montés dès le démarrage de l'accueil) ; en attendant, la carte reste vide.
+var _model_wanted := false
+
+func _sync_when_seen() -> void:
+	# Vérifié à l'image suivante : les pages, construites visibles, sont cachées juste après.
+	set_process(_model_wanted and is_inside_tree() and is_visible_in_tree())
+
+func _process(_delta: float) -> void:
+	if not _model_wanted or not is_visible_in_tree():
+		set_process(false)
+		return
+	if MODELS.has(character):
+		if not _take_frame():
+			return
+		model_scene(character)
+	set_process(false)
+	_model_wanted = false
+	_sync_model()
 
 # Modèle 3D (0.0.3.23) : petite scène à part (own_world_3d), rendue une fois puis à chaque changement.
 func _sync_model() -> void:
@@ -108,7 +159,7 @@ func _sync_model() -> void:
 		camera = Camera3D.new()
 		camera.projection = Camera3D.PROJECTION_ORTHOGONAL
 		viewport.add_child(camera)
-	model = MODELS[character].instantiate()
+	model = model_scene(character).instantiate()
 	# Légèrement de trois quarts, comme les prototypes.
 	model.rotation.y = -0.4
 	viewport.add_child(model)
@@ -153,6 +204,8 @@ func _frame_model() -> void:
 func _notification(what: int) -> void:
 	if what == NOTIFICATION_RESIZED or what == NOTIFICATION_VISIBILITY_CHANGED:
 		_frame_model()
+	if what == NOTIFICATION_VISIBILITY_CHANGED or what == NOTIFICATION_READY:
+		_sync_when_seen()
 
 func _rounded(rect: Rect2, color: Color, radius: float) -> void:
 	var box := StyleBoxFlat.new()

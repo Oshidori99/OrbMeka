@@ -1,6 +1,20 @@
-# OrbMeka™ — prototype 0.0.7.19
+# OrbMeka™ — prototype 0.0.7.20
 
 Godot 4.7 / GDScript. Formes et couleurs simples ; assets externes seulement sous licence vérifiée (sons CC0, assets/sounds/CREDITS.txt).
+
+## 0.0.7.20 — Plus fluide : terrain calculé en petites étapes (plus d'à-coups en forêt), arbres créés peu à peu avec des ombres simplifiées, accueil deux fois plus rapide (forêt de pins, personnages au sol et chargés à la demande), shaders préparés d'avance sur le Web
+Version publiée (4 sur 4). Génération inchangée (version 32) : les mondes restent exactement les mêmes.
+- **Terrain en petites étapes** (scripts/surface_job.gd) : la surface d'une zone se calcule en morceaux de 3 ms au plus par image (avant : 27 à 160 ms d'un coup, surtout près des grottes). Résultat identique, vérifié zone par zone.
+- **Arbres créés peu à peu** : en se déplaçant, quelques arbres par image (avant : tous ceux d'une colonne d'un coup, jusqu'à 100 ms en forêt). À l'ouverture et autour du joueur, tout de suite.
+- **Ombres des arbres simplifiées** : de près, l'ombre vient du modèle simplifié (tronc, grosses branches, quelques grandes plaques de feuillage, environ 7 fois moins de sommets). Un arbre coupé ou couché garde l'ombre de son modèle détaillé.
+- **Accueil** : première image en 1,5 s au lieu de 3,4 s ; le petit monde se construit ensuite, sans gel (les montagnes, lacs, rivières, crevasses et grottes de sa graine, environ 2 s d'un coup avant, se calculent en petites étapes, même résultat). **Forêt de pins** en fond (pins du jeu, dessinés en série, simplifiés au loin). Le renard et le lapin restent **au sol** (plus de vol).
+- **Personnages à la demande** : à l'accueil, seulement ceux de la vitrine ; les autres se lisent en ouvrant les Paramètres, un par image, celui du joueur d'abord. Les aperçus de la page Personnage se montent quand on la regarde.
+- **Accueil calme** (PC) : les modèles d'arbres se préparent d'avance, un par image ; ouvrir un monde arrête tout de suite.
+- **Web** (rendu Compatibility) : à l'ouverture d'un monde, chaque sorte de modèle est dessinée une fois, invisible, pour préparer ses shaders (mesuré sur PC en rendu Web : pire image en marchant 263 → 26 ms). Pas sur PC, où Godot les prépare déjà.
+- Mesures (PC sur secteur, tools/mesure_perf.gd) : marche en forêt 45–51 → 139 images/s, images de plus de 50 ms 89–115 → 0.
+
+Tests réussis : surface_job (nouveau : zones par étapes = d'un coup ; graine par étapes = d'un coup, deux graines), character (modèles lus à la demande), menu_style (vitrine : pins en série, personnages au sol, sol construit après la première image) et les tests touchés (+ tests juridiques).
+À tester manuellement : l'accueil (forêt de pins), marcher en forêt, les ombres des arbres de près ; la version Web (demander à Claude Code web de la mesurer).
 
 ## 0.0.7.19 — 4 kg par main et 8 kg à deux, volume (1,5 L et 3 L), nombre au plus par main (8 noisettes…), barres de poids et de volume, refus expliqués
 Version locale (3 sur 4). Génération inchangée (version 32).

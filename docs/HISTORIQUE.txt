@@ -3,6 +3,10 @@ Du plus récent au plus ancien. Ce fichier est mis à jour à chaque version.
 
 === Thème « Gameplay et inventaire » (0.0.7) ===
 
+0.0.7.20 — Plus fluide : terrain calculé en petites étapes (plus d'à-coups en forêt), arbres créés peu à peu avec des ombres simplifiées, accueil deux fois plus rapide (forêt de pins, personnages au sol et chargés à la demande), shaders préparés d'avance sur le Web
+Génération du terrain : version 32 · Menus : version 10.
+Surface des zones, lacs, rivières, crevasses et grottes de la graine découpés (même résultat) ; arbres quelques-uns par image ; ombres par le modèle simplifié ; accueil : 1re image 3,4 → 1,5 s.
+
 0.0.7.19 — 4 kg par main et 8 kg à deux, volume (1,5 L et 3 L), nombre au plus par main (8 noisettes…), barres de poids et de volume, refus expliqués
 Génération du terrain : version 32 · Menus : version 10.
 Poignée 0,25 L, bois compté par sa longueur ; poches 500 g et 0,5 L ; barres comme une batterie (vert, jaune 60 %, orange 80 %, rouge 100 %) en jeu et dans l'inventaire.
