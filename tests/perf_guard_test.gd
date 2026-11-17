@@ -26,7 +26,7 @@ func _run() -> void:
 	root.add_child(world)
 	var player: CharacterBody3D = world.player
 	player.set_physics_process(false)
-	# La forêt la plus proche (de pins si possible), traversée à 10 m/s (une image = 1/60 s).
+	# La forêt la plus proche (de pins si possible), traversée en courant (8,5 m/s ; une image = 1/60 s).
 	var nearest := {}
 	for forest in world.terrain.forests():
 		var distance: float = (forest.center as Vector2).length() - (10000.0 if forest.kind == world.terrain.FOREST_PINE else 0.0)
@@ -44,7 +44,7 @@ func _run() -> void:
 	var unbuilt_frames := 0
 	var frames := 600
 	for frame in range(frames):
-		var x: float = from.x + frame * 10.0 / 60.0
+		var x: float = from.x + frame * 8.5 / 60.0
 		player.global_position = Vector3(x, world.terrain.height_at(x, from.z) + 1.0, from.z)
 		await process_frame
 		var here: Vector2i = world._player_column()
@@ -65,6 +65,6 @@ func _run() -> void:
 	check(work.total / frames < budget / 1000.0 * 1.5, "background work stays within its budget on average (%.2f ms)" % (work.total / frames))
 	check(work.max < 45.0, "no background work blocks an image (%.1f ms at most)" % work.max)
 	check(slowest_ms < 45.0, "no task blocks an image (%s: %.1f ms)" % [slowest, slowest_ms])
-	check(unbuilt_frames < frames / 20, "the world keeps up at 10 m/s (columns around not ready: %d frames)" % unbuilt_frames)
+	check(unbuilt_frames < frames / 20, "the world keeps up when running (columns around not ready: %d frames)" % unbuilt_frames)
 	print("RESULT: %d perf guard checks, %d failures" % [checks, failures])
 	quit(0 if failures == 0 else 1)

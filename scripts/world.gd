@@ -3576,8 +3576,11 @@ func _process_background_work() -> void:
 	# Une colonne à 2 zones ou moins attend (la file va des plus proches aux plus loin) : tout le budget pour le terrain.
 	if not terrain_queue.is_empty():
 		var first: Vector2i = terrain_queue[0]
-		if maxi(absi(first.x - view_center.x), absi(first.y - view_center.y)) <= 2:
-			_process_terrain_queue(budget)
+		var ring := maxi(absi(first.x - view_center.x), absi(first.y - view_center.y))
+		if ring <= 2:
+			# Juste à côté du joueur (PC lent, vol rapide) : le plus grand budget ; une image un peu plus longue plutôt
+			# qu'un trou sous les pieds.
+			_process_terrain_queue(WORK_MAX_USEC if ring <= 1 else budget)
 			if perf_on:
 				_perf("terrain_file", start)
 			return
