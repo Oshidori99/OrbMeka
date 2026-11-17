@@ -90,7 +90,8 @@ tools/mesure_perf.gd (0.0.7.20) : mesures sur PC (accueil, ouverture, marche en 
 tools/squelettes.gd (0.0.7.21) : calcule d'avance les branches de chaque modèle d'arbre (assets/trees/squelettes/,
 à relancer si un modèle change). Paramètres → Vidéo → Qualité d'affichage : préréglages dans user_settings.gd (PRESETS).
 tests/perf_guard_test.gd (0.0.7.21) : garde-fou de vitesse (travail de fond dans son budget par image).
-Écran de chargement (0.0.7.23) : app.gd open_world_loading (graine préparée par étapes, world.gd prepare_terrain) ;open_world reste d'un coup (tests). Sol simplifié : terrain_surface.gdshader simple_look (qualité Performance).
+Écran de chargement (0.0.7.23) : app.gd open_world_loading (graine préparée par étapes, world.gd prepare_terrain) ;
+open_world reste d'un coup (tests). Sol simplifié : terrain_surface.gdshader simple_look (qualité Performance).
 
 MONDES PERSONNALISÉS (0.0.5.16)
 scripts/world_generation.gd définit les dix fréquences et l'algorithme personnalisé version 1.
