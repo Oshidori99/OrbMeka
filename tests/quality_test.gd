@@ -47,15 +47,22 @@ func _run() -> void:
 	check(settings.values.quality == "custom" and app.choice_buttons.quality.custom.button_pressed and settings.values.shadows == "near", "changing one setting by hand: Personnalisé")
 	app._choose("shadows", "far")
 	check(settings.values.quality == "beauty", "back to the preset values: Beauté again")
+	# Distance lointaine en plus de la distance d'affichage (« +16 »), demande de l'utilisateur.
+	app._choose("quality", "balanced")
+	check(app.setting_fields.far_extra.text == "+16" and app.setting_sliders.far_extra.value == 16.0, "far distance shown as what it adds: +16")
+	app.setting_fields.far_extra.text = "+20"
+	app.apply_user_settings()
+	check(settings.values.far_extra == 20.0 and app.setting_fields.far_extra.text == "+20" and settings.values.quality == "custom", "typing +20 works (Personnalisé)")
 	app._choose("quality", "balanced")
 	var reread := Settings.new(fixture)
 	check(reread.values.quality == "balanced" and reread.values.grass_density == "reduced" and reread.values.shadows == "medium", "quality saved and read back")
 	# Ancien fichier (avant 0.0.7.21) : herbe moyenne, sans ombres ni qualité : ombres moyennes par défaut, donc ni Beauté
 	# ni Équilibré : Personnalisé.
 	var old_file := FileAccess.open(reread.file_path("video"), FileAccess.WRITE)
-	old_file.store_string(JSON.stringify({"grass_density": "medium", "view_distance": 8.0}))
+	old_file.store_string(JSON.stringify({"grass_density": "medium", "view_distance": 16.0, "far_distance": 32.0}))
 	old_file.close()
-	check(Settings.new(fixture).values.quality == "custom", "an old file that matches no preset reads as Personnalisé")
+	var old_values: Dictionary = Settings.new(fixture).values
+	check(old_values.quality == "custom" and old_values.far_extra == 16.0 and old_values.view_distance == 16.0, "an old file: far distance 32 with view 16 reads as +16 ; Personnalisé")
 	# Ombres dans le jeu.
 	app.settings.apply_texts(app.settings.values.merged({"shadows": "near", "quality": "custom"}, true))
 	app.open_world(app.catalog.create_world("Qualité", "8").id)

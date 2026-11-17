@@ -73,14 +73,16 @@ const SPECS := {
 	# 0.0.5.17 : distance d'affichage, comptée à l'horizontale (8 par défaut, 1 à 32) ; remplace load_distance (4, 1 à 8).
 	"view_distance": {"label": "Distance d’affichage", "unit": "zones de 8 m", "default": 8.0, "min": 1.0, "max": 32.0, "step": 1.0},
 	# 0.0.5.22 (#128) : terrain lointain simplifié jusqu'à cette distance (0 : aucun), au-delà du terrain détaillé.
-	"far_distance": {"label": "Distance lointaine (relief simplifié)", "unit": "zones de 8 m", "default": 24.0, "min": 0.0, "max": 48.0, "step": 1.0},
+	# 0.0.7.21 (demande de l'utilisateur) : en plus de la distance d'affichage (« +16 »), et non plus au total (far_distance,
+	# relu une fois des anciens fichiers : far_distance − view_distance).
+	"far_extra": {"label": "Distance lointaine (relief simplifié)", "unit": "zones de 8 m en plus", "default": 16.0, "min": 0.0, "max": 48.0, "step": 1.0, "plus": true},
 	# 0.0.6.12 : images par seconde au plus (menus et jeu). Sans limite, la carte graphique calculait jusqu'à 240 images
 	# par seconde (plus de 500 sans synchronisation) et pouvait siffler ou grésiller ; 60 suffit et chauffe moins.
 	"max_fps": {"label": "Images par seconde au plus", "unit": "images par seconde", "default": 60.0, "min": 30.0, "max": 240.0, "step": 10.0},
 }
 # 0.0.5.36 (#128) : sur le Web, distances plus courtes par défaut (le joueur peut les changer dans Vidéo).
 # 0.0.6.19 : encore plus courtes (le navigateur calcule 3 à 5 fois moins vite que le jeu sur PC).
-const WEB_DEFAULTS := {"grass_zones": 2.0, "view_distance": 5.0, "far_distance": 12.0}
+const WEB_DEFAULTS := {"grass_zones": 2.0, "view_distance": 5.0, "far_extra": 7.0}
 static func default_of(key: String, web: bool = OS.has_feature("web")) -> float:
 	return WEB_DEFAULTS[key] if web and WEB_DEFAULTS.has(key) else SPECS[key].default
 # 0.0.6.20 : herbe peu dense par défaut sur le Web (le joueur peut la remettre dans Vidéo).
@@ -90,11 +92,11 @@ static func choice_default(key: String, web: bool = OS.has_feature("web")) -> St
 # 0.0.7.21 : préréglages de « Qualité d'affichage ». Beauté : l'affichage d'avant 0.0.7.21 ; Équilibré (défaut sur PC) :
 # ombres un peu moins loin, herbe un peu moins dense (même portée) ; Performance (défaut sur le Web) : toutes les
 # concessions (sur le Web, ses distances courtes, WEB_DEFAULTS). Les optimisations qui ne changent pas l'image valent pour tous.
-const QUALITY_KEYS := ["grass_density", "grass_zones", "view_distance", "far_distance", "shadows", "antialiasing"]
+const QUALITY_KEYS := ["grass_density", "grass_zones", "view_distance", "far_extra", "shadows", "antialiasing"]
 const PRESETS := {
-	"performance": {"grass_density": "low", "grass_zones": 3.0, "view_distance": 6.0, "far_distance": 16.0, "shadows": "near", "antialiasing": "off"},
-	"balanced": {"grass_density": "reduced", "grass_zones": 4.0, "view_distance": 8.0, "far_distance": 24.0, "shadows": "medium", "antialiasing": "on"},
-	"beauty": {"grass_density": "medium", "grass_zones": 4.0, "view_distance": 8.0, "far_distance": 24.0, "shadows": "far", "antialiasing": "on"},
+	"performance": {"grass_density": "low", "grass_zones": 3.0, "view_distance": 6.0, "far_extra": 10.0, "shadows": "near", "antialiasing": "off"},
+	"balanced": {"grass_density": "reduced", "grass_zones": 4.0, "view_distance": 8.0, "far_extra": 16.0, "shadows": "medium", "antialiasing": "on"},
+	"beauty": {"grass_density": "medium", "grass_zones": 4.0, "view_distance": 8.0, "far_extra": 16.0, "shadows": "far", "antialiasing": "on"},
 }
 
 static func preset_values(name: String, web: bool = OS.has_feature("web")) -> Dictionary:
@@ -354,6 +356,9 @@ func _read(path: String) -> void:
 			values[key] = FORMER_CHARACTERS[parser.data.get(key)]
 		else:
 			load_notice = "Certains réglages invalides ont repris leur valeur par défaut."
+	# 0.0.7.21 : ancienne distance lointaine (au total) : ce qu'elle ajoutait à la distance d'affichage.
+	if parser.data.has("far_distance") and not parser.data.has("far_extra") and (parser.data.far_distance is int or parser.data.far_distance is float):
+		values.far_extra = clampf(float(parser.data.far_distance) - float(values.view_distance), SPECS.far_extra.min, SPECS.far_extra.max)
 	# personnage.json d'avant 0.0.3.22 (sans « skin ») : le personnage garde son ton d'avant.
 	if parser.data.has("character") and not parser.data.has("skin"):
 		values.skin = FORMER_SKINS.get(str(parser.data.get("character")), CHOICES.skin.default)
@@ -379,11 +384,17 @@ func world_values(developer: bool) -> Dictionary:
 static func number_text(value: float) -> String:
 	return str(snappedf(value, 0.001)).replace(".", ",")
 
+# 0.0.7.21 : texte d'un champ ; « + » devant ce qui s'ajoute à un autre réglage (distance lointaine : « +16 »).
+static func field_text(key: String, value: float) -> String:
+	if SPECS.get(key, {}).get("plus", false):
+		return "+" + (str(int(value)) if is_equal_approx(value, roundf(value)) else number_text(value))
+	return number_text(value)
+
 func apply_texts(texts: Dictionary) -> bool:
 	last_error = ""
 	var candidate := {}
 	for key in SPECS:
-		var text: String = str(texts.get(key, "")).strip_edges().replace(",", ".")
+		var text: String = str(texts.get(key, "")).strip_edges().replace(",", ".").trim_prefix("+")
 		var value: float = default_of(key)
 		if not text.is_empty():
 			if text.to_lower().contains("e") or not text.is_valid_float():

@@ -2,12 +2,13 @@
 
 Godot 4.7 / GDScript. Formes et couleurs simples ; assets externes seulement sous licence vérifiée (sons CC0, assets/sounds/CREDITS.txt).
 
-## 0.0.7.21 — Qualité d'affichage en tête de Vidéo (Performance, Équilibré, Beauté), ombres et anticrénelage réglables, herbe « Réduite », travail de fond dans un budget par image (300 images par seconde en forêt), arbres intacts dessinés en série, branches des arbres calculées d'avance, garde-fou de vitesse
+## 0.0.7.21 — Qualité d'affichage en tête de Vidéo (Performance, Équilibré, Beauté), ombres et anticrénelage réglables, distance lointaine en plus de la distance d'affichage (« +16 »), herbe « Réduite », travail de fond dans un budget par image (300 images par seconde en forêt), arbres intacts dessinés en série, branches des arbres calculées d'avance, garde-fou de vitesse
 Version locale (1 sur 4). Génération inchangée (version 32).
 - **Qualité d'affichage** (Paramètres → Vidéo, en premier, demande de l'utilisateur) : *Performance* (le plus rapide), *Équilibré* (défaut sur PC), *Beauté* (l'affichage d'avant) ; *Personnalisé* dès qu'on change à la main un de ses réglages. Elle règle d'un coup la densité et la distance de l'herbe, les distances d'affichage, les ombres et l'anticrénelage. Sur le Web : Performance par défaut.
   - Équilibré : ombres jusqu'à 48 m (avant 64), herbe « Réduite » (140 brins au lieu de 200), mêmes distances.
   - Performance : ombres 32 m en un seul niveau, herbe basse sur 24 m, distance 6 zones, lointain 16, sans anticrénelage, arbres simplifiés dès 28 m.
 - **Nouveaux réglages** : *Ombres* (Proches, Moyennes, Loin), *Anticrénelage* (Oui, Non), herbe *Réduite*.
+- **Distance lointaine** (demande de l'utilisateur) : affichée en plus de la distance d'affichage, de « +0 » à « +48 » (« +16 » par défaut) ; un ancien réglage (au total) est repris tel quel (32 avec une distance de 16 : « +16 »).
 - **Travail de fond dans un budget par image** (terrain, arbres, lointain) selon la limite d'images par seconde (avant : jusqu'à 15 ms en tout, ce qui faisait passer sous 100 images par seconde en marchant). Les colonnes proches du joueur passent d'abord. Mesures (PC, sans limite) : forêt 140 → 300 images par seconde, images sous 100 par seconde en marchant 118 → 6 ; en vol à 15 m/s, le sol autour est toujours prêt.
 - **Arbres intacts dessinés en série** : par colonne et par modèle, un dessin pour tous ; un arbre reprend ses propres modèles dès qu'on le coupe ou qu'il tombe.
 - **Branches des arbres calculées d'avance** (assets/trees/squelettes, tools/squelettes.gd) : plus d'à-coup de 40 à 100 ms à la première coupe de chaque sorte d'arbre.

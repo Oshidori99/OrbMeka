@@ -28,10 +28,10 @@ func _add_setting_row(parent: Node, key: String) -> void:
 	_sep(row, 10)
 	parent.add_child(row)
 	var label := _text_label()
-	var default_text := UserSettings.number_text(spec.default)
+	var default_text := UserSettings.field_text(key, spec.default)
 	# Minimum et maximum toujours affichés, quel que soit le niveau de détail (0.0.3.12).
-	detail_labels[label] = ["%s · %s à %s %s" % [spec.label, UserSettings.number_text(spec.min), UserSettings.number_text(spec.max), spec.unit], "%s (%s) · défaut %s · %s à %s" % [spec.label, spec.unit, default_text, UserSettings.number_text(spec.min), UserSettings.number_text(spec.max)], "%s (%s)
-Défaut : %s · %s à %s" % [spec.label, spec.unit, default_text, UserSettings.number_text(spec.min), UserSettings.number_text(spec.max)]]
+	detail_labels[label] = ["%s · %s à %s %s" % [spec.label, UserSettings.field_text(key, spec.min), UserSettings.field_text(key, spec.max), spec.unit], "%s (%s) · défaut %s · %s à %s" % [spec.label, spec.unit, default_text, UserSettings.field_text(key, spec.min), UserSettings.field_text(key, spec.max)], "%s (%s)
+Défaut : %s · %s à %s" % [spec.label, spec.unit, default_text, UserSettings.field_text(key, spec.min), UserSettings.field_text(key, spec.max)]]
 	label.text = _detail(detail_labels[label])
 	label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
@@ -43,13 +43,13 @@ Défaut : %s · %s à %s" % [spec.label, spec.unit, default_text, UserSettings.n
 	slider.step = _slider_step(spec)
 	_min_size(slider, Vector2(SLIDER_WIDTH, 0))
 	slider.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	slider.tooltip_text = "%s — %s à %s %s" % [spec.label, UserSettings.number_text(spec.min), UserSettings.number_text(spec.max), spec.unit]
+	slider.tooltip_text = "%s — %s à %s %s" % [spec.label, UserSettings.field_text(key, spec.min), UserSettings.field_text(key, spec.max), spec.unit]
 	row.add_child(slider)
 	setting_sliders[key] = slider
 	var field := LineEdit.new()
 	_min_size(field, Vector2(85, 46))
 	field.max_length = 24
-	field.placeholder_text = UserSettings.number_text(spec.default)
+	field.placeholder_text = UserSettings.field_text(key, spec.default)
 	field.tooltip_text = slider.tooltip_text
 	row.add_child(field)
 	field.text_submitted.connect(func(_text: String): apply_user_settings())
@@ -57,12 +57,12 @@ Défaut : %s · %s à %s" % [spec.label, spec.unit, default_text, UserSettings.n
 		_sync_slider(key)
 		_autosave())
 	slider.value_changed.connect(func(value: float):
-		field.text = UserSettings.number_text(value)
+		field.text = UserSettings.field_text(key, value)
 		_autosave())
 	setting_fields[key] = field
 	var reset := _button("↻", row, func(): reset_setting(key))
 	_min_size(reset, Vector2(42, 0))
-	reset.tooltip_text = "Rétablir le défaut de ce champ : " + UserSettings.number_text(spec.default)
+	reset.tooltip_text = "Rétablir le défaut de ce champ : " + UserSettings.field_text(key, spec.default)
 	setting_resets[key] = reset
 
 # Choix en boutons exclusifs (synthèse, thème, profondeur), avec ↻ comme les champs.
@@ -113,7 +113,7 @@ func _set_default(key: String) -> void:
 	if UserSettings.CHOICES.has(key):
 		_set_choice(key, UserSettings.CHOICES[key].default)
 	else:
-		setting_fields[key].text = UserSettings.number_text(UserSettings.SPECS[key].default)
+		setting_fields[key].text = UserSettings.field_text(key, UserSettings.SPECS[key].default)
 		_sync_slider(key)
 
 # Pas de la barre : fin pour les petites plages (mètres), plus large pour les millisecondes.
@@ -127,7 +127,7 @@ static func _slider_step(spec: Dictionary) -> float:
 
 func _sync_slider(key: String) -> void:
 	# Champ vide : défaut ; saisie invalide : la barre ne bouge pas (le message signale l'erreur).
-	var text: String = setting_fields[key].text.strip_edges().replace(",", ".")
+	var text: String = setting_fields[key].text.strip_edges().replace(",", ".").trim_prefix("+")
 	var value: float = UserSettings.SPECS[key].default
 	if not text.is_empty():
 		if not text.is_valid_float():
@@ -283,7 +283,7 @@ func _add_setting_category(parent: Node, category: String, data: Dictionary) -> 
 
 func _fill_settings() -> void:
 	for key in setting_fields:
-		setting_fields[key].text = UserSettings.number_text(settings.values[key])
+		setting_fields[key].text = UserSettings.field_text(key, settings.values[key])
 		_sync_slider(key)
 	for key in choice_buttons:
 		_set_choice(key, settings.values[key])
@@ -374,7 +374,7 @@ func _apply_to_game() -> void:
 	# Distance d'affichage changée en pause : zones (et terrain, 0.0.5.17) mises à jour peu à peu.
 	active_world.set_grass_distance(float(settings.values.grass_zones) * 8.0)
 	active_world.load_distance = int(settings.values.view_distance)
-	active_world.far_distance = int(settings.values.far_distance)
+	active_world.far_distance = int(settings.values.view_distance + settings.values.far_extra)
 	active_world.set_shadows(settings.values.shadows)
 	active_world.update_terrain_view(true)
 	active_world.update_zones(active_world.player_coordinates())
@@ -509,7 +509,7 @@ var quality_chosen := false
 func _show_quality() -> void:
 	for key in UserSettings.QUALITY_KEYS + ["quality"]:
 		if setting_fields.has(key):
-			setting_fields[key].text = UserSettings.number_text(settings.values[key])
+			setting_fields[key].text = UserSettings.field_text(key, settings.values[key])
 			_sync_slider(key)
 		elif choice_buttons.has(key):
 			_set_choice(key, settings.values[key])
