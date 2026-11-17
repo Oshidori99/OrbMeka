@@ -60,6 +60,18 @@ func _run() -> void:
 	check(app.launcher_screen.visible and app.get_window().title == "OrbMeka — Launcher" and app.menu_panel.has_theme_stylebox_override("panel"), "launcher looks outside the game")
 	check(app.launcher_latest_button.theme_type_variation == "OrbLaunch" and app.launcher_arrow_button.theme_type_variation == "OrbLaunch" and app.launcher_arrow_button.text == "▼", "Jouer and ▼ are the green buttons")
 	check(app.launcher_latest_button.text.begins_with("▶ Jouer — 9.9.9.1"), "Jouer is always the latest version")
+	# 0.0.7.21 : dernière version au très long nom : Jouer passe à la ligne, la flèche ▼ reste dans la fenêtre.
+	var long_list: Array = list.duplicate(true)
+	long_list[0].name = "Qualité d'affichage en tête de Vidéo (Performance, Équilibré, Beauté), ombres et anticrénelage réglables, distance lointaine en plus, herbe réduite, travail de fond dans un budget par image, arbres en série"
+	app.launcher.versions = long_list
+	app.fill_launcher()
+	await process_frame
+	await process_frame
+	var window_width: float = app.get_viewport().get_visible_rect().size.x
+	var arrow_rect: Rect2 = app.launcher_arrow_button.get_global_rect()
+	check(arrow_rect.end.x <= window_width + 0.5 and arrow_rect.position.x > app.launcher_latest_button.get_global_rect().position.x and app.launcher_latest_button.get_global_rect().end.x <= arrow_rect.position.x + 0.5, "a long version name wraps: ▼ stays visible on the right")
+	app.launcher.versions = list
+	app.fill_launcher()
 	var page_items: Array = app.launcher_latest_button.get_parent().get_parent().get_children()
 	# 0.0.4.16 : Jouer tout en bas de la page ; la liste ▼ juste au-dessus, les versions jouées plus haut.
 	check(page_items.find(app.launcher_played) < page_items.find(app.launcher_scroll) and page_items.find(app.launcher_scroll) == page_items.find(app.launcher_latest_button.get_parent()) - 1 and page_items[-1] == app.launcher_latest_button.get_parent(), "played versions, then all versions, then Jouer at the very bottom")

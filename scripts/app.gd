@@ -124,6 +124,8 @@ func _build_interface() -> void:
 	launcher_latest_button.theme_type_variation = "OrbLaunch"
 	launcher_latest_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_min_size(launcher_latest_button, Vector2(0, 64))
+	# 0.0.7.21 : le nom de la dernière version (long) passe à la ligne : la flèche ▼ reste toujours visible à droite.
+	launcher_latest_button.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	launcher_arrow_button = _button("▼", play_row, func(): show_all_versions(not launcher_scroll.visible))
 	launcher_arrow_button.theme_type_variation = "OrbLaunch"
 	launcher_arrow_button.toggle_mode = true
