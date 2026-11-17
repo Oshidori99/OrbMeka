@@ -1,6 +1,17 @@
-# OrbMeka™ — prototype 0.0.7.21
+# OrbMeka™ — prototype 0.0.7.22
 
 Godot 4.7 / GDScript. Formes et couleurs simples ; assets externes seulement sous licence vérifiée (sons CC0, assets/sounds/CREDITS.txt).
+
+## 0.0.7.22 — Arrêt au bord du terrain pas encore construit (sans tomber), colonnes autour du point d'arrivée construites à l'ouverture, calcul du terrain repris où il en était
+Version locale (1 sur 4). Génération inchangée (version 32).
+- **Arrêt au bord** (demande de l'utilisateur) : si le sol devant n'est pas encore construit (PC lent, vol rapide), on s'arrête juste avant (60 cm), à pied, en vol ou à la nage, en glissant le long si un seul côté manque ; au-dessus d'un sol pas prêt, on attend sur place sans tomber. Après un court moment : « Chargement du terrain… ». Cette colonne passe en tête de la file.
+- **Ouverture d'un monde** : les 8 colonnes autour du point d'arrivée sont construites tout de suite (on peut marcher dès la première image ; ouverture environ 0,5 s plus longue sur PC).
+- **Calcul du terrain repris où il en était** quand une autre colonne passe devant (avant : recommencé).
+- Retiré : le plus grand budget pour une colonne voisine (0.0.7.21 après publication) : mesuré, des images de 8 ms ralentissaient tout (forêt 300 → 210 images par seconde) ; la colonne voisine garde tout le budget normal de l'image.
+
+Tests réussis : loaded_edge (nouveau : arrêt au bord, file, message, pas de chute, on repart), les tests qui déplacent le joueur (34) et les tests touchés (+ tests juridiques). Mesures : forêt 305 images par seconde, en vol à 15 m/s aucune colonne proche en retard.
+À tester manuellement : voler vite loin dans un monde neuf.
+Une erreur rare (« Nil » dans une liste de points) est apparue une fois en lançant plusieurs tests ensemble, pas reproduite ensuite.
 
 ## 0.0.7.21 — Qualité d'affichage en tête de Vidéo (Performance, Équilibré, Beauté), ombres et anticrénelage réglables, distance lointaine en plus de la distance d'affichage (« +16 »), herbe « Réduite », travail de fond dans un budget par image (300 images par seconde en forêt), arbres intacts dessinés en série, branches des arbres calculées d'avance, garde-fou de vitesse, Jouer du launcher sur plusieurs lignes
 Version publiée (sur demande). Génération inchangée (version 32).

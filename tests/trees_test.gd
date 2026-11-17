@@ -168,9 +168,9 @@ func _run() -> void:
 		var detail: MultiMeshInstance3D = null
 		var far: MultiMeshInstance3D = null
 		for node in series:
-			if node.name.begins_with("SerieDetail") and node.multimesh.mesh == Trees.mesh(int(body.get_meta("kind")), int(body.get_meta("size")), false, int(body.get_meta("form"))):
+			if node.get_meta("part", "") == "Detail" and node.multimesh.mesh == Trees.mesh(int(body.get_meta("kind")), int(body.get_meta("size")), false, int(body.get_meta("form"))):
 				detail = node
-			if node.name.begins_with("SerieLoin") and node.multimesh.mesh == Trees.mesh(int(body.get_meta("kind")), int(body.get_meta("size")), true, int(body.get_meta("form"))):
+			if node.get_meta("part", "") == "Loin" and node.multimesh.mesh == Trees.mesh(int(body.get_meta("kind")), int(body.get_meta("size")), true, int(body.get_meta("form"))):
 				far = node
 		check(body.has_meta("series") and body.get_node_or_null("Modele/Detail") == null and detail != null and far != null, "an intact tree is drawn in series with the same trees of its column")
 		if detail != null and far != null:
@@ -184,7 +184,7 @@ func _run() -> void:
 		var own: MeshInstance3D = body.get_node_or_null("Modele/Detail")
 		var left := 0
 		for node in world.column_series.get(column, []):
-			if node.name.begins_with("SerieDetail") and node.multimesh.mesh == Trees.mesh(int(body.get_meta("kind")), int(body.get_meta("size")), false, int(body.get_meta("form"))):
+			if node.get_meta("part", "") == "Detail" and node.multimesh.mesh == Trees.mesh(int(body.get_meta("kind")), int(body.get_meta("size")), false, int(body.get_meta("form"))):
 				left = node.multimesh.instance_count
 		check(own != null and not body.has_meta("series") and left == count_before - 1 and body.get_node_or_null("Modele/Ombre") != null and body.get_node_or_null("Modele/Loin") != null, "touched (cut, falling): it takes back its own models and leaves the series")
 		check(body.find_children("*", "CollisionShape3D", true, false).any(func(child): return child.shape is CylinderShape3D), "the trunk is solid")

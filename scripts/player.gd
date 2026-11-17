@@ -571,6 +571,7 @@ func step_swim(delta: float, direction: Vector2, stroke: float, depth: float, ju
 	if jump_requested and depth < FLOAT_DEPTH + 0.3 and (is_on_wall() or is_on_floor()):
 		velocity.y = jump_speed * LEAP_FACTOR
 		leaping = true
+	_stay_on_loaded_ground(delta)
 	move_and_slide()
 	if is_on_floor() and velocity.y < 0.0:
 		velocity.y = 0.0
@@ -818,6 +819,7 @@ func step_flight(delta: float, direction: Vector2, vertical: float) -> void:
 	camera.position.y = move_toward(camera.position.y, eye_height, 4.0 * delta)
 	var movement := global_transform.basis * local
 	velocity = Vector3(movement.x, (fly_up if vertical > 0.0 else fly_down) * vertical * speed_scale, movement.z)
+	_stay_on_loaded_ground(delta)
 	move_and_slide()
 	if fly_stop_on_ground:
 		if not is_on_floor():
@@ -897,6 +899,38 @@ func step_over(motion: Vector3) -> bool:
 	return true
 
 # The same movement step is used by gameplay and windowless physics tests.
+
+# 0.0.7.22 (demande de l'utilisateur) : sol pas encore construit devant (PC lent, vol rapide) : on s'arrête au bord
+# (LOADED_MARGIN avant), en glissant le long si un seul côté manque ; sous les pieds : on attend sur place, sans tomber.
+# Au-delà d'un court moment, « Chargement du terrain… ». Le monde construit cette colonne en premier (ground_ready).
+const LOADED_MARGIN := 0.6
+const LOADED_NOTICE_AFTER := 0.3
+var ground_wait := 0.0
+# Sol pas construit sous les pieds : immobile, la chute ne prend pas de vitesse pendant l'attente.
+var held_here := false
+
+func _stay_on_loaded_ground(delta: float) -> void:
+	if not is_instance_valid(world) or not world.has_method("ground_ready"):
+		return
+	var blocked := false
+	held_here = false
+	if not world.ground_ready(global_position):
+		velocity = Vector3.ZERO
+		held_here = true
+		blocked = true
+	else:
+		for axis in [Vector3(velocity.x, 0.0, 0.0), Vector3(0.0, 0.0, velocity.z)]:
+			if axis.length() < 0.001:
+				continue
+			if not world.ground_ready(global_position + axis * delta + axis.normalized() * LOADED_MARGIN):
+				blocked = true
+				if axis.x != 0.0:
+					velocity.x = 0.0
+				else:
+					velocity.z = 0.0
+	ground_wait = ground_wait + delta if blocked else 0.0
+	if ground_wait > LOADED_NOTICE_AFTER and world.has_method("_notify"):
+		world._notify("Chargement du terrain…")
 func step_movement(delta: float, direction: Vector2, jump_requested: bool) -> void:
 	if actions.tick_jump(delta, is_on_floor(), jump_requested):
 		velocity.y = jump_speed
@@ -946,9 +980,10 @@ func step_movement(delta: float, direction: Vector2, jump_requested: bool) -> vo
 		movement.z += current.y
 	velocity.x = movement.x
 	velocity.z = movement.z
-	step_over(Vector3(movement.x, 0.0, movement.z) * delta)
+	_stay_on_loaded_ground(delta)
+	step_over(Vector3(velocity.x, 0.0, velocity.z) * delta)
 	move_and_slide()
-	velocity.y = 0.0 if is_on_floor() or is_on_ceiling() else end_speed
+	velocity.y = 0.0 if is_on_floor() or is_on_ceiling() or held_here else end_speed
 	position.x = clampf(position.x, -world.build_limit - 1.0, world.build_limit + 1.0)
 	position.z = clampf(position.z, -world.build_limit - 1.0, world.build_limit + 1.0)
 	# 0.0.5.37 : retour au départ seulement sous le monde (les grottes descendent jusqu'à la Roche-mère).

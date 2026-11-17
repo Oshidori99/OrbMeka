@@ -425,7 +425,8 @@ func update_terrain_view(force: bool = false, center: Vector2i = view_center) ->
 		# vue relevée d'un coup à chaque zone traversée, 30 à 50 ms d'à-coup en vol).
 		shown_columns[column] = []
 		unsurveyed[column] = true
-		if maxi(absi(column.x - center.x), absi(column.y - center.y)) <= NEAR_ZONES:
+		# 0.0.7.22 : à l'ouverture, les colonnes autour aussi (on peut y marcher dès la première image ; ensuite, la file).
+		if maxi(absi(column.x - center.x), absi(column.y - center.y)) <= (1 if opening_columns else NEAR_ZONES):
 			_show_column(column)
 		else:
 			# 0.0.6 : avec le lointain, c'est lui qui montre la colonne en attendant (pas de sol plat par-dessus).
@@ -529,6 +530,9 @@ func _hide_column(column: Vector2i) -> void:
 	terrain.forget_column(column)
 	heights_ready.erase(column)
 	column_height_rows.erase(column)
+	for zone: Vector3i in surface_jobs.keys():
+		if zone.x == column.x and zone.z == column.y:
+			surface_jobs.erase(zone)
 	shown_columns.erase(column)
 	unsurveyed.erase(column)
 	column_pending.erase(column)
@@ -598,7 +602,7 @@ const HEIGHT_ROWS := 3
 var column_height_rows: Dictionary = {}
 const SurfaceJob = preload("res://scripts/surface_job.gd")
 const SURFACE_STEP_USEC := 1500
-var surface_job: RefCounted
+var surface_jobs: Dictionary = {}
 var surface_job_edits := 0
 var cave_job: RefCounted
 var cave_job_edits := 0
@@ -645,18 +649,23 @@ func _terrain_step() -> void:
 		# 0.0.7.20 : zone plate (carré partagé) : tout de suite ; sinon sa surface est calculée en petites étapes
 		# (surface_job.gd, 3 ms au plus par image), puis la zone est montée d'un coup.
 		if close or terrain.is_flat(zone):
-			surface_job = null
+			surface_jobs.erase(zone)
 			pending.pop_back()
 			rebuild_terrain_piece(zone)
 		else:
-			if surface_job == null or surface_job.zone != zone or surface_job_edits != terrain_edits:
-				surface_job = SurfaceJob.new(terrain, zone)
+			# 0.0.7.22 : un calcul commencé par zone, repris où il en était si une autre colonne passe devant (le joueur
+			# attend au bord d'une autre) ; recommencé si le terrain a changé depuis (terrain_edits).
+			if surface_job_edits != terrain_edits:
+				surface_jobs.clear()
 				surface_job_edits = terrain_edits
-			if surface_job.step(SURFACE_STEP_USEC):
+			var job: RefCounted = surface_jobs.get(zone)
+			if job == null:
+				job = SurfaceJob.new(terrain, zone)
+				surface_jobs[zone] = job
+			if job.step(SURFACE_STEP_USEC):
 				pending.pop_back()
-				var surface: Array = surface_job.result
-				surface_job = null
-				rebuild_terrain_piece(zone, false, surface)
+				surface_jobs.erase(zone)
+				rebuild_terrain_piece(zone, false, job.result)
 		if perf_on:
 			_perf("terrain_morceau", at)
 
@@ -3569,6 +3578,21 @@ func work_budget() -> int:
 		budget = mini(budget, 4000)
 	return clampi(budget, WORK_MIN_USEC, WORK_MAX_USEC)
 
+
+# 0.0.7.22 (demande de l'utilisateur) : sol de cette place construit ? Colonne affichée mais pas encore construite : non,
+# et elle passe en tête de la file (le joueur attend au bord, player._stay_on_loaded_ground). Hors de la vue ou du
+# monde : oui (rien à attendre).
+func ground_ready(at: Vector3) -> bool:
+	var column := Vector2i(floori(at.x / SmoothTerrain.ZONE_SIZE), floori(at.z / SmoothTerrain.ZONE_SIZE))
+	if built_columns.has(column) or not shown_columns.has(column):
+		return true
+	var index := terrain_queue.find(column)
+	if index > 0:
+		terrain_queue.remove_at(index)
+		terrain_queue.push_front(column)
+	elif index < 0:
+		terrain_queue.push_front(column)
+	return false
 func _process_background_work() -> void:
 	var budget := work_budget()
 	var start := Time.get_ticks_usec()
@@ -3578,9 +3602,9 @@ func _process_background_work() -> void:
 		var first: Vector2i = terrain_queue[0]
 		var ring := maxi(absi(first.x - view_center.x), absi(first.y - view_center.y))
 		if ring <= 2:
-			# Juste à côté du joueur (PC lent, vol rapide) : le plus grand budget ; une image un peu plus longue plutôt
-			# qu'un trou sous les pieds.
-			_process_terrain_queue(WORK_MAX_USEC if ring <= 1 else budget)
+			# Juste à côté du joueur : tout le budget de l'image pour le terrain (0.0.7.22 : pas plus, mesuré : des images de
+			# 8 ms ralentissaient tout ; le joueur attend au bord, ground_ready).
+			_process_terrain_queue(budget)
 			if perf_on:
 				_perf("terrain_file", start)
 			return

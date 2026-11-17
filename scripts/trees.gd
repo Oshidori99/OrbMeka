@@ -699,6 +699,7 @@ static func series_nodes(kind: int, size: int, form: int, places: Array) -> Arra
 			series.set_instance_transform(index, places[index])
 		var node := MultiMeshInstance3D.new()
 		node.name = "Serie" + part
+		node.set_meta("part", part)
 		node.multimesh = series
 		# Places gardées (aussi pour les tests : sans fenêtre, Godot ne garde pas celles de la série).
 		node.set_meta("places", places)
