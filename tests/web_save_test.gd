@@ -30,8 +30,8 @@ func _run() -> void:
 	world.web_save_test = true
 	check(not world._save_due(5.0), "Web, nothing changed: no save")
 	world.objects_dirty = true
-	check(not world._save_due(1.0), "Web, a change: not at once")
-	check(world._save_due(1.1), "Web, 2 s after a change: saved")
+	check(not world._save_due(0.3), "Web, a change: not at once")
+	check(world._save_due(0.3), "Web, 0,5 s after a change: saved (0.0.7.24, 2 s before)")
 	world.save_now()
 	check(not world._save_due(3.0), "after saving: nothing to save")
 	world.inventory_unsaved = true

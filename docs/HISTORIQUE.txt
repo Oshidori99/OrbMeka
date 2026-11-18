@@ -3,6 +3,10 @@ Du plus récent au plus ancien. Ce fichier est mis à jour à chaque version.
 
 === Thème « Gameplay et inventaire » (0.0.7) ===
 
+0.0.7.24 — Plus de vide en vol rapide, ouverture d'un monde sans gel (préparée derrière l'écran de chargement), réglage Résolution 3D, Web : Équilibré et Beauté moins loin, sauvegarde Web 0,5 s après un changement, pause figée, relief au-delà du bord du monde, feuilles effacées contre la caméra
+Génération du terrain : version 32 · Menus : version 10.
+Deuxième rapport de mesures Web : lointain jamais affamé, budget sans emballement, monde préparé derrière le chargement, shaders par petits groupes, anciens réglages Web repris.
+
 0.0.7.23 — Écran de chargement avec barre de progression, Performance plus légère (sol simplifié, ombres « Aucune » et herbe « Très basse » sur le Web), sauvegarde Web peu après chaque changement, voile des menus sans copie d'écran, monde construit plus vite quand le jeu est lent, accueil Web allégé
 Génération du terrain : version 32 · Menus : version 10.
 D'après les mesures Web sur une petite carte graphique : graine préparée par étapes pendant le chargement, sol simple en Performance, budget de fond au quart de l'image sous 30 images par seconde.

@@ -18,6 +18,9 @@ const MenuShowcase = preload("res://scripts/menu_showcase.gd")
 const Launcher = preload("res://scripts/launcher.gd")
 const BackdropShader = preload("res://scripts/menu_backdrop.gdshader")
 const VeilShader = preload("res://scripts/menu_veil.gdshader")
+const FrozenShader = preload("res://scripts/menu_frozen.gdshader")
+# 0.0.7.24 : image du jeu figée pendant la pause (menu_frozen.gdshader).
+var frozen_texture: ImageTexture
 const Licences = preload("res://scripts/licences.gd")
 const MenuSounds = preload("res://scripts/menu_sounds.gd")
 const CharacterVoices = preload("res://scripts/character_voices.gd")
@@ -63,7 +66,7 @@ const GENERAL_CATEGORIES := {
 	},
 	"video": {
 		# 0.0.5.8 : réglages du jeu en premier (demande de l'utilisateur).
-		"Jeu": {"keys": ["quality", "fov", "view_distance", "far_extra", "grass_density", "grass_zones", "shadows", "antialiasing", "show_coords", "max_fps"], "help": ["", "Qualité d'affichage, champ de vision, distances, herbe, ombres et coordonnées en partie.", "Qualité d'affichage : Performance (le plus rapide ; arbres simplifiés dès 28 m), Équilibré ou Beauté (le plus joli ; 16 zones, lointain +24) règle d'un coup les distances, l'herbe, les ombres et l'anticrénelage ; Personnalisé dès qu'on en change un. Champ de vision de la caméra en partie, en degrés (75° : vue d'origine). Distance d’affichage : nombre de zones de 8 m affichées autour du joueur, comptées à l'horizontale (le sol reste visible même très haut ; moins = plus rapide, surtout sur le Web). Distance lointaine : relief simplifié (sans herbe) en plus de la distance d'affichage (+16 : jusqu'à 16 zones plus loin), pour voir loin sans ralentir (+0 : rien). Densité de l'herbe : nombre de brins (appliquée à la prochaine ouverture d'un monde). Distance d’affichage de l’herbe : en zones de 8 m, appliquée immédiatement. Coordonnées en blocs, en haut à droite : X largeur, Y hauteur des pieds (0 sur le sol plat), Z longueur. Ombres : aucune, jusqu'à 32 m (Proches), 48 m (Moyennes) ou 64 m (Loin). Anticrénelage : bords lisses (un peu plus lent). Images par seconde au plus : limite pour les menus et le jeu (60 par défaut) ; plus haut = plus fluide, mais le PC chauffe plus et peut siffler."]},
+		"Jeu": {"keys": ["quality", "fov", "view_distance", "far_extra", "grass_density", "grass_zones", "shadows", "antialiasing", "resolution_3d", "show_coords", "max_fps"], "help": ["", "Qualité d'affichage, champ de vision, distances, herbe, ombres et coordonnées en partie.", "Qualité d'affichage : Performance (le plus rapide ; arbres simplifiés dès 28 m), Équilibré ou Beauté (le plus joli ; 16 zones, lointain +24) règle d'un coup les distances, l'herbe, les ombres et l'anticrénelage ; Personnalisé dès qu'on en change un. Champ de vision de la caméra en partie, en degrés (75° : vue d'origine). Distance d’affichage : nombre de zones de 8 m affichées autour du joueur, comptées à l'horizontale (le sol reste visible même très haut ; moins = plus rapide, surtout sur le Web). Distance lointaine : relief simplifié (sans herbe) en plus de la distance d'affichage (+16 : jusqu'à 16 zones plus loin), pour voir loin sans ralentir (+0 : rien). Densité de l'herbe : nombre de brins (appliquée à la prochaine ouverture d'un monde). Distance d’affichage de l’herbe : en zones de 8 m, appliquée immédiatement. Coordonnées en blocs, en haut à droite : X largeur, Y hauteur des pieds (0 sur le sol plat), Z longueur. Ombres : aucune, jusqu'à 32 m (Proches), 48 m (Moyennes) ou 64 m (Loin). Anticrénelage : bords lisses (un peu plus lent). Résolution 3D : moins = plus rapide mais plus flou (l'interface reste nette). Images par seconde au plus : limite pour les menus et le jeu (60 par défaut) ; plus haut = plus fluide, mais le PC chauffe plus et peut siffler."]},
 		"Panneaux": {"keys": ["panel_size", "nav_percent"], "help": ["", "Largeur des menus et de la colonne d'onglets.", "Largeur des menus ; le menu de gauche est la colonne d'onglets."]},
 		"Zones": {"keys": ["element_scale"], "help": ["", "Boutons, champs, marges et espaces.", "Taille des boutons, des zones de saisie, des marges et des espaces des menus, sans changer le texte, qui reste toujours dans sa zone."]},
 		"Texte": {"keys": ["text_px"], "help": ["", "Taille des textes.", "Taille de tous les textes, menus et jeu (13 px par défaut ; 18 px : taille d'avant 0.0.3.10)."]},
@@ -376,6 +379,8 @@ func apply_appearance() -> void:
 	Engine.max_fps = int(settings.values.get("max_fps", 60.0))
 	# 0.0.7.21 : anticrénelage (Paramètres → Vidéo), menus et jeu.
 	get_viewport().msaa_3d = Viewport.MSAA_2X if settings.values.get("antialiasing", "on") == "on" else Viewport.MSAA_DISABLED
+	# 0.0.7.24 : résolution du rendu 3D (Paramètres → Vidéo) ; l'interface reste nette.
+	get_viewport().scaling_3d_scale = float(settings.values.get("resolution_3d", 100.0)) / 100.0
 	menu_root.theme = _build_theme()
 	for control in scaled_sizes:
 		control.custom_minimum_size = scaled_sizes[control] * _element_scale()

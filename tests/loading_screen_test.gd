@@ -27,11 +27,20 @@ func _run() -> void:
 	check(app.page == "loading" and app.pages.loading.visible and not is_instance_valid(app.active_world), "opening from the menus: loading screen first")
 	var values := []
 	var frames := 0
-	while not is_instance_valid(app.active_world) and frames < 2000:
+	var behind := false
+	while not (is_instance_valid(app.active_world) and app.page == "playing") and frames < 3000:
 		await process_frame
 		frames += 1
 		values.append(app.loading_bar.value)
+		behind = behind or (is_instance_valid(app.active_world) and app.page == "loading" and app.launcher_screen.visible)
 	check(is_instance_valid(app.active_world) and app.page == "playing", "then the world opens (%d images)" % frames)
+	check(behind and not app.showcase.is_inside_tree(), "0.0.7.24: the world gets ready behind the loading screen (columns, trees, shaders), home 3D removed")
+	var here: Vector2i = app.active_world._player_column()
+	var around := true
+	for dx in range(-1, 2):
+		for dz in range(-1, 2):
+			around = around and (app.active_world.built_columns.has(here + Vector2i(dx, dz)) or not app.active_world.shown_columns.has(here + Vector2i(dx, dz)))
+	check(around and not app.active_world.behind_loading, "shown once the 9 columns around are built")
 	var growing := values.size() > 3
 	for index in range(1, values.size()):
 		growing = growing and values[index] >= values[index - 1]

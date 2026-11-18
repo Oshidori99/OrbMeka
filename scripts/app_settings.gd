@@ -28,7 +28,7 @@ func _add_setting_row(parent: Node, key: String) -> void:
 	_sep(row, 10)
 	parent.add_child(row)
 	var label := _text_label()
-	var default_text := UserSettings.field_text(key, spec.default)
+	var default_text := UserSettings.field_text(key, UserSettings.default_of(key))
 	# Minimum et maximum toujours affichés, quel que soit le niveau de détail (0.0.3.12).
 	detail_labels[label] = ["%s · %s à %s %s" % [spec.label, UserSettings.field_text(key, spec.min), UserSettings.field_text(key, spec.max), spec.unit], "%s (%s) · défaut %s · %s à %s" % [spec.label, spec.unit, default_text, UserSettings.field_text(key, spec.min), UserSettings.field_text(key, spec.max)], "%s (%s)
 Défaut : %s · %s à %s" % [spec.label, spec.unit, default_text, UserSettings.field_text(key, spec.min), UserSettings.field_text(key, spec.max)]]
@@ -49,7 +49,7 @@ Défaut : %s · %s à %s" % [spec.label, spec.unit, default_text, UserSettings.f
 	var field := LineEdit.new()
 	_min_size(field, Vector2(85, 46))
 	field.max_length = 24
-	field.placeholder_text = UserSettings.field_text(key, spec.default)
+	field.placeholder_text = UserSettings.field_text(key, UserSettings.default_of(key))
 	field.tooltip_text = slider.tooltip_text
 	row.add_child(field)
 	field.text_submitted.connect(func(_text: String): apply_user_settings())
@@ -62,7 +62,7 @@ Défaut : %s · %s à %s" % [spec.label, spec.unit, default_text, UserSettings.f
 	setting_fields[key] = field
 	var reset := _button("↻", row, func(): reset_setting(key))
 	_min_size(reset, Vector2(42, 0))
-	reset.tooltip_text = "Rétablir le défaut de ce champ : " + UserSettings.field_text(key, spec.default)
+	reset.tooltip_text = "Rétablir le défaut de ce champ : " + UserSettings.field_text(key, UserSettings.default_of(key))
 	setting_resets[key] = reset
 
 # Choix en boutons exclusifs (synthèse, thème, profondeur), avec ↻ comme les champs.
@@ -111,9 +111,9 @@ func _set_choice(key: String, option: String) -> void:
 
 func _set_default(key: String) -> void:
 	if UserSettings.CHOICES.has(key):
-		_set_choice(key, UserSettings.CHOICES[key].default)
+		_set_choice(key, UserSettings.choice_default(key))
 	else:
-		setting_fields[key].text = UserSettings.field_text(key, UserSettings.SPECS[key].default)
+		setting_fields[key].text = UserSettings.field_text(key, UserSettings.default_of(key))
 		_sync_slider(key)
 
 # Pas de la barre : fin pour les petites plages (mètres), plus large pour les millisecondes.
@@ -128,7 +128,7 @@ static func _slider_step(spec: Dictionary) -> float:
 func _sync_slider(key: String) -> void:
 	# Champ vide : défaut ; saisie invalide : la barre ne bouge pas (le message signale l'erreur).
 	var text: String = setting_fields[key].text.strip_edges().replace(",", ".").trim_prefix("+")
-	var value: float = UserSettings.SPECS[key].default
+	var value: float = UserSettings.default_of(key)
 	if not text.is_empty():
 		if not text.is_valid_float():
 			return
@@ -376,6 +376,8 @@ func _apply_to_game() -> void:
 	active_world.load_distance = int(settings.values.view_distance)
 	active_world.far_distance = int(settings.values.view_distance + settings.values.far_extra)
 	active_world.set_shadows(settings.values.shadows)
+	active_world.set_simple_ground(settings.values.quality == "performance")
+	active_world.set_grass_density(settings.values.grass_density)
 	active_world.update_terrain_view(true)
 	active_world.update_zones(active_world.player_coordinates())
 	active_world.player.crouch_toggle = settings.control_options.crouch_mode == "toggle"

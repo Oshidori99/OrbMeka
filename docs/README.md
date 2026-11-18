@@ -1,6 +1,24 @@
-# OrbMeka™ — prototype 0.0.7.23
+# OrbMeka™ — prototype 0.0.7.24
 
 Godot 4.7 / GDScript. Formes et couleurs simples ; assets externes seulement sous licence vérifiée (sons CC0, assets/sounds/CREDITS.txt).
+
+## 0.0.7.24 — Plus de vide en vol rapide, ouverture d'un monde sans gel (préparée derrière l'écran de chargement), réglage Résolution 3D, Web : Équilibré et Beauté moins loin, sauvegarde Web 0,5 s après un changement, pause figée, relief au-delà du bord du monde, feuilles effacées contre la caméra
+Version locale (3 sur 4). Génération inchangée (version 32). D'après le deuxième rapport de mesures Web (Chrome, Radeon 610M).
+- **Plus de vide en vol rapide** : quand une colonne proche attend, le terrain a trois quarts du temps et le lointain le reste (avant : tout pour le terrain ; en vol, le lointain n'avançait plus et le paysage disparaissait).
+- **Ouverture d'un monde sans gel** : le monde s'ouvre derrière l'écran de chargement (fond uni, accueil 3D retiré) et y prépare ses 8 colonnes autour, ses arbres et ses shaders (quelques-uns par image) ; il est montré quand tout est prêt (30 s au plus). Rendu Web sur ce PC : 2,6 s en tout, pire image 0,23 s (mesures Web avant : jusqu'à 19 s figées à la première ouverture). Barre 2 fois plus rapide (60 ms par image).
+- **Résolution 3D** (Paramètres → Vidéo, demande de l'utilisateur) : 50 à 100 % ; l'interface reste nette. Sur le Web : 60 % en Performance, 75 % en Équilibré et Beauté ; PC : 100 %.
+- **Web : Équilibré et Beauté moins loin** (accord de l'utilisateur) : 6 zones et +10, 8 zones et +16 (Beauté à 16 zones y passait sous 9 images par seconde). Les défauts affichés dans Vidéo sont ceux du Web.
+- **Anciens réglages Web** (ancienne Performance) repris en nouvelle Performance au lieu de Personnalisé.
+- **Sol simplifié et densité de l'herbe** appliqués tout de suite en jeu (avant : à la prochaine ouverture).
+- **Travail de fond** : budget calculé sur l'image sans lui (il ne s'emballe plus, 90 à 110 ms par image mesurées), 15 ms au plus sur le Web.
+- **Sauvegarde Web** 0,5 s après un changement (avant 2 s) ; un arbre qui tombe ne la retarde plus.
+- **Pause figée** : l'image du jeu photographiée une fois et floutée, la 3D plus dessinée pendant la pause (le flou vivant coûtait 24 ms par image sur le Web).
+- **Bord du monde** (PC et Web) : le relief simplifié continue au-delà de la limite jusqu'à la brume (avant : vide bleu pâle) ; on reste bloqué à la limite.
+- **Feuilles contre la caméra** : sous les branches, les feuilles à moins de 25 cm s'effacent en douceur (entières dès 80 cm). Les troncs : collisions vérifiées, toujours au moins aussi larges que le tronc visible.
+- Pas fait : ciel simplifié et saturation sans passe (gain non mesurable sur ce PC, la saturation garde le Web proche du PC), mipmaps du feuillage (feuillage clairsemé au loin à craindre), coupe d'un arbre.
+
+Tests réussis : quality (25), loading_screen (6), web_save, menu_style (pause figée), interface_info (48 champs) et les tests touchés (38) (+ tests juridiques). Captures : pause figée, bord du monde (PC et rendu Web).
+À tester : sur le Web (Claude Code web) : vol rapide, première ouverture d'un monde, Résolution 3D ; sur PC : passer sous des branches.
 
 ## 0.0.7.23 — Écran de chargement avec barre de progression, Performance plus légère (sol simplifié, ombres « Aucune » et herbe « Très basse » sur le Web), sauvegarde Web peu après chaque changement, voile des menus sans copie d'écran, monde construit plus vite quand le jeu est lent, accueil Web allégé
 Version locale (2 sur 4). Génération inchangée (version 32). D'après les mesures de la version Web sur une petite carte graphique (Chrome, Radeon 610M : 7 à 13 images par seconde).

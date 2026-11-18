@@ -78,28 +78,34 @@ const SPECS := {
 	"far_extra": {"label": "Distance lointaine (relief simplifié)", "unit": "zones de 8 m en plus", "default": 16.0, "min": 0.0, "max": 48.0, "step": 1.0, "plus": true},
 	# 0.0.6.12 : images par seconde au plus (menus et jeu). Sans limite, la carte graphique calculait jusqu'à 240 images
 	# par seconde (plus de 500 sans synchronisation) et pouvait siffler ou grésiller ; 60 suffit et chauffe moins.
+	# 0.0.7.24 (demande de l'utilisateur) : résolution du rendu 3D (l'interface reste nette) ; moins = plus rapide, plus flou.
+	"resolution_3d": {"label": "Résolution 3D", "unit": "%", "default": 100.0, "min": 50.0, "max": 100.0, "step": 5.0},
 	"max_fps": {"label": "Images par seconde au plus", "unit": "images par seconde", "default": 60.0, "min": 30.0, "max": 240.0, "step": 10.0},
 }
 # 0.0.5.36 (#128) : sur le Web, distances plus courtes par défaut (le joueur peut les changer dans Vidéo).
 # 0.0.6.19 : encore plus courtes (le navigateur calcule 3 à 5 fois moins vite que le jeu sur PC).
-const WEB_DEFAULTS := {"grass_zones": 2.0, "view_distance": 5.0, "far_extra": 7.0}
+const WEB_DEFAULTS := {"grass_zones": 2.0, "view_distance": 5.0, "far_extra": 7.0, "resolution_3d": 60.0}
 static func default_of(key: String, web: bool = OS.has_feature("web")) -> float:
 	return WEB_DEFAULTS[key] if web and WEB_DEFAULTS.has(key) else SPECS[key].default
 # 0.0.6.20 : herbe peu dense par défaut sur le Web (le joueur peut la remettre dans Vidéo).
 # 0.0.7.23 (mesures Web sur une petite carte graphique) : Performance sur le Web sans ombres, herbe très basse.
 const WEB_CHOICES := {"grass_density": "minimal", "quality": "performance", "shadows": "off", "antialiasing": "off"}
 const WEB_PERFORMANCE := {"grass_density": "minimal", "shadows": "off"}
+# 0.0.7.24 (mesures Web, accord de l'utilisateur) : sur le Web, Équilibré et Beauté moins loin (Beauté 16 zones : plus de 1 800
+# dessins, moins de 9 images par seconde) ; résolution 3D 75 % (Performance : 60 %, WEB_DEFAULTS).
+const WEB_BALANCED := {"view_distance": 6.0, "far_extra": 10.0, "resolution_3d": 75.0}
+const WEB_BEAUTY := {"view_distance": 8.0, "far_extra": 16.0, "resolution_3d": 75.0}
 static func choice_default(key: String, web: bool = OS.has_feature("web")) -> String:
 	return WEB_CHOICES[key] if web and WEB_CHOICES.has(key) else CHOICES[key].default
 # 0.0.7.21 : préréglages de « Qualité d'affichage ». Beauté : l'affichage d'avant 0.0.7.21, et depuis 0.0.7.22 (demande de
 # l'utilisateur) 16 zones et lointain +24 ; Équilibré (défaut sur PC) :
 # ombres un peu moins loin, herbe un peu moins dense (même portée) ; Performance (défaut sur le Web) : toutes les
 # concessions (sur le Web, ses distances courtes, WEB_DEFAULTS). Les optimisations qui ne changent pas l'image valent pour tous.
-const QUALITY_KEYS := ["grass_density", "grass_zones", "view_distance", "far_extra", "shadows", "antialiasing"]
+const QUALITY_KEYS := ["grass_density", "grass_zones", "view_distance", "far_extra", "shadows", "antialiasing", "resolution_3d"]
 const PRESETS := {
-	"performance": {"grass_density": "low", "grass_zones": 3.0, "view_distance": 6.0, "far_extra": 10.0, "shadows": "near", "antialiasing": "off"},
-	"balanced": {"grass_density": "reduced", "grass_zones": 4.0, "view_distance": 8.0, "far_extra": 16.0, "shadows": "medium", "antialiasing": "on"},
-	"beauty": {"grass_density": "medium", "grass_zones": 4.0, "view_distance": 16.0, "far_extra": 24.0, "shadows": "far", "antialiasing": "on"},
+	"performance": {"grass_density": "low", "grass_zones": 3.0, "view_distance": 6.0, "far_extra": 10.0, "shadows": "near", "antialiasing": "off", "resolution_3d": 100.0},
+	"balanced": {"grass_density": "reduced", "grass_zones": 4.0, "view_distance": 8.0, "far_extra": 16.0, "shadows": "medium", "antialiasing": "on", "resolution_3d": 100.0},
+	"beauty": {"grass_density": "medium", "grass_zones": 4.0, "view_distance": 16.0, "far_extra": 24.0, "shadows": "far", "antialiasing": "on", "resolution_3d": 100.0},
 }
 
 static func preset_values(name: String, web: bool = OS.has_feature("web")) -> Dictionary:
@@ -107,8 +113,20 @@ static func preset_values(name: String, web: bool = OS.has_feature("web")) -> Di
 	if web and name == "performance":
 		result.merge(WEB_DEFAULTS, true)
 		result.merge(WEB_PERFORMANCE, true)
+	elif web:
+		result.merge(WEB_BALANCED if name == "balanced" else WEB_BEAUTY, true)
 	return result
 
+
+# 0.0.7.24 : joueurs Web restés sur l'ancienne Performance (avant 0.0.7.23 : herbe basse, ombres proches) : passés à la
+# nouvelle (sans ombres, herbe très basse, sol simplifié) au lieu de Personnalisé (mesures Web du 18.11.2026).
+const OLD_WEB_PERFORMANCE := {"grass_density": "low", "grass_zones": 2.0, "view_distance": 5.0, "far_extra": 7.0, "shadows": "near", "antialiasing": "off"}
+
+static func upgrade_web(current: Dictionary, web: bool = OS.has_feature("web")) -> bool:
+	if not web or not OLD_WEB_PERFORMANCE.keys().all(func(key: String): return current.get(key) == OLD_WEB_PERFORMANCE[key]):
+		return false
+	current.merge(preset_values("performance", true), true)
+	return true
 # Préréglage dont toutes les valeurs correspondent, sinon « custom » (Personnalisé).
 static func matching_preset(current: Dictionary, web: bool = OS.has_feature("web")) -> String:
 	for name in PRESETS:
@@ -192,6 +210,7 @@ func _init(path: String = DEFAULT_PATH) -> void:
 	_read_menus()
 	# 0.0.7.21 : qualité d'affichage toujours d'accord avec les réglages lus (anciens fichiers : Personnalisé, ou le
 	# préréglage auquel ils correspondent).
+	upgrade_web(values)
 	values.quality = matching_preset(values)
 
 # Dossier des fichiers du joueur (user://parametres) ; les tests gardent leurs fichiers à part.

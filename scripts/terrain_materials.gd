@@ -4,6 +4,18 @@ const SURFACE = preload("res://shaders/terrain_surface.gdshader")
 
 # 0.0.7.23 : qualité Performance : sol simplifié (terrain_surface.gdshader, simple_look) pour les matières créées ensuite.
 static var simple := false
+static var _made: Array = []
+
+# 0.0.7.24 : sol simplifié changé en jeu (qualité) : appliqué tout de suite à toutes les matières du sol déjà faites.
+static func set_simple(value: bool) -> void:
+	simple = value
+	var alive := []
+	for ref: WeakRef in _made:
+		var material: ShaderMaterial = ref.get_ref()
+		if material != null:
+			material.set_shader_parameter("simple_look", value)
+			alive.append(ref)
+	_made = alive
 
 static func surface(ground := false, dirt := false) -> ShaderMaterial:
 	var material := ShaderMaterial.new()
@@ -11,6 +23,7 @@ static func surface(ground := false, dirt := false) -> ShaderMaterial:
 	material.set_shader_parameter("ground_surface",ground)
 	material.set_shader_parameter("dirt_surface",dirt)
 	material.set_shader_parameter("simple_look", simple)
+	_made.append(weakref(material))
 	return material
 
 # 0.0.5.4 : gazon dense, regroupé en carrés de 50 cm (PATCH). 0.0.5.7 : brins 8 fois plus longs,

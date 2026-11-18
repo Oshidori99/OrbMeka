@@ -58,6 +58,12 @@ static func material(kind: int, role: String) -> StandardMaterial3D:
 					made.albedo_color = Color(made.albedo_color.r * 0.74, made.albedo_color.g * 0.74, made.albedo_color.b * 0.74)
 				made.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA_SCISSOR
 				made.alpha_scissor_threshold = 0.5
+				# 0.0.7.24 (mesures Web, demande de l'utilisateur) : sous les branches, les feuilles collées à la caméra
+				# s'effacent en douceur (tramage) : à moins de 25 cm, invisibles ; au-delà de 80 cm, entières (avant : l'écran
+				# rempli de feuilles).
+				made.distance_fade_mode = BaseMaterial3D.DISTANCE_FADE_PIXEL_DITHER
+				made.distance_fade_min_distance = 0.25
+				made.distance_fade_max_distance = 0.8
 				made.cull_mode = BaseMaterial3D.CULL_DISABLED
 				made.roughness = 0.85
 			"hole":
