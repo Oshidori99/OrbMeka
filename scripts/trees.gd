@@ -59,11 +59,12 @@ static func material(kind: int, role: String) -> StandardMaterial3D:
 				made.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA_SCISSOR
 				made.alpha_scissor_threshold = 0.5
 				# 0.0.7.24 (mesures Web, demande de l'utilisateur) : sous les branches, les feuilles collées à la caméra
-				# s'effacent en douceur (tramage) : à moins de 25 cm, invisibles ; au-delà de 80 cm, entières (avant : l'écran
+				# s'effacent en douceur (tramage) : à moins de 12 cm, invisibles ; au-delà de 40 cm, entières (0.0.7.25 : avant 25 et
+				# 80 cm, la trame se voyait trop ; avant 0.0.7.24 : l'écran
 				# rempli de feuilles).
 				made.distance_fade_mode = BaseMaterial3D.DISTANCE_FADE_PIXEL_DITHER
-				made.distance_fade_min_distance = 0.25
-				made.distance_fade_max_distance = 0.8
+				made.distance_fade_min_distance = 0.12
+				made.distance_fade_max_distance = 0.4
 				made.cull_mode = BaseMaterial3D.CULL_DISABLED
 				made.roughness = 0.85
 			"hole":

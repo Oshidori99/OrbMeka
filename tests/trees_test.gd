@@ -188,6 +188,9 @@ func _run() -> void:
 				left = node.multimesh.instance_count
 		check(own != null and not body.has_meta("series") and left == count_before - 1 and body.get_node_or_null("Modele/Ombre") != null and body.get_node_or_null("Modele/Loin") != null, "touched (cut, falling): it takes back its own models and leaves the series")
 		check(body.find_children("*", "CollisionShape3D", true, false).any(func(child): return child.shape is CylinderShape3D), "the trunk is solid")
+		# 0.0.7.25 : une collision par tige principale et grosse branche basse (la caméra n'entre plus dans les troncs).
+		var stems: Array = body.get_children().filter(func(child): return child is CollisionShape3D and child.name.begins_with("Tige"))
+		check(stems.size() >= 1 and stems.size() <= world.STEM_COLLISIONS_MAX, "stems and low branches are solid too (%d)" % stems.size())
 		var ground: float = world.terrain.height_at(tree.x, tree.z)
 		check(absf(body.position.y - ground) < 0.2, "standing on the ground")
 		world.player.selected_type = world.PICKAXE

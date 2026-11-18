@@ -93,7 +93,11 @@ func _run() -> void:
 	# 0.0.7.24 : sur le Web, Équilibré et Beauté moins loin, résolution 3D 75 % (Performance 60 %) ; appliquée tout de suite.
 	var web_balanced: Dictionary = Settings.preset_values("balanced", true)
 	var web_beauty: Dictionary = Settings.preset_values("beauty", true)
-	check(web_balanced.view_distance == 6.0 and web_balanced.far_extra == 10.0 and web_beauty.view_distance == 8.0 and web_beauty.far_extra == 16.0 and web_beauty.resolution_3d == 75.0 and web_performance.resolution_3d == 60.0 and Settings.preset_values("beauty", false).view_distance == 16.0, "Web: Équilibré 6/+10, Beauté 8/+16, 3D resolution 75 % (Performance 60 %); PC unchanged")
+	check(web_balanced.view_distance == 6.0 and web_balanced.far_extra == 10.0 and web_beauty.view_distance == 8.0 and web_beauty.far_extra == 16.0 and web_beauty.resolution_3d == 100.0 and web_performance.resolution_3d == 100.0 and Settings.preset_values("beauty", false).view_distance == 16.0, "Web: Équilibré 6/+10, Beauté 8/+16, 3D resolution 100 % (0.0.7.25); PC unchanged")
+	# 0.0.7.25 : préréglages Web de 0.0.7.24 (60 ou 75 %) repris à 100 %.
+	var old_24: Dictionary = Settings.preset_values("balanced", true)
+	old_24.resolution_3d = 75.0
+	check(Settings.upgrade_web(old_24, true) and old_24.resolution_3d == 100.0 and Settings.matching_preset(old_24, true) == "balanced", "0.0.7.24 Web presets (75 %) back to 100 %")
 	app.settings.apply_texts(app.settings.values.merged({"resolution_3d": "60"}, true))
 	app.apply_appearance()
 	check(is_equal_approx(app.get_viewport().scaling_3d_scale, 0.6), "3D resolution applied (60 %)")

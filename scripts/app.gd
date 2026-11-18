@@ -1051,7 +1051,8 @@ func _process_loading() -> void:
 			loading_opening = false
 			return
 		var ready: float = active_world.opening_progress()
-		loading_bar.value = LOADING_SEED_SHARE + (100.0 - LOADING_SEED_SHARE) * ready
+		# 0.0.7.25 : jamais en arrière (des colonnes entrent dans la vue pendant la préparation).
+		loading_bar.value = maxf(loading_bar.value, LOADING_SEED_SHARE + (100.0 - LOADING_SEED_SHARE) * ready)
 		if ready >= 1.0 or Time.get_ticks_msec() - loading_opened_at > LOADING_OPENING_MAX_MS:
 			reveal_world()
 		return
@@ -1153,7 +1154,11 @@ func _freeze_world() -> void:
 	var image: Image = texture.get_image() if texture != null else null
 	if image == null or image.is_empty():
 		return
-	image.generate_mipmaps()
+	# 0.0.7.25 : floutée une fois pour toutes : réduite au sixième (comme le flou d'avant), deux fois pour adoucir.
+	var width := maxi(image.get_width() / 6, 8)
+	var height := maxi(image.get_height() / 6, 8)
+	image.resize(maxi(width * 2, 8), maxi(height * 2, 8), Image.INTERPOLATE_BILINEAR)
+	image.resize(width, height, Image.INTERPOLATE_BILINEAR)
 	frozen_texture = ImageTexture.create_from_image(image)
 	get_viewport().disable_3d = true
 

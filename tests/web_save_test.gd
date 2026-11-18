@@ -39,6 +39,15 @@ func _run() -> void:
 	check(not world._save_due(3.0), "something still falling: wait (it would be settled at once)")
 	world.terrain.unstable.clear()
 	check(world._save_due(0.1), "nothing falling any more: saved (inventory changed)")
+	# 0.0.7.25 : terrain creusé et place du joueur enregistrés aussi.
+	world.save_now()
+	world.terrain_dirty[Vector3i(0, 0, 0)] = true
+	check(not world._save_due(0.3) and world._save_due(0.3), "Web: dug terrain saved 0,5 s after (forgotten before 0.0.7.25)")
+	world.save_now()
+	world.player.global_position += Vector3(10.0, 0.0, 0.0)
+	check(not world._save_due(0.3) and world._save_due(0.3), "Web: the player's place saved after moving 8 m")
+	world.save_now()
+	check(not world._save_due(1.0), "standing still: nothing to save")
 	root.remove_child(world)
 	world.free()
 	for file in DirAccess.get_files_at(folder):

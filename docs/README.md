@@ -1,6 +1,22 @@
-# OrbMeka™ — prototype 0.0.7.24
+# OrbMeka™ — prototype 0.0.7.25
 
 Godot 4.7 / GDScript. Formes et couleurs simples ; assets externes seulement sous licence vérifiée (sons CC0, assets/sounds/CREDITS.txt).
+
+## 0.0.7.25 — Terrain creusé et place du joueur enregistrés sur le Web, rouvrir un monde sans image figée (toute la vue prête derrière l'écran de chargement), troncs et grosses branches solides, Résolution 3D à 100 % sur le Web, herbe et plantes après la surface, pause plus légère, modèles d'arbres plus légers à télécharger
+Version publiée (4 sur 4). Génération inchangée (version 32). D'après le troisième rapport de mesures Web (Chrome, Radeon 610M).
+- **Sauvegarde Web** : le terrain creusé ou posé est enregistré 0,5 s après (oublié avant : un trou perdu même 10 s après), ainsi que la place du joueur dès qu'il a bougé de 8 m.
+- **Rouvrir un monde sans image figée** : derrière l'écran de chargement, même la colonne du joueur passe par la file (avant : 1,7 s figées en forêt dans Chrome) ; l'écran reste jusqu'à ce que toute la vue proche soit construite, herbe, plantes, arbres et lointain compris (30 s au plus) : plus de saccades juste après l'arrivée. Rendu Web sur ce PC, monde rouvert en forêt : 6,8 s, pire image 0,08 s, ensuite 15 ms au pire.
+- **Troncs et grosses branches solides** : une collision par tige principale et par grosse branche basse (8 au plus par arbre), tirée des branches calculées d'avance : la caméra n'entre plus dans les arbres à plusieurs tiges.
+- **Résolution 3D à 100 % sur le Web** (mesures : 75 % y était le plus lent, 60 % ne gagnait presque rien) ; le réglage reste dans Vidéo. Les préréglages Web de 0.0.7.24 sont repris à 100 %.
+- **Herbe et plantes après la surface** quand on se déplace : la surface et sa collision d'abord, les détails ensuite (les plus proches d'abord) ; en vol rapide, moins d'arrêts « Chargement du terrain… ».
+- **Pause** : le flou calculé une seule fois (image réduite) au lieu de chaque image.
+- **Feuilles contre la caméra** : effacées entre 12 et 40 cm (avant 25 et 80 cm : la trame se voyait trop).
+- **Sol simplifié** : bord des couches de terre de nouveau irrégulier (sans lui, bandes droites tous les mètres).
+- **Téléchargement** : modèles d'arbres importés sans ombres séparées ni éclairage précalculé (inutilisés) : 16,7 → 9,0 Mo ; branches et modèles identiques (vérifié : les arbres coupés des mondes existants sont relus pareil).
+- Gardé tel quel (demande de l'utilisateur) : les ombres. Pas fait : anticrénelage et saturation (coût incertain), coupe d'un arbre.
+
+Tests réussis : web_save (10), quality (26), loading_screen, trees (tiges solides, branches enregistrées = calculées) et les tests touchés (43) (+ tests juridiques).
+À tester : sur le Web (Claude Code web) : réouverture d'un monde en forêt, vol rapide, sauvegarde après un trou creusé ; sur PC : passer entre des tiges de noisetier et sous des branches basses de pommier (on peut s'y cogner la tête).
 
 ## 0.0.7.24 — Plus de vide en vol rapide, ouverture d'un monde sans gel (préparée derrière l'écran de chargement), réglage Résolution 3D, Web : Équilibré et Beauté moins loin, sauvegarde Web 0,5 s après un changement, pause figée, relief au-delà du bord du monde, feuilles effacées contre la caméra
 Version locale (3 sur 4). Génération inchangée (version 32). D'après le deuxième rapport de mesures Web (Chrome, Radeon 610M).

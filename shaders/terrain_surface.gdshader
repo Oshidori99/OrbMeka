@@ -86,7 +86,8 @@ void fragment() {
 		grass = mix(grass,vec3(0.37,0.32,0.14),smoothstep(0.63,0.81,fbm(p*1.8))*0.42);
 		grass *= 0.72 + fibers*0.48 + grains*0.12;
 		float top = smoothstep(0.64,0.94,n.y);
-		float lip = 1.0-smoothstep(0.035,0.14,1.0-fract(p.y+0.002)+(fine ? (noise3(p*13.0)-0.5)*0.055 : 0.0));
+		// 0.0.7.25 : bord des couches gardé irrégulier même en mode simple (sans lui : bandes droites tous les mètres).
+		float lip = 1.0-smoothstep(0.035,0.14,1.0-fract(p.y+0.002)+(noise3(p*13.0)-0.5)*0.055);
 		float cover = max(top,lip*0.62);
 		// 0.0.5.7 : sol plat plus clair (il paraissait noir sur le Web), proche de la couleur des brins.
 		// 0.0.5.9 : terre posée (bleu du sommet à 0) : nue, sans herbe.

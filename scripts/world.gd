@@ -133,6 +133,7 @@ func _ready() -> void:
 	player.position = spawn_position()
 	add_child(player)
 	_apply_saved_player(saved_player)
+	saved_at = player.position
 	# 0.0.7.2 : inventaire relu (ancien monde : vide, sans erreur), dans le mode de jeu du monde.
 	inventory.mode = game_mode
 	inventory.from_dict(saved_player.get("inventaire"))
@@ -257,16 +258,17 @@ var warm_pending: Array = []
 
 # Ouverture prête (écran de chargement, app.gd) : shaders préparés, colonnes autour construites, arbres créés.
 func opening_progress() -> float:
-	var here := _player_column()
+	# 0.0.7.25 : toute la vue proche construite (mesures Web : 10 à 15 s saccadées juste après l'arrivée quand l'écran se
+	# retirait à 3 × 3 colonnes), arbres, herbe et plantes faits, shaders préparés, lointain fait.
 	var built := 0
-	for dx in range(-1, 2):
-		for dz in range(-1, 2):
-			if built_columns.has(here + Vector2i(dx, dz)) or not shown_columns.has(here + Vector2i(dx, dz)):
-				built += 1
-	var columns := built / 9.0
+	for column: Vector2i in shown_columns:
+		if built_columns.has(column):
+			built += 1
+	var columns := built / float(maxi(shown_columns.size(), 1))
 	var warm := 1.0 if warm_pending.is_empty() and warm_left <= 0 else (0.5 if warm_pending.is_empty() else 0.0)
-	var trees := 1.0 if tree_queue.is_empty() else 0.5
-	return columns * 0.6 + warm * 0.25 + trees * 0.15
+	var details := 1.0 if tree_queue.is_empty() and detail_queue.is_empty() else 0.5
+	var far := 1.0 if far_queue.is_empty() else 0.5
+	return columns * 0.6 + warm * 0.15 + details * 0.15 + far * 0.1
 
 func _setup_inputs() -> void:
 	# Touches choisies dans Paramètres → Contrôles (0.0.3.12), appliquées par le menu ;
@@ -482,7 +484,9 @@ func update_terrain_view(force: bool = false, center: Vector2i = view_center) ->
 		shown_columns[column] = []
 		unsurveyed[column] = true
 		# 0.0.7.22 : à l'ouverture, les colonnes autour aussi (on peut y marcher dès la première image ; ensuite, la file).
-		if maxi(absi(column.x - center.x), absi(column.y - center.y)) <= (1 if opening_columns and not behind_loading else NEAR_ZONES):
+		# 0.0.7.25 : derrière l'écran de chargement, même la colonne du joueur passe par la file (mesures Web : 1,7 s figées
+		# en rouvrant un monde en forêt, arbres et plantes de cette colonne faits d'un coup).
+		if maxi(absi(column.x - center.x), absi(column.y - center.y)) <= (-1 if behind_loading else (1 if opening_columns else NEAR_ZONES)):
 			_show_column(column)
 		else:
 			# 0.0.6 : avec le lointain, c'est lui qui montre la colonne en attendant (pas de sol plat par-dessus).
@@ -539,7 +543,12 @@ var column_pending: Dictionary = {}
 
 func _finish_column(column: Vector2i, progressive := false) -> void:
 	var at := Time.get_ticks_usec()
-	_rebuild_lawn_tile(column)
+	# 0.0.7.25 : en se déplaçant (progressive), l'herbe et les plantes viennent après la surface (detail_queue) : en vol
+	# rapide, la surface et sa collision d'abord (mesures Web : arrêts « Chargement du terrain… »).
+	if progressive:
+		detail_queue.append(column)
+	else:
+		_rebuild_lawn_tile(column)
 	if perf_on:
 		_perf("colonne_herbe", at)
 		at = Time.get_ticks_usec()
@@ -742,6 +751,8 @@ func finish_terrain() -> void:
 	for column: Vector2i in pebble_bodies:
 		_build_pebble_bodies(column)
 	_update_pebble_blocks()
+	# 0.0.7.25 : herbe et plantes en attente aussi.
+	_process_detail_queue(1 << 40)
 
 # Brume au loin, au bord de la distance d'affichage : le terrain ne s'arrête pas d'un coup.
 # 0.0.6.6 (#124) : eau qui coule (water.gd) : un pas tous les dixièmes de seconde autour du joueur ; l'eau libre est
@@ -3236,6 +3247,8 @@ func _save_zone(zone: Vector3i) -> bool:
 # que plus rien ne tombe : le navigateur recopie ses fichiers dans son stockage un peu après coup ; enregistré seulement en
 # fermant l'onglet, le dernier changement pouvait être perdu (mesures Web du 17.11.2026 : un arbre coupé revenu debout).
 const WEB_SAVE_DELAY := 0.5
+const WEB_MOVE_SAVE := 8.0
+var saved_at := Vector3.ZERO
 var unsaved_time := 0.0
 var inventory_unsaved := false
 
@@ -3244,7 +3257,10 @@ func _save_due(delta: float) -> bool:
 		return true
 	if not OS.has_feature("web") and not web_save_test:
 		return false
-	if objects_dirty or not dirty_zones.is_empty() or inventory_unsaved:
+	# 0.0.7.25 (mesures Web) : aussi le terrain creusé ou posé (terrain_dirty, oublié avant : un trou perdu même 10 s après),
+	# et la place du joueur dès qu'il a bougé de WEB_MOVE_SAVE mètres.
+	var moved: bool = is_instance_valid(player) and player.global_position.distance_to(saved_at) > WEB_MOVE_SAVE
+	if objects_dirty or not dirty_zones.is_empty() or not terrain_dirty.is_empty() or inventory_unsaved or moved:
 		unsaved_time += delta
 		# 0.0.7.24 : 0,5 s (avant 2 s : une coupe perdue en rechargeant tout de suite, mesures Web) ; un arbre qui tombe
 		# n'attend plus (il est enregistré couché) ; le sable qui coule, si (l'enregistrement le poserait d'un coup).
@@ -3260,6 +3276,7 @@ func save_now() -> bool:
 	inventory_unsaved = false
 	if save_folder.is_empty() or not is_instance_valid(player):
 		return true
+	saved_at = player.global_position
 	# 0.0.5.11 : ce qui tombe encore est posé à sa place avant d'enregistrer.
 	settle_all()
 	var ok := Store.write_json(save_folder.path_join(Store.PLAYER_FILE), player_data())
@@ -3717,7 +3734,8 @@ func _process_background_work() -> void:
 	if perf_on:
 		_perf("terrain_file", at)
 		at = Time.get_ticks_usec()
-	_process_tree_queue(maxi(start + budget * 3 / 4 - Time.get_ticks_usec(), 300))
+	_process_tree_queue(maxi(start + budget * 5 / 8 - Time.get_ticks_usec(), 300))
+	_process_detail_queue(maxi(start + budget * 3 / 4 - Time.get_ticks_usec(), 300))
 	if perf_on:
 		_perf("arbres_file", at)
 		at = Time.get_ticks_usec()
@@ -4143,13 +4161,9 @@ func _show_column_objects(column: Vector2i, progressive := false) -> void:
 	if perf_on:
 		_perf("objets_arbres", at)
 		at = Time.get_ticks_usec()
-	# 0.0.6.16 (#182) : plantes à fibres de la colonne (génération 27).
-	var plant_list: Array = terrain.plants_in_zone(column)
-	if not plant_list.is_empty():
-		for node in Plants.column_nodes(plant_list, terrain.height_at):
-			node.set_meta("column", column)
-			_rocks_parent().add_child(node)
-			_column_object(column, node)
+	# 0.0.6.16 (#182) : plantes à fibres de la colonne (génération 27). 0.0.7.25 : en se déplaçant, plus tard (detail_queue).
+	if not progressive:
+		_show_column_plants(column)
 	for lake in terrain.lakes_in_zone(column):
 		var water := MeshInstance3D.new()
 		water.name = "Lac"
@@ -4177,6 +4191,33 @@ var _river_material: ShaderMaterial
 var tree_queue: Array = []
 const TREE_BUDGET_USEC := 3000
 
+
+func _show_column_plants(column: Vector2i) -> void:
+	var plant_list: Array = terrain.plants_in_zone(column)
+	if plant_list.is_empty():
+		return
+	for node in Plants.column_nodes(plant_list, terrain.height_at):
+		node.set_meta("column", column)
+		_rocks_parent().add_child(node)
+		_column_object(column, node)
+
+# 0.0.7.25 : détails des colonnes construites en se déplaçant (herbe, plantes), une colonne à la fois, après le terrain.
+var detail_queue: Array = []
+
+func _process_detail_queue(budget_usec: int) -> void:
+	var deadline := Time.get_ticks_usec() + budget_usec
+	while not detail_queue.is_empty() and Time.get_ticks_usec() < deadline:
+		# La plus proche du joueur d'abord.
+		var best := 0
+		for index in range(1, detail_queue.size()):
+			if Vector2(detail_queue[index] - view_center).length_squared() < Vector2(detail_queue[best] - view_center).length_squared():
+				best = index
+		var column: Vector2i = detail_queue[best]
+		detail_queue.remove_at(best)
+		if not built_columns.has(column):
+			continue
+		_rebuild_lawn_tile(column)
+		_show_column_plants(column)
 func _process_tree_queue(budget_usec: int = TREE_BUDGET_USEC) -> void:
 	var deadline := Time.get_ticks_usec() + budget_usec
 	while not tree_queue.is_empty() and Time.get_ticks_usec() < deadline:
@@ -4203,12 +4244,48 @@ func _make_column_tree(column: Vector2i, tree: Dictionary) -> void:
 	_rocks_parent().add_child(made)
 	_column_object(column, made)
 	if intact:
+		_add_stem_collisions(made)
 		series_dirty[column] = true
 		return
 	_restore_fallen(made)
 	_restore_pieces(made)
 	_restore_parts(made)
 
+
+# 0.0.7.25 (mesures Web : la caméra entrait dans les troncs d'un arbre à plusieurs tiges) : une collision par tige
+# principale et par grosse branche basse (sous BRANCH_COLLISION_TOP m, au moins BRANCH_COLLISION_RADIUS de rayon), le long
+# de leur axe (squelette de tree_parts.gd), STEM_COLLISIONS_MAX au plus ; en plus du tronc au pied (Trees.tree_body).
+const STEM_COLLISIONS_MAX := 8
+const BRANCH_COLLISION_TOP := 2.2
+const BRANCH_COLLISION_RADIUS := 0.05
+const STEM_COLLISION_LENGTH := 2.5
+
+func _add_stem_collisions(tree: Node3D) -> void:
+	var model: Node3D = tree.get_node_or_null("Modele")
+	if model == null:
+		return
+	var pieces: Array = TreeParts.skeleton(int(tree.get_meta("kind")), int(tree.get_meta("size")), int(tree.get_meta("form"))).pieces
+	var added := 0
+	for piece: Dictionary in pieces:
+		if added >= STEM_COLLISIONS_MAX:
+			break
+		var radius: float = maxf(piece.profile[0], piece.profile[1])
+		var stem: bool = piece.root and piece.tip.y > 0.5
+		var low_branch: bool = not piece.root and piece.start.y < BRANCH_COLLISION_TOP and radius >= BRANCH_COLLISION_RADIUS
+		if not stem and not low_branch:
+			continue
+		var length := minf(float(piece.length), STEM_COLLISION_LENGTH)
+		var direction: Vector3 = piece.direction
+		var shape := CylinderShape3D.new()
+		shape.radius = maxf(radius, 0.03)
+		shape.height = length
+		var collision := CollisionShape3D.new()
+		collision.name = "Tige"
+		collision.shape = shape
+		var basis := Basis(Quaternion(Vector3.UP, direction.normalized())) if absf(direction.normalized().dot(Vector3.UP)) < 0.9999 else Basis.IDENTITY
+		collision.transform = model.transform * Transform3D(basis, piece.start + direction * length * 0.5)
+		tree.add_child(collision)
+		added += 1
 # 0.0.7.21 : arbres intacts dessinés en série, par colonne et par modèle (espèce, taille, forme) : un dessin par modèle
 # au lieu d'un par arbre (en forêt : bien moins de dessins par image, surtout sur le Web). Colonne → ses nœuds.
 var column_series: Dictionary = {}
@@ -4481,6 +4558,7 @@ func _hide_column_objects(column: Vector2i) -> void:
 			node.free()
 	column_objects.erase(column)
 	tree_queue = tree_queue.filter(func(next: Array): return next[0] != column)
+	detail_queue.erase(column)
 	for node in column_series.get(column, []):
 		if is_instance_valid(node):
 			node.free()
