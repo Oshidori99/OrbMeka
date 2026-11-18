@@ -97,7 +97,7 @@ func draw_breakdown(prefix: String, world: Node3D) -> void:
 
 func _run() -> void:
 	DisplayServer.window_set_vsync_mode(DisplayServer.VSYNC_DISABLED)
-	Engine.max_fps = 0
+	Engine.max_fps = int(OS.get_environment("IMAGES")) if not OS.get_environment("IMAGES").is_empty() else 0
 	var which := OS.get_environment("MESURE")
 	if which.is_empty() or which == "accueil":
 		await measure_menu()
@@ -115,7 +115,7 @@ func measure_menu() -> void:
 	root.add_child(app)
 	# Les réglages du jeu remettent la limite d'images : on la recoupe.
 	DisplayServer.window_set_vsync_mode(DisplayServer.VSYNC_DISABLED)
-	Engine.max_fps = 0
+	Engine.max_fps = int(OS.get_environment("IMAGES")) if not OS.get_environment("IMAGES").is_empty() else 0
 	report("accueil.creation_ms", (Time.get_ticks_usec() - made) / 1000.0)
 	await process_frame
 	report("accueil.premiere_image_ms", (Time.get_ticks_usec() - start) / 1000.0)
@@ -134,6 +134,10 @@ func measure_world() -> void:
 	var world: Node3D = load("res://scenes/world.tscn").instantiate()
 	world.generation_options = Generation.defaults()
 	world.terrain_seed = graine
+	# 0.0.7.24 : VUE et LOINTAIN (zones) pour reproduire une qualité (Web Performance : 5 et 12).
+	if not OS.get_environment("VUE").is_empty():
+		world.load_distance = int(OS.get_environment("VUE"))
+		world.far_distance = int(OS.get_environment("LOINTAIN"))
 	world.game_mode = Inventory.CREATIVE
 	root.add_child(world)
 	report("monde.creation_ms", (Time.get_ticks_usec() - start) / 1000.0)
@@ -142,7 +146,7 @@ func measure_world() -> void:
 	var opening: Array = await sample(240)
 	summary("monde.ouverture", opening)
 	DisplayServer.window_set_vsync_mode(DisplayServer.VSYNC_DISABLED)
-	Engine.max_fps = 0
+	Engine.max_fps = int(OS.get_environment("IMAGES")) if not OS.get_environment("IMAGES").is_empty() else 0
 	var player: CharacterBody3D = world.player
 	player.set_physics_process(false)
 	# La forêt de pins la plus proche du départ (sinon la forêt la plus proche) : on la traverse par son centre.
@@ -178,6 +182,7 @@ func measure_world() -> void:
 	var flight_times := []
 	var unbuilt_max := 0
 	var unbuilt_frames := 0
+	var bare_frames := 0
 	var flight_start := Time.get_ticks_usec()
 	var last_frame := flight_start
 	var flight_from: Vector3 = player.global_position
@@ -197,11 +202,18 @@ func measure_world() -> void:
 				if world.shown_columns.has(column) and not world.built_columns.has(column):
 					unbuilt += 1
 		unbuilt_max = maxi(unbuilt_max, unbuilt)
+		# 0.0.7.24 : vide (rapport Web) : colonnes autour couvertes ni par le terrain détaillé ni par le lointain.
+		for dx in range(-2, 3):
+			for dz in range(-2, 3):
+				var spot := here + Vector2i(dx, dz)
+				if not world.built_columns.has(spot) and not world.far_tiles.has(world.FarTerrain.tile_of(spot)):
+					bare_frames += 1
 		if unbuilt > 0:
 			unbuilt_frames += 1
 	last_split = {}
 	summary("vol", flight_times)
 	report("vol.colonnes_proches_pas_finies_max", unbuilt_max)
+	report("vol.colonnes_vides_images", bare_frames)
 	report("vol.images_avec_colonne_proche_pas_finie", "%d sur %d" % [unbuilt_frames, flight_times.size()])
 	# 0.0.7.21 : monde entièrement construit autour (files vides, 20 s au plus), immobile : images et dessins.
 	var wait_start := Time.get_ticks_msec()

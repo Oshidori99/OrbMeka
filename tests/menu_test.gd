@@ -68,9 +68,11 @@ func _run() -> void:
 	check(app.name_field.placeholder_text.begins_with(app.catalog.next_auto_name()), "empty name field shows the automatic name (0.0.7.10)")
 	app.name_field.text = "Ma plaine"
 	app.create_button.pressed.emit()
+	app.finish_loading()
 	check(app.page == "create" and not app.form_error.text.is_empty(), "form explains a name error")
 	app.name_field.text = "Troisième monde"
 	app.create_button.pressed.emit()
+	app.finish_loading()
 	await physics_frame
 	check(app.page == "playing" and is_instance_valid(app.active_world), "creating a named world opens gameplay")
 	var id: String = app.current_world_id

@@ -58,6 +58,13 @@ static func material(kind: int, role: String) -> StandardMaterial3D:
 					made.albedo_color = Color(made.albedo_color.r * 0.74, made.albedo_color.g * 0.74, made.albedo_color.b * 0.74)
 				made.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA_SCISSOR
 				made.alpha_scissor_threshold = 0.5
+				# 0.0.7.24 (mesures Web, demande de l'utilisateur) : sous les branches, les feuilles collées à la caméra
+				# s'effacent en douceur (tramage) : à moins de 12 cm, invisibles ; au-delà de 40 cm, entières (0.0.7.25 : avant 25 et
+				# 80 cm, la trame se voyait trop ; avant 0.0.7.24 : l'écran
+				# rempli de feuilles).
+				made.distance_fade_mode = BaseMaterial3D.DISTANCE_FADE_PIXEL_DITHER
+				made.distance_fade_min_distance = 0.12
+				made.distance_fade_max_distance = 0.4
 				made.cull_mode = BaseMaterial3D.CULL_DISABLED
 				made.roughness = 0.85
 			"hole":
@@ -699,6 +706,7 @@ static func series_nodes(kind: int, size: int, form: int, places: Array) -> Arra
 			series.set_instance_transform(index, places[index])
 		var node := MultiMeshInstance3D.new()
 		node.name = "Serie" + part
+		node.set_meta("part", part)
 		node.multimesh = series
 		# Places gardées (aussi pour les tests : sans fenêtre, Godot ne garde pas celles de la série).
 		node.set_meta("places", places)

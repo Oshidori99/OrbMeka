@@ -18,6 +18,9 @@ uniform bool terrain_layers = false;
 // 0.0.6.17 : rendu Web (gl_compatibility) : sable un peu moins clair, litière et boue moins sombres (mesuré sur captures).
 uniform bool compat_look = false;
 uniform int rock_kind = 0;
+// 0.0.7.23 : qualité Performance (PC bon marché, Web) : bruit à une seule couche, gravier et mère-roche sans détail fin,
+// pas de relief fin (mêmes couleurs et grandes taches ; mesures Web : ce shader coûtait le plus par point).
+uniform bool simple_look = false;
 // 0.0.6.18 (#175) : cailloux dessinés ensemble : aspect de chacun (0 pierre, 1 calcaire, 2 silex) dans INSTANCE_CUSTOM.r.
 uniform bool kind_per_instance = false;
 varying float kind_value;
@@ -51,6 +54,7 @@ float noise3(vec3 p) {
 		mix(hash3(i+vec3(0,1,1)),hash3(i+vec3(1,1,1)),f.x),f.y),f.z);
 }
 float fbm(vec3 p) {
+	if (simple_look) { return noise3(p); }
 	return noise3(p)*0.57 + noise3(p*2.03+11.7)*0.28 + noise3(p*4.17+31.2)*0.15;
 }
 void vertex() {
@@ -70,16 +74,19 @@ void fragment() {
 	if (earth) {
 		float patches = fbm(p*0.31);
 		float clods = fbm(p*7.0);
-		float grains = noise3(p*110.0);
-		float crumbs = smoothstep(0.71,0.91,noise3(p*34.0));
+		// 0.0.7.23 : qualité Performance : sans les grains, miettes et fibres (détails de quelques centimètres).
+		bool fine = !simple_look;
+		float grains = fine ? noise3(p*110.0) : 0.5;
+		float crumbs = fine ? smoothstep(0.71,0.91,noise3(p*34.0)) : 0.0;
 		vec3 soil = mix(vec3(0.095,0.058,0.031),vec3(0.28,0.174,0.087),clods);
 		soil *= 0.77 + patches*0.47;
 		soil += vec3(0.16,0.125,0.08)*crumbs*0.28;
-		float fibers = (noise3(p*vec3(60.0,30.0,25.0))+noise3(p*vec3(23.0,30.0,65.0)))*0.5;
+		float fibers = fine ? (noise3(p*vec3(60.0,30.0,25.0))+noise3(p*vec3(23.0,30.0,65.0)))*0.5 : 0.5;
 		vec3 grass = mix(vec3(0.075,0.125,0.028),vec3(0.27,0.33,0.09),patches);
 		grass = mix(grass,vec3(0.37,0.32,0.14),smoothstep(0.63,0.81,fbm(p*1.8))*0.42);
 		grass *= 0.72 + fibers*0.48 + grains*0.12;
 		float top = smoothstep(0.64,0.94,n.y);
+		// 0.0.7.25 : bord des couches gardé irrégulier même en mode simple (sans lui : bandes droites tous les mètres).
 		float lip = 1.0-smoothstep(0.035,0.14,1.0-fract(p.y+0.002)+(noise3(p*13.0)-0.5)*0.055);
 		float cover = max(top,lip*0.62);
 		// 0.0.5.7 : sol plat plus clair (il paraissait noir sur le Web), proche de la couleur des brins.
@@ -102,8 +109,8 @@ void fragment() {
 			// 0.0.5.27 : Roche-mère (rouge à 0) : aucune couleur principale, toute la surface en taches irrégulières
 			// et franches, de toutes tailles : noir, gris foncé, gris clair, un peu de bleu et de rouge (motif à nous).
 			float mother_rock = smoothstep(0.6, 0.85, 1.0 - tint.r);
-			vec3 warped = p + (vec3(noise3(p*11.0), noise3(p*11.0 + 17.0), noise3(p*11.0 + 41.0)) - 0.5) * 0.3
-				+ (vec3(noise3(p*29.0 + 5.0), noise3(p*29.0 + 23.0), noise3(p*29.0 + 57.0)) - 0.5) * 0.09;
+			vec3 warped = simple_look ? p : p + (vec3(noise3(p*11.0), noise3(p*11.0 + 17.0), noise3(p*11.0 + 41.0)) - 0.5) * 0.3
+				+ (simple_look ? vec3(0.0) : (vec3(noise3(p*29.0 + 5.0), noise3(p*29.0 + 23.0), noise3(p*29.0 + 57.0)) - 0.5) * 0.09);
 			// Deux tailles de taches, couleur tirée au hasard pour chacune : gris clair, gris foncé, noir, bleu, rouge.
 			vec3 fine_cell = floor(warped * 20.0);
 			vec3 chosen_cell = floor(warped * 8.0);
@@ -186,7 +193,7 @@ void fragment() {
 	float snow = clamp(UV2.x, 0.0, 1.0);
 	float gravel = clamp(UV2.y, 0.0, 1.0);
 	float sparkle = 0.0;
-	float gravel_fade = 1.0-smoothstep(8.0,30.0,length(VERTEX));
+	float gravel_fade = simple_look ? 0.0 : 1.0-smoothstep(8.0,30.0,length(VERTEX));
 	// Cailloux dessinés seulement de près (calcul plus lourd) ; au loin, une teinte unie.
 	if (gravel > 0.01 && gravel_fade <= 0.0) {
 		albedo = mix(albedo, vec3(0.29,0.27,0.24), gravel);
@@ -284,10 +291,15 @@ void fragment() {
 	ALBEDO = albedo;
 	ROUGHNESS = mix(mix(mix(mix(mix(mix(mix(mix(mix(earth ? 0.96 : (sand ? 0.93 : 0.86), 0.62, clay_wet), 0.72, mud), (compat_look ? 0.6 : 0.12), puddle), 0.55, snow), 0.9, gravel), 0.92, ore.x), 0.8 - coal_glint * 0.45, ore.y), 0.6, flint_gloss), 0.95, ore.z - flint_gloss);
 	SPECULAR = mix(mix(mix(mix(mix(mix(mix(earth ? 0.12 : (sand ? 0.18 + step(0.985,noise3(p*240.0))*0.6 : 0.25), 0.22, mud), 0.5, puddle), 0.35 + sparkle * 0.6, snow), 0.2, gravel), 0.15, ore.x), 0.25 + coal_glint * 0.55, ore.y), 0.25, flint_gloss);
-	vec3 r1 = cross(dFdy(world_position),n);
-	vec3 r2 = cross(n,dFdx(world_position));
-	float determinant = dot(dFdx(world_position),r1);
-	vec3 gradient = (r1*dFdx(height)+r2*dFdy(height))*sign(determinant)/max(abs(determinant),0.000001);
-	gradient = clamp(gradient,vec3(-0.35),vec3(0.35));
-	NORMAL = normalize((VIEW_MATRIX*vec4(normalize(n-gradient),0.0)).xyz);
+	// 0.0.7.23 : sans relief fin en qualité Performance.
+	if (simple_look) {
+		NORMAL = normalize((VIEW_MATRIX*vec4(n,0.0)).xyz);
+	} else {
+		vec3 r1 = cross(dFdy(world_position),n);
+		vec3 r2 = cross(n,dFdx(world_position));
+		float determinant = dot(dFdx(world_position),r1);
+		vec3 gradient = (r1*dFdx(height)+r2*dFdy(height))*sign(determinant)/max(abs(determinant),0.000001);
+		gradient = clamp(gradient,vec3(-0.35),vec3(0.35));
+		NORMAL = normalize((VIEW_MATRIX*vec4(normalize(n-gradient),0.0)).xyz);
+	}
 }

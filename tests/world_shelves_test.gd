@@ -72,6 +72,7 @@ func _run() -> void:
 	app.world_list.select(0)
 	app._update_world_actions()
 	app.open_selected_world()
+	app.finish_loading()
 	check(app.world_subfolder == "Essais" and app.world_list.get_item_text(1) == "Neuf" and not app.new_folder_button.visible, "opening a subfolder shows its worlds, no sub-subfolder")
 	app.world_list.select(1)
 	app._update_world_actions()

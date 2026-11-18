@@ -45,6 +45,7 @@ func _run() -> void:
 	app.name_field.text = "Mon monde"
 	app.seed_field.text = " 12345 "
 	app.create_button.pressed.emit()
+	app.finish_loading()
 	check(app.page == "playing" and app.active_world.terrain_seed == 12345, "form creates gameplay with exact chosen seed")
 	var original_id: String = app.current_world_id
 	app.return_to_worlds()

@@ -1,6 +1,66 @@
-# OrbMeka™ — prototype 0.0.7.21
+# OrbMeka™ — prototype 0.0.7.25
 
 Godot 4.7 / GDScript. Formes et couleurs simples ; assets externes seulement sous licence vérifiée (sons CC0, assets/sounds/CREDITS.txt).
+
+## 0.0.7.25 — Terrain creusé et place du joueur enregistrés sur le Web, rouvrir un monde sans image figée (toute la vue prête derrière l'écran de chargement), troncs et grosses branches solides, Résolution 3D à 100 % sur le Web, herbe et plantes après la surface, pause plus légère, modèles d'arbres plus légers à télécharger
+Version publiée (4 sur 4). Génération inchangée (version 32). D'après le troisième rapport de mesures Web (Chrome, Radeon 610M).
+- **Sauvegarde Web** : le terrain creusé ou posé est enregistré 0,5 s après (oublié avant : un trou perdu même 10 s après), ainsi que la place du joueur dès qu'il a bougé de 8 m.
+- **Rouvrir un monde sans image figée** : derrière l'écran de chargement, même la colonne du joueur passe par la file (avant : 1,7 s figées en forêt dans Chrome) ; l'écran reste jusqu'à ce que toute la vue proche soit construite, herbe, plantes, arbres et lointain compris (30 s au plus) : plus de saccades juste après l'arrivée. Rendu Web sur ce PC, monde rouvert en forêt : 6,8 s, pire image 0,08 s, ensuite 15 ms au pire.
+- **Troncs et grosses branches solides** : une collision par tige principale et par grosse branche basse (8 au plus par arbre), tirée des branches calculées d'avance : la caméra n'entre plus dans les arbres à plusieurs tiges.
+- **Résolution 3D à 100 % sur le Web** (mesures : 75 % y était le plus lent, 60 % ne gagnait presque rien) ; le réglage reste dans Vidéo. Les préréglages Web de 0.0.7.24 sont repris à 100 %.
+- **Herbe et plantes après la surface** quand on se déplace : la surface et sa collision d'abord, les détails ensuite (les plus proches d'abord) ; en vol rapide, moins d'arrêts « Chargement du terrain… ».
+- **Pause** : le flou calculé une seule fois (image réduite) au lieu de chaque image.
+- **Feuilles contre la caméra** : effacées entre 12 et 40 cm (avant 25 et 80 cm : la trame se voyait trop).
+- **Sol simplifié** : bord des couches de terre de nouveau irrégulier (sans lui, bandes droites tous les mètres).
+- **Téléchargement** : modèles d'arbres importés sans ombres séparées ni éclairage précalculé (inutilisés) : 16,7 → 9,0 Mo ; branches et modèles identiques (vérifié : les arbres coupés des mondes existants sont relus pareil).
+- Gardé tel quel (demande de l'utilisateur) : les ombres. Pas fait : anticrénelage et saturation (coût incertain), coupe d'un arbre.
+
+Tests réussis : web_save (10), quality (26), loading_screen, trees (tiges solides, branches enregistrées = calculées) et les tests touchés (43) (+ tests juridiques).
+À tester : sur le Web (Claude Code web) : réouverture d'un monde en forêt, vol rapide, sauvegarde après un trou creusé ; sur PC : passer entre des tiges de noisetier et sous des branches basses de pommier (on peut s'y cogner la tête).
+
+## 0.0.7.24 — Plus de vide en vol rapide, ouverture d'un monde sans gel (préparée derrière l'écran de chargement), réglage Résolution 3D, Web : Équilibré et Beauté moins loin, sauvegarde Web 0,5 s après un changement, pause figée, relief au-delà du bord du monde, feuilles effacées contre la caméra
+Version locale (3 sur 4). Génération inchangée (version 32). D'après le deuxième rapport de mesures Web (Chrome, Radeon 610M).
+- **Plus de vide en vol rapide** : quand une colonne proche attend, le terrain a trois quarts du temps et le lointain le reste (avant : tout pour le terrain ; en vol, le lointain n'avançait plus et le paysage disparaissait).
+- **Ouverture d'un monde sans gel** : le monde s'ouvre derrière l'écran de chargement (fond uni, accueil 3D retiré) et y prépare ses 8 colonnes autour, ses arbres et ses shaders (quelques-uns par image) ; il est montré quand tout est prêt (30 s au plus). Rendu Web sur ce PC : 2,6 s en tout, pire image 0,23 s (mesures Web avant : jusqu'à 19 s figées à la première ouverture). Barre 2 fois plus rapide (60 ms par image).
+- **Résolution 3D** (Paramètres → Vidéo, demande de l'utilisateur) : 50 à 100 % ; l'interface reste nette. Sur le Web : 60 % en Performance, 75 % en Équilibré et Beauté ; PC : 100 %.
+- **Web : Équilibré et Beauté moins loin** (accord de l'utilisateur) : 6 zones et +10, 8 zones et +16 (Beauté à 16 zones y passait sous 9 images par seconde). Les défauts affichés dans Vidéo sont ceux du Web.
+- **Anciens réglages Web** (ancienne Performance) repris en nouvelle Performance au lieu de Personnalisé.
+- **Sol simplifié et densité de l'herbe** appliqués tout de suite en jeu (avant : à la prochaine ouverture).
+- **Travail de fond** : budget calculé sur l'image sans lui (il ne s'emballe plus, 90 à 110 ms par image mesurées), 15 ms au plus sur le Web.
+- **Sauvegarde Web** 0,5 s après un changement (avant 2 s) ; un arbre qui tombe ne la retarde plus.
+- **Pause figée** : l'image du jeu photographiée une fois et floutée, la 3D plus dessinée pendant la pause (le flou vivant coûtait 24 ms par image sur le Web).
+- **Bord du monde** (PC et Web) : le relief simplifié continue au-delà de la limite jusqu'à la brume (avant : vide bleu pâle) ; on reste bloqué à la limite.
+- **Feuilles contre la caméra** : sous les branches, les feuilles à moins de 25 cm s'effacent en douceur (entières dès 80 cm). Les troncs : collisions vérifiées, toujours au moins aussi larges que le tronc visible.
+- Pas fait : ciel simplifié et saturation sans passe (gain non mesurable sur ce PC, la saturation garde le Web proche du PC), mipmaps du feuillage (feuillage clairsemé au loin à craindre), coupe d'un arbre.
+
+Tests réussis : quality (25), loading_screen (6), web_save, menu_style (pause figée), interface_info (48 champs) et les tests touchés (38) (+ tests juridiques). Captures : pause figée, bord du monde (PC et rendu Web).
+À tester : sur le Web (Claude Code web) : vol rapide, première ouverture d'un monde, Résolution 3D ; sur PC : passer sous des branches.
+
+## 0.0.7.23 — Écran de chargement avec barre de progression, Performance plus légère (sol simplifié, ombres « Aucune » et herbe « Très basse » sur le Web), sauvegarde Web peu après chaque changement, voile des menus sans copie d'écran, monde construit plus vite quand le jeu est lent, accueil Web allégé
+Version locale (2 sur 4). Génération inchangée (version 32). D'après les mesures de la version Web sur une petite carte graphique (Chrome, Radeon 610M : 7 à 13 images par seconde).
+- **Écran de chargement** (demande de l'utilisateur) : ouvrir un monde depuis les menus affiche « Chargement du monde », l'étape (Montagnes, Lacs, Rivières, Crevasses, Grottes) et une barre ; la graine se prépare par étapes, puis le monde s'ouvre (environ 0,2 s sur PC au lieu de 2 s de gel ; sur le Web, 2,6 à 6,9 s de gel avant). Même monde qu'avant, vérifié.
+- **Qualité Performance plus légère** (PC bon marché et Web) : sol simplifié (bruit à une seule couche, gravier et relief fin effacés, mêmes couleurs) ; sur le Web, **pas d'ombres** et herbe **très basse**.
+- **Nouveaux choix** : Ombres *Aucune*, herbe *Très basse* (40 brins).
+- **Sauvegarde Web** : enregistrée 2 s après un changement (arbre coupé, terrain, objet, inventaire), une fois que plus rien ne tombe ; avant, seulement en fermant l'onglet, et le dernier changement pouvait être perdu.
+- **Voile des menus** : à l'accueil, posé par transparence (même image) au lieu de recopier l'écran à chaque image ; la recopie reste pour le flou de la pause.
+- **Monde construit plus vite quand le jeu est lent** : sous 30 images par seconde, le travail de fond prend un quart de l'image (30 ms au plus) ; à 8 images par seconde, le monde se construisait 6 à 7 fois moins vite.
+- **Accueil sur le Web** : moitié moins de pins, lointain jusqu'à environ 130 m, et la même construction plus rapide quand le jeu est lent (60 à 75 s mesurées pour le voir entier).
+- Pas encore fait : la coupe d'un arbre (20 à 60 ms sur PC, environ 300 ms sur le Web) ; il faut réécrire le découpage des morceaux.
+
+Tests réussis : loading_screen (nouveau), web_save (nouveau), quality (18 vérifications), perf_guard, menu_style (voile), et les tests touchés (34) (+ tests juridiques). Captures en rendu Web : Beauté, Performance Web, écran de chargement.
+À tester sur le Web (Claude Code web, même ordinateur que la première fois) : temps de chargement, images par seconde dans chaque qualité, et la sauvegarde (couper un arbre, attendre 3 s, recharger la page).
+
+## 0.0.7.22 — Arrêt au bord du terrain pas encore construit (sans tomber), colonnes autour du point d'arrivée construites à l'ouverture, calcul du terrain repris où il en était, Beauté à 16 zones et lointain +24
+Version locale (1 sur 4). Génération inchangée (version 32).
+- **Arrêt au bord** (demande de l'utilisateur) : si le sol devant n'est pas encore construit (PC lent, vol rapide), on s'arrête juste avant (60 cm), à pied, en vol ou à la nage, en glissant le long si un seul côté manque ; au-dessus d'un sol pas prêt, on attend sur place sans tomber. Après un court moment : « Chargement du terrain… ». Cette colonne passe en tête de la file.
+- **Ouverture d'un monde** : les 8 colonnes autour du point d'arrivée sont construites tout de suite (on peut marcher dès la première image ; ouverture environ 0,5 s plus longue sur PC).
+- **Calcul du terrain repris où il en était** quand une autre colonne passe devant (avant : recommencé).
+- **Beauté** (demande de l'utilisateur) : distance d'affichage 16 zones et lointain +24 (avant : 8 et +16, comme Équilibré, qui reste le défaut).
+- Retiré : le plus grand budget pour une colonne voisine (0.0.7.21 après publication) : mesuré, des images de 8 ms ralentissaient tout (forêt 300 → 210 images par seconde) ; la colonne voisine garde tout le budget normal de l'image.
+
+Tests réussis : loaded_edge (nouveau : arrêt au bord, file, message, pas de chute, on repart), les tests qui déplacent le joueur (34) et les tests touchés (+ tests juridiques). Mesures : forêt 305 images par seconde, en vol à 15 m/s aucune colonne proche en retard.
+À tester manuellement : voler vite loin dans un monde neuf.
+Une erreur rare (« Nil » dans une liste de points) est apparue une fois en lançant plusieurs tests ensemble, pas reproduite ensuite.
 
 ## 0.0.7.21 — Qualité d'affichage en tête de Vidéo (Performance, Équilibré, Beauté), ombres et anticrénelage réglables, distance lointaine en plus de la distance d'affichage (« +16 »), herbe « Réduite », travail de fond dans un budget par image (300 images par seconde en forêt), arbres intacts dessinés en série, branches des arbres calculées d'avance, garde-fou de vitesse, Jouer du launcher sur plusieurs lignes
 Version publiée (sur demande). Génération inchangée (version 32).

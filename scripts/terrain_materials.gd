@@ -2,11 +2,28 @@ extends RefCounted
 # Original world-space procedural materials; no imported bitmap or save-data change.
 const SURFACE = preload("res://shaders/terrain_surface.gdshader")
 
+# 0.0.7.23 : qualité Performance : sol simplifié (terrain_surface.gdshader, simple_look) pour les matières créées ensuite.
+static var simple := false
+static var _made: Array = []
+
+# 0.0.7.24 : sol simplifié changé en jeu (qualité) : appliqué tout de suite à toutes les matières du sol déjà faites.
+static func set_simple(value: bool) -> void:
+	simple = value
+	var alive := []
+	for ref: WeakRef in _made:
+		var material: ShaderMaterial = ref.get_ref()
+		if material != null:
+			material.set_shader_parameter("simple_look", value)
+			alive.append(ref)
+	_made = alive
+
 static func surface(ground := false, dirt := false) -> ShaderMaterial:
 	var material := ShaderMaterial.new()
 	material.shader = SURFACE
 	material.set_shader_parameter("ground_surface",ground)
 	material.set_shader_parameter("dirt_surface",dirt)
+	material.set_shader_parameter("simple_look", simple)
+	_made.append(weakref(material))
 	return material
 
 # 0.0.5.4 : gazon dense, regroupé en carrés de 50 cm (PATCH). 0.0.5.7 : brins 8 fois plus longs,
@@ -15,7 +32,7 @@ static func surface(ground := false, dirt := false) -> ShaderMaterial:
 const GRASS_SHADER = preload("res://shaders/grass_blades.gdshader")
 const PATCH := 0.5
 # 0.0.7.21 : « reduced » (Équilibré, défaut sur PC) : un peu moins dense que « medium » (Beauté), même portée.
-const BLADES := {"low": 80, "reduced": 140, "medium": 200, "high": 440}
+const BLADES := {"minimal": 40, "low": 80, "reduced": 140, "medium": 200, "high": 440}
 # Herbe visible jusqu'à cette distance (m) ; au-delà, la surface verte du sol suffit.
 const GRASS_RANGE := 36.0
 const GRASS_NEAR := 16.0

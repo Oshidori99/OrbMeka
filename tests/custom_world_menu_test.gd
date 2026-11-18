@@ -61,6 +61,7 @@ func _run() -> void:
 	check(app.GENERAL_CATEGORIES.video.Jeu.keys.has("grass_zones") and app.GENERAL_CATEGORIES.video.Jeu.keys.has("view_distance"), "grass and view distances are under Video / Jeu")
 	check(Settings.SPECS.grass_zones.default == 4 and Settings.SPECS.grass_zones.unit == "zones de 8 m" and Settings.SPECS.view_distance.default == 8 and Settings.SPECS.view_distance.max == 32, "grass distance in zones (4); view distance 8, from 1 to 32")
 	app.create_named_world()
+	app.finish_loading()
 	var world: Node3D = app.active_world
 	check(app.page == "playing" and world.generation_options == app.custom_generation, "creation supplies chosen generation to the actual world")
 	check(world.grass_distance == 32, "actual world receives the grass distance (4 zones = 32 m)")

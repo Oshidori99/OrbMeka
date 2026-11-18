@@ -3,6 +3,22 @@ Du plus récent au plus ancien. Ce fichier est mis à jour à chaque version.
 
 === Thème « Gameplay et inventaire » (0.0.7) ===
 
+0.0.7.25 — Terrain creusé et place du joueur enregistrés sur le Web, rouvrir un monde sans image figée (toute la vue prête derrière l'écran de chargement), troncs et grosses branches solides, Résolution 3D à 100 % sur le Web, herbe et plantes après la surface, pause plus légère, modèles d'arbres plus légers à télécharger
+Génération du terrain : version 32 · Menus : version 10.
+Troisième rapport de mesures Web : sauvegarde du terrain lisse, ouverture tout par la file, collisions des tiges, 100 % de résolution, file des détails, modèles d'arbres sans ombres séparées.
+
+0.0.7.24 — Plus de vide en vol rapide, ouverture d'un monde sans gel (préparée derrière l'écran de chargement), réglage Résolution 3D, Web : Équilibré et Beauté moins loin, sauvegarde Web 0,5 s après un changement, pause figée, relief au-delà du bord du monde, feuilles effacées contre la caméra
+Génération du terrain : version 32 · Menus : version 10.
+Deuxième rapport de mesures Web : lointain jamais affamé, budget sans emballement, monde préparé derrière le chargement, shaders par petits groupes, anciens réglages Web repris.
+
+0.0.7.23 — Écran de chargement avec barre de progression, Performance plus légère (sol simplifié, ombres « Aucune » et herbe « Très basse » sur le Web), sauvegarde Web peu après chaque changement, voile des menus sans copie d'écran, monde construit plus vite quand le jeu est lent, accueil Web allégé
+Génération du terrain : version 32 · Menus : version 10.
+D'après les mesures Web sur une petite carte graphique : graine préparée par étapes pendant le chargement, sol simple en Performance, budget de fond au quart de l'image sous 30 images par seconde.
+
+0.0.7.22 — Arrêt au bord du terrain pas encore construit (sans tomber), colonnes autour du point d'arrivée construites à l'ouverture, calcul du terrain repris où il en était, Beauté à 16 zones et lointain +24
+Génération du terrain : version 32 · Menus : version 10.
+Le joueur attend au bord d'une colonne pas prête (« Chargement du terrain… »), elle passe en tête de file ; ouverture : 3 × 3 colonnes d'un coup.
+
 0.0.7.21 — Qualité d'affichage en tête de Vidéo (Performance, Équilibré, Beauté), ombres et anticrénelage réglables, distance lointaine en plus de la distance d'affichage (« +16 »), herbe « Réduite », travail de fond dans un budget par image (300 images par seconde en forêt), arbres intacts dessinés en série, branches des arbres calculées d'avance, garde-fou de vitesse, Jouer du launcher sur plusieurs lignes
 Génération du terrain : version 32 · Menus : version 10.
 Équilibré par défaut sur PC (ombres 48 m, herbe 140 brins), Performance sur le Web ; terrain, arbres et lointain dans un seul budget selon la limite d'images ; squelettes enregistrés (assets/trees/squelettes).

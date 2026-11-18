@@ -57,6 +57,7 @@ func _run() -> void:
 	check(app.is_old_world(old) and not app.is_old_world(catalog.find_world(first.id)) and app.is_old_world({"id": "x", "generation": {}}), "older generations (and worlds without one) are marked, current ones are not")
 	app.refresh_world_list(old.id)
 	app.open_selected_world()
+	app.finish_loading()
 	check(app.page == "old_world_confirm" and app.old_world_message.text.contains("Ancien monde") and app.old_world_message.text.contains("version %d" % (Generation.VERSION - 1)) and not is_instance_valid(app.active_world), "an old world asks before opening")
 	check(app.old_world_cancel_button.has_focus(), "old world warning defaults to cancel")
 	app.old_world_cancel_button.pressed.emit()

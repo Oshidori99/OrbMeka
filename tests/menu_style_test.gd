@@ -94,15 +94,18 @@ F3 : "), "menus share one theme; in-game shortcuts F1, F3 are plain text (no F2 
 	check(heights.max() - heights.min() < 0.3, "no more flying (0.0.7.20)")
 	check(turned.has(true) and not turned.has(false), "runners face where they run")
 	check(app.backdrop.material.get_shader_parameter("blur") == 0.0, "home backdrop keeps the 3D scene sharp")
+	check(not app.backdrop.material.shader.code.contains("hint_screen_texture"), "home veil does not copy the screen every image (0.0.7.23)")
 	# Pause semi-transparente.
 	app.open_world("style-test")
 	check(not showcase.is_inside_tree() and app.active_world.player.camera.is_current(), "world replaces the showcase while playing")
 	app.pause_game()
 	await process_frame
 	check(app.menu_root.visible and app.backdrop.material.get_shader_parameter("blur") > 0.0, "pause blurs the world behind")
+	check(app.backdrop.material.shader.code.contains("hint_screen_texture") or (app.frozen_texture != null and app.get_viewport().disable_3d), "pause: the blur reads the world behind (0.0.7.24 : a frozen picture, 3D stopped, when the screen can be read)")
 	var tint: Color = app.backdrop.material.get_shader_parameter("tint")
 	check(tint.a > 0.2 and tint.a < 0.8, "pause darkens the world without hiding it")
 	app.return_to_worlds()
+	check(not app.get_viewport().disable_3d and app.frozen_texture == null, "leaving the pause: 3D drawn again")
 	await process_frame
 	check(showcase.is_inside_tree() and showcase.camera.is_current(), "showcase returns with the world list")
 	# Toutes tailles de fenêtre.

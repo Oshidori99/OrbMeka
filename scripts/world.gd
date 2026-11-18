@@ -106,6 +106,7 @@ func _ready() -> void:
 	_setup_environment()
 	# 0.0.5.1 : une seule matière pour tous les blocs, couleur portée par les sommets de chaque section.
 	TerrainMaterials.density = grass_density
+	TerrainMaterials.simple = simple_ground
 	TerrainMaterials.grass_range = grass_distance
 	block_material = TerrainMaterials.surface()
 	block_box = BoxShape3D.new()
@@ -132,10 +133,12 @@ func _ready() -> void:
 	player.position = spawn_position()
 	add_child(player)
 	_apply_saved_player(saved_player)
+	saved_at = player.position
 	# 0.0.7.2 : inventaire relu (ancien monde : vide, sans erreur), dans le mode de jeu du monde.
 	inventory.mode = game_mode
 	inventory.from_dict(saved_player.get("inventaire"))
 	inventory.changed.connect(apply_held)
+	inventory.changed.connect(func(): inventory_unsaved = true)
 	_create_selection()
 	_create_hud()
 	apply_held()
@@ -185,20 +188,20 @@ func _warm_shaders() -> void:
 			continue
 		copy.material_override = node.material_override
 		copy.cast_shadow = node.cast_shadow
-		warm_node.add_child(copy)
+		warm_pending.append(copy)
 	# Ce qui n'est pas encore autour : arbres de chaque espèce (de près et de loin), faces coupées, eau, rivière.
 	if relief and int(generation_options.get("version", 0)) >= 21:
 		for kind in range(Trees.FILES.size()):
 			for far in [false, true]:
 				var tree := MeshInstance3D.new()
 				tree.mesh = Trees.mesh(kind, 1, far)
-				warm_node.add_child(tree)
+				warm_pending.append(tree)
 	var plane := QuadMesh.new()
 	for material: Material in [Trees.cut_material(), _water_or_new(), _river_or_new(), FarTerrain.material()]:
 		var flat := MeshInstance3D.new()
 		flat.mesh = plane
 		flat.material_override = material
-		warm_node.add_child(flat)
+		warm_pending.append(flat)
 	warm_left = WARM_FRAMES
 
 # Sorte de modèle : format de ses sommets et matières (une copie suffit pour chaque sorte).
@@ -234,12 +237,39 @@ func _river_or_new() -> ShaderMaterial:
 	return _river_material
 
 func _end_warm() -> void:
+	# 0.0.7.24 : quelques copies par image (WARM_PER_FRAME) : la compilation des shaders étalée (mesures Web : 11 et 8 s
+	# figées d'un coup à la première ouverture).
+	if not warm_pending.is_empty():
+		if not is_instance_valid(warm_node):
+			warm_pending.clear()
+			return
+		for index in range(mini(WARM_PER_FRAME, warm_pending.size())):
+			warm_node.add_child(warm_pending.pop_front())
+		return
 	if warm_left <= 0:
 		return
 	warm_left -= 1
 	if warm_left == 0 and is_instance_valid(warm_node):
 		warm_node.queue_free()
 		warm_node = null
+
+const WARM_PER_FRAME := 3
+var warm_pending: Array = []
+
+# Ouverture prête (écran de chargement, app.gd) : shaders préparés, colonnes autour construites, arbres créés.
+func opening_progress() -> float:
+	# 0.0.7.25 : toute la vue proche construite (mesures Web : 10 à 15 s saccadées juste après l'arrivée quand l'écran se
+	# retirait à 3 × 3 colonnes), arbres, herbe et plantes faits, shaders préparés, lointain fait.
+	var built := 0
+	for column: Vector2i in shown_columns:
+		if built_columns.has(column):
+			built += 1
+	var columns := built / float(maxi(shown_columns.size(), 1))
+	var warm := 1.0 if warm_pending.is_empty() and warm_left <= 0 else (0.5 if warm_pending.is_empty() else 0.0)
+	var details := 1.0 if tree_queue.is_empty() and detail_queue.is_empty() else 0.5
+	var far := 1.0 if far_queue.is_empty() else 0.5
+	return columns * 0.6 + warm * 0.15 + details * 0.15 + far * 0.1
+
 func _setup_inputs() -> void:
 	# Touches choisies dans Paramètres → Contrôles (0.0.3.12), appliquées par le menu ;
 	# monde lancé seul (tests) : touches par défaut.
@@ -316,16 +346,27 @@ var shadow_quality := "medium"
 # 0.0.7.21 : qualité Performance : arbres simplifiés dès 28 m (sinon Trees.DETAIL_END, 40 m).
 const PERFORMANCE_TREE_DETAIL := 28.0
 var tree_detail_end := Trees.DETAIL_END
+# 0.0.7.23 : qualité Performance : sol simplifié.
+var simple_ground := false
+# 0.0.7.24 : ouvert derrière l'écran de chargement (app.gd) : colonnes autour par la file, grand budget de fond.
+var behind_loading := false
+const LOADING_WORK_USEC := 40000
 var sun_light: DirectionalLight3D
 
 func set_shadows(quality: String) -> void:
-	shadow_quality = quality if SHADOW_DISTANCES.has(quality) else "medium"
+	shadow_quality = quality if SHADOW_DISTANCES.has(quality) or quality == "off" else "medium"
 	if sun_light == null:
+		return
+	# 0.0.7.23 : « Aucune » (Performance sur le Web) : pas d'ombres du soleil (sur une petite carte graphique, elles coûtent
+	# beaucoup : chaque objet est dessiné une fois de plus pour elles).
+	sun_light.shadow_enabled = shadow_quality != "off"
+	if shadow_quality == "off":
 		return
 	var distance: float = SHADOW_DISTANCES[shadow_quality]
 	var single := is_compat() or shadow_quality == "near"
 	sun_light.directional_shadow_mode = DirectionalLight3D.SHADOW_ORTHOGONAL if single else DirectionalLight3D.SHADOW_PARALLEL_2_SPLITS
 	sun_light.directional_shadow_max_distance = minf(distance, 40.0) if is_compat() else distance
+
 func _create_ground() -> void:
 	var ground := StaticBody3D.new()
 	ground.name = "Ground"
@@ -354,12 +395,29 @@ func _create_ground() -> void:
 
 # 0.0.5.5 : plus de collines de blocs ni de blocs de pierre (demande de l'utilisateur) ; 0.0.5.14 : petites
 # collines de terrain lisse selon la graine (smooth_terrain.gd). terrain_generator.gd (anciennes collines) reste.
+
+# 0.0.7.23 : écran de chargement (app.gd) : la graine du monde (montagnes, lacs, rivières, crevasses, grottes : 1 à 2 s sur
+# PC, bien plus sur le Web) préparée en petites étapes avant d'ouvrir le monde, la barre de progression avance.
+var prepared_terrain: SmoothTerrain = null
+
+static func flat_spots() -> Array:
+	return [[Vector2(0.5, 0.5), 9.0], [SAND_CENTER, SAND_RADIUS + 2.0]]
+
+static func prepare_terrain(seed: int, options: Dictionary) -> SmoothTerrain:
+	var made := SmoothTerrain.new()
+	made.setup(seed, flat_spots(), options, false)
+	return made
 func _create_terrain(start_at: Vector3 = Vector3.ZERO) -> void:
 	generated_hill_count = 0
 	generated_max_height = 0
 	# 0.0.5.14 : petites collines selon la graine, plates autour de l'apparition et de la plage.
 	if relief:
-		terrain.setup(terrain_seed, [[Vector2(0.5, 0.5), 9.0], [SAND_CENTER, SAND_RADIUS + 2.0]], generation_options)
+		# 0.0.7.23 : graine déjà préparée par étapes pendant l'écran de chargement (prepare_terrain), sinon d'un coup.
+		if prepared_terrain != null:
+			prepared_terrain.prepare_step(1 << 40)
+			terrain = prepared_terrain
+		else:
+			terrain.setup(terrain_seed, flat_spots(), generation_options)
 	_read_terrain_changes()
 	_read_objects()
 	# 0.0.6.6 (#124) : eau qui coule (lacs qui baissent, eau libre), relue depuis le dossier du monde.
@@ -425,7 +483,10 @@ func update_terrain_view(force: bool = false, center: Vector2i = view_center) ->
 		# vue relevée d'un coup à chaque zone traversée, 30 à 50 ms d'à-coup en vol).
 		shown_columns[column] = []
 		unsurveyed[column] = true
-		if maxi(absi(column.x - center.x), absi(column.y - center.y)) <= NEAR_ZONES:
+		# 0.0.7.22 : à l'ouverture, les colonnes autour aussi (on peut y marcher dès la première image ; ensuite, la file).
+		# 0.0.7.25 : derrière l'écran de chargement, même la colonne du joueur passe par la file (mesures Web : 1,7 s figées
+		# en rouvrant un monde en forêt, arbres et plantes de cette colonne faits d'un coup).
+		if maxi(absi(column.x - center.x), absi(column.y - center.y)) <= (-1 if behind_loading else (1 if opening_columns else NEAR_ZONES)):
 			_show_column(column)
 		else:
 			# 0.0.6 : avec le lointain, c'est lui qui montre la colonne en attendant (pas de sol plat par-dessus).
@@ -482,7 +543,12 @@ var column_pending: Dictionary = {}
 
 func _finish_column(column: Vector2i, progressive := false) -> void:
 	var at := Time.get_ticks_usec()
-	_rebuild_lawn_tile(column)
+	# 0.0.7.25 : en se déplaçant (progressive), l'herbe et les plantes viennent après la surface (detail_queue) : en vol
+	# rapide, la surface et sa collision d'abord (mesures Web : arrêts « Chargement du terrain… »).
+	if progressive:
+		detail_queue.append(column)
+	else:
+		_rebuild_lawn_tile(column)
 	if perf_on:
 		_perf("colonne_herbe", at)
 		at = Time.get_ticks_usec()
@@ -529,6 +595,9 @@ func _hide_column(column: Vector2i) -> void:
 	terrain.forget_column(column)
 	heights_ready.erase(column)
 	column_height_rows.erase(column)
+	for zone: Vector3i in surface_jobs.keys():
+		if zone.x == column.x and zone.z == column.y:
+			surface_jobs.erase(zone)
 	shown_columns.erase(column)
 	unsurveyed.erase(column)
 	column_pending.erase(column)
@@ -598,7 +667,7 @@ const HEIGHT_ROWS := 3
 var column_height_rows: Dictionary = {}
 const SurfaceJob = preload("res://scripts/surface_job.gd")
 const SURFACE_STEP_USEC := 1500
-var surface_job: RefCounted
+var surface_jobs: Dictionary = {}
 var surface_job_edits := 0
 var cave_job: RefCounted
 var cave_job_edits := 0
@@ -645,18 +714,23 @@ func _terrain_step() -> void:
 		# 0.0.7.20 : zone plate (carré partagé) : tout de suite ; sinon sa surface est calculée en petites étapes
 		# (surface_job.gd, 3 ms au plus par image), puis la zone est montée d'un coup.
 		if close or terrain.is_flat(zone):
-			surface_job = null
+			surface_jobs.erase(zone)
 			pending.pop_back()
 			rebuild_terrain_piece(zone)
 		else:
-			if surface_job == null or surface_job.zone != zone or surface_job_edits != terrain_edits:
-				surface_job = SurfaceJob.new(terrain, zone)
+			# 0.0.7.22 : un calcul commencé par zone, repris où il en était si une autre colonne passe devant (le joueur
+			# attend au bord d'une autre) ; recommencé si le terrain a changé depuis (terrain_edits).
+			if surface_job_edits != terrain_edits:
+				surface_jobs.clear()
 				surface_job_edits = terrain_edits
-			if surface_job.step(SURFACE_STEP_USEC):
+			var job: RefCounted = surface_jobs.get(zone)
+			if job == null:
+				job = SurfaceJob.new(terrain, zone)
+				surface_jobs[zone] = job
+			if job.step(SURFACE_STEP_USEC):
 				pending.pop_back()
-				var surface: Array = surface_job.result
-				surface_job = null
-				rebuild_terrain_piece(zone, false, surface)
+				surface_jobs.erase(zone)
+				rebuild_terrain_piece(zone, false, job.result)
 		if perf_on:
 			_perf("terrain_morceau", at)
 
@@ -677,6 +751,8 @@ func finish_terrain() -> void:
 	for column: Vector2i in pebble_bodies:
 		_build_pebble_bodies(column)
 	_update_pebble_blocks()
+	# 0.0.7.25 : herbe et plantes en attente aussi.
+	_process_detail_queue(1 << 40)
 
 # Brume au loin, au bord de la distance d'affichage : le terrain ne s'arrête pas d'un coup.
 # 0.0.6.6 (#124) : eau qui coule (water.gd) : un pas tous les dixièmes de seconde autour du joueur ; l'eau libre est
@@ -3166,10 +3242,41 @@ func _save_zone(zone: Vector3i) -> bool:
 	return ok
 
 # Au retour aux mondes, à la pause, à la fermeture et toutes les 45 s : joueur et zones modifiées.
+
+# 0.0.7.23 : sur le Web, aussi WEB_SAVE_DELAY s après un changement (arbre coupé, terrain, objet, inventaire), une fois
+# que plus rien ne tombe : le navigateur recopie ses fichiers dans son stockage un peu après coup ; enregistré seulement en
+# fermant l'onglet, le dernier changement pouvait être perdu (mesures Web du 17.11.2026 : un arbre coupé revenu debout).
+const WEB_SAVE_DELAY := 0.5
+const WEB_MOVE_SAVE := 8.0
+var saved_at := Vector3.ZERO
+var unsaved_time := 0.0
+var inventory_unsaved := false
+
+func _save_due(delta: float) -> bool:
+	if autosave_time >= AUTOSAVE_SECONDS:
+		return true
+	if not OS.has_feature("web") and not web_save_test:
+		return false
+	# 0.0.7.25 (mesures Web) : aussi le terrain creusé ou posé (terrain_dirty, oublié avant : un trou perdu même 10 s après),
+	# et la place du joueur dès qu'il a bougé de WEB_MOVE_SAVE mètres.
+	var moved: bool = is_instance_valid(player) and player.global_position.distance_to(saved_at) > WEB_MOVE_SAVE
+	if objects_dirty or not dirty_zones.is_empty() or not terrain_dirty.is_empty() or inventory_unsaved or moved:
+		unsaved_time += delta
+		# 0.0.7.24 : 0,5 s (avant 2 s : une coupe perdue en rechargeant tout de suite, mesures Web) ; un arbre qui tombe
+		# n'attend plus (il est enregistré couché) ; le sable qui coule, si (l'enregistrement le poserait d'un coup).
+		return unsaved_time >= WEB_SAVE_DELAY and terrain.unstable.is_empty()
+	unsaved_time = 0.0
+	return false
+
+# Tests : comme sur le Web.
+var web_save_test := false
 func save_now() -> bool:
 	autosave_time = 0.0
+	unsaved_time = 0.0
+	inventory_unsaved = false
 	if save_folder.is_empty() or not is_instance_valid(player):
 		return true
+	saved_at = player.global_position
 	# 0.0.5.11 : ce qui tombe encore est posé à sa place avant d'enregistrer.
 	settle_all()
 	var ok := Store.write_json(save_folder.path_join(Store.PLAYER_FILE), player_data())
@@ -3512,6 +3619,9 @@ func _perf(name: String, since: int) -> void:
 func _process(delta: float) -> void:
 	if not is_instance_valid(player):
 		return
+	# 0.0.7.24 : sans le travail de fond de l'image d'avant (sinon le budget, un quart de l'image, se nourrissait de lui-même :
+	# 90 à 110 ms par image mesurées sur le Web).
+	frame_usec = lerpf(frame_usec, maxf(delta * 1_000_000.0 - last_work_usec, 1000.0), 0.1)
 	_end_warm()
 	if perf_on:
 		_process_measured(delta)
@@ -3526,7 +3636,7 @@ func _process(delta: float) -> void:
 	# Sauvegarde régulière (petits fichiers, seulement les zones modifiées : pas de saccade).
 	played_since_save += delta
 	autosave_time += delta
-	if autosave_time >= AUTOSAVE_SECONDS:
+	if _save_due(delta):
 		save_now()
 	notice_time = maxf(0.0, notice_time - delta)
 	var captured := Input.mouse_mode == Input.MOUSE_MODE_CAPTURED
@@ -3542,7 +3652,9 @@ func _process(delta: float) -> void:
 	_settle_terrain(delta)
 	_process_hide_queue()
 	update_terrain_view(false, Vector2i(floori(player.position.x / SmoothTerrain.ZONE_SIZE), floori(player.position.z / SmoothTerrain.ZONE_SIZE)))
+	var work_at := Time.get_ticks_usec()
 	_process_background_work()
+	last_work_usec = Time.get_ticks_usec() - work_at
 	_update_pebble_blocks()
 	# Image calme (rien à construire) : un modèle d'arbre de plus préparé d'avance.
 	if terrain_queue.is_empty() and far_queue.is_empty() and tree_queue.is_empty():
@@ -3558,41 +3670,76 @@ func _process(delta: float) -> void:
 const FRAME_BASE_USEC := 5000
 const WORK_MIN_USEC := 1500
 const WORK_MAX_USEC := 8000
+const SLOW_WORK_MAX_USEC := 30000
+# Durée moyenne d'une image (µs), pour le budget à petit nombre d'images.
+var frame_usec := 16_000.0
+var last_work_usec := 0.0
+# 0.0.7.24 : plafond du budget à petit nombre d'images sur le Web (rendu Compatibility).
+const SLOW_WORK_MAX_WEB_USEC := 15000
 
 func work_budget() -> int:
+	if behind_loading:
+		return LOADING_WORK_USEC
 	if opening_columns:
 		return WORK_MAX_USEC
 	var fps: int = Engine.max_fps if Engine.max_fps > 0 else 144
 	var budget := int(1_000_000.0 / fps) - FRAME_BASE_USEC
+	# 0.0.7.23 : sous 30 images par seconde (PC bon marché, Web : 8 à 13 mesurées), un quart de la durée réelle de l'image,
+	# au plus SLOW_WORK_MAX_USEC : à 8 images par seconde, le monde se construisait 6 à 7 fois moins vite qu'à 60.
+	if frame_usec > 33_000.0:
+		budget = maxi(budget, mini(int(frame_usec * 0.25), SLOW_WORK_MAX_WEB_USEC if is_compat() else SLOW_WORK_MAX_USEC))
+		return budget
 	# Web (rendu Compatibility) : le rendu y prend bien plus de l'image.
 	if is_compat():
 		budget = mini(budget, 4000)
 	return clampi(budget, WORK_MIN_USEC, WORK_MAX_USEC)
 
+
+# 0.0.7.22 (demande de l'utilisateur) : sol de cette place construit ? Colonne affichée mais pas encore construite : non,
+# et elle passe en tête de la file (le joueur attend au bord, player._stay_on_loaded_ground). Hors de la vue ou du
+# monde : oui (rien à attendre).
+func ground_ready(at: Vector3) -> bool:
+	var column := Vector2i(floori(at.x / SmoothTerrain.ZONE_SIZE), floori(at.z / SmoothTerrain.ZONE_SIZE))
+	if built_columns.has(column) or not shown_columns.has(column):
+		return true
+	var index := terrain_queue.find(column)
+	if index > 0:
+		terrain_queue.remove_at(index)
+		terrain_queue.push_front(column)
+	elif index < 0:
+		terrain_queue.push_front(column)
+	return false
+
 func _process_background_work() -> void:
 	var budget := work_budget()
 	var start := Time.get_ticks_usec()
 	var at := start
-	# Une colonne à 2 zones ou moins attend (la file va des plus proches aux plus loin) : tout le budget pour le terrain.
+	# Une colonne à 2 zones ou moins attend (la file va des plus proches aux plus loin) : surtout le terrain.
 	if not terrain_queue.is_empty():
 		var first: Vector2i = terrain_queue[0]
 		var ring := maxi(absi(first.x - view_center.x), absi(first.y - view_center.y))
 		if ring <= 2:
-			# Juste à côté du joueur (PC lent, vol rapide) : le plus grand budget ; une image un peu plus longue plutôt
-			# qu'un trou sous les pieds.
-			_process_terrain_queue(WORK_MAX_USEC if ring <= 1 else budget)
+			# Juste à côté du joueur : trois quarts du budget pour le terrain, le reste pour le lointain (0.0.7.24 : avant,
+			# tout pour le terrain ; en vol rapide, il y a toujours une colonne proche en attente, le lointain n'avançait
+			# plus et le paysage disparaissait, mesures Web). Les arbres attendent.
+			_process_terrain_queue(budget * 3 / 4)
 			if perf_on:
-				_perf("terrain_file", start)
+				_perf("terrain_file", at)
+				at = Time.get_ticks_usec()
+			_process_far_queue(maxi(start + budget - Time.get_ticks_usec(), FAR_MIN_USEC))
+			if perf_on:
+				_perf("lointain", at)
 			return
 	_process_terrain_queue(budget / 2)
 	if perf_on:
 		_perf("terrain_file", at)
 		at = Time.get_ticks_usec()
-	_process_tree_queue(maxi(start + budget * 3 / 4 - Time.get_ticks_usec(), 300))
+	_process_tree_queue(maxi(start + budget * 5 / 8 - Time.get_ticks_usec(), 300))
+	_process_detail_queue(maxi(start + budget * 3 / 4 - Time.get_ticks_usec(), 300))
 	if perf_on:
 		_perf("arbres_file", at)
 		at = Time.get_ticks_usec()
-	_process_far_queue(maxi(start + budget - Time.get_ticks_usec(), 500))
+	_process_far_queue(maxi(start + budget - Time.get_ticks_usec(), FAR_MIN_USEC))
 	if perf_on:
 		_perf("lointain", at)
 		at = Time.get_ticks_usec()
@@ -3618,7 +3765,7 @@ func _process_measured(delta: float) -> void:
 	_perf("eau", at)
 	played_since_save += delta
 	autosave_time += delta
-	if autosave_time >= AUTOSAVE_SECONDS:
+	if _save_due(delta):
 		at = Time.get_ticks_usec()
 		save_now()
 		_perf("sauvegarde", at)
@@ -3645,7 +3792,9 @@ func _process_measured(delta: float) -> void:
 	update_terrain_view(false, Vector2i(floori(player.position.x / SmoothTerrain.ZONE_SIZE), floori(player.position.z / SmoothTerrain.ZONE_SIZE)))
 	_perf("terrain_vue", at)
 	at = Time.get_ticks_usec()
+	var work_at := Time.get_ticks_usec()
 	_process_background_work()
+	last_work_usec = Time.get_ticks_usec() - work_at
 	_perf("travail_de_fond", at)
 	at = Time.get_ticks_usec()
 	_update_pebble_blocks()
@@ -3814,6 +3963,20 @@ func set_grass_distance(distance: float) -> void:
 	TerrainMaterials.grass_range = grass_distance
 	for patch in find_children("GrassDetail","MultiMeshInstance3D",true,false):
 		TerrainMaterials.set_patch_range(patch, grass_distance)
+
+# 0.0.7.24 : qualité changée en jeu : sol simplifié et densité de l'herbe appliqués tout de suite (avant : à la prochaine
+# ouverture du monde).
+func set_simple_ground(value: bool) -> void:
+	simple_ground = value
+	TerrainMaterials.set_simple(value)
+
+func set_grass_density(density: String) -> void:
+	if density == grass_density:
+		return
+	grass_density = density
+	TerrainMaterials.density = density
+	for tile: Vector2i in lawn_tiles.keys():
+		_rebuild_lawn_tile(tile)
 
 # 0.0.5.18 : objets du monde (objets.json, dans son dossier) : rochers (taille et forme 1 à 7, position X Z,
 # rotation) et étiquettes (textes flottants, pour les mondes d'essai). Posés sur le sol de la graine.
@@ -3998,13 +4161,9 @@ func _show_column_objects(column: Vector2i, progressive := false) -> void:
 	if perf_on:
 		_perf("objets_arbres", at)
 		at = Time.get_ticks_usec()
-	# 0.0.6.16 (#182) : plantes à fibres de la colonne (génération 27).
-	var plant_list: Array = terrain.plants_in_zone(column)
-	if not plant_list.is_empty():
-		for node in Plants.column_nodes(plant_list, terrain.height_at):
-			node.set_meta("column", column)
-			_rocks_parent().add_child(node)
-			_column_object(column, node)
+	# 0.0.6.16 (#182) : plantes à fibres de la colonne (génération 27). 0.0.7.25 : en se déplaçant, plus tard (detail_queue).
+	if not progressive:
+		_show_column_plants(column)
 	for lake in terrain.lakes_in_zone(column):
 		var water := MeshInstance3D.new()
 		water.name = "Lac"
@@ -4032,6 +4191,33 @@ var _river_material: ShaderMaterial
 var tree_queue: Array = []
 const TREE_BUDGET_USEC := 3000
 
+
+func _show_column_plants(column: Vector2i) -> void:
+	var plant_list: Array = terrain.plants_in_zone(column)
+	if plant_list.is_empty():
+		return
+	for node in Plants.column_nodes(plant_list, terrain.height_at):
+		node.set_meta("column", column)
+		_rocks_parent().add_child(node)
+		_column_object(column, node)
+
+# 0.0.7.25 : détails des colonnes construites en se déplaçant (herbe, plantes), une colonne à la fois, après le terrain.
+var detail_queue: Array = []
+
+func _process_detail_queue(budget_usec: int) -> void:
+	var deadline := Time.get_ticks_usec() + budget_usec
+	while not detail_queue.is_empty() and Time.get_ticks_usec() < deadline:
+		# La plus proche du joueur d'abord.
+		var best := 0
+		for index in range(1, detail_queue.size()):
+			if Vector2(detail_queue[index] - view_center).length_squared() < Vector2(detail_queue[best] - view_center).length_squared():
+				best = index
+		var column: Vector2i = detail_queue[best]
+		detail_queue.remove_at(best)
+		if not built_columns.has(column):
+			continue
+		_rebuild_lawn_tile(column)
+		_show_column_plants(column)
 func _process_tree_queue(budget_usec: int = TREE_BUDGET_USEC) -> void:
 	var deadline := Time.get_ticks_usec() + budget_usec
 	while not tree_queue.is_empty() and Time.get_ticks_usec() < deadline:
@@ -4058,12 +4244,48 @@ func _make_column_tree(column: Vector2i, tree: Dictionary) -> void:
 	_rocks_parent().add_child(made)
 	_column_object(column, made)
 	if intact:
+		_add_stem_collisions(made)
 		series_dirty[column] = true
 		return
 	_restore_fallen(made)
 	_restore_pieces(made)
 	_restore_parts(made)
 
+
+# 0.0.7.25 (mesures Web : la caméra entrait dans les troncs d'un arbre à plusieurs tiges) : une collision par tige
+# principale et par grosse branche basse (sous BRANCH_COLLISION_TOP m, au moins BRANCH_COLLISION_RADIUS de rayon), le long
+# de leur axe (squelette de tree_parts.gd), STEM_COLLISIONS_MAX au plus ; en plus du tronc au pied (Trees.tree_body).
+const STEM_COLLISIONS_MAX := 8
+const BRANCH_COLLISION_TOP := 2.2
+const BRANCH_COLLISION_RADIUS := 0.05
+const STEM_COLLISION_LENGTH := 2.5
+
+func _add_stem_collisions(tree: Node3D) -> void:
+	var model: Node3D = tree.get_node_or_null("Modele")
+	if model == null:
+		return
+	var pieces: Array = TreeParts.skeleton(int(tree.get_meta("kind")), int(tree.get_meta("size")), int(tree.get_meta("form"))).pieces
+	var added := 0
+	for piece: Dictionary in pieces:
+		if added >= STEM_COLLISIONS_MAX:
+			break
+		var radius: float = maxf(piece.profile[0], piece.profile[1])
+		var stem: bool = piece.root and piece.tip.y > 0.5
+		var low_branch: bool = not piece.root and piece.start.y < BRANCH_COLLISION_TOP and radius >= BRANCH_COLLISION_RADIUS
+		if not stem and not low_branch:
+			continue
+		var length := minf(float(piece.length), STEM_COLLISION_LENGTH)
+		var direction: Vector3 = piece.direction
+		var shape := CylinderShape3D.new()
+		shape.radius = maxf(radius, 0.03)
+		shape.height = length
+		var collision := CollisionShape3D.new()
+		collision.name = "Tige"
+		collision.shape = shape
+		var basis := Basis(Quaternion(Vector3.UP, direction.normalized())) if absf(direction.normalized().dot(Vector3.UP)) < 0.9999 else Basis.IDENTITY
+		collision.transform = model.transform * Transform3D(basis, piece.start + direction * length * 0.5)
+		tree.add_child(collision)
+		added += 1
 # 0.0.7.21 : arbres intacts dessinés en série, par colonne et par modèle (espèce, taille, forme) : un dessin par modèle
 # au lieu d'un par arbre (en forêt : bien moins de dessins par image, surtout sur le Web). Colonne → ses nœuds.
 var column_series: Dictionary = {}
@@ -4336,6 +4558,7 @@ func _hide_column_objects(column: Vector2i) -> void:
 			node.free()
 	column_objects.erase(column)
 	tree_queue = tree_queue.filter(func(next: Array): return next[0] != column)
+	detail_queue.erase(column)
 	for node in column_series.get(column, []):
 		if is_instance_valid(node):
 			node.free()
@@ -4537,6 +4760,8 @@ var far_tiles: Dictionary = {}
 var far_queue: Array = []
 var near_area := Rect2()
 const FAR_BUDGET_USEC := 4000
+# 0.0.7.24 : le lointain avance toujours un peu à chaque image (jamais affamé par le terrain).
+const FAR_MIN_USEC := 800
 const FAR_NO_LIMIT := 9223372036854775807
 var far_opening := true
 
@@ -4552,10 +4777,10 @@ func _update_far(center: Vector2i, area: Rect2) -> void:
 	if far_distance > load_distance and relief:
 		var here := FarTerrain.tile_of(center)
 		var reach := ceili(far_distance / float(FarTerrain.TILE_ZONES))
-		var low := FarTerrain.tile_of(base_zones_low)
-		var high := FarTerrain.tile_of(base_zones_high)
-		for x in range(maxi(low.x, here.x - reach), mini(high.x, here.x + reach) + 1):
-			for z in range(maxi(low.y, here.y - reach), mini(high.y, here.y + reach) + 1):
+		# 0.0.7.24 (demande de l'utilisateur) : aussi au-delà de la limite du monde (avant : vide bleu pâle) : le relief
+		# simplifié continue jusqu'à la distance lointaine ; on ne peut pas y aller (le joueur reste à la limite).
+		for x in range(here.x - reach, here.x + reach + 1):
+			for z in range(here.y - reach, here.y + reach + 1):
 				# 0.0.6 : aussi les carrés à portée du terrain détaillé : ils restent tant que le détail n'est pas affiché.
 				wanted[Vector2i(x, z)] = true
 	for tile: Vector2i in far_cells.keys():

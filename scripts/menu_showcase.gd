@@ -12,9 +12,9 @@ extends Node3D
 # 2 ou 3, choisis parmi les nouveautés : liste NEWS_RUNNERS ([id, peau], peau vide pour un animal).
 # Chacun prend son modèle Blender, sinon une forme simple (character_model.gd, partagé avec le jeu).
 # Le reste du fichier (sol, gazon, plage, ciel, caméra) ne change pas d'une version à l'autre.
-const NEWS_VERSION := "0.0.7.21"
-const NEWS_TEXT := "Nouveau : Qualité d'affichage dans Vidéo (Performance, Équilibré, Beauté) !
-Et un jeu encore plus fluide, même en forêt."
+const NEWS_VERSION := "0.0.7.25"
+const NEWS_TEXT := "Nouveau : sur le Web, plus rien de perdu en rechargeant la page !
+Et des troncs solides, même les arbres à plusieurs tiges."
 
 # 0.0.3.25 : les nouveautés en aller-retour sur l'herbe libre, devant la place de sable et pierre (sous le panneau des
 # menus, vers la droite), chacune sur sa rangée.
@@ -53,6 +53,9 @@ func _build_news() -> void:
 # Dessinés en série (un dessin par modèle, MultiMesh) ; détaillés jusqu'à PINE_DETAIL de la caméra, simplifiés et sans
 # ombre au-delà, jusqu'à PINE_FAR (dans la brume). Quatre modèles seulement (tailles 4 et 5, deux formes), un par image.
 const PINE_COUNT := 120
+# 0.0.7.23 : rendu Compatibility (Web, vieux PC) : moitié moins de pins, et pas de terrain lointain au-delà de la brume.
+const PINE_COUNT_WEB := 60
+static var WEB := RenderingServer.get_current_rendering_method() == "gl_compatibility"
 const PINE_CLEAR := 11.0
 const PINE_FAR := 110.0
 const PINE_DETAIL := 25.0
@@ -68,7 +71,7 @@ func _plan_pines() -> void:
 	var placed: Array[Vector2] = []
 	var groups := {}
 	for attempt in range(PINE_COUNT * 10):
-		if placed.size() >= PINE_COUNT:
+		if placed.size() >= (PINE_COUNT_WEB if WEB else PINE_COUNT):
 			break
 		var at := BEACH_CENTER + Vector2.from_angle(rng.randf() * TAU) * sqrt(rng.randf_range(PINE_CLEAR * PINE_CLEAR, PINE_FAR * PINE_FAR))
 		var size: int = PINE_SIZES[rng.randi() % PINE_SIZES.size()]
@@ -158,6 +161,7 @@ func _ready() -> void:
 
 func _process(delta: float) -> void:
 	elapsed += delta
+	frame_usec = lerpf(frame_usec, delta * 1_000_000.0, 0.1)
 	_place_camera()
 	orb.position.y = NEWS_HEIGHT + 1.6 + sin(elapsed * 1.3) * 0.25
 	_animate_news(delta)
@@ -195,8 +199,8 @@ func _setup_environment() -> void:
 	environment.fog_enabled = true
 	environment.fog_mode = Environment.FOG_MODE_DEPTH
 	environment.fog_light_color = Color("#e7c3d6")
-	environment.fog_depth_begin = 80.0
-	environment.fog_depth_end = 240.0
+	environment.fog_depth_begin = 60.0 if WEB else 80.0
+	environment.fog_depth_end = 150.0 if WEB else 240.0
 	environment.fog_sky_affect = 0.0
 	var world_environment := WorldEnvironment.new()
 	world_environment.environment = environment
@@ -220,6 +224,7 @@ var terrain := Terrain.new()
 # 0.0.5.37 : construit petit à petit, les morceaux les plus proches d'abord : le menu s'affiche tout de suite et
 # reste fluide (surtout sur le Web, qui n'a qu'un seul fil de calcul).
 const BUILD_BUDGET_USEC := 6000
+var frame_usec := 16_000.0
 # 0.0.7.20 : durée d'une petite étape (graine, surface d'une zone).
 const STEP_USEC := 3000
 const SurfaceJob = preload("res://scripts/surface_job.gd")
@@ -264,14 +269,14 @@ func _plan_zones() -> void:
 	build_queue.append(_plan_pines)
 	var near_area := Rect2(Vector2(near_low) * 8.0, Vector2(near_high - near_low + Vector2i.ONE) * 8.0)
 	var tiles: Array[Vector2i] = []
-	for x in range(FAR_TILES.position.x, FAR_TILES.end.x):
-		for z in range(FAR_TILES.position.y, FAR_TILES.end.y):
+	for x in range(far_tiles.position.x, far_tiles.end.x):
+		for z in range(far_tiles.position.y, far_tiles.end.y):
 			tiles.append(Vector2i(x, z))
 	tiles.sort_custom(func(a: Vector2i, b: Vector2i): return Vector2(a).distance_to(eye / 4.0) < Vector2(b).distance_to(eye / 4.0))
 	for tile in tiles:
 		build_queue.append(_build_far_tile.bind(tile, near_area))
-	for x in range(FAR_TILES.position.x * 4, FAR_TILES.end.x * 4):
-		for z in range(FAR_TILES.position.y * 4, FAR_TILES.end.y * 4):
+	for x in range(far_tiles.position.x * 4, far_tiles.end.x * 4):
+		for z in range(far_tiles.position.y * 4, far_tiles.end.y * 4):
 			build_queue.append(_build_water.bind(Vector2i(x, z)))
 	# 0.0.5.5 : gazon réaliste ; seulement les carrés assez proches pour être vus (avant : 4 fois trop).
 	var lawn_node := Node3D.new()
@@ -291,7 +296,10 @@ func _plan_column(column: Vector2i) -> void:
 		build_queue.push_front(_build_zone.bind(zone))
 
 func _continue_building() -> void:
-	var deadline := Time.get_ticks_usec() + BUILD_BUDGET_USEC
+	# 0.0.7.23 : sous 30 images par seconde (Web, PC bon marché), un quart de la durée de l'image (30 ms au plus) : à 8 images
+	# par seconde, le petit monde mettait 60 à 75 s à se construire.
+	var budget := BUILD_BUDGET_USEC if frame_usec < 33_000.0 else clampi(int(frame_usec * 0.25), BUILD_BUDGET_USEC, 30_000)
+	var deadline := Time.get_ticks_usec() + budget
 	while not build_queue.is_empty() and Time.get_ticks_usec() < deadline:
 		var step: Callable = build_queue.pop_front()
 		var at := Time.get_ticks_usec()
@@ -343,6 +351,9 @@ func _build_grass(tile: Vector2i, parent: Node3D) -> void:
 # 0.0.5.23 : au loin, comme en partie : terrain simplifié (seulement vers où regarde la caméra) et eau des lacs.
 const FarTerrain = preload("res://scripts/far_terrain.gd")
 const FAR_TILES := Rect2i(-6, -4, 7, 6)
+# 0.0.7.23 : Web : lointain jusqu'à environ 130 m (brume plus proche), moitié moins de carrés.
+const FAR_TILES_WEB := Rect2i(-4, -3, 5, 5)
+var far_tiles: Rect2i = FAR_TILES_WEB if WEB else FAR_TILES
 
 func _build_far_tile(tile: Vector2i, near: Rect2) -> void:
 	var mesh := FarTerrain.build(terrain, tile, near.grow(-2.0), FarTerrain.CELL * 2.0)

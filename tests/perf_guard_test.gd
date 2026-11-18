@@ -63,6 +63,12 @@ func _run() -> void:
 			slowest = name
 	print("MESURE: budget %.1f ms, travail de fond moyen %.2f ms, max %.1f ms ; tâche la plus longue : %s %.1f ms" % [budget / 1000.0, work.total / frames, work.max, slowest, slowest_ms])
 	check(budget == 5000, "100 images par seconde au plus : 5 ms de travail de fond par image")
+	var real_frame: float = world.frame_usec
+	world.frame_usec = 125_000.0
+	check(world.work_budget() == world.SLOW_WORK_MAX_USEC, "8 images par seconde (Web, PC bon marché) : un quart de l'image, 30 ms au plus (0.0.7.23)")
+	world.frame_usec = 50_000.0
+	check(world.work_budget() == 12500, "20 images par seconde : un quart de l'image (12,5 ms)")
+	world.frame_usec = real_frame
 	# Sur l'Action GitHub, les tests tournent à plusieurs sur une petite machine partagée : temps trop variables pour
 	# juger ; mesures seulement affichées (le garde-fou vaut sur le PC, run_all.ps1).
 	if OS.get_environment("GITHUB_ACTIONS") == "true":

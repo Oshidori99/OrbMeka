@@ -36,7 +36,9 @@ func _field_texts(app: Control) -> Dictionary:
 	return result
 
 func _horizontal_speed(player: CharacterBody3D, direction: Vector2) -> float:
-	player.position = Vector3(45.5, 0.02, 45.5)
+	# 0.0.7.22 : au point d'arrivée (sol construit) ; avant : à (45,5 ; 45,5), où le sol n'est pas encore construit à
+	# l'ouverture (le joueur y attend maintenant au bord, loaded_edge_test).
+	player.position = player.world.spawn_position() + Vector3(0.0, 0.02, 0.0)
 	player.velocity = Vector3.ZERO
 	player.step_movement(1.0/60.0, direction, false)
 	return Vector2(player.velocity.x, player.velocity.z).length()
