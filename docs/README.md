@@ -1,7 +1,18 @@
-# OrbMeka™ — prototype 0.0.7.25
+# OrbMeka™ — prototype 0.0.7.26
 
 Godot 4.7 / GDScript. Formes et couleurs simples ; assets externes seulement sous licence vérifiée (sons CC0, assets/sounds/CREDITS.txt).
 
+## 0.0.7.26 — Branches mortes au sol dans les forêts (rares ailleurs), rejets de noisetier à casser en maintenant, qualités du bâton et note de manche, longueurs affichées avant de recasser un bâton
+Version locale (1 sur 4). **Génération 33** (nouveaux mondes seulement ; les mondes existants ne changent pas). Issue #212.
+- **Branches mortes au sol** : placées selon la graine, beaucoup en forêt (environ une tous les 5 m²), rares ailleurs (une fois sur 4 sous un arbre seul), jamais dans l'eau. Chacune a l'essence de l'arbre le plus proche, 30 à 90 cm de long, 1,5 à 5 cm d'épaisseur, droite ou tordue, saine ou pourrie. Montrées à 3 zones autour du joueur ; ramassées avec R ; seules celles ramassées ou recassées sont enregistrées (objets.json).
+- **Rejets de noisetier** : 2 à 5 tiges droites au pied de chaque noisetier (60 à 150 cm, 1,5 à 3 cm) ; cassés en maintenant le clic (2 s, bois vert ; 0,3 s en Créatif), ils tombent au sol (« Rejet de noisetier »).
+- **Qualités visibles** dans le détail d'un bâton : longueur, épaisseur, droit ou tordu, sain, mort ou pourri, et la note de manche (excellent, bon, moyen, mauvais : un bon manche est droit, sain, 40 à 70 cm, 2 à 4 cm ; noisetier excellent, pommier bon, pin et tilleul moyens).
+- **Recasser un bâton au sol** : en le visant, les deux longueurs qu'il donnerait et le temps (« Casser ici : 32 cm et 41 cm (0,3 s) ») ; bois mort 2,5 fois plus vite, pourri plus vite encore, rejet vert 1,5 fois plus lent. Le repère à la molette viendra en 0.0.8.
+- Branches et rejets ajoutés par la file de fond (une colonne à la fois, 2 ms au plus).
+- Pas fait : herbe haute qui cache les branches (à voir en jouant), couleur du bois mort (comme l'écorce de son essence).
+
+Tests réussis : sticks (19, nouveau), inventory (105), custom_generation, world_save, prototype, breaking, history_resume et les tests touchés (+ tests juridiques). perf_guard : « le monde suit en courant » échoue aussi sans ces changements (pic d'un arbre à 42 ms, déjà là) : à revoir. Captures : rejets au pied d'un noisetier, branches dans une forêt de pins.
+À tester : ramasser des branches mortes avec R, casser un rejet en maintenant, recasser un bâton (longueurs affichées), qualités dans l'inventaire.
 ## 0.0.7.25 — Terrain creusé et place du joueur enregistrés sur le Web, rouvrir un monde sans image figée (toute la vue prête derrière l'écran de chargement), troncs et grosses branches solides, Résolution 3D à 100 % sur le Web, herbe et plantes après la surface, pause plus légère, modèles d'arbres plus légers à télécharger
 Version publiée (4 sur 4). Génération inchangée (version 32). D'après le troisième rapport de mesures Web (Chrome, Radeon 610M).
 - **Sauvegarde Web** : le terrain creusé ou posé est enregistré 0,5 s après (oublié avant : un trou perdu même 10 s après), ainsi que la place du joueur dès qu'il a bougé de 8 m.

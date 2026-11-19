@@ -36,8 +36,10 @@ extends RefCounted
 # Version 26 (0.0.6.15) : même monde, sol d'aiguilles sous les pinèdes, vergers sauvages (pommiers et noisetiers) en plaine.
 # Version 27 (0.0.6.16) : même monde, plantes à fibres (orties, lin, herbes longues) et lianes sur les tilleuls.
 # Version 28 (0.0.6.17) : monde plus grand, 96 × 96 zones (768 m de côté) au lieu de 64 × 64.
-const VERSION := 32
-const VERSIONS := [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32]
+# Version 33 (0.0.7.26, #212) : même monde, branches mortes au sol sous et près des arbres (bien plus en forêt, rares
+# ailleurs) et rejets droits au pied des noisetiers.
+const VERSION := 33
+const VERSIONS := [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33]
 # Chance la plus rare qu'on peut régler : 1 sur MAX_CHANCE par zone (64 avant 0.0.5.18, 400 avant 0.0.5.23, 2000 avant 0.0.5.24).
 const MAX_CHANCE := 4000
 const STANDARD_SMALL_DENOMINATOR := 8
@@ -122,6 +124,7 @@ const DESERT_SIZES := {
 	30: {"medium_desert": [3, 4, 2, 2], "big_desert": [40, 48, 8, 8]},
 	31: {"medium_desert": [3, 4, 2, 2], "big_desert": [40, 48, 8, 8]},
 	32: {"medium_desert": [3, 4, 2, 2], "big_desert": [40, 48, 8, 8]},
+	33: {"medium_desert": [3, 4, 2, 2], "big_desert": [40, 48, 8, 8]},
 }
 # 0.0.6 (version 15) : monde de 64 × 64 zones ; 48 × 48 pour les versions d'avant (0.0.5.20 ; 20 × 20 en 0.0.5.18, 16 × 16 avant).
 static func half_zones(version: int = VERSION) -> int:
@@ -422,6 +425,8 @@ static func describe(options: Dictionary) -> String:
 		lines.append("Arbres de trois formes un peu différentes ; certains ont un trou dans le tronc.")
 	if version >= 30:
 		lines.append("Rivières qui partent des lacs de montagne et descendent jusqu'aux lacs de la plaine ou à une autre rivière.")
+	if version >= 33:
+		lines.append("Branches mortes au sol sous les arbres, surtout en forêt ; rejets droits au pied des noisetiers, les meilleurs manches.")
 	if version >= 31:
 		lines.append("Rivières toujours en descente, jusqu'au lac le plus bas à portée, raccordées aux lacs à leur surface.")
 	if version >= 32:

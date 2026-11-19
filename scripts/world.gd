@@ -143,6 +143,8 @@ func _ready() -> void:
 	_create_hud()
 	apply_held()
 	_warm_shaders()
+	# 0.0.7.26 : branches mortes et rejets des colonnes déjà construites (les objets au sol n'existaient pas encore).
+	_refresh_sticks()
 
 
 # 0.0.7.20 : shaders compilés pendant l'ouverture (surtout sur le Web, qui les compile au premier affichage : à-coup en
@@ -462,6 +464,8 @@ func update_terrain_view(force: bool = false, center: Vector2i = view_center) ->
 		return
 	view_center = center
 	_update_fog()
+	# 0.0.7.26 : branches mortes et rejets des colonnes autour du joueur.
+	_refresh_sticks()
 	var wanted := wanted_columns(center)
 	# 0.0.6.18 (#175) : colonnes sorties de la vue retirées peu à peu (_process_hide_queue) ; avant : toute une rangée
 	# d'un coup à chaque zone traversée (environ 8 ms en vol).
@@ -557,6 +561,8 @@ func _finish_column(column: Vector2i, progressive := false) -> void:
 		_perf("colonne_objets", at)
 		at = Time.get_ticks_usec()
 	built_columns[column] = true
+	if _in_stick_ring(column):
+		_queue_sticks(column)
 	_far_follow_column(column)
 	if perf_on:
 		_perf("colonne_lointain", at)
@@ -1200,6 +1206,9 @@ func step_chop(delta: float, holding: bool) -> bool:
 		chop_aim = {}
 		return false
 	var hit: Dictionary = player.get_target()
+	# 0.0.7.26 (#212) : rejet de noisetier visé : cassé en maintenant.
+	if not hit.is_empty() and is_instance_valid(hit.get("collider")) and hit.collider.is_in_group("shoots") and player.camera.global_position.distance_to(hit.position) <= player.break_reach + 0.01:
+		return _step_break_shoot(delta, hit.collider)
 	var tree: Node3D = null
 	if not hit.is_empty() and is_instance_valid(hit.get("collider")) and hit.collider.is_in_group("trees") and player.camera.global_position.distance_to(hit.position) <= player.break_reach + 0.01:
 		# 0.0.7.9 : la tige de visée d'un morceau coupé renvoie à son arbre.
@@ -1241,6 +1250,188 @@ func step_chop(delta: float, holding: bool) -> bool:
 		fell_tree(tree)
 	return true
 
+
+# --- 0.0.7.26 (#212) : branches mortes au sol et rejets de noisetier (génération 33, smooth_terrain.gd) ---
+# Montrés seulement dans les colonnes à STICK_RING zones ou moins du joueur (petits, visibles de près). Branches : objets au
+# sol de la graine (ground_items.gd add_seeded), ramassées avec R ; rejets : debout au pied des noisetiers, cassés en
+# maintenant le clic (SHOOT_SECONDS, bois vert). Enregistrés : seulement ceux ramassés ou cassés (objets.json).
+const STICK_RING := 3
+const SHOOT_SECONDS := 2.0
+const SHOOT_SECONDS_CREATIVE := 0.3
+var picked_branches: Dictionary = {}
+var broken_shoots: Dictionary = {}
+var stick_columns: Dictionary = {}
+var shoot_nodes: Dictionary = {}
+
+func _in_stick_ring(column: Vector2i) -> bool:
+	return maxi(absi(column.x - view_center.x), absi(column.y - view_center.y)) <= STICK_RING
+
+# Colonnes autour du joueur : branches et rejets ajoutés aux colonnes construites qui entrent, retirés de celles qui sortent.
+# Ajout par la file de fond (stick_queue, _process_detail_queue), une colonne à la fois, la plus proche d'abord.
+var stick_queue: Array = []
+
+func _refresh_sticks() -> void:
+	for column: Vector2i in stick_columns.keys():
+		if not built_columns.has(column) or not _in_stick_ring(column):
+			_hide_column_sticks(column)
+	for dx in range(-STICK_RING, STICK_RING + 1):
+		for dz in range(-STICK_RING, STICK_RING + 1):
+			_queue_sticks(view_center + Vector2i(dx, dz))
+
+func _queue_sticks(column: Vector2i) -> void:
+	if built_columns.has(column) and not stick_columns.has(column) and not stick_queue.has(column):
+		stick_queue.append(column)
+
+# Une colonne de la file (la plus proche du joueur) ; faux si la file est vide.
+func _process_one_stick_column() -> bool:
+	while not stick_queue.is_empty():
+		var best := 0
+		for index in range(1, stick_queue.size()):
+			if Vector2(stick_queue[index] - view_center).length_squared() < Vector2(stick_queue[best] - view_center).length_squared():
+				best = index
+		var column: Vector2i = stick_queue[best]
+		stick_queue.remove_at(best)
+		if built_columns.has(column) and _in_stick_ring(column):
+			var at := Time.get_ticks_usec()
+			_show_column_sticks(column)
+			if perf_on:
+				_perf("batons", at)
+			return true
+	return false
+
+func _show_column_sticks(column: Vector2i) -> void:
+	if stick_columns.has(column) or not is_instance_valid(ground):
+		return
+	stick_columns[column] = true
+	for branch: Dictionary in terrain.dead_branches_in_zone(column):
+		if picked_branches.has(branch.id):
+			continue
+		var item := dead_branch_item(branch)
+		var spot := Vector3(float(branch.x), 0.0, float(branch.z))
+		ground.add_seeded(item, Vector3(spot.x, _rest_height(spot) + GroundItems.lift(item), spot.z), column)
+	_build_shoots(column)
+
+func _hide_column_sticks(column: Vector2i) -> void:
+	stick_columns.erase(column)
+	if is_instance_valid(ground):
+		ground.remove_column_seeds(column)
+	if is_instance_valid(shoot_nodes.get(column)):
+		shoot_nodes[column].queue_free()
+	shoot_nodes.erase(column)
+
+# Objet d'une branche morte : bois mort (léger, cassant), tordu ou droit, pourri ou sain ; l'épaisseur au gros bout.
+static func dead_branch_item(branch: Dictionary) -> Dictionary:
+	var thickness: float = branch.epaisseur
+	var length: float = branch.longueur
+	var rotten: bool = branch.pourrie
+	var radius := thickness / 200.0
+	var weight := PI * radius * radius * length * 750000.0 * (0.35 if rotten else 0.55)
+	var size := Inventory.WOOD_SIZES.size()
+	for index in range(Inventory.WOOD_SIZES.size()):
+		if thickness <= Inventory.WOOD_SIZES[index]:
+			size = index + 1
+			break
+	var item := {"objet": "branche", "taille": size, "epaisseur": snappedf(thickness, 0.1), "fin": snappedf(thickness * 0.6, 0.1), "longueur": length, "essence": int(branch.espece), "age": 5 if rotten else 4, "souplesse": 1, "poids": maxf(snappedf(weight, 1.0), 1.0), "forme": 1 + absi(hash(branch.id)) % 7, "rotation": float(branch.rotation), "morte": 1, "graine": str(branch.id)}
+	if not branch.droite:
+		item.tordue = 1
+	if rotten:
+		item.pourrie = 1
+	return item
+
+# Rejets debout d'une colonne : un dessin pour tous (écorce de noisetier) et une petite collision chacun pour les viser
+# (couche 2 : le joueur passe au travers).
+func _build_shoots(column: Vector2i) -> void:
+	if is_instance_valid(shoot_nodes.get(column)):
+		shoot_nodes[column].free()
+	shoot_nodes.erase(column)
+	var shoots := terrain.hazel_shoots_in_zone(column).filter(func(shoot: Dictionary): return not broken_shoots.has(shoot.id))
+	if shoots.is_empty():
+		return
+	var holder := Node3D.new()
+	holder.name = "Rejets"
+	var series := MultiMesh.new()
+	series.transform_format = MultiMesh.TRANSFORM_3D
+	series.mesh = _shoot_mesh()
+	series.instance_count = shoots.size()
+	for index in range(shoots.size()):
+		var shoot: Dictionary = shoots[index]
+		var foot := Vector3(float(shoot.x), terrain.height_at(float(shoot.x), float(shoot.z)) - 0.05, float(shoot.z))
+		var lean := Basis(Vector3.UP.cross(Vector3.FORWARD.rotated(Vector3.UP, float(shoot.direction))).normalized(), float(shoot.penche)) if float(shoot.penche) > 0.0 else Basis.IDENTITY
+		var shape_basis := lean * Basis.from_scale(Vector3(float(shoot.epaisseur) / 100.0, float(shoot.longueur), float(shoot.epaisseur) / 100.0))
+		series.set_instance_transform(index, Transform3D(shape_basis, foot))
+		var body := StaticBody3D.new()
+		body.name = "Rejet"
+		body.add_to_group("shoots")
+		body.collision_layer = 2
+		body.collision_mask = 0
+		body.set_meta("shoot", shoot)
+		body.set_meta("column", column)
+		var collision := CollisionShape3D.new()
+		var box := BoxShape3D.new()
+		box.size = Vector3(0.12, float(shoot.longueur), 0.12)
+		collision.shape = box
+		collision.position = Vector3(0.0, float(shoot.longueur) * 0.5, 0.0)
+		body.add_child(collision)
+		body.transform = Transform3D(lean, foot)
+		holder.add_child(body)
+	var drawn := MultiMeshInstance3D.new()
+	drawn.multimesh = series
+	drawn.material_override = Trees.material(Trees.HAZEL, "bark")
+	drawn.visibility_range_end = Trees.detail_end
+	holder.add_child(drawn)
+	_rocks_parent().add_child(holder)
+	shoot_nodes[column] = holder
+
+# Tige de 1 m de haut et 1 cm de diamètre (agrandie pour chaque rejet), un peu plus fine en haut.
+static var _shoot_shape: CylinderMesh
+
+static func _shoot_mesh() -> CylinderMesh:
+	if _shoot_shape == null:
+		_shoot_shape = CylinderMesh.new()
+		_shoot_shape.top_radius = 0.35
+		_shoot_shape.bottom_radius = 0.5
+		_shoot_shape.height = 1.0
+		_shoot_shape.radial_segments = 6
+		_shoot_shape.rings = 1
+		_shoot_shape.cap_top = true
+		_shoot_shape.cap_bottom = false
+	return _shoot_shape
+
+# Rejet visé, clic maintenu : cassé au bout de SHOOT_SECONDS (bois vert) ; il tombe au sol, à ramasser avec R.
+func _step_break_shoot(delta: float, body: Node3D) -> bool:
+	if body != chop_target:
+		chop_target = body
+		chop_time = 0.0
+	var seconds := SHOOT_SECONDS_CREATIVE if game_mode == Inventory.CREATIVE else SHOOT_SECONDS
+	chop_time += delta
+	show_ring(chop_time / seconds)
+	if chop_time < seconds:
+		return false
+	chop_target = null
+	chop_time = 0.0
+	var shoot: Dictionary = body.get_meta("shoot")
+	var column: Vector2i = body.get_meta("column")
+	broken_shoots[str(shoot.id)] = true
+	objects_dirty = true
+	var item := shoot_item(shoot)
+	var top: Vector3 = body.global_transform * Vector3(0.0, float(shoot.longueur) * 0.7, 0.0)
+	ground.drop(item, top, body.global_position + Vector3(0.0, 0.0, 0.0), _rest_height, 0.15)
+	_build_shoots(column)
+	_impact_sound(top)
+	show_choice("Rejet de noisetier au sol : à ramasser avec R")
+	return true
+
+# Objet d'un rejet cassé : bois vert de noisetier, droit et sain (le meilleur manche).
+static func shoot_item(shoot: Dictionary) -> Dictionary:
+	var thickness: float = shoot.epaisseur
+	var length: float = shoot.longueur
+	var radius := thickness / 200.0
+	var size := Inventory.WOOD_SIZES.size()
+	for index in range(Inventory.WOOD_SIZES.size()):
+		if thickness <= Inventory.WOOD_SIZES[index]:
+			size = index + 1
+			break
+	return {"objet": "branche", "taille": size, "epaisseur": snappedf(thickness, 0.1), "fin": snappedf(thickness * 0.55, 0.1), "longueur": length, "essence": Trees.HAZEL, "age": 2, "souplesse": 4, "poids": maxf(snappedf(PI * radius * radius * length * 750000.0 * 0.9, 1.0), 1.0), "forme": 1 + absi(hash(shoot.id)) % 7, "rejet": 1}
 # --- 0.0.7.12 (demande de l'utilisateur) : couper SEULEMENT la branche ou la tige visée ---
 # À mains nues, on coupe la pièce visée (tronc, tige, branche, brindille) à l'endroit visé ; plus tard, la hache en
 # coupera plusieurs d'un coup. Ce qui est détaché (la fin de la pièce et tout ce qu'elle porte, tree_parts.gd) :
@@ -1399,7 +1590,7 @@ func _step_chop_ground(delta: float, index: int, point: Vector3) -> bool:
 		chop_target = null
 		chop_time = 0.0
 		chop_thickness = thickness
-		chop_seconds = maxf(CHOP_SECONDS * thickness / 0.1, 0.5)
+		chop_seconds = ground_wood_seconds(item, thickness)
 	if game_mode == Inventory.SURVIVAL and chop_thickness > MAX_HAND_THICKNESS + 0.001:
 		_notify("Trop épais à mains nues : %d cm (%d cm au plus)." % [roundi(chop_thickness * 100.0), roundi(MAX_HAND_THICKNESS * 100.0)])
 		return false
@@ -1411,6 +1602,38 @@ func _step_chop_ground(delta: float, index: int, point: Vector3) -> bool:
 	chop_time = 0.0
 	chop_aim = {}
 	return split_wood(index, point)
+
+# 0.0.7.26 (#212) : durée pour recasser un bois au sol (Survie) : comme une branche (CHOP_SECONDS par 10 cm d'épaisseur),
+# bois mort 0,4 fois, pourri 0,3 fois (cassants), rejet vert 1,5 fois (plie avant de casser).
+static func ground_wood_seconds(item: Dictionary, thickness: float) -> float:
+	var factor := 1.0
+	if int(item.get("pourrie", 0)) == 1:
+		factor = 0.3
+	elif int(item.get("morte", 0)) == 1:
+		factor = 0.4
+	elif int(item.get("rejet", 0)) == 1:
+		factor = 1.5
+	return maxf(CHOP_SECONDS * thickness / 0.1 * factor, 0.2)
+
+# 0.0.7.26 (#212) : bois au sol visé : les deux longueurs qu'il donnerait, cassé là, et le temps (ou trop épais).
+func ground_wood_hint(hit: Dictionary) -> String:
+	if not is_instance_valid(ground):
+		return ""
+	var index := _ground_wood(hit)
+	if index < 0:
+		return ""
+	var entry: Dictionary = ground.entries[index]
+	var item: Dictionary = entry.item
+	var length := float(item.get("longueur", 1.0))
+	var share := _wood_share(entry, hit.position)
+	var thick := float(item.get("epaisseur", 3.0))
+	var thickness := lerpf(thick, float(item.get("fin", thick)), share) / 100.0
+	if share * length < MIN_WOOD_PIECE or (1.0 - share) * length < MIN_WOOD_PIECE:
+		return "%s : trop près du bout pour casser là" % Inventory.item_name(item)
+	if game_mode == Inventory.SURVIVAL and thickness > MAX_HAND_THICKNESS + 0.001:
+		return "%s : trop épais à mains nues (%d cm)" % [Inventory.item_name(item), roundi(thickness * 100.0)]
+	var seconds := CHOP_SECONDS_CREATIVE if game_mode == Inventory.CREATIVE else ground_wood_seconds(item, thickness)
+	return "Casser ici : %d cm et %d cm (%s s)" % [roundi(share * length * 100.0), roundi((1.0 - share) * length * 100.0), String.num(snappedf(seconds, 0.1)).replace(".", ",")]
 
 # Coupe un bois au sol en deux au point visé : chaque moitié garde sa vraie longueur, ses épaisseurs (gros bout, petit
 # bout), son essence, son âge, sa souplesse ; poids selon son volume. Un rameau garde ses feuilles sur la moitié fine.
@@ -2461,6 +2684,7 @@ func _create_ground_items() -> void:
 	add_child(ground)
 	ground.from_array(objects_data.get("objets_au_sol"))
 	ground.changed.connect(func(): objects_dirty = true)
+	ground.seed_taken.connect(func(id: String): picked_branches[id] = true)
 
 # Hauteur du sol sous un point (collisions du terrain près du joueur, sinon le sol de la graine).
 func _rest_height(spot: Vector3) -> float:
@@ -2624,6 +2848,7 @@ func pick_up(hit: Dictionary) -> bool:
 		if index < 0:
 			return false
 		value = Inventory.single(ground.entries[index].item)
+		value.erase("graine")
 		var result := inventory.add_to_selected(value)
 		if result.added == 0:
 			_notify(_refused_message(result.reason, value))
@@ -3659,7 +3884,7 @@ func _process(delta: float) -> void:
 	# Image calme (rien à construire) : un modèle d'arbre de plus préparé d'avance.
 	if terrain_queue.is_empty() and far_queue.is_empty() and tree_queue.is_empty():
 		Trees.warm_next()
-	hint.text = notice if notice_time > 0.0 else ""
+	hint.text = notice if notice_time > 0.0 else (ground_wood_hint(hit) if captured else "")
 	_update_coordinates()
 
 
@@ -3803,7 +4028,7 @@ func _process_measured(delta: float) -> void:
 		at = Time.get_ticks_usec()
 		Trees.warm_next()
 		_perf("arbres_avance", at)
-	hint.text = notice if notice_time > 0.0 else ""
+	hint.text = notice if notice_time > 0.0 else (ground_wood_hint(hit) if Input.mouse_mode == Input.MOUSE_MODE_CAPTURED else "")
 	_update_coordinates()
 
 # level : 0 = −, 1 = Par défaut, 2 = + (textes complets d'avant 0.0.3.3), selon Synthèse des textes.
@@ -4051,6 +4276,10 @@ func _read_carved(data: Dictionary) -> void:
 		if point is Array and point.size() == 3:
 			terrain.supports[Vector3i(int(point[0]), int(point[1]), int(point[2]))] = true
 	# 0.0.7.5 : fruits cueillis, par arbre (numéros des fruits du modèle, trees.gd fruit_spots).
+	for id in data.get("branches_ramassees", []):
+		picked_branches[str(id)] = true
+	for id in data.get("rejets_casses", []):
+		broken_shoots[str(id)] = true
 	var picked: Variant = data.get("fruits_cueillis", {})
 	if picked is Dictionary:
 		for id in picked:
@@ -4218,6 +4447,9 @@ func _process_detail_queue(budget_usec: int) -> void:
 			continue
 		_rebuild_lawn_tile(column)
 		_show_column_plants(column)
+	# 0.0.7.26 : branches mortes et rejets après l'herbe et les plantes.
+	while detail_queue.is_empty() and Time.get_ticks_usec() < deadline and _process_one_stick_column():
+		pass
 func _process_tree_queue(budget_usec: int = TREE_BUDGET_USEC) -> void:
 	var deadline := Time.get_ticks_usec() + budget_usec
 	while not tree_queue.is_empty() and Time.get_ticks_usec() < deadline:
@@ -4565,6 +4797,7 @@ func _hide_column_objects(column: Vector2i) -> void:
 	column_series.erase(column)
 	series_dirty.erase(column)
 	_hide_column_pebbles(column)
+	_hide_column_sticks(column)
 
 # Disque d'eau (surface plate, vue de dessus et de dessous) ; 0.0.5.20 : allongé (half : demi-segment du lac).
 # 0.0.5.25 : lacs irréguliers (version 7 et plus) : l'eau suit le contour du lac, jamais par-dessus la rive.
@@ -4740,6 +4973,9 @@ func _save_objects() -> bool:
 	data.rochers_entames = carved_rocks.duplicate(true)
 	data.cailloux_casses = broken_pebbles.keys()
 	data.fruits_cueillis = picked_fruits.duplicate(true)
+	# 0.0.7.26 (#212) : branches mortes de la graine ramassées, rejets cassés.
+	data.branches_ramassees = picked_branches.keys()
+	data.rejets_casses = broken_shoots.keys()
 	data.arbres_tombes = fallen_trees.duplicate(true)
 	data.arbres_coupes = cut_trees.keys()
 	data.arbres_branches = tree_cuts.duplicate(true)

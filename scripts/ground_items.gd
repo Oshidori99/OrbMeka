@@ -39,6 +39,9 @@ func _ready() -> void:
 # spread : écart au hasard autour de « near » (0 : exactement là, objet posé à la main). Forme et orientation : celles
 # de l'objet ; un objet qui n'en a pas encore (éclat neuf) en reçoit une, gardée ensuite.
 func drop(value: Dictionary, from: Vector3, near: Vector3, rest_height: Callable, spread: float = 0.25) -> int:
+	# 0.0.7.26 : un objet reposé n'est plus celui de la graine.
+	value = value.duplicate(true)
+	value.erase("graine")
 	var item := value.duplicate(true)
 	item.erase("nombre")
 	if Inventory.is_object(item):
@@ -50,8 +53,14 @@ func drop(value: Dictionary, from: Vector3, near: Vector3, rest_height: Callable
 	var ground: float = rest_height.call(spot)
 	var entry := {"item": item, "position": Vector3(spot.x, ground + lift(item), spot.z)}
 	entries.append(entry)
-	while entries.size() > MAX_ITEMS:
-		remove(0)
+	# Trop d'objets posés : le plus ancien part (jamais ceux de la graine, qui ne comptent pas).
+	var placed := entries.filter(func(other): return not other.item.has("graine")).size()
+	while placed > MAX_ITEMS:
+		for at in range(entries.size()):
+			if not entries[at].item.has("graine"):
+				remove(at)
+				break
+		placed -= 1
 	var index := entries.size() - 1
 	_add_body(index)
 	_dirty = true
@@ -73,7 +82,21 @@ func drop(value: Dictionary, from: Vector3, near: Vector3, rest_height: Callable
 			falling.queue_free())
 	return index
 
-func remove(index: int) -> Dictionary:
+
+# 0.0.7.26 (#212) : objets de la graine (branches mortes) près du joueur : posés sans chute, pas enregistrés tant qu'on n'y
+# touche pas (« graine » : leur identifiant ; « colonne » : retirés avec elle). Ramassé ou recassé : seed_taken(id).
+signal seed_taken(id: String)
+
+func add_seeded(value: Dictionary, position: Vector3, column: Vector2i) -> void:
+	entries.append({"item": value.duplicate(true), "position": position, "colonne": column})
+	_add_body(entries.size() - 1)
+	_dirty = true
+
+func remove_column_seeds(column: Vector2i) -> void:
+	for index in range(entries.size() - 1, -1, -1):
+		if entries[index].get("colonne") == column and entries[index].item.has("graine"):
+			remove(index, false)
+func remove(index: int, taken := true) -> Dictionary:
 	if index < 0 or index >= entries.size():
 		return {}
 	var entry: Dictionary = entries[index]
@@ -85,8 +108,16 @@ func remove(index: int) -> Dictionary:
 	for at in range(index, bodies.size()):
 		bodies[at].set_meta("ground_index", at)
 	_dirty = true
-	changed.emit()
-	return entry.item
+	var item: Dictionary = entry.item
+	if item.has("graine"):
+		if taken:
+			seed_taken.emit(str(item.graine))
+			changed.emit()
+		item = item.duplicate(true)
+		item.erase("graine")
+	else:
+		changed.emit()
+	return item
 
 func index_of(body: Node) -> int:
 	return int(body.get_meta("ground_index", -1)) if is_instance_valid(body) else -1
@@ -320,7 +351,8 @@ func _redraw() -> void:
 # --- Sauvegarde (objets.json) ---
 
 func to_array() -> Array:
-	return entries.map(func(entry): return {"objet": Inventory._saved(entry.item), "position": [entry.position.x, entry.position.y, entry.position.z]})
+	# 0.0.7.26 : sans les objets de la graine pas encore touchés (refaits avec leur colonne).
+	return entries.filter(func(entry): return not entry.item.has("graine")).map(func(entry): return {"objet": Inventory._saved(entry.item), "position": [entry.position.x, entry.position.y, entry.position.z]})
 
 # Format de 0.0.7.3 et 0.0.7.4 compris (forme et orientation à part : elles rejoignent l'objet).
 func from_array(data: Variant) -> void:

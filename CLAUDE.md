@@ -40,7 +40,7 @@ Suivi du travail : GitHub Project https://github.com/users/Oshidori99/projects/1
 - Terrain lisse sculptable (scripts/smooth_terrain.gd) : zones de 8 × 8 × 8 m (scripts/world_zones.gd) ; chaque bloc de 1 m est
   divisé en 2 × 2 × 2 = 8 sous-cellules de 50 cm (1/8 du bloc) ; une zone = 16 × 16 × 16 sous-cellules. Sauvegarde de l'état
   des zones modifiées point par point (pas geste par geste).
-- Génération par graine, numérotée (scripts/world_generation.gd, VERSION, aujourd'hui 32). **Une génération qui change = un nouveau
+- Génération par graine, numérotée (scripts/world_generation.gd, VERSION, aujourd'hui 33). **Une génération qui change = un nouveau
   numéro** : les mondes existants ne changent jamais. Le détail de chaque version est dans docs/HISTORIQUE.txt et en commentaire dans le code.
 - Monde de 96 × 96 zones (768 m, Generation.half_zones) ; sous-sol : 5 m de terre, 20 m de pierre, 20 m de pierre sombre, puis la
   « Roche-mère » incassable à 45 m (ne pas reprendre le nom anglais courant d'un autre jeu).

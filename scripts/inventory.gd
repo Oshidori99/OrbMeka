@@ -50,7 +50,9 @@ const APPLE_COLOR_NAMES := ["verte", "rouge", "jaune", "brune", "rouge et jaune"
 const INSTANCE_FIELDS := {"taille": TYPE_INT, "poids": TYPE_FLOAT, "forme": TYPE_INT, "rotation": TYPE_FLOAT, "couleur": TYPE_INT, "coups": TYPE_INT, "diametre": TYPE_FLOAT,
 	# 0.0.7.8 : bâtons et troncs : longueur (m), épaisseur (cm), essence (espèce d'arbre), âge et souplesse (1 à 5,
 	# enregistrés dès maintenant ; leurs effets viendront avec la fabrication, #228).
-	"longueur": TYPE_FLOAT, "epaisseur": TYPE_FLOAT, "fin": TYPE_FLOAT, "essence": TYPE_INT, "age": TYPE_INT, "souplesse": TYPE_INT}
+	"longueur": TYPE_FLOAT, "epaisseur": TYPE_FLOAT, "fin": TYPE_FLOAT, "essence": TYPE_INT, "age": TYPE_INT, "souplesse": TYPE_INT,
+	# 0.0.7.26 (#212) : bois mort (1), tordu (1), pourri (1), rejet de noisetier (1) ; 0 ou absent : non.
+	"morte": TYPE_INT, "tordue": TYPE_INT, "pourrie": TYPE_INT, "rejet": TYPE_INT}
 # Matières : valeurs de smooth_terrain.gd (SAND 0, STONE 1, DIRT 2, CLAY 4, MUD 5, DARK_STONE 6, GRAVEL 8, LIMESTONE 9,
 # FLINT 11). Poids : une poignée. 0.0.7.6 (plus réaliste, accepté par l'utilisateur) : une grosse poignée d'environ 0,25 L × la
 # densité de la matière ; elle compte toujours pour une sous-cellule de 50 cm (règle de jeu).
@@ -621,10 +623,48 @@ func held_kind() -> int:
 		return -1
 	return ITEMS[id].get("matiere", ITEMS[id].get("outil", -1))
 
+# 0.0.7.26 (#212) : qualité d'un bâton comme manche d'outil. Bon manche : droit, sain, 40 à 70 cm, 2 à 4 cm d'épaisseur ;
+# noisetier excellent (rejet : le meilleur), tilleul et pin moyens ; pourri : fragile. 0 mauvais, 1 moyen, 2 bon,
+# 3 excellent (HANDLE_NAMES) ; -1 : pas un bâton.
+const HANDLE_NAMES := ["mauvais", "moyen", "bon", "excellent"]
+
+static func handle_quality(value: Dictionary) -> int:
+	if not value.get("objet", "") in ["branche", "rameau"]:
+		return -1
+	if int(value.get("pourrie", 0)) == 1 or int(value.get("tordue", 0)) == 1:
+		return 0
+	var length := float(value.get("longueur", 0.0))
+	var thickness := float(value.get("epaisseur", 0.0))
+	if length < 0.4 or length > 0.7 or thickness < 2.0 or thickness > 4.0:
+		return 0 if length < 0.25 or thickness < 1.2 or thickness > 6.0 else 1
+	var essence := int(value.get("essence", 0))
+	if int(value.get("rejet", 0)) == 1 or essence == 1:
+		return 3
+	return 2 if essence == 0 else 1
+
+# Détail d'un bâton (inventaire, au survol) : essence, longueur, épaisseur, droit ou tordu, sain ou pourri, mort, manche.
+static func wood_details(value: Dictionary) -> String:
+	if not value.get("objet", "") in ["tronc", "branche", "rameau"]:
+		return ""
+	var parts := []
+	parts.append("%s cm de long" % str(roundi(float(value.get("longueur", 0.0)) * 100.0)))
+	parts.append("%s cm d'épaisseur" % str(snappedf(float(value.get("epaisseur", 0.0)), 0.1)).replace(".", ","))
+	parts.append("tordu" if int(value.get("tordue", 0)) == 1 else "droit")
+	parts.append("pourri" if int(value.get("pourrie", 0)) == 1 else ("mort" if int(value.get("morte", 0)) == 1 else "sain"))
+	var quality := handle_quality(value)
+	if quality >= 0:
+		parts.append("manche %s" % HANDLE_NAMES[quality])
+	return ", ".join(parts)
+
 static func item_name(value: Dictionary) -> String:
 	var id: String = value.get("objet", "")
 	if id == "rameau" and value.has("essence"):
 		return LEAFY_NAMES[clampi(int(value.essence), 0, LEAFY_NAMES.size() - 1)]
+	# 0.0.7.26 (#212) : branche morte ramassée au sol, rejet de noisetier.
+	if id == "branche" and int(value.get("rejet", 0)) == 1:
+		return "Rejet de noisetier"
+	if id == "branche" and int(value.get("morte", 0)) == 1 and value.has("essence"):
+		return "Branche morte de %s" % ESSENCE_NAMES[clampi(int(value.essence), 0, ESSENCE_NAMES.size() - 1)]
 	# 0.0.7.18 : tronc et branche nommés selon leur arbre (« Tronc de pin », « Branche de noisetier »).
 	if id in ["tronc", "branche"] and value.has("essence"):
 		return "%s de %s" % [ITEMS[id].nom, ESSENCE_NAMES[clampi(int(value.essence), 0, ESSENCE_NAMES.size() - 1)]]

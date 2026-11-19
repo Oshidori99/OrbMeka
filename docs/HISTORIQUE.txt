@@ -3,6 +3,10 @@ Du plus récent au plus ancien. Ce fichier est mis à jour à chaque version.
 
 === Thème « Gameplay et inventaire » (0.0.7) ===
 
+0.0.7.26 — Branches mortes au sol dans les forêts (rares ailleurs), rejets de noisetier à casser en maintenant, qualités du bâton et note de manche, longueurs affichées avant de recasser un bâton
+Génération du terrain : version 33 (nouveaux mondes seulement) · Menus : version 10.
+Issue #212 : bâtons selon la graine (essence de l'arbre au-dessus, longueur, épaisseur, droit ou tordu, sain ou pourri) ; bois mort vite cassé, rejet vert lentement.
+
 0.0.7.25 — Terrain creusé et place du joueur enregistrés sur le Web, rouvrir un monde sans image figée (toute la vue prête derrière l'écran de chargement), troncs et grosses branches solides, Résolution 3D à 100 % sur le Web, herbe et plantes après la surface, pause plus légère, modèles d'arbres plus légers à télécharger
 Génération du terrain : version 32 · Menus : version 10.
 Troisième rapport de mesures Web : sauvegarde du terrain lisse, ouverture tout par la file, collisions des tiges, 100 % de résolution, file des détails, modèles d'arbres sans ombres séparées.

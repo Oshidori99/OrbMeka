@@ -60,6 +60,10 @@ class Slot extends Control:
 		var name := Inventory.item_name(value)
 		if not value.is_empty() and not Inventory.unlimited(value):
 			name += " × %d (%s)" % [Inventory.count(value), Inventory.format_weight(Inventory.stack_weight(value))]
+		# 0.0.7.26 (#212) : bâton : ses qualités et sa note de manche au survol.
+		var wood := Inventory.wood_details(value)
+		if not wood.is_empty():
+			name += "\n" + wood.left(1).to_upper() + wood.substr(1)
 		tooltip_text = name
 		queue_redraw()
 
