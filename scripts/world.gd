@@ -1157,7 +1157,7 @@ func _show_aim(on: bool) -> void:
 	if is_instance_valid(hint):
 		hint.visible = on
 
-# Message quand une pioche manque : en Créatif, elle est dans l'inventaire (Outils) ; pas encore en Survie.
+# Message quand une pioche manque (Survie seulement depuis 0.0.7.27 : en Créatif, les mains cassent tout).
 func _needs_pickaxe(subject: String) -> String:
 	return subject + (" avec la pioche (inventaire : O + I, onglet Outils)." if game_mode == Inventory.CREATIVE else " avec une pioche : pas encore en Survie.")
 
@@ -1182,7 +1182,8 @@ func _update_ring() -> void:
 # deux à l'endroit visé (0.0.7.9, cut_tree) ; le bois nu devient des troncs et des branches au sol, à ramasser avec R.
 # 0.0.7.11 : 5 s par tranche de 10 cm (avant : 8 s) ; 0.0.7.13 : 2,5 s (demande de l'utilisateur, tailles justes).
 const CHOP_SECONDS := 2.5
-const CHOP_SECONDS_CREATIVE := 1.0
+# 0.0.7.27 (#217) : Créatif : tout en 0,3 s (avant : 1 s pour le bois).
+const CHOP_SECONDS_CREATIVE := 0.3
 const TREE_FALL_SECONDS := 1.6
 var chop_target: Node3D
 var chop_time := 0.0
@@ -3039,6 +3040,86 @@ func _in_terrain_limits(point: Vector3i) -> bool:
 func _inside_player(point: Vector3i) -> bool:
 	return AABB(player.global_position + Vector3(-0.33, 0.01, -0.33), Vector3(0.66, 1.78, 0.66)).intersects(AABB(Vector3(point) * SmoothTerrain.STEP - Vector3.ONE * 0.25, Vector3.ONE * 0.5))
 
+# --- 0.0.7.27 (#217) : durées de cassage selon la matière ---
+# Survie, à mains nues, par sous-cellule de 50 cm (secondes). Le geste prend la somme de ses sous-cellules (× 0,8 par groupe
+# de 4, gesture_factor) ; la pierre se
+# casse une sous-cellule à la fois, très lentement et sans rien récupérer ; la Roche-mère jamais. Plus tard, les outils
+# diviseront ces durées (pioche ÷ 6 sur la pierre, avec des morceaux ; pelle ÷ 3 sur la terre ; hache ÷ 4 sur le bois).
+# Créatif : tout au rythme du clic (Intervalle de casse, 0,3 s par défaut), pierre comprise, sans pioche.
+const DIG_SECONDS := {
+	SmoothTerrain.SNOW: 0.3, SmoothTerrain.SAND: 0.4, SmoothTerrain.NEEDLES: 0.4, SmoothTerrain.MUD: 0.5,
+	SmoothTerrain.DIRT: 0.6, SmoothTerrain.GRAVEL: 0.8, SmoothTerrain.CLAY: 1.0,
+	SmoothTerrain.LIMESTONE: 15.0, SmoothTerrain.STONE: 20.0, SmoothTerrain.COAL: 20.0,
+	SmoothTerrain.DARK_STONE: 30.0, SmoothTerrain.FLINT: 30.0,
+}
+# Anneau de chargement seulement pour ce qui dure plus d'une demi-seconde.
+const RING_FROM_SECONDS := 0.5
+var dig_point := Vector3i(999999, 0, 0)
+var dig_time := 0.0
+
+static func dig_seconds(kind: int) -> float:
+	if kind == SmoothTerrain.MOTHER_ROCK:
+		return INF
+	return DIG_SECONDS.get(kind if kind >= 0 else SmoothTerrain.DIRT, DIG_SECONDS[SmoothTerrain.DIRT])
+
+func _kind_at(point: Vector3i) -> int:
+	return terrain.materials.get(point, terrain.natural_kind(point))
+
+# Ce que creuse le geste visé en Survie : {"cells": sous-cellules du geste, "seconds": durée, "stone": bool}, vide si rien.
+func dig_plan(hit: Dictionary) -> Dictionary:
+	var center := SmoothTerrain.point_of(hit.position - hit.normal * 0.3)
+	if not _in_terrain_limits(center) or terrain.density(center) <= 0.0:
+		return {}
+	if terrain.is_stone(center):
+		return {"center": center, "cells": 1, "seconds": dig_seconds(_kind_at(center)), "stone": true}
+	var cells: int = SIZE_CELLS[player.brush_size]
+	var total := 0.0
+	for point in gesture_points(center, hit.normal, cells):
+		if _in_terrain_limits(point) and terrain.density(point) > 0.0 and not terrain.is_stone(point):
+			total += dig_seconds(_kind_at(point))
+	return {"center": center, "cells": cells, "seconds": total * gesture_factor(cells), "stone": false}
+
+# Demande de l'utilisateur (19.11.2026) : un geste plus grand va plus vite par sous-cellule : chaque groupe de 4 sous-cellules
+# multiplie la durée par 0,8 (4 : 80 % de la somme, 8 : 64 %, 12 : 51 %…).
+const GESTURE_DISCOUNT := 0.8
+
+static func gesture_factor(cells: int) -> float:
+	return pow(GESTURE_DISCOUNT, floori(cells / 4.0))
+
+# Survie : clic gauche maintenu sur le sol : le temps s'accumule sur la sous-cellule visée (anneau au-delà de 0,5 s),
+# puis le geste se fait. Changer de cible recommence.
+func step_dig(delta: float, holding: bool, aimed: Dictionary = {}) -> bool:
+	if not holding or game_mode != Inventory.SURVIVAL or not is_instance_valid(player) or player.left_mode != 0 or player.selected_type == PICKAXE:
+		dig_point = Vector3i(999999, 0, 0)
+		dig_time = 0.0
+		return false
+	# aimed : visée donnée (tests) ; sinon celle du joueur.
+	var hit: Dictionary = aimed if not aimed.is_empty() else player.get_target()
+	if not _valid_hit(hit, player.break_reach) or not hit.collider.is_in_group("ground") or _ground_wood(hit) >= 0 or not aimed_wood(hit).is_empty():
+		dig_point = Vector3i(999999, 0, 0)
+		dig_time = 0.0
+		return false
+	var plan := dig_plan(hit)
+	if plan.is_empty() or plan.seconds <= 0.0 or is_inf(float(plan.seconds)):
+		dig_time = 0.0
+		return false
+	if plan.center != dig_point:
+		dig_point = plan.center
+		dig_time = 0.0
+	dig_time += delta
+	if plan.seconds > RING_FROM_SECONDS:
+		show_ring(dig_time / plan.seconds)
+	if dig_time < plan.seconds:
+		return false
+	dig_point = Vector3i(999999, 0, 0)
+	dig_time = 0.0
+	var done := sculpt(hit, false, -1, plan.cells, plan.stone)
+	if done:
+		_debris(hit.position, Color("#6f6b66") if plan.stone else Color("#6b4a2e"))
+		if plan.stone:
+			_impact_sound(hit.position)
+	return done
+
 # Creuser (add false) ou poser (add true, matière kind).
 func sculpt(hit: Dictionary, add: bool, kind: int = SmoothTerrain.DIRT, cells: int = 1, pickaxe: bool = false) -> bool:
 	if not _aimed_ground(hit, player.place_reach if add else player.break_reach, add):
@@ -3565,21 +3646,33 @@ func break_target(hit: Dictionary) -> bool:
 	if not hit.is_empty() and is_instance_valid(hit.get("collider")) and hit.collider.is_in_group("pebbles"):
 		if not _valid_hit(hit, player.break_reach):
 			return false
-		if player.selected_type != PICKAXE:
+		# 0.0.7.27 (#217) : en Créatif, à mains nues aussi.
+		if player.selected_type != PICKAXE and game_mode != Inventory.CREATIVE:
 			_notify(_needs_pickaxe("Les cailloux se cassent"))
 			return false
 		return strike_pebble(hit.collider)
 	if not hit.is_empty() and is_instance_valid(hit.get("collider")) and hit.collider.is_in_group("rocks"):
 		if not _valid_hit(hit, player.break_reach):
 			return false
-		if player.selected_type != PICKAXE:
+		if player.selected_type != PICKAXE and game_mode != Inventory.CREATIVE:
 			_notify(_needs_pickaxe("Les rochers se cassent"))
 			return false
 		return mine_rock(hit.collider, hit)
 	# 0.0.7.17 : « Casser / Récupérer des objets » ne creuse jamais le terrain.
 	if player.left_mode == 1:
 		return false
-	var pickaxe: bool = player.selected_type == PICKAXE
+	# 0.0.7.27 (#217) : en Survie à mains nues, le sol se creuse en maintenant le clic (step_dig, durée selon la matière) ;
+	# le clic seul dit seulement pourquoi rien ne se passe.
+	if game_mode == Inventory.SURVIVAL and player.selected_type != PICKAXE:
+		if not _aimed_ground(hit, player.break_reach):
+			return false
+		var plan := dig_plan(hit)
+		if plan.is_empty():
+			var aimed := SmoothTerrain.point_of(hit.position - hit.normal * 0.3)
+			_notify("Roche-mère : incassable." if aimed.y <= terrain.mother_rock_top else "Rien à creuser ici.")
+		return false
+	# 0.0.7.27 (#217) : en Créatif, les mains cassent la pierre comme la pioche.
+	var pickaxe: bool = player.selected_type == PICKAXE or game_mode == Inventory.CREATIVE
 	# 0.0.6 : pierre à la pioche : une sous-cellule de 50 cm par coup, là où l'on vise ; pierre sombre : 2 coups.
 	if pickaxe and _aimed_ground(hit, player.break_reach):
 		var aimed := SmoothTerrain.point_of(hit.position - hit.normal * 0.3)

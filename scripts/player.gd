@@ -490,6 +490,9 @@ func _physics_process(delta: float) -> void:
 	# 0.0.7.8 : clic gauche maintenu sur un arbre : l'abattre, puis le couper (anneau de chargement).
 	if is_instance_valid(world) and world.has_method("step_chop"):
 		world.step_chop(delta, breaking_held and left_mode != 2)
+	# 0.0.7.27 (#217) : Survie : creuser en maintenant, durée selon la matière.
+	if is_instance_valid(world) and world.has_method("step_dig"):
+		world.step_dig(delta, breaking_held)
 	var changes := {}
 	var resets := []
 	for target in ["walk", "run", "break", "place"]:

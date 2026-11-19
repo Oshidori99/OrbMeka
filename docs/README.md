@@ -1,7 +1,17 @@
-# OrbMeka™ — prototype 0.0.7.26
+# OrbMeka™ — prototype 0.0.7.27
 
 Godot 4.7 / GDScript. Formes et couleurs simples ; assets externes seulement sous licence vérifiée (sons CC0, assets/sounds/CREDITS.txt).
 
+## 0.0.7.27 — Durées de cassage selon la matière (Survie : creuser en maintenant, la pierre à mains nues en 20 s sans rien récupérer, gestes plus grands plus rapides), Créatif : tout en 0,3 s, pierre et rochers à mains nues
+Version locale (2 sur 4). Génération inchangée (version 33). Issue #217.
+- **Survie, à mains nues** : on creuse en maintenant le clic ; durée par sous-cellule de 50 cm : neige 0,3 s, sable et aiguilles 0,4, boue 0,5, terre 0,6, gravier 0,8, argile 1 s ; **pierre 20 s**, calcaire 15 s, pierre sombre et silex 30 s, une sous-cellule à la fois et **sans rien récupérer** ; Roche-mère jamais. Changer de cible recommence ; anneau de chargement au-delà de 0,5 s.
+- **Gestes plus grands** (demande de l'utilisateur) : la somme des sous-cellules × 0,8 pour chaque groupe de 4 (4 sous-cellules : 80 %, plus tard 8 : 64 %…).
+- **Bois** : comme avant (2,5 s par 10 cm d'épaisseur, 40 cm au plus), bois mort, pourri et vert depuis 0.0.7.26.
+- **Créatif** : tout au rythme du clic (0,3 s), pierre, cailloux et rochers compris, à mains nues (la pioche reste dans les Outils) ; bois en 0,3 s (avant 1 s).
+- Plus tard, avec les outils : pioche ÷ 6 sur la pierre (avec des morceaux), pelle ÷ 3 sur la terre, hache ÷ 4 sur le bois. Cailloux et rochers en Survie : toujours avec une pioche.
+
+Tests réussis : smooth_terrain (pierre 20 s, ordre des matières, gestes × 0,8, Créatif à mains nues), inventory (creuser en maintenant), et les tests du cassage (13) (+ tests juridiques).
+À tester : en Survie, creuser terre, sable et pierre en maintenant (anneau), changer de cible ; en Créatif, casser la pierre et un rocher à mains nues.
 ## 0.0.7.26 — Branches mortes au sol dans les forêts (rares ailleurs), rejets de noisetier à casser en maintenant, qualités du bâton et note de manche, longueurs affichées avant de recasser un bâton
 Version locale (1 sur 4). **Génération 33** (nouveaux mondes seulement ; les mondes existants ne changent pas). Issue #212.
 - **Branches mortes au sol** : placées selon la graine, beaucoup en forêt (environ une tous les 5 m²), rares ailleurs (une fois sur 4 sous un arbre seul), jamais dans l'eau. Chacune a l'essence de l'arbre le plus proche, 30 à 90 cm de long, 1,5 à 5 cm d'épaisseur, droite ou tordue, saine ou pourrie. Montrées à 3 zones autour du joueur ; ramassées avec R ; seules celles ramassées ou recassées sont enregistrées (objets.json).

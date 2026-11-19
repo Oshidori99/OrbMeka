@@ -128,7 +128,26 @@ func _run() -> void:
 	var raised: Vector3i = SmoothTerrain.point_of(Vector3(-20.25, 0.15, -20.25))
 	check(world.terrain.density(raised) > 0.0, "one 50 cm sub-cell added above the ground")
 	var deep: Dictionary = aim(world, Vector3(5.25, SmoothTerrain.LOW_POINT * SmoothTerrain.STEP - 0.1, 5.25))
-	check(not world.break_target(deep) and world.notice.begins_with("La pierre se casse avec la pioche"), "without the pickaxe, stone does not break (0.0.5.13)")
+	# 0.0.7.27 (#217) : Survie : clic seul sans effet ; pierre 20 s par sous-cellule, en maintenant, sans rien récupérer.
+	world.game_mode = "survival"
+	var deep_point: Vector3i = SmoothTerrain.point_of(deep.position - deep.normal * 0.3)
+	check(not world.break_target(deep) and world.terrain.density(deep_point) > 0.0, "survival: a click alone does not break stone")
+	check(world.dig_plan(deep).stone and is_equal_approx(world.dig_plan(deep).seconds, 20.0) and world.dig_seconds(SmoothTerrain.DARK_STONE) == 30.0 and world.dig_seconds(SmoothTerrain.LIMESTONE) == 15.0 and is_inf(world.dig_seconds(SmoothTerrain.MOTHER_ROCK)), "survival by hand: stone 20 s, limestone 15 s, dark stone 30 s, Roche-mère never")
+	check(world.dig_seconds(SmoothTerrain.SNOW) < world.dig_seconds(SmoothTerrain.SAND) and world.dig_seconds(SmoothTerrain.SAND) < world.dig_seconds(SmoothTerrain.DIRT) and world.dig_seconds(SmoothTerrain.DIRT) < world.dig_seconds(SmoothTerrain.GRAVEL) and world.dig_seconds(SmoothTerrain.GRAVEL) < world.dig_seconds(SmoothTerrain.CLAY) and world.dig_seconds(-1) == 0.6, "snow < sand < dirt (0.6 s) < gravel < clay")
+	check(world.gesture_factor(1) == 1.0 and world.gesture_factor(2) == 1.0 and is_equal_approx(world.gesture_factor(4), 0.8) and is_equal_approx(world.gesture_factor(8), 0.64), "bigger gestures: x0.8 for each group of 4 sub-cells")
+	var items_before: int = world.ground.entries.size() if is_instance_valid(world.ground) else 0
+	var held := 0.0
+	var broke := false
+	while not broke and held < 25.0:
+		broke = world.step_dig(0.1, true, deep)
+		held += 0.1
+		if held > 19.5 and held < 19.7:
+			check(world.terrain.density(deep_point) > 0.0, "still there after 19.5 s")
+	check(broke and held >= 19.9 and world.terrain.density(deep_point) <= 0.0, "stone broken by hand after 20 s held (%.1f s)" % held)
+	check((world.ground.entries.size() if is_instance_valid(world.ground) else 0) == items_before, "by hand, stone gives nothing back")
+	world.game_mode = "creative"
+	var deep_creative: Dictionary = aim(world, Vector3(7.25, SmoothTerrain.LOW_POINT * SmoothTerrain.STEP - 0.1, 7.25))
+	check(world.break_target(deep_creative) and world.terrain.density(SmoothTerrain.point_of(deep_creative.position - deep_creative.normal * 0.3)) <= 0.0, "creative: stone breaks by hand at the click pace (0.0.7.27)")
 	world.player.selected_type = world.PICKAXE
 	check(world.player.pickaxe.visible and world.break_target(aim(world, Vector3(5.25, -4.0, 5.25))), "with the pickaxe (shown in hand), stone breaks")
 	check(world.terrain.density(SmoothTerrain.point_of(Vector3(5.25, -4.3, 5.25))) <= 0.0 and world.find_children("Debris", "CPUParticles3D", true, false).size() > 0, "a stone sub-cell is removed, with flying chips")
@@ -427,7 +446,10 @@ func _run() -> void:
 	rock_world.player.global_position = mined_target.global_position + Vector3(1.0, 0.0, 1.0)
 	var rock_hit := {"collider": mined_target, "position": mined_target.global_position, "normal": Vector3.UP}
 	rock_world.player.selected_type = 0
-	check(not rock_world.break_target(rock_hit) and rock_world.notice.begins_with("Les rochers se cassent avec la pioche"), "without the pickaxe, a rock does not break")
+	# 0.0.7.27 : en Créatif, les mains cassent aussi les rochers ; en Survie, il faut une pioche.
+	rock_world.game_mode = "survival"
+	check(not rock_world.break_target(rock_hit) and rock_world.notice.begins_with("Les rochers se cassent avec une pioche"), "survival: without a pickaxe, a rock does not break")
+	rock_world.game_mode = "creative"
 	rock_world.player.selected_type = rock_world.PICKAXE
 	var faces_before: int = mined_target.get_child(0).mesh.get_faces().size()
 	rock_world.break_target(rock_hit)
