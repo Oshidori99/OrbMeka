@@ -3,7 +3,7 @@
 Godot 4.7 / GDScript. Formes et couleurs simples ; assets externes seulement sous licence vérifiée (sons CC0, assets/sounds/CREDITS.txt).
 
 ## 0.0.7.29 — Mode Survie ou Créatif choisi à la création (Survie par défaut), bouton « + » sur les objets de l'inventaire (toutes les variantes en Créatif, tous les détails en Survie), jeter un objet (zone Jeter, hors de la fenêtre, touche J en Survie)
-Version (4 sur 4). Génération inchangée (version 33). Demandes de l'utilisateur.
+Version publiée (4 sur 4, avec 0.0.7.26 à 0.0.7.28). Génération inchangée (version 33). Demandes de l'utilisateur.
 - **Création d'un monde** : choix Survie / Créatif (Survie par défaut), modifiable ensuite dans les réglages du monde. Les mondes existants ne changent pas.
 - **Bouton « + »** en haut à droite des cases de l'inventaire (fond vert, « + » blanc ; jamais sur la barre du jeu) : il ouvre une **ligne complète juste sous la case**, le reste descend ; fermée dès que la souris quitte la case et ses lignes. **D** sur une case : ouvre (reste ouvert) ; **D** ou **Échap** : ferme (Échap ferme d'abord les sous-possibilités, puis l'inventaire).
   - **Créatif** : toutes les variantes : bois de chaque essence en 7 tailles × 5 états (jeune, adulte, vieux, mort, pourri) × 5 souplesses (175), cailloux en 7 tailles, pommes en 3 tailles × 5 couleurs ; à prendre comme les objets du haut. La zone des objets **défile** (barre jaune bien visible), au plus la moitié de l'écran.
