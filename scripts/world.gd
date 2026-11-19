@@ -2730,6 +2730,24 @@ func put_down_held(hit: Dictionary) -> bool:
 	show_choice("%s posé au sol" % Inventory.item_name(value))
 	return true
 
+# 0.0.7.29 (demande de l'utilisateur) : Survie, touche Jeter (J) : l'objet en main (un seul, le dernier pris) tombe au sol
+# devant soi. En Créatif, on jette depuis l'inventaire (zone Jeter).
+func throw_held() -> bool:
+	if game_mode != Inventory.SURVIVAL:
+		_notify("En Créatif : jeter depuis l'inventaire (zone Jeter, ou lâcher hors de la fenêtre).")
+		return false
+	var value := inventory.held()
+	if value.is_empty() or not is_instance_valid(ground) or not is_instance_valid(player):
+		_notify("Rien en main à jeter.")
+		return false
+	var one := inventory.pop_held()
+	if one.is_empty():
+		return false
+	var near := player.global_position - player.global_transform.basis.z * 0.9
+	ground.drop(one, player.camera.global_position - player.global_transform.basis.z * 0.3, near, _rest_height, 0.15)
+	show_choice("%s jeté au sol" % Inventory.item_name(one))
+	return true
+
 # Objets qui ne tiennent plus dans l'inventaire : posés au sol devant le joueur, jamais perdus (chacun tel qu'il est).
 func drop_items(value: Dictionary) -> void:
 	if not is_instance_valid(ground) or not is_instance_valid(player):

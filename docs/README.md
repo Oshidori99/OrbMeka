@@ -1,7 +1,19 @@
-# OrbMeka™ — prototype 0.0.7.28
+# OrbMeka™ — prototype 0.0.7.29
 
 Godot 4.7 / GDScript. Formes et couleurs simples ; assets externes seulement sous licence vérifiée (sons CC0, assets/sounds/CREDITS.txt).
 
+## 0.0.7.29 — Mode Survie ou Créatif choisi à la création (Survie par défaut), bouton « + » sur les objets de l'inventaire (toutes les variantes en Créatif, tous les détails en Survie), jeter un objet (zone Jeter, hors de la fenêtre, touche J en Survie)
+Version (4 sur 4). Génération inchangée (version 33). Demandes de l'utilisateur.
+- **Création d'un monde** : choix Survie / Créatif (Survie par défaut), modifiable ensuite dans les réglages du monde. Les mondes existants ne changent pas.
+- **Bouton « + »** en haut à droite des cases de l'inventaire (fond vert, « + » blanc ; jamais sur la barre du jeu) : il ouvre une **ligne complète juste sous la case**, le reste descend ; fermée dès que la souris quitte la case et ses lignes. **D** sur une case : ouvre (reste ouvert) ; **D** ou **Échap** : ferme (Échap ferme d'abord les sous-possibilités, puis l'inventaire).
+  - **Créatif** : toutes les variantes : bois de chaque essence en 7 tailles × 5 états (jeune, adulte, vieux, mort, pourri) × 5 souplesses (175), cailloux en 7 tailles, pommes en 3 tailles × 5 couleurs ; à prendre comme les objets du haut. La zone des objets **défile** (barre jaune bien visible), au plus la moitié de l'écran.
+  - **Survie** : une carte par objet porté du même genre (tous les bois, tous les cailloux…), mains et poches, avec tous ses détails, un par ligne.
+- **Ordre fixe des détails** (accepté) : nom, longueur, épaisseur (gros → petit bout), forme, état (vert, mort, pourri), souplesse, âge, note de manche ; puis taille, couleur, diamètre, coups ; **poids toujours en dernier**.
+- **Jeter** : zone « Jeter » avec une croix, sous la barre à droite, et lâcher l'objet **hors de la fenêtre** de l'inventaire. Créatif : il disparaît ; Survie : il tombe au sol devant soi. **Touche J** (Survie, modifiable dans Contrôles → Inventaire) : jette l'objet en main, un à la fois.
+- Pas fait : erreur passagère « PackedVector3Array » vue deux fois dans les tests (sans lien avec ce lot) : à chercher.
+
+Tests réussis : inventory_more (23, nouveau), inventory (106), game_mode, controls, menu, custom_world_menu et les tests touchés (18) (+ tests juridiques). Captures : variantes du Créatif avec défilement, cartes de détails en Survie.
+À tester : le « + » et la touche D à la souris, jeter en lâchant hors de la fenêtre, J en Survie, création d'un monde en Survie.
 ## 0.0.7.28 — Herbe et plantes de nouveau sur toute la distance (seulement 9 colonnes depuis 0.0.7.25), pierres deux fois plus rapides à mains nues, rochers et cailloux cassables à mains nues en Survie
 Version locale (3 sur 4). Génération inchangée (version 33). Signalé par l'utilisateur.
 - **Herbe et plantes** : depuis 0.0.7.25, elles n'apparaissaient que sur les 9 colonnes autour du point d'arrivée (au-delà, la file des détails était vidée juste après la mise en file) ; un trou creusé faisait apparaître l'herbe d'un seul carré. Corrigé : toute la distance de l'herbe est de nouveau remplie, les plus proches d'abord.

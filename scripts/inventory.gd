@@ -656,6 +656,96 @@ static func wood_details(value: Dictionary) -> String:
 		parts.append("manche %s" % HANDLE_NAMES[quality])
 	return ", ".join(parts)
 
+# --- 0.0.7.29 (demande de l'utilisateur) : sous-possibilités (bouton « + » des cases de l'inventaire) ---
+const AGE_NAMES := ["très jeune", "jeune", "adulte", "vieux", "très vieux"]
+const SUPPLE_NAMES := ["cassant", "raide", "moyen", "souple", "très souple"]
+const APPLE_SIZE_NAMES := ["petite", "moyenne", "grosse"]
+# États du bois en Créatif : [nom, âge, mort, pourri, facteur de poids].
+const WOOD_STATES := [["jeune", 1, 0, 0, 1.0], ["adulte", 3, 0, 0, 1.0], ["vieux", 5, 0, 0, 0.7], ["mort", 4, 1, 0, 0.55], ["pourri", 5, 1, 1, 0.35]]
+
+static func is_wood(value: Dictionary) -> bool:
+	return value.get("objet", "") in ["tronc", "branche", "rameau"]
+
+# Créatif : toutes les variantes d'un objet (illimitées, à plat) ; vide s'il n'en a qu'une. Bois : 7 tailles × 5 états
+# (jeune, adulte, vieux, mort, pourri) × 5 souplesses, 1 m de long ; cailloux : 7 tailles ; pommes : 3 tailles × 5 couleurs.
+static func variants(value: Dictionary) -> Array:
+	var id: String = value.get("objet", "")
+	var result := []
+	if is_wood(value):
+		var essence := int(value.get("essence", 0))
+		for size in range(WOOD_SIZES.size()):
+			var thick: float = WOOD_SIZES[size]
+			for state in WOOD_STATES:
+				for supple in range(1, 6):
+					var radius := thick / 200.0
+					var variant := {"objet": id, "essence": essence, "taille": size + 1, "epaisseur": thick, "fin": snappedf(thick * 0.85, 0.1), "longueur": 1.0, "age": state[1], "souplesse": supple, "forme": 1,
+						"poids": maxf(snappedf(PI * radius * radius * 1.0 * 750000.0 * state[4], 1.0), 1.0)}
+					if state[2] == 1:
+						variant.morte = 1
+					if state[3] == 1:
+						variant.pourrie = 1
+					result.append(variant)
+	elif ITEMS.get(id, {}).get("forme", "") == "caillou":
+		for size in range(1, PEBBLE_WEIGHTS.size() + 1):
+			result.append({"objet": id, "taille": size})
+	elif id == "pomme":
+		for size in range(1, APPLE_WEIGHTS.size() + 1):
+			for color in range(APPLE_COLORS.size()):
+				result.append({"objet": id, "taille": size, "couleur": color})
+	return result
+
+# Deux lignes courtes sous une variante (taille, puis état).
+static func variant_label(value: Dictionary) -> Array:
+	if is_wood(value):
+		# Court (sous une case) : jeune, adulte, vieux, mort ou pourri.
+		var age := int(value.get("age", 3))
+		var state: String = "pourri" if int(value.get("pourrie", 0)) == 1 else ("mort" if int(value.get("morte", 0)) == 1 else ("jeune" if age <= 2 else ("adulte" if age == 3 else "vieux")))
+		return ["%s cm" % _number(float(value.get("epaisseur", 0.0))), "%s · s%d" % [state, int(value.get("souplesse", 3))]]
+	if value.get("objet", "") == "pomme":
+		return [APPLE_SIZE_NAMES[clampi(int(value.get("taille", 2)), 1, 3) - 1], APPLE_COLOR_NAMES[clampi(int(value.get("couleur", 1)), 0, APPLE_COLOR_NAMES.size() - 1)]]
+	if value.has("taille"):
+		return ["Taille %d" % int(value.taille), format_weight(instance_weight(value.get("objet", ""), value))]
+	return [item_name(value), ""]
+
+static func _number(value: float) -> String:
+	return str(snappedf(value, 0.1)).replace(".", ",")
+
+# Détails d'un objet, un par ligne, toujours dans le même ordre (accepté par l'utilisateur) : nom, longueur, épaisseur,
+# forme, état, souplesse, âge, note de manche ; puis taille, couleur, diamètre, coups ; le poids toujours en dernier.
+static func detail_lines(value: Dictionary) -> Array:
+	var id: String = value.get("objet", "")
+	var lines := [item_name(value)]
+	if value.has("longueur"):
+		lines.append("Longueur : %d cm" % roundi(float(value.longueur) * 100.0))
+	if value.has("epaisseur"):
+		var thick := float(value.epaisseur)
+		lines.append("Épaisseur : %s cm" % _number(thick) if not value.has("fin") else "Épaisseur : %s → %s cm" % [_number(thick), _number(float(value.fin))])
+	if is_wood(value):
+		lines.append("Forme : %s" % ("tordu" if int(value.get("tordue", 0)) == 1 else "droit"))
+		lines.append("État : %s" % ("pourri" if int(value.get("pourrie", 0)) == 1 else ("mort" if int(value.get("morte", 0)) == 1 else "vert")))
+		if value.has("souplesse"):
+			lines.append("Souplesse : %s (%d sur 5)" % [SUPPLE_NAMES[clampi(int(value.souplesse), 1, 5) - 1], int(value.souplesse)])
+		if value.has("age"):
+			lines.append("Âge : %s (%d sur 5)" % [AGE_NAMES[clampi(int(value.age), 1, 5) - 1], int(value.age)])
+		var quality := handle_quality(value)
+		if quality >= 0:
+			lines.append("Manche : %s" % HANDLE_NAMES[quality])
+	elif value.has("taille"):
+		if id == "pomme":
+			lines.append("Taille : %s" % APPLE_SIZE_NAMES[clampi(int(value.taille), 1, 3) - 1])
+		else:
+			lines.append("Taille : %d sur %d" % [int(value.taille), PEBBLE_WEIGHTS.size()])
+	if value.has("couleur") and id == "pomme":
+		lines.append("Couleur : %s" % APPLE_COLOR_NAMES[clampi(int(value.couleur), 0, APPLE_COLOR_NAMES.size() - 1)])
+	if value.has("diametre"):
+		lines.append("Diamètre : %s cm" % _number(float(value.diametre) * 100.0))
+	if int(value.get("coups", 0)) > 0:
+		lines.append("Entamé : %d coup%s" % [int(value.coups), "s" if int(value.coups) > 1 else ""])
+	var weight := instance_weight(id, value)
+	if weight > 0.0:
+		lines.append("Poids : %s" % format_weight(weight))
+	return lines
+
 static func item_name(value: Dictionary) -> String:
 	var id: String = value.get("objet", "")
 	if id == "rameau" and value.has("essence"):
