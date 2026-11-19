@@ -2731,33 +2731,56 @@ func put_down_held(hit: Dictionary) -> bool:
 	return true
 
 # 0.0.7.29 (demande de l'utilisateur) : Survie, touche Jeter (J) : l'objet en main (un seul, le dernier pris) tombe au sol
-# devant soi. En Créatif, on jette depuis l'inventaire (zone Jeter).
-func throw_held() -> bool:
-	if game_mode != Inventory.SURVIVAL:
-		_notify("En Créatif : jeter depuis l'inventaire (zone Jeter, ou lâcher hors de la fenêtre).")
-		return false
+# devant soi. 0.0.7.30 (demandes de l'utilisateur) : en Créatif aussi (un objet illimité : une copie tombe, il reste en
+# main) ; all (Ctrl droit + J) : tout le tas.
+func throw_held(all: bool = false) -> bool:
 	var value := inventory.held()
-	if value.is_empty() or not is_instance_valid(ground) or not is_instance_valid(player):
+	if value.is_empty() or not is_instance_valid(player):
 		_notify("Rien en main à jeter.")
 		return false
-	var one := inventory.pop_held()
-	if one.is_empty():
+	if not is_instance_valid(ground):
+		return false
+	var thrown := value.duplicate(true) if Inventory.unlimited(value) else inventory.remove("bar", _held_index(), all)
+	if thrown.is_empty():
 		return false
 	var near := player.global_position - player.global_transform.basis.z * 0.9
-	ground.drop(one, player.camera.global_position - player.global_transform.basis.z * 0.3, near, _rest_height, 0.15)
-	show_choice("%s jeté au sol" % Inventory.item_name(one))
+	for unit in Inventory.units(thrown):
+		ground.drop(unit, player.camera.global_position - player.global_transform.basis.z * 0.3, near, _rest_height, 0.15)
+	show_choice("%s jeté au sol" % _thrown_name(thrown))
 	return true
+
+# 0.0.7.30 (demande de l'utilisateur) : Supprimer (D + E), Créatif seulement : l'objet en main disparaît (rien ne tombe) ;
+# all (Ctrl droit) : tout le tas ; un objet illimité : la case est vidée.
+func delete_held(all: bool = false) -> bool:
+	if game_mode == Inventory.SURVIVAL:
+		_notify("En Survie, on ne supprime rien : J pour jeter au sol.")
+		return false
+	if inventory.held().is_empty():
+		_notify("Rien en main à supprimer.")
+		return false
+	var gone := inventory.remove("bar", _held_index(), all)
+	if gone.is_empty():
+		return false
+	show_choice("%s supprimé" % _thrown_name(gone))
+	return true
+
+# Case de l'objet en main (objet lourd à deux mains : sa case).
+func _held_index() -> int:
+	var index: int = inventory.selected()
+	var heavy: int = inventory.two_handed()
+	return heavy if heavy >= 0 and index in Inventory.HANDS else index
+
+# « Caillou » ou « Caillou × 3 » (tout un tas).
+static func _thrown_name(value: Dictionary) -> String:
+	var amount := Inventory.count(value)
+	return Inventory.item_name(value) + (" × %d" % amount if amount > 1 else "")
 
 # Objets qui ne tiennent plus dans l'inventaire : posés au sol devant le joueur, jamais perdus (chacun tel qu'il est).
 func drop_items(value: Dictionary) -> void:
 	if not is_instance_valid(ground) or not is_instance_valid(player):
 		return
 	var near := player.global_position - player.global_transform.basis.z * 0.6
-	var units: Array = value.pile.map(func(instance): return Inventory.flat(value.objet, instance)) if value.has("pile") else []
-	if units.is_empty():
-		for index in range(maxi(Inventory.count(value), 1)):
-			units.append({"objet": value.objet})
-	for unit in units:
+	for unit in Inventory.units(value):
 		ground.drop(unit, player.global_position + Vector3.UP, near, _rest_height)
 
 # Message quand rien n'a pu être pris (inventory.add_to_selected).

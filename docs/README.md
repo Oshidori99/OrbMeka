@@ -1,7 +1,20 @@
-# OrbMeka™ — prototype 0.0.7.29
+# OrbMeka™ — prototype 0.0.7.30
 
 Godot 4.7 / GDScript. Formes et couleurs simples ; assets externes seulement sous licence vérifiée (sons CC0, assets/sounds/CREDITS.txt).
 
+## 0.0.7.30 — Détails de chaque objet en Créatif (cartes au « + »), « − » rouge pour refermer, cartes de Survie plus compactes, J pour jeter au sol partout (inventaire et Créatif compris), D + E pour supprimer en Créatif, D + T pour les détails, Ctrl droit pour tout le tas
+Version locale (1 sur 4). Génération inchangée (version 33). Demandes de l'utilisateur.
+- **Créatif : détails de chaque objet** : le « + » est maintenant sur tous les objets (ceux du haut, de la grille et de la barre). Il ouvre d'abord les **cartes de détails** sur toute une ligne (un tas : une carte par objet, au plus 12, puis « … et N autres »), puis les variantes.
+- **« − » pour refermer** : une fois ouvert, le « + » vert devient un « − » blanc gras sur fond rouge.
+- **Cartes plus compactes** (Survie et Créatif) : petite image, le nom en haut, puis **deux détails par ligne**, le poids toujours en dernier ; tous les détails, un par ligne, au survol de la carte.
+- **J (Jeter, au sol)** : en jeu, en Survie et **en Créatif** ; **dans l'inventaire** aussi : l'objet tenu par la souris, sinon celui de la case sous la souris, sinon rien. Un objet à la fois (le dernier pris). La zone Jeter et le lâcher hors de la fenêtre font aussi tomber l'objet au sol en Créatif. Objet illimité (Créatif) : une copie tombe, il reste.
+- **D + E (Supprimer, Créatif seulement)** : en jeu et dans l'inventaire, l'objet disparaît sans rien faire tomber. En Survie, rien n'est supprimé.
+- **D + T (Détails)** : ouvre ou ferme les détails de l'objet sous la souris (avant : D seul, qui ne fait plus rien dans l'inventaire).
+- **Ctrl droit + J** ou **Ctrl droit + D + E** : tout le tas. Ces touches sont modifiables dans Contrôles → Inventaire.
+- Pas fait : erreur passagère « PackedVector3Array » vue dans les tests (sans lien avec ce lot) : à chercher.
+
+Tests réussis : inventory_more (47), inventory, controls, controls_groups, key_combos, shortcuts_selection, menu (+ tests juridiques).
+À tester : l'aspect du « − » rouge et des cartes compactes, les cartes du Créatif dans la grille (au-dessus des variantes), J et D + E sous la souris, D + T, Ctrl droit + J / D + E au clavier (en jeu, D fait aussi un petit pas à droite).
 ## 0.0.7.29 — Mode Survie ou Créatif choisi à la création (Survie par défaut), bouton « + » sur les objets de l'inventaire (toutes les variantes en Créatif, tous les détails en Survie), jeter un objet (zone Jeter, hors de la fenêtre, touche J en Survie)
 Version publiée (4 sur 4, avec 0.0.7.26 à 0.0.7.28). Génération inchangée (version 33). Demandes de l'utilisateur.
 - **Création d'un monde** : choix Survie / Créatif (Survie par défaut), modifiable ensuite dans les réglages du monde. Les mondes existants ne changent pas.
