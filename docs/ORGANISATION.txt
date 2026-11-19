@@ -89,6 +89,7 @@ lacs, rivières, crevasses, grottes) pour la vitrine de l'accueil. Résultats id
 tools/mesure_perf.gd (0.0.7.20) : mesures sur PC (accueil, ouverture, marche en forêt), fenêtre hors écran.
 tools/squelettes.gd (0.0.7.21) : calcule d'avance les branches de chaque modèle d'arbre (assets/trees/squelettes/,
 à relancer si un modèle change). Paramètres → Vidéo → Qualité d'affichage : préréglages dans user_settings.gd (PRESETS).
+tests/lawn_ring_test.gd (0.0.7.28) : herbe et plantes sur toutes les colonnes construites, pas seulement les 9 du milieu.
 tests/sticks_test.gd (0.0.7.26) : branches mortes au sol et rejets de noisetier (génération 33), ramassés, recassés, enregistrés.
 tests/perf_guard_test.gd (0.0.7.21) : garde-fou de vitesse (travail de fond dans son budget par image).
 Écran de chargement (0.0.7.23) : app.gd open_world_loading (graine préparée par étapes, world.gd prepare_terrain) ;

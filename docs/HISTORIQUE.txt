@@ -3,6 +3,10 @@ Du plus récent au plus ancien. Ce fichier est mis à jour à chaque version.
 
 === Thème « Gameplay et inventaire » (0.0.7) ===
 
+0.0.7.28 — Herbe et plantes de nouveau sur toute la distance (seulement 9 colonnes depuis 0.0.7.25), pierres deux fois plus rapides à mains nues, rochers et cailloux cassables à mains nues en Survie
+Génération du terrain : version 33 · Menus : version 10.
+Bug de la file des détails corrigé ; Survie à mains nues : pierre 10 s, calcaire 7,5 s, pierre sombre et silex 15 s, rocher comme sa pierre, caillou 5 s, sans rien récupérer.
+
 0.0.7.27 — Durées de cassage selon la matière (Survie : creuser en maintenant, la pierre à mains nues en 20 s sans rien récupérer, gestes plus grands plus rapides), Créatif : tout en 0,3 s, pierre et rochers à mains nues
 Génération du terrain : version 33 · Menus : version 10.
 Issue #217 : durée = temps de la matière × taille du geste (× 0,8 par groupe de 4 sous-cellules) ; anneau au-delà de 0,5 s.

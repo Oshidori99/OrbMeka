@@ -1,7 +1,17 @@
-# OrbMeka™ — prototype 0.0.7.27
+# OrbMeka™ — prototype 0.0.7.28
 
 Godot 4.7 / GDScript. Formes et couleurs simples ; assets externes seulement sous licence vérifiée (sons CC0, assets/sounds/CREDITS.txt).
 
+## 0.0.7.28 — Herbe et plantes de nouveau sur toute la distance (seulement 9 colonnes depuis 0.0.7.25), pierres deux fois plus rapides à mains nues, rochers et cailloux cassables à mains nues en Survie
+Version locale (3 sur 4). Génération inchangée (version 33). Signalé par l'utilisateur.
+- **Herbe et plantes** : depuis 0.0.7.25, elles n'apparaissaient que sur les 9 colonnes autour du point d'arrivée (au-delà, la file des détails était vidée juste après la mise en file) ; un trou creusé faisait apparaître l'herbe d'un seul carré. Corrigé : toute la distance de l'herbe est de nouveau remplie, les plus proches d'abord.
+- **Pierres deux fois plus rapides** à mains nues (Survie) : pierre et charbon 10 s, calcaire 7,5 s, pierre sombre et silex 15 s par sous-cellule (avant 20, 15 et 30 s).
+- **Rochers à mains nues** (Survie) : en maintenant le clic, une sous-cellule du rocher à la fois, avec la durée de sa pierre (10 s, calcaire 7,5 s), sans rien récupérer.
+- **Cailloux à mains nues** (Survie) : 5 s en maintenant, sans éclats.
+- Toujours avec la pioche (Créatif) : morceaux et éclats comme avant.
+
+Tests réussis : lawn_ring (nouveau), smooth_terrain (171 : pierre 10 s, rocher, caillou), inventory et les tests touchés (14) (+ tests juridiques).
+À tester : ouvrir un monde et regarder l'herbe à 4 zones ; en Survie, casser un rocher et un caillou à mains nues.
 ## 0.0.7.27 — Durées de cassage selon la matière (Survie : creuser en maintenant, la pierre à mains nues en 20 s sans rien récupérer, gestes plus grands plus rapides), Créatif : tout en 0,3 s, pierre et rochers à mains nues
 Version locale (2 sur 4). Génération inchangée (version 33). Issue #217.
 - **Survie, à mains nues** : on creuse en maintenant le clic ; durée par sous-cellule de 50 cm : neige 0,3 s, sable et aiguilles 0,4, boue 0,5, terre 0,6, gravier 0,8, argile 1 s ; **pierre 20 s**, calcaire 15 s, pierre sombre et silex 30 s, une sous-cellule à la fois et **sans rien récupérer** ; Roche-mère jamais. Changer de cible recommence ; anneau de chargement au-delà de 0,5 s.

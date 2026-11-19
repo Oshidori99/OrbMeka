@@ -549,14 +549,16 @@ func _finish_column(column: Vector2i, progressive := false) -> void:
 	var at := Time.get_ticks_usec()
 	# 0.0.7.25 : en se déplaçant (progressive), l'herbe et les plantes viennent après la surface (detail_queue) : en vol
 	# rapide, la surface et sa collision d'abord (mesures Web : arrêts « Chargement du terrain… »).
-	if progressive:
-		detail_queue.append(column)
-	else:
+	# 0.0.7.28 : mise en file APRÈS _show_column_objects (il vide la file de la colonne en retirant ses anciens objets :
+	# en 0.0.7.25 à 0.0.7.27, l'herbe et les plantes ne venaient jamais au-delà des 9 colonnes de l'ouverture).
+	if not progressive:
 		_rebuild_lawn_tile(column)
 	if perf_on:
 		_perf("colonne_herbe", at)
 		at = Time.get_ticks_usec()
 	_show_column_objects(column, progressive)
+	if progressive and not detail_queue.has(column):
+		detail_queue.append(column)
 	if perf_on:
 		_perf("colonne_objets", at)
 		at = Time.get_ticks_usec()
@@ -3049,12 +3051,16 @@ func _inside_player(point: Vector3i) -> bool:
 const DIG_SECONDS := {
 	SmoothTerrain.SNOW: 0.3, SmoothTerrain.SAND: 0.4, SmoothTerrain.NEEDLES: 0.4, SmoothTerrain.MUD: 0.5,
 	SmoothTerrain.DIRT: 0.6, SmoothTerrain.GRAVEL: 0.8, SmoothTerrain.CLAY: 1.0,
-	SmoothTerrain.LIMESTONE: 15.0, SmoothTerrain.STONE: 20.0, SmoothTerrain.COAL: 20.0,
-	SmoothTerrain.DARK_STONE: 30.0, SmoothTerrain.FLINT: 30.0,
+	# 0.0.7.28 (demande de l'utilisateur) : pierres deux fois plus rapides (avant : 15, 20 et 30 s).
+	SmoothTerrain.LIMESTONE: 7.5, SmoothTerrain.STONE: 10.0, SmoothTerrain.COAL: 10.0,
+	SmoothTerrain.DARK_STONE: 15.0, SmoothTerrain.FLINT: 15.0,
 }
+# 0.0.7.28 : en Survie, à mains nues, un rocher se creuse comme sa pierre (une sous-cellule à la fois), un caillou se casse
+# en PEBBLE_HAND_SECONDS, sans rien récupérer.
+const PEBBLE_HAND_SECONDS := 5.0
 # Anneau de chargement seulement pour ce qui dure plus d'une demi-seconde.
 const RING_FROM_SECONDS := 0.5
-var dig_point := Vector3i(999999, 0, 0)
+var dig_point: Variant = null
 var dig_time := 0.0
 
 static func dig_seconds(kind: int) -> float:
@@ -3086,24 +3092,36 @@ const GESTURE_DISCOUNT := 0.8
 static func gesture_factor(cells: int) -> float:
 	return pow(GESTURE_DISCOUNT, floori(cells / 4.0))
 
+# Ce que casse la visée en Survie à mains nues : le sol (dig_plan), un rocher (sous-cellule visée, durée de sa pierre) ou un
+# caillou (PEBBLE_HAND_SECONDS). « center » : la cible (changer de cible recommence).
+func hand_plan(hit: Dictionary) -> Dictionary:
+	if hit.collider.is_in_group("rocks"):
+		var kind := SmoothTerrain.LIMESTONE if int(hit.collider.get_meta("look", 0)) == 1 else SmoothTerrain.STONE
+		return {"center": [hit.collider.get_instance_id(), SmoothTerrain.point_of(hit.position - hit.normal * 0.15)], "cells": 1, "seconds": dig_seconds(kind), "stone": true}
+	if hit.collider.is_in_group("pebbles"):
+		return {"center": [hit.collider.get_instance_id()], "cells": 1, "seconds": PEBBLE_HAND_SECONDS, "stone": true}
+	if not hit.collider.is_in_group("ground"):
+		return {}
+	return dig_plan(hit)
+
 # Survie : clic gauche maintenu sur le sol : le temps s'accumule sur la sous-cellule visée (anneau au-delà de 0,5 s),
 # puis le geste se fait. Changer de cible recommence.
 func step_dig(delta: float, holding: bool, aimed: Dictionary = {}) -> bool:
 	if not holding or game_mode != Inventory.SURVIVAL or not is_instance_valid(player) or player.left_mode != 0 or player.selected_type == PICKAXE:
-		dig_point = Vector3i(999999, 0, 0)
+		dig_point = null
 		dig_time = 0.0
 		return false
 	# aimed : visée donnée (tests) ; sinon celle du joueur.
 	var hit: Dictionary = aimed if not aimed.is_empty() else player.get_target()
-	if not _valid_hit(hit, player.break_reach) or not hit.collider.is_in_group("ground") or _ground_wood(hit) >= 0 or not aimed_wood(hit).is_empty():
-		dig_point = Vector3i(999999, 0, 0)
+	if not _valid_hit(hit, player.break_reach) or hit.collider.is_in_group("blocks") or _ground_wood(hit) >= 0 or not aimed_wood(hit).is_empty():
+		dig_point = null
 		dig_time = 0.0
 		return false
-	var plan := dig_plan(hit)
+	var plan := hand_plan(hit)
 	if plan.is_empty() or plan.seconds <= 0.0 or is_inf(float(plan.seconds)):
 		dig_time = 0.0
 		return false
-	if plan.center != dig_point:
+	if typeof(plan.center) != typeof(dig_point) or plan.center != dig_point:
 		dig_point = plan.center
 		dig_time = 0.0
 	dig_time += delta
@@ -3111,8 +3129,12 @@ func step_dig(delta: float, holding: bool, aimed: Dictionary = {}) -> bool:
 		show_ring(dig_time / plan.seconds)
 	if dig_time < plan.seconds:
 		return false
-	dig_point = Vector3i(999999, 0, 0)
+	dig_point = null
 	dig_time = 0.0
+	if hit.collider.is_in_group("rocks"):
+		return mine_rock(hit.collider, hit, false)
+	if hit.collider.is_in_group("pebbles"):
+		return strike_pebble(hit.collider, true, false)
 	var done := sculpt(hit, false, -1, plan.cells, plan.stone)
 	if done:
 		_debris(hit.position, Color("#6f6b66") if plan.stone else Color("#6b4a2e"))
@@ -3647,15 +3669,14 @@ func break_target(hit: Dictionary) -> bool:
 		if not _valid_hit(hit, player.break_reach):
 			return false
 		# 0.0.7.27 (#217) : en Créatif, à mains nues aussi.
+		# 0.0.7.28 : en Survie à mains nues, en maintenant le clic (step_dig, sans rien récupérer).
 		if player.selected_type != PICKAXE and game_mode != Inventory.CREATIVE:
-			_notify(_needs_pickaxe("Les cailloux se cassent"))
 			return false
 		return strike_pebble(hit.collider)
 	if not hit.is_empty() and is_instance_valid(hit.get("collider")) and hit.collider.is_in_group("rocks"):
 		if not _valid_hit(hit, player.break_reach):
 			return false
 		if player.selected_type != PICKAXE and game_mode != Inventory.CREATIVE:
-			_notify(_needs_pickaxe("Les rochers se cassent"))
 			return false
 		return mine_rock(hit.collider, hit)
 	# 0.0.7.17 : « Casser / Récupérer des objets » ne creuse jamais le terrain.
@@ -4856,7 +4877,8 @@ func _rebuild_pebble_block(block: Vector2i) -> void:
 	if not nodes.is_empty():
 		pebble_blocks[block] = nodes
 
-func strike_pebble(body: StaticBody3D) -> bool:
+# whole : cassé d'un coup (Survie à mains nues, 0.0.7.28) ; pieces_drop faux : rien à récupérer.
+func strike_pebble(body: StaticBody3D, whole := false, pieces_drop := true) -> bool:
 	var id: String = body.get_meta("id")
 	var kind: Vector2i = body.get_meta("pebble")
 	var column: Vector2i = body.get_meta("column")
@@ -4864,14 +4886,15 @@ func strike_pebble(body: StaticBody3D) -> bool:
 	_debris(at, Color("#6f6b66"))
 	_impact_sound(at)
 	pebble_hits[id] = pebble_hits.get(id, 0) + 1
-	if pebble_hits[id] >= Rocks.PEBBLE_HITS[kind.x - 1]:
+	if whole or pebble_hits[id] >= Rocks.PEBBLE_HITS[kind.x - 1]:
 		pebble_hits.erase(id)
 		broken_pebbles[id] = true
 		objects_dirty = true
 		# 0.0.7.3 : le caillou cassé donne des éclats (250 g au plus chacun), qui tombent à côté du joueur.
 		var weight: float = Inventory.PEBBLE_WEIGHTS[kind.x - 1]
 		var pieces := maxi(1, ceili(weight / 250.0))
-		drop_pieces(PEBBLE_PIECES[int(body.get_meta("look", 0))], pieces, roundf(weight / pieces), at)
+		if pieces_drop:
+			drop_pieces(PEBBLE_PIECES[int(body.get_meta("look", 0))], pieces, roundf(weight / pieces), at)
 	_show_column_pebbles(column)
 	# Colonne visée : ses collisions refaites tout de suite (elle est près du joueur).
 	_build_pebble_bodies(column)
@@ -4959,7 +4982,8 @@ func _strike_stone(point: Vector3i, at: Vector3) -> bool:
 # la forme se creuse là où l'on frappe. Sauvegarde : objets.json, « rochers_entames » (cubes retirés par rocher).
 var carved_rocks: Dictionary = {}
 
-func mine_rock(body: StaticBody3D, hit: Dictionary = {}) -> bool:
+# pieces_drop : faux en Survie à mains nues (0.0.7.28) : rien à récupérer.
+func mine_rock(body: StaticBody3D, hit: Dictionary = {}, pieces_drop := true) -> bool:
 	var id: String = body.get_meta("id")
 	if not body.has_meta("grid"):
 		var rock: Vector2i = body.get_meta("rock")
@@ -4987,7 +5011,8 @@ func mine_rock(body: StaticBody3D, hit: Dictionary = {}) -> bool:
 	removed.append([chosen.x, chosen.y, chosen.z])
 	carved_rocks[id] = removed
 	objects_dirty = true
-	drop_pieces("eclat_calcaire" if body.get_meta("look", 0) == 1 else "eclat_pierre", 2, STONE_PIECE_WEIGHT, aim)
+	if pieces_drop:
+		drop_pieces("eclat_calcaire" if body.get_meta("look", 0) == 1 else "eclat_pierre", 2, STONE_PIECE_WEIGHT, aim)
 	if not _apply_carving(body):
 		carved_rocks.erase(id)
 		mined_rocks[id] = true

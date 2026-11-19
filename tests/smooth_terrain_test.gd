@@ -128,22 +128,22 @@ func _run() -> void:
 	var raised: Vector3i = SmoothTerrain.point_of(Vector3(-20.25, 0.15, -20.25))
 	check(world.terrain.density(raised) > 0.0, "one 50 cm sub-cell added above the ground")
 	var deep: Dictionary = aim(world, Vector3(5.25, SmoothTerrain.LOW_POINT * SmoothTerrain.STEP - 0.1, 5.25))
-	# 0.0.7.27 (#217) : Survie : clic seul sans effet ; pierre 20 s par sous-cellule, en maintenant, sans rien récupérer.
+	# 0.0.7.27 (#217) : Survie : clic seul sans effet ; pierre 10 s (0.0.7.28, avant 20 s) par sous-cellule, en maintenant, sans rien récupérer.
 	world.game_mode = "survival"
 	var deep_point: Vector3i = SmoothTerrain.point_of(deep.position - deep.normal * 0.3)
 	check(not world.break_target(deep) and world.terrain.density(deep_point) > 0.0, "survival: a click alone does not break stone")
-	check(world.dig_plan(deep).stone and is_equal_approx(world.dig_plan(deep).seconds, 20.0) and world.dig_seconds(SmoothTerrain.DARK_STONE) == 30.0 and world.dig_seconds(SmoothTerrain.LIMESTONE) == 15.0 and is_inf(world.dig_seconds(SmoothTerrain.MOTHER_ROCK)), "survival by hand: stone 20 s, limestone 15 s, dark stone 30 s, Roche-mère never")
+	check(world.dig_plan(deep).stone and is_equal_approx(world.dig_plan(deep).seconds, 10.0) and world.dig_seconds(SmoothTerrain.DARK_STONE) == 15.0 and world.dig_seconds(SmoothTerrain.LIMESTONE) == 7.5 and is_inf(world.dig_seconds(SmoothTerrain.MOTHER_ROCK)), "survival by hand: stone 10 s, limestone 7.5 s, dark stone 15 s, Roche-mère never (0.0.7.28)")
 	check(world.dig_seconds(SmoothTerrain.SNOW) < world.dig_seconds(SmoothTerrain.SAND) and world.dig_seconds(SmoothTerrain.SAND) < world.dig_seconds(SmoothTerrain.DIRT) and world.dig_seconds(SmoothTerrain.DIRT) < world.dig_seconds(SmoothTerrain.GRAVEL) and world.dig_seconds(SmoothTerrain.GRAVEL) < world.dig_seconds(SmoothTerrain.CLAY) and world.dig_seconds(-1) == 0.6, "snow < sand < dirt (0.6 s) < gravel < clay")
 	check(world.gesture_factor(1) == 1.0 and world.gesture_factor(2) == 1.0 and is_equal_approx(world.gesture_factor(4), 0.8) and is_equal_approx(world.gesture_factor(8), 0.64), "bigger gestures: x0.8 for each group of 4 sub-cells")
 	var items_before: int = world.ground.entries.size() if is_instance_valid(world.ground) else 0
 	var held := 0.0
 	var broke := false
-	while not broke and held < 25.0:
+	while not broke and held < 15.0:
 		broke = world.step_dig(0.1, true, deep)
 		held += 0.1
-		if held > 19.5 and held < 19.7:
-			check(world.terrain.density(deep_point) > 0.0, "still there after 19.5 s")
-	check(broke and held >= 19.9 and world.terrain.density(deep_point) <= 0.0, "stone broken by hand after 20 s held (%.1f s)" % held)
+		if held > 9.5 and held < 9.7:
+			check(world.terrain.density(deep_point) > 0.0, "still there after 9.5 s")
+	check(broke and held >= 9.9 and world.terrain.density(deep_point) <= 0.0, "stone broken by hand after 10 s held (%.1f s)" % held)
 	check((world.ground.entries.size() if is_instance_valid(world.ground) else 0) == items_before, "by hand, stone gives nothing back")
 	world.game_mode = "creative"
 	var deep_creative: Dictionary = aim(world, Vector3(7.25, SmoothTerrain.LOW_POINT * SmoothTerrain.STEP - 0.1, 7.25))
@@ -447,8 +447,19 @@ func _run() -> void:
 	var rock_hit := {"collider": mined_target, "position": mined_target.global_position, "normal": Vector3.UP}
 	rock_world.player.selected_type = 0
 	# 0.0.7.27 : en Créatif, les mains cassent aussi les rochers ; en Survie, il faut une pioche.
+	# 0.0.7.28 : en Survie à mains nues, en maintenant : une sous-cellule du rocher au bout de la durée de sa pierre, sans morceaux.
 	rock_world.game_mode = "survival"
-	check(not rock_world.break_target(rock_hit) and rock_world.notice.begins_with("Les rochers se cassent avec une pioche"), "survival: without a pickaxe, a rock does not break")
+	check(not rock_world.break_target(rock_hit) and rock_world.carved_rocks.get(rock_id, []).is_empty(), "survival: a click alone does not carve a rock")
+	var rock_items: int = rock_world.ground.entries.size()
+	var rock_seconds: float = rock_world.hand_plan(rock_hit).seconds
+	var rock_held := 0.0
+	var rock_done := false
+	while not rock_done and rock_held < 15.0:
+		rock_done = rock_world.step_dig(0.1, true, rock_hit)
+		rock_held += 0.1
+	check(rock_done and (rock_seconds == 10.0 or rock_seconds == 7.5) and rock_held >= rock_seconds - 0.05 and rock_world.carved_rocks.get(rock_id, []).size() == 1 and rock_world.ground.entries.size() == rock_items, "survival by hand: a rock sub-cell after %.1f s held (its stone), nothing to pick up" % rock_held)
+	rock_world.carved_rocks.erase(rock_id)
+	rock_world._apply_carving(mined_target)
 	rock_world.game_mode = "creative"
 	rock_world.player.selected_type = rock_world.PICKAXE
 	var faces_before: int = mined_target.get_child(0).mesh.get_faces().size()
@@ -1104,6 +1115,25 @@ func _run() -> void:
 			big_pebble = each
 	var big_id: String = big_pebble.get_meta("id")
 	var needed: int = Rocks.PEBBLE_HITS[big_pebble.get_meta("pebble").x - 1]
+	# 0.0.7.28 : en Survie à mains nues, un caillou se casse en 5 s maintenues, sans éclats.
+	var hand_pebble: StaticBody3D = null
+	for each in pebble_world.get_tree().get_nodes_in_group("pebbles"):
+		if is_instance_valid(each) and each != small_pebble and each != big_pebble and hand_pebble == null:
+			hand_pebble = each
+	if hand_pebble != null:
+		var hand_id: String = hand_pebble.get_meta("id")
+		pebble_world.game_mode = "survival"
+		pebble_world.player.selected_type = -1
+		pebble_world.player.global_position = hand_pebble.global_position + Vector3(1.0, 0.0, 0.0)
+		var pebble_hit := {"collider": hand_pebble, "position": hand_pebble.global_position, "normal": Vector3.UP}
+		var pebble_items: int = pebble_world.ground.entries.size()
+		var pebble_held := 0.0
+		var pebble_done := false
+		while not pebble_done and pebble_held < 8.0:
+			pebble_done = pebble_world.step_dig(0.1, true, pebble_hit)
+			pebble_held += 0.1
+		check(pebble_done and pebble_held >= 4.95 and pebble_world.broken_pebbles.has(hand_id) and pebble_world.ground.entries.size() == pebble_items, "survival by hand: a pebble breaks after 5 s held, nothing to pick up (%.1f s)" % pebble_held)
+		pebble_world.game_mode = "creative"
 	pebble_world.player.selected_type = pebble_world.PICKAXE
 	var small_id: String = small_pebble.get_meta("id")
 	pebble_world.player.global_position = small_pebble.global_position + Vector3(1.0, 0.0, 0.0)
