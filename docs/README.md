@@ -1,7 +1,50 @@
-# OrbMeka™ — prototype 0.0.7.25
+# OrbMeka™ — prototype 0.0.7.29
 
 Godot 4.7 / GDScript. Formes et couleurs simples ; assets externes seulement sous licence vérifiée (sons CC0, assets/sounds/CREDITS.txt).
 
+## 0.0.7.29 — Mode Survie ou Créatif choisi à la création (Survie par défaut), bouton « + » sur les objets de l'inventaire (toutes les variantes en Créatif, tous les détails en Survie), jeter un objet (zone Jeter, hors de la fenêtre, touche J en Survie)
+Version publiée (4 sur 4, avec 0.0.7.26 à 0.0.7.28). Génération inchangée (version 33). Demandes de l'utilisateur.
+- **Création d'un monde** : choix Survie / Créatif (Survie par défaut), modifiable ensuite dans les réglages du monde. Les mondes existants ne changent pas.
+- **Bouton « + »** en haut à droite des cases de l'inventaire (fond vert, « + » blanc ; jamais sur la barre du jeu) : il ouvre une **ligne complète juste sous la case**, le reste descend ; fermée dès que la souris quitte la case et ses lignes. **D** sur une case : ouvre (reste ouvert) ; **D** ou **Échap** : ferme (Échap ferme d'abord les sous-possibilités, puis l'inventaire).
+  - **Créatif** : toutes les variantes : bois de chaque essence en 7 tailles × 5 états (jeune, adulte, vieux, mort, pourri) × 5 souplesses (175), cailloux en 7 tailles, pommes en 3 tailles × 5 couleurs ; à prendre comme les objets du haut. La zone des objets **défile** (barre jaune bien visible), au plus la moitié de l'écran.
+  - **Survie** : une carte par objet porté du même genre (tous les bois, tous les cailloux…), mains et poches, avec tous ses détails, un par ligne.
+- **Ordre fixe des détails** (accepté) : nom, longueur, épaisseur (gros → petit bout), forme, état (vert, mort, pourri), souplesse, âge, note de manche ; puis taille, couleur, diamètre, coups ; **poids toujours en dernier**.
+- **Jeter** : zone « Jeter » avec une croix, sous la barre à droite, et lâcher l'objet **hors de la fenêtre** de l'inventaire. Créatif : il disparaît ; Survie : il tombe au sol devant soi. **Touche J** (Survie, modifiable dans Contrôles → Inventaire) : jette l'objet en main, un à la fois.
+- Pas fait : erreur passagère « PackedVector3Array » vue deux fois dans les tests (sans lien avec ce lot) : à chercher.
+
+Tests réussis : inventory_more (23, nouveau), inventory (106), game_mode, controls, menu, custom_world_menu et les tests touchés (18) (+ tests juridiques). Captures : variantes du Créatif avec défilement, cartes de détails en Survie.
+À tester : le « + » et la touche D à la souris, jeter en lâchant hors de la fenêtre, J en Survie, création d'un monde en Survie.
+## 0.0.7.28 — Herbe et plantes de nouveau sur toute la distance (seulement 9 colonnes depuis 0.0.7.25), pierres deux fois plus rapides à mains nues, rochers et cailloux cassables à mains nues en Survie
+Version locale (3 sur 4). Génération inchangée (version 33). Signalé par l'utilisateur.
+- **Herbe et plantes** : depuis 0.0.7.25, elles n'apparaissaient que sur les 9 colonnes autour du point d'arrivée (au-delà, la file des détails était vidée juste après la mise en file) ; un trou creusé faisait apparaître l'herbe d'un seul carré. Corrigé : toute la distance de l'herbe est de nouveau remplie, les plus proches d'abord.
+- **Pierres deux fois plus rapides** à mains nues (Survie) : pierre et charbon 10 s, calcaire 7,5 s, pierre sombre et silex 15 s par sous-cellule (avant 20, 15 et 30 s).
+- **Rochers à mains nues** (Survie) : en maintenant le clic, une sous-cellule du rocher à la fois, avec la durée de sa pierre (10 s, calcaire 7,5 s), sans rien récupérer.
+- **Cailloux à mains nues** (Survie) : 5 s en maintenant, sans éclats.
+- Toujours avec la pioche (Créatif) : morceaux et éclats comme avant.
+
+Tests réussis : lawn_ring (nouveau), smooth_terrain (171 : pierre 10 s, rocher, caillou), inventory et les tests touchés (14) (+ tests juridiques).
+À tester : ouvrir un monde et regarder l'herbe à 4 zones ; en Survie, casser un rocher et un caillou à mains nues.
+## 0.0.7.27 — Durées de cassage selon la matière (Survie : creuser en maintenant, la pierre à mains nues en 20 s sans rien récupérer, gestes plus grands plus rapides), Créatif : tout en 0,3 s, pierre et rochers à mains nues
+Version locale (2 sur 4). Génération inchangée (version 33). Issue #217.
+- **Survie, à mains nues** : on creuse en maintenant le clic ; durée par sous-cellule de 50 cm : neige 0,3 s, sable et aiguilles 0,4, boue 0,5, terre 0,6, gravier 0,8, argile 1 s ; **pierre 20 s**, calcaire 15 s, pierre sombre et silex 30 s, une sous-cellule à la fois et **sans rien récupérer** ; Roche-mère jamais. Changer de cible recommence ; anneau de chargement au-delà de 0,5 s.
+- **Gestes plus grands** (demande de l'utilisateur) : la somme des sous-cellules × 0,8 pour chaque groupe de 4 (4 sous-cellules : 80 %, plus tard 8 : 64 %…).
+- **Bois** : comme avant (2,5 s par 10 cm d'épaisseur, 40 cm au plus), bois mort, pourri et vert depuis 0.0.7.26.
+- **Créatif** : tout au rythme du clic (0,3 s), pierre, cailloux et rochers compris, à mains nues (la pioche reste dans les Outils) ; bois en 0,3 s (avant 1 s).
+- Plus tard, avec les outils : pioche ÷ 6 sur la pierre (avec des morceaux), pelle ÷ 3 sur la terre, hache ÷ 4 sur le bois. Cailloux et rochers en Survie : toujours avec une pioche.
+
+Tests réussis : smooth_terrain (pierre 20 s, ordre des matières, gestes × 0,8, Créatif à mains nues), inventory (creuser en maintenant), et les tests du cassage (13) (+ tests juridiques).
+À tester : en Survie, creuser terre, sable et pierre en maintenant (anneau), changer de cible ; en Créatif, casser la pierre et un rocher à mains nues.
+## 0.0.7.26 — Branches mortes au sol dans les forêts (rares ailleurs), rejets de noisetier à casser en maintenant, qualités du bâton et note de manche, longueurs affichées avant de recasser un bâton
+Version locale (1 sur 4). **Génération 33** (nouveaux mondes seulement ; les mondes existants ne changent pas). Issue #212.
+- **Branches mortes au sol** : placées selon la graine, beaucoup en forêt (environ une tous les 5 m²), rares ailleurs (une fois sur 4 sous un arbre seul), jamais dans l'eau. Chacune a l'essence de l'arbre le plus proche, 30 à 90 cm de long, 1,5 à 5 cm d'épaisseur, droite ou tordue, saine ou pourrie. Montrées à 3 zones autour du joueur ; ramassées avec R ; seules celles ramassées ou recassées sont enregistrées (objets.json).
+- **Rejets de noisetier** : 2 à 5 tiges droites au pied de chaque noisetier (60 à 150 cm, 1,5 à 3 cm) ; cassés en maintenant le clic (2 s, bois vert ; 0,3 s en Créatif), ils tombent au sol (« Rejet de noisetier »).
+- **Qualités visibles** dans le détail d'un bâton : longueur, épaisseur, droit ou tordu, sain, mort ou pourri, et la note de manche (excellent, bon, moyen, mauvais : un bon manche est droit, sain, 40 à 70 cm, 2 à 4 cm ; noisetier excellent, pommier bon, pin et tilleul moyens).
+- **Recasser un bâton au sol** : en le visant, les deux longueurs qu'il donnerait et le temps (« Casser ici : 32 cm et 41 cm (0,3 s) ») ; bois mort 2,5 fois plus vite, pourri plus vite encore, rejet vert 1,5 fois plus lent. Le repère à la molette viendra en 0.0.8.
+- Branches et rejets ajoutés par la file de fond (une colonne à la fois, 2 ms au plus).
+- Pas fait : herbe haute qui cache les branches (à voir en jouant), couleur du bois mort (comme l'écorce de son essence).
+
+Tests réussis : sticks (19, nouveau), inventory (105), custom_generation, world_save, prototype, breaking, history_resume et les tests touchés (+ tests juridiques). perf_guard : « le monde suit en courant » échoue aussi sans ces changements (pic d'un arbre à 42 ms, déjà là) : à revoir. Captures : rejets au pied d'un noisetier, branches dans une forêt de pins.
+À tester : ramasser des branches mortes avec R, casser un rejet en maintenant, recasser un bâton (longueurs affichées), qualités dans l'inventaire.
 ## 0.0.7.25 — Terrain creusé et place du joueur enregistrés sur le Web, rouvrir un monde sans image figée (toute la vue prête derrière l'écran de chargement), troncs et grosses branches solides, Résolution 3D à 100 % sur le Web, herbe et plantes après la surface, pause plus légère, modèles d'arbres plus légers à télécharger
 Version publiée (4 sur 4). Génération inchangée (version 32). D'après le troisième rapport de mesures Web (Chrome, Radeon 610M).
 - **Sauvegarde Web** : le terrain creusé ou posé est enregistré 0,5 s après (oublié avant : un trou perdu même 10 s après), ainsi que la place du joueur dès qu'il a bougé de 8 m.

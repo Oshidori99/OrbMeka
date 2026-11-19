@@ -190,6 +190,9 @@ var world_settings_text: RichTextLabel
 var world_settings_back_button: Button
 # Mode du monde : choix à la création, puis mode développeur ou retour au mode par défaut (0.0.4.10).
 var create_mode: String = Catalog.MODE_DEFAULT
+# 0.0.7.29 (demande de l'utilisateur) : mode de jeu choisi à la création d'un monde, Survie par défaut.
+var create_game_mode: String = Catalog.GAME_SURVIVAL
+var create_game_buttons: Dictionary = {}
 var create_default_button: Button
 var create_developer_button: Button
 var create_mode_note: RichTextLabel

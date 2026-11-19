@@ -384,6 +384,18 @@ Nom, graine, mode, constructions et position sauvegardés." % Catalog.MAX_NAME_L
 	world_options_title.text = "Options du monde"
 	world_options_title.theme_type_variation = "OrbSection"
 	form.add_child(world_options_title)
+	# 0.0.7.29 : mode de jeu (Survie par défaut, puis Créatif), modifiable ensuite dans les réglages du monde.
+	var game_row := HBoxContainer.new()
+	_sep(game_row, 10)
+	form.add_child(game_row)
+	var game_group := ButtonGroup.new()
+	for game_mode in [Catalog.GAME_SURVIVAL, Catalog.GAME_CREATIVE]:
+		var game_button := _button(Catalog.GAME_MODES[game_mode], game_row, func(): set_create_game_mode(game_mode))
+		game_button.theme_type_variation = "OrbTab"
+		game_button.toggle_mode = true
+		game_button.button_group = game_group
+		game_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		create_game_buttons[game_mode] = game_button
 	# Deux boutons exclusifs : Par défaut à gauche, Mode développeur à droite.
 	var mode_row := HBoxContainer.new()
 	_sep(mode_row, 10)
@@ -619,6 +631,7 @@ func show_page(next_page: String) -> void:
 			seed_field.clear()
 			custom_generation = {}
 			set_create_mode(Catalog.MODE_DEFAULT)
+			set_create_game_mode(Catalog.GAME_SURVIVAL)
 		name_field.placeholder_text = catalog.next_auto_name() + " (nom automatique)"
 		form_error.text = ""
 		custom_status.text = "Génération standard" if custom_generation.is_empty() else "Génération personnalisée enregistrée pour ce monde"
@@ -804,6 +817,11 @@ func duplicate_selected_world() -> void:
 	list_message.text = "Copie créée : %s" % item.name
 	world_list.grab_focus()
 
+func set_create_game_mode(game_mode: String) -> void:
+	create_game_mode = game_mode if Catalog.GAME_MODES.has(game_mode) else Catalog.GAME_SURVIVAL
+	for each in create_game_buttons:
+		create_game_buttons[each].set_pressed_no_signal(each == create_game_mode)
+
 func set_create_mode(mode: String) -> void:
 	create_mode = mode
 	create_default_button.set_pressed_no_signal(mode == Catalog.MODE_DEFAULT)
@@ -927,6 +945,8 @@ func create_named_world() -> void:
 		else:
 			name_field.grab_focus()
 		return
+	# 0.0.7.29 : le mode de jeu choisi (Survie par défaut).
+	catalog.set_game_mode(item.id, create_game_mode)
 	if not folder.is_empty() and shelves_on():
 		shelves.put_in_folder(item.id, folder)
 	open_world_loading(item.id)

@@ -47,7 +47,7 @@ func _run() -> void:
 	current_scene = app
 	await process_frame
 	# Contrôles : O + I, nouvelle partie Inventaire avec la molette.
-	check(Controls.GROUPS.has("Inventaire") and Controls.GROUPS.Inventaire == ["inventory", "block_previous", "block_next", "pick_up", "gather"] and not "block_next" in Controls.GROUPS.Blocs, "Contrôles: Inventaire part with O + I and the wheel")
+	check(Controls.GROUPS.has("Inventaire") and Controls.GROUPS.Inventaire == ["inventory", "block_previous", "block_next", "pick_up", "gather", "throw"] and not "block_next" in Controls.GROUPS.Blocs, "Contrôles: Inventaire part with O + I and the wheel")
 	check(Controls.combo_kind(Controls.options(Controls.default_for("inventory"))[0]) == "chord" and Controls.ACTIONS.inventory.label == "Inventaire", "Inventaire: O and I at the same time")
 	app.open_world(item.id)
 	await process_frame
@@ -241,7 +241,14 @@ func _run() -> void:
 		await physics_frame
 	var before: Dictionary = world.terrain.changes.duplicate()
 	var dig_hit: Dictionary = world.player.get_target()
-	check(world.break_target(dig_hit), "survival: digging works by hand")
+	# 0.0.7.27 (#217) : en Survie, on creuse en maintenant le clic, selon la matière (terre 0,6 s par sous-cellule).
+	check(not world.break_target(dig_hit) and world.terrain.changes == before, "survival: a click alone does not dig")
+	var dig_held := 0.0
+	var dug_now := false
+	while not dug_now and dig_held < 5.0:
+		dug_now = world.step_dig(1.0 / 60.0, true, dig_hit)
+		dig_held += 1.0 / 60.0
+	check(dug_now and dig_held >= 0.25 and dig_held <= 1.1, "survival: holding digs by hand (%.2f s)" % dig_held)
 	var thrown := []
 	for point in world.terrain.changes:
 		if not before.has(point) and world.terrain.changes[point] > 0.0:

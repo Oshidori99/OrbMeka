@@ -92,6 +92,8 @@ func setup(terrain_seed: int, flat_spots: Array = [], options: Dictionary = {}, 
 	_gentle_mountains = int(generation_options.get("version", 0)) >= 25
 	_needle_floor_on = int(generation_options.get("version", 0)) >= 26
 	_plants_on = int(generation_options.get("version", 0)) >= 27
+	# 0.0.7.26 (version 33, #212) : branches mortes au sol et rejets de noisetier.
+	_branches_on = int(generation_options.get("version", 0)) >= 33
 	# 0.0.6.21 (version 29, #177) : trois formes d'arbres ; la troisième des arbres à vrai tronc a un trou.
 	_tree_forms_on = int(generation_options.get("version", 0)) >= 29
 	# Version 25 : crêtes moins marquées sur les montagnes (pentes plus régulières, plus faciles à monter).
@@ -2736,7 +2738,79 @@ const NETTLE := 0
 const FLAX := 1
 const TALL_GRASS := 2
 var _plants_on := false
+var _branches_on := false
 
+
+# 0.0.7.26 (version 33, #212) : branches mortes au sol. En forêt : sur toute la surface (FOREST_BRANCHES par zone de 64 m²,
+# environ une tous les 5 m²), de l'essence de l'arbre le plus proche (sinon celle de la forêt). Ailleurs : une fois sur 4,
+# une sous la couronne d'un arbre seul. Chacune : longueur 30 à 90 cm, épaisseur 1,5 à 5 cm (plus épaisse si plus
+# longue), droite (60 %) ou tordue, saine ou pourrie (40 %). Jamais dans l'eau.
+const FOREST_BRANCHES := Vector2i(9, 16)
+
+func dead_branches_in_zone(area: Vector2i) -> Array:
+	if not _branches_on or _noise == null:
+		return []
+	var rng := RandomNumberGenerator.new()
+	rng.seed = hash([_seed, area.x, area.y, "branches"])
+	var trees := trees_in_zone(area)
+	var spots := []
+	var corner := Vector2(area) * ZONE_METERS
+	for index in range(rng.randi_range(FOREST_BRANCHES.x, FOREST_BRANCHES.y)):
+		var at := corner + Vector2(rng.randf(), rng.randf()) * ZONE_METERS
+		var forest := forest_at(at)
+		if forest.is_empty():
+			continue
+		var essence := 2 if int(forest.forest.get("kind", FOREST_PINE)) == FOREST_PINE else (0 if int(forest.forest.get("kind", 0)) == FOREST_ORCHARD else 3)
+		var nearest := INF
+		for tree: Dictionary in trees:
+			var distance := at.distance_to(Vector2(float(tree.x), float(tree.z)))
+			if distance < nearest and distance < 8.0:
+				nearest = distance
+				essence = int(tree.espece)
+		spots.append([at, essence])
+	for tree: Dictionary in trees:
+		var spot := Vector2(float(tree.x), float(tree.z))
+		if not forest_at(spot).is_empty() or rng.randf() >= 0.25:
+			continue
+		var crown := (0.8 + int(tree.get("classe", 3)) * 0.45) * float(tree.get("taille", 1.0))
+		spots.append([spot + Vector2.from_angle(rng.randf() * TAU) * rng.randf_range(0.4, crown), int(tree.espece)])
+	var result := []
+	var number := 0
+	for spot: Array in spots:
+		var length := snappedf(rng.randf_range(0.3, 0.9), 0.01)
+		var thickness := snappedf(clampf(1.5 + (length - 0.3) / 0.6 * 2.5 + rng.randf_range(-0.6, 0.6), 1.5, 5.0), 0.1)
+		var straight := rng.randf() < 0.6
+		var rotten := rng.randf() < 0.4
+		var turn := rng.randf() * TAU
+		number += 1
+		var at: Vector2 = spot[0]
+		if not lake_at(at).is_empty():
+			continue
+		result.append({"id": "b%d_%d_%d" % [area.x, area.y, number], "x": at.x, "z": at.y, "espece": int(spot[1]), "longueur": length, "epaisseur": thickness, "droite": straight, "pourrie": rotten, "rotation": turn})
+	return result
+
+# 0.0.7.26 (version 33, #212) : rejets droits au pied des noisetiers de la zone, 2 à 5 par noisetier, 60 à 150 cm,
+# 1,5 à 3 cm, presque verticaux (penchés de 8° au plus) : les meilleurs manches.
+func hazel_shoots_in_zone(area: Vector2i) -> Array:
+	if not _branches_on or _noise == null:
+		return []
+	var rng := RandomNumberGenerator.new()
+	rng.seed = hash([_seed, area.x, area.y, "rejets"])
+	var result := []
+	var number := 0
+	for tree: Dictionary in trees_in_zone(area):
+		if int(tree.espece) != 1:
+			continue
+		var scale := float(tree.get("taille", 1.0))
+		for index in range(rng.randi_range(2, 5)):
+			var angle := rng.randf() * TAU
+			var at := Vector2(float(tree.x), float(tree.z)) + Vector2.from_angle(angle) * rng.randf_range(0.3, 0.7) * scale
+			var length := snappedf(rng.randf_range(0.6, 1.5), 0.01)
+			var thickness := snappedf(rng.randf_range(1.5, 3.0), 0.1)
+			var tilt := deg_to_rad(rng.randf_range(0.0, 8.0))
+			number += 1
+			result.append({"id": "r%d_%d_%d" % [area.x, area.y, number], "x": at.x, "z": at.y, "longueur": length, "epaisseur": thickness, "penche": tilt, "direction": angle})
+	return result
 func plants_in_zone(area: Vector2i) -> Array:
 	if not _plants_on or _noise == null:
 		return []

@@ -3,6 +3,22 @@ Du plus récent au plus ancien. Ce fichier est mis à jour à chaque version.
 
 === Thème « Gameplay et inventaire » (0.0.7) ===
 
+0.0.7.29 — Mode Survie ou Créatif choisi à la création (Survie par défaut), bouton « + » sur les objets de l'inventaire (toutes les variantes en Créatif, tous les détails en Survie), jeter un objet (zone Jeter, hors de la fenêtre, touche J en Survie)
+Génération du terrain : version 33 · Menus : version 10.
+Demandes de l'utilisateur : sous-possibilités sur une ligne ajoutée sous la case (touche D, Échap), détails dans un ordre fixe, zone qui défile en Créatif.
+
+0.0.7.28 — Herbe et plantes de nouveau sur toute la distance (seulement 9 colonnes depuis 0.0.7.25), pierres deux fois plus rapides à mains nues, rochers et cailloux cassables à mains nues en Survie
+Génération du terrain : version 33 · Menus : version 10.
+Bug de la file des détails corrigé ; Survie à mains nues : pierre 10 s, calcaire 7,5 s, pierre sombre et silex 15 s, rocher comme sa pierre, caillou 5 s, sans rien récupérer.
+
+0.0.7.27 — Durées de cassage selon la matière (Survie : creuser en maintenant, la pierre à mains nues en 20 s sans rien récupérer, gestes plus grands plus rapides), Créatif : tout en 0,3 s, pierre et rochers à mains nues
+Génération du terrain : version 33 · Menus : version 10.
+Issue #217 : durée = temps de la matière × taille du geste (× 0,8 par groupe de 4 sous-cellules) ; anneau au-delà de 0,5 s.
+
+0.0.7.26 — Branches mortes au sol dans les forêts (rares ailleurs), rejets de noisetier à casser en maintenant, qualités du bâton et note de manche, longueurs affichées avant de recasser un bâton
+Génération du terrain : version 33 (nouveaux mondes seulement) · Menus : version 10.
+Issue #212 : bâtons selon la graine (essence de l'arbre au-dessus, longueur, épaisseur, droit ou tordu, sain ou pourri) ; bois mort vite cassé, rejet vert lentement.
+
 0.0.7.25 — Terrain creusé et place du joueur enregistrés sur le Web, rouvrir un monde sans image figée (toute la vue prête derrière l'écran de chargement), troncs et grosses branches solides, Résolution 3D à 100 % sur le Web, herbe et plantes après la surface, pause plus légère, modèles d'arbres plus légers à télécharger
 Génération du terrain : version 32 · Menus : version 10.
 Troisième rapport de mesures Web : sauvegarde du terrain lisse, ouverture tout par la file, collisions des tiges, 100 % de résolution, file des détails, modèles d'arbres sans ombres séparées.
