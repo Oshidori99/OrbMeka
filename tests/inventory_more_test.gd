@@ -115,10 +115,15 @@ func _run() -> void:
 	await process_frame
 	var added: int = ui.catalog.get_child_count() - children_before
 	var first_variant: int = ui.more_nodes.filter(func(node): return node.get("variant") == true)[0].get_index()
-	check(added % Inventory.COLUMNS == 0 and added >= 175 and first_variant == 2 * Inventory.COLUMNS, "175 variants inserted as full lines just under the first line (the 8 woods line completed, then the details line)")
-	# 0.0.7.30 : Créatif : une carte de détails au-dessus des variantes, sur toute la largeur.
-	var flow: Control = ui.more_cards[0] if ui.more_cards.size() == 2 else null
-	check(flow != null and flow.get_child_count() == 1 and flow.get_child(0).name == "DetailCard" and flow.size.y > 10.0 and absf(ui.more_cards[1][0].custom_minimum_size.y - flow.size.y) < 1.0 and flow.size.x >= ui.catalog.size.x - 1.0, "creative: the details card over a full line, before the variants")
+	check(added % Inventory.COLUMNS == 0 and added >= 175 and first_variant == Inventory.COLUMNS, "175 variants inserted as full lines just under the first line (the 8 woods line completed)")
+	# 0.0.7.31 : objets du haut : seulement les variantes (pas de carte de détails) ; « + » seulement s'ils en ont.
+	check(ui.more_cards.is_empty() and ui.catalog.find_children("DetailCard", "", true, false).is_empty(), "creative top objects: variants only, no details card")
+	ui.show_category(0)
+	var plain: Array = ui.catalog_slots.filter(func(slot): return slot.visible and Inventory.variants(slot.item).is_empty())
+	check(not plain.is_empty() and not plain[0].more, "creative top object without variants: no « + »")
+	ui.show_category(4)
+	ui._toggle_more(trunk)
+	await process_frame
 	check(ui.creative_scroll.custom_minimum_size.y <= root.size.y * 0.5 + 1.0 and ui.creative_scroll.get_v_scroll_bar().custom_minimum_size.x >= 12, "a visible scroll bar, the list at most half the screen")
 	var variant: Object = ui.more_nodes.filter(func(node): return node.get("variant") == true)[0]
 	ui._on_variant(MOUSE_BUTTON_LEFT, variant.item)
@@ -127,14 +132,7 @@ func _run() -> void:
 	check(ui.cursor_item.is_empty() and ui.message.text.ends_with("jeté au sol."), "released outside the window: on the ground (Créatif too)")
 	press(ui, KEY_ESCAPE)
 	check(ui.more_slot == null and ui.is_open(), "Échap closes the variants first, the inventory stays open")
-	# D + T (0.0.7.30 ; D seul avant) : ouvre sous la souris, D + T referme ; D seul ne fait plus rien.
-	ui._open_more(trunk, true)
-	check(ui.more_slot == trunk and ui.more_sticky, "D + T: opened, stays open")
-	press(ui, KEY_D)
-	check(ui.more_slot == trunk, "D alone: nothing (D + T now)")
-	send_action(ui, "show_details")
-	check(ui.more_slot == null, "D + T again: closed")
-	# 0.0.7.30 : Créatif, objet qu'on a (barre) : ses cartes de détails (une par objet du tas).
+	# Créatif, objet qu'on a (barre) : seulement ses cartes de détails (une par objet du tas), pas les variantes.
 	var inv: RefCounted = world.inventory
 	inv.put("bar", 1, {})
 	inv.put("bar", 1, {"objet": "caillou", "pile": [{"taille": 2}, {"taille": 5}]})
@@ -142,10 +140,60 @@ func _run() -> void:
 	var owned: Object = ui._creative_bar_slots[1]
 	ui._toggle_more(owned)
 	await process_frame
-	var owned_cards: Array = ui.more_nodes[0].find_child("Cards", true, false).get_children() if not ui.more_nodes.is_empty() else []
-	check(owned.more and owned_cards.size() == 2 and ui.more_nodes[0].get_parent() == owned.get_parent().get_parent(), "creative, an owned stack: one details card per object, under the bar")
+	var owned_cards: Array = ui.more_nodes[0].get_children() if not ui.more_nodes.is_empty() else []
+	check(owned.more and owned_cards.size() == 2 and owned_cards.all(func(card): return card is PanelContainer) and ui.more_nodes[0].get_parent() == owned.get_parent().get_parent() and ui.screen.find_children("MoreScroll", "", true, false).is_empty(), "creative, an owned stack: one details card per object, under the bar, no variants")
 	ui._close_more()
-	# Touche J dans l'inventaire : l'objet tenu (un seul, ou tout avec Ctrl droit) au sol, en Créatif aussi.
+	# D + T (0.0.7.31) : toujours l'objet en main ; D seul ne fait rien ; D + T de nouveau referme.
+	inv.select(1)
+	press(ui, KEY_D)
+	check(ui.more_slot == null, "D alone: nothing")
+	send_action(ui, "show_details")
+	check(ui.more_slot == owned and ui.more_sticky and ui.more_nodes[0].get_child_count() == 2, "D + T: the details of the object in hand")
+	send_action(ui, "show_details")
+	check(ui.more_slot == null, "D + T again: closed")
+	ui._on_catalog(MOUSE_BUTTON_LEFT, 0)
+	send_action(ui, "show_details")
+	var held_card: Array = ui.more_nodes[0].get_children() if not ui.more_nodes.is_empty() else []
+	check(held_card.size() == 1 and held_card[0].tooltip_text.begins_with("Tronc"), "D + T with an object held by the mouse: its details")
+	ui._close_more()
+	ui._drop_cursor()
+	# Clic droit sur une case sans rien tenir : rien (ne vide plus la case) ; avec un tas tenu : en pose un seul.
+	ui._on_slot(MOUSE_BUTTON_RIGHT, "bar", 1)
+	check(Inventory.count(inv.item("bar", 1)) == 2, "right click with nothing held: the slot is kept")
+	ui._on_slot(MOUSE_BUTTON_LEFT, "bar", 1)
+	ui._on_slot(MOUSE_BUTTON_RIGHT, "bar", 2)
+	check(Inventory.count(inv.item("bar", 2)) == 1 and Inventory.count(ui.cursor_item) == 1, "right click with a stack held: one object placed")
+	# Glisser : bouton droit, un par case ; bouton gauche, parts égales (le reste en main).
+	ui._drop_cursor()
+	inv.put("bar", 1, {})
+	inv.put("bar", 2, {})
+	inv.put("grid", 0, {"objet": "caillou", "pile": [{"taille": 1}, {"taille": 2}, {"taille": 3}, {"taille": 4}, {"taille": 5}, {"taille": 6}, {"taille": 7}]})
+	ui._on_slot(MOUSE_BUTTON_LEFT, "grid", 0)
+	ui._start_drag(MOUSE_BUTTON_LEFT, [], ["grid", 0])
+	ui._drag_over(["grid", 0])
+	ui._drag_over(["bar", 3])
+	ui._drag_over(["bar", 4])
+	ui._drag_over(["bar", 5])
+	check(ui.drag_places.size() == 3 and ui._creative_bar_slots[3].dragged and ui._creative_bar_slots[3].drag_mark == "+2", "left drag: 3 slots chosen (not the start), « +2 » shown")
+	ui._end_drag()
+	check(Inventory.count(inv.item("bar", 3)) == 2 and Inventory.count(inv.item("bar", 4)) == 2 and Inventory.count(inv.item("bar", 5)) == 2 and Inventory.count(ui.cursor_item) == 1 and not ui._creative_bar_slots[3].dragged, "left drag: 7 shared in 2 + 2 + 2, 1 left in hand")
+	ui._start_drag(MOUSE_BUTTON_RIGHT, [])
+	ui._drag_over(["bar", 6])
+	check(Inventory.count(inv.item("bar", 6)) == 1 and ui.cursor_item.is_empty(), "right drag: one object per slot")
+	ui._end_drag()
+	inv.put("bar", 7, Inventory.single({"objet": "pomme", "taille": 2}))
+	check(not inv.item("bar", 7).is_empty(), "an apple in the bar")
+	ui._on_slot(MOUSE_BUTTON_LEFT, "bar", 3)
+	ui._start_drag(MOUSE_BUTTON_LEFT, [])
+	ui._drag_over(["bar", 7])
+	check(ui.drag_places.is_empty(), "left drag: a slot with another kind of object is skipped")
+	ui._end_drag()
+	ui._drop_cursor()
+	for index in [3, 4, 5, 6, 7]:
+		inv.put("bar", index, {})
+	inv.put("grid", 0, {})
+	inv.put("bar", 1, {"objet": "caillou", "pile": [{"taille": 2}, {"taille": 5}]})
+	# Touche J dans l'inventaire : l'objet tenu (un seul, ou tout avec Ctrl) au sol, en Créatif aussi.
 	ui._on_slot(MOUSE_BUTTON_LEFT, "bar", 1)
 	before = world.ground.entries.size()
 	check(ui.throw_key(false) and Inventory.count(ui.cursor_item) == 1 and int(ui.cursor_item.pile[0].taille) == 2 and world.ground.entries.size() == before + 1, "creative J in the inventory: one object of the held stack on the ground (the last taken)")
@@ -153,50 +201,39 @@ func _run() -> void:
 	inv.put("bar", 1, {"objet": "caillou", "pile": [{"taille": 3}]})
 	ui._on_slot(MOUSE_BUTTON_LEFT, "bar", 1)
 	before = world.ground.entries.size()
-	check(ui.throw_key(true) and ui.cursor_item.is_empty() and inv.item("bar", 1).is_empty() and world.ground.entries.size() == before + 2, "Ctrl right + J: the whole held stack on the ground")
+	check(ui.throw_key(true) and ui.cursor_item.is_empty() and inv.item("bar", 1).is_empty() and world.ground.entries.size() == before + 2, "Ctrl + J: the whole held stack on the ground")
 	check(not ui.throw_key(false), "J with nothing held and nothing under the mouse: nothing happens")
 	# D + E (Créatif) : supprimé, rien ne tombe ; un objet du haut (illimité) : une copie tombe avec J, D + E le lâche.
 	inv.put("bar", 1, {"objet": "caillou", "pile": [{"taille": 3}, {"taille": 4}]})
 	ui._on_slot(MOUSE_BUTTON_LEFT, "bar", 1)
 	before = world.ground.entries.size()
-	check(ui.throw_key(false, true) and Inventory.count(ui.cursor_item) == 1 and world.ground.entries.size() == before and ui.message.text.ends_with("supprimé."), "D + E in the inventory: one object deleted, nothing on the ground")
-	check(ui.throw_key(true, true) and ui.cursor_item.is_empty() and world.ground.entries.size() == before, "right Ctrl + D + E: the whole held stack deleted")
+	send_action(ui, "delete_item")
+	check(ui.cursor_item.is_empty() and world.ground.entries.size() == before and ui.message.text.ends_with("supprimé."), "D + E in the inventory (an action from the key combos): the whole held stack deleted, nothing on the ground")
 	ui._on_catalog(MOUSE_BUTTON_LEFT, 0)
 	check(ui.throw_key(false) and not ui.cursor_item.is_empty() and world.ground.entries.size() == before + 1, "J on an unlimited object: a copy falls, it stays held")
 	check(ui.throw_key(false, true) and ui.cursor_item.is_empty(), "D + E on an unlimited object: let go")
 	check(Controls.ACTIONS.delete_item.default.key == KEY_D and Controls.ACTIONS.delete_item.default.second.key == KEY_E and Controls.ACTIONS.show_details.default.key == KEY_D and Controls.ACTIONS.show_details.default.second.key == KEY_T and Controls.GROUPS.Inventaire.has("delete_item") and Controls.GROUPS.Inventaire.has("show_details"), "Supprimer D + E, Détails D + T by default, in Contrôles → Inventaire")
-	inv.put("bar", 1, {"objet": "caillou", "pile": [{"taille": 3}]})
-	ui._on_slot(MOUSE_BUTTON_LEFT, "bar", 1)
-	Controls.right_ctrl = false
-	send_action(ui, "delete_item")
-	check(ui.cursor_item.is_empty() and ui.message.text.ends_with("supprimé."), "D + E (sent as an action by the key combos): deletes the held object")
-	# Ctrl droit : seulement celui de droite.
-	var ctrl := InputEventKey.new()
-	ctrl.keycode = KEY_CTRL
-	ctrl.pressed = true
-	ctrl.location = KEY_LOCATION_LEFT
-	Controls.watch_right_ctrl(ctrl)
+	# Ctrl (l'un ou l'autre, 0.0.7.31) + J : tout le tas.
 	var j := InputEventKey.new()
 	j.keycode = KEY_J
 	j.pressed = true
+	check(not Controls.throw_all(j), "J alone: one object")
 	j.ctrl_pressed = true
-	check(not Controls.throw_all(j), "left Ctrl + J: one object only")
-	ctrl.location = KEY_LOCATION_RIGHT
-	Controls.watch_right_ctrl(ctrl)
-	check(Controls.throw_all(j), "right Ctrl + J: the whole stack")
-	ctrl.pressed = false
-	Controls.watch_right_ctrl(ctrl)
-	check(not Controls.throw_all(j), "right Ctrl released: one object again")
+	check(Controls.throw_all(j), "Ctrl + J (left or right): the whole stack")
 	world.close_inventory(false)
-	# En jeu, en Créatif : J au sol, D + E supprime ; Ctrl droit : tout le tas.
+	# En jeu, en Créatif : J au sol, D + E supprime tout le tas.
 	inv.put("bar", 0, {})
 	inv.put("bar", 0, {"objet": "caillou", "pile": [{"taille": 1}, {"taille": 2}, {"taille": 3}, {"taille": 4}]})
 	inv.select(0)
 	before = world.ground.entries.size()
 	check(world.throw_held(false) and Inventory.count(inv.item("bar", 0)) == 3 and world.ground.entries.size() == before + 1, "creative J in game: one object on the ground")
-	check(world.delete_held(false) and Inventory.count(inv.item("bar", 0)) == 2 and world.ground.entries.size() == before + 1, "creative D + E in game: one object deleted, nothing on the ground")
-	check(world.delete_held(true) and inv.item("bar", 0).is_empty() and world.ground.entries.size() == before + 1, "creative right Ctrl + D + E in game: the whole stack deleted")
-	# Survie : Ctrl droit + J : tout le tas au sol.
+	check(world.delete_held() and inv.item("bar", 0).is_empty() and world.ground.entries.size() == before + 1, "creative D + E in game: the whole stack deleted, nothing on the ground")
+	# D + T en jeu : l'inventaire s'ouvre sur les détails de l'objet en main.
+	inv.put("bar", 0, {"objet": "caillou", "pile": [{"taille": 2}]})
+	world.show_held_details()
+	check(ui.is_open() and ui.more_slot == ui._creative_bar_slots[0], "D + T in game: the inventory opens on the details of the object in hand")
+	world.close_inventory(false)
+	# Survie : Ctrl + J : tout le tas au sol.
 	app.set_world_game_mode(Catalog.GAME_SURVIVAL)
 	inv.put("bar", 0, {})
 	inv.put("bar", 0, Inventory.single({"objet": "caillou", "taille": 1}))
@@ -205,10 +242,10 @@ func _run() -> void:
 	before = world.ground.entries.size()
 	inv.put("bar", 1, Inventory.single({"objet": "caillou", "taille": 1}))
 	inv.select(1)
-	check(not world.delete_held(false) and Inventory.count(inv.item("bar", 1)) == 1, "survival: D + E deletes nothing")
+	check(not world.delete_held() and Inventory.count(inv.item("bar", 1)) == 1, "survival: D + E deletes nothing")
 	inv.select(0)
-	check(world.throw_held(true) and inv.item("bar", 0).is_empty() and world.ground.entries.size() == before + 2, "survival right Ctrl + J: the whole stack on the ground")
-	check(Controls.ACTIONS.throw.label.contains("Ctrl droit") and not Controls.ACTIONS.throw.label.contains("Survie"), "Contrôles: the Jeter label tells about right Ctrl")
+	check(world.throw_held(true) and inv.item("bar", 0).is_empty() and world.ground.entries.size() == before + 2, "survival Ctrl + J: the whole stack on the ground")
+	check(Controls.ACTIONS.throw.label.contains("Ctrl") and not Controls.ACTIONS.throw.label.contains("Ctrl droit"), "Contrôles: the Jeter label tells about Ctrl")
 	print("RESULT: %d inventory more checks, %d failures" % [checks, failures])
 	quit(0 if failures == 0 else 1)
 

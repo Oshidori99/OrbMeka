@@ -1,7 +1,19 @@
-# OrbMeka™ — prototype 0.0.7.30
+# OrbMeka™ — prototype 0.0.7.31
 
 Godot 4.7 / GDScript. Formes et couleurs simples ; assets externes seulement sous licence vérifiée (sons CC0, assets/sounds/CREDITS.txt).
 
+## 0.0.7.31 — Glisser pour partager un tas (bouton gauche : parts égales, bouton droit : un par case), clic droit qui pose un seul objet et ne vide plus la case, D + E supprime tout le tas (Créatif), D + T : détails de l'objet en main, « + » du Créatif : détails de ce qu'on a, variantes en haut, J avec l'un ou l'autre Ctrl
+Version locale (2 sur 4). Génération inchangée (version 33). Demandes de l'utilisateur.
+- **Glisser l'objet tenu** : bouton gauche maintenu sur plusieurs cases (cadre jaune, part affichée « +2 ») : au relâchement, le tas est **réparti à parts égales** ; le reste de la division reste en main. Bouton droit maintenu : **un objet par case**. Une case d'un autre objet est sautée ; en Survie, une case trop lourde ou trop pleine aussi. Pris en appuyant puis glissé sur une case : posé comme un clic.
+- **Clic droit** sur une case : avec un objet tenu, en pose **un seul** ; sans rien tenir, **ne fait rien** (avant, en Créatif, il vidait la case). Sur un objet du haut (Créatif) : toujours dans la première case libre.
+- **D + E (Créatif)** : supprime **tout le tas** en main (en jeu) ou tenu / sous la souris (inventaire). En Survie, rien n'est supprimé (poubelles plus tard).
+- **D + T** : toujours les détails de l'**objet en main** : en jeu, l'inventaire s'ouvre dessus ; dans l'inventaire, l'objet tenu par la souris, sinon la case en main. D + T de nouveau ou Échap : referme.
+- **« + » du Créatif** : sur les objets qu'on a (barre, grille), **seulement leurs cartes de détails** ; sur les objets du haut, **seulement les variantes** (et le « + » seulement s'il y en a).
+- **J + Ctrl** (gauche ou droit) : tout le tas au sol, en jeu et dans l'inventaire.
+- Note juridique : partager un tas en glissant est une mécanique générique (risque faible, accepté par l'utilisateur).
+
+Tests réussis : inventory_more (53), inventory, controls, controls_groups, key_combos, shortcuts_selection, menu (+ tests juridiques).
+À tester : le glisser à la souris (gauche et droit, parts « +N », cadre jaune), clic droit avec un tas, D + T en jeu et dans l'inventaire, D + E en Créatif.
 ## 0.0.7.30 — Détails de chaque objet en Créatif (cartes au « + »), « − » rouge pour refermer, cartes de Survie plus compactes, J pour jeter au sol partout (inventaire et Créatif compris), D + E pour supprimer en Créatif, D + T pour les détails, Ctrl droit pour tout le tas
 Version locale (1 sur 4). Génération inchangée (version 33). Demandes de l'utilisateur.
 - **Créatif : détails de chaque objet** : le « + » est maintenant sur tous les objets (ceux du haut, de la grille et de la barre). Il ouvre d'abord les **cartes de détails** sur toute une ligne (un tas : une carte par objet, au plus 12, puis « … et N autres »), puis les variantes.

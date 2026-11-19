@@ -3,6 +3,10 @@ Du plus récent au plus ancien. Ce fichier est mis à jour à chaque version.
 
 === Thème « Gameplay et inventaire » (0.0.7) ===
 
+0.0.7.31 — Glisser pour partager un tas (bouton gauche : parts égales, bouton droit : un par case), clic droit qui pose un seul objet et ne vide plus la case, D + E supprime tout le tas (Créatif), D + T : détails de l'objet en main, « + » du Créatif : détails de ce qu'on a, variantes en haut, J avec l'un ou l'autre Ctrl
+Génération du terrain : version 33 · Menus : version 10.
+Demandes de l'utilisateur : en Survie, rien n'est supprimé (poubelles plus tard) ; risque juridique du glisser jugé faible (mécanique générique), accepté.
+
 0.0.7.30 — Détails de chaque objet en Créatif (cartes au « + »), « − » rouge pour refermer, cartes de Survie plus compactes, J pour jeter au sol partout (inventaire et Créatif compris), D + E pour supprimer en Créatif, D + T pour les détails, Ctrl droit pour tout le tas
 Génération du terrain : version 33 · Menus : version 10.
 Demandes de l'utilisateur : en Créatif, J jette au sol comme en Survie et D + E supprime, D + T ouvre les détails (avant D seul) ; J sur l'objet tenu ou sous la souris dans l'inventaire.

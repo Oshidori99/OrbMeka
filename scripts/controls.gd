@@ -59,9 +59,9 @@ const ACTIONS := {
 	"pick_up": {"label": "Ramasser", "default": {"key": KEY_R}, "by_letter": true, "fixed": []},
 	"gather": {"label": "Récupérer une poignée (maintenir)", "default": {"key": KEY_R, "second": {"key": KEY_I}}, "by_letter": true, "fixed": []},
 	# 0.0.7.29 (demande de l'utilisateur) : Survie : jeter au sol l'objet en main, un à la fois.
-	"throw": {"label": "Jeter un objet au sol (avec Ctrl droit : tout le tas)", "default": {"key": KEY_J}, "by_letter": true, "fixed": []},
+	"throw": {"label": "Jeter un objet au sol (avec Ctrl : tout le tas)", "default": {"key": KEY_J}, "by_letter": true, "fixed": []},
 	# 0.0.7.30 (demandes de l'utilisateur) : Créatif : supprimer l'objet (rien ne tombe), D + E ; détails : D + T.
-	"delete_item": {"label": "Supprimer un objet, Créatif (avec Ctrl droit : tout le tas)", "default": {"key": KEY_D, "second": {"key": KEY_E}}, "by_letter": true, "fixed": []},
+	"delete_item": {"label": "Supprimer le tas en main, Créatif", "default": {"key": KEY_D, "second": {"key": KEY_E}}, "by_letter": true, "fixed": []},
 	"show_details": {"label": "Détails et variantes de l'objet sous la souris (inventaire)", "default": {"key": KEY_D, "second": {"key": KEY_T}}, "by_letter": true, "fixed": []},
 	# 0.0.5.10 : pinceau du clic droit (Poser, Aplanir, Lisser) et taille du geste (1/8, 1/4, 1/2 bloc), modifiables.
 	"brush_next": {"label": "Pinceau suivant (clic droit)", "default": {"key": KEY_B, "second": {"key": KEY_T}}, "fixed": []},
@@ -562,16 +562,9 @@ static func wheel_modifiers(bindings: Dictionary) -> Array:
 					result.append(part.key)
 	return result
 
-# 0.0.7.30 (demande de l'utilisateur) : Ctrl droit tenu (Ctrl droit + Jeter : tout le tas). Suivi à chaque appui ou
-# relâchement du Ctrl de droite (place sur le clavier) ; vérifié aussi avec la touche Jeter (Ctrl encore appuyé).
-static var right_ctrl := false
-
-static func watch_right_ctrl(event: InputEvent) -> void:
-	if event is InputEventKey and (event.keycode == KEY_CTRL or event.physical_keycode == KEY_CTRL) and event.location == KEY_LOCATION_RIGHT:
-		right_ctrl = event.pressed
-
+# 0.0.7.30 (demande de l'utilisateur) : Ctrl + Jeter : tout le tas. 0.0.7.31 : l'un ou l'autre Ctrl (0.0.7.30 : celui de
+# droite seulement). Une combinaison de deux touches arrive comme une action, sans touches de modification : Ctrl lu à part.
 static func throw_all(event: InputEvent) -> bool:
-	# Une combinaison de deux touches (D + E) arrive comme une action, sans touches de modification : Ctrl droit suivi.
-	if event is InputEventAction:
-		return right_ctrl
-	return right_ctrl and event is InputEventWithModifiers and event.ctrl_pressed
+	if event is InputEventWithModifiers:
+		return event.ctrl_pressed
+	return Input.is_key_pressed(KEY_CTRL)

@@ -2732,7 +2732,7 @@ func put_down_held(hit: Dictionary) -> bool:
 
 # 0.0.7.29 (demande de l'utilisateur) : Survie, touche Jeter (J) : l'objet en main (un seul, le dernier pris) tombe au sol
 # devant soi. 0.0.7.30 (demandes de l'utilisateur) : en Créatif aussi (un objet illimité : une copie tombe, il reste en
-# main) ; all (Ctrl droit + J) : tout le tas.
+# main) ; all (Ctrl + J, 0.0.7.31 : l'un ou l'autre Ctrl) : tout le tas.
 func throw_held(all: bool = false) -> bool:
 	var value := inventory.held()
 	if value.is_empty() or not is_instance_valid(player):
@@ -2749,20 +2749,27 @@ func throw_held(all: bool = false) -> bool:
 	show_choice("%s jeté au sol" % _thrown_name(thrown))
 	return true
 
-# 0.0.7.30 (demande de l'utilisateur) : Supprimer (D + E), Créatif seulement : l'objet en main disparaît (rien ne tombe) ;
-# all (Ctrl droit) : tout le tas ; un objet illimité : la case est vidée.
-func delete_held(all: bool = false) -> bool:
+# 0.0.7.30 (demande de l'utilisateur) : Supprimer (D + E), Créatif seulement : l'objet en main disparaît (rien ne tombe).
+# 0.0.7.31 (demande de l'utilisateur) : toujours tout le tas ; un objet illimité : la case est vidée.
+func delete_held() -> bool:
 	if game_mode == Inventory.SURVIVAL:
 		_notify("En Survie, on ne supprime rien : J pour jeter au sol.")
 		return false
 	if inventory.held().is_empty():
 		_notify("Rien en main à supprimer.")
 		return false
-	var gone := inventory.remove("bar", _held_index(), all)
+	var gone := inventory.remove("bar", _held_index(), true)
 	if gone.is_empty():
 		return false
 	show_choice("%s supprimé" % _thrown_name(gone))
 	return true
+
+# 0.0.7.31 (demande de l'utilisateur) : Détails (D + T) en jeu : l'inventaire s'ouvre sur les détails de l'objet en main.
+func show_held_details() -> void:
+	if not is_instance_valid(inventory_ui):
+		return
+	open_inventory()
+	inventory_ui.show_held_details()
 
 # Case de l'objet en main (objet lourd à deux mains : sa case).
 func _held_index() -> int:

@@ -40,6 +40,9 @@ class Slot extends Control:
 	var variant := false
 	# 0.0.7.30 : sous-possibilités ouvertes : le « + » devient un « − » blanc gras sur fond rouge (pour refermer).
 	var opened := false
+	# 0.0.7.31 : case choisie en glissant (cadre jaune) et ce qu'elle recevra (« +3 »).
+	var drag_mark := ""
+	var dragged := false
 
 	func more_rect() -> Rect2:
 		var badge := maxf(roundf(side * 0.3), 13.0)
@@ -124,6 +127,14 @@ class Slot extends Control:
 			draw_line(center - Vector2(arm, 0.0), center + Vector2(arm, 0.0), Color.WHITE, thick + (1.0 if opened else 0.0))
 			if not opened:
 				draw_line(center - Vector2(0.0, arm), center + Vector2(0.0, arm), Color.WHITE, thick)
+		if dragged:
+			draw_rect(rect.grow(-1.5), Color(1.0, 0.85, 0.3), false, 3.0)
+			if not drag_mark.is_empty():
+				var mark_font := ThemeDB.fallback_font
+				var mark_px := maxi(11, roundi(side * 0.26))
+				var mark_at := Vector2(4.0, mark_px + 2.0)
+				draw_string_outline(mark_font, mark_at, drag_mark, HORIZONTAL_ALIGNMENT_LEFT, -1, mark_px, 3, Color(0, 0, 0, 0.9))
+				draw_string(mark_font, mark_at, drag_mark, HORIZONTAL_ALIGNMENT_LEFT, -1, mark_px, Color(1.0, 0.88, 0.4))
 		if with_text:
 			_text_line(title, side + font_px + 2.0, Color(0.97, 0.97, 0.93))
 			_text_line(note, side + 2.0 * font_px + 5.0, Color(0.85, 0.88, 0.8))
@@ -587,8 +598,8 @@ var panel_bars := {}
 
 func _hint() -> String:
 	if inventory.mode == Inventory.CREATIVE:
-		return "Clic gauche : prendre ou poser · clic droit : vider la case (sur un objet du haut : dans la première case libre) · « + » ou D + T : détails et variantes · Jeter (au sol) : la croix, hors de la fenêtre ou J · D + E : supprimer (avec Ctrl droit : tout le tas) · Échap : fermer"
-	return "Clic gauche : prendre ou poser (les objets identiques s'empilent ; mains : 4 kg et 1,5 L chacune, 8 kg et 3 L à deux ; poches : 500 g et 0,5 L) · « + » ou D + T : les détails · Jeter (au sol) : la croix, hors de la fenêtre ou J (Ctrl droit + J : tout le tas) · Échap : fermer"
+		return "Clic gauche : prendre ou poser (glisser : partager le tas entre les cases) · clic droit avec un objet tenu : en poser un (glisser : un par case) ; sur un objet du haut : dans la première case libre · « + » : détails (ce qu'on a) ou variantes (en haut) · D + T : détails de l'objet en main · Jeter (au sol) : la croix, hors de la fenêtre ou J (Ctrl + J : tout le tas) · D + E : supprimer le tas · Échap : fermer"
+	return "Clic gauche : prendre ou poser (glisser : partager le tas entre les cases ; mains : 4 kg et 1,5 L chacune, 8 kg et 3 L à deux ; poches : 500 g et 0,5 L) · clic droit avec un objet tenu : en poser un (glisser : un par case) · « + » : les détails · D + T : détails de l'objet en main · Jeter (au sol) : la croix, hors de la fenêtre ou J (Ctrl + J : tout le tas) · Échap : fermer"
 
 # Poids écrit sous une case (Survie seulement ; rien sous une case vide).
 func _note(index: int) -> String:
@@ -657,10 +668,11 @@ func refresh() -> void:
 	creative_throw.visible = creative
 	# 0.0.7.29 : « + » sur les cases de l'inventaire qui ont des sous-possibilités (jamais sur la barre du jeu).
 	for slot in _panel_slots():
-		slot.more = _has_more(slot.item)
+		slot.more = _has_more(slot.item, slot in catalog_slots)
 		slot.queue_redraw()
 	# Survie : détails ouverts refaits (ce qu'on porte a changé) ; 0.0.7.30 : Créatif, si l'objet de la case a changé.
-	if more_slot != null and is_instance_valid(more_slot) and (not creative or more_slot.item != more_item):
+	# 0.0.7.31 : pas les détails de l'objet tenu par la souris (D + T).
+	if more_slot != null and is_instance_valid(more_slot) and more_value.is_empty() and (not creative or more_slot.item != more_item):
 		_open_more(more_slot, more_sticky)
 	_fit_scroll.call_deferred()
 
@@ -686,6 +698,9 @@ func open() -> void:
 
 func close() -> void:
 	_close_more()
+	drag_button = 0
+	drag_places = []
+	_mark_drag()
 	_drop_cursor()
 	screen.visible = false
 	hud_bar.visible = true
@@ -694,37 +709,181 @@ func _say(text: String) -> void:
 	message.text = text
 	message.set_meta("said", true)
 
+# 0.0.7.31 (demandes de l'utilisateur) : clic droit sur une case : ne vide plus la case (Créatif) ; avec un objet tenu, il
+# en pose un seul ; bouton droit maintenu en glissant : un dans chaque case. Bouton gauche maintenu en glissant avec un
+# objet tenu : à la fin, le tas est réparti à parts égales entre les cases choisies (le reste reste en main). Le glisser
+# ne commence qu'avec un vrai bouton tenu (real) ; sinon (tests, clic simple), un clic gauche pose tout de suite.
 func _on_slot(button: int, area: String, index: int) -> void:
 	if not inventory.usable(area, index):
 		return
+	var real: bool = Input.is_mouse_button_pressed(button)
 	if button == MOUSE_BUTTON_RIGHT:
-		if inventory.mode == Inventory.CREATIVE:
-			inventory.take(area, index)
+		if cursor_item.is_empty():
+			return
+		_put_one([area, index])
+		if real:
+			_start_drag(MOUSE_BUTTON_RIGHT, [[area, index]])
 		return
 	if cursor_item.is_empty():
 		if inventory.item(area, index).is_empty():
 			return
 		cursor_item = inventory.take(area, index)
 		cursor_from = [area, index]
-	else:
-		var before: Dictionary = cursor_item
-		var rest: Dictionary = inventory.put(area, index, cursor_item)
-		if rest == before:
-			# 0.0.7.19 : dit pourquoi (poids, volume ou nombre).
-			match inventory.last_refusal:
-				"encombrant":
-					_say("Trop encombrant ici : 1,5 L par main, 3 L à deux mains, 0,5 L dans les poches.")
-				"nombre":
-					_say("%d %s au plus dans une main." % [Inventory.hand_count(before.get("objet", "")), Inventory.plural_name(before)])
-				_:
-					_say("Trop lourd ici : 4 kg par main, 8 kg à deux mains, 500 g dans les poches.")
-			return
-		cursor_item = rest
-		if rest.is_empty():
-			cursor_from = []
-		elif not Inventory.same_kind(rest, before):
-			cursor_from = [area, index]
+		if real:
+			# Pris en appuyant : glisser vers d'autres cases les choisit (pas la case de départ tant qu'on ne l'a pas quittée).
+			_start_drag(MOUSE_BUTTON_LEFT, [], [area, index])
+		_show_cursor()
+		return
+	if real:
+		_start_drag(MOUSE_BUTTON_LEFT, [[area, index]])
+		return
+	_put_cursor(area, index)
+
+# Pose l'objet tenu dans une case (s'empile, sinon échange), comme avant 0.0.7.31.
+func _put_cursor(area: String, index: int) -> void:
+	var before: Dictionary = cursor_item
+	var rest: Dictionary = inventory.put(area, index, cursor_item)
+	if rest == before:
+		_say_refusal(before)
+		return
+	cursor_item = rest
+	if rest.is_empty():
+		cursor_from = []
+	elif not Inventory.same_kind(rest, before):
+		cursor_from = [area, index]
 	_show_cursor()
+
+# 0.0.7.19 : dit pourquoi (poids, volume ou nombre).
+func _say_refusal(value: Dictionary) -> void:
+	match inventory.last_refusal:
+		"encombrant":
+			_say("Trop encombrant ici : 1,5 L par main, 3 L à deux mains, 0,5 L dans les poches.")
+		"nombre":
+			_say("%d %s au plus dans une main." % [Inventory.hand_count(value.get("objet", "")), Inventory.plural_name(value)])
+		_:
+			_say("Trop lourd ici : 4 kg par main, 8 kg à deux mains, 500 g dans les poches.")
+
+# --- 0.0.7.31 : glisser l'objet tenu sur plusieurs cases ---
+var drag_button := 0
+var drag_places: Array = []
+var drag_skip: Array = []
+
+func _start_drag(button: int, places: Array, skip: Array = []) -> void:
+	drag_button = button
+	drag_places = places
+	drag_skip = skip
+	_mark_drag()
+
+# La souris passe sur une case (bouton tenu) : elle est choisie si l'objet tenu peut y aller ; bouton droit : un objet posé.
+func _drag_over(place: Array) -> void:
+	if drag_button == 0 or cursor_item.is_empty():
+		return
+	if place != drag_skip:
+		drag_skip = []
+	if place.is_empty() or place == drag_skip or place in drag_places or not _can_drop(place):
+		return
+	drag_places.append(place)
+	if drag_button == MOUSE_BUTTON_RIGHT:
+		_put_one(place)
+	_mark_drag()
+
+# Bouton relâché : bouton gauche, une case : posé comme un clic ; plusieurs : réparti à parts égales.
+func _end_drag() -> void:
+	var button := drag_button
+	var places := drag_places
+	drag_button = 0
+	drag_places = []
+	drag_skip = []
+	_mark_drag()
+	if button != MOUSE_BUTTON_LEFT or cursor_item.is_empty():
+		return
+	if places.size() == 1:
+		_put_cursor(places[0][0], places[0][1])
+	elif places.size() > 1:
+		_share(places)
+
+# Une case vide ou du même genre (un objet illimité : seulement une case vide).
+func _can_drop(place: Array) -> bool:
+	if not inventory.usable(place[0], place[1]):
+		return false
+	var there: Dictionary = inventory.item(place[0], place[1])
+	if there.is_empty():
+		return true
+	return not Inventory.unlimited(cursor_item) and not Inventory.unlimited(there) and Inventory.same_kind(there, cursor_item)
+
+# Parts égales : le tas divisé par le nombre de cases (au moins 1 par case tant qu'il en reste) ; ce qui ne rentre pas
+# (poids, volume, nombre) et le reste de la division restent en main. Un objet illimité : une copie dans chaque case.
+func _share(places: Array) -> void:
+	if Inventory.unlimited(cursor_item):
+		for place in places:
+			if inventory.item(place[0], place[1]).is_empty():
+				inventory.put(place[0], place[1], cursor_item.duplicate(true))
+		return
+	var each := maxi(Inventory.count(cursor_item) / places.size(), 1)
+	for place in places:
+		if cursor_item.is_empty():
+			break
+		var parts: Array = Inventory._split(cursor_item, mini(each, Inventory.count(cursor_item)))
+		var rest: Dictionary = inventory.put(place[0], place[1], parts[0])
+		cursor_item = _join(parts[1], rest)
+	if cursor_item.is_empty():
+		cursor_from = []
+	_show_cursor()
+
+# Un seul objet de ce qu'on tient (le dernier pris) dans la case ; un objet illimité : une copie dans une case vide.
+func _put_one(place: Array) -> void:
+	if cursor_item.is_empty() or not _can_drop(place):
+		return
+	if Inventory.unlimited(cursor_item):
+		inventory.put(place[0], place[1], cursor_item.duplicate(true))
+		return
+	var parts: Array = Inventory._split(cursor_item, Inventory.count(cursor_item) - 1)
+	var rest: Dictionary = inventory.put(place[0], place[1], parts[1])
+	if rest == parts[1]:
+		_say_refusal(parts[1])
+	cursor_item = _join(parts[0], rest)
+	if cursor_item.is_empty():
+		cursor_from = []
+	_show_cursor()
+
+# Deux tas du même genre réunis (ce qui reste en main).
+static func _join(a: Dictionary, b: Dictionary) -> Dictionary:
+	if a.is_empty():
+		return b
+	if b.is_empty():
+		return a
+	var joined := a.duplicate(true)
+	if joined.has("pile"):
+		joined.pile.append_array(b.get("pile", []))
+	else:
+		joined.nombre = Inventory.count(a) + Inventory.count(b)
+	return joined
+
+# Cadres jaunes des cases choisies ; bouton gauche : la part de chacune (« +3 »).
+func _mark_drag() -> void:
+	for slot in _panel_slots():
+		if slot.dragged:
+			slot.dragged = false
+			slot.drag_mark = ""
+			slot.queue_redraw()
+	if drag_places.is_empty():
+		return
+	var mark := ""
+	if drag_button == MOUSE_BUTTON_LEFT and not Inventory.unlimited(cursor_item):
+		mark = "+%d" % maxi(Inventory.count(cursor_item) / drag_places.size(), 1)
+	for place in drag_places:
+		var slot := _slot_for(place)
+		if slot != null:
+			slot.dragged = true
+			slot.drag_mark = mark
+			slot.queue_redraw()
+
+# Case de l'écran d'inventaire pour [zone, numéro].
+func _slot_for(place: Array) -> Slot:
+	if place[0] == "grid":
+		return grid_slots[place[1]] if place[1] < grid_slots.size() else null
+	var slots: Dictionary = _creative_bar_slots if inventory.mode == Inventory.CREATIVE else _survival_bar_slots
+	return slots.get(place[1])
 
 func _on_catalog(button: int, index: int) -> void:
 	if category >= INVENTORY_TAB:
@@ -869,7 +1028,7 @@ func _discard(thrown: Dictionary, delete: bool = false) -> void:
 
 # 0.0.7.30 (demandes de l'utilisateur) : touches Jeter (J, au sol, Survie et Créatif) et Supprimer (D + E, Créatif) dans
 # l'inventaire : l'objet tenu par la souris s'il y en a un, sinon celui de la case sous la souris ; rien sinon. Un seul
-# objet (le dernier pris), ou tout le tas (all : Ctrl droit). Jeter un objet illimité : une copie tombe, il reste.
+# objet (le dernier pris), ou tout le tas (all : Ctrl ; D + E : toujours tout). Jeter un objet illimité : une copie tombe, il reste.
 func throw_key(all: bool = false, delete: bool = false) -> bool:
 	if delete and inventory.mode != Inventory.CREATIVE:
 		_say("En Survie, on ne supprime rien : J pour jeter au sol.")
@@ -909,8 +1068,9 @@ func throw_key(all: bool = false, delete: bool = false) -> bool:
 	_discard(removed, delete)
 	return true
 
-# Case de l'inventaire (pas un objet du haut ni une variante) sous la souris, avec un objet : [zone, numéro] ou [].
-func _place_under_mouse() -> Array:
+# Case de l'inventaire (pas un objet du haut ni une variante) sous la souris, avec un objet (any : vide aussi) :
+# [zone, numéro] ou [].
+func _place_under_mouse(any: bool = false) -> Array:
 	var mouse := screen.get_global_mouse_position()
 	var places := []
 	for index in range(grid_slots.size()):
@@ -920,7 +1080,7 @@ func _place_under_mouse() -> Array:
 			places.append([slots[index], "bar", index])
 	for place in places:
 		var slot: Slot = place[0]
-		if slot.is_visible_in_tree() and not slot.item.is_empty() and slot.get_global_rect().has_point(mouse):
+		if slot.is_visible_in_tree() and (any or not slot.item.is_empty()) and slot.get_global_rect().has_point(mouse):
 			return [place[1], place[2]]
 	return []
 
@@ -931,11 +1091,13 @@ func _panel_slots() -> Array:
 	slots.append_array(_survival_bar_slots.values())
 	return slots
 
-# « + » : Créatif, si l'objet a des variantes ; Survie, sur tout objet porté (ses détails).
-func _has_more(value: Dictionary) -> bool:
+# « + » : Survie, sur tout objet porté (ses détails). 0.0.7.31 (demande de l'utilisateur : distinguer ce qu'on a de ce qui
+# existe) : Créatif, objets du haut (top) : seulement s'ils ont des variantes ; objets qu'on a : toujours (leurs détails).
+func _has_more(value: Dictionary, top: bool = false) -> bool:
 	if value.is_empty() or inventory == null:
 		return false
-	# 0.0.7.30 (demande de l'utilisateur) : en Créatif aussi, sur tout objet : ses détails (cartes), puis ses variantes.
+	if top and inventory.mode == Inventory.CREATIVE:
+		return not Inventory.variants(value).is_empty()
 	return true
 
 func _toggle_more(slot: Slot, sticky := false) -> void:
@@ -952,6 +1114,7 @@ func _close_more() -> void:
 			node.queue_free()
 	more_nodes = []
 	more_cards = []
+	more_value = {}
 	if is_instance_valid(more_slot):
 		more_slot.opened = false
 		more_slot.queue_redraw()
@@ -961,18 +1124,25 @@ func _close_more() -> void:
 
 # Ouvre les sous-possibilités sous la ligne de la case : une ligne complète (même pas remplie), le reste descend.
 # sticky (D + T) : reste ouvert jusqu'à D + T ou Échap ; sinon, fermé dès que la souris quitte la case et ses lignes.
-func _open_more(slot: Slot, sticky := false) -> void:
+# value (0.0.7.31, D + T) : les détails de cet objet (tenu par la souris), montrés sous la case en main.
+func _open_more(slot: Slot, sticky := false, value: Dictionary = {}) -> void:
 	_close_more()
-	if not is_instance_valid(slot) or not _has_more(slot.item):
+	if not is_instance_valid(slot):
 		return
 	var creative: bool = inventory.mode == Inventory.CREATIVE
-	# 0.0.7.30 : d'abord les cartes de détails (Créatif aussi), puis, en Créatif, les variantes.
-	var cards := _detail_cards(slot.item)
-	var entries := _more_entries(slot.item) if creative else []
+	var top: bool = slot in catalog_slots
+	if value.is_empty() and not _has_more(slot.item, top):
+		return
+	var subject: Dictionary = value if not value.is_empty() else slot.item
+	# 0.0.7.30 : cartes de détails, Créatif aussi. 0.0.7.31 (demande de l'utilisateur) : Créatif, objets du haut : seulement
+	# leurs variantes ; objets qu'on a : seulement leurs cartes.
+	var cards := [] if creative and top else _detail_cards(subject, not value.is_empty())
+	var entries := _more_entries(subject) if creative and top else []
 	if cards.is_empty() and entries.is_empty():
 		return
 	more_slot = slot
 	more_item = slot.item
+	more_value = value
 	slot.opened = true
 	slot.queue_redraw()
 	more_sticky = sticky
@@ -990,14 +1160,17 @@ func _open_more(slot: Slot, sticky := false) -> void:
 		for missing in range((at / columns + 1) * columns - row_end):
 			cells.append(_spacer(slot))
 		# Une ligne de vides, de la hauteur des cartes, montrées par-dessus (une grille ne peut pas avoir de ligne entière).
-		var card_row := []
-		for column in range(columns):
-			var spacer := _spacer(slot)
-			spacer.custom_minimum_size.y = 0.0
-			card_row.append(spacer)
-		card_row[0].add_child(flow)
-		more_cards = [flow, card_row]
-		cells.append_array(card_row)
+		if not cards.is_empty():
+			var card_row := []
+			for column in range(columns):
+				var spacer := _spacer(slot)
+				spacer.custom_minimum_size.y = 0.0
+				card_row.append(spacer)
+			card_row[0].add_child(flow)
+			more_cards = [flow, card_row]
+			cells.append_array(card_row)
+		else:
+			flow.free()
 		cells.append_array(entries)
 		while cells.size() % columns != 0:
 			cells.append(_spacer(slot))
@@ -1009,7 +1182,7 @@ func _open_more(slot: Slot, sticky := false) -> void:
 	else:
 		var holder: Control = flow
 		if not entries.is_empty():
-			# Barre du bas (Créatif) : les cartes, puis les variantes dans leur propre zone qui défile (environ 3 lignes).
+			# Variantes hors d'une grille : dans leur propre zone qui défile (environ 3 lignes), sous les cartes s'il y en a.
 			var grid := GridContainer.new()
 			grid.columns = Inventory.COLUMNS
 			grid.add_theme_constant_override("h_separation", GAP)
@@ -1024,10 +1197,14 @@ func _open_more(slot: Slot, sticky := false) -> void:
 			var rows := ceili(entries.size() / float(Inventory.COLUMNS))
 			var line: float = slot.custom_minimum_size.y + GAP
 			scroll.custom_minimum_size = Vector2(Inventory.COLUMNS * (slot.custom_minimum_size.x + GAP) + 18.0, minf(rows, 3.3) * line)
-			holder = VBoxContainer.new()
-			holder.add_theme_constant_override("separation", GAP)
-			holder.add_child(flow)
-			holder.add_child(scroll)
+			if cards.is_empty():
+				flow.free()
+				holder = scroll
+			else:
+				holder = VBoxContainer.new()
+				holder.add_theme_constant_override("separation", GAP)
+				holder.add_child(flow)
+				holder.add_child(scroll)
 		holder.name = "MoreRow"
 		var row := parent
 		var container := row.get_parent()
@@ -1049,6 +1226,7 @@ func _cards_flow(cards: Array) -> HFlowContainer:
 # Cartes montrées par-dessus une ligne de vides de la grille : la largeur de la grille, la hauteur des cartes.
 var more_cards: Array = []
 var more_item := {}
+var more_value := {}
 
 func _sync_cards() -> void:
 	if more_cards.size() != 2 or not is_instance_valid(more_cards[0]):
@@ -1095,11 +1273,12 @@ func _more_entries(value: Dictionary) -> Array:
 # autres »), ou l'objet du haut lui-même.
 const CARDS_SHOWN := 12
 
-func _detail_cards(value: Dictionary) -> Array:
+# only (0.0.7.31, objet tenu par la souris) : seulement cet objet, en Survie aussi.
+func _detail_cards(value: Dictionary, only: bool = false) -> Array:
 	var side := roundf(PANEL_SLOT * minf(text_scale, 1.2))
 	var result := []
 	var stacks := []
-	if inventory.mode == Inventory.CREATIVE:
+	if only or inventory.mode == Inventory.CREATIVE:
 		stacks = [value]
 	else:
 		var kind := _kind_of(value)
@@ -1188,7 +1367,7 @@ func _on_variant(button: int, value: Dictionary) -> void:
 func _watch_more() -> void:
 	if more_slot == null:
 		return
-	if not is_instance_valid(more_slot) or not more_slot.is_visible_in_tree() or more_slot.item.is_empty():
+	if not is_instance_valid(more_slot) or not more_slot.is_visible_in_tree() or (more_slot.item.is_empty() and more_value.is_empty()):
 		_close_more()
 		return
 	_sync_cards()
@@ -1211,21 +1390,52 @@ func _slot_under_mouse() -> Slot:
 # Détails (D + T, 0.0.7.30 ; D seul avant) : ouvre (ou ferme) les sous-possibilités de la case sous la souris ; Échap
 # ferme d'abord ces sous-possibilités. Les combinaisons de deux touches arrivent comme des actions (key_combos.gd).
 func _input(event: InputEvent) -> void:
-	Controls.watch_right_ctrl(event)
-	if not is_open() or not (event is InputEventKey or event is InputEventAction) or not event.is_pressed() or event.is_echo():
+	if not is_open():
 		return
-	# 0.0.7.30 (demandes de l'utilisateur) : Jeter (J) dans l'inventaire, en Survie et en Créatif ; Supprimer (D + E, Créatif).
-	if event.is_action_pressed("throw") or event.is_action_pressed("delete_item"):
-		throw_key(Controls.throw_all(event), event.is_action_pressed("delete_item"))
+	# 0.0.7.31 : glisser l'objet tenu (bouton tenu) : les cases survolées sont choisies ; relâché : posé ou réparti.
+	if drag_button != 0:
+		if event is InputEventMouseMotion:
+			_drag_over(_place_under_mouse(true))
+		elif event is InputEventMouseButton and not event.pressed and event.button_index == drag_button:
+			_drag_over(_place_under_mouse(true))
+			_end_drag()
+	if not (event is InputEventKey or event is InputEventAction) or not event.is_pressed() or event.is_echo():
+		return
+	# 0.0.7.30 (demandes de l'utilisateur) : Jeter (J) dans l'inventaire, en Survie et en Créatif ; Supprimer (D + E,
+	# Créatif ; 0.0.7.31 : tout le tas).
+	if event.is_action_pressed("throw"):
+		throw_key(Controls.throw_all(event))
+		get_viewport().set_input_as_handled()
+	elif event.is_action_pressed("delete_item"):
+		throw_key(true, true)
 		get_viewport().set_input_as_handled()
 	elif event is InputEventKey and event.keycode == KEY_ESCAPE and more_slot != null:
 		_close_more()
 		get_viewport().set_input_as_handled()
 	elif event.is_action_pressed("show_details"):
-		if more_slot != null:
-			_close_more()
-		else:
-			var slot := _slot_under_mouse()
-			if slot != null:
-				_open_more(slot, true)
+		show_held_details()
 		get_viewport().set_input_as_handled()
+
+# 0.0.7.31 (demande de l'utilisateur) : Détails (D + T) : toujours l'objet en main : celui tenu par la souris s'il y en a
+# un, sinon celui de la case en main ; D + T de nouveau (ou Échap) referme.
+func show_held_details() -> void:
+	if more_slot != null:
+		_close_more()
+		return
+	var hand := _hand_slot()
+	if hand == null:
+		return
+	if not cursor_item.is_empty():
+		_open_more(hand, true, cursor_item)
+	elif hand.item.is_empty():
+		_say("Rien en main.")
+	else:
+		_open_more(hand, true)
+
+# Case de l'écran d'inventaire de l'objet en main (objet lourd à deux mains : sa case).
+func _hand_slot() -> Slot:
+	var index: int = inventory.selected()
+	var heavy: int = inventory.two_handed()
+	if heavy >= 0 and index in Inventory.HANDS:
+		index = heavy
+	return _slot_for(["bar", index])
