@@ -1,7 +1,16 @@
-# OrbMeka™ — prototype 0.0.7.31
+# OrbMeka™ — prototype 0.0.7.32
 
 Godot 4.7 / GDScript. Formes et couleurs simples ; assets externes seulement sous licence vérifiée (sons CC0, assets/sounds/CREDITS.txt).
 
+## 0.0.7.32 — Terre posée sur un rocher qui le touche enfin (avant : jusqu'à 1 m de vide dessous), et qui tombe quand elle dépasse du bord
+Version locale (3 sur 4). Génération inchangée (version 33). Issue #216, signalée par l'utilisateur (capture).
+- **Cause** : la terre prenait la case de 50 cm au-dessus du point visé, et, en geste de 2 ou 4, les cases voisines restaient à la hauteur du centre alors que le rocher descend sur les côtés ; un appui artificiel les tenait en l'air. Mesuré : 20 sous-cellules sur 47 à plus de 10 cm du rocher, jusqu'à 1,06 m.
+- **Corrigé** : sur le dessus d'un rocher, d'un caillou ou d'un bloc, chaque sous-cellule du geste se pose sur la surface sous son propre centre ; quand le dessous de la terre resterait plus de 3 cm au-dessus, une sous-cellule de joint (cachée dans le rocher) comble le vide. Mesuré : 3 cm au plus.
+- **Bord du rocher** : ce qui dépasse n'a plus d'appui artificiel et tombe au sol.
+- **Survie** : les joints comptent (une poignée chacun), jamais plus que ce qu'on tient. Sur le sol lisse et sur les côtés d'un rocher : rien ne change.
+
+Tests réussis : rock_place (7, nouveau), smooth_terrain, prototype, inventory, inventory_more (+ tests juridiques). Captures avant / après.
+À tester : poser de la terre sur un rocher (petits et grands gestes, sur le dessus et près du bord).
 ## 0.0.7.31 — Glisser pour partager un tas (bouton gauche : parts égales, bouton droit : un par case), clic droit qui pose un seul objet et ne vide plus la case, D + E supprime tout le tas (Créatif), D + T : détails de l'objet en main, « + » du Créatif : détails de ce qu'on a, variantes en haut, J avec l'un ou l'autre Ctrl
 Version locale (2 sur 4). Génération inchangée (version 33). Demandes de l'utilisateur.
 - **Glisser l'objet tenu** : bouton gauche maintenu sur plusieurs cases (cadre jaune, part affichée « +2 ») : au relâchement, le tas est **réparti à parts égales** ; le reste de la division reste en main. Bouton droit maintenu : **un objet par case**. Une case d'un autre objet est sautée ; en Survie, une case trop lourde ou trop pleine aussi. Pris en appuyant puis glissé sur une case : posé comme un clic.

@@ -3190,14 +3190,27 @@ func step_dig(delta: float, holding: bool, aimed: Dictionary = {}) -> bool:
 			_impact_sound(hit.position)
 	return done
 
-# Creuser (add false) ou poser (add true, matière kind).
-func sculpt(hit: Dictionary, add: bool, kind: int = SmoothTerrain.DIRT, cells: int = 1, pickaxe: bool = false) -> bool:
+# Creuser (add false) ou poser (add true, matière kind). limit (Survie) : sous-cellules posées au plus (ce qu'on tient).
+func sculpt(hit: Dictionary, add: bool, kind: int = SmoothTerrain.DIRT, cells: int = 1, pickaxe: bool = false, limit: int = -1) -> bool:
 	if not _aimed_ground(hit, player.place_reach if add else player.break_reach, add):
 		return false
 	var center := SmoothTerrain.point_of(hit.position + hit.normal * (0.15 if add else -0.3))
 	var updates := {}
 	var message := ""
-	for point in gesture_points(center, hit.normal, cells):
+	# 0.0.7.32 (#216, demande de l'utilisateur : la terre posée sur un rocher flottait au-dessus, jusqu'à 1 m mesuré) :
+	# posé sur le dessus d'un rocher, d'un caillou ou d'un bloc, chaque sous-cellule du geste se pose sur la surface sous
+	# son propre centre (le rocher descend sur les côtés), et une sous-cellule de joint juste dessous comble le vide quand
+	# le dessous de la terre resterait plus de JOINT_GAP au-dessus. Rien dessous (bord du rocher) : pas d'appui, elle tombe.
+	var on_object: bool = add and not hit.collider.is_in_group("ground") and hit.normal.y > 0.5
+	for gesture_point in gesture_points(center, hit.normal, cells):
+		var point: Vector3i = gesture_point
+		var surface_y := NAN
+		if on_object:
+			surface_y = _surface_under(Vector3(point) * SmoothTerrain.STEP)
+			if not is_nan(surface_y):
+				point.y = roundi((surface_y + 0.15) / SmoothTerrain.STEP)
+		if limit >= 0 and updates.size() >= limit:
+			break
 		if not _in_terrain_limits(point):
 			if point.y <= terrain.mother_rock_top:
 				message = "Roche-mère : incassable."
@@ -3215,9 +3228,16 @@ func sculpt(hit: Dictionary, add: bool, kind: int = SmoothTerrain.DIRT, cells: i
 			message = "Reculez un peu pour ajouter du terrain."
 			continue
 		updates[point] = [SmoothTerrain.ADDED if add else SmoothTerrain.DUG, kind if add else -1]
+		var lowest := point
+		if on_object and not is_nan(surface_y):
+			var joint := point + Vector3i.DOWN
+			if point.y * SmoothTerrain.STEP - BLOB_HALF > surface_y + JOINT_GAP and terrain.density(joint) <= 0.0 and not updates.has(joint) and _in_terrain_limits(joint) and not _inside_player(joint) and (limit < 0 or updates.size() < limit):
+				updates[joint] = [SmoothTerrain.ADDED, kind]
+				lowest = joint
 		# 0.0.7.9 : posé sur un rocher, un caillou ou un bloc : appui juste dessous (sinon la matière tombait au travers).
-		if add and not hit.collider.is_in_group("ground") and terrain.density(point + Vector3i.DOWN) <= 0.0:
-			terrain.supports[point + Vector3i.DOWN] = true
+		# 0.0.7.32 : sur le dessus, seulement s'il y a bien une surface dessous (au bord, elle tombe).
+		if add and not hit.collider.is_in_group("ground") and (not on_object or not is_nan(surface_y)) and terrain.density(lowest + Vector3i.DOWN) <= 0.0:
+			terrain.supports[lowest + Vector3i.DOWN] = true
 			objects_dirty = true
 	if updates.is_empty():
 		_notify(message if not message.is_empty() else ("Déjà plein ici." if add else "Rien à creuser ici."))
@@ -3231,6 +3251,26 @@ func sculpt(hit: Dictionary, add: bool, kind: int = SmoothTerrain.DIRT, cells: i
 	if done and not dug.is_empty():
 		_throw_behind(dug)
 	return done
+
+# 0.0.7.32 (#216) : demi-hauteur d'une sous-cellule seule (terre lisse autour de son point) et vide toléré dessous.
+const BLOB_HALF := 0.17
+const JOINT_GAP := 0.03
+
+# Haut de la surface (rocher, caillou, bloc ou sol) sous un point : rayon vers le bas ; NAN si rien à 1,5 m dessous.
+func _surface_under(at: Vector3) -> float:
+	var space := get_world_3d().direct_space_state
+	var query := PhysicsRayQueryParameters3D.create(at + Vector3.UP * 2.0, at + Vector3.DOWN * 1.5)
+	if is_instance_valid(player):
+		query.exclude = [player.get_rid()]
+	for attempt in range(6):
+		var found := space.intersect_ray(query)
+		if found.is_empty():
+			return NAN
+		var body: Object = found.collider
+		if body is Node and (body.is_in_group("rocks") or body.is_in_group("pebbles") or body.is_in_group("blocks") or body.is_in_group("ground")):
+			return found.position.y
+		query.exclude = query.exclude + [found.rid]
+	return NAN
 
 # Aplanir : bosses coupées à la hauteur visée, sur un disque autour. 0.0.5.10 : n'ajoute jamais de matière
 # (les creux restent : seul Poser ajoute).
@@ -3793,12 +3833,15 @@ func place_target(hit: Dictionary, kind: int) -> bool:
 		2:
 			return smooth(hit, cells)
 	# 0.0.7.3 : en Survie, poser utilise ce qu'on tient (une poignée par sous-cellule) ; en Créatif, illimité.
+	var limit := -1
 	if game_mode == Inventory.SURVIVAL:
-		cells = mini(cells, Inventory.count(inventory.held()))
+		limit = Inventory.count(inventory.held())
+		cells = mini(cells, limit)
 		if cells <= 0:
 			_notify("Rien à poser en main.")
 			return false
-	var done := sculpt(hit, true, kind, cells)
+	# 0.0.7.32 : les joints sous la terre posée sur un rocher comptent aussi (une poignée chacun).
+	var done := sculpt(hit, true, kind, cells, false, limit)
 	if done and game_mode == Inventory.SURVIVAL:
 		inventory.use_held(last_gesture_points)
 	return done
