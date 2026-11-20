@@ -3371,22 +3371,38 @@ func _refresh_terrain(points: Array) -> void:
 # 0.0.5.12 : plus lent (0,15 s par cran au lieu de 0,06), pour bien voir tomber.
 const FALL_SECONDS := 0.15
 var fall_time := 0.0
+const FALL_REFRESH_SECONDS := 0.45
+var fall_refresh_time := 0.0
+var fall_moved: Dictionary = {}
 
 func _settle_terrain(delta: float) -> void:
 	if terrain.unstable.is_empty():
 		fall_time = 0.0
+		if not fall_moved.is_empty():
+			var waiting: Array = fall_moved.keys()
+			fall_moved.clear()
+			_refresh_terrain(waiting)
 		return
 	fall_time += delta
 	if fall_time < FALL_SECONDS:
 		return
 	fall_time = 0.0
 	var moved := terrain.settle_step()
-	if not moved.is_empty():
-		_refresh_terrain(moved)
+	# 0.0.7.33 (demande de l'utilisateur : une chute faisait ramer) : les zones touchées sont refaites ensemble, au plus
+	# toutes les FALL_REFRESH_SECONDS (avant : à chaque cran, 0,15 s), et dès que tout est retombé.
+	for point in moved:
+		fall_moved[point] = true
+	fall_refresh_time += FALL_SECONDS
+	if not fall_moved.is_empty() and (fall_refresh_time >= FALL_REFRESH_SECONDS or terrain.unstable.is_empty()):
+		fall_refresh_time = 0.0
+		var points: Array = fall_moved.keys()
+		fall_moved.clear()
+		_refresh_terrain(points)
 
 # Tout laisser retomber d'un coup (tests, et avant d'enregistrer en quittant).
 func settle_all(limit: int = 2000) -> void:
-	var moved := {}
+	var moved := fall_moved.duplicate()
+	fall_moved.clear()
 	while not terrain.unstable.is_empty() and limit > 0:
 		limit -= 1
 		for point in terrain.settle_step():

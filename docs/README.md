@@ -1,7 +1,16 @@
-# OrbMeka™ — prototype 0.0.7.32
+# OrbMeka™ — prototype 0.0.7.33
 
 Godot 4.7 / GDScript. Formes et couleurs simples ; assets externes seulement sous licence vérifiée (sons CC0, assets/sounds/CREDITS.txt).
 
+## 0.0.7.33 — Le sol d'origine ne glisse plus en chaîne au bord d'un précipice (seul ce qui est posé ou déplacé glisse ; sans rien dessous, tout tombe encore), et une chute refait ses zones ensemble, sans ramer
+Version publiée (4 sur 4, avec 0.0.7.30 à 0.0.7.32). Génération inchangée (version 33). Signalé par l'utilisateur.
+- **Cause** : la règle du talus (le sable glisse dès 1 m de vide à côté, la terre dès 1,5 m) valait aussi pour le sol d'origine, alors que les falaises de la graine sont plus raides : un geste près du bord réveillait un point, qui glissait et réveillait son voisin, en chaîne le long de la falaise. Mesuré : 1 578 glissements pour 40 bords réveillés.
+- **Corrigé** : le sol d'origine (jamais changé) ne glisse plus en talus ; il tombe seulement s'il n'a plus rien dessous (le petit plafond de terre d'environ 1 m tient toujours). Ce qui est posé ou a déjà bougé glisse comme avant (un tas de sable s'étale). Mesuré : 0 glissement.
+- **Moins de lag pendant une chute** : les zones touchées sont refaites ensemble, au plus toutes les 0,45 s et quand tout est retombé (avant : à chaque cran, toutes les 0,15 s).
+- Les mondes existants ne changent pas (rien d'enregistré n'est modifié).
+
+Tests réussis : cliff_fall (5, nouveau), smooth_terrain, rock_place, prototype, web_save, loaded_edge (+ tests juridiques ; tous les autres par l'Action Dev).
+À tester : creuser et poser au bord d'une falaise, sur sable et sur terre ; une grande chute (fluidité).
 ## 0.0.7.32 — Terre posée sur un rocher qui le touche enfin (avant : jusqu'à 1 m de vide dessous), et qui tombe quand elle dépasse du bord
 Version locale (3 sur 4). Génération inchangée (version 33). Issue #216, signalée par l'utilisateur (capture).
 - **Cause** : la terre prenait la case de 50 cm au-dessus du point visé, et, en geste de 2 ou 4, les cases voisines restaient à la hauteur du centre alors que le rocher descend sur les côtés ; un appui artificiel les tenait en l'air. Mesuré : 20 sous-cellules sur 47 à plus de 10 cm du rocher, jusqu'à 1,06 m.

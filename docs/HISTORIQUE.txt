@@ -3,6 +3,10 @@ Du plus récent au plus ancien. Ce fichier est mis à jour à chaque version.
 
 === Thème « Gameplay et inventaire » (0.0.7) ===
 
+0.0.7.33 — Le sol d'origine ne glisse plus en chaîne au bord d'un précipice (seul ce qui est posé ou déplacé glisse ; sans rien dessous, tout tombe encore), et une chute refait ses zones ensemble, sans ramer
+Génération du terrain : version 33 · Menus : version 10.
+Signalé par l'utilisateur (terre posée sur un rocher près d'un précipice) : 1 578 glissements en chaîne mesurés pour 40 bords réveillés, 0 maintenant.
+
 0.0.7.32 — Terre posée sur un rocher qui le touche enfin (avant : jusqu'à 1 m de vide dessous), et qui tombe quand elle dépasse du bord
 Génération du terrain : version 33 · Menus : version 10.
 Issue #216 (signalée par l'utilisateur) : chaque sous-cellule se pose sur la surface sous son centre, un joint comble le vide.
