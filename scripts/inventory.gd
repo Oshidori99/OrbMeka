@@ -495,6 +495,36 @@ func put(area: String, index: int, value: Dictionary) -> Dictionary:
 func take(area: String, index: int) -> Dictionary:
 	return put(area, index, {}) if usable(area, index) else {}
 
+# 0.0.7.30 (touche Jeter) : retire un seul objet d'une case (le dernier pris) ou tout le tas (all) ; un objet illimité
+# (Créatif) vide la case. Rend ce qui est retiré, comme une case ({} si rien).
+func remove(area: String, index: int, all: bool = false) -> Dictionary:
+	if not usable(area, index):
+		return {}
+	var there := item(area, index)
+	if there.is_empty():
+		return {}
+	if all or unlimited(there) or count(there) <= 1:
+		_store()[area][index] = {}
+		changed.emit()
+		return there.duplicate(true)
+	var parts := _split(there, count(there) - 1)
+	_store()[area][index] = parts[0]
+	changed.emit()
+	return parts[1]
+
+# Les objets d'une case, un par un, à plat (pour les poser au sol).
+static func units(value: Dictionary) -> Array:
+	if value.is_empty():
+		return []
+	if unlimited(value):
+		return [value.duplicate(true)]
+	if value.has("pile"):
+		return value.pile.map(func(instance): return flat(value.objet, instance))
+	var result := []
+	for index in range(maxi(count(value), 1)):
+		result.append({"objet": value.objet})
+	return result
+
 func _places() -> Array:
 	if mode == SURVIVAL:
 		return (HANDS + POCKETS).map(func(index): return ["bar", index])

@@ -842,6 +842,11 @@ func fall_target(point: Vector3i) -> Vector3i:
 		if not loose and _held_by_sides(point):
 			return point
 		return below
+	# 0.0.7.33 (demande de l'utilisateur : en posant de la terre près d'un précipice, tout le bord s'est mis à glisser, lent et
+	# lourd) : le sol d'origine (jamais changé) ne glisse pas en talus, il tombe seulement s'il n'a plus rien dessous. Les
+	# falaises de la graine sont plus raides que le talus : chaque glissement réveillait le voisin, en chaîne le long du bord.
+	if not changes.has(point):
+		return point
 	# Talus : un côté libre, et assez de vide en dessous de ce côté.
 	# Sable et boue (0.0.5.20) glissent ; terre et argile tiennent mieux.
 	var drop := 2 if materials.get(point, natural_kind(point)) in [SAND, MUD, SNOW, GRAVEL] else 3

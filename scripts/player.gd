@@ -232,9 +232,15 @@ func _unhandled_input(event: InputEvent) -> void:
 	# 0.0.7.3 : Ramasser (R par défaut) : l'objet visé (au sol, ou un petit caillou), main gauche puis droite.
 	if event.is_action_pressed("pick_up") and is_instance_valid(world) and world.has_method("pick_up"):
 		world.pick_up(get_target())
-	# 0.0.7.29 : Jeter (J par défaut) : l'objet en main tombe au sol devant soi (Survie).
+	# 0.0.7.29 : Jeter (J par défaut) : l'objet en main tombe au sol devant soi. 0.0.7.30 : aussi en Créatif ; Ctrl + J :
+	# tout le tas ; Supprimer (D + E, Créatif) : rien ne tombe (0.0.7.31 : tout le tas).
 	if event.is_action_pressed("throw") and is_instance_valid(world) and world.has_method("throw_held"):
-		world.throw_held()
+		world.throw_held(Controls.throw_all(event))
+	if event.is_action_pressed("delete_item") and is_instance_valid(world) and world.has_method("delete_held"):
+		world.delete_held()
+	# 0.0.7.31 (demande de l'utilisateur) : Détails (D + T) en jeu : l'inventaire s'ouvre sur les détails de l'objet en main.
+	if event.is_action_pressed("show_details") and is_instance_valid(world) and world.has_method("show_held_details"):
+		world.show_held_details()
 	# Casser, poser, changer de bloc : touches ou boutons de Paramètres → Contrôles.
 	# Un clic avec ↑, ↓ ou ⌫ (0.0.4.6) règle la casse ou la pose : il ne casse ni ne pose.
 	if event.is_action_pressed("break_block"):

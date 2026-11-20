@@ -59,7 +59,10 @@ const ACTIONS := {
 	"pick_up": {"label": "Ramasser", "default": {"key": KEY_R}, "by_letter": true, "fixed": []},
 	"gather": {"label": "Récupérer une poignée (maintenir)", "default": {"key": KEY_R, "second": {"key": KEY_I}}, "by_letter": true, "fixed": []},
 	# 0.0.7.29 (demande de l'utilisateur) : Survie : jeter au sol l'objet en main, un à la fois.
-	"throw": {"label": "Jeter l'objet en main (Survie)", "default": {"key": KEY_J}, "by_letter": true, "fixed": []},
+	"throw": {"label": "Jeter un objet au sol (avec Ctrl : tout le tas)", "default": {"key": KEY_J}, "by_letter": true, "fixed": []},
+	# 0.0.7.30 (demandes de l'utilisateur) : Créatif : supprimer l'objet (rien ne tombe), D + E ; détails : D + T.
+	"delete_item": {"label": "Supprimer le tas en main, Créatif", "default": {"key": KEY_D, "second": {"key": KEY_E}}, "by_letter": true, "fixed": []},
+	"show_details": {"label": "Détails et variantes de l'objet sous la souris (inventaire)", "default": {"key": KEY_D, "second": {"key": KEY_T}}, "by_letter": true, "fixed": []},
 	# 0.0.5.10 : pinceau du clic droit (Poser, Aplanir, Lisser) et taille du geste (1/8, 1/4, 1/2 bloc), modifiables.
 	"brush_next": {"label": "Pinceau suivant (clic droit)", "default": {"key": KEY_B, "second": {"key": KEY_T}}, "fixed": []},
 	# 0.0.5.14 : molette vers le haut = plus grand (inversé, demande de l'utilisateur).
@@ -504,7 +507,7 @@ const GROUPS := {
 	"Mouvements": ["move_forward", "move_back", "move_left", "move_right", "jump", "crouch", "sprint", "fly"],
 	"Blocs": ["break_block", "place_block", "brush_next", "size_up", "size_down"],
 	# 0.0.7.2 : nouvelle partie : l'inventaire et le choix de la case de la barre d'objets.
-	"Inventaire": ["inventory", "block_previous", "block_next", "pick_up", "gather", "throw"],
+	"Inventaire": ["inventory", "block_previous", "block_next", "pick_up", "gather", "throw", "delete_item", "show_details"],
 	"Vitesses": ["speed_up", "speed_down", "walk_up", "walk_down", "run_up", "run_down", "break_up", "break_down", "place_up", "place_down"],
 	"Vitesses — réinitialiser": ["move_reset", "walk_reset", "run_reset", "break_reset", "place_reset", "speed_reset_all"],
 	"Raccourcis": ["worlds_menu", "world_info_page", "change_view"],
@@ -558,3 +561,10 @@ static func wheel_modifiers(bindings: Dictionary) -> Array:
 				if part.has("key") and not part.key in result:
 					result.append(part.key)
 	return result
+
+# 0.0.7.30 (demande de l'utilisateur) : Ctrl + Jeter : tout le tas. 0.0.7.31 : l'un ou l'autre Ctrl (0.0.7.30 : celui de
+# droite seulement). Une combinaison de deux touches arrive comme une action, sans touches de modification : Ctrl lu à part.
+static func throw_all(event: InputEvent) -> bool:
+	if event is InputEventWithModifiers:
+		return event.ctrl_pressed
+	return Input.is_key_pressed(KEY_CTRL)

@@ -1,7 +1,50 @@
-# OrbMeka™ — prototype 0.0.7.29
+# OrbMeka™ — prototype 0.0.7.33
 
 Godot 4.7 / GDScript. Formes et couleurs simples ; assets externes seulement sous licence vérifiée (sons CC0, assets/sounds/CREDITS.txt).
 
+## 0.0.7.33 — Le sol d'origine ne glisse plus en chaîne au bord d'un précipice (seul ce qui est posé ou déplacé glisse ; sans rien dessous, tout tombe encore), et une chute refait ses zones ensemble, sans ramer
+Version publiée (4 sur 4, avec 0.0.7.30 à 0.0.7.32). Génération inchangée (version 33). Signalé par l'utilisateur.
+- **Cause** : la règle du talus (le sable glisse dès 1 m de vide à côté, la terre dès 1,5 m) valait aussi pour le sol d'origine, alors que les falaises de la graine sont plus raides : un geste près du bord réveillait un point, qui glissait et réveillait son voisin, en chaîne le long de la falaise. Mesuré : 1 578 glissements pour 40 bords réveillés.
+- **Corrigé** : le sol d'origine (jamais changé) ne glisse plus en talus ; il tombe seulement s'il n'a plus rien dessous (le petit plafond de terre d'environ 1 m tient toujours). Ce qui est posé ou a déjà bougé glisse comme avant (un tas de sable s'étale). Mesuré : 0 glissement.
+- **Moins de lag pendant une chute** : les zones touchées sont refaites ensemble, au plus toutes les 0,45 s et quand tout est retombé (avant : à chaque cran, toutes les 0,15 s).
+- Les mondes existants ne changent pas (rien d'enregistré n'est modifié).
+
+Tests réussis : cliff_fall (5, nouveau), smooth_terrain, rock_place, prototype, web_save, loaded_edge (+ tests juridiques ; tous les autres par l'Action Dev).
+À tester : creuser et poser au bord d'une falaise, sur sable et sur terre ; une grande chute (fluidité).
+## 0.0.7.32 — Terre posée sur un rocher qui le touche enfin (avant : jusqu'à 1 m de vide dessous), et qui tombe quand elle dépasse du bord
+Version locale (3 sur 4). Génération inchangée (version 33). Issue #216, signalée par l'utilisateur (capture).
+- **Cause** : la terre prenait la case de 50 cm au-dessus du point visé, et, en geste de 2 ou 4, les cases voisines restaient à la hauteur du centre alors que le rocher descend sur les côtés ; un appui artificiel les tenait en l'air. Mesuré : 20 sous-cellules sur 47 à plus de 10 cm du rocher, jusqu'à 1,06 m.
+- **Corrigé** : sur le dessus d'un rocher, d'un caillou ou d'un bloc, chaque sous-cellule du geste se pose sur la surface sous son propre centre ; quand le dessous de la terre resterait plus de 3 cm au-dessus, une sous-cellule de joint (cachée dans le rocher) comble le vide. Mesuré : 3 cm au plus.
+- **Bord du rocher** : ce qui dépasse n'a plus d'appui artificiel et tombe au sol.
+- **Survie** : les joints comptent (une poignée chacun), jamais plus que ce qu'on tient. Sur le sol lisse et sur les côtés d'un rocher : rien ne change.
+
+Tests réussis : rock_place (7, nouveau), smooth_terrain, prototype, inventory, inventory_more (+ tests juridiques). Captures avant / après.
+À tester : poser de la terre sur un rocher (petits et grands gestes, sur le dessus et près du bord).
+## 0.0.7.31 — Glisser pour partager un tas (bouton gauche : parts égales, bouton droit : un par case), clic droit qui pose un seul objet et ne vide plus la case, D + E supprime tout le tas (Créatif), D + T : détails de l'objet en main, « + » du Créatif : détails de ce qu'on a, variantes en haut, J avec l'un ou l'autre Ctrl
+Version locale (2 sur 4). Génération inchangée (version 33). Demandes de l'utilisateur.
+- **Glisser l'objet tenu** : bouton gauche maintenu sur plusieurs cases (cadre jaune, part affichée « +2 ») : au relâchement, le tas est **réparti à parts égales** ; le reste de la division reste en main. Bouton droit maintenu : **un objet par case**. Une case d'un autre objet est sautée ; en Survie, une case trop lourde ou trop pleine aussi. Pris en appuyant puis glissé sur une case : posé comme un clic.
+- **Clic droit** sur une case : avec un objet tenu, en pose **un seul** ; sans rien tenir, **ne fait rien** (avant, en Créatif, il vidait la case). Sur un objet du haut (Créatif) : toujours dans la première case libre.
+- **D + E (Créatif)** : supprime **tout le tas** en main (en jeu) ou tenu / sous la souris (inventaire). En Survie, rien n'est supprimé (poubelles plus tard).
+- **D + T** : toujours les détails de l'**objet en main** : en jeu, l'inventaire s'ouvre dessus ; dans l'inventaire, l'objet tenu par la souris, sinon la case en main. D + T de nouveau ou Échap : referme.
+- **« + » du Créatif** : sur les objets qu'on a (barre, grille), **seulement leurs cartes de détails** ; sur les objets du haut, **seulement les variantes** (et le « + » seulement s'il y en a).
+- **J + Ctrl** (gauche ou droit) : tout le tas au sol, en jeu et dans l'inventaire.
+- Note juridique : partager un tas en glissant est une mécanique générique (risque faible, accepté par l'utilisateur).
+
+Tests réussis : inventory_more (53), inventory, controls, controls_groups, key_combos, shortcuts_selection, menu (+ tests juridiques).
+À tester : le glisser à la souris (gauche et droit, parts « +N », cadre jaune), clic droit avec un tas, D + T en jeu et dans l'inventaire, D + E en Créatif.
+## 0.0.7.30 — Détails de chaque objet en Créatif (cartes au « + »), « − » rouge pour refermer, cartes de Survie plus compactes, J pour jeter au sol partout (inventaire et Créatif compris), D + E pour supprimer en Créatif, D + T pour les détails, Ctrl droit pour tout le tas
+Version locale (1 sur 4). Génération inchangée (version 33). Demandes de l'utilisateur.
+- **Créatif : détails de chaque objet** : le « + » est maintenant sur tous les objets (ceux du haut, de la grille et de la barre). Il ouvre d'abord les **cartes de détails** sur toute une ligne (un tas : une carte par objet, au plus 12, puis « … et N autres »), puis les variantes.
+- **« − » pour refermer** : une fois ouvert, le « + » vert devient un « − » blanc gras sur fond rouge.
+- **Cartes plus compactes** (Survie et Créatif) : petite image, le nom en haut, puis **deux détails par ligne**, le poids toujours en dernier ; tous les détails, un par ligne, au survol de la carte.
+- **J (Jeter, au sol)** : en jeu, en Survie et **en Créatif** ; **dans l'inventaire** aussi : l'objet tenu par la souris, sinon celui de la case sous la souris, sinon rien. Un objet à la fois (le dernier pris). La zone Jeter et le lâcher hors de la fenêtre font aussi tomber l'objet au sol en Créatif. Objet illimité (Créatif) : une copie tombe, il reste.
+- **D + E (Supprimer, Créatif seulement)** : en jeu et dans l'inventaire, l'objet disparaît sans rien faire tomber. En Survie, rien n'est supprimé.
+- **D + T (Détails)** : ouvre ou ferme les détails de l'objet sous la souris (avant : D seul, qui ne fait plus rien dans l'inventaire).
+- **Ctrl droit + J** ou **Ctrl droit + D + E** : tout le tas. Ces touches sont modifiables dans Contrôles → Inventaire.
+- Pas fait : erreur passagère « PackedVector3Array » vue dans les tests (sans lien avec ce lot) : à chercher.
+
+Tests réussis : inventory_more (47), inventory, controls, controls_groups, key_combos, shortcuts_selection, menu (+ tests juridiques).
+À tester : l'aspect du « − » rouge et des cartes compactes, les cartes du Créatif dans la grille (au-dessus des variantes), J et D + E sous la souris, D + T, Ctrl droit + J / D + E au clavier (en jeu, D fait aussi un petit pas à droite).
 ## 0.0.7.29 — Mode Survie ou Créatif choisi à la création (Survie par défaut), bouton « + » sur les objets de l'inventaire (toutes les variantes en Créatif, tous les détails en Survie), jeter un objet (zone Jeter, hors de la fenêtre, touche J en Survie)
 Version publiée (4 sur 4, avec 0.0.7.26 à 0.0.7.28). Génération inchangée (version 33). Demandes de l'utilisateur.
 - **Création d'un monde** : choix Survie / Créatif (Survie par défaut), modifiable ensuite dans les réglages du monde. Les mondes existants ne changent pas.
