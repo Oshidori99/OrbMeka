@@ -1,6 +1,21 @@
-# OrbMeka™ — prototype 0.0.7.35
+# OrbMeka™ — prototype 0.0.8
 
 Godot 4.7 / GDScript. Formes et couleurs simples ; assets externes seulement sous licence vérifiée (sons CC0, assets/sounds/CREDITS.txt).
+
+## 0.0.8 — Vie en Survie : barre de 100 points en bas à gauche, dégâts de chute au-delà de 4 m (moins sur le sable, rien dans l'eau), vie qui revient lentement, pommes et noisettes à manger (clic droit maintenu), et pomme brune vieillie sans feuille
+Version locale (3 sur 4). Génération inchangée (version 33). Première version de la série 0.0.8 — Fabrication et survie (#171, #204). Demandes de l'utilisateur.
+- **Vie** (Survie seulement, rien en Créatif) : 100 points. **Barre** fine en bas à gauche : contour blanc, rouge vif à gauche, plus clair et transparent vers la droite, le nombre écrit en blanc (100, 95…).
+- **Chute** : rien jusqu'à 4 m, puis 8 points par mètre (5 m : −8, 8 m : −32, 12 m : −64, vers 16,5 m : tout) ; 75 % sur le sable ; rien en tombant dans l'eau. La première chute après le passage en Survie ne blesse pas.
+- **Dégât** : bord de l'écran rouge un court instant, vue qui tremble un peu, barre qui clignote (pas de sang).
+- **Vie qui revient** : 1 point toutes les 3 s, après 6 s sans dégât.
+- **Manger** : un fruit en main, **clic droit maintenu** 1 s (anneau) : pomme +15, vieille pomme brune +5, noisette +3. Clic court : le fruit est posé, comme avant. Vie pleine : rien n'est mangé.
+- À 0 (en attendant l'écran de mort de 0.0.8.1, #205) : retour au point de départ avec toute sa vie.
+- **Pomme brune** (vieille) : icône sans feuille, queue sèche, peau tachée et mate.
+- Vie enregistrée dans joueur.json (« vie ») ; ancien monde : vie pleine.
+- Test interface_info corrigé : 49 réglages depuis 0.0.7.35 (vitesse de la molette).
+
+Tests réussis : health (27, nouveau), action_timing, inventory, inventory_more, game_mode, fly, swim, jump_profile, step_over, loaded_edge, world_save, web_save, sticks, tree_fall, interface_info, prototype, history_resume (+ tests juridiques).
+À tester : l'aspect de la barre et de l'effet rouge, une vraie chute (falaise, sable, lac), manger au clic droit maintenu, l'icône de la pomme brune.
 
 ## 0.0.7.35 — Souris tout en haut de Contrôles : sensibilité de la vue (avant dans Paramètres généraux) et nouvelle vitesse de défilement de la molette (25 à 300 %)
 Version locale (2 sur 4). Génération inchangée (version 33). Demande de l'utilisateur.

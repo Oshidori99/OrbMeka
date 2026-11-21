@@ -2,6 +2,8 @@ extends CharacterBody3D
 
 # 0.0.4.15 : une vitesse a changé (↑ ↓, ⌫) : l'application met à jour les Attributs → Vitesses actuelles.
 signal speeds_changed
+# 0.0.8 (#171) : posé au sol après une chute ; hauteur (m) depuis le plus haut point en l'air, hauteur d'eau à l'arrivée.
+signal landed(height: float, water: float)
 
 const ActionTiming = preload("res://scripts/action_timing.gd")
 
@@ -193,6 +195,9 @@ func _input(event: InputEvent) -> void:
 	# Casser / Poser : touche ou bouton choisi dans Paramètres → Contrôles (0.0.3.12).
 	if event.is_action_released("place_block"):
 		actions.stop_placing()
+		# 0.0.8 (#204) : un fruit en main, clic court : posé ; maintenu : mangé (world.step_eat).
+		if is_instance_valid(world) and world.has_method("eat_release"):
+			world.eat_release(get_target())
 	if event.is_action_released("break_block"):
 		actions.stop_breaking()
 		# 0.0.7.17 : « Casser / Récupérer des objets » : un clic court ramasse l'objet visé (comme R).
@@ -389,6 +394,8 @@ func _break_once() -> bool:
 
 func begin_placement() -> bool:
 	actions.cancel()
+	if is_instance_valid(world) and world.has_method("eat_press") and world.eat_press():
+		return false
 	actions.set_place_pressed(true, true)
 	if is_instance_valid(hand_view):
 		hand_view.nudge()
@@ -486,6 +493,7 @@ func _physics_process(delta: float) -> void:
 	# En vol, Se baisser sert à descendre ; en nageant, à plonger : on ne se baisse pas.
 	if flying or swimming:
 		crouching = false
+		airborne = false
 	else:
 		update_crouch(active, Input.is_action_pressed("crouch"), Input.is_action_just_pressed("crouch"))
 	# En vol, Espace monte : ce n'est pas un saut qui arrête la course (Maintenir conditionnel).
@@ -502,6 +510,9 @@ func _physics_process(delta: float) -> void:
 	# 0.0.7.27 (#217) : Survie : creuser en maintenant, durée selon la matière.
 	if is_instance_valid(world) and world.has_method("step_dig"):
 		world.step_dig(delta, breaking_held)
+	# 0.0.8 (#204) : manger, clic droit maintenu avec un fruit en main (Survie).
+	if is_instance_valid(world) and world.has_method("step_eat"):
+		world.step_eat(delta, active and Input.is_action_pressed("place_block") and not click_modified())
 	var changes := {}
 	var resets := []
 	for target in ["walk", "run", "break", "place"]:
@@ -996,6 +1007,7 @@ func step_movement(delta: float, direction: Vector2, jump_requested: bool) -> vo
 	step_over(Vector3(velocity.x, 0.0, velocity.z) * delta)
 	move_and_slide()
 	velocity.y = 0.0 if is_on_floor() or is_on_ceiling() or held_here else end_speed
+	track_fall()
 	position.x = clampf(position.x, -world.build_limit - 1.0, world.build_limit + 1.0)
 	position.z = clampf(position.z, -world.build_limit - 1.0, world.build_limit + 1.0)
 	# 0.0.5.37 : retour au départ seulement sous le monde (les grottes descendent jusqu'à la Roche-mère).
@@ -1003,6 +1015,27 @@ func step_movement(delta: float, direction: Vector2, jump_requested: bool) -> vo
 		actions.cancel()
 		position = world.spawn_position()
 		velocity = Vector3.ZERO
+		airborne = false
+
+# 0.0.8 (#171) : hauteur de chute. En l'air, on garde le plus haut point atteint ; posé au sol, la chute est la différence.
+# Le vol et la nage remettent à zéro (on ne se blesse pas en arrivant de là), le sol pas encore construit aussi.
+var airborne := false
+var fall_top := 0.0
+
+func track_fall() -> void:
+	if held_here:
+		airborne = false
+		return
+	if is_on_floor():
+		if airborne:
+			airborne = false
+			landed.emit(fall_top - position.y, water_depth())
+		return
+	if not airborne:
+		airborne = true
+		fall_top = position.y
+	else:
+		fall_top = maxf(fall_top, position.y)
 
 func get_target() -> Dictionary:
 	var origin := camera.global_position

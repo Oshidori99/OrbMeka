@@ -20,7 +20,7 @@ Suivi du travail : GitHub Project https://github.com/users/Oshidori99/projects/1
 - Voir « Cadre juridique » dans README.md.
 
 ## Règles de l'utilisateur pour le jeu
-- Jamais tuer d'animaux ni de robots ; rien de gore. Les robots (Meka) sont des amis.
+- Jamais tuer d'animaux ni de robots ; rien de gore. Les robots (Meka) sont pas forcément méchants.
 - Tout doit rester original : mécaniques, interface et noms propres à OrbMeka.
 - Qualité d'abord : sur PC, 5 à 5,5 Go de mémoire au plus (environ 3 Go aujourd'hui, acceptable) ; enlever seulement le gaspillage. Sur le Web, réglages plus légers.
 
@@ -69,6 +69,7 @@ utiliser -Jobs 2 si le PC est en mode économie d'énergie ou si d'autres gros p
 Godot console : C:\Users\Dev\Desktop\Godot_v4.7.2-stable_win64.exe\Godot_v4.7.2-stable_win64_console.exe
 Un seul test : `& '<Godot console>' --headless --path . --script res://tests/<nom>_test.gd`.
 Ce qui ne peut être vérifié qu'en jouant (aspect, souris) est signalé comme « à tester manuellement ».
+Fenêtre du jeu ouverte par Claude (captures, mesures) : hors écran et **sans jamais capturer la souris** de l'utilisateur.
 Web : ne pas mesurer dans le navigateur intégré de Claude (environ 1 FPS) ni y ouvrir itch.io (vérification anti-robot impossible) ; mesurer l'export Web autrement ou demander à l'utilisateur.
 
 ## Rythme de publication

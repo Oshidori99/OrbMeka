@@ -133,6 +133,9 @@ func _ready() -> void:
 	player.position = spawn_position()
 	add_child(player)
 	_apply_saved_player(saved_player)
+	# 0.0.8 (#171) : vie relue (ancien monde : pleine), dégâts de chute.
+	health.load_value(saved_player.get("vie"))
+	player.landed.connect(_on_landed)
 	saved_at = player.position
 	# 0.0.7.2 : inventaire relu (ancien monde : vide, sans erreur), dans le mode de jeu du monde.
 	inventory.mode = game_mode
@@ -1133,6 +1136,8 @@ func set_game_mode(new_mode: String) -> void:
 	# 0.0.7.9 : en Survie, on ne vole pas (on retombe si on volait).
 	if new_mode == Inventory.SURVIVAL and is_instance_valid(player):
 		player.flying = false
+		# 0.0.8 : la chute qui suit le passage en Survie (on volait peut-être très haut) ne blesse pas.
+		fall_ignored = game_mode != Inventory.SURVIVAL
 	game_mode = new_mode
 	inventory.set_mode(new_mode)
 
@@ -3495,7 +3500,9 @@ func player_data() -> Dictionary:
 	return {"format": Store.FORMAT, "position": [player.position.x, player.position.y, player.position.z],
 		"regard_horizontal": player.rotation.y, "regard_vertical": player.camera.rotation.x,
 		# 0.0.7.2 : inventaire (Survie et Créatif), barre d'objets et case en main.
-		"inventaire": inventory.to_dict()}
+		"inventaire": inventory.to_dict(),
+		# 0.0.8 (#171) : points de vie (Survie).
+		"vie": health.value}
 
 func _read_saved_player() -> Dictionary:
 	if save_folder.is_empty():
@@ -3505,6 +3512,154 @@ func _read_saved_player() -> Dictionary:
 		_notify(saved.error)
 		notice_time = 8.0
 	return saved.get("data", {})
+
+# --- 0.0.8 (#171, #204) : vie en Survie ---
+# Barre en bas à gauche (health_bar.gd), dégâts de chute (player.gd, signal landed), régénération lente (health.gd).
+# Un dégât : le bord de l'écran rougit un court instant, la vue tremble un peu, la barre clignote (pas de sang).
+# Manger : un fruit en main, clic droit maintenu EAT_SECONDS (anneau) ; un clic court le pose comme avant.
+const Health = preload("res://scripts/health.gd")
+const HealthBar = preload("res://scripts/health_bar.gd")
+const HURT_SECONDS := 0.5
+const SHAKE := 0.05
+const EAT_SECONDS := 1.0
+const EAT_TAP := 0.25
+const HURT_SHADER := "shader_type canvas_item;
+uniform float strength = 0.0;
+void fragment() {
+	vec2 d = (UV - 0.5) * vec2(1.0, 0.8);
+	float edge = smoothstep(0.3, 0.75, length(d) * 1.4);
+	COLOR = vec4(0.7, 0.0, 0.0, edge * strength * 0.65);
+}"
+var health := Health.new()
+var health_bar: Control
+var hurt_veil: ColorRect
+var hurt_time := 0.0
+var fall_ignored := false
+var eat_time := -1.0
+
+func survival() -> bool:
+	return game_mode == Inventory.SURVIVAL
+
+func _create_health_hud(layer: CanvasLayer) -> void:
+	hurt_veil = ColorRect.new()
+	hurt_veil.name = "HurtVeil"
+	hurt_veil.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	hurt_veil.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var look := ShaderMaterial.new()
+	look.shader = Shader.new()
+	look.shader.code = HURT_SHADER
+	hurt_veil.material = look
+	hurt_veil.visible = false
+	layer.add_child(hurt_veil)
+	health_bar = HealthBar.new()
+	health_bar.text_scale = text_scale
+	layer.add_child(health_bar)
+	health_bar.value = health.value
+	health_bar.visible = survival()
+
+func _on_landed(height: float, water: float) -> void:
+	if fall_ignored:
+		fall_ignored = false
+		return
+	# Dans l'eau (assez profonde pour ralentir la marche) : rien.
+	if water > PlayerScript.WADE_DEPTH:
+		return
+	hurt(Health.fall_damage(height, ground_kind_under(player.position) == SmoothTerrain.SAND))
+
+# Dégâts en Survie ; rend les points perdus. À 0 : retour au point de départ (0.0.8.1 : écran de mort, #205).
+func hurt(points: int) -> int:
+	if not survival() or points <= 0:
+		return 0
+	var lost := health.damage(points)
+	if lost > 0:
+		hurt_time = HURT_SECONDS
+		inventory_unsaved = true
+		if is_instance_valid(health_bar):
+			health_bar.hurt()
+	if health.dead():
+		_out_of_strength()
+	return lost
+
+func _out_of_strength() -> void:
+	health.reset()
+	player.actions.cancel()
+	player.position = spawn_position()
+	player.velocity = Vector3.ZERO
+	player.airborne = false
+	_notify("À bout de forces : retour au point de départ.")
+	notice_time = 4.0
+
+func _update_health(delta: float) -> void:
+	var on := survival()
+	if on:
+		health.step(delta)
+	if is_instance_valid(health_bar):
+		health_bar.visible = on
+		health_bar.value = health.value
+	if hurt_time <= 0.0 and not is_instance_valid(hurt_veil):
+		return
+	hurt_time = maxf(0.0, hurt_time - delta) if on else 0.0
+	var k := hurt_time / HURT_SECONDS
+	if is_instance_valid(hurt_veil):
+		hurt_veil.visible = k > 0.0
+		(hurt_veil.material as ShaderMaterial).set_shader_parameter("strength", k)
+	var camera := get_viewport().get_camera_3d() if is_inside_tree() else null
+	if is_instance_valid(camera):
+		camera.h_offset = randf_range(-1.0, 1.0) * SHAKE * k
+		camera.v_offset = randf_range(-1.0, 1.0) * SHAKE * k
+
+# Manger (#204) : seulement en Survie, un fruit en main, pinceau « Poser ».
+func can_eat() -> bool:
+	return survival() and player.brush == 0 and Health.food_points(inventory.held()) > 0
+
+# Clic droit appuyé : rend vrai s'il commence à manger (la pose attend le relâchement).
+func eat_press() -> bool:
+	if not can_eat():
+		return false
+	eat_time = 0.0
+	return true
+
+# Clic droit relâché : un clic court pose le fruit (comme avant 0.0.8).
+func eat_release(hit: Dictionary) -> void:
+	if eat_time < 0.0:
+		return
+	var quick := eat_time < EAT_TAP
+	eat_time = -1.0
+	if quick:
+		put_down_held(hit)
+
+func step_eat(delta: float, holding: bool) -> bool:
+	if eat_time < 0.0:
+		return false
+	if not holding or not can_eat():
+		eat_time = -1.0
+		return false
+	eat_time += delta
+	if eat_time < EAT_TAP:
+		return false
+	if health.full():
+		_notify("Vie pleine : pas besoin de manger.")
+		return false
+	show_ring((eat_time - EAT_TAP) / (EAT_SECONDS - EAT_TAP))
+	if eat_time < EAT_SECONDS:
+		return false
+	eat_held()
+	# Un fruit à la fois : relâcher pour le suivant.
+	eat_time = -1.0
+	return true
+
+# Mange le fruit en main ; rend les points regagnés.
+func eat_held() -> int:
+	if Health.food_points(inventory.held()) <= 0:
+		return 0
+	var eaten := inventory.pop_held()
+	var points := Health.food_points(eaten)
+	var gained := health.heal(points)
+	var old: bool = eaten.get("objet") == "pomme" and int(eaten.get("couleur", 1)) == Health.BROWN
+	var what: String = "Vieille pomme" if old else str(Inventory.ITEMS.get(eaten.get("objet", ""), {}).get("nom", "Fruit"))
+	_notify("%s mangée : +%d de vie." % [what, gained])
+	inventory_unsaved = true
+	return gained
 
 func _apply_saved_player(data: Dictionary) -> void:
 	if data.is_empty():
@@ -4031,6 +4186,7 @@ func _create_hud() -> void:
 	coordinates_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	coordinates_label.visible = false
 	layer.add_child(coordinates_label)
+	_create_health_hud(layer)
 
 func set_coordinates_visible(on: bool) -> void:
 	coordinates_label.visible = on
@@ -4094,6 +4250,7 @@ func _process(delta: float) -> void:
 		return
 	_update_fps(delta)
 	_update_ring()
+	_update_health(delta)
 	if not sliding_trees.is_empty():
 		_update_slides(delta)
 	_update_collisions()
@@ -4234,6 +4391,7 @@ func _process_measured(delta: float) -> void:
 	var at := Time.get_ticks_usec()
 	_update_fps(delta)
 	_update_ring()
+	_update_health(delta)
 	if not sliding_trees.is_empty():
 		_update_slides(delta)
 	_perf("hud", at)
