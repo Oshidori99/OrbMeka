@@ -69,7 +69,7 @@ func _run() -> void:
 	check(tabs.all(func(tab): return tab.theme_type_variation == "OrbTab" and tab.toggle_mode and tab.button_group == tabs[0].button_group), "side buttons are rectangular toggle tabs in one group")
 	check(tabs[0].get_parent().get_index() == 0 and tabs[0].get_parent().get_parent() is HBoxContainer, "side menu sits on the left")
 	check(app.settings_section == "general" and app.settings_sections.general.visible and not app.settings_sections.attributes.visible and tabs[0].button_pressed, "general settings open first")
-	check(app.settings_sections.general.is_ancestor_of(app.setting_fields.mouse_sensitivity) and app.settings_sections.video.is_ancestor_of(app.setting_fields.panel_size) and app.settings_sections.video.is_ancestor_of(app.setting_fields.nav_percent), "mouse in general, panel sizes in Vidéo")
+	check(app.settings_sections.controls.is_ancestor_of(app.setting_fields.mouse_sensitivity) and app.settings_sections.video.is_ancestor_of(app.setting_fields.panel_size) and app.settings_sections.video.is_ancestor_of(app.setting_fields.nav_percent), "mouse in Contrôles (0.0.7.35), panel sizes in Vidéo")
 	tabs[4].pressed.emit()
 	check(app.settings_section == "attributes" and app.settings_sections.attributes.visible and not app.settings_sections.general.visible and tabs[4].button_pressed and not tabs[0].button_pressed, "Attributs tab shows the attribute screen")
 	app.setting_fields.walk_forward.text = "9"
