@@ -1,7 +1,14 @@
-# OrbMeka™ — prototype 0.0.7.34
+# OrbMeka™ — prototype 0.0.7.35
 
 Godot 4.7 / GDScript. Formes et couleurs simples ; assets externes seulement sous licence vérifiée (sons CC0, assets/sounds/CREDITS.txt).
 
+## 0.0.7.35 — Souris tout en haut de Contrôles : sensibilité de la vue (avant dans Paramètres généraux) et nouvelle vitesse de défilement de la molette (25 à 300 %)
+Version locale (2 sur 4). Génération inchangée (version 33). Demande de l'utilisateur.
+- **Souris** tout en haut de Paramètres → Contrôles (avant les touches) : **Sensibilité de la souris** (rotation de la vue en jeu, 10 à 300 %, déplacée depuis Paramètres généraux, valeur gardée) et **Vitesse de défilement** (nouvelle) : distance parcourue à chaque cran de la molette dans les menus, les listes et l'inventaire, de 25 à 300 % (100 % : vitesse d'origine, un huitième de la zone visible par cran).
+- Sur une barre réglable, la molette garde son rôle ; une zone en butée laisse défiler la zone autour.
+
+Tests réussis : mouse_settings (6, nouveau), sliders, folds, settings_files, controls, controls_groups, menu, pause_settings, custom_world_menu, menu_sounds, character_voices, inventory, inventory_more (+ tests juridiques). inventory a échoué une fois avec 15 tests en même temps (visée du sol avant le terrain prêt), réussi seul : fragile sous charge, sans lien.
+À tester : la molette dans les menus, l'Historique et l'inventaire, à 50 % et à 200 %.
 ## 0.0.7.34 — Monde ouvert en 4 s au lieu de 7,5 sur PC (montré dès que les 9 × 9 colonnes autour sont prêtes, le reste se construit en jouant), et sur le Web le clic dans le jeu lui donne le clavier (itch.io), avec « Cliquez dans le jeu » et la pause quand la souris est libérée
 Version locale (1 sur 4). Génération inchangée (version 33). Demandes de l'utilisateur.
 - **Chargement plus court (PC)** : l'écran de chargement attendait toute la vue (289 colonnes). Maintenant, sur PC, le monde est montré dès que les **9 × 9 colonnes autour** sont faites, avec leurs arbres, leur herbe, l'horizon et les shaders ; le reste de la vue se construit en jouant. Les colonnes proches passent d'abord, puis leurs détails et l'horizon. Deux fois plus de travail par image derrière l'écran (80 ms, graine 100 ms). Mesuré 3 fois sur ce PC : **4,0 s au lieu de 7,5 s**. Le Web garde l'attente de toute la vue (saccades sinon, mesures 0.0.7.25).

@@ -53,6 +53,8 @@ const SPECS := {
 	"eye_height": {"label": "Hauteur des yeux", "unit": "blocs", "default": 1.62, "min": 0.3, "max": 3.0, "step": 0.01},
 	# Réglages généraux (0.0.3.1) : valables dans tous les mondes, quel que soit leur mode.
 	"mouse_sensitivity": {"label": "Sensibilité de la souris", "unit": "%", "default": 100.0, "min": 10.0, "max": 300.0},
+	# 0.0.7.35 (demande de l'utilisateur) : vitesse de la molette dans les menus et listes (100 % : celle de Godot).
+	"scroll_speed": {"label": "Vitesse de défilement", "unit": "%", "default": 100.0, "min": 25.0, "max": 300.0},
 	# 0.0.4.11 : volume des sons des menus (0 = muet), réglage général.
 	"menu_volume": {"label": "Volume des menus", "unit": "%", "default": 60.0, "min": 0.0, "max": 100.0},
 	# 0.0.4.12 : volume des voix et cris des personnages (0 = muet).
@@ -184,7 +186,7 @@ const DEFAULT_PATH := "user://settings.json"
 # Taille de référence du texte courant dans le thème : Taille du texte / 18 = facteur des polices.
 const BASE_TEXT_PX := 18.0
 const FILES := {"general": "parametres-generaux.json", "video": "video.json", "character": "personnage.json", "attributes": "attributs.json"}
-const GENERAL_KEYS := ["auto_secure_old", "character_volume", "hide_old_worlds", "menu_volume", "mouse_sensitivity", "text_detail", "world_shelves"]
+const GENERAL_KEYS := ["auto_secure_old", "character_volume", "hide_old_worlds", "menu_volume", "mouse_sensitivity", "scroll_speed", "text_detail", "world_shelves"]
 const CONTROLS_FILE := "controles.json"
 # 0.0.4.14 : titres réduits de Paramètres et choix à l'ouverture (last, expanded, collapsed).
 const MENUS_FILE := "menus.json"

@@ -58,8 +58,12 @@ Première action immédiate ; un délai plus court accélère la répétition."]
 }
 # Réglages généraux (tous les mondes, quel que soit leur mode), par section du menu latéral.
 const GENERAL_CATEGORIES := {
+	# 0.0.7.35 (demande de l'utilisateur) : Souris tout en haut de Contrôles (avant : Paramètres généraux), avec la vitesse de
+	# défilement ; les valeurs restent dans parametres-generaux.json (rien à déplacer).
+	"controls": {
+		"Souris": {"keys": ["mouse_sensitivity", "scroll_speed"], "help": ["", "Rotation de la vue et molette.", "Sensibilité : vitesse de rotation de la vue en jeu. Vitesse de défilement : distance parcourue à chaque cran de la molette dans les menus, les listes et l'inventaire (100 % : vitesse d'origine)."]},
+	},
 	"general": {
-		"Souris": {"keys": ["mouse_sensitivity"], "help": ["", "Rotation de la vue.", "Vitesse de rotation de la vue."]},
 		"Son": {"keys": ["menu_volume", "character_volume"], "help": ["", "Volume des menus et des personnages.", "Volume des petits sons des menus (survol, clic, retour), et des voix et cris des personnages quand on les choisit ; 0 = muet. Voix : synthèse vocale de l'ordinateur (rien n'est enregistré)."]},
 		"Textes": {"keys": ["text_detail"], "help": ["", "Détail des explications.", "Quantité de détails dans les explications : − l'essentiel, + tout."]},
 		"Mondes": {"keys": ["hide_old_worlds", "world_shelves", "auto_secure_old"], "help": ["", "Liste des mondes : anciens mondes, dossiers sécurisés.", "Cacher : les mondes d'une génération plus ancienne que celle du jeu n'apparaissent plus dans « Par défaut ». Dossiers sécurisés : trois listes dans Mes mondes (Par défaut, Sécurisés, Versions sécurisées) et des sous-dossiers ; les mondes mis en sécurité sont rangés à part, hors de portée des anciennes versions du jeu. Ranger : avec les dossiers, les anciens mondes vont tout seuls dans « Versions sécurisées », sauf ceux ramenés dans « Par défaut » (exceptions)."]},

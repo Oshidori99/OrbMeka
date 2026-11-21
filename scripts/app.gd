@@ -178,6 +178,9 @@ func _build_interface() -> void:
 		settings_tabs[section] = tab
 	_build_world_section(settings_body)
 	for section in GENERAL_CATEGORIES:
+		# 0.0.7.35 : Souris : en haut de Contrôles (_build_controls_section).
+		if section == "controls":
+			continue
 		var box := VBoxContainer.new()
 		box.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		_sep(box, 10)
@@ -1321,10 +1324,39 @@ func _input(event: InputEvent) -> void:
 		return
 	if event is InputEventKey or event is InputEventMouseButton:
 		_send_combos(key_combos.feed(event, Time.get_ticks_msec()))
+	if event is InputEventMouseButton and event.pressed and event.button_index in [MOUSE_BUTTON_WHEEL_UP, MOUSE_BUTTON_WHEEL_DOWN] and wheel_scroll(event):
+		get_viewport().set_input_as_handled()
 	# Un champ de saisie actif garde Échap pour lui : on le reprend pour quitter la page.
 	if event.is_action_pressed("ui_cancel") and not event.is_echo() and get_viewport().gui_get_focus_owner() is LineEdit:
 		_cancel_page()
 		get_viewport().set_input_as_handled()
+
+# 0.0.7.35 (demande de l'utilisateur) : vitesse de défilement (Contrôles → Souris). Molette sur une zone qui défile (menus,
+# listes, inventaire) : le défilement de Godot (un huitième de la zone visible par cran) × la vitesse choisie. Sur une barre
+# réglable (curseur, nombre), la molette garde son rôle. Rend true si la molette a fait défiler une zone.
+func wheel_scroll(event: InputEventMouseButton) -> bool:
+	var hovered := get_viewport().gui_get_hovered_control()
+	var node: Node = hovered
+	while node != null:
+		if node is Range and not node is ScrollBar:
+			return false
+		if node is ScrollContainer and _scroll_by(node, event):
+			return true
+		node = node.get_parent()
+	return false
+
+func _scroll_by(scroll: ScrollContainer, event: InputEventMouseButton) -> bool:
+	var bar := scroll.get_v_scroll_bar()
+	if scroll.vertical_scroll_mode == ScrollContainer.SCROLL_MODE_DISABLED or bar == null or bar.max_value - bar.page <= 0.5:
+		return false
+	var direction := -1.0 if event.button_index == MOUSE_BUTTON_WHEEL_UP else 1.0
+	# Déjà en butée dans ce sens : la zone qui contient celle-ci défile à sa place.
+	if (direction < 0.0 and bar.value <= 0.0) or (direction > 0.0 and bar.value >= bar.max_value - bar.page - 0.5):
+		return false
+	var speed := float(settings.values.get("scroll_speed", 100.0)) / 100.0 if settings != null else 1.0
+	var factor: float = event.factor if event.factor > 0.0 else 1.0
+	bar.value = clampf(bar.value + direction * bar.page / 8.0 * factor * speed, 0.0, bar.max_value - bar.page)
+	return true
 
 func _cancel_page() -> void:
 	# 0.0.7.23 : pendant le chargement d'un monde, Échap ne fait rien.
