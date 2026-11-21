@@ -1,7 +1,48 @@
-# OrbMeka™ — prototype 0.0.7.33
+# OrbMeka™ — prototype 0.0.8.1
 
 Godot 4.7 / GDScript. Formes et couleurs simples ; assets externes seulement sous licence vérifiée (sons CC0, assets/sounds/CREDITS.txt).
 
+## 0.0.8.1 — À bout de forces en Survie : petit écran puis retour au point de départ, objets tombés sur place et gardés au sol (ou gardés sur soi, au choix du monde, à la création, dans Paramètres → Monde, défaut dans Paramètres → Survie), et en Créatif retour au départ avec H ou depuis la pause
+Version publiée (4 sur 4, avec 0.0.7.34, 0.0.7.35 et 0.0.8). Génération inchangée (version 33). Demandes de l'utilisateur (#205, #188).
+- **Vie à 0** (Survie) : écran « À bout de forces… » (rien de gore), souris libérée, bouton **Revenir au départ** : point de départ, vie pleine. Échap et l'inventaire ne font rien pendant cet écran. Quitter pendant l'écran : on revient au départ, vie pleine.
+- **Objets à la mort**, propre à chaque monde : **Tombent sur place** (par défaut) : tout ce qu'on porte (mains et poches) tombe, éparpillé autour (jusqu'à 1,2 m), et reste au sol (objets.json), à récupérer ; ou **Gardés**. Choisi à la création du monde, modifiable en partie dans Paramètres → Monde ; le choix proposé à la création se règle dans Paramètres généraux → Survie.
+- **Créatif** : **Revenir au point de départ** avec la touche **H** (modifiable, Contrôles → Raccourcis) ou le bouton de la pause (Créatif seulement). En Survie : l'orbe de retour viendra en 0.0.8.2 (#231).
+- Rappel : au-delà de 3000 objets posés dans un monde, les plus anciens disparaissent (limite d'avant, ground_items.gd).
+
+Tests réussis : death (21, nouveau), health (28), game_mode, inventory_more, controls, controls_groups, key_combos, shortcuts_selection, settings_files, pause, pause_settings, menu, interface_info, world_management, world_save, custom_world_menu, world_mode, folds, mouse_settings (+ tests juridiques). Captures hors écran : écran de mort, page de création.
+À tester : mourir d'une vraie chute, ramasser ses objets tombés, la touche H en Créatif, le choix dans Paramètres → Monde.
+
+## 0.0.8 — Vie en Survie : barre de 100 points en bas à gauche, dégâts de chute au-delà de 4 m (moins sur le sable, rien dans l'eau), vie qui revient lentement, pommes et noisettes à manger (clic droit maintenu), et pomme brune vieillie sans feuille
+Version locale (3 sur 4), publiée avec 0.0.8.1. Génération inchangée (version 33). Première version de la série 0.0.8 — Fabrication et survie (#171, #204). Demandes de l'utilisateur.
+- **Vie** (Survie seulement, rien en Créatif) : 100 points. **Barre** fine en bas à gauche : contour blanc, rouge vif à gauche, plus clair et transparent vers la droite, le nombre écrit en blanc (100, 95…).
+- **Chute** : rien jusqu'à 4 m, puis 8 points par mètre (5 m : −8, 8 m : −32, 12 m : −64, vers 16,5 m : tout) ; 75 % sur le sable ; rien en tombant dans l'eau. La première chute après le passage en Survie ne blesse pas.
+- **Dégât** : bord de l'écran rouge un court instant, vue qui tremble un peu, barre qui clignote (pas de sang).
+- **Vie qui revient** : 1 point toutes les 3 s, après 6 s sans dégât.
+- **Manger** : un fruit en main, **clic droit maintenu** 1 s (anneau) : pomme +15, vieille pomme brune +5, noisette +3. Clic court : le fruit est posé, comme avant. Vie pleine : rien n'est mangé.
+- À 0 (en attendant l'écran de mort de 0.0.8.1, #205) : retour au point de départ avec toute sa vie.
+- **Pomme brune** (vieille) : icône sans feuille, queue sèche, peau tachée et mate.
+- Vie enregistrée dans joueur.json (« vie ») ; ancien monde : vie pleine.
+- Test interface_info corrigé : 49 réglages depuis 0.0.7.35 (vitesse de la molette).
+
+Tests réussis : health (27, nouveau), action_timing, inventory, inventory_more, game_mode, fly, swim, jump_profile, step_over, loaded_edge, world_save, web_save, sticks, tree_fall, interface_info, prototype, history_resume (+ tests juridiques).
+À tester : l'aspect de la barre et de l'effet rouge, une vraie chute (falaise, sable, lac), manger au clic droit maintenu, l'icône de la pomme brune.
+
+## 0.0.7.35 — Souris tout en haut de Contrôles : sensibilité de la vue (avant dans Paramètres généraux) et nouvelle vitesse de défilement de la molette (25 à 300 %)
+Version locale (2 sur 4). Génération inchangée (version 33). Demande de l'utilisateur.
+- **Souris** tout en haut de Paramètres → Contrôles (avant les touches) : **Sensibilité de la souris** (rotation de la vue en jeu, 10 à 300 %, déplacée depuis Paramètres généraux, valeur gardée) et **Vitesse de défilement** (nouvelle) : distance parcourue à chaque cran de la molette dans les menus, les listes et l'inventaire, de 25 à 300 % (100 % : vitesse d'origine, un huitième de la zone visible par cran).
+- Sur une barre réglable, la molette garde son rôle ; une zone en butée laisse défiler la zone autour.
+
+Tests réussis : mouse_settings (6, nouveau), sliders, folds, settings_files, controls, controls_groups, menu, pause_settings, custom_world_menu, menu_sounds, character_voices, inventory, inventory_more (+ tests juridiques). inventory a échoué une fois avec 15 tests en même temps (visée du sol avant le terrain prêt), réussi seul : fragile sous charge, sans lien.
+À tester : la molette dans les menus, l'Historique et l'inventaire, à 50 % et à 200 %.
+## 0.0.7.34 — Monde ouvert en 4 s au lieu de 7,5 sur PC (montré dès que les 9 × 9 colonnes autour sont prêtes, le reste se construit en jouant), et sur le Web le clic dans le jeu lui donne le clavier (itch.io), avec « Cliquez dans le jeu » et la pause quand la souris est libérée
+Version locale (1 sur 4). Génération inchangée (version 33). Demandes de l'utilisateur.
+- **Chargement plus court (PC)** : l'écran de chargement attendait toute la vue (289 colonnes). Maintenant, sur PC, le monde est montré dès que les **9 × 9 colonnes autour** sont faites, avec leurs arbres, leur herbe, l'horizon et les shaders ; le reste de la vue se construit en jouant. Les colonnes proches passent d'abord, puis leurs détails et l'horizon. Deux fois plus de travail par image derrière l'écran (80 ms, graine 100 ms). Mesuré 3 fois sur ce PC : **4,0 s au lieu de 7,5 s**. Le Web garde l'attente de toute la vue (saccades sinon, mesures 0.0.7.25).
+- **Clavier sur le Web (itch.io)** : la personne pouvait tourner la tête à la souris, mais aucune touche ne répondait. Le jeu tourne dans un cadre venant d'un autre site, et Godot empêche le clic normal : dans certains navigateurs, le clavier restait à la page itch.io. Maintenant, chaque clic dans le jeu lui donne le clavier (export Web). Pas reproduit dans le navigateur intégré (il donne le clavier de toute façon) : à confirmer avec la personne.
+- **« Cliquez dans le jeu pour jouer (souris et touches) »** au centre de l'écran quand la souris n'est pas capturée en jeu (les touches du jeu ne répondent que souris capturée).
+- **Web : la souris libérée ouvre la pause** : le navigateur garde la première pression d'Échap pour libérer la souris ; le jeu ne la recevait pas.
+
+Tests réussis : loading_screen (avec 4 vérifications de plus), prototype, menu, smooth_terrain, inventory (+ tests juridiques). Mesures de l'ouverture sur PC (fenêtre hors écran).
+À tester : ouvrir un monde sur PC (vue lointaine qui se complète en jouant, fluidité) ; sur le Web (itch.io, Firefox ou Safari si possible) : touches et Échap après un clic.
 ## 0.0.7.33 — Le sol d'origine ne glisse plus en chaîne au bord d'un précipice (seul ce qui est posé ou déplacé glisse ; sans rien dessous, tout tombe encore), et une chute refait ses zones ensemble, sans ramer
 Version publiée (4 sur 4, avec 0.0.7.30 à 0.0.7.32). Génération inchangée (version 33). Signalé par l'utilisateur.
 - **Cause** : la règle du talus (le sable glisse dès 1 m de vide à côté, la terre dès 1,5 m) valait aussi pour le sol d'origine, alors que les falaises de la graine sont plus raides : un geste près du bord réveillait un point, qui glissait et réveillait son voisin, en chaîne le long de la falaise. Mesuré : 1 578 glissements pour 40 bords réveillés.

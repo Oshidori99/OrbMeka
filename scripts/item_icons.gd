@@ -384,6 +384,8 @@ static func _segment_distance(point: Vector2, a: Vector2, b: Vector2) -> float:
 # moitié jaune (rouge du côté du soleil, en haut à gauche).
 static func _apple(base: Color, color_index: int) -> Image:
 	var image := _blank()
+	# 0.0.8 (demande de l'utilisateur) : la pomme brune est vieille : pas de feuille (une feuille la faisait jeune).
+	var old := color_index == 3
 	var center := Vector2(SIZE * 0.5, SIZE * 0.57)
 	var radius := Vector2(SIZE * 0.36, SIZE * 0.34)
 	_shadow(image, center + Vector2(2.0, radius.y * 0.85), Vector2(radius.x * 0.95, SIZE * 0.07))
@@ -405,11 +407,14 @@ static func _apple(base: Color, color_index: int) -> Image:
 			m *= 1.0 - 0.35 * maxf(0.0, 1.0 - Vector2(d.x * 2.6, (d.y + 0.82) * 3.2).length())
 			var g := _hash(x, y, 77)
 			if g > 0.965:
-				m += 0.28
+				m += 0.28 if not old else -0.2
+			# 0.0.8 : pomme brune (vieille) : quelques taches plus sombres, peau ridée.
+			if old:
+				m *= 1.0 - 0.3 * smoothstep(0.55, 0.75, _hash(floori(x / 3.0), floori(y / 3.0), 31)) - 0.06 * sin(d.x * 14.0 + d.y * 5.0)
 			var shade := Color(color.r * m, color.g * m, color.b * m)
-			# Reflet brillant.
+			# Reflet brillant (presque mat sur une vieille pomme).
 			var spot := maxf(0.0, 1.0 - Vector2(d.x + 0.38, d.y + 0.38).length() * 4.0)
-			shade = shade.lerp(Color(1, 1, 1), spot * 0.7)
+			shade = shade.lerp(Color(1, 1, 1), spot * (0.15 if old else 0.7))
 			shade.a = clampf((1.0 - r) * radius.y, 0.0, 1.0)
 			image.set_pixel(x, y, shade.clamp())
 	# Queue brune et feuille verte.
@@ -421,7 +426,9 @@ static func _apple(base: Color, color_index: int) -> Image:
 			var at := Vector2(x + 0.5, y + 0.5)
 			var stem := _segment_distance(at, stem_a, stem_b)
 			if stem < 1.6:
-				image.set_pixel(x, y, Color("#4a2e17").lerp(image.get_pixel(x, y), clampf(stem - 0.6, 0.0, 1.0)))
+				image.set_pixel(x, y, Color("#2e1c0e" if old else "#4a2e17").lerp(image.get_pixel(x, y), clampf(stem - 0.6, 0.0, 1.0)))
+				continue
+			if old:
 				continue
 			var local := (at - leaf).rotated(0.5)
 			var e := Vector2(local.x / (SIZE * 0.13), local.y / (SIZE * 0.06)).length()

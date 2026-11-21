@@ -133,6 +133,9 @@ func _ready() -> void:
 	player.position = spawn_position()
 	add_child(player)
 	_apply_saved_player(saved_player)
+	# 0.0.8 (#171) : vie relue (ancien monde : pleine), dégâts de chute.
+	health.load_value(saved_player.get("vie"))
+	player.landed.connect(_on_landed)
 	saved_at = player.position
 	# 0.0.7.2 : inventaire relu (ancien monde : vide, sans erreur), dans le mode de jeu du monde.
 	inventory.mode = game_mode
@@ -259,18 +262,35 @@ const WARM_PER_FRAME := 3
 var warm_pending: Array = []
 
 # Ouverture prête (écran de chargement, app.gd) : shaders préparés, colonnes autour construites, arbres créés.
-func opening_progress() -> float:
+func opening_progress(near_only: bool = false) -> float:
 	# 0.0.7.25 : toute la vue proche construite (mesures Web : 10 à 15 s saccadées juste après l'arrivée quand l'écran se
 	# retirait à 3 × 3 colonnes), arbres, herbe et plantes faits, shaders préparés, lointain fait.
+	# 0.0.7.34 (demande de l'utilisateur : le chargement était long après 81 %) : near_only (PC) : seulement les colonnes à
+	# NEAR_REVEAL_ZONES zones au plus (9 × 9), leurs arbres, herbe et plantes, et les shaders ; le reste se construit en jouant.
 	var built := 0
+	var wanted := 0
 	for column: Vector2i in shown_columns:
+		if near_only and _ring(column) > NEAR_REVEAL_ZONES:
+			continue
+		wanted += 1
 		if built_columns.has(column):
 			built += 1
-	var columns := built / float(maxi(shown_columns.size(), 1))
+	var columns := built / float(maxi(wanted, 1))
 	var warm := 1.0 if warm_pending.is_empty() and warm_left <= 0 else (0.5 if warm_pending.is_empty() else 0.0)
-	var details := 1.0 if tree_queue.is_empty() and detail_queue.is_empty() else 0.5
-	var far := 1.0 if far_queue.is_empty() else 0.5
+	var details_left := tree_queue.size() + detail_queue.size()
+	if near_only:
+		details_left = tree_queue.filter(func(entry): return _ring(entry[0]) <= NEAR_REVEAL_ZONES).size() + detail_queue.filter(func(column): return _ring(column) <= NEAR_REVEAL_ZONES).size()
+	var details := 1.0 if details_left == 0 else 0.5
+	# Le lointain (horizon) prêt avant de montrer le monde ; near_only : quelques pièces de plus arrivent avec chaque colonne
+	# construite (mesuré : 0 à 6), on n'attend pas les dernières.
+	var far := 1.0 if far_queue.size() <= (NEAR_FAR_LEFT if near_only else 0) else 0.5
 	return columns * 0.6 + warm * 0.15 + details * 0.15 + far * 0.1
+
+const NEAR_REVEAL_ZONES := 4
+const NEAR_FAR_LEFT := 8
+
+func _ring(column: Vector2i) -> int:
+	return maxi(absi(column.x - view_center.x), absi(column.y - view_center.y))
 
 func _setup_inputs() -> void:
 	# Touches choisies dans Paramètres → Contrôles (0.0.3.12), appliquées par le menu ;
@@ -353,6 +373,9 @@ var simple_ground := false
 # 0.0.7.24 : ouvert derrière l'écran de chargement (app.gd) : colonnes autour par la file, grand budget de fond.
 var behind_loading := false
 const LOADING_WORK_USEC := 40000
+# 0.0.7.34 (demande de l'utilisateur) : sur PC, deux fois plus de travail par image derrière l'écran de chargement (moins
+# d'images à dessiner pour rien) ; le Web garde 40 ms (barre et page qui répondent).
+const LOADING_WORK_PC_USEC := 80000
 var sun_light: DirectionalLight3D
 
 func set_shadows(quality: String) -> void:
@@ -1113,6 +1136,8 @@ func set_game_mode(new_mode: String) -> void:
 	# 0.0.7.9 : en Survie, on ne vole pas (on retombe si on volait).
 	if new_mode == Inventory.SURVIVAL and is_instance_valid(player):
 		player.flying = false
+		# 0.0.8 : la chute qui suit le passage en Survie (on volait peut-être très haut) ne blesse pas.
+		fall_ignored = game_mode != Inventory.SURVIVAL
 	game_mode = new_mode
 	inventory.set_mode(new_mode)
 
@@ -1134,7 +1159,7 @@ func toggle_inventory() -> void:
 		open_inventory()
 
 func open_inventory() -> void:
-	if inventory_open or not is_instance_valid(inventory_ui):
+	if inventory_open or death_open or not is_instance_valid(inventory_ui):
 		return
 	inventory_open = true
 	player.release_controls()
@@ -3472,10 +3497,14 @@ func _generate_block(cell: Vector3i, kind: int) -> void:
 	generated_by_zone[zone].append(cell)
 
 func player_data() -> Dictionary:
-	return {"format": Store.FORMAT, "position": [player.position.x, player.position.y, player.position.z],
+	# 0.0.8.1 (#205) : enregistré pendant l'écran de mort (on quitte, on met en pause) : déjà réapparu, au départ, vie pleine.
+	var at: Vector3 = spawn_position() if death_open else player.position
+	return {"format": Store.FORMAT, "position": [at.x, at.y, at.z],
 		"regard_horizontal": player.rotation.y, "regard_vertical": player.camera.rotation.x,
 		# 0.0.7.2 : inventaire (Survie et Créatif), barre d'objets et case en main.
-		"inventaire": inventory.to_dict()}
+		"inventaire": inventory.to_dict(),
+		# 0.0.8 (#171) : points de vie (Survie).
+		"vie": Health.MAX if death_open else health.value}
 
 func _read_saved_player() -> Dictionary:
 	if save_folder.is_empty():
@@ -3485,6 +3514,255 @@ func _read_saved_player() -> Dictionary:
 		_notify(saved.error)
 		notice_time = 8.0
 	return saved.get("data", {})
+
+# --- 0.0.8 (#171, #204) : vie en Survie ---
+# Barre en bas à gauche (health_bar.gd), dégâts de chute (player.gd, signal landed), régénération lente (health.gd).
+# Un dégât : le bord de l'écran rougit un court instant, la vue tremble un peu, la barre clignote (pas de sang).
+# Manger : un fruit en main, clic droit maintenu EAT_SECONDS (anneau) ; un clic court le pose comme avant.
+const Health = preload("res://scripts/health.gd")
+const HealthBar = preload("res://scripts/health_bar.gd")
+const HURT_SECONDS := 0.5
+const SHAKE := 0.05
+const EAT_SECONDS := 1.0
+const EAT_TAP := 0.25
+const HURT_SHADER := "shader_type canvas_item;
+uniform float strength = 0.0;
+void fragment() {
+	vec2 d = (UV - 0.5) * vec2(1.0, 0.8);
+	float edge = smoothstep(0.3, 0.75, length(d) * 1.4);
+	COLOR = vec4(0.7, 0.0, 0.0, edge * strength * 0.65);
+}"
+var health := Health.new()
+var health_bar: Control
+var hurt_veil: ColorRect
+var hurt_time := 0.0
+var fall_ignored := false
+var eat_time := -1.0
+
+func survival() -> bool:
+	return game_mode == Inventory.SURVIVAL
+
+func _create_health_hud(layer: CanvasLayer) -> void:
+	hurt_veil = ColorRect.new()
+	hurt_veil.name = "HurtVeil"
+	hurt_veil.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	hurt_veil.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var look := ShaderMaterial.new()
+	look.shader = Shader.new()
+	look.shader.code = HURT_SHADER
+	hurt_veil.material = look
+	hurt_veil.visible = false
+	layer.add_child(hurt_veil)
+	health_bar = HealthBar.new()
+	health_bar.text_scale = text_scale
+	layer.add_child(health_bar)
+	health_bar.value = health.value
+	health_bar.visible = survival()
+
+func _on_landed(height: float, water: float) -> void:
+	if fall_ignored:
+		fall_ignored = false
+		return
+	# Dans l'eau (assez profonde pour ralentir la marche) : rien.
+	if water > PlayerScript.WADE_DEPTH:
+		return
+	hurt(Health.fall_damage(height, ground_kind_under(player.position) == SmoothTerrain.SAND))
+
+# Dégâts en Survie ; rend les points perdus. À 0 : retour au point de départ (0.0.8.1 : écran de mort, #205).
+func hurt(points: int) -> int:
+	if not survival() or points <= 0:
+		return 0
+	var lost := health.damage(points)
+	if lost > 0:
+		hurt_time = HURT_SECONDS
+		inventory_unsaved = true
+		if is_instance_valid(health_bar):
+			health_bar.hurt()
+	if health.dead() and not death_open:
+		_out_of_strength()
+	return lost
+
+# --- 0.0.8.1 (#205, demandes de l'utilisateur) : mort et réapparition ---
+# Vie à 0 : petit écran « À bout de forces… » (rien de gore), la souris libérée, puis « Revenir au départ » : point de
+# départ, vie pleine. Objets portés (mains et poches) : selon le réglage du monde, ils tombent sur place, éparpillés
+# autour (au sol comme des objets jetés, enregistrés dans objets.json, sans limite de temps) ou on les garde.
+var death_items := "drop"
+var death_open := false
+var death_layer: CanvasLayer
+var death_note: Label
+var death_button: Button
+const DEATH_SPREAD := Vector2(0.2, 1.2)
+
+func _out_of_strength() -> void:
+	death_open = true
+	hurt_time = 0.0
+	player.actions.cancel()
+	close_inventory(false)
+	eat_time = -1.0
+	var dropped := 0
+	if death_items != "keep":
+		dropped = drop_all_items(player.global_position)
+	inventory_unsaved = true
+	player.release_controls()
+	_show_death_screen(dropped)
+
+# Tout ce qu'on porte tombe autour de « at », un par un ; rend le nombre d'objets tombés.
+func drop_all_items(at: Vector3) -> int:
+	if not is_instance_valid(ground):
+		return 0
+	var count := 0
+	for index in Inventory.HANDS + Inventory.POCKETS:
+		var taken := inventory.remove("bar", index, true)
+		for unit in Inventory.units(taken):
+			var angle := randf() * TAU
+			var reach := randf_range(DEATH_SPREAD.x, DEATH_SPREAD.y)
+			var near := at + Vector3(cos(angle) * reach, 0.0, sin(angle) * reach)
+			ground.drop(unit, at + Vector3.UP * 1.0, near, _rest_height, 0.1)
+			count += 1
+	return count
+
+func _show_death_screen(dropped: int) -> void:
+	if not is_instance_valid(death_layer):
+		death_layer = CanvasLayer.new()
+		death_layer.name = "DeathScreen"
+		death_layer.layer = 5
+		add_child(death_layer)
+		var veil := ColorRect.new()
+		veil.color = Color(0.05, 0.04, 0.08, 0.72)
+		veil.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+		death_layer.add_child(veil)
+		var box := VBoxContainer.new()
+		box.set_anchors_and_offsets_preset(Control.PRESET_CENTER)
+		box.grow_horizontal = Control.GROW_DIRECTION_BOTH
+		box.grow_vertical = Control.GROW_DIRECTION_BOTH
+		box.alignment = BoxContainer.ALIGNMENT_CENTER
+		box.add_theme_constant_override("separation", roundi(14 * text_scale))
+		death_layer.add_child(box)
+		var title := Label.new()
+		title.text = "À bout de forces…"
+		title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		title.add_theme_font_size_override("font_size", roundi(34 * text_scale))
+		title.add_theme_color_override("font_color", Color(1.0, 0.86, 0.82))
+		box.add_child(title)
+		death_note = Label.new()
+		death_note.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		death_note.add_theme_font_size_override("font_size", roundi(17 * text_scale))
+		box.add_child(death_note)
+		death_button = Button.new()
+		death_button.text = "Revenir au départ"
+		death_button.add_theme_font_size_override("font_size", roundi(20 * text_scale))
+		death_button.custom_minimum_size = Vector2(260, 46) * text_scale
+		death_button.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+		death_button.pressed.connect(respawn)
+		box.add_child(death_button)
+	if death_items == "keep":
+		death_note.text = "Vous gardez vos objets."
+	elif dropped > 0:
+		death_note.text = "Vos objets sont restés là où vous êtes tombé : allez les rechercher."
+	else:
+		death_note.text = "Vous ne portiez rien."
+	death_layer.visible = true
+	death_button.grab_focus()
+
+# Réapparition au point de départ (plus tard : au lit), vie pleine.
+func respawn() -> void:
+	if not death_open:
+		return
+	death_open = false
+	if is_instance_valid(death_layer):
+		death_layer.visible = false
+	health.reset()
+	_go_to_start()
+	inventory_unsaved = true
+	if DisplayServer.get_name() != "headless":
+		Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
+
+func _go_to_start() -> void:
+	player.actions.cancel()
+	player.position = spawn_position()
+	player.velocity = Vector3.ZERO
+	player.airborne = false
+
+# 0.0.8.1 (#188) : Créatif : revenir au point de départ (touche H par défaut, ou bouton de la pause).
+func go_home() -> bool:
+	if game_mode != Inventory.CREATIVE:
+		_notify("En Survie, pas de retour direct au point de départ.")
+		return false
+	_go_to_start()
+	_notify("Retour au point de départ.")
+	return true
+
+func _update_health(delta: float) -> void:
+	var on := survival()
+	if on:
+		health.step(delta)
+	if is_instance_valid(health_bar):
+		health_bar.visible = on
+		health_bar.value = health.value
+	if hurt_time <= 0.0 and not is_instance_valid(hurt_veil):
+		return
+	hurt_time = maxf(0.0, hurt_time - delta) if on else 0.0
+	var k := hurt_time / HURT_SECONDS
+	if is_instance_valid(hurt_veil):
+		hurt_veil.visible = k > 0.0
+		(hurt_veil.material as ShaderMaterial).set_shader_parameter("strength", k)
+	var camera := get_viewport().get_camera_3d() if is_inside_tree() else null
+	if is_instance_valid(camera):
+		camera.h_offset = randf_range(-1.0, 1.0) * SHAKE * k
+		camera.v_offset = randf_range(-1.0, 1.0) * SHAKE * k
+
+# Manger (#204) : seulement en Survie, un fruit en main, pinceau « Poser ».
+func can_eat() -> bool:
+	return survival() and player.brush == 0 and Health.food_points(inventory.held()) > 0
+
+# Clic droit appuyé : rend vrai s'il commence à manger (la pose attend le relâchement).
+func eat_press() -> bool:
+	if not can_eat():
+		return false
+	eat_time = 0.0
+	return true
+
+# Clic droit relâché : un clic court pose le fruit (comme avant 0.0.8).
+func eat_release(hit: Dictionary) -> void:
+	if eat_time < 0.0:
+		return
+	var quick := eat_time < EAT_TAP
+	eat_time = -1.0
+	if quick:
+		put_down_held(hit)
+
+func step_eat(delta: float, holding: bool) -> bool:
+	if eat_time < 0.0:
+		return false
+	if not holding or not can_eat():
+		eat_time = -1.0
+		return false
+	eat_time += delta
+	if eat_time < EAT_TAP:
+		return false
+	if health.full():
+		_notify("Vie pleine : pas besoin de manger.")
+		return false
+	show_ring((eat_time - EAT_TAP) / (EAT_SECONDS - EAT_TAP))
+	if eat_time < EAT_SECONDS:
+		return false
+	eat_held()
+	# Un fruit à la fois : relâcher pour le suivant.
+	eat_time = -1.0
+	return true
+
+# Mange le fruit en main ; rend les points regagnés.
+func eat_held() -> int:
+	if Health.food_points(inventory.held()) <= 0:
+		return 0
+	var eaten := inventory.pop_held()
+	var points := Health.food_points(eaten)
+	var gained := health.heal(points)
+	var old: bool = eaten.get("objet") == "pomme" and int(eaten.get("couleur", 1)) == Health.BROWN
+	var what: String = "Vieille pomme" if old else str(Inventory.ITEMS.get(eaten.get("objet", ""), {}).get("nom", "Fruit"))
+	_notify("%s mangée : +%d de vie." % [what, gained])
+	inventory_unsaved = true
+	return gained
 
 func _apply_saved_player(data: Dictionary) -> void:
 	if data.is_empty():
@@ -4011,6 +4289,7 @@ func _create_hud() -> void:
 	coordinates_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	coordinates_label.visible = false
 	layer.add_child(coordinates_label)
+	_create_health_hud(layer)
 
 func set_coordinates_visible(on: bool) -> void:
 	coordinates_label.visible = on
@@ -4074,6 +4353,7 @@ func _process(delta: float) -> void:
 		return
 	_update_fps(delta)
 	_update_ring()
+	_update_health(delta)
 	if not sliding_trees.is_empty():
 		_update_slides(delta)
 	_update_collisions()
@@ -4125,7 +4405,7 @@ const SLOW_WORK_MAX_WEB_USEC := 15000
 
 func work_budget() -> int:
 	if behind_loading:
-		return LOADING_WORK_USEC
+		return LOADING_WORK_USEC if is_compat() else LOADING_WORK_PC_USEC
 	if opening_columns:
 		return WORK_MAX_USEC
 	var fps: int = Engine.max_fps if Engine.max_fps > 0 else 144
@@ -4164,6 +4444,21 @@ func _process_background_work() -> void:
 	if not terrain_queue.is_empty():
 		var first: Vector2i = terrain_queue[0]
 		var ring := maxi(absi(first.x - view_center.x), absi(first.y - view_center.y))
+		# 0.0.7.34 : derrière l'écran de chargement sur PC, les colonnes proches (9 × 9) d'abord, presque tout le budget ;
+		# leurs arbres, herbe et plantes avec le reste ; le lointain ensuite (avant : partagé, 22 colonnes par seconde).
+		if behind_loading and not is_compat() and ring <= NEAR_REVEAL_ZONES:
+			_process_terrain_queue(budget * 7 / 8)
+			_process_tree_queue(maxi(start + budget * 15 / 16 - Time.get_ticks_usec(), 300))
+			_process_detail_queue(maxi(start + budget - Time.get_ticks_usec(), 300))
+			if perf_on:
+				_perf("terrain_file", at)
+			return
+		# Colonnes proches faites : leurs détails et l'horizon avant les colonnes plus loin (faites en jouant).
+		if behind_loading and not is_compat():
+			_process_tree_queue(maxi(budget / 4, 300))
+			_process_detail_queue(maxi(start + budget * 5 / 8 - Time.get_ticks_usec(), 300))
+			_process_far_queue(maxi(start + budget - Time.get_ticks_usec(), FAR_MIN_USEC))
+			return
 		if ring <= 2:
 			# Juste à côté du joueur : trois quarts du budget pour le terrain, le reste pour le lointain (0.0.7.24 : avant,
 			# tout pour le terrain ; en vol rapide, il y a toujours une colonne proche en attente, le lointain n'avançait
@@ -4199,6 +4494,7 @@ func _process_measured(delta: float) -> void:
 	var at := Time.get_ticks_usec()
 	_update_fps(delta)
 	_update_ring()
+	_update_health(delta)
 	if not sliding_trees.is_empty():
 		_update_slides(delta)
 	_perf("hud", at)

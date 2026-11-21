@@ -410,14 +410,47 @@ func _build_world_section(parent: Node) -> void:
 		button.button_group = group
 		_min_size(button, Vector2(52, 0))
 		game_mode_buttons[game_mode] = button
-	_explanation(box, ["", "Propre à ce monde.", "Propre à ce monde, enregistré avec lui."])
+	# 0.0.8.1 (#205, demande de l'utilisateur) : objets à la mort (Survie), propre à ce monde.
+	var death_row := HBoxContainer.new()
+	_sep(death_row, 10)
+	box.add_child(death_row)
+	var death_label := _text_label()
+	death_label.text = "Objets à la mort"
+	death_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	death_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	death_row.add_child(death_label)
+	var death_group := ButtonGroup.new()
+	for choice in Catalog.DEATH_ITEMS:
+		var button := _button(Catalog.DEATH_ITEMS[choice], death_row, func(): set_world_death_items(choice))
+		button.theme_type_variation = "OrbTab"
+		button.toggle_mode = true
+		button.button_group = death_group
+		_min_size(button, Vector2(52, 0))
+		death_items_buttons[choice] = button
+	_explanation(box, ["", "Propre à ce monde.", "Propre à ce monde, enregistré avec lui. Objets à la mort (Survie) : ils tombent sur place, à récupérer (ils restent au sol), ou on les garde."])
 	box.get_child(-1).theme_type_variation = "OrbNote"
+
+var death_items_buttons: Dictionary = {}
 
 func _refresh_world_section() -> void:
 	var item: Dictionary = catalog.find_world(current_world_id)
 	var current: String = item.get("game_mode", Catalog.GAME_CREATIVE)
 	for game_mode in game_mode_buttons:
 		game_mode_buttons[game_mode].set_pressed_no_signal(game_mode == current)
+	var death: String = item.get("death_items", Catalog.DEATH_DROP)
+	for choice in death_items_buttons:
+		death_items_buttons[choice].set_pressed_no_signal(choice == death)
+
+func set_world_death_items(choice: String) -> void:
+	if current_world_id.is_empty():
+		return
+	if catalog.set_death_items(current_world_id, choice):
+		settings_message.text = "Objets à la mort : %s." % Catalog.DEATH_ITEMS[choice].to_lower()
+		if is_instance_valid(active_world):
+			active_world.death_items = choice
+	else:
+		settings_message.text = catalog.last_error
+	_refresh_world_section()
 
 func set_world_game_mode(game_mode: String) -> void:
 	if current_world_id.is_empty():

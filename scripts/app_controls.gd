@@ -15,6 +15,10 @@ func _build_controls_section(parent: Node) -> void:
 	box.add_child(top)
 	controls_reset_all_button = _button("↻ Tout réinitialiser", top, reset_all_controls)
 	controls_reset_all_button.tooltip_text = "Rétablir toutes les touches par défaut"
+	# 0.0.7.35 (demande de l'utilisateur) : Souris tout en haut (sensibilité, vitesse de défilement).
+	for category in GENERAL_CATEGORIES.controls:
+		# Construite par app_settings.gd (script qui hérite de celui-ci).
+		call("_add_setting_category", box, category, GENERAL_CATEGORIES.controls[category])
 	_build_controls_search(box)
 	var inset := PanelContainer.new()
 	inset.theme_type_variation = "OrbInsetDeep"

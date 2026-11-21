@@ -1,7 +1,25 @@
 ORBMEKA — HISTORIQUE DES VERSIONS
 Du plus récent au plus ancien. Ce fichier est mis à jour à chaque version.
 
+=== Thème « Fabrication et survie » (0.0.8) ===
+
+0.0.8.1 — À bout de forces en Survie : petit écran puis retour au point de départ, objets tombés sur place et gardés au sol (ou gardés sur soi, au choix du monde, à la création, dans Paramètres → Monde, défaut dans Paramètres → Survie), et en Créatif retour au départ avec H ou depuis la pause
+Génération du terrain : version 33 · Menus : version 10.
+Demandes de l'utilisateur (#205, #188). Réglage enregistré dans worlds.json et monde.json (« objets_a_la_mort »).
+
+0.0.8 —Vie en Survie : barre de 100 points en bas à gauche, dégâts de chute au-delà de 4 m (moins sur le sable, rien dans l'eau), vie qui revient lentement, pommes et noisettes à manger (clic droit maintenu), et pomme brune vieillie sans feuille
+Génération du terrain : version 33 · Menus : version 10.
+Demandes de l'utilisateur (#171, #204). Vie enregistrée dans joueur.json ; à 0 pour l'instant, retour au départ (écran de mort en 0.0.8.1).
+
 === Thème « Gameplay et inventaire » (0.0.7) ===
+
+0.0.7.35 — Souris tout en haut de Contrôles : sensibilité de la vue (avant dans Paramètres généraux) et nouvelle vitesse de défilement de la molette (25 à 300 %)
+Génération du terrain : version 33 · Menus : version 10.
+Demande de l'utilisateur. Valeurs gardées dans parametres-generaux.json (rien à déplacer).
+
+0.0.7.34 — Monde ouvert en 4 s au lieu de 7,5 sur PC (montré dès que les 9 × 9 colonnes autour sont prêtes, le reste se construit en jouant), et sur le Web le clic dans le jeu lui donne le clavier (itch.io), avec « Cliquez dans le jeu » et la pause quand la souris est libérée
+Génération du terrain : version 33 · Menus : version 10.
+Demandes de l'utilisateur : chargement long après 81 % ; sur itch.io, une personne avait la souris mais aucune touche (même pas Échap).
 
 0.0.7.33 — Le sol d'origine ne glisse plus en chaîne au bord d'un précipice (seul ce qui est posé ou déplacé glisse ; sans rien dessous, tout tombe encore), et une chute refait ses zones ensemble, sans ramer
 Génération du terrain : version 33 · Menus : version 10.
