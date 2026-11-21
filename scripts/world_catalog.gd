@@ -17,6 +17,11 @@ const MODE_NAMES := {MODE_DEFAULT: "Par défaut", MODE_DEVELOPER: "Mode dévelop
 const GAME_SURVIVAL := "survival"
 const GAME_CREATIVE := "creative"
 const GAME_MODES := {GAME_SURVIVAL: "Survie", GAME_CREATIVE: "Créatif"}
+# 0.0.8.1 (#205, demande de l'utilisateur) : objets à la mort, propre à chaque monde (Survie) : ils tombent sur place
+# (par défaut, à récupérer, gardés pour toujours) ou on les garde. Choisi à la création, modifiable dans Paramètres → Monde.
+const DEATH_DROP := "drop"
+const DEATH_KEEP := "keep"
+const DEATH_ITEMS := {DEATH_DROP: "Tombent sur place", DEATH_KEEP: "Gardés"}
 var worlds: Array[Dictionary] = []
 var last_error := ""
 var load_error := ""
@@ -187,6 +192,7 @@ func _load_worlds() -> void:
 		var used: bool = item.get("developer_used", mode == MODE_DEVELOPER) == true or mode == MODE_DEVELOPER
 		var entry := {"id": item.id, "name": clean_name, "seed": int(seed_value), "mode": mode, "developer_used": used, "created": str(item.get("created", "")), "generation": Generation.normalized(item.get("generation", {}))}
 		entry.game_mode = item.get("game_mode") if GAME_MODES.has(item.get("game_mode")) else GAME_CREATIVE
+		entry.death_items = item.get("death_items") if DEATH_ITEMS.has(item.get("death_items")) else DEATH_DROP
 		# 0.0.5.20 : dossier au nom du monde, refusé s'il n'est pas propre (jamais de chemin dangereux).
 		if item.has("folder"):
 			if not item.folder is String or not Store.valid_folder_name(item.folder):
@@ -360,6 +366,29 @@ func set_game_mode(id: String, game_mode: String) -> bool:
 			worlds[index]["game_mode"] = game_mode
 			if not _save_worlds():
 				worlds[index]["game_mode"] = before
+				return false
+			_write_base_for(id)
+			return true
+	last_error = "Ce monde n'existe plus."
+	return false
+
+# 0.0.8.1 (#205) : objets à la mort du monde (DEATH_ITEMS), enregistré dans worlds.json et monde.json.
+func set_death_items(id: String, value: String) -> bool:
+	last_error = ""
+	if not load_error.is_empty():
+		last_error = load_error
+		return false
+	if not DEATH_ITEMS.has(value):
+		last_error = "Choix inconnu."
+		return false
+	for index in range(worlds.size()):
+		if worlds[index].id == id:
+			var before: String = worlds[index].get("death_items", DEATH_DROP)
+			if before == value:
+				return true
+			worlds[index]["death_items"] = value
+			if not _save_worlds():
+				worlds[index]["death_items"] = before
 				return false
 			_write_base_for(id)
 			return true

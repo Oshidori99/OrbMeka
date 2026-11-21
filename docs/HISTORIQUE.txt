@@ -3,7 +3,11 @@ Du plus récent au plus ancien. Ce fichier est mis à jour à chaque version.
 
 === Thème « Fabrication et survie » (0.0.8) ===
 
-0.0.8 — Vie en Survie : barre de 100 points en bas à gauche, dégâts de chute au-delà de 4 m (moins sur le sable, rien dans l'eau), vie qui revient lentement, pommes et noisettes à manger (clic droit maintenu), et pomme brune vieillie sans feuille
+0.0.8.1 — À bout de forces en Survie : petit écran puis retour au point de départ, objets tombés sur place et gardés au sol (ou gardés sur soi, au choix du monde, à la création, dans Paramètres → Monde, défaut dans Paramètres → Survie), et en Créatif retour au départ avec H ou depuis la pause
+Génération du terrain : version 33 · Menus : version 10.
+Demandes de l'utilisateur (#205, #188). Réglage enregistré dans worlds.json et monde.json (« objets_a_la_mort »).
+
+0.0.8 —Vie en Survie : barre de 100 points en bas à gauche, dégâts de chute au-delà de 4 m (moins sur le sable, rien dans l'eau), vie qui revient lentement, pommes et noisettes à manger (clic droit maintenu), et pomme brune vieillie sans feuille
 Génération du terrain : version 33 · Menus : version 10.
 Demandes de l'utilisateur (#171, #204). Vie enregistrée dans joueur.json ; à 0 pour l'instant, retour au départ (écran de mort en 0.0.8.1).
 

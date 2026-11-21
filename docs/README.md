@@ -1,9 +1,19 @@
-# OrbMeka™ — prototype 0.0.8
+# OrbMeka™ — prototype 0.0.8.1
 
 Godot 4.7 / GDScript. Formes et couleurs simples ; assets externes seulement sous licence vérifiée (sons CC0, assets/sounds/CREDITS.txt).
 
+## 0.0.8.1 — À bout de forces en Survie : petit écran puis retour au point de départ, objets tombés sur place et gardés au sol (ou gardés sur soi, au choix du monde, à la création, dans Paramètres → Monde, défaut dans Paramètres → Survie), et en Créatif retour au départ avec H ou depuis la pause
+Version publiée (4 sur 4, avec 0.0.7.34, 0.0.7.35 et 0.0.8). Génération inchangée (version 33). Demandes de l'utilisateur (#205, #188).
+- **Vie à 0** (Survie) : écran « À bout de forces… » (rien de gore), souris libérée, bouton **Revenir au départ** : point de départ, vie pleine. Échap et l'inventaire ne font rien pendant cet écran. Quitter pendant l'écran : on revient au départ, vie pleine.
+- **Objets à la mort**, propre à chaque monde : **Tombent sur place** (par défaut) : tout ce qu'on porte (mains et poches) tombe, éparpillé autour (jusqu'à 1,2 m), et reste au sol (objets.json), à récupérer ; ou **Gardés**. Choisi à la création du monde, modifiable en partie dans Paramètres → Monde ; le choix proposé à la création se règle dans Paramètres généraux → Survie.
+- **Créatif** : **Revenir au point de départ** avec la touche **H** (modifiable, Contrôles → Raccourcis) ou le bouton de la pause (Créatif seulement). En Survie : l'orbe de retour viendra en 0.0.8.2 (#231).
+- Rappel : au-delà de 3000 objets posés dans un monde, les plus anciens disparaissent (limite d'avant, ground_items.gd).
+
+Tests réussis : death (21, nouveau), health (28), game_mode, inventory_more, controls, controls_groups, key_combos, shortcuts_selection, settings_files, pause, pause_settings, menu, interface_info, world_management, world_save, custom_world_menu, world_mode, folds, mouse_settings (+ tests juridiques). Captures hors écran : écran de mort, page de création.
+À tester : mourir d'une vraie chute, ramasser ses objets tombés, la touche H en Créatif, le choix dans Paramètres → Monde.
+
 ## 0.0.8 — Vie en Survie : barre de 100 points en bas à gauche, dégâts de chute au-delà de 4 m (moins sur le sable, rien dans l'eau), vie qui revient lentement, pommes et noisettes à manger (clic droit maintenu), et pomme brune vieillie sans feuille
-Version locale (3 sur 4). Génération inchangée (version 33). Première version de la série 0.0.8 — Fabrication et survie (#171, #204). Demandes de l'utilisateur.
+Version locale (3 sur 4), publiée avec 0.0.8.1. Génération inchangée (version 33). Première version de la série 0.0.8 — Fabrication et survie (#171, #204). Demandes de l'utilisateur.
 - **Vie** (Survie seulement, rien en Créatif) : 100 points. **Barre** fine en bas à gauche : contour blanc, rouge vif à gauche, plus clair et transparent vers la droite, le nombre écrit en blanc (100, 95…).
 - **Chute** : rien jusqu'à 4 m, puis 8 points par mètre (5 m : −8, 8 m : −32, 12 m : −64, vers 16,5 m : tout) ; 75 % sur le sable ; rien en tombant dans l'eau. La première chute après le passage en Survie ne blesse pas.
 - **Dégât** : bord de l'écran rouge un court instant, vue qui tremble un peu, barre qui clignote (pas de sang).

@@ -110,7 +110,9 @@ func _run() -> void:
 	# À 0 : retour au point de départ, vie pleine.
 	world.player.position = Vector3(20.0, world.player.position.y + 5.0, 20.0)
 	world.hurt(500)
-	check(world.health.value == 100 and world.player.position.distance_to(world.spawn_position()) < 0.01, "at 0: back to the start, full life")
+	check(world.death_open, "at 0: the death screen opens (0.0.8.1)")
+	world.respawn()
+	check(world.health.value == 100 and world.player.position.distance_to(world.spawn_position()) < 0.01, "back to the start, full life")
 	# Enregistrée.
 	world.hurt(12)
 	check(world.player_data().get("vie") == 88, "life saved in joueur.json")

@@ -1159,7 +1159,7 @@ func toggle_inventory() -> void:
 		open_inventory()
 
 func open_inventory() -> void:
-	if inventory_open or not is_instance_valid(inventory_ui):
+	if inventory_open or death_open or not is_instance_valid(inventory_ui):
 		return
 	inventory_open = true
 	player.release_controls()
@@ -3497,12 +3497,14 @@ func _generate_block(cell: Vector3i, kind: int) -> void:
 	generated_by_zone[zone].append(cell)
 
 func player_data() -> Dictionary:
-	return {"format": Store.FORMAT, "position": [player.position.x, player.position.y, player.position.z],
+	# 0.0.8.1 (#205) : enregistré pendant l'écran de mort (on quitte, on met en pause) : déjà réapparu, au départ, vie pleine.
+	var at: Vector3 = spawn_position() if death_open else player.position
+	return {"format": Store.FORMAT, "position": [at.x, at.y, at.z],
 		"regard_horizontal": player.rotation.y, "regard_vertical": player.camera.rotation.x,
 		# 0.0.7.2 : inventaire (Survie et Créatif), barre d'objets et case en main.
 		"inventaire": inventory.to_dict(),
 		# 0.0.8 (#171) : points de vie (Survie).
-		"vie": health.value}
+		"vie": Health.MAX if death_open else health.value}
 
 func _read_saved_player() -> Dictionary:
 	if save_folder.is_empty():
@@ -3576,18 +3578,119 @@ func hurt(points: int) -> int:
 		inventory_unsaved = true
 		if is_instance_valid(health_bar):
 			health_bar.hurt()
-	if health.dead():
+	if health.dead() and not death_open:
 		_out_of_strength()
 	return lost
 
+# --- 0.0.8.1 (#205, demandes de l'utilisateur) : mort et réapparition ---
+# Vie à 0 : petit écran « À bout de forces… » (rien de gore), la souris libérée, puis « Revenir au départ » : point de
+# départ, vie pleine. Objets portés (mains et poches) : selon le réglage du monde, ils tombent sur place, éparpillés
+# autour (au sol comme des objets jetés, enregistrés dans objets.json, sans limite de temps) ou on les garde.
+var death_items := "drop"
+var death_open := false
+var death_layer: CanvasLayer
+var death_note: Label
+var death_button: Button
+const DEATH_SPREAD := Vector2(0.2, 1.2)
+
 func _out_of_strength() -> void:
+	death_open = true
+	hurt_time = 0.0
+	player.actions.cancel()
+	close_inventory(false)
+	eat_time = -1.0
+	var dropped := 0
+	if death_items != "keep":
+		dropped = drop_all_items(player.global_position)
+	inventory_unsaved = true
+	player.release_controls()
+	_show_death_screen(dropped)
+
+# Tout ce qu'on porte tombe autour de « at », un par un ; rend le nombre d'objets tombés.
+func drop_all_items(at: Vector3) -> int:
+	if not is_instance_valid(ground):
+		return 0
+	var count := 0
+	for index in Inventory.HANDS + Inventory.POCKETS:
+		var taken := inventory.remove("bar", index, true)
+		for unit in Inventory.units(taken):
+			var angle := randf() * TAU
+			var reach := randf_range(DEATH_SPREAD.x, DEATH_SPREAD.y)
+			var near := at + Vector3(cos(angle) * reach, 0.0, sin(angle) * reach)
+			ground.drop(unit, at + Vector3.UP * 1.0, near, _rest_height, 0.1)
+			count += 1
+	return count
+
+func _show_death_screen(dropped: int) -> void:
+	if not is_instance_valid(death_layer):
+		death_layer = CanvasLayer.new()
+		death_layer.name = "DeathScreen"
+		death_layer.layer = 5
+		add_child(death_layer)
+		var veil := ColorRect.new()
+		veil.color = Color(0.05, 0.04, 0.08, 0.72)
+		veil.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+		death_layer.add_child(veil)
+		var box := VBoxContainer.new()
+		box.set_anchors_and_offsets_preset(Control.PRESET_CENTER)
+		box.grow_horizontal = Control.GROW_DIRECTION_BOTH
+		box.grow_vertical = Control.GROW_DIRECTION_BOTH
+		box.alignment = BoxContainer.ALIGNMENT_CENTER
+		box.add_theme_constant_override("separation", roundi(14 * text_scale))
+		death_layer.add_child(box)
+		var title := Label.new()
+		title.text = "À bout de forces…"
+		title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		title.add_theme_font_size_override("font_size", roundi(34 * text_scale))
+		title.add_theme_color_override("font_color", Color(1.0, 0.86, 0.82))
+		box.add_child(title)
+		death_note = Label.new()
+		death_note.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		death_note.add_theme_font_size_override("font_size", roundi(17 * text_scale))
+		box.add_child(death_note)
+		death_button = Button.new()
+		death_button.text = "Revenir au départ"
+		death_button.add_theme_font_size_override("font_size", roundi(20 * text_scale))
+		death_button.custom_minimum_size = Vector2(260, 46) * text_scale
+		death_button.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+		death_button.pressed.connect(respawn)
+		box.add_child(death_button)
+	if death_items == "keep":
+		death_note.text = "Vous gardez vos objets."
+	elif dropped > 0:
+		death_note.text = "Vos objets sont restés là où vous êtes tombé : allez les rechercher."
+	else:
+		death_note.text = "Vous ne portiez rien."
+	death_layer.visible = true
+	death_button.grab_focus()
+
+# Réapparition au point de départ (plus tard : au lit), vie pleine.
+func respawn() -> void:
+	if not death_open:
+		return
+	death_open = false
+	if is_instance_valid(death_layer):
+		death_layer.visible = false
 	health.reset()
+	_go_to_start()
+	inventory_unsaved = true
+	if DisplayServer.get_name() != "headless":
+		Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
+
+func _go_to_start() -> void:
 	player.actions.cancel()
 	player.position = spawn_position()
 	player.velocity = Vector3.ZERO
 	player.airborne = false
-	_notify("À bout de forces : retour au point de départ.")
-	notice_time = 4.0
+
+# 0.0.8.1 (#188) : Créatif : revenir au point de départ (touche H par défaut, ou bouton de la pause).
+func go_home() -> bool:
+	if game_mode != Inventory.CREATIVE:
+		_notify("En Survie, pas de retour direct au point de départ.")
+		return false
+	_go_to_start()
+	_notify("Retour au point de départ.")
+	return true
 
 func _update_health(delta: float) -> void:
 	var on := survival()

@@ -72,6 +72,8 @@ const ACTIONS := {
 	"worlds_menu": {"label": "Retour aux mondes", "default": {"key": KEY_F1}, "fixed": []},
 	"world_info_page": {"label": "Informations du monde", "default": {"key": KEY_F3}, "fixed": []},
 	"change_view": {"label": "Changer de vue", "default": {"key": KEY_F4}, "fixed": []},
+	# 0.0.8.1 (#188) : en Créatif, revenir au point de départ (en Survie : l'orbe de retour, #231).
+	"go_home": {"label": "Revenir au point de départ (Créatif)", "default": {"key": KEY_H}, "by_letter": true, "fixed": []},
 }
 # Choix des Contrôles (0.0.3.18), enregistrés dans controles.json avec les touches.
 # Se baisser : Maintenir = rester appuyé ; Basculer = un appui pour se baisser, un autre pour se relever.
@@ -510,7 +512,7 @@ const GROUPS := {
 	"Inventaire": ["inventory", "block_previous", "block_next", "pick_up", "gather", "throw", "delete_item", "show_details"],
 	"Vitesses": ["speed_up", "speed_down", "walk_up", "walk_down", "run_up", "run_down", "break_up", "break_down", "place_up", "place_down"],
 	"Vitesses — réinitialiser": ["move_reset", "walk_reset", "run_reset", "break_reset", "place_reset", "speed_reset_all"],
-	"Raccourcis": ["worlds_menu", "world_info_page", "change_view"],
+	"Raccourcis": ["worlds_menu", "world_info_page", "change_view", "go_home"],
 }
 # Dernière partie, Menus : touche réservée (Échap), montrée sans pouvoir la changer.
 const MENU_KEYS := [["Pause", "Échap"]]

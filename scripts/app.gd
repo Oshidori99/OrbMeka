@@ -399,6 +399,21 @@ Nom, graine, mode, constructions et position sauvegardés." % Catalog.MAX_NAME_L
 		game_button.button_group = game_group
 		game_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		create_game_buttons[game_mode] = game_button
+	# 0.0.8.1 (#205) : objets à la mort (Survie) : le défaut de Paramètres → Survie, modifiable ensuite dans le monde.
+	var death_row := HBoxContainer.new()
+	_sep(death_row, 10)
+	form.add_child(death_row)
+	var death_label := _text_label()
+	death_label.text = "Objets à la mort"
+	death_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	death_row.add_child(death_label)
+	var death_group := ButtonGroup.new()
+	for choice in Catalog.DEATH_ITEMS:
+		var death_button := _button(Catalog.DEATH_ITEMS[choice], death_row, func(): set_create_death_items(choice))
+		death_button.theme_type_variation = "OrbTab"
+		death_button.toggle_mode = true
+		death_button.button_group = death_group
+		create_death_buttons[choice] = death_button
 	# Deux boutons exclusifs : Par défaut à gauche, Mode développeur à droite.
 	var mode_row := HBoxContainer.new()
 	_sep(mode_row, 10)
@@ -513,6 +528,8 @@ La graine et le terrain initial sont conservés." % Catalog.MAX_NAME_LENGTH])
 	# 0.0.3.9 : Paramètres aussi en pause, juste sous Reprendre (sans Attributs dans un monde par défaut).
 	pause_settings_button = _button("Paramètres", pause_page, open_pause_settings)
 	info_button = _button("Informations du monde", pause_page, open_world_info)
+	# 0.0.8.1 (#188) : en Créatif seulement, revenir au point de départ (aussi : touche H par défaut).
+	home_button = _button("Revenir au point de départ", pause_page, go_home_from_pause)
 	_button("Retour aux mondes", pause_page, return_to_worlds)
 	# 0.0.5.11 : plus de page Comment jouer (demande de l'utilisateur) : pause, Paramètres, Informations.
 	var info_page := _page(stack, "Informations du monde")
@@ -651,6 +668,7 @@ func show_page(next_page: String) -> void:
 			custom_generation = {}
 			set_create_mode(Catalog.MODE_DEFAULT)
 			set_create_game_mode(Catalog.GAME_SURVIVAL)
+			set_create_death_items(settings.values.get("death_items", Catalog.DEATH_DROP))
 		name_field.placeholder_text = catalog.next_auto_name() + " (nom automatique)"
 		form_error.text = ""
 		custom_status.text = "Génération standard" if custom_generation.is_empty() else "Génération personnalisée enregistrée pour ce monde"
@@ -674,6 +692,7 @@ func show_page(next_page: String) -> void:
 	elif page == "rename":
 		rename_field.grab_focus()
 	elif page == "pause":
+		home_button.visible = is_instance_valid(active_world) and active_world.game_mode == Catalog.GAME_CREATIVE
 		resume_button.grab_focus()
 	elif page == "world_info":
 		info_back_button.grab_focus()
@@ -841,6 +860,11 @@ func set_create_game_mode(game_mode: String) -> void:
 	for each in create_game_buttons:
 		create_game_buttons[each].set_pressed_no_signal(each == create_game_mode)
 
+func set_create_death_items(choice: String) -> void:
+	create_death_items = choice if Catalog.DEATH_ITEMS.has(choice) else Catalog.DEATH_DROP
+	for each in create_death_buttons:
+		create_death_buttons[each].set_pressed_no_signal(each == create_death_items)
+
 func set_create_mode(mode: String) -> void:
 	create_mode = mode
 	create_default_button.set_pressed_no_signal(mode == Catalog.MODE_DEFAULT)
@@ -966,6 +990,7 @@ func create_named_world() -> void:
 		return
 	# 0.0.7.29 : le mode de jeu choisi (Survie par défaut).
 	catalog.set_game_mode(item.id, create_game_mode)
+	catalog.set_death_items(item.id, create_death_items)
 	if not folder.is_empty() and shelves_on():
 		shelves.put_in_folder(item.id, folder)
 	open_world_loading(item.id)
@@ -1037,6 +1062,8 @@ func open_world(id: String, prepared: RefCounted = null, behind_loading := false
 	active_world.world_mode_text = Catalog.MODE_NAMES[Catalog.MODE_DEVELOPER if developer else Catalog.MODE_DEFAULT]
 	# 0.0.7.2 : mode de jeu du monde (Paramètres → Monde) : inventaire de Survie ou de Créatif.
 	active_world.game_mode = item.get("game_mode", Catalog.GAME_CREATIVE)
+	# 0.0.8.1 (#205) : objets à la mort de ce monde.
+	active_world.death_items = item.get("death_items", Catalog.DEATH_DROP)
 	active_world.prepared_terrain = prepared
 	active_world.behind_loading = behind_loading
 	add_child(active_world)
@@ -1181,7 +1208,7 @@ func quit_game() -> void:
 # 0.0.7.34 : en jeu, souris pas capturée (inventaire fermé) : message « Cliquez dans le jeu ». Sur le Web, Échap est pris
 # par le navigateur pour libérer la souris (le jeu ne le reçoit pas) : la souris libérée ouvre la pause, comme Échap.
 func _watch_capture() -> void:
-	var playing: bool = page == "playing" and is_instance_valid(active_world) and not active_world.inventory_open
+	var playing: bool = page == "playing" and is_instance_valid(active_world) and not active_world.inventory_open and not active_world.death_open
 	var captured: bool = Input.mouse_mode == Input.MOUSE_MODE_CAPTURED
 	if is_instance_valid(click_hint):
 		click_hint.visible = playing and not captured and DisplayServer.get_name() != "headless"
@@ -1285,6 +1312,12 @@ func resume_game() -> void:
 	shortcut_hints.show()
 	active_world.player.resume_controls()
 
+func go_home_from_pause() -> void:
+	if not is_instance_valid(active_world):
+		return
+	resume_game()
+	active_world.go_home()
+
 func _unhandled_key_input(event: InputEvent) -> void:
 	if not event.is_pressed() or event.is_echo():
 		return
@@ -1302,6 +1335,9 @@ func _menu_shortcut(event: InputEvent) -> void:
 	# 0.0.7.2 : Inventaire (O + I par défaut) : ouvre ou ferme l'inventaire pendant la partie.
 	if page == "playing" and is_instance_valid(active_world) and event.is_action_pressed("inventory"):
 		active_world.toggle_inventory()
+		get_viewport().set_input_as_handled()
+	elif page == "playing" and is_instance_valid(active_world) and not active_world.inventory_open and event.is_action_pressed("go_home"):
+		active_world.go_home()
 		get_viewport().set_input_as_handled()
 	elif page in in_game_pages and event.is_action_pressed("worlds_menu"):
 		return_to_worlds()
@@ -1361,6 +1397,9 @@ func _scroll_by(scroll: ScrollContainer, event: InputEventMouseButton) -> bool:
 func _cancel_page() -> void:
 	# 0.0.7.23 : pendant le chargement d'un monde, Échap ne fait rien.
 	if page == "loading":
+		return
+	# 0.0.8.1 (#205) : écran de mort : Échap ne fait rien (bouton « Revenir au départ »).
+	if page == "playing" and is_instance_valid(active_world) and active_world.death_open:
 		return
 	# 0.0.7.2 : Échap ferme d'abord l'inventaire ouvert (retour au jeu), sans mettre en pause.
 	if page == "playing" and is_instance_valid(active_world) and active_world.inventory_open:
