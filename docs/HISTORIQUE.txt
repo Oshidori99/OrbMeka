@@ -3,6 +3,10 @@ Du plus récent au plus ancien. Ce fichier est mis à jour à chaque version.
 
 === Thème « Gameplay et inventaire » (0.0.7) ===
 
+0.0.7.34 — Monde ouvert en 4 s au lieu de 7,5 sur PC (montré dès que les 9 × 9 colonnes autour sont prêtes, le reste se construit en jouant), et sur le Web le clic dans le jeu lui donne le clavier (itch.io), avec « Cliquez dans le jeu » et la pause quand la souris est libérée
+Génération du terrain : version 33 · Menus : version 10.
+Demandes de l'utilisateur : chargement long après 81 % ; sur itch.io, une personne avait la souris mais aucune touche (même pas Échap).
+
 0.0.7.33 — Le sol d'origine ne glisse plus en chaîne au bord d'un précipice (seul ce qui est posé ou déplacé glisse ; sans rien dessous, tout tombe encore), et une chute refait ses zones ensemble, sans ramer
 Génération du terrain : version 33 · Menus : version 10.
 Signalé par l'utilisateur (terre posée sur un rocher près d'un précipice) : 1 578 glissements en chaîne mesurés pour 40 bords réveillés, 0 maintenant.

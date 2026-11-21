@@ -41,6 +41,20 @@ func _run() -> void:
 		for dz in range(-1, 2):
 			around = around and (app.active_world.built_columns.has(here + Vector2i(dx, dz)) or not app.active_world.shown_columns.has(here + Vector2i(dx, dz)))
 	check(around and not app.active_world.behind_loading, "shown once the 9 columns around are built")
+	# 0.0.7.34 (demande de l'utilisateur : long après 81 %) : sur PC, montré dès que les colonnes proches (9 × 9) sont faites,
+	# le reste de la vue se construit en jouant ; deux fois plus de travail par image derrière l'écran.
+	var w: Node = app.active_world
+	var near_built := true
+	for column: Vector2i in w.shown_columns:
+		if w._ring(column) <= w.NEAR_REVEAL_ZONES and not w.built_columns.has(column):
+			near_built = false
+	check(near_built and w.opening_progress(true) >= 1.0, "PC: the 9 × 9 columns around are built when the world is shown (%d of %d columns built)" % [w.built_columns.size(), w.shown_columns.size()])
+	check(w.LOADING_WORK_PC_USEC == 2 * w.LOADING_WORK_USEC and app.LOADING_STEP_PC_USEC > app.LOADING_STEP_USEC, "PC: twice the work per image behind the loading screen (the Web keeps 40 ms)")
+	# 0.0.7.34 (signalé : sur le Web, une personne ne pouvait appuyer sur aucune touche) : message « Cliquez dans le jeu »
+	# quand la souris n'est pas capturée (jamais sans fenêtre), et le clic donne le clavier au jeu sur itch.io.
+	check(app.click_hint != null and not app.click_hint.visible and app.click_hint.text.begins_with("Cliquez dans le jeu"), "a « Cliquez dans le jeu » message exists (hidden without a window)")
+	var presets := FileAccess.get_file_as_string("res://export_presets.cfg")
+	check(presets.contains("window.focus()") and presets.contains("canvas.focus()"), "Web export: a click in the game gives it the keyboard (itch.io frame)")
 	var growing := values.size() > 3
 	for index in range(1, values.size()):
 		growing = growing and values[index] >= values[index - 1]

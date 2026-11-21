@@ -553,6 +553,22 @@ F4 : Changer de vue"
 	shortcut_hints.add_theme_constant_override("shadow_outline_size", 3)
 	shortcut_hints.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	shortcut_hints.visible = false
+	# 0.0.7.34 (signalé par l'utilisateur : sur le Web, une personne ne pouvait appuyer sur aucune touche) : en jeu, les
+	# touches ne répondent que souris capturée ; dans le navigateur, elle ne l'est qu'après un clic dans le jeu. On le dit.
+	click_hint = Label.new()
+	click_hint.name = "ClickHint"
+	click_hint.text = "Cliquez dans le jeu pour jouer (souris et touches)"
+	layer.add_child(click_hint)
+	click_hint.set_anchors_and_offsets_preset(Control.PRESET_CENTER)
+	click_hint.grow_horizontal = Control.GROW_DIRECTION_BOTH
+	click_hint.grow_vertical = Control.GROW_DIRECTION_BOTH
+	click_hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	click_hint.offset_top = 40
+	_font_size(click_hint, 20)
+	click_hint.add_theme_color_override("font_shadow_color", Color.BLACK)
+	click_hint.add_theme_constant_override("shadow_outline_size", 5)
+	click_hint.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	click_hint.visible = false
 	apply_appearance()
 	apply_appearance()
 
@@ -1043,6 +1059,8 @@ func open_world(id: String, prepared: RefCounted = null, behind_loading := false
 # s'ouvre (environ 0,2 s sur PC). open_world reste d'un coup (tests).
 # 0.0.7.24 : 60 ms par image (avant 30) : rien d'autre à dessiner, le fond 3D de l'accueil est retiré pendant le chargement.
 const LOADING_STEP_USEC := 60000
+# 0.0.7.34 : sur PC, 100 ms par image (graine préparée en moins d'images).
+const LOADING_STEP_PC_USEC := 100000
 var loading_id := ""
 var loading_terrain: RefCounted
 var loading_ready := false
@@ -1070,7 +1088,9 @@ func _process_loading() -> void:
 		if not is_instance_valid(active_world):
 			loading_opening = false
 			return
-		var ready: float = active_world.opening_progress()
+		# 0.0.7.34 (demande de l'utilisateur) : sur PC, montré dès que les colonnes proches (9 × 9) sont prêtes ; le reste de la
+		# vue se construit en jouant (le Web garde toute la vue, mesures 0.0.7.25 : saccades sinon).
+		var ready: float = active_world.opening_progress(not WorldRules.is_compat())
 		# 0.0.7.25 : jamais en arrière (des colonnes entrent dans la vue pendant la préparation).
 		loading_bar.value = maxf(loading_bar.value, LOADING_SEED_SHARE + (100.0 - LOADING_SEED_SHARE) * ready)
 		if ready >= 1.0 or Time.get_ticks_msec() - loading_opened_at > LOADING_OPENING_MAX_MS:
@@ -1081,7 +1101,7 @@ func _process_loading() -> void:
 	if loading_ready:
 		_open_behind_loading()
 		return
-	var done: bool = loading_terrain.prepare_step(LOADING_STEP_USEC)
+	var done: bool = loading_terrain.prepare_step(LOADING_STEP_USEC if WorldRules.is_compat() else LOADING_STEP_PC_USEC)
 	loading_bar.value = loading_terrain.prepare_progress() * LOADING_SEED_SHARE
 	loading_text.text = "%s…" % loading_terrain.prepare_stage_name()
 	if done:
@@ -1155,6 +1175,19 @@ func quit_game() -> void:
 		active_world.save_now()
 	get_tree().quit()
 
+# 0.0.7.34 : en jeu, souris pas capturée (inventaire fermé) : message « Cliquez dans le jeu ». Sur le Web, Échap est pris
+# par le navigateur pour libérer la souris (le jeu ne le reçoit pas) : la souris libérée ouvre la pause, comme Échap.
+func _watch_capture() -> void:
+	var playing: bool = page == "playing" and is_instance_valid(active_world) and not active_world.inventory_open
+	var captured: bool = Input.mouse_mode == Input.MOUSE_MODE_CAPTURED
+	if is_instance_valid(click_hint):
+		click_hint.visible = playing and not captured and DisplayServer.get_name() != "headless"
+	if playing and was_captured and not captured and OS.has_feature("web"):
+		was_captured = false
+		pause_game()
+		return
+	was_captured = playing and captured
+
 # Navigateur : onglet caché ou fermé (pagehide) → sauvegarde, avant que la page ne s'arrête.
 func _watch_web_page() -> void:
 	if not OS.has_feature("web"):
@@ -1204,8 +1237,12 @@ func open_history() -> void:
 	history_scroll.scroll_vertical = 0
 	show_page("history")
 
+var click_hint: Label
+var was_captured := false
+
 func _process(_delta: float) -> void:
 	_process_loading()
+	_watch_capture()
 	# 0.0.7.20 : Paramètres ouverts une fois : les modèles des personnages lus en arrière-plan, un par image,
 	# celui du joueur d'abord (avant : tous lus au démarrage de l'accueil).
 	if characters_reading and not CharacterPreview.load_next_model(choice_values.get("character", "")):

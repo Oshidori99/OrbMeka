@@ -1,7 +1,16 @@
-# OrbMeka™ — prototype 0.0.7.33
+# OrbMeka™ — prototype 0.0.7.34
 
 Godot 4.7 / GDScript. Formes et couleurs simples ; assets externes seulement sous licence vérifiée (sons CC0, assets/sounds/CREDITS.txt).
 
+## 0.0.7.34 — Monde ouvert en 4 s au lieu de 7,5 sur PC (montré dès que les 9 × 9 colonnes autour sont prêtes, le reste se construit en jouant), et sur le Web le clic dans le jeu lui donne le clavier (itch.io), avec « Cliquez dans le jeu » et la pause quand la souris est libérée
+Version locale (1 sur 4). Génération inchangée (version 33). Demandes de l'utilisateur.
+- **Chargement plus court (PC)** : l'écran de chargement attendait toute la vue (289 colonnes). Maintenant, sur PC, le monde est montré dès que les **9 × 9 colonnes autour** sont faites, avec leurs arbres, leur herbe, l'horizon et les shaders ; le reste de la vue se construit en jouant. Les colonnes proches passent d'abord, puis leurs détails et l'horizon. Deux fois plus de travail par image derrière l'écran (80 ms, graine 100 ms). Mesuré 3 fois sur ce PC : **4,0 s au lieu de 7,5 s**. Le Web garde l'attente de toute la vue (saccades sinon, mesures 0.0.7.25).
+- **Clavier sur le Web (itch.io)** : la personne pouvait tourner la tête à la souris, mais aucune touche ne répondait. Le jeu tourne dans un cadre venant d'un autre site, et Godot empêche le clic normal : dans certains navigateurs, le clavier restait à la page itch.io. Maintenant, chaque clic dans le jeu lui donne le clavier (export Web). Pas reproduit dans le navigateur intégré (il donne le clavier de toute façon) : à confirmer avec la personne.
+- **« Cliquez dans le jeu pour jouer (souris et touches) »** au centre de l'écran quand la souris n'est pas capturée en jeu (les touches du jeu ne répondent que souris capturée).
+- **Web : la souris libérée ouvre la pause** : le navigateur garde la première pression d'Échap pour libérer la souris ; le jeu ne la recevait pas.
+
+Tests réussis : loading_screen (avec 4 vérifications de plus), prototype, menu, smooth_terrain, inventory (+ tests juridiques). Mesures de l'ouverture sur PC (fenêtre hors écran).
+À tester : ouvrir un monde sur PC (vue lointaine qui se complète en jouant, fluidité) ; sur le Web (itch.io, Firefox ou Safari si possible) : touches et Échap après un clic.
 ## 0.0.7.33 — Le sol d'origine ne glisse plus en chaîne au bord d'un précipice (seul ce qui est posé ou déplacé glisse ; sans rien dessous, tout tombe encore), et une chute refait ses zones ensemble, sans ramer
 Version publiée (4 sur 4, avec 0.0.7.30 à 0.0.7.32). Génération inchangée (version 33). Signalé par l'utilisateur.
 - **Cause** : la règle du talus (le sable glisse dès 1 m de vide à côté, la terre dès 1,5 m) valait aussi pour le sol d'origine, alors que les falaises de la graine sont plus raides : un geste près du bord réveillait un point, qui glissait et réveillait son voisin, en chaîne le long de la falaise. Mesuré : 1 578 glissements pour 40 bords réveillés.

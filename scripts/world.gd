@@ -259,18 +259,35 @@ const WARM_PER_FRAME := 3
 var warm_pending: Array = []
 
 # Ouverture prête (écran de chargement, app.gd) : shaders préparés, colonnes autour construites, arbres créés.
-func opening_progress() -> float:
+func opening_progress(near_only: bool = false) -> float:
 	# 0.0.7.25 : toute la vue proche construite (mesures Web : 10 à 15 s saccadées juste après l'arrivée quand l'écran se
 	# retirait à 3 × 3 colonnes), arbres, herbe et plantes faits, shaders préparés, lointain fait.
+	# 0.0.7.34 (demande de l'utilisateur : le chargement était long après 81 %) : near_only (PC) : seulement les colonnes à
+	# NEAR_REVEAL_ZONES zones au plus (9 × 9), leurs arbres, herbe et plantes, et les shaders ; le reste se construit en jouant.
 	var built := 0
+	var wanted := 0
 	for column: Vector2i in shown_columns:
+		if near_only and _ring(column) > NEAR_REVEAL_ZONES:
+			continue
+		wanted += 1
 		if built_columns.has(column):
 			built += 1
-	var columns := built / float(maxi(shown_columns.size(), 1))
+	var columns := built / float(maxi(wanted, 1))
 	var warm := 1.0 if warm_pending.is_empty() and warm_left <= 0 else (0.5 if warm_pending.is_empty() else 0.0)
-	var details := 1.0 if tree_queue.is_empty() and detail_queue.is_empty() else 0.5
-	var far := 1.0 if far_queue.is_empty() else 0.5
+	var details_left := tree_queue.size() + detail_queue.size()
+	if near_only:
+		details_left = tree_queue.filter(func(entry): return _ring(entry[0]) <= NEAR_REVEAL_ZONES).size() + detail_queue.filter(func(column): return _ring(column) <= NEAR_REVEAL_ZONES).size()
+	var details := 1.0 if details_left == 0 else 0.5
+	# Le lointain (horizon) prêt avant de montrer le monde ; near_only : quelques pièces de plus arrivent avec chaque colonne
+	# construite (mesuré : 0 à 6), on n'attend pas les dernières.
+	var far := 1.0 if far_queue.size() <= (NEAR_FAR_LEFT if near_only else 0) else 0.5
 	return columns * 0.6 + warm * 0.15 + details * 0.15 + far * 0.1
+
+const NEAR_REVEAL_ZONES := 4
+const NEAR_FAR_LEFT := 8
+
+func _ring(column: Vector2i) -> int:
+	return maxi(absi(column.x - view_center.x), absi(column.y - view_center.y))
 
 func _setup_inputs() -> void:
 	# Touches choisies dans Paramètres → Contrôles (0.0.3.12), appliquées par le menu ;
@@ -353,6 +370,9 @@ var simple_ground := false
 # 0.0.7.24 : ouvert derrière l'écran de chargement (app.gd) : colonnes autour par la file, grand budget de fond.
 var behind_loading := false
 const LOADING_WORK_USEC := 40000
+# 0.0.7.34 (demande de l'utilisateur) : sur PC, deux fois plus de travail par image derrière l'écran de chargement (moins
+# d'images à dessiner pour rien) ; le Web garde 40 ms (barre et page qui répondent).
+const LOADING_WORK_PC_USEC := 80000
 var sun_light: DirectionalLight3D
 
 func set_shadows(quality: String) -> void:
@@ -4125,7 +4145,7 @@ const SLOW_WORK_MAX_WEB_USEC := 15000
 
 func work_budget() -> int:
 	if behind_loading:
-		return LOADING_WORK_USEC
+		return LOADING_WORK_USEC if is_compat() else LOADING_WORK_PC_USEC
 	if opening_columns:
 		return WORK_MAX_USEC
 	var fps: int = Engine.max_fps if Engine.max_fps > 0 else 144
@@ -4164,6 +4184,21 @@ func _process_background_work() -> void:
 	if not terrain_queue.is_empty():
 		var first: Vector2i = terrain_queue[0]
 		var ring := maxi(absi(first.x - view_center.x), absi(first.y - view_center.y))
+		# 0.0.7.34 : derrière l'écran de chargement sur PC, les colonnes proches (9 × 9) d'abord, presque tout le budget ;
+		# leurs arbres, herbe et plantes avec le reste ; le lointain ensuite (avant : partagé, 22 colonnes par seconde).
+		if behind_loading and not is_compat() and ring <= NEAR_REVEAL_ZONES:
+			_process_terrain_queue(budget * 7 / 8)
+			_process_tree_queue(maxi(start + budget * 15 / 16 - Time.get_ticks_usec(), 300))
+			_process_detail_queue(maxi(start + budget - Time.get_ticks_usec(), 300))
+			if perf_on:
+				_perf("terrain_file", at)
+			return
+		# Colonnes proches faites : leurs détails et l'horizon avant les colonnes plus loin (faites en jouant).
+		if behind_loading and not is_compat():
+			_process_tree_queue(maxi(budget / 4, 300))
+			_process_detail_queue(maxi(start + budget * 5 / 8 - Time.get_ticks_usec(), 300))
+			_process_far_queue(maxi(start + budget - Time.get_ticks_usec(), FAR_MIN_USEC))
+			return
 		if ring <= 2:
 			# Juste à côté du joueur : trois quarts du budget pour le terrain, le reste pour le lointain (0.0.7.24 : avant,
 			# tout pour le terrain ; en vol rapide, il y a toujours une colonne proche en attente, le lointain n'avançait
