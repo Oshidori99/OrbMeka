@@ -1,6 +1,18 @@
-# OrbMeka™ — prototype 0.0.8.2
+# OrbMeka™ — prototype 0.0.8.3
 
 Godot 4.7 / GDScript. Formes et couleurs simples ; assets externes seulement sous licence vérifiée (sons CC0, assets/sounds/CREDITS.txt).
+
+## 0.0.8.3 — Mains et poches : 2 pommes par main et 3 à deux mains, 5 noisettes par main et 15 par poche (les fruits ne comptent plus en litres dans les mains) ; manger plus simple : noisette en 0,5 s, on continue en restant appuyé, « Manger » dans B + T ; nom de l'objet pris en main au-dessus de la barre (plus sous les cases) ; orbe de retour plus grande, brillante, qui éclaire autour d'elle
+Version locale (2 sur 4). Génération inchangée (version 33). Demandes de l'utilisateur.
+- **Mains** : les objets comptés (pommes, noisettes, cailloux, éclats) ne comptent plus en litres, seulement en nombre : **2 pommes par main, 3 pour les deux mains** (une pile tenue à deux mains, ou 2 + 1) ; **5 noisettes par main, 10 à deux mains** (avant : 8 et 16). Cailloux et éclats : inchangés (4 par main, 8).
+- **Poches** : poids et volume comme avant, et **15 noisettes au plus par poche**. Message : « 5 noisettes au plus dans une main, 10 à deux mains, 15 par poche. »
+- **Manger** : noisette en **0,5 s**, pomme en 1 s ; en **restant appuyé**, on mange le suivant (relâcher pour s'arrêter ; on ne pose rien en relâchant).
+- **Menu B + T** : « **Manger** » au bout de la ligne du clic droit (pomme croquée) : le clic droit mange seulement, il ne pose jamais rien.
+- **Barre d'objets** : plus de nom sous les cases (seulement le poids) ; le **nom de l'objet pris en main** s'affiche au milieu, au-dessus de la barre, 2 s.
+- **Orbe de retour** : dessinée plus grande (11 cm au lieu de 7, poids et volume inchangés) pour la voir dans l'herbe ; plus brillante (reflets) ; posée au sol, elle **luit et éclaire autour d'elle** (2,5 m), ce qui la rendra visible la nuit (au plus 16 lumières).
+
+Tests réussis : hands_eat (19, nouveau), return_orb (22), health, death, inventory, inventory_more, action_menu, smooth_terrain, breaking, rock_place, action_timing, interface_info, web_fixes, layout_lines (+ tests juridiques). Capture hors écran : orbe qui éclaire le sable, nom « Noisette » au-dessus de la barre.
+À tester : prendre 3 pommes, des noisettes en poche, manger en restant appuyé, « Manger » dans B + T, l'orbe dans l'herbe.
 
 ## 0.0.8.2 — Orbe de retour en Survie (200 g, 2 dl, clic droit maintenu : retour au point de départ, puis elle disparaît ; une en poche et une au sol près du départ au début), et un arbre qui tombe blesse : de 15 à 80 points selon sa taille, tout pile dessous, très peu en étant frôlé
 Version locale (1 sur 4). Génération inchangée (version 33). Demandes de l'utilisateur (#231, #229).

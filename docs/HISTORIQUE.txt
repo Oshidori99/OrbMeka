@@ -3,6 +3,10 @@ Du plus récent au plus ancien. Ce fichier est mis à jour à chaque version.
 
 === Thème « Fabrication et survie » (0.0.8) ===
 
+0.0.8.3 — Mains et poches : 2 pommes par main et 3 à deux mains, 5 noisettes par main et 15 par poche (les fruits ne comptent plus en litres dans les mains) ; manger plus simple : noisette en 0,5 s, on continue en restant appuyé, « Manger » dans B + T ; nom de l'objet pris en main au-dessus de la barre (plus sous les cases) ; orbe de retour plus grande, brillante, qui éclaire autour d'elle
+Génération du terrain : version 33 · Menus : version 10.
+Demandes de l'utilisateur (21.11.2026).
+
 0.0.8.2 — Orbe de retour en Survie (200 g, 2 dl, clic droit maintenu : retour au point de départ, puis elle disparaît ; une en poche et une au sol près du départ au début), et un arbre qui tombe blesse : de 15 à 80 points selon sa taille, tout pile dessous, très peu en étant frôlé
 Génération du terrain : version 33 · Menus : version 10.
 Demandes de l'utilisateur (#231, #229). Orbes données une fois par monde de Survie (« orbes_depart » dans joueur.json), anciens mondes compris.

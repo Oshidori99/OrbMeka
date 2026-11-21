@@ -1089,7 +1089,8 @@ func _rebuild_lawn_tile(tile: Vector2i) -> void:
 # Gestes de terrain (0.0.5.8, pinceaux en 0.0.5.9). Clic gauche : creuser ; clic droit : le pinceau
 # choisi avec B + T (poser, aplanir, lisser). Taille (B + molette) : 1/8, 1/4 ou 1/2 bloc, soit 1, 2 ou
 # 4 sous-cellules de 50 cm ; aplanir et lisser agissent autour, sur 50 cm, 1 m ou 1,5 m.
-const BRUSH_NAMES := ["Poser", "Aplanir", "Lisser"]
+# 0.0.8.3 (demande de l'utilisateur) : « Manger » au bout de la ligne du clic droit (EAT_BRUSH).
+const BRUSH_NAMES := ["Poser", "Aplanir", "Lisser", "Manger"]
 const SIZE_NAMES := ["1/8 de bloc", "1/4 de bloc", "1/2 bloc"]
 const SIZE_CELLS := [1, 2, 4]
 # Matières qu'on peut poser. 0.0.7.2 : plus pierre, calcaire, pierre sombre et silex (inventaire, Matériaux naturels) ;
@@ -1135,6 +1136,33 @@ func apply_held() -> void:
 		player.show_hands(left_hand_item(), right_hand_item(), game_mode == Inventory.SURVIVAL and inventory.two_handed() >= 0)
 		# 0.0.7.8 : plus lent quand les mains portent lourd.
 		player.carry_slow = inventory.carry_factor()
+		_show_held_name()
+
+# 0.0.8.3 (demande de l'utilisateur) : le nom de l'objet pris en main s'affiche au milieu, juste au-dessus des messages,
+# HELD_NAME_SECONDS, puis s'efface (la barre ne montre plus les noms sous ses cases). Seulement quand la case choisie ou
+# l'objet qu'elle contient change (pas à chaque objet ajouté au même tas).
+const HELD_NAME_SECONDS := 2.0
+var held_label: Label
+var held_name_key := ""
+var held_name_time := 0.0
+
+func _show_held_name() -> void:
+	var value := inventory.held()
+	var key := "%d/%s" % [inventory.selected(), value.get("objet", "")]
+	if key == held_name_key:
+		return
+	held_name_key = key
+	if not is_instance_valid(held_label):
+		return
+	held_label.text = "" if value.is_empty() else Inventory.item_name(value)
+	held_name_time = HELD_NAME_SECONDS if not value.is_empty() else 0.0
+
+func _update_held_name(delta: float) -> void:
+	if not is_instance_valid(held_label):
+		return
+	held_name_time = maxf(0.0, held_name_time - delta)
+	held_label.visible = held_name_time > 0.0 and not inventory_open
+	held_label.modulate.a = clampf(held_name_time / 0.4, 0.0, 1.0)
 
 func set_game_mode(new_mode: String) -> void:
 	# 0.0.7.9 : en Survie, on ne vole pas (on retombe si on volait).
@@ -2856,8 +2884,7 @@ func _refused_message(reason: String, value: Dictionary) -> String:
 			var first: Dictionary = value.pile[-1] if value.has("pile") and not value.pile.is_empty() else value
 			return "Trop encombrant (%s) : 1,5 L par main, 3 L à deux mains, 0,5 L dans les poches." % Inventory.format_volume(Inventory.instance_volume(value.get("objet", ""), first))
 		"nombre":
-			var limit := Inventory.hand_count(value.get("objet", ""))
-			return "%d %s au plus dans une main (%d à deux mains)." % [limit, Inventory.plural_name(value), limit * 2]
+			return Inventory.count_rule(value)
 	return "Inventaire plein." if game_mode == Inventory.CREATIVE else "Mains et poches pleines."
 
 # --- 0.0.7.5 : cueillir (demande de l'utilisateur : il faut vraiment viser la pomme ou la noisette) ---
@@ -3549,12 +3576,14 @@ func _read_saved_player() -> Dictionary:
 # --- 0.0.8 (#171, #204) : vie en Survie ---
 # Barre en bas à gauche (health_bar.gd), dégâts de chute (player.gd, signal landed), régénération lente (health.gd).
 # Un dégât : le bord de l'écran rougit un court instant, la vue tremble un peu, la barre clignote (pas de sang).
-# Manger : un fruit en main, clic droit maintenu EAT_SECONDS (anneau) ; un clic court le pose comme avant.
+# Manger : un fruit en main, clic droit maintenu (anneau ; 0.0.8.3 : Health.eat_seconds, et on continue en restant appuyé) ; un clic court le pose comme avant.
 const Health = preload("res://scripts/health.gd")
 const HealthBar = preload("res://scripts/health_bar.gd")
 const HURT_SECONDS := 0.5
 const SHAKE := 0.05
-const EAT_SECONDS := 1.0
+# 0.0.8.3 : durée de chaque fruit : Health.eat_seconds (pomme 1 s, noisette 0,5 s).
+const EAT_BRUSH := 3
+var eat_chain := false
 const EAT_TAP := 0.25
 const HURT_SHADER := "shader_type canvas_item;
 uniform float strength = 0.0;
@@ -3749,26 +3778,38 @@ func can_eat() -> bool:
 # 0.0.8.2 : ce que fait le clic droit maintenu avec l'objet en main (Survie, pinceau « Poser ») : « manger » un fruit,
 # « orbe » : utiliser l'orbe de retour (#231) ; « » : rien (le clic droit pose comme avant).
 func hold_use() -> String:
-	if not survival() or player.brush != 0:
+	if not survival():
 		return ""
 	var held := inventory.held()
+	# 0.0.8.3 (demande de l'utilisateur) : clic droit « Manger » (menu B + T) : il mange seulement.
+	if player.brush == EAT_BRUSH:
+		return "manger" if Health.food_points(held) > 0 else ""
+	if player.brush != 0:
+		return ""
 	if ReturnOrb.is_orb(held):
 		return "orbe"
 	return "manger" if Health.food_points(held) > 0 else ""
 
 # Clic droit appuyé : rend vrai s'il commence à manger ou à utiliser l'orbe (la pose attend le relâchement).
+# Clic droit « Manger » : toujours vrai (il ne pose jamais rien).
 func eat_press() -> bool:
+	eat_chain = false
 	if hold_use().is_empty():
+		if is_instance_valid(player) and player.brush == EAT_BRUSH:
+			_notify("Rien à manger en main." if survival() else "On mange seulement en Survie.")
+			return true
 		return false
 	eat_time = 0.0
 	return true
 
-# Clic droit relâché : un clic court pose l'objet (comme avant 0.0.8).
+# Clic droit relâché : un clic court pose l'objet (comme avant 0.0.8), sauf avec le clic droit « Manger » ou après avoir
+# déjà mangé en restant appuyé.
 func eat_release(hit: Dictionary) -> void:
 	if eat_time < 0.0:
 		return
-	var quick := eat_time < EAT_TAP
+	var quick: bool = eat_time < EAT_TAP and not eat_chain and player.brush == 0
 	eat_time = -1.0
+	eat_chain = false
 	if quick:
 		put_down_held(hit)
 
@@ -3780,21 +3821,24 @@ func step_eat(delta: float, holding: bool) -> bool:
 		eat_time = -1.0
 		return false
 	eat_time += delta
-	if eat_time < EAT_TAP:
+	if eat_time < EAT_TAP and not eat_chain:
 		return false
 	if use == "manger" and health.full():
 		_notify("Vie pleine : pas besoin de manger.")
 		return false
-	var seconds := ReturnOrb.USE_SECONDS if use == "orbe" else EAT_SECONDS
-	show_ring((eat_time - EAT_TAP) / (seconds - EAT_TAP))
+	# 0.0.8.3 : chaque fruit sa durée (noisette plus rapide).
+	var seconds := ReturnOrb.USE_SECONDS if use == "orbe" else Health.eat_seconds(inventory.held())
+	show_ring(eat_time / seconds)
 	if eat_time < seconds:
 		return false
 	if use == "orbe":
 		use_orb()
-	else:
-		eat_held()
-	# Un à la fois : relâcher pour le suivant.
-	eat_time = -1.0
+		eat_time = -1.0
+		return true
+	eat_held()
+	# 0.0.8.3 (demande de l'utilisateur) : en restant appuyé, on mange le suivant (relâcher pour s'arrêter).
+	eat_time = 0.0
+	eat_chain = true
 	return true
 
 # 0.0.8.2 (#231) : l'orbe en main ramène au point de départ, puis disparaît.
@@ -4200,6 +4244,9 @@ static func hit_cell(hit: Dictionary) -> Vector3i:
 func place_target(hit: Dictionary, kind: int) -> bool:
 	if not hit.is_empty() and is_instance_valid(hit.get("collider")) and hit.collider.is_in_group("trees"):
 		return false
+	# 0.0.8.3 : clic droit « Manger » : il ne pose jamais rien.
+	if player.brush == EAT_BRUSH:
+		return false
 	# 0.0.7.4 : un objet en main (caillou, éclat…) se pose au sol là où l'on vise.
 	if player.brush == 0 and Inventory.is_object(inventory.held()):
 		return put_down_held(hit)
@@ -4280,7 +4327,7 @@ const LEFT_MODES := ["creuser / casser", "casser / récupérer des objets", "ré
 var action_menu: Control
 
 static func action_hint(left_mode: int, brush: int) -> String:
-	return "Clic gauche : %s · clic droit : %s · changer : B + T · taille : B + molette · inventaire : O + I" % [LEFT_MODES[clampi(left_mode, 0, 2)], BRUSH_NAMES[clampi(brush, 0, 2)].to_lower()]
+	return "Clic gauche : %s · clic droit : %s · changer : B + T · taille : B + molette · inventaire : O + I" % [LEFT_MODES[clampi(left_mode, 0, 2)], BRUSH_NAMES[clampi(brush, 0, BRUSH_NAMES.size() - 1)].to_lower()]
 
 func open_action_menu() -> void:
 	if is_instance_valid(action_menu) and is_instance_valid(player):
@@ -4362,6 +4409,19 @@ func _create_hud() -> void:
 	hint.add_theme_color_override("font_shadow_color", Color.BLACK)
 	hint.add_theme_constant_override("shadow_outline_size", 4)
 	layer.add_child(hint)
+	# 0.0.8.3 : nom de l'objet pris en main, au milieu, au-dessus des messages (_show_held_name).
+	held_label = Label.new()
+	held_label.name = "HeldName"
+	held_label.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_WIDE)
+	held_label.offset_bottom = hint.offset_top - 2
+	held_label.offset_top = held_label.offset_bottom - 34
+	held_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	held_label.add_theme_font_size_override("font_size", roundi(20 * text_scale))
+	held_label.add_theme_color_override("font_shadow_color", Color.BLACK)
+	held_label.add_theme_constant_override("shadow_outline_size", 4)
+	held_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	held_label.visible = false
+	layer.add_child(held_label)
 	# Coordonnées (0.0.3.14) : en haut à droite, sous les rappels F1 à F3, si activées dans Vidéo.
 	coordinates_label = Label.new()
 	coordinates_label.name = "Coordinates"
@@ -4441,6 +4501,7 @@ func _process(delta: float) -> void:
 	_update_fps(delta)
 	_update_ring()
 	_update_health(delta)
+	_update_held_name(delta)
 	if not sliding_trees.is_empty():
 		_update_slides(delta)
 	_update_collisions()
@@ -4582,6 +4643,7 @@ func _process_measured(delta: float) -> void:
 	_update_fps(delta)
 	_update_ring()
 	_update_health(delta)
+	_update_held_name(delta)
 	if not sliding_trees.is_empty():
 		_update_slides(delta)
 	_perf("hud", at)

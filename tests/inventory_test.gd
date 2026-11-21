@@ -203,7 +203,7 @@ func _run() -> void:
 	var coal: Dictionary = world.ground.entries[0].item.duplicate()
 	world.pick_up({"collider": world.ground.bodies[0], "position": world.ground.entries[0].position})
 	check(world.inventory.item("bar", 1).get("objet") == "charbon" and world.ground.entries.is_empty(), "chosen hand busy: the coal goes to the other (right) hand (0.0.7.10)")
-	check(ui.hud_slots[0].title == "Éclat de pierre" and ui.hud_slots[0].note == "250,0 g" and ui.hud_slots[1].note == "125,0 g" and ui.hud_slots[2].title == "" and ui.hud_slots[2].note == "", "name then weight under each slot, nothing under an empty one")
+	check(ui.hud_slots[0].title == "" and ui.hud_slots[0].note == "250,0 g" and ui.hud_slots[1].note == "125,0 g" and ui.hud_slots[2].title == "" and ui.hud_slots[2].note == "", "0.0.8.3: only the weight under each slot (name shown above when taken in hand), nothing under an empty one")
 	check(world.inventory.add({"objet": "terre", "nombre": 6}) == 1 and ui.hud_carried.poches[1].text.begins_with("325,0 g / 500,0 g") and is_equal_approx(ui.panel_bars.Poches[0].share, 0.65) and is_equal_approx(ui.panel_bars.Poches[1].share, 0.5), "pockets: 500 g in all (one handful of earth of 325 g, 0.0.7.6)")
 	# Reposer un objet tenu (clic droit) : il retourne au sol là où l'on vise.
 	world.inventory.select(1)
@@ -329,7 +329,7 @@ func _data_checks() -> void:
 	check(too_much.added == 1 and too_much.reason == "lourd", "8 kg in the hands at most: the last big stone is refused (too heavy)")
 	mixed.select(1)
 	check(mixed.two_handed() == 0 and mixed.add_to_selected({"objet": "sable", "nombre": 1}).added == 0 and mixed.carry_factor() < 0.8, "carried with both hands: the other hand takes nothing, walking is slower")
-	# 0.0.7.19 : nombre au plus par main (noisettes : 8, 16 à deux mains), volume (le bois compte par sa longueur).
+	# 0.0.7.19 : nombre au plus par main (noisettes : 8, 16 à deux mains ; 0.0.8.3 : 5 et 10), volume (le bois compte par sa longueur).
 	var nuts := Inventory.new()
 	nuts.mode = Inventory.SURVIVAL
 	nuts.set_mode(Inventory.SURVIVAL)
@@ -337,7 +337,7 @@ func _data_checks() -> void:
 	for index in range(20):
 		many.pile.append({"diametre": 0.018})
 	var nut_result: Dictionary = nuts.add_to_selected(many)
-	check(Inventory.hand_count("noisette") == 8 and Inventory.count(nuts.item("bar", 0)) == 16 and nuts.two_handed() == 0, "hazelnuts: 8 in a hand, 16 with both hands (%d)" % Inventory.count(nuts.item("bar", 0)))
+	check(Inventory.hand_count("noisette") == 5 and Inventory.count(nuts.item("bar", 0)) == 10 and nuts.two_handed() == 0, "hazelnuts: 5 in a hand, 10 with both hands (%d)" % Inventory.count(nuts.item("bar", 0)))
 	var wood_bag := Inventory.new()
 	wood_bag.mode = Inventory.SURVIVAL
 	wood_bag.set_mode(Inventory.SURVIVAL)

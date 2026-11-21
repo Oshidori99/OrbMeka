@@ -356,6 +356,26 @@ func _redraw() -> void:
 				multi.set_instance_custom_data(at, Color(float(_look(entry.item)), 0.0, 0.0, 0.0))
 			elif _kind(entry.item) == "fruit":
 				multi.set_instance_color(at, Color.WHITE if _two_tone(entry.item) or entry.item.objet != "pomme" else _color(entry.item))
+	_update_orb_lights()
+
+# 0.0.8.3 (demande de l'utilisateur) : chaque orbe de retour posée luit et éclaire un peu autour d'elle (au plus
+# MAX_ORB_LIGHTS, pour rester léger).
+const MAX_ORB_LIGHTS := 16
+var _orb_lights: Array = []
+
+func _update_orb_lights() -> void:
+	var spots: Array = []
+	for entry: Dictionary in entries:
+		if not entry.get("hidden", false) and ReturnOrb.is_orb(entry.item) and spots.size() < MAX_ORB_LIGHTS:
+			spots.append(entry.position)
+	while _orb_lights.size() > spots.size():
+		_orb_lights.pop_back().queue_free()
+	while _orb_lights.size() < spots.size():
+		var made := ReturnOrb.light()
+		add_child(made)
+		_orb_lights.append(made)
+	for index in range(spots.size()):
+		_orb_lights[index].position = spots[index] + Vector3.UP * 0.2
 
 # --- Sauvegarde (objets.json) ---
 

@@ -33,7 +33,13 @@ const HAND_VOLUME := 1.5
 const HANDS_VOLUME := 3.0
 const POCKETS_LIMIT := 500.0
 const POCKETS_VOLUME := 0.5
-const HAND_COUNTS := {"noisette": 8, "pomme": 2, "caillou": 4, "eclat": 4}
+const HAND_COUNTS := {"noisette": 5, "pomme": 2, "caillou": 4, "eclat": 4}
+# 0.0.8.3 (demandes de l'utilisateur) : dans les mains, les objets comptés (HAND_COUNTS) ne comptent plus en litres, seulement
+# en nombre : 2 pommes par main, 3 pommes en tout pour les deux mains ; 5 noisettes par main, 10 avec les deux
+# (BOTH_HANDS_COUNTS : total des deux mains, une pile tenue à deux mains comprise). Les poches gardent poids et volume,
+# avec en plus un nombre au plus par poche (POCKET_COUNTS : 15 noisettes, plus faciles à garder en poche qu'en main).
+const BOTH_HANDS_COUNTS := {"pomme": 3, "noisette": 10}
+const POCKET_COUNTS := {"noisette": 15}
 const HANDFUL_VOLUME := 0.25
 const WOOD_LITERS_PER_METER := 1.0
 # Valeur d'outil de la pioche (même valeur que world.gd PICKAXE) ; -1 : main vide ou objet sans usage.
@@ -275,7 +281,26 @@ static func needs_both_hands(value: Dictionary) -> bool:
 	if value.is_empty() or unlimited(value):
 		return false
 	var limit := hand_count(value.objet)
-	return stack_weight(value) > TWO_HANDS + 0.001 or stack_volume(value) > HAND_VOLUME + 0.0001 or (limit > 0 and count(value) > limit)
+	# 0.0.8.3 : objet compté : son nombre seulement (pas ses litres).
+	if limit > 0:
+		return stack_weight(value) > TWO_HANDS + 0.001 or count(value) > limit
+	return stack_weight(value) > TWO_HANDS + 0.001 or stack_volume(value) > HAND_VOLUME + 0.0001
+
+# 0.0.8.3 : nombre au plus pour les deux mains ensemble (défaut : deux fois celui d'une main) ; 0 : pas de limite.
+static func both_hands_count(id: String) -> int:
+	return int(BOTH_HANDS_COUNTS.get(id, hand_count(id) * 2))
+
+# 0.0.8.3 : nombre au plus dans une poche ; 0 : pas de limite (poids et volume seulement).
+static func pocket_count(id: String) -> int:
+	return int(POCKET_COUNTS.get(id, 0))
+
+# 0.0.8.3 : message du refus « nombre » : par main, à deux mains, et par poche s'il y a une limite.
+static func count_rule(value: Dictionary) -> String:
+	var id: String = value.get("objet", "")
+	var text := "%d %s au plus dans une main, %d à deux mains" % [hand_count(id), plural_name(value), both_hands_count(id)]
+	if pocket_count(id) > 0:
+		text += ", %d par poche" % pocket_count(id)
+	return text + "."
 
 # Nom au pluriel, en minuscules (« noisettes », « cailloux », « éclats de silex »).
 static func plural_name(value: Dictionary) -> String:
@@ -339,18 +364,22 @@ func _hand_holds(index: int, id: String, weight: float, volume: float, amount: i
 		# Une seule main libre.
 		if weight > TWO_HANDS + 0.001:
 			return "lourd"
+		# 0.0.8.3 : objet compté : son nombre dans cette main, et le total des deux mains (pas ses litres).
+		if limit > 0:
+			var same := count(other_value) if other_value.get("objet", "") == id else 0
+			if amount > limit or amount + same > both_hands_count(id):
+				return "nombre"
+			return ""
 		if volume > HAND_VOLUME + 0.0001:
 			return "encombrant"
-		if limit > 0 and amount > limit:
-			return "nombre"
 		return ""
 	# Les deux mains libres : une main, ou les deux pour un seul objet (ou une seule pile).
 	if weight > HANDS_LIMIT + 0.001:
 		return "lourd"
+	if limit > 0:
+		return "nombre" if amount > both_hands_count(id) else ""
 	if volume > HANDS_VOLUME + 0.0001:
 		return "encombrant"
-	if limit > 0 and amount > limit * 2:
-		return "nombre"
 	return ""
 
 # Poids encore permis pour une case entière (Survie) : ce que laissent les autres cases du même groupe ;
@@ -446,6 +475,8 @@ func fit_count(area: String, index: int, value: Dictionary) -> int:
 				why = "lourd"
 			elif pockets_volume(index) + volume > POCKETS_VOLUME + 0.0001:
 				why = "encombrant"
+			elif pocket_count(value.objet) > 0 and amount > pocket_count(value.objet):
+				why = "nombre"
 		else:
 			why = "lourd"
 		if not why.is_empty():

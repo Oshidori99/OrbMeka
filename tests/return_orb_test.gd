@@ -65,6 +65,12 @@ func _run() -> void:
 	var reserve: Array = world.ground.entries.filter(func(e): return ReturnOrb.is_orb(e.item))
 	var spot: Vector3 = world.spawn_position() + ReturnOrb.RESERVE_OFFSET
 	check(reserve.size() == 1 and Vector2(reserve[0].position.x - spot.x, reserve[0].position.z - spot.z).length() < 0.3, "and a second one on the ground near the start")
+	for i in range(900):
+		if world.ground.entries.any(func(e): return ReturnOrb.is_orb(e.item) and not e.get("hidden", false)):
+			break
+		await process_frame
+	await process_frame
+	check(world.ground._orb_lights.size() == 1 and world.ground._orb_lights[0].omni_range >= 2.0 and ReturnOrb.SIZE >= 0.1 and ReturnOrb.material().emission_enabled, "0.0.8.3: the orb on the ground glows and lights around it, drawn bigger (11 cm) (%d lights, dirty %s)" % [world.ground._orb_lights.size(), world.ground._dirty])
 	check(world.player_data().get("orbes_depart") == true, "given once, remembered in joueur.json")
 	# Usage : clic droit maintenu, retour au départ, l'orbe disparaît.
 	world.inventory.select(pocket[0])

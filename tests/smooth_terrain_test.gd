@@ -285,7 +285,7 @@ func _run() -> void:
 	check(world.terrain.density(air_above) <= 0.0, "smoothing adds no material in the air")
 	player.brush = 0
 	player.brush_size = 0
-	check(world.BRUSH_NAMES == ["Poser", "Aplanir", "Lisser"] and world.SIZE_CELLS == [1, 2, 4], "three right-click brushes, three sizes")
+	check(world.BRUSH_NAMES == ["Poser", "Aplanir", "Lisser", "Manger"] and world.SIZE_CELLS == [1, 2, 4], "right click: three brushes and Manger (0.0.8.3), three sizes")
 	player.cycle_brush()
 	check(player.brush == 1 and world.notice == "Clic droit : Aplanir", "B + T shows the new brush at the bottom")
 	player.cycle_size(1)

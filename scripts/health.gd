@@ -14,6 +14,8 @@ const REGEN_POINTS := 1
 # Points rendus par fruit : pomme, pomme brune (vieille, couleur 3 : Inventory.APPLE_COLOR_NAMES), noisette.
 const BROWN := 3
 const FOOD := {"pomme": 15, "pomme_brune": 5, "noisette": 3}
+# 0.0.8.3 (demande de l'utilisateur) : une noisette se mange plus vite qu'une pomme (secondes).
+const EAT_SECONDS := {"pomme": 1.0, "noisette": 0.5}
 
 var value := MAX
 var since_damage := REGEN_DELAY
@@ -114,3 +116,6 @@ func to_value() -> int:
 
 func load_value(saved: Variant) -> void:
 	value = clampi(int(saved), 1, MAX) if saved is float or saved is int else MAX
+
+static func eat_seconds(value: Dictionary) -> float:
+	return float(EAT_SECONDS.get(value.get("objet", ""), 1.0))

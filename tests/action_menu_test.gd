@@ -51,7 +51,7 @@ func _run() -> void:
 	# assez large pour son texte, sans chevauchement.
 	var top: Array = menu.tiles(0)
 	var bottom: Array = menu.tiles(1)
-	check(top.size() == 3 and bottom.size() == 3, "three left-click modes, three right-click brushes")
+	check(top.size() == 3 and bottom.size() == 4, "three left-click modes, three right-click brushes and Manger (0.0.8.3)")
 	check((top[0][0] as Rect2).end.y < (bottom[0][0] as Rect2).position.y, "the left-click row is above the right-click row")
 	check((bottom[0][0] as Rect2).end.y <= menu.get_viewport_rect().size.y - world.inventory_ui.hud_height() and (top[0][0] as Rect2).position.y > 0.0, "both rows stay above the item bar")
 	var fits := true
