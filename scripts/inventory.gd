@@ -40,6 +40,8 @@ const HAND_COUNTS := {"noisette": 5, "pomme": 2, "caillou": 4, "eclat": 4}
 # avec en plus un nombre au plus par poche (POCKET_COUNTS : 15 noisettes, plus faciles à garder en poche qu'en main).
 const BOTH_HANDS_COUNTS := {"pomme": 3, "noisette": 10}
 const POCKET_COUNTS := {"noisette": 15}
+# Volume d'une noisette (litres) : une boule de 2 cm.
+const HAZELNUT_VOLUME := 4.0 / 3.0 * PI * 0.01 * 0.01 * 0.01 * 1000.0
 const HANDFUL_VOLUME := 0.25
 const WOOD_LITERS_PER_METER := 1.0
 # Valeur d'outil de la pioche (même valeur que world.gd PICKAXE) ; -1 : main vide ou objet sans usage.
@@ -254,7 +256,11 @@ static func instance_volume(id: String, instance: Dictionary) -> float:
 		"bois":
 			return float(instance.get("longueur", 1.0)) * WOOD_LITERS_PER_METER
 		"fruit":
-			var diameter: float = float(instance.get("diametre", APPLE_SIZES[1] if id == "pomme" else 0.02))
+			# 0.0.8.3 (demande de l'utilisateur) : une noisette compte comme une vraie (2 cm, environ 4 ml), quelle que soit sa
+			# taille dessinée dans l'arbre (plus grosse pour qu'on la voie) : 15 tiennent en poche.
+			if id == "noisette":
+				return HAZELNUT_VOLUME
+			var diameter: float = float(instance.get("diametre", APPLE_SIZES[1]))
 			return 4.0 / 3.0 * PI * pow(diameter * 0.5, 3.0) * 1000.0
 		"caillou", "eclat":
 			return instance_weight(id, instance) / 2600.0

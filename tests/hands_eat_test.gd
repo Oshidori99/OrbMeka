@@ -59,6 +59,14 @@ func _run() -> void:
 	check(Inventory.count(inv.item("bar", 0)) == 5 and Inventory.count(inv.item("bar", 1)) == 5, "5 hazelnuts in each hand")
 	inv.put("bar", 2, nuts(20))
 	check(Inventory.count(inv.item("bar", 2)) == 15 and inv.last_refusal == "nombre", "a pocket: 15 hazelnuts at most")
+	# Correction 0.0.8.3 : une noisette cueillie (dessinée grosse dans l'arbre) compte comme une vraie, environ 4 ml.
+	var big := {"objet": "noisette", "pile": []}
+	for i in range(15):
+		big.pile.append({"diametre": 0.06})
+	inv = survival()
+	inv.put("bar", 3, Inventory.single({"objet": "orbe_retour"}))
+	inv.put("bar", 2, big)
+	check(Inventory.count(inv.item("bar", 2)) == 15 and absf(Inventory.instance_volume("noisette", {"diametre": 0.06}) - 0.0042) < 0.0005, "15 picked hazelnuts fit in a pocket next to the orb (about 4 ml each)")
 	check(Inventory.count_rule({"objet": "noisette"}) == "5 noisettes au plus dans une main, 10 à deux mains, 15 par poche.", "refusal message: " + Inventory.count_rule({"objet": "noisette"}))
 	check(Inventory.HAND_COUNTS.caillou == 4 and Inventory.both_hands_count("caillou") == 8, "pebbles unchanged: 4 per hand, 8 with both")
 	# Manger : durées.
@@ -108,6 +116,16 @@ func _run() -> void:
 	world.inventory.put("bar", 1, {})
 	check(world.eat_press() and world.eat_time < 0.0, "Manger brush with nothing to eat: nothing happens")
 	world.player.brush = 0
+	# Correction 0.0.8.3 : on mange aussi en Aplanir et en Lisser.
+	world.inventory.put("bar", 1, nuts(3))
+	world.health.value = 50
+	for brush in [1, 2]:
+		world.player.brush = brush
+		check(world.hold_use() == "manger" and world.eat_press(), "right click mode %s: a fruit is still eaten" % world.BRUSH_NAMES[brush])
+		for i in range(6):
+			world.step_eat(0.1, true)
+		world.eat_release({})
+	check(world.health.value == 56, "one hazelnut eaten in each mode (%d)" % world.health.value)
 	app.return_to_worlds()
 	root.remove_child(app)
 	app.queue_free()

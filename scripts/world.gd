@@ -3781,14 +3781,15 @@ func hold_use() -> String:
 	if not survival():
 		return ""
 	var held := inventory.held()
-	# 0.0.8.3 (demande de l'utilisateur) : clic droit « Manger » (menu B + T) : il mange seulement.
-	if player.brush == EAT_BRUSH:
-		return "manger" if Health.food_points(held) > 0 else ""
+	# 0.0.8.3 (demandes de l'utilisateur) : un fruit en main se mange dans tous les modes du clic droit (Poser, Aplanir,
+	# Lisser, Manger) ; le mode « Manger » sert seulement à ne rien poser par erreur. L'orbe : en mode Poser.
+	if Health.food_points(held) > 0:
+		return "manger"
 	if player.brush != 0:
 		return ""
 	if ReturnOrb.is_orb(held):
 		return "orbe"
-	return "manger" if Health.food_points(held) > 0 else ""
+	return ""
 
 # Clic droit appuyé : rend vrai s'il commence à manger ou à utiliser l'orbe (la pose attend le relâchement).
 # Clic droit « Manger » : toujours vrai (il ne pose jamais rien).
@@ -3807,11 +3808,15 @@ func eat_press() -> bool:
 func eat_release(hit: Dictionary) -> void:
 	if eat_time < 0.0:
 		return
-	var quick: bool = eat_time < EAT_TAP and not eat_chain and player.brush == 0
+	var quick: bool = eat_time < EAT_TAP and not eat_chain and player.brush != EAT_BRUSH
 	eat_time = -1.0
 	eat_chain = false
 	if quick:
-		put_down_held(hit)
+		# Clic court : l'action du mode (Poser : l'objet est posé ; Aplanir, Lisser : le geste).
+		if player.brush == 0:
+			put_down_held(hit)
+		else:
+			place_target(hit, player.selected_type)
 
 func step_eat(delta: float, holding: bool) -> bool:
 	if eat_time < 0.0:
