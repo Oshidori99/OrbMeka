@@ -10,6 +10,7 @@ extends Node3D
 const Inventory = preload("res://scripts/inventory.gd")
 const Rocks = preload("res://scripts/rocks.gd")
 const Trees = preload("res://scripts/trees.gd")
+const ReturnOrb = preload("res://scripts/return_orb.gd")
 # Au-delà, les plus anciens disparaissent (seulement s'ils sont très nombreux).
 const MAX_ITEMS := 3000
 const FALL_SECONDS := 0.35
@@ -139,6 +140,9 @@ static func size_of(value: Dictionary) -> float:
 			return HAZELNUT_SIZE
 		"eclat":
 			return PIECE_SIZE
+		# 0.0.8.2 (#231) : orbe de retour.
+		"orbe":
+			return ReturnOrb.SIZE
 		# 0.0.7.8 : bâton ou tronc : son épaisseur (la longueur est à part).
 		"bois":
 			return float(value.get("epaisseur", 3.0)) / 100.0
@@ -148,7 +152,7 @@ static func size_of(value: Dictionary) -> float:
 static func lift(value: Dictionary) -> float:
 	if _kind(value) == "caillou":
 		return Rocks.pebble_lift(clampi(int(value.get("taille", 3)), 1, 7), clampi(int(value.get("forme", 1)), 1, 7)) * (1.0 - 0.2 * int(value.get("coups", 0)))
-	return size_of(value) * (0.5 if _kind(value) in ["fruit", "bois"] else 0.3)
+	return size_of(value) * (0.5 if _kind(value) in ["fruit", "bois", "orbe"] else 0.3)
 
 # Fruits : le modèle des arbres (rayon 1) ; bois : cylindre couché le long de son orientation ; autres : diamètre 1.
 static func _basis(value: Dictionary) -> Basis:
@@ -171,6 +175,8 @@ static func _two_tone(value: Dictionary) -> bool:
 
 # 0.0.7.6 : pommes et noisettes au sol avec le même petit modèle que dans les arbres (Trees._fruit_mesh).
 func _mesh(value: Dictionary) -> Mesh:
+	if _kind(value) == "orbe":
+		return ReturnOrb.mesh()
 	if _kind(value) == "fruit":
 		return Trees._fruit_mesh(Trees.APPLE if value.get("objet") == "pomme" else Trees.HAZEL, _two_tone(value))
 	if _kind(value) == "bois":
@@ -251,6 +257,9 @@ func _fall_material(value: Dictionary) -> Material:
 func _plain_material(value: Dictionary) -> Material:
 	if _look(value) >= 0 and stone_material != null:
 		return stone_material
+	# 0.0.8.2 : orbe de retour : les matières de son modèle (boule lumineuse, anneau doré).
+	if _kind(value) == "orbe":
+		return null
 	# Fruits : le matériau de leur modèle (celui des arbres), couleur de chaque pomme dans ses données.
 	if _kind(value) == "fruit":
 		return null

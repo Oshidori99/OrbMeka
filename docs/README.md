@@ -1,6 +1,15 @@
-# OrbMeka™ — prototype 0.0.8.1
+# OrbMeka™ — prototype 0.0.8.2
 
 Godot 4.7 / GDScript. Formes et couleurs simples ; assets externes seulement sous licence vérifiée (sons CC0, assets/sounds/CREDITS.txt).
+
+## 0.0.8.2 — Orbe de retour en Survie (200 g, 2 dl, clic droit maintenu : retour au point de départ, puis elle disparaît ; une en poche et une au sol près du départ au début), et un arbre qui tombe blesse : de 15 à 80 points selon sa taille, tout pile dessous, très peu en étant frôlé
+Version locale (1 sur 4). Génération inchangée (version 33). Demandes de l'utilisateur (#231, #229).
+- **Orbe de retour** (Survie) : boule turquoise lumineuse cerclée d'un anneau doré, 200 g, 2 dl. En main, **clic droit maintenu** 1 s (anneau) : retour au point de départ, puis l'orbe disparaît (usage unique). Clic court : elle est posée au sol ; J la jette ; R la reprend, comme tout objet.
+- **Au début** (une fois par monde de Survie) : une orbe dans une poche (au sol à ses pieds si les poches sont pleines) et une deuxième posée au sol à côté du point de départ, en réserve. Les mondes de Survie d'avant la reçoivent à leur première ouverture ; un monde ouvert en Créatif n'en reçoit jamais, même passé ensuite en Survie (Créatif : touche H).
+- **Arbre qui tombe** (Survie) : à la fin de sa chute, il blesse celui qui est dessous : de 15 points (petit tronc, 10 cm) à 80 (très gros, 45 cm et plus) ; tout pile sous le tronc, de moins en moins sur le côté, quelques points en étant frôlé (70 cm plus loin), la moitié au plus sous les branches. Le haut d'un arbre coupé debout blesse aussi. Même effet rouge que pour une chute ; message « L'arbre vous est tombé dessus : −N ». À mains nues (troncs de 40 cm au plus) : jusqu'à environ 70.
+
+Tests réussis : return_orb (21, nouveau), death, health, inventory, inventory_more, game_mode, tree_fall, trees, tree_stress, sticks, world_save, web_save, action_timing, breaking, appearance (+ tests juridiques). Capture hors écran : orbe en main et au sol, icône.
+À tester : utiliser l'orbe (et la poser, la reprendre), un ancien monde de Survie (orbes données), se faire tomber un arbre dessus de face et de côté.
 
 ## 0.0.8.1 — À bout de forces en Survie : petit écran puis retour au point de départ, objets tombés sur place et gardés au sol (ou gardés sur soi, au choix du monde, à la création, dans Paramètres → Monde, défaut dans Paramètres → Survie), et en Créatif retour au départ avec H ou depuis la pause
 Version publiée (4 sur 4, avec 0.0.7.34, 0.0.7.35 et 0.0.8). Génération inchangée (version 33). Demandes de l'utilisateur (#205, #188).

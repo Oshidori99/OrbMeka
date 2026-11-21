@@ -17,6 +17,7 @@ const Plants = preload("res://scripts/plants.gd")
 const Water = preload("res://scripts/water.gd")
 const Inventory = preload("res://scripts/inventory.gd")
 const InventoryUI = preload("res://scripts/inventory_ui.gd")
+const ReturnOrb = preload("res://scripts/return_orb.gd")
 const DIRT := 2
 const BLOCK_COLORS := [Color("#d8c291"), Color("#888b90"), Color("#855332")]
 const BLOCK_NAMES := ["Sable", "Pierre", "Terre"]
@@ -144,6 +145,9 @@ func _ready() -> void:
 	inventory.changed.connect(func(): inventory_unsaved = true)
 	_create_selection()
 	_create_hud()
+	# 0.0.8.2 (#231) : orbes de retour du début (Survie, une fois par monde ; ouvert en Créatif : jamais).
+	start_orbs_given = saved_player.get("orbes_depart", false) == true or game_mode != Inventory.SURVIVAL
+	give_start_orbs()
 	apply_held()
 	_warm_shaders()
 	# 0.0.7.26 : branches mortes et rejets des colonnes déjà construites (les objets au sol n'existaient pas encore).
@@ -1896,12 +1900,15 @@ func _fall_part(tree: Node3D, part: int, number: int, t: float) -> void:
 	var radius := TreeParts.true_thickness(piece, t) * tree.scale.x * 0.5
 	var beside: Vector3 = tree.global_position + direction * (Trees.trunk(int(tree.get_meta("kind", 0)), int(tree.get_meta("size", 3))).x * tree.scale.x + 0.15)
 	var end := Vector3(beside.x, _ground_at(beside, tree) + radius, beside.z)
+	# 0.0.8.2 (#229) : le haut coupé se couche depuis la souche : ce qui reste au-dessus de la coupe blesse aussi.
+	var hit := _tree_hit(tree, beside, direction, maxf(start.y - tree.global_position.y, 0.0), radius * 2.0)
 	var tilt := func(s: float) -> void:
 		if is_instance_valid(made):
 			var turned := Basis(axis, s * PI * 0.5) * upright
 			made.global_basis = turned
 			made.global_position = start.lerp(end, s * s) - turned * local
 	var landed := func() -> void:
+		_tree_hurts(hit)
 		if not is_instance_valid(made):
 			return
 		made.remove_meta("falling")
@@ -2061,11 +2068,13 @@ func fell_tree(tree: Node3D) -> void:
 	var axis := Vector3.UP.cross(direction).normalized()
 	var lift := _tree_lift(tree)
 	var base := tree.global_position
+	var hit := _tree_hit(tree, base, direction, 0.0)
 	var tilt := func(t: float) -> void:
 		if is_instance_valid(tree):
 			tree.global_basis = Basis(axis, t * PI * 0.5) * upright
 			tree.global_position = base + Vector3.UP * lift * t
 	var landed := func() -> void:
+		_tree_hurts(hit)
 		if is_instance_valid(tree):
 			tree.remove_meta("falling")
 			_start_slide(tree, direction)
@@ -2073,6 +2082,26 @@ func fell_tree(tree: Node3D) -> void:
 	fall.tween_method(tilt, 0.0, 1.0, TREE_FALL_SECONDS).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
 	fall.tween_callback(landed)
 	_impact_sound(base)
+
+# 0.0.8.2 (#229, demandes de l'utilisateur) : ce qui tombe blesse en Survie celui qui est dessous à la fin de la chute
+# (Health.tree_damage : taille du tronc et endroit touché). cut : hauteur de la coupe (0 : tout l'arbre).
+func _tree_hit(tree: Node3D, base: Vector3, direction: Vector3, cut: float, diameter: float = -1.0) -> Dictionary:
+	var kind := int(tree.get_meta("kind", 0))
+	var size := int(tree.get_meta("size", 3))
+	var trunk := Trees.trunk(kind, size) * tree.scale.x
+	var box := Trees.mesh(kind, size, false, int(tree.get_meta("form", 0))).get_aabb()
+	return {"base": base, "direction": direction, "length": maxf(box.size.y * tree.scale.x - cut, 0.5),
+		"diameter": trunk.x if diameter < 0.0 else diameter, "crown_from": maxf(trunk.y - cut, 0.0),
+		"crown_radius": maxf(box.size.x, box.size.z) * 0.5 * tree.scale.x}
+
+func _tree_hurts(hit: Dictionary) -> int:
+	if not survival() or not is_instance_valid(player) or death_open:
+		return 0
+	var points := Health.tree_damage(hit.base, hit.direction, hit.length, hit.diameter, hit.crown_from, hit.crown_radius, player.global_position)
+	var lost := hurt(points)
+	if lost > 0 and not death_open:
+		_notify("L'arbre vous est tombé dessus : −%d." % lost)
+	return lost
 
 # Le tronc couché repose sur le sol : son centre à la hauteur de son rayon.
 func _tree_lift(tree: Node3D) -> float:
@@ -3504,7 +3533,9 @@ func player_data() -> Dictionary:
 		# 0.0.7.2 : inventaire (Survie et Créatif), barre d'objets et case en main.
 		"inventaire": inventory.to_dict(),
 		# 0.0.8 (#171) : points de vie (Survie).
-		"vie": Health.MAX if death_open else health.value}
+		"vie": Health.MAX if death_open else health.value,
+		# 0.0.8.2 (#231) : orbes de retour du début déjà données (ou monde ouvert en Créatif : jamais).
+		"orbes_depart": start_orbs_given}
 
 func _read_saved_player() -> Dictionary:
 	if save_folder.is_empty():
@@ -3713,16 +3744,26 @@ func _update_health(delta: float) -> void:
 
 # Manger (#204) : seulement en Survie, un fruit en main, pinceau « Poser ».
 func can_eat() -> bool:
-	return survival() and player.brush == 0 and Health.food_points(inventory.held()) > 0
+	return hold_use() == "manger"
 
-# Clic droit appuyé : rend vrai s'il commence à manger (la pose attend le relâchement).
+# 0.0.8.2 : ce que fait le clic droit maintenu avec l'objet en main (Survie, pinceau « Poser ») : « manger » un fruit,
+# « orbe » : utiliser l'orbe de retour (#231) ; « » : rien (le clic droit pose comme avant).
+func hold_use() -> String:
+	if not survival() or player.brush != 0:
+		return ""
+	var held := inventory.held()
+	if ReturnOrb.is_orb(held):
+		return "orbe"
+	return "manger" if Health.food_points(held) > 0 else ""
+
+# Clic droit appuyé : rend vrai s'il commence à manger ou à utiliser l'orbe (la pose attend le relâchement).
 func eat_press() -> bool:
-	if not can_eat():
+	if hold_use().is_empty():
 		return false
 	eat_time = 0.0
 	return true
 
-# Clic droit relâché : un clic court pose le fruit (comme avant 0.0.8).
+# Clic droit relâché : un clic court pose l'objet (comme avant 0.0.8).
 func eat_release(hit: Dictionary) -> void:
 	if eat_time < 0.0:
 		return
@@ -3734,22 +3775,68 @@ func eat_release(hit: Dictionary) -> void:
 func step_eat(delta: float, holding: bool) -> bool:
 	if eat_time < 0.0:
 		return false
-	if not holding or not can_eat():
+	var use := hold_use()
+	if not holding or use.is_empty():
 		eat_time = -1.0
 		return false
 	eat_time += delta
 	if eat_time < EAT_TAP:
 		return false
-	if health.full():
+	if use == "manger" and health.full():
 		_notify("Vie pleine : pas besoin de manger.")
 		return false
-	show_ring((eat_time - EAT_TAP) / (EAT_SECONDS - EAT_TAP))
-	if eat_time < EAT_SECONDS:
+	var seconds := ReturnOrb.USE_SECONDS if use == "orbe" else EAT_SECONDS
+	show_ring((eat_time - EAT_TAP) / (seconds - EAT_TAP))
+	if eat_time < seconds:
 		return false
-	eat_held()
-	# Un fruit à la fois : relâcher pour le suivant.
+	if use == "orbe":
+		use_orb()
+	else:
+		eat_held()
+	# Un à la fois : relâcher pour le suivant.
 	eat_time = -1.0
 	return true
+
+# 0.0.8.2 (#231) : l'orbe en main ramène au point de départ, puis disparaît.
+func use_orb() -> bool:
+	if not ReturnOrb.is_orb(inventory.held()):
+		return false
+	inventory.pop_held()
+	_go_to_start()
+	inventory_unsaved = true
+	_notify("Orbe de retour : vous voici au point de départ.")
+	return true
+
+# 0.0.8.2 (#231, demande de l'utilisateur) : en Survie, une fois par monde : une orbe de retour dans une poche (au sol à
+# ses pieds si les poches sont pleines) et une deuxième posée au sol près du point de départ, en réserve. Aussi pour les
+# mondes de Survie d'avant 0.0.8.2, à leur première ouverture ; un monde ouvert en Créatif n'en reçoit jamais (pas au
+# changement de mode). Retenu dans joueur.json (« orbes_depart »).
+var start_orbs_given := false
+
+func give_start_orbs() -> int:
+	if start_orbs_given:
+		return 0
+	start_orbs_given = true
+	if not survival() or not is_instance_valid(ground):
+		return 0
+	var orb := {"objet": ReturnOrb.ID}
+	var given := 0
+	var placed := false
+	for index in Inventory.POCKETS:
+		if inventory.item("bar", index).is_empty() and inventory.usable("bar", index):
+			inventory.put("bar", index, Inventory.single(orb))
+			placed = not inventory.item("bar", index).is_empty()
+			if placed:
+				break
+	if not placed:
+		ground.drop(orb, player.global_position + Vector3.UP, player.global_position, _rest_height, 0.2)
+	given += 1
+	var reserve := spawn_position() + ReturnOrb.RESERVE_OFFSET
+	ground.drop(orb, reserve + Vector3.UP * 0.5, reserve, _rest_height, 0.0)
+	given += 1
+	inventory_unsaved = true
+	objects_dirty = true
+	return given
 
 # Mange le fruit en main ; rend les points regagnés.
 func eat_held() -> int:

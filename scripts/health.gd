@@ -25,6 +25,45 @@ static func fall_damage(height: float, on_sand: bool = false) -> int:
 	var points := (height - FALL_SAFE) * FALL_PER_METER * (SAND_FACTOR if on_sand else 1.0)
 	return maxi(1, roundi(points))
 
+# 0.0.8.2 (#229, demandes de l'utilisateur) : un arbre (ou le haut d'un arbre coupé) qui tombe blesse celui qui est
+# dessous. De TREE_MIN (petit arbre) à TREE_MAX (très gros, tronc de TREE_BIG m) selon l'épaisseur du tronc ; et selon
+# l'endroit touché : pile sous le tronc (TREE_BODY m de part et d'autre, la moitié de la largeur du joueur comprise) :
+# tout ; plus loin, de moins en moins, jusqu'à quelques points en étant frôlé (TREE_GRAZE m plus loin) ; les branches du
+# houppier, plus légères, la moitié. Hors de l'arbre couché : rien.
+const TREE_MIN := 15.0
+const TREE_MAX := 80.0
+const TREE_SMALL := 0.1
+const TREE_BIG := 0.45
+const TREE_BODY := 0.35
+const TREE_GRAZE := 0.7
+const TREE_GRAZE_SHARE := 0.06
+const TREE_CROWN_SHARE := 0.5
+
+static func tree_strength(diameter: float) -> float:
+	return lerpf(TREE_MIN, TREE_MAX, clampf(inverse_lerp(TREE_SMALL, TREE_BIG, diameter), 0.0, 1.0))
+
+# base : pied de ce qui tombe ; direction : vers où il tombe (horizontale) ; length : sa longueur ; diameter : tronc ;
+# crown_from : distance au pied où commence le houppier ; crown_radius : sa demi-largeur ; at : pieds du joueur.
+static func tree_damage(base: Vector3, direction: Vector3, length: float, diameter: float, crown_from: float, crown_radius: float, at: Vector3) -> int:
+	var flat := Vector3(direction.x, 0.0, direction.z).normalized()
+	var rel := Vector3(at.x - base.x, 0.0, at.z - base.z)
+	var along := rel.dot(flat)
+	if along < -TREE_BODY or along > length + TREE_BODY:
+		return 0
+	var side := (rel - flat * along).length()
+	var body := diameter * 0.5 + TREE_BODY
+	var share := 0.0
+	if side <= body:
+		share = 1.0
+	elif side <= body + TREE_GRAZE:
+		share = lerpf(1.0, TREE_GRAZE_SHARE, smoothstep(0.0, 1.0, (side - body) / TREE_GRAZE))
+	if along >= crown_from and side > body and side <= maxf(crown_radius, body + TREE_GRAZE):
+		var crown := lerpf(TREE_CROWN_SHARE, TREE_GRAZE_SHARE, clampf((side - body) / maxf(crown_radius - body, 0.01), 0.0, 1.0))
+		share = maxf(share, crown)
+	if share <= 0.0:
+		return 0
+	return maxi(1, roundi(tree_strength(diameter) * share))
+
 static func food_points(value: Dictionary) -> int:
 	var id: String = value.get("objet", "")
 	if id == "pomme" and int(value.get("couleur", 1)) == BROWN:

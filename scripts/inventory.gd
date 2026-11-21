@@ -81,6 +81,8 @@ const ITEMS := {
 	# 0.0.7.5 : fruits (onglet Fruits en Créatif).
 	"pomme": {"nom": "Pomme", "forme": "fruit", "couleur": Color("#b5281c")},
 	"noisette": {"nom": "Noisette", "forme": "fruit", "poids": 3.0, "couleur": Color("#8a5a2b")},
+	# 0.0.8.2 (#231) : orbe de retour (return_orb.gd), 200 g, 2 dl (volume : poids / 1 kg par L).
+	"orbe_retour": {"nom": "Orbe de retour", "forme": "orbe", "poids": 200.0, "couleur": Color("#3fd6c8")},
 	# 0.0.7.8 : bois d'un arbre coupé (#212) : tronc et branches, chacun unique.
 	"tronc": {"nom": "Tronc", "forme": "bois", "couleur": Color("#6b4a2e")},
 	"branche": {"nom": "Branche", "forme": "bois", "couleur": Color("#7a5634")},

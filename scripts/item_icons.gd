@@ -27,6 +27,8 @@ static func texture(id: String) -> Texture2D:
 				image = _chip(spec.couleur, id.hash(), id == "eclat_silex" or id == "charbon")
 			"fruit":
 				image = _apple(Inventory.APPLE_COLORS[1], -1) if id == "pomme" else _hazelnut(spec.couleur)
+			"orbe":
+				image = _orb(spec.couleur)
 			"bois":
 				image = _stick(spec.couleur, id == "tronc", id.hash())
 				if spec.get("feuilles", false):
@@ -436,6 +438,42 @@ static func _apple(base: Color, color_index: int) -> Image:
 				var green := Color("#4f8f2a") * (1.05 - 0.25 * (local.y / (SIZE * 0.06)))
 				green.a = clampf((1.0 - e) * SIZE * 0.06, 0.0, 1.0)
 				image.set_pixel(x, y, image.get_pixel(x, y).blend(green.clamp()))
+	return image
+
+# 0.0.8.2 (#231) : orbe de retour : boule turquoise lumineuse (cœur clair, halo doux) cerclée d'un anneau doré incliné.
+static func _orb(base: Color) -> Image:
+	var image := _blank()
+	var center := Vector2(SIZE * 0.5, SIZE * 0.52)
+	var radius := SIZE * 0.32
+	_shadow(image, center + Vector2(1.0, radius * 0.95), Vector2(radius * 0.85, SIZE * 0.06))
+	var light := Vector3(-0.45, -0.6, 0.66).normalized()
+	var ring_color := Color("#e2b85a")
+	for y in range(SIZE):
+		for x in range(SIZE):
+			var at := Vector2(x + 0.5, y + 0.5)
+			var d := (at - center) / radius
+			var r := d.length()
+			var pixel := Color(0, 0, 0, 0)
+			# Halo autour de la boule.
+			if r >= 1.0 and r < 1.35:
+				pixel = Color(base.r, base.g, base.b, 0.35 * (1.35 - r) / 0.35)
+			elif r < 1.0:
+				var normal := Vector3(d.x, d.y, sqrt(1.0 - r * r))
+				var m := 0.55 + 0.55 * maxf(normal.dot(light), 0.0)
+				var color := base.lerp(Color(0.85, 1.0, 0.98), 0.55 * (1.0 - r) * (1.0 - r))
+				pixel = Color(color.r * m, color.g * m, color.b * m)
+				var spot := maxf(0.0, 1.0 - Vector2(d.x + 0.35, d.y + 0.38).length() * 4.0)
+				pixel = pixel.lerp(Color.WHITE, spot * 0.8)
+				pixel.a = clampf((1.0 - r) * radius, 0.0, 1.0)
+			# Anneau doré (ellipse inclinée) : devant la boule en bas, caché derrière en haut.
+			var ring := (at - center).rotated(-0.35)
+			var e := Vector2(ring.x / (radius * 1.25), ring.y / (radius * 0.38)).length()
+			if absf(e - 1.0) < 0.09 and (ring.y > 0.0 or r >= 1.0):
+				var gold := ring_color * (1.1 - 0.3 * (ring.y / (radius * 0.38)))
+				gold.a = 1.0
+				pixel = pixel.blend(gold.clamp()) if pixel.a > 0.0 else gold.clamp()
+			if pixel.a > 0.0:
+				image.set_pixel(x, y, pixel.clamp())
 	return image
 
 # Noisette : coque brune luisante, base plus claire et rugueuse, petite pointe.

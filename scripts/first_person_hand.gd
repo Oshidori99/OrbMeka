@@ -7,6 +7,7 @@ extends Node3D
 const Inventory = preload("res://scripts/inventory.gd")
 const Rocks = preload("res://scripts/rocks.gd")
 const Trees = preload("res://scripts/trees.gd")
+const ReturnOrb = preload("res://scripts/return_orb.gd")
 const CharacterPreview = preload("res://scripts/character_preview.gd")
 const MODEL := "res://assets/hands/main_droite.glb"
 # Place du poignet (repère de la caméra), taille ; doigts vers l'avant et un peu vers le centre, paume tournée vers soi.
@@ -102,6 +103,12 @@ func show_item(value: Dictionary) -> void:
 					made.material_override = _plain(Inventory.APPLE_COLORS[clampi(int(shown.get("couleur", 1)), 0, 4)])
 				made.scale = Vector3.ONE * size * 0.5
 				made.position.y = size * 0.45
+			# 0.0.8.2 (#231) : orbe de retour, posée dans la paume.
+			"orbe":
+				made.mesh = ReturnOrb.mesh()
+				size = minf(ReturnOrb.SIZE, _max_item())
+				made.scale = Vector3.ONE * size
+				made.position.y = size * 0.5
 			# 0.0.7.8 : bâton ou tronc en travers de la paume (raccourci pour ne pas cacher le jeu).
 			"bois":
 				var stick := CylinderMesh.new()
