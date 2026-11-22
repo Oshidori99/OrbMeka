@@ -47,7 +47,7 @@ func _run() -> void:
 	current_scene = app
 	await process_frame
 	# Contrôles : O + I, nouvelle partie Inventaire avec la molette.
-	check(Controls.GROUPS.has("Inventaire") and Controls.GROUPS.Inventaire == ["inventory", "crafting", "block_previous", "block_next", "pick_up", "pick_aimed", "gather", "throw", "delete_item", "show_details"] and not "block_next" in Controls.GROUPS.Blocs, "Contrôles: Inventaire part with O + I, O + F (0.0.8.5), the wheel and its click (0.0.8.15)")
+	check(Controls.GROUPS.has("Inventaire") and Controls.GROUPS.Inventaire == ["inventory", "crafting", "notebook", "block_previous", "block_next", "pick_up", "pick_aimed", "gather", "throw", "delete_item", "show_details"] and not "block_next" in Controls.GROUPS.Blocs, "Contrôles: Inventaire part with O + I, O + F (0.0.8.5), the wheel and its click (0.0.8.15)")
 	check(Controls.combo_kind(Controls.options(Controls.default_for("inventory"))[0]) == "chord" and Controls.ACTIONS.inventory.label == "Inventaire", "Inventaire: O and I at the same time")
 	app.open_world(item.id)
 	await process_frame

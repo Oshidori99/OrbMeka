@@ -3,6 +3,10 @@ Du plus récent au plus ancien. Ce fichier est mis à jour à chaque version.
 
 === Thème « Fabrication et survie » (0.0.8) ===
 
+0.0.8.16 — Carnet de route (O + C, ou le menu Échap) : les commandes en cases avec leurs détails, le chemin des premiers outils (de la ficelle à la hache et la pioche), tout se coche quand c'est fait, bouton Réinitialiser ; message la première fois dans un monde ; l'aide de l'inventaire passe dans le carnet
+Génération du terrain : version 33 · Menus : version 13.
+Issue #208 (aide pour débuter), d'après la description de l'utilisateur ; nom original (« Carnet de route »), style bleu-violet d'OrbMeka.
+
 0.0.8.15 — Plantes et gazon dans l'inventaire : arracher une plante entière, la replanter (elle repousse après avoir été coupée), motte de gazon (l'herbe repousse où on la pose) ; clic de la molette : prendre l'objet visé en main ; onglet Plantes du Créatif réparé
 Génération du terrain : version 33 · Menus : version 12.
 Issues #239 et #238 ; l'onglet Plantes du Créatif montrait la grille depuis 0.0.8.4 (signalé par l'utilisateur).

@@ -144,6 +144,10 @@ func _ready() -> void:
 	# 0.0.7.2 : inventaire relu (ancien monde : vide, sans erreur), dans le mode de jeu du monde.
 	inventory.mode = game_mode
 	inventory.from_dict(saved_player.get("inventaire"))
+	# 0.0.8.16 (#208) : Carnet de route relu (ancien monde : rien de coché, message du début à montrer).
+	notebook.from_array(saved_player.get("carnet", []))
+	notebook_seen = bool(saved_player.get("carnet_vu", false))
+	inventory.changed.connect(_on_notebook_inventory)
 	inventory.changed.connect(apply_held)
 	inventory.changed.connect(func(): inventory_unsaved = true)
 	_create_selection()
@@ -1467,9 +1471,10 @@ func toggle_inventory() -> void:
 		open_inventory()
 
 func open_inventory() -> void:
-	if inventory_open or death_open or crafting_open or not is_instance_valid(inventory_ui):
+	if inventory_open or death_open or crafting_open or notebook_open or not is_instance_valid(inventory_ui):
 		return
 	inventory_open = true
+	notebook_mark("inventaire")
 	player.release_controls()
 	inventory_ui.open()
 	_show_aim(false)
@@ -1484,6 +1489,81 @@ func close_inventory(recapture: bool = true) -> void:
 	if recapture and DisplayServer.get_name() != "headless":
 		Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
 
+# --- 0.0.8.16 (#208, demande de l'utilisateur) : Carnet de route (O + C, ou le menu Échap ; carnet.gd, carnet_ui.gd) ---
+# Les cases (commandes) se cochent quand on les fait ; les étapes du chemin (Survie) quand on a l'objet sur soi. La première
+# fois qu'on entre dans un monde, un message dit comment l'ouvrir.
+const Carnet = preload("res://scripts/carnet.gd")
+const CarnetUI = preload("res://scripts/carnet_ui.gd")
+const NOTEBOOK_HINT := "Pour ouvrir le Carnet de route (commandes et premiers outils), appuyez sur O + C (aussi dans le menu Échap)."
+const NOTEBOOK_WALK := 4.0
+var notebook := Carnet.new()
+var notebook_ui: CanvasLayer
+var notebook_open := false
+var notebook_seen := false
+var _walk_from := Vector3.INF
+
+func toggle_notebook() -> void:
+	if notebook_open:
+		close_notebook()
+	else:
+		open_notebook()
+
+func open_notebook() -> void:
+	if notebook_open or death_open or not is_instance_valid(player):
+		return
+	if inventory_open:
+		close_inventory(false)
+	if crafting_open:
+		close_crafting(false)
+	if not is_instance_valid(notebook_ui):
+		notebook_ui = CarnetUI.new()
+		notebook_ui.setup(notebook, text_scale)
+		notebook_ui.closed.connect(close_notebook)
+		add_child(notebook_ui)
+	notebook_open = true
+	_set_hud_visible(false)
+	player.release_controls()
+	_show_aim(false)
+	notebook_ui.open()
+
+func close_notebook(recapture: bool = true) -> void:
+	if not notebook_open:
+		return
+	notebook_open = false
+	notebook_ui.close()
+	_set_hud_visible(true)
+	_show_aim(true)
+	if recapture and DisplayServer.get_name() != "headless":
+		Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
+
+# Coche une case ou une étape (une fois) : un petit message.
+func notebook_mark(id: String) -> void:
+	if notebook.mark(id):
+		_notify("Carnet de route : « %s » ✓" % Carnet.name_of(id))
+		inventory_unsaved = true
+
+func _on_notebook_inventory() -> void:
+	if game_mode != Inventory.SURVIVAL:
+		return
+	var fresh := notebook.check_inventory(inventory)
+	if not fresh.is_empty():
+		_notify("Carnet de route : « %s » ✓" % Carnet.name_of(fresh[-1]))
+		inventory_unsaved = true
+
+func _step_notebook() -> void:
+	if behind_loading or not is_instance_valid(player):
+		return
+	if not notebook_seen:
+		notebook_seen = true
+		inventory_unsaved = true
+		_notify(NOTEBOOK_HINT)
+		notice_time = 9.0
+	if not notebook.is_done("deplacer"):
+		if _walk_from == Vector3.INF:
+			_walk_from = player.global_position
+		elif player.global_position.distance_to(_walk_from) > NOTEBOOK_WALK:
+			notebook_mark("deplacer")
+
 # --- 0.0.8.5 (#211, demandes de l'utilisateur) : fabrication à la main (O + F, crafting_ui.gd), créée à la première ouverture ---
 const CraftingUI = preload("res://scripts/crafting_ui.gd")
 var crafting_ui: CanvasLayer
@@ -1496,10 +1576,11 @@ func toggle_crafting() -> void:
 		open_crafting()
 
 func open_crafting() -> void:
-	if crafting_open or inventory_open or death_open or not is_instance_valid(player):
+	if crafting_open or inventory_open or death_open or notebook_open or not is_instance_valid(player):
 		return
 	_prepare_crafting()
 	crafting_open = true
+	notebook_mark("fabrication")
 	# L'interface du jeu (barre, vie, messages) cachée : l'écran de fabrication montre ses propres cases.
 	_set_hud_visible(false)
 	player.release_controls()
@@ -3224,6 +3305,7 @@ func throw_held(all: bool = false) -> bool:
 	for unit in Inventory.units(thrown):
 		ground.drop(unit, player.camera.global_position - player.global_transform.basis.z * 0.3, near, _rest_height, 0.15)
 	show_choice("%s jeté au sol" % _thrown_name(thrown))
+	notebook_mark("jeter")
 	return true
 
 # 0.0.7.30 (demande de l'utilisateur) : Supprimer (D + E), Créatif seulement : l'objet en main disparaît (rien ne tombe).
@@ -3475,6 +3557,7 @@ func pick_up(hit: Dictionary) -> bool:
 		_show_column_pebbles(column)
 		_build_pebble_bodies(column)
 	show_choice("%s (%s)" % [Inventory.item_name(value), Inventory.format_weight(Inventory.unit_weight(value))])
+	notebook_mark("ramasser")
 	return true
 
 # --- 0.0.8.4 (#213, demandes de l'utilisateur) : récolter des fibres et des lianes ---
@@ -3715,6 +3798,7 @@ func harvest(target: Dictionary) -> bool:
 			ground.drop(unit, player.camera.global_position - player.global_transform.basis.z * 0.3, near, _rest_height, 0.15)
 	var name := Inventory.plural_name(value) if amount > 1 else Inventory.item_name(value).to_lower()
 	show_choice("%d %s récoltée%s" % [amount, name, "s" if amount > 1 else ""] + (" (%d au sol)" % rest if rest > 0 else ""))
+	notebook_mark("recolter")
 	return true
 
 
@@ -3837,6 +3921,7 @@ func plant_held(hit: Dictionary) -> bool:
 	_replant_column(plant_column(at.x, at.z))
 	objects_dirty = true
 	show_choice("Planté : %s" % Inventory.item_name(one).to_lower())
+	notebook_mark("planter")
 	return true
 
 func lay_turf(hit: Dictionary) -> bool:
@@ -3846,6 +3931,7 @@ func lay_turf(hit: Dictionary) -> bool:
 		return false
 	_set_grass(hit.position, true)
 	show_choice("Gazon posé : l'herbe repousse")
+	notebook_mark("planter")
 	return true
 
 func _step_regrow(delta: float) -> void:
@@ -3920,6 +4006,7 @@ func step_gather(delta: float, holding: bool) -> bool:
 			return false
 		_set_grass(hit.position, false)
 		show_choice("Motte de gazon (%s)" % Inventory.format_weight(Inventory.unit_weight({"objet": TURF_ITEM})))
+		notebook_mark("recuperer")
 		return true
 	var result := inventory.add_to_selected({"objet": id, "nombre": 1})
 	if result.added == 0:
@@ -3927,6 +4014,7 @@ func step_gather(delta: float, holding: bool) -> bool:
 		return false
 	_apply_terrain({point: [SmoothTerrain.DUG, -1]})
 	show_choice("%s (%s)" % [handful_text(id), Inventory.format_weight(Inventory.unit_weight({"objet": id}))])
+	notebook_mark("recuperer")
 	return true
 
 # Survie : la matière creusée est rejetée derrière soi en petit tas. Jamais dans le trou qu'on creuse, jamais assez haut
@@ -4440,7 +4528,9 @@ func player_data() -> Dictionary:
 		# 0.0.8 (#171) : points de vie (Survie).
 		"vie": Health.MAX if death_open else health.value,
 		# 0.0.8.2 (#231) : orbes de retour du début déjà données (ou monde ouvert en Créatif : jamais).
-		"orbes_depart": start_orbs_given}
+		"orbes_depart": start_orbs_given,
+		# 0.0.8.16 (#208) : Carnet de route : cases et étapes cochées, message du début déjà montré.
+		"carnet": notebook.to_array(), "carnet_vu": notebook_seen}
 
 func _read_saved_player() -> Dictionary:
 	if save_folder.is_empty():
@@ -4870,6 +4960,7 @@ func eat_held() -> int:
 	var what: String = "Vieille pomme" if old else str(Inventory.ITEMS.get(eaten.get("objet", ""), {}).get("nom", "Fruit"))
 	_notify("%s mangée : +%d de vie." % [what, gained])
 	inventory_unsaved = true
+	notebook_mark("manger")
 	return gained
 
 func _apply_saved_player(data: Dictionary) -> void:
@@ -5318,6 +5409,7 @@ static func action_hint(left_mode: int, brush: int) -> String:
 	return "Clic gauche : %s · clic droit : %s · changer : B + T · taille : B + molette · inventaire : O + I" % [LEFT_MODES[clampi(left_mode, 0, LEFT_MODES.size() - 1)], BRUSH_NAMES[clampi(brush, 0, BRUSH_NAMES.size() - 1)].to_lower()]
 
 func open_action_menu() -> void:
+	notebook_mark("actions")
 	if is_instance_valid(action_menu) and is_instance_valid(player):
 		action_menu.open(player.left_mode, player.brush)
 
@@ -5488,6 +5580,7 @@ func _process(delta: float) -> void:
 	# Sauvegarde régulière (petits fichiers, seulement les zones modifiées : pas de saccade).
 	played_since_save += delta
 	_step_regrow(delta)
+	_step_notebook()
 	autosave_time += delta
 	if _save_due(delta):
 		save_now()
@@ -5634,6 +5727,7 @@ func _process_measured(delta: float) -> void:
 	_perf("eau", at)
 	played_since_save += delta
 	_step_regrow(delta)
+	_step_notebook()
 	autosave_time += delta
 	if _save_due(delta):
 		at = Time.get_ticks_usec()

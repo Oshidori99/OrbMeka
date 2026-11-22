@@ -1,6 +1,17 @@
-# OrbMeka™ — prototype 0.0.8.15
+# OrbMeka™ — prototype 0.0.8.16
 
 Godot 4.7 / GDScript. Formes et couleurs simples ; assets externes seulement sous licence vérifiée (sons CC0, assets/sounds/CREDITS.txt).
+
+## 0.0.8.16 — Carnet de route (O + C, ou le menu Échap) : les commandes en cases avec leurs détails, le chemin des premiers outils (de la ficelle à la hache et la pioche), tout se coche quand c'est fait, bouton Réinitialiser ; message la première fois dans un monde ; l'aide de l'inventaire passe dans le carnet
+Version locale (3 sur 4). Génération inchangée (version 33). Issue #208, décrite par l'utilisateur.
+- **Carnet de route** (scripts/carnet.gd, carnet_ui.gd) : O + C (Contrôles → Inventaire, modifiable) ou le bouton « Carnet de route » du menu Échap ; Échap ou O + C le ferme. Un grand panneau bleu-violet sur le jeu assombri.
+- **À gauche, les commandes** en cases (image, nom, touches) : se déplacer, ouvrir l'inventaire, ouvrir la fabrication, changer d'action (B + T), ramasser, récolter des fibres, récupérer des matériaux, planter, manger, jeter. Un clic : **les détails au milieu**. L'aide de l'inventaire y est maintenant (l'inventaire garde une ligne qui y renvoie).
+- **À droite, le chemin des premiers outils**, de haut en bas : cailloux → fibres → tresser une ficelle → tailler un éclat → tailler une tête → ramasser une branche → la fendre → assembler → ficeler une hache, puis une pioche.
+- **Tout se coche** quand c'est fait : une case quand on a fait la chose (ouvert l'inventaire, mangé…), une étape quand on a l'objet sur soi (Survie). Un petit message à chaque coche. **Réinitialiser** (deux clics, on confirme) efface tout pour recommencer. Enregistré par monde (joueur.json « carnet »).
+- **La première fois** qu'on entre dans un monde : « Pour ouvrir le Carnet de route… appuyez sur O + C (aussi dans le menu Échap) ».
+
+Tests réussis : carnet (19, nouveau), inventory, inventory_more, controls, key_combos, controls_groups, menu, pause, pause_settings, crafting, optimisation, hands_eat, plantes_inventaire, world_save, shortcuts_selection, death, prototype, history_resume (+ tests juridiques).
+À tester : O + C et le menu Échap, cliquer les cases, faire une ficelle en Survie et voir l'étape se cocher, Réinitialiser ; à plusieurs tailles de texte.
 
 ## 0.0.8.15 — Plantes et gazon dans l'inventaire : arracher une plante entière, la replanter (elle repousse après avoir été coupée), motte de gazon (l'herbe repousse où on la pose) ; clic de la molette : prendre l'objet visé en main ; onglet Plantes du Créatif réparé
 Version locale (2 sur 4). Génération inchangée (version 33). Demandes de l'utilisateur : issues #239 et #238, onglet Plantes buggé.

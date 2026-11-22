@@ -667,6 +667,10 @@ class FillBar extends Control:
 var panel_bars := {}
 
 func _hint() -> String:
+	# 0.0.8.16 (#208, demande de l'utilisateur) : l'aide complète est dans le Carnet de route (case « Ouvrir l'inventaire »).
+	return "Toute l'aide : Carnet de route (O + C) → Ouvrir l'inventaire · Échap : fermer"
+
+func _full_hint() -> String:
 	if inventory.mode == Inventory.CREATIVE:
 		return "Clic gauche : prendre ou poser (glisser : partager le tas entre les cases) · clic droit avec un objet tenu : en poser un (glisser : un par case) ; sur un objet du haut : dans la première case libre · « + » : détails (ce qu'on a) ou variantes (en haut) · D + T : détails de l'objet en main · Jeter (au sol) : la croix, hors de la fenêtre ou J (Ctrl + J : tout le tas) · D + E : supprimer le tas · Échap : fermer"
 	return "Clic gauche : prendre ou poser (glisser : partager le tas entre les cases ; mains : 4 kg et 1,5 L chacune, 8 kg et 3 L à deux ; poches : 1 kg et 0,5 L) · clic droit avec un objet tenu : en poser un (glisser : un par case) · « + » : les détails · D + T : détails de l'objet en main · Jeter (au sol) : la croix, hors de la fenêtre ou J (Ctrl + J : tout le tas) · Échap : fermer"

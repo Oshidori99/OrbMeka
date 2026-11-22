@@ -81,7 +81,7 @@ func _watching() -> bool:
 	var world: Variant = app.get("active_world")
 	if app.page != "playing" or not is_instance_valid(world) or get_tree().paused:
 		return false
-	return not world.inventory_open and not world.crafting_open and not world.death_open and not world.behind_loading
+	return not world.inventory_open and not world.crafting_open and not world.notebook_open and not world.death_open and not world.behind_loading
 
 func _process(delta: float) -> void:
 	if not _watching():

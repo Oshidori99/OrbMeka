@@ -131,4 +131,7 @@ sources_blender/main/generer_main.py dans Blender), qui tient l'objet choisi dan
 Plantes et gazon (0.0.8.15, #239) : world.gd (pull_plant, plant_held, lay_turf, column_plants : plantes de la graine sans
 les arrachées, plus les plantées ; repousse des plantées) ; objets plante_ortie, plante_lin, plante_herbe, gazon
 (inventory.gd). Clic de la molette (#238) : world.gd pick_aimed. Test : tests/plantes_inventaire_test.gd.
+Carnet de route (0.0.8.16, #208) : scripts/carnet.gd (commandes, chemin des premiers outils, coches), scripts/carnet_ui.gd
+(écran, O + C ou menu Échap) ; world.gd notebook_mark (cases), _on_notebook_inventory (étapes : objets sur soi), joueur.json
+« carnet » et « carnet_vu ». Test : tests/carnet_test.gd.
 scripts/progress_ring.gd (0.0.7.8) : anneau de chargement autour de la croix de visée (abattre, couper, récupérer).

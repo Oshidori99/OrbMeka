@@ -211,7 +211,7 @@ func _unhandled_input(event: InputEvent) -> void:
 	if Engine.get_process_frames() <= input_ready_frame:
 		return
 	# 0.0.7.2 : inventaire ouvert : ses clics et Échap sont à lui (la souris ne revient pas au jeu).
-	if is_instance_valid(world) and (world.get("inventory_open") == true or world.get("death_open") == true or world.get("crafting_open") == true):
+	if is_instance_valid(world) and (world.get("inventory_open") == true or world.get("death_open") == true or world.get("crafting_open") == true or world.get("notebook_open") == true):
 		return
 	# Changer de vue en combinaison (0.0.5.10, touche modifiable) : arrive comme une action.
 	if event is InputEventAction and event.is_action_pressed("change_view"):

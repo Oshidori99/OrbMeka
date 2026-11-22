@@ -539,6 +539,8 @@ La graine et le terrain initial sont conservés." % Catalog.MAX_NAME_LENGTH])
 	resume_button = _button("Reprendre", pause_page, resume_game)
 	# 0.0.3.9 : Paramètres aussi en pause, juste sous Reprendre (sans Attributs dans un monde par défaut).
 	pause_settings_button = _button("Paramètres", pause_page, open_pause_settings)
+	# 0.0.8.16 (#208, demande de l'utilisateur) : le Carnet de route aussi depuis le menu Échap.
+	notebook_button = _button("Carnet de route (O + C)", pause_page, open_notebook_from_pause)
 	info_button = _button("Informations du monde", pause_page, open_world_info)
 	# 0.0.8.1 (#188) : en Créatif seulement, revenir au point de départ (aussi : touche H par défaut).
 	home_button = _button("Revenir au point de départ", pause_page, go_home_from_pause)
@@ -1235,7 +1237,7 @@ func quit_game() -> void:
 # 0.0.7.34 : en jeu, souris pas capturée (inventaire fermé) : message « Cliquez dans le jeu ». Sur le Web, Échap est pris
 # par le navigateur pour libérer la souris (le jeu ne le reçoit pas) : la souris libérée ouvre la pause, comme Échap.
 func _watch_capture() -> void:
-	var playing: bool = page == "playing" and is_instance_valid(active_world) and not active_world.inventory_open and not active_world.death_open and not active_world.crafting_open
+	var playing: bool = page == "playing" and is_instance_valid(active_world) and not active_world.inventory_open and not active_world.death_open and not active_world.crafting_open and not active_world.notebook_open
 	var captured: bool = Input.mouse_mode == Input.MOUSE_MODE_CAPTURED
 	if is_instance_valid(click_hint):
 		click_hint.visible = playing and not captured and DisplayServer.get_name() != "headless"
@@ -1340,6 +1342,14 @@ func resume_game() -> void:
 	shortcut_hints.show()
 	active_world.player.resume_controls()
 
+var notebook_button: Button
+
+func open_notebook_from_pause() -> void:
+	if not is_instance_valid(active_world):
+		return
+	resume_game()
+	active_world.open_notebook()
+
 func go_home_from_pause() -> void:
 	if not is_instance_valid(active_world):
 		return
@@ -1366,6 +1376,10 @@ func _menu_shortcut(event: InputEvent) -> void:
 		get_viewport().set_input_as_handled()
 	elif page == "playing" and is_instance_valid(active_world) and event.is_action_pressed("crafting"):
 		active_world.toggle_crafting()
+		get_viewport().set_input_as_handled()
+	# 0.0.8.16 (#208) : Carnet de route (O + C par défaut).
+	elif page == "playing" and is_instance_valid(active_world) and event.is_action_pressed("notebook"):
+		active_world.toggle_notebook()
 		get_viewport().set_input_as_handled()
 	elif page == "playing" and is_instance_valid(active_world) and not active_world.inventory_open and event.is_action_pressed("go_home"):
 		active_world.go_home()
@@ -1431,6 +1445,10 @@ func _cancel_page() -> void:
 		return
 	# 0.0.8.1 (#205) : écran de mort : Échap ne fait rien (bouton « Revenir au départ »).
 	if page == "playing" and is_instance_valid(active_world) and active_world.death_open:
+		return
+	# 0.0.8.16 (#208) : Échap ferme le Carnet de route (retour au jeu), sans mettre en pause.
+	if page == "playing" and is_instance_valid(active_world) and active_world.notebook_open:
+		active_world.close_notebook()
 		return
 	# 0.0.8.5 (#211) : Échap ferme la fabrication (retour au jeu), sans mettre en pause.
 	if page == "playing" and is_instance_valid(active_world) and active_world.crafting_open:
