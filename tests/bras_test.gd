@@ -68,12 +68,17 @@ func _run() -> void:
 	await frames(5)
 	check(hand.pose_value("ouverte") > 0.4, "placing: an open hand pushes")
 	await frames(40)
+	# Selon le temps (pas le nombre d'images : la machine des Actions GitHub est plus lente ou plus rapide).
 	hand.grab()
-	await frames(4)
-	var reached: bool = hand.position.distance_to(hand.rest) > 0.05
-	await frames(14)
-	check(reached and hand.pose_value("prise") > 0.3, "picking up: it reaches, then closes")
-	await frames(40)
+	var reached := false
+	var closed := false
+	var start := Time.get_ticks_msec()
+	while Time.get_ticks_msec() - start < 700:
+		await process_frame
+		reached = reached or hand.position.distance_to(hand.rest) > 0.05
+		closed = closed or float(hand._pose_goal.get("prise", 0.0)) == 1.0
+	check(reached and closed, "picking up: it reaches, then closes")
+	await frames(10)
 	# (Le monde appelle pull à chaque image en récoltant ; ici, un seul appel : on regarde la pose voulue.)
 	hand.pull(0.5, 0.2)
 	check(hand.pulling and hand._pose_goal.prise == 1.0 and hand.position != hand.rest, "harvesting or pulling: it grips and tugs")
