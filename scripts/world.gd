@@ -556,12 +556,20 @@ func _create_terrain(start_at: Vector3 = Vector3.ZERO) -> void:
 	generated_max_height = 0
 	# 0.0.5.14 : petites collines selon la graine, plates autour de l'apparition et de la plage.
 	if relief:
+		# 0.0.8.13 : fils de calcul du terrain (déjà lancés par l'écran de chargement, sinon maintenant) ; ils se préparent à
+		# côté, le fil principal fait tout lui-même en attendant.
+		if terrain_workers == null and TerrainWorkers.available():
+			terrain_workers = TerrainWorkers.new()
+			terrain_workers.start(terrain_seed, flat_spots(), generation_options)
 		# 0.0.7.23 : graine déjà préparée par étapes pendant l'écran de chargement (prepare_terrain), sinon d'un coup.
 		if prepared_terrain != null:
 			prepared_terrain.prepare_step(1 << 40)
 			terrain = prepared_terrain
 		else:
 			terrain.setup(terrain_seed, flat_spots(), generation_options)
+	elif terrain_workers != null:
+		terrain_workers.stop()
+		terrain_workers = null
 	_read_terrain_changes()
 	_read_objects()
 	# 0.0.6.6 (#124) : eau qui coule (lacs qui baissent, eau libre), relue depuis le dossier du monde.
@@ -680,7 +688,8 @@ func _surveyed(column: Vector2i) -> Array:
 # Colonne affichée : ses zones de surface et son herbe.
 func _show_column(column: Vector2i) -> void:
 	for zone: Vector3i in _surveyed(column):
-		rebuild_terrain_piece(zone)
+		# 0.0.8.13 : surface d'un fil de calcul si elle est déjà là.
+		rebuild_terrain_piece(zone, false, _take_worker_surface(zone))
 	column_pending.erase(column)
 	_finish_column(column)
 
@@ -745,6 +754,13 @@ func _hide_column(column: Vector2i) -> void:
 	terrain.forget_column(column)
 	heights_ready.erase(column)
 	column_height_rows.erase(column)
+	worker_done.erase(column)
+	if worker_columns.has(column) and terrain_workers != null:
+		terrain_workers.cancel_column(column)
+	worker_columns.erase(column)
+	for zone: Vector3i in worker_surfaces.keys():
+		if zone.x == column.x and zone.z == column.y:
+			worker_surfaces.erase(zone)
 	for zone: Vector3i in surface_jobs.keys():
 		if zone.x == column.x and zone.z == column.y:
 			surface_jobs.erase(zone)
@@ -793,6 +809,9 @@ func _process_terrain_queue(budget_usec: int = TERRAIN_BUDGET_USEC) -> void:
 				var surface: Array = cave_job.result
 				cave_job = null
 				rebuild_terrain_piece(cave_zone, false, surface)
+	if _workers_on():
+		_collect_worker_results()
+		_dispatch_worker_columns()
 	var started := Time.get_ticks_usec()
 	# 0.0.6.2 : zone par zone (une colonne de montagne dépassait 40 ms d’un coup) ; l’herbe et les objets quand la colonne est finie.
 	# 0.0.6.18 (#175) : une étape de plus seulement si elle tient dans le temps restant (durée moyenne des dernières) :
@@ -801,7 +820,10 @@ func _process_terrain_queue(budget_usec: int = TERRAIN_BUDGET_USEC) -> void:
 		var step_started := Time.get_ticks_usec()
 		if step_started > started and step_started - started + terrain_step_usec > budget_usec:
 			break
-		_terrain_step()
+		var index := _next_terrain_index()
+		if index < 0:
+			break
+		_terrain_step(index)
 		terrain_step_usec = terrain_step_usec * 0.8 + (Time.get_ticks_usec() - step_started) * 0.2
 
 # Colonnes dont les hauteurs sont prêtes (oubliées quand la colonne sort de la vue : terrain.forget_column).
@@ -824,10 +846,10 @@ var cave_job_edits := 0
 var terrain_edits := 0
 var opening_columns := true
 
-func _terrain_step() -> void:
-	var column: Vector2i = terrain_queue[0]
+func _terrain_step(index: int = 0) -> void:
+	var column: Vector2i = terrain_queue[index]
 	if not shown_columns.has(column):
-		terrain_queue.pop_front()
+		terrain_queue.remove_at(index)
 		column_pending.erase(column)
 		column_height_rows.erase(column)
 		return
@@ -854,19 +876,26 @@ func _terrain_step() -> void:
 		column_pending[column] = _surveyed(column).duplicate()
 	var pending: Array = column_pending[column]
 	if pending.is_empty():
-		terrain_queue.pop_front()
+		terrain_queue.remove_at(index)
 		column_pending.erase(column)
 		column_height_rows.erase(column)
+		worker_done.erase(column)
 		_finish_column(column, true)
 	else:
 		var at := Time.get_ticks_usec()
 		var zone: Vector3i = pending.back()
 		# 0.0.7.20 : zone plate (carré partagé) : tout de suite ; sinon sa surface est calculée en petites étapes
 		# (surface_job.gd, 3 ms au plus par image), puis la zone est montée d'un coup.
+		# 0.0.8.13 : surface déjà calculée par un fil de calcul (colonne sans changement du joueur autour), sinon [].
+		var ready_surface: Array = [] if close else _take_worker_surface(zone)
 		if close or terrain.is_flat(zone):
 			surface_jobs.erase(zone)
 			pending.pop_back()
 			rebuild_terrain_piece(zone)
+		elif not ready_surface.is_empty():
+			surface_jobs.erase(zone)
+			pending.pop_back()
+			rebuild_terrain_piece(zone, false, ready_surface)
 		else:
 			# 0.0.7.22 : un calcul commencé par zone, repris où il en était si une autre colonne passe devant (le joueur
 			# attend au bord d'une autre) ; recommencé si le terrain a changé depuis (terrain_edits).
@@ -884,6 +913,133 @@ func _terrain_step() -> void:
 		if perf_on:
 			_perf("terrain_morceau", at)
 
+# 0.0.8.13 « Plusieurs cœurs » : les hauteurs et les surfaces des colonnes sans changement du joueur autour (la plupart, en
+# découvrant le monde) sont calculées par les fils de calcul (terrain_workers.gd, une copie du terrain chacun) ; le fil
+# principal reçoit les nombres, ne monte plus que les morceaux (maillage, collision), l'herbe et les objets. Les colonnes
+# changées par le joueur, celles d'à côté, les grottes et les tout premiers instants de l'ouverture restent faits ici.
+const TerrainWorkers = preload("res://scripts/terrain_workers.gd")
+# Colonnes envoyées par fil de calcul prêt, au plus (les plus proches du joueur d'abord, comme la file).
+const WORKER_AHEAD := 6
+# Carrés du lointain envoyés par fil de calcul prêt, au plus.
+const WORKER_FAR_AHEAD := 3
+# Colonne en tête de la file attendue plus longtemps (fils de calcul très occupés ou ralentis par le système) : faite ici.
+const WORKER_PATIENCE_MSEC := 1500
+var terrain_workers: RefCounted = null
+# Colonne envoyée → heure de l'envoi (ms) ; retirée quand son résultat arrive.
+var worker_columns: Dictionary = {}
+# Colonne dont les hauteurs viennent d'un fil de calcul (ses surfaces dans worker_surfaces), jusqu'à ce qu'elle soit finie.
+var worker_done: Dictionary = {}
+var worker_surfaces: Dictionary = {}
+# Carré du lointain envoyé (clé de far_surveys) → résultat attendu.
+var worker_far: Dictionary = {}
+# Zones montées avec une surface d'un fil de calcul (mesures, tests).
+var worker_built := 0
+
+func _workers_on() -> bool:
+	return terrain_workers != null and terrain_workers.is_ready()
+
+# La colonne peut être calculée par un fil de calcul : sa copie ne connaît que la graine (aucun changement du joueur dans
+# la colonne ni autour) ; les colonnes juste autour du joueur à l'ouverture sont faites tout de suite ici.
+func _worker_fits(column: Vector2i) -> bool:
+	if opening_columns and maxi(absi(column.x - view_center.x), absi(column.y - view_center.y)) <= 1:
+		return false
+	return not terrain.zone_column_changed(column)
+
+# La colonne est (ou sera) faite ici : pas pour un fil de calcul, ou déjà commencée ici.
+func _main_builds(column: Vector2i) -> bool:
+	if worker_done.has(column):
+		return false
+	return not _worker_fits(column) or heights_ready.has(column) or column_height_rows.has(column) or column_pending.has(column)
+
+# Prochaine colonne à avancer ici : la première de la file qui n'attend pas un fil de calcul ; -1 : toutes attendent.
+# Seulement le début de la file (au-delà, rien n'est encore envoyé : les colonnes y attendent leur tour, plus proches
+# d'abord) : la file entière (jusqu'à plus de 1 000 colonnes en Beauté) parcourue à chaque étape coûterait des millisecondes.
+func _next_terrain_index() -> int:
+	if not _workers_on():
+		return 0
+	var window := mini(terrain_queue.size(), terrain_workers.ready_count() * WORKER_AHEAD + WORKER_SCAN_EXTRA)
+	for index in range(window):
+		var column: Vector2i = terrain_queue[index]
+		if not shown_columns.has(column) or worker_done.has(column) or _main_builds(column):
+			return index
+		# En tête et attendue trop longtemps : faite ici (son résultat, s'il arrive, sera laissé).
+		if index == 0 and worker_columns.has(column) and Time.get_ticks_msec() - int(worker_columns[column]) > WORKER_PATIENCE_MSEC:
+			return 0
+	return -1
+
+const WORKER_SCAN_EXTRA := 8
+
+func _dispatch_worker_columns() -> void:
+	var limit: int = terrain_workers.ready_count() * WORKER_AHEAD
+	if worker_columns.size() >= limit:
+		return
+	var window := mini(terrain_queue.size(), limit + WORKER_SCAN_EXTRA)
+	for index in range(window):
+		if worker_columns.size() >= limit:
+			return
+		var column: Vector2i = terrain_queue[index]
+		if worker_columns.has(column) or worker_done.has(column) or not shown_columns.has(column) or _main_builds(column):
+			continue
+		# La première de la file (le joueur attend peut-être au bord : ground_ready) passe devant les autres travaux.
+		terrain_workers.add_column(column, index == 0)
+		worker_columns[column] = Time.get_ticks_msec()
+
+func _collect_worker_results() -> void:
+	for result: Dictionary in terrain_workers.take_results():
+		if result.kind == "lointain":
+			worker_far.erase(result.key)
+			var survey: Dictionary = far_surveys.get(result.key, {})
+			if survey.is_empty() or survey.next < survey.side:
+				far_surveys[result.key] = result.survey
+			continue
+		var column: Vector2i = result.column
+		worker_columns.erase(column)
+		# Sortie de la vue, déjà finie ou commencée ici entre-temps : rien à reprendre.
+		if not shown_columns.has(column) or built_columns.has(column) or column_pending.has(column) or column_height_rows.has(column):
+			continue
+		# Hauteurs de la graine (jamais changées par le joueur) : gardées comme si elles avaient été calculées ici.
+		var known: Dictionary = terrain._heights
+		var heights: Dictionary = result.heights
+		for point: Vector2i in heights:
+			if not known.has(point):
+				known[point] = heights[point]
+		heights_ready[column] = true
+		worker_done[column] = true
+		# Changée par le joueur pendant le calcul : surfaces refaites ici (avec ses changements).
+		if terrain.zone_column_changed(column):
+			continue
+		var surfaces: Dictionary = result.surfaces
+		for zone: Vector3i in surfaces:
+			worker_surfaces[zone] = surfaces[zone]
+
+# Surface d'une zone reçue d'un fil de calcul (et toujours valable : rien changé autour depuis), sinon [] ; retirée.
+func _take_worker_surface(zone: Vector3i) -> Array:
+	if not worker_surfaces.has(zone):
+		return []
+	var surface: Array = worker_surfaces[zone]
+	worker_surfaces.erase(zone)
+	if terrain.zone_column_changed(Vector2i(zone.x, zone.z)):
+		return []
+	worker_built += 1
+	return surface
+
+# Lointain : les relevés des prochains carrés envoyés aux fils de calcul (une fois par image).
+func _dispatch_worker_far() -> void:
+	_collect_worker_results()
+	var limit: int = terrain_workers.ready_count() * WORKER_FAR_AHEAD
+	if worker_far.size() >= limit:
+		return
+	for tile: Vector2i in far_queue:
+		if worker_far.size() >= limit:
+			return
+		var survey := _far_survey(tile)
+		if survey.next >= survey.side:
+			continue
+		var key := Vector3i(tile.x, tile.y, int(survey.cell))
+		if worker_far.has(key):
+			continue
+		terrain_workers.add_far(key, tile, survey.cell)
+		worker_far[key] = true
 # Tout le terrain en attente, d'un coup (tests, captures).
 func finish_terrain() -> void:
 	_process_hide_queue(FAR_NO_LIMIT)
@@ -5403,6 +5559,10 @@ func _update_fps(delta: float) -> void:
 	fps_label.text = "FPS : %d" % Engine.get_frames_per_second()
 
 func _notification(what: int) -> void:
+	# 0.0.8.13 : monde fermé : les fils de calcul du terrain s'arrêtent.
+	if what == NOTIFICATION_PREDELETE and terrain_workers != null:
+		terrain_workers.stop()
+		terrain_workers = null
 	if is_instance_valid(fps_label) and what in [NOTIFICATION_PAUSED,NOTIFICATION_UNPAUSED]:
 		fps_label.visible = what == NOTIFICATION_UNPAUSED
 		fps_elapsed = 0.0
@@ -6429,7 +6589,15 @@ func _process_far_queue(budget_usec: int = FAR_BUDGET_USEC) -> void:
 	var deadline := Time.get_ticks_usec() + (budget_usec * 2 if far_opening and far_queue.size() > 20 else budget_usec)
 	if far_queue.is_empty():
 		far_opening = false
+	# 0.0.8.13 : relevés faits par les fils de calcul ; ici, seulement le maillage d'un relevé fini.
+	var by_workers := _workers_on()
+	if by_workers and not far_queue.is_empty():
+		_dispatch_worker_far()
 	while not far_queue.is_empty() and Time.get_ticks_usec() < deadline:
+		if by_workers:
+			var front := _far_survey(far_queue[0])
+			if front.next < front.side:
+				return
 		if not _build_far_tile(far_queue[0], deadline):
 			return
 		far_queue.pop_front()

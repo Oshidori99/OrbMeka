@@ -365,6 +365,10 @@ func set_density(point: Vector3i, value: float, kind: int = -1) -> void:
 		columns[column] -= 1
 		if columns[column] == 0:
 			columns.erase(column)
+		var was := Vector2i(zone.x, zone.z)
+		zone_columns[was] -= 1
+		if zone_columns[was] == 0:
+			zone_columns.erase(was)
 	if kind >= 0 and value > 0.0:
 		materials[point] = kind
 	elif value <= 0.0:
@@ -376,6 +380,18 @@ func set_density(point: Vector3i, value: float, kind: int = -1) -> void:
 		by_zone[zone] = {}
 	by_zone[zone][point] = true
 	columns[column] = columns.get(column, 0) + 1
+	zone_columns[Vector2i(zone.x, zone.z)] = zone_columns.get(Vector2i(zone.x, zone.z), 0) + 1
+
+# 0.0.8.13 (fils de calcul) : points changés par colonne de zones (8 m), et cette colonne ou une voisine changée (une zone lit
+# les points de ses voisines) : sa copie dans un fil de calcul, qui ne connaît que la graine, ne peut pas la calculer.
+var zone_columns: Dictionary = {}
+
+func zone_column_changed(zone_column: Vector2i) -> bool:
+	for dx in range(-1, 2):
+		for dz in range(-1, 2):
+			if zone_columns.has(zone_column + Vector2i(dx, dz)):
+				return true
+	return false
 
 # Herbe : seulement là où rien n'a été sculpté (colonne du point et ses voisines).
 func column_changed(column: Vector2i) -> bool:
@@ -1632,6 +1648,8 @@ func muddy(column: Vector2i) -> bool:
 
 # 0.0.5.23 (version 7) : montagnes, demandées par l'utilisateur (environ 7 % du sol ; les petites collines restent).
 # Forme : pente douce au pied, plus raide au milieu, crêtes ; bord irrégulier. Jamais près de l'apparition.
+# 0.0.8.13 : tirage des montagnes propre à ce terrain (un terrain = un fil de calcul ; mêmes nombres, sans verrou).
+var _scan_rng := RandomNumberGenerator.new()
 var _mountain_zones: Dictionary = {}
 var _mountains_near_cache: Dictionary = {}
 var _lifts: Dictionary = {}
@@ -1650,7 +1668,7 @@ func _well_inside_desert(found: Dictionary) -> bool:
 
 func _zone_mountain(area: Vector2i) -> Dictionary:
 	if not _mountain_zones.has(area):
-		var found := Generation.zone_mountain(_seed, area, generation_options)
+		var found := Generation.zone_mountain(_seed, area, generation_options, _scan_rng)
 		# Montagne de sable : seulement si son centre est dans un désert.
 		if found.get("sand", false) and not _well_inside_desert(found):
 			found = {}
@@ -1692,7 +1710,7 @@ func _mountains_part() -> bool:
 					_mountain_list.append(found)
 				continue
 			# 0.0.5.35 (version 13) : chaînes de montagnes, jamais près de l'apparition ni de la plage.
-			for peak in Generation.mountain_chain(_seed, Vector2i(x, z), generation_options):
+			for peak in Generation.mountain_chain(_seed, Vector2i(x, z), generation_options, _scan_rng):
 				var clear := true
 				for spot in _flat_spots:
 					clear = clear and peak.center.distance_to(spot[0]) >= spot[1] + peak.radius * peak.stretch + 10.0

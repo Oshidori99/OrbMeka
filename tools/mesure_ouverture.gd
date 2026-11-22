@@ -82,6 +82,8 @@ func _open_once(app: Control, id: String, prefix: String) -> void:
 		report(prefix + ".objets_3d", world.find_children("*", "GeometryInstance3D", true, false).size())
 		report(prefix + ".lumieres", world.find_children("*", "Light3D", true, false).size())
 		report(prefix + ".couches_camera", world.player.camera.cull_mask)
+		report(prefix + ".memoire_mo", snappedf(Performance.get_monitor(Performance.MEMORY_STATIC) / 1048576.0, 0.1))
+		report(prefix + ".fils_de_calcul", "%d prêts, %d zones faites par eux" % [world.terrain_workers.ready_count() if world.terrain_workers != null else 0, world.worker_built])
 		report(prefix + ".interface_preparee", "%d (0 : faite), fabrication créée : %s" % [world.ui_prewarm_left, str(is_instance_valid(world.crafting_ui))])
 	# Quelques secondes de jeu, puis retour aux mondes.
 	var after := []

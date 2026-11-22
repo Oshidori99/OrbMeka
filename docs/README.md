@@ -1,9 +1,23 @@
-# OrbMeka™ — prototype 0.0.8.12
+# OrbMeka™ — prototype 0.0.8.13
 
 Godot 4.7 / GDScript. Formes et couleurs simples ; assets externes seulement sous licence vérifiée (sons CC0, assets/sounds/CREDITS.txt).
 
+## 0.0.8.13 — Plusieurs cœurs : le terrain et le lointain calculés sur d'autres cœurs (PC et Web), monde ouvert et découvert plus vite, exactement le même monde ; version Web avec fils (SharedArrayBuffer)
+Version publiée (4 sur 4, avec 0.0.8.10 à 0.0.8.12). Génération inchangée (version 33). Rapports de mesures Web ; demande de l'utilisateur : les PC bon marché aussi.
+- **Fils de calcul** (scripts/terrain_workers.gd) : 2 au plus (PC selon ses cœurs, Web 2). Chacun prépare **sa propre copie du terrain** (même graine) et calcule les hauteurs et les surfaces des colonnes, et les relevés du lointain. Le fil principal ne monte plus que les morceaux, l'herbe, les arbres et les objets.
+- **Toujours le même monde** : mêmes nombres que le fil principal, vérifiés (hauteurs, surfaces, lointain ; générations 20, 28 et 33). Une colonne changée par le joueur (ou sa voisine) reste calculée par le fil principal, avec ses changements.
+- **Corrigé en route** : le tirage des montagnes était partagé par toute la génération (avec plusieurs fils, le monde aurait changé) : un tirage par terrain maintenant.
+- **Mesuré (PC)** : ouverture d'un monde 3,3 → 2,5 à 2,8 s (rendu du Web : 4,1 → 3,2 s, puis 3,5 → 2,6 s) ; en marchant en forêt, travail de fond du fil principal 4,1 → 1,7 s, temps du jeu par image 13,9 → 10,0 ms ; monde entièrement construit aussitôt après la traversée (avant 0,7 s d'attente).
+- **Pourquoi 2 au plus** : à 3, les fils se gênent entre eux et gênent le fil principal (14,4 ms par image). La graine se prépare un peu plus lentement quand les copies se préparent en même temps (1,3 → 1,6 s), largement rattrapé ensuite.
+- **Mémoire** : environ 60 Mo par copie (PC : 310 → 450 Mo).
+- **Web** : export avec fils (SharedArrayBuffer obligatoire sur la page itch.io) ; sans l'option, le jeu ne démarre pas. Actions GitHub : modèle Web avec fils installé.
+- Tests sans fenêtre : 1 fil de calcul par test (plusieurs tests à la fois sur la même machine).
+
+Tests réussis : workers (20, nouveau), loading_screen, perf_guard, web_speed, zones, smooth_terrain, surface_job, world_consistency, world_save, loaded_edge, fly, terrain_visuals, forests, plants, lawn_ring, cliff_fall, breaking, sticks, trees, tree_fall, tree_stress, water, swim, coordinates, step_over, developer_return, death, custom_generation, world_options, world_management, catalog_restart, web_save, rock_place, reach, folds, quality, views, prototype, history_resume, menu, fibers, return_orb (+ tests juridiques).
+À tester : la version Web avec fils (page d'essais) : démarrage, ouverture d'un monde, saccades en marchant et en vol, mémoire (Gestionnaire de tâches de Chrome) ; sur PC, rien ne doit changer à l'œil.
+
 ## 0.0.8.12 — La barre de la fabrication (O + F) exactement à la place de la barre du jeu, mêmes cases ; coût des ombres sur le Web mesuré
-Version locale (3 sur 4). Génération inchangée (version 33). Rapport de mesures Web 0.0.8.11.
+Version locale (3 sur 4), publiée avec 0.0.8.13. Génération inchangée (version 33). Rapport de mesures Web 0.0.8.11.
 - **Fabrication (O + F)** : la barre des mains et des poches (Créatif : la barre d'objets) a les mêmes cases et la même place que la barre du jeu, en bas au centre de l'écran (avant : plus petite, centrée sous la scène, donc décalée). Poussée à droite seulement si elle toucherait le panneau ; la scène s'arrête au-dessus.
 - **Ombres sur le Web, mesurées** (PC, rendu Compatibility, au bord du lac) : avec les ombres, environ 50 dessins de plus par image (les arbres, pour la carte des ombres), pas un second dessin de tout. Les 35 ms de plus mesurées sur la Radeon 610M ne viennent donc pas d'un second passage ; rien n'est changé pour l'instant.
 

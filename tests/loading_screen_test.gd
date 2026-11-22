@@ -48,7 +48,9 @@ func _run() -> void:
 	for column: Vector2i in w.shown_columns:
 		if w._ring(column) <= w.NEAR_REVEAL_ZONES and not w.built_columns.has(column):
 			near_built = false
-	check(near_built and w.opening_progress(true) >= 1.0, "PC: the 9 × 9 columns around are built when the world is shown (%d of %d columns built)" % [w.built_columns.size(), w.shown_columns.size()])
+	# 0.0.8.13 : préparation retenue au moment de l'affichage (une image plus tard, des morceaux du lointain peuvent déjà
+	# attendre d'être refaits sous les colonnes qui arrivent : avec les fils de calcul, elles arrivent par paquets).
+	check(near_built and app.loading_reveal_progress >= 1.0, "PC: the 9 × 9 columns around are built when the world is shown (%d of %d columns built, %.2f ready when shown)" % [w.built_columns.size(), w.shown_columns.size(), app.loading_reveal_progress])
 	# 0.0.8.11 : le Web aussi à 80 ms par image (la caméra n'y dessine plus le monde derrière l'écran), graine 100 ms.
 	check(w.LOADING_WORK_PC_USEC == 2 * 40000 and w.LOADING_WORK_USEC == 80000 and app.LOADING_STEP_PC_USEC == app.LOADING_STEP_USEC, "0.0.8.11: 80 ms of work per image behind the loading screen, PC and Web; seed in 100 ms steps")
 	# 0.0.7.34 (signalé : sur le Web, une personne ne pouvait appuyer sur aucune touche) : message « Cliquez dans le jeu »

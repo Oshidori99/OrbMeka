@@ -38,7 +38,7 @@ jobs:
           path: |
             ~/godot
             ~/.local/share/godot/export_templates
-          key: godot-${{ env.GODOT_VERSION }}-${{ env.TEMPLATES_SHA512 }}
+          key: godot-${{ env.GODOT_VERSION }}-${{ env.TEMPLATES_SHA512 }}-fils
 
       - name: Installer Godot et les templates officiels
         if: steps.cache.outputs.cache-hit != 'true'
@@ -57,6 +57,7 @@ jobs:
             templates/version.txt \
             templates/windows_release_x86_64.exe \
             templates/web_nothreads_release.zip \
+            templates/web_release.zip \
             -d "$DEST"
           rm godot.zip templates.tpz
 
@@ -94,7 +95,7 @@ jobs:
           path: |
             ~/godot
             ~/.local/share/godot/export_templates
-          key: godot-${{ env.GODOT_VERSION }}-${{ env.TEMPLATES_SHA512 }}
+          key: godot-${{ env.GODOT_VERSION }}-${{ env.TEMPLATES_SHA512 }}-fils
 
       - name: Installer Godot et les templates officiels
         if: steps.cache.outputs.cache-hit != 'true'
@@ -113,6 +114,7 @@ jobs:
             templates/version.txt \
             templates/windows_release_x86_64.exe \
             templates/web_nothreads_release.zip \
+            templates/web_release.zip \
             -d "$DEST"
           rm godot.zip templates.tpz
 
