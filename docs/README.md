@@ -1,9 +1,23 @@
-# OrbMeka™ — prototype 0.0.8.4
+# OrbMeka™ — prototype 0.0.8.5
 
 Godot 4.7 / GDScript. Formes et couleurs simples ; assets externes seulement sous licence vérifiée (sons CC0, assets/sounds/CREDITS.txt).
 
+## 0.0.8.5 — Fabrication à la main (O + F) : tresser 3 fibres en une ficelle de 33 cm, tailler un silex ou un calcaire (5, 6 ou 8 coups) en tête de hache ou de pioche avec un éclat tranchant, dans une petite scène avec ses deux mains et ses cases ; et la main qui tire la plante en récoltant
+Version publiée (4 sur 4, avec 0.0.8.2 à 0.0.8.4). Génération inchangée (version 33). Demandes de l'utilisateur (#211, #213).
+- **O + F** (Contrôles → Inventaire, modifiable) ouvre la **fabrication** ; Échap, « Fermer » ou O + F la ferment. Le monde est figé derrière (dernière image floutée, sans l'interface ; la 3D du monde n'est plus dessinée : léger, aussi sur le Web).
+- À gauche : l'**action** (Tresser, Tailler ; Fendre, Assembler, Ficeler grisées « bientôt »), puis les **objets possibles** pris dans les mains et les poches (Créatif : aussi le catalogue) : un clic les met dans une main. À droite : une petite scène avec **les deux mains** et ce qu'elles tiennent ; en bas, **les cases habituelles** (mains et poches), à jour en direct.
+- **Tresser** : 3 fibres du même type, **clic gauche maintenu 3 s** dans la scène (anneau ; les mains se rapprochent et tournent) : **1 ficelle de 33 cm** de ce type (Ficelle d'ortie, de lin, d'herbe).
+- **Tailler** : un caillou **percuteur** (main gauche) et un **silex ou un calcaire** de taille 3, 4 ou 5 (main droite) ; **tête de hache** ou **de pioche** ; **un clic par coup** (5, 6 ou 8 coups) : la main gauche frappe, des éclats sautent (son), la pierre prend forme à facettes. Résultat : la tête (« Tête de hache en silex », taille petite / moyenne / grande : moins bonne à meilleure) et **un éclat tranchant** de la même pierre ; le percuteur reste. Pas de coup raté pour l'instant.
+- Ce qui ne tient pas dans les mains et les poches tombe au sol devant soi. Créatif : têtes dans l'onglet Outils.
+- **Fibres** : 10 ml chacune (encombrantes).
+- **Récolte** (demande de l'utilisateur) : en maintenant R, la main droite s'avance vers la plante (ou la liane), la saisit et tire par petits coups, puis revient.
+- Animations faites en code (pas de Blender) : Blender servira plus tard pour faire bouger les doigts.
+
+Tests réussis : crafting (25, nouveau), fibers (21), hands_eat, death, health, return_orb, inventory, inventory_more, controls, controls_groups, key_combos, shortcuts_selection, pause, interface_info, settings_walk (+ tests juridiques). Captures hors écran : tresser, tailler (5 coups sur 8).
+À tester : O + F en jeu, tresser et tailler à la souris, Échap, les cases en bas, la main qui tire en récoltant ; sur le Web, la légèreté de l'écran.
+
 ## 0.0.8.4 — Récolte : R maintenu 1 s sur une ortie, du lin ou des herbes longues donne 1 à 3 fibres (la plante reste coupée), sur un tilleul à liane une liane ; et chaque arbre a son âge et sa souplesse, gardés par tout son bois
-Version locale (3 sur 4). Génération inchangée (version 33). Demandes de l'utilisateur (#213, #228).
+Version locale (3 sur 4), publiée avec 0.0.8.5. Génération inchangée (version 33). Demandes de l'utilisateur (#213, #228).
 - **Fibres** : **R maintenu 1 s** (Créatif : 0,3 s, anneau) en visant une **ortie**, du **lin** ou des **herbes longues** (déjà dans le monde) : **1 à 3 fibres** (Fibre d'ortie, de lin, d'herbe ; même graine : même nombre). La plante reste **coupée** (tige basse), enregistrée ; pas encore de repousse.
 - **Liane** : R maintenu en visant le tronc d'un **tilleul à liane** : une **liane** (lien grossier) ; elle disparaît du tronc.
 - Dans la case choisie, comme ramasser ; ce qui ne tient pas tombe au sol devant soi. Message « 2 fibres d'herbe récoltées ».

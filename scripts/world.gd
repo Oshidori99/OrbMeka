@@ -1166,7 +1166,7 @@ func toggle_inventory() -> void:
 		open_inventory()
 
 func open_inventory() -> void:
-	if inventory_open or death_open or not is_instance_valid(inventory_ui):
+	if inventory_open or death_open or crafting_open or not is_instance_valid(inventory_ui):
 		return
 	inventory_open = true
 	player.release_controls()
@@ -1182,6 +1182,55 @@ func close_inventory(recapture: bool = true) -> void:
 	_show_aim(true)
 	if recapture and DisplayServer.get_name() != "headless":
 		Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
+
+# --- 0.0.8.5 (#211, demandes de l'utilisateur) : fabrication à la main (O + F, crafting_ui.gd), créée à la première ouverture ---
+const CraftingUI = preload("res://scripts/crafting_ui.gd")
+var crafting_ui: CanvasLayer
+var crafting_open := false
+
+func toggle_crafting() -> void:
+	if crafting_open:
+		close_crafting()
+	else:
+		open_crafting()
+
+func open_crafting() -> void:
+	if crafting_open or inventory_open or death_open or not is_instance_valid(player):
+		return
+	if not is_instance_valid(crafting_ui):
+		crafting_ui = CraftingUI.new()
+		crafting_ui.setup(self, inventory, player.skin, Callable(self, "_kind_material"), text_scale)
+		crafting_ui.closed.connect(close_crafting)
+		add_child(crafting_ui)
+	crafting_open = true
+	# L'interface du jeu (barre, vie, messages) cachée : l'écran de fabrication montre ses propres cases.
+	_set_hud_visible(false)
+	player.release_controls()
+	_show_aim(false)
+	crafting_ui.open()
+
+func close_crafting(recapture: bool = true) -> void:
+	if not crafting_open:
+		return
+	crafting_open = false
+	crafting_ui.close()
+	_set_hud_visible(true)
+	_show_aim(true)
+	apply_held()
+	if recapture and DisplayServer.get_name() != "headless":
+		Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
+
+# Ce qui est fabriqué : rangé dans les mains et les poches (Survie) ou l'inventaire (Créatif) ; ce qui ne tient pas tombe
+# au sol devant soi.
+func give_crafted(value: Dictionary) -> int:
+	var amount := Inventory.count(value)
+	var added := inventory.add(value)
+	if added < amount and is_instance_valid(ground) and is_instance_valid(player):
+		var near := player.global_position - player.global_transform.basis.z * 0.8
+		for unit in Inventory.units(value).slice(added):
+			ground.drop(unit, player.camera.global_position - player.global_transform.basis.z * 0.3, near, _rest_height, 0.15)
+	inventory_unsaved = true
+	return added
 
 # Croix de visée et message du bas : cachés derrière l'inventaire ouvert (le panneau est un peu transparent).
 func _show_aim(on: bool) -> void:
@@ -3055,13 +3104,11 @@ func aimed_harvest(hit: Dictionary) -> Dictionary:
 
 func step_harvest(delta: float, holding: bool) -> bool:
 	if not holding or not is_instance_valid(player):
-		harvest_key = ""
-		harvest_time = 0.0
+		_harvest_stop()
 		return false
 	var target := aimed_harvest(player.get_target())
 	if target.is_empty():
-		harvest_key = ""
-		harvest_time = 0.0
+		_harvest_stop()
 		return false
 	# 0.0.8.4 (demande de l'utilisateur : le lin, en touffes serrées, ne se récoltait presque jamais) : passer d'une plante à
 	# une autre en visant ne remet pas le temps à zéro (seulement de plante à liane, ou en ne visant plus rien).
@@ -3071,11 +3118,19 @@ func step_harvest(delta: float, holding: bool) -> bool:
 	harvest_time += delta
 	var seconds := Fibers.HARVEST_SECONDS_CREATIVE if game_mode == Inventory.CREATIVE else Fibers.HARVEST_SECONDS
 	show_ring(harvest_time / seconds)
+	# 0.0.8.4 (demande de l'utilisateur) : la main droite saisit la plante (ou la liane) et tire par petits coups.
+	if is_instance_valid(player.hand_view):
+		player.hand_view.pull(harvest_time / seconds, harvest_time)
 	if harvest_time < seconds:
 		return false
+	_harvest_stop()
+	return harvest(target)
+
+func _harvest_stop() -> void:
 	harvest_key = ""
 	harvest_time = 0.0
-	return harvest(target)
+	if is_instance_valid(player) and is_instance_valid(player.hand_view):
+		player.hand_view.pull(0.0, 0.0)
 
 func harvest(target: Dictionary) -> bool:
 	var value := {}
@@ -3765,6 +3820,7 @@ func _out_of_strength() -> void:
 	hurt_time = 0.0
 	player.actions.cancel()
 	close_inventory(false)
+	close_crafting(false)
 	eat_time = -1.0
 	var dropped := 0
 	if death_items != "keep":
@@ -4456,8 +4512,11 @@ func _on_action_chosen(row: int, index: int) -> void:
 	if exploration != null:
 		exploration.text = action_hint(player.left_mode, player.brush)
 
+# 0.0.8.5 : calque de l'interface du jeu (caché pendant la fabrication).
+var hud_layer: CanvasLayer
 func _create_hud() -> void:
 	var layer := CanvasLayer.new()
+	hud_layer = layer
 	add_child(layer)
 	var left := VBoxContainer.new()
 	left.name = "LeftHUD"
@@ -5892,3 +5951,9 @@ func _process_far_queue(budget_usec: int = FAR_BUDGET_USEC) -> void:
 		if not _build_far_tile(far_queue[0], deadline):
 			return
 		far_queue.pop_front()
+
+func _set_hud_visible(on: bool) -> void:
+	if is_instance_valid(hud_layer):
+		hud_layer.visible = on
+	if is_instance_valid(inventory_ui):
+		inventory_ui.visible = on

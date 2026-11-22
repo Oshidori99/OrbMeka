@@ -71,3 +71,18 @@ static func coil_mesh() -> ArrayMesh:
 	made.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, ring.get_mesh_arrays())
 	_coil = made
 	return _coil
+
+# 0.0.8.5 : rouleau de ficelle (environ 9 cm de large), plus fin que la liane.
+static var _cord: ArrayMesh
+
+static func cord_mesh() -> ArrayMesh:
+	if _cord != null:
+		return _cord
+	var ring := TorusMesh.new()
+	ring.inner_radius = 0.035
+	ring.outer_radius = 0.045
+	ring.rings = 14
+	ring.ring_segments = 5
+	_cord = ArrayMesh.new()
+	_cord.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, ring.get_mesh_arrays())
+	return _cord

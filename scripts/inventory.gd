@@ -41,6 +41,10 @@ const HAND_COUNTS := {"noisette": 5, "pomme": 2, "caillou": 4, "eclat": 4}
 const BOTH_HANDS_COUNTS := {"pomme": 3, "noisette": 10}
 const POCKET_COUNTS := {"noisette": 15}
 # Volume d'une noisette (litres) : une boule de 2 cm.
+const FIBER_VOLUME := 0.01
+# 0.0.8.5 (#211) : têtes taillées : pierre (0 calcaire, 1 silex) et taille (3 petite, 4 moyenne, 5 grande).
+const HEAD_STONES := ["calcaire", "silex"]
+const HEAD_SIZE_NAMES := {3: "petite (moins bonne)", 4: "moyenne", 5: "grande (la meilleure)"}
 const HAZELNUT_VOLUME := 4.0 / 3.0 * PI * 0.01 * 0.01 * 0.01 * 1000.0
 const HANDFUL_VOLUME := 0.25
 const WOOD_LITERS_PER_METER := 1.0
@@ -60,7 +64,9 @@ const INSTANCE_FIELDS := {"taille": TYPE_INT, "poids": TYPE_FLOAT, "forme": TYPE
 	# enregistrés dès maintenant ; leurs effets viendront avec la fabrication, #228).
 	"longueur": TYPE_FLOAT, "epaisseur": TYPE_FLOAT, "fin": TYPE_FLOAT, "essence": TYPE_INT, "age": TYPE_INT, "souplesse": TYPE_INT,
 	# 0.0.7.26 (#212) : bois mort (1), tordu (1), pourri (1), rejet de noisetier (1) ; 0 ou absent : non.
-	"morte": TYPE_INT, "tordue": TYPE_INT, "pourrie": TYPE_INT, "rejet": TYPE_INT}
+	"morte": TYPE_INT, "tordue": TYPE_INT, "pourrie": TYPE_INT, "rejet": TYPE_INT,
+	# 0.0.8.5 (#211) : tête taillée : sa pierre (0 calcaire, 1 silex) ; sa taille (3 petite, 4 moyenne, 5 grande).
+	"pierre": TYPE_INT}
 # Matières : valeurs de smooth_terrain.gd (SAND 0, STONE 1, DIRT 2, CLAY 4, MUD 5, DARK_STONE 6, GRAVEL 8, LIMESTONE 9,
 # FLINT 11). Poids : une poignée. 0.0.7.6 (plus réaliste, accepté par l'utilisateur) : une grosse poignée d'environ 0,25 L × la
 # densité de la matière ; elle compte toujours pour une sous-cellule de 50 cm (règle de jeu).
@@ -97,6 +103,13 @@ const ITEMS := {
 	"fibre_lin": {"nom": "Fibre de lin", "forme": "fibre", "poids": 2.0, "couleur": Color("#cdbf8e")},
 	"fibre_herbe": {"nom": "Fibre d'herbe", "forme": "fibre", "poids": 2.0, "couleur": Color("#9fae5e")},
 	"liane": {"nom": "Liane", "forme": "liane", "poids": 80.0, "couleur": Color("#5d6b34")},
+	# 0.0.8.5 (#213, #211) : ficelle tressée (3 fibres du même type, 33 cm ; elle garde son type) ; têtes taillées dans un
+	# silex ou un calcaire (crafting_rules.gd).
+	"ficelle_ortie": {"nom": "Ficelle d'ortie", "forme": "ficelle", "poids": 6.0, "couleur": Color("#6f7d4c")},
+	"ficelle_lin": {"nom": "Ficelle de lin", "forme": "ficelle", "poids": 6.0, "couleur": Color("#c2b27c")},
+	"ficelle_herbe": {"nom": "Ficelle d'herbe", "forme": "ficelle", "poids": 6.0, "couleur": Color("#8e9c52")},
+	"tete_hache": {"nom": "Tête de hache", "forme": "tete", "couleur": Color("#2e2e33")},
+	"tete_pioche": {"nom": "Tête de pioche", "forme": "tete", "couleur": Color("#2e2e33")},
 	# 0.0.7.8 : bois d'un arbre coupé (#212) : tronc et branches, chacun unique.
 	"tronc": {"nom": "Tronc", "forme": "bois", "couleur": Color("#6b4a2e")},
 	"branche": {"nom": "Branche", "forme": "bois", "couleur": Color("#7a5634")},
@@ -114,7 +127,8 @@ const CATEGORIES := [
 	{"id": "natural", "nom": "Matériaux naturels", "objets": ["sable", "terre", "argile", "boue", "gravier", "pierre", "calcaire", "pierre_sombre", "silex"]},
 	{"id": "pebbles", "nom": "Cailloux", "objets": ["caillou", "caillou_calcaire", "caillou_silex"]},
 	{"id": "fruits", "nom": "Fruits", "objets": ["pomme", "noisette"]},
-	{"id": "tools", "nom": "Outils", "objets": ["pioche"]},
+	# 0.0.8.5 : têtes de hache et de pioche taillées (silex, grandes).
+	{"id": "tools", "nom": "Outils", "objets": ["pioche", "tete_hache", "tete_pioche"]},
 	# 0.0.7.18 (demande de l'utilisateur) : pour chaque espèce, un tronc (20 cm × 1 m) et une branche (4 cm × 1 m),
 	# séparés ; « objet:essence » (catalog_item).
 	{"id": "wood", "nom": "Bois", "objets": ["tronc:0", "branche:0", "tronc:1", "branche:1", "tronc:2", "branche:2", "tronc:3", "branche:3"]},
@@ -122,7 +136,7 @@ const CATEGORIES := [
 	{"id": "plants", "nom": "Plantes", "objets": ["fibre_ortie", "fibre_lin", "fibre_herbe", "liane"]},
 ]
 # Pour l'instant une seule version par objet : cailloux de taille 4, pomme rouge de taille 2.
-const CATALOG_MODELS := {"caillou": {"taille": 4}, "caillou_calcaire": {"taille": 4}, "caillou_silex": {"taille": 4}, "pomme": {"taille": 2, "couleur": 1}}
+const CATALOG_MODELS := {"caillou": {"taille": 4}, "caillou_calcaire": {"taille": 4}, "caillou_silex": {"taille": 4}, "pomme": {"taille": 2, "couleur": 1}, "tete_hache": {"pierre": 1, "taille": 5, "poids": 420.0}, "tete_pioche": {"pierre": 1, "taille": 5, "poids": 420.0}}
 
 signal changed
 
@@ -263,6 +277,9 @@ static func instance_volume(id: String, instance: Dictionary) -> float:
 	match spec.get("forme", ""):
 		"bois":
 			return float(instance.get("longueur", 1.0)) * WOOD_LITERS_PER_METER
+		# 0.0.8.4 (demande de l'utilisateur) : une fibre, légère mais encombrante : 10 ml.
+		"fibre":
+			return FIBER_VOLUME
 		"fruit":
 			# 0.0.8.3 (demande de l'utilisateur) : une noisette compte comme une vraie (2 cm, environ 4 ml), quelle que soit sa
 			# taille dessinée dans l'arbre (plus grosse pour qu'on la voie) : 15 tiennent en poche.
@@ -672,6 +689,26 @@ func pop_held() -> Dictionary:
 	use_held(1)
 	return {"objet": there.objet}
 
+
+# 0.0.8.5 (#211) : prend un objet précis d'une case (le « unit »-ième de sa pile, ou une poignée) ; rend l'objet à plat,
+# ou {} ; objet illimité (Créatif) : une copie, il reste.
+func take_unit(area: String, index: int, unit: int = -1) -> Dictionary:
+	var there := item(area, index)
+	if there.is_empty():
+		return {}
+	if unlimited(there):
+		return there.duplicate(true)
+	if there.has("pile"):
+		var kept := there.duplicate(true)
+		var at := clampi(unit if unit >= 0 else kept.pile.size() - 1, 0, kept.pile.size() - 1)
+		var instance: Dictionary = kept.pile[at]
+		kept.pile.remove_at(at)
+		_store()[area][index] = kept if not kept.pile.is_empty() else {}
+		changed.emit()
+		return flat(there.objet, instance)
+	remove(area, index)
+	return {"objet": there.objet}
+
 func first_free() -> Array:
 	for area in ["bar", "grid"]:
 		for index in range(size_of(area)):
@@ -821,6 +858,9 @@ static func detail_lines(value: Dictionary) -> Array:
 		var quality := handle_quality(value)
 		if quality >= 0:
 			lines.append("Manche : %s" % HANDLE_NAMES[quality])
+	# 0.0.8.5 (#211) : tête taillée : sa taille (petite, moyenne, grande : moins bonne à meilleure).
+	elif ITEMS.get(id, {}).get("forme", "") == "tete" and value.has("taille"):
+		lines.append("Taille : %s" % HEAD_SIZE_NAMES.get(int(value.taille), "moyenne"))
 	elif value.has("taille"):
 		if id == "pomme":
 			lines.append("Taille : %s" % APPLE_SIZE_NAMES[clampi(int(value.taille), 1, 3) - 1])
@@ -846,6 +886,9 @@ static func item_name(value: Dictionary) -> String:
 		return "Rejet de noisetier"
 	if id == "branche" and int(value.get("morte", 0)) == 1 and value.has("essence"):
 		return "Branche morte de %s" % ESSENCE_NAMES[clampi(int(value.essence), 0, ESSENCE_NAMES.size() - 1)]
+	# 0.0.8.5 (#211) : tête taillée nommée selon sa pierre (« Tête de hache en silex »).
+	if id in ["tete_hache", "tete_pioche"] and value.has("pierre"):
+		return "%s en %s" % [ITEMS[id].nom, HEAD_STONES[clampi(int(value.pierre), 0, 1)]]
 	# 0.0.7.18 : tronc et branche nommés selon leur arbre (« Tronc de pin », « Branche de noisetier »).
 	if id in ["tronc", "branche"] and value.has("essence"):
 		return "%s de %s" % [ITEMS[id].nom, ESSENCE_NAMES[clampi(int(value.essence), 0, ESSENCE_NAMES.size() - 1)]]

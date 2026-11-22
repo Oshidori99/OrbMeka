@@ -3,6 +3,10 @@ Du plus récent au plus ancien. Ce fichier est mis à jour à chaque version.
 
 === Thème « Fabrication et survie » (0.0.8) ===
 
+0.0.8.5 — Fabrication à la main (O + F) : tresser 3 fibres en une ficelle de 33 cm, tailler un silex ou un calcaire (5, 6 ou 8 coups) en tête de hache ou de pioche avec un éclat tranchant, dans une petite scène avec ses deux mains et ses cases ; et la main qui tire la plante en récoltant
+Génération du terrain : version 33 · Menus : version 10.
+Demandes de l'utilisateur (#211, #213). Fendre, Assembler, Ficeler : bientôt. Fibres : 10 ml chacune.
+
 0.0.8.4 — Récolte : R maintenu 1 s sur une ortie, du lin ou des herbes longues donne 1 à 3 fibres (la plante reste coupée), sur un tilleul à liane une liane ; et chaque arbre a son âge et sa souplesse, gardés par tout son bois
 Génération du terrain : version 33 · Menus : version 10.
 Demandes de l'utilisateur (#213, #228). Plantes et lianes récoltées dans objets.json (« plantes_coupees », « lianes_coupees »).

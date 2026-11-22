@@ -9,6 +9,7 @@ const Rocks = preload("res://scripts/rocks.gd")
 const Trees = preload("res://scripts/trees.gd")
 const ReturnOrb = preload("res://scripts/return_orb.gd")
 const Fibers = preload("res://scripts/fibers.gd")
+const StoneHeads = preload("res://scripts/stone_heads.gd")
 const CharacterPreview = preload("res://scripts/character_preview.gd")
 const MODEL := "res://assets/hands/main_droite.glb"
 # Place du poignet (repère de la caméra), taille ; doigts vers l'avant et un peu vers le centre, paume tournée vers soi.
@@ -105,12 +106,19 @@ func show_item(value: Dictionary) -> void:
 				made.scale = Vector3.ONE * size * 0.5
 				made.position.y = size * 0.45
 			# 0.0.8.4 (#213) : fibres (petite botte) et liane (rouleau) dans la paume.
-			"fibre", "liane":
-				made.mesh = Fibers.bundle_mesh() if spec.forme == "fibre" else Fibers.coil_mesh()
+			"fibre", "liane", "ficelle":
+				made.mesh = Fibers.bundle_mesh() if spec.forme == "fibre" else (Fibers.coil_mesh() if spec.forme == "liane" else Fibers.cord_mesh())
 				made.material_override = _plain(spec.couleur)
-				size = 0.6 if spec.forme == "fibre" else 0.45
+				size = 0.6 if spec.forme == "fibre" else (0.45 if spec.forme == "liane" else 0.8)
 				made.scale = Vector3.ONE * size
 				made.position.y = 0.01
+			# 0.0.8.5 (#211) : tête taillée dans la paume.
+			"tete":
+				made.mesh = StoneHeads.mesh("hache" if id == "tete_hache" else "pioche", 1.0)
+				made.material_override = StoneHeads.material(int(shown.get("pierre", 1)))
+				size = minf({3: 0.08, 4: 0.1, 5: 0.12}.get(int(shown.get("taille", 4)), 0.1), _max_item())
+				made.scale = Vector3.ONE * size
+				made.position.y = size * 0.2
 			# 0.0.8.2 (#231) : orbe de retour, posée dans la paume.
 			"orbe":
 				made.mesh = ReturnOrb.mesh()
@@ -206,3 +214,29 @@ func set_both(value: bool) -> void:
 # Objet tenu : petit dans une main ; plus grand (jusqu'à 16 cm) porté à deux mains, entre elles.
 func _max_item() -> float:
 	return 0.16 if both else MAX_ITEM
+
+# 0.0.8.4 (demande de l'utilisateur) : récolter (R maintenu) : la main s'avance vers la plante, la saisit et tire par
+# petits coups pendant que l'anneau se remplit ; share : 0 à 1 (0 : elle revient à sa place).
+const PULL_REACH := Vector3(-0.08, -0.14, -0.2)
+var pulling := false
+
+func pull(share: float, time: float) -> void:
+	if share <= 0.0:
+		if pulling:
+			pulling = false
+			if is_inside_tree():
+				if _tween != null:
+					_tween.kill()
+				_tween = create_tween()
+				_tween.tween_property(self, "position", rest + Vector3(0.0, 0.04, 0.03), 0.1).set_ease(Tween.EASE_OUT)
+				_tween.tween_property(self, "position", rest, 0.18).set_ease(Tween.EASE_IN_OUT)
+			else:
+				position = rest
+		return
+	if not pulling and _tween != null:
+		_tween.kill()
+	pulling = true
+	var reach := minf(share * 3.0, 1.0)
+	var tug := sin(time * 16.0) * 0.012 * reach
+	var toward := Vector3(-PULL_REACH.x if left else PULL_REACH.x, PULL_REACH.y, PULL_REACH.z)
+	position = rest + toward * reach + Vector3(0.0, tug, -tug * 0.6)
