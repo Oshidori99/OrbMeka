@@ -3002,10 +3002,6 @@ func aimed_plant(hit: Dictionary) -> Dictionary:
 	var reach: float = player.break_reach
 	if not hit.is_empty():
 		reach = minf(reach, origin.distance_to(hit.position) + 0.15)
-	var flat := Vector2(direction.x, direction.z)
-	var a := flat.length_squared()
-	if a < 0.000001:
-		return {}
 	var best := {}
 	var here := _player_column()
 	for dx in [-1, 0, 1]:
@@ -3016,25 +3012,35 @@ func aimed_plant(hit: Dictionary) -> Dictionary:
 				if cut_plants.has(id):
 					continue
 				var size: float = Plants.SIZES[int(plant.plante)] * float(plant.taille)
-				var radius := size * Fibers.AIM_RADIUS
-				var foot := terrain.height_at(float(plant.x), float(plant.z))
-				var from := Vector2(origin.x - float(plant.x), origin.z - float(plant.z))
-				var b := 2.0 * from.dot(flat)
-				var c := from.length_squared() - radius * radius
-				var gap := b * b - 4.0 * a * c
-				if gap < 0.0:
+				var foot := Vector3(float(plant.x), terrain.height_at(float(plant.x), float(plant.z)) - 0.15, float(plant.z))
+				# 0.0.8.4 (demande de l'utilisateur : sous certains angles, rien n'était récolté) : le regard doit passer près de
+				# la tige (segment vertical du pied à AIM_HEIGHT de sa hauteur), sous n'importe quel angle, même de haut.
+				var near := _ray_to_stem(origin, direction, reach, foot, size * Fibers.AIM_HEIGHT + 0.15)
+				if near.is_empty() or near.gap > size * Fibers.AIM_RADIUS:
 					continue
-				var distance := (-b - sqrt(gap)) / (2.0 * a)
-				if distance < 0.0:
-					distance = (-b + sqrt(gap)) / (2.0 * a)
-				if distance < 0.0 or distance > reach:
-					continue
-				var height := origin.y + direction.y * distance - foot
-				if height < -0.15 or height > size * Fibers.AIM_HEIGHT:
-					continue
-				if best.is_empty() or distance < best.distance:
-					best = {"kind": "plante", "key": "plante/" + id, "id": id, "plant": plant, "column": column, "distance": distance}
+				if best.is_empty() or near.distance < best.distance:
+					best = {"kind": "plante", "key": "plante/" + id, "id": id, "plant": plant, "column": column, "distance": near.distance}
 	return best
+
+# Plus courte distance entre le regard (de 0 à reach) et une tige verticale (pied, hauteur) : {gap, distance le long du
+# regard}, ou {} si la tige est trop loin.
+static func _ray_to_stem(origin: Vector3, direction: Vector3, reach: float, foot: Vector3, height: float) -> Dictionary:
+	var w := origin - foot
+	var b := direction.y
+	var d := direction.dot(w)
+	var e := w.y
+	var denominator := 1.0 - b * b
+	var t := 0.0
+	var s := 0.0
+	if denominator > 0.000001:
+		t = (b * e - d) / denominator
+	t = clampf(t, 0.0, reach)
+	s = clampf(e + b * t, 0.0, height)
+	# Recalcul du point du regard le plus proche du point de la tige trouvé.
+	t = clampf((foot + Vector3.UP * s - origin).dot(direction), 0.0, reach)
+	s = clampf(e + b * t, 0.0, height)
+	var gap := (origin + direction * t).distance_to(foot + Vector3.UP * s)
+	return {"gap": gap, "distance": t}
 
 # Ce que R maintenu récolte : la plante visée, ou la liane du tilleul visé (la plus proche).
 func aimed_harvest(hit: Dictionary) -> Dictionary:

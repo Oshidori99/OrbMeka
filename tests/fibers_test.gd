@@ -79,6 +79,19 @@ func _run() -> void:
 	world.player.global_position = Vector3(found.x - 1.4, foot + 0.05, found.z)
 	var target: Dictionary = world.aimed_harvest(world.player.get_target())
 	check(target.get("kind") == "plante" and target.get("id") == Fibers.plant_id(found), "the plant is aimed (%s)" % target.get("kind", "rien"))
+	# 0.0.8.4 (demande de l'utilisateur) : sous n'importe quel angle, même en regardant de haut, presque à la verticale.
+	var saved_at: Vector3 = world.player.global_position
+	var saved_pitch: float = world.player.camera.rotation.x
+	world.player.global_position = Vector3(found.x - 0.35, foot + 0.05, found.z)
+	world.player.camera.rotation.x = -1.45
+	var from_above: Dictionary = world.aimed_plant({})
+	check(from_above.get("id") == Fibers.plant_id(found), "aimed from above, looking almost straight down")
+	world.player.camera.rotation.x = 0.0
+	world.player.global_position = Vector3(found.x - 2.5, foot + 0.05, found.z)
+	world.player.camera.rotation.x = -0.35
+	check(world.aimed_plant({}).get("id") == Fibers.plant_id(found), "aimed from the side, at mid-height")
+	world.player.global_position = saved_at
+	world.player.camera.rotation.x = saved_pitch
 	world.inventory.select(0)
 	world.inventory.put("bar", 0, {})
 	world.step_harvest(0.5, true)
