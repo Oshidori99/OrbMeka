@@ -95,14 +95,47 @@ func _run() -> void:
 	world.inventory.select(0)
 	world.inventory.put("bar", 0, {})
 	world.step_harvest(0.5, true)
-	check(not world.cut_plants.has(Fibers.plant_id(found)), "not before 1 s")
+	check(not world.cut_plants.has(Fibers.plant_id(found)), "not before 3 s")
 	check(world.player.hand_view.pulling and world.player.hand_view.position.distance_to(world.player.hand_view.rest) > 0.05, "the right hand reaches the plant and pulls")
-	world.step_harvest(0.6, true)
+	world.step_harvest(2.6, true)
 	check(not world.player.hand_view.pulling, "then it comes back")
 	var held: Dictionary = world.inventory.item("bar", 0)
-	check(world.cut_plants.has(Fibers.plant_id(found)) and held.get("objet") == Fibers.PLANT_ITEMS[int(found.plante)] and Inventory.count(held) == Fibers.fiber_count(found) and Fibers.fiber_count(found) >= 1 and Fibers.fiber_count(found) <= 3, "held 1 s: %d fibres, the plant is cut" % Inventory.count(held))
+	check(world.cut_plants.has(Fibers.plant_id(found)) and held.get("objet") == Fibers.PLANT_ITEMS[int(found.plante)] and Inventory.count(held) == Fibers.fiber_count(found) and Fibers.fiber_count(found) >= 1 and Fibers.fiber_count(found) <= 3, "held 3 s: %d fibres, the plant is cut" % Inventory.count(held))
 	check(world.aimed_plant(world.player.get_target()).is_empty() or world.aimed_plant(world.player.get_target()).id != Fibers.plant_id(found), "a cut plant can't be harvested again")
 	check(world.column_objects.get(column, []).any(func(n): return is_instance_valid(n) and n.is_in_group("plants")), "the column's plants are drawn again (cut one: low stem)")
+	# 0.0.8.8 : 3 s à la main, 1,5 s avec un éclat ; les orties piquent ; l'herbe du sol s'arrache.
+	check(Fibers.HARVEST_SECONDS == 3.0 and Fibers.HARVEST_SECONDS_FLAKE == 1.5 and Fibers.GRASS_SECONDS == 0.6, "0.0.8.8: 3 s by hand, 1.5 s with a flake, 0.6 s for grass")
+	world.inventory.put("bar", 1, {"objet": "eclat_silex", "pile": [{"poids": 40.0}]})
+	check(world.holding_flake(), "a flake in a hand")
+	world.inventory.put("bar", 1, {})
+	var nettle := {}
+	for x in range(-14, 15):
+		for z in range(-14, 15):
+			if nettle.is_empty():
+				for p in world.terrain.plants_in_zone(Vector2i(x, z)):
+					if int(p.plante) == Plants.NETTLE and not world.cut_plants.has(Fibers.plant_id(p)):
+						nettle = p
+						break
+	check(not nettle.is_empty(), "a nettle found")
+	var nettle_foot: float = world.terrain.height_at(nettle.x, nettle.z)
+	world.health.value = 100
+	world.player.global_position = Vector3(nettle.x, nettle_foot + 0.05, nettle.z)
+	check(world.in_nettles(), "standing in nettles")
+	for i in range(4):
+		world._step_nettles(0.5)
+	check(world.health.value == 100 - 4 * Fibers.NETTLE_WALK, "nettles sting while you stay in them (%d)" % world.health.value)
+	world.health.value = 100
+	world.harvest({"kind": "plante", "plant": nettle, "id": Fibers.plant_id(nettle), "column": Vector2i(floori(nettle.x / 8.0), floori(nettle.z / 8.0)), "key": "x"})
+	check(world.health.value == 100 - Fibers.NETTLE_PULL, "pulling a nettle by hand: -%d" % Fibers.NETTLE_PULL)
+	check(world.cut_plants.has(Fibers.plant_id(nettle)), "a pulled nettle is cut (its neighbours in the patch still sting)")
+	# Herbe du sol.
+	var grass_at := Vector3(nettle.x + 2.0, 0.0, nettle.z + 2.0)
+	grass_at.y = world.terrain.height_at(grass_at.x, grass_at.z)
+	var before_items: int = world.ground.entries.size()
+	check(world.pull_grass(grass_at) and world._grass_skipped(grass_at) and world.ground.entries.size() == before_items + 1 and world.ground.entries[-1].item.objet == "herbe_arrachee", "grass pulled: none left there, the pulled grass lies on the ground")
+	world.objects_dirty = true
+	world.save_now()
+	check(not world.pulled_grass.is_empty(), "pulled grass remembered")
 	# Liane : un tilleul à liane posé pour l'essai.
 	var linden := Trees.tree_body(Trees.LINDEN, 3, true)
 	linden.set_meta("id", "tilleul-essai")
@@ -136,7 +169,7 @@ func _run() -> void:
 	for i in range(5):
 		await process_frame
 	world = app.active_world
-	check(world.cut_plants.has(Fibers.plant_id(found)) and world.cut_vines.has("tilleul-essai"), "cut plants and lianes read again from objets.json")
+	check(world.cut_plants.has(Fibers.plant_id(found)) and world.cut_vines.has("tilleul-essai") and not world.pulled_grass.is_empty(), "cut plants, lianes and pulled grass read again from objets.json")
 	app.return_to_worlds()
 	root.remove_child(app)
 	app.queue_free()

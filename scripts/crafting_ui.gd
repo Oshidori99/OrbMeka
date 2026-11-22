@@ -13,6 +13,8 @@ const FirstPersonHand = preload("res://scripts/first_person_hand.gd")
 const StoneHeads = preload("res://scripts/stone_heads.gd")
 const ProgressRing = preload("res://scripts/progress_ring.gd")
 const InventoryUI = preload("res://scripts/inventory_ui.gd")
+const Fibers = preload("res://scripts/fibers.gd")
+const CraftingIcons = preload("res://scripts/crafting_icons.gd")
 const SLOT := 46.0
 const PANEL_WIDTH := 380.0
 const HAND_LEFT := Vector3(-0.14, -0.2, -0.42)
@@ -25,6 +27,7 @@ var root: Control
 var background: TextureRect
 var panel: PanelContainer
 var action_buttons := {}
+var action_name: Label
 var choice_box: VBoxContainer
 var status: Label
 var view: SubViewport
@@ -112,18 +115,19 @@ func _build_panel(row: HBoxContainer) -> void:
 	scroll.add_child(box)
 	box.add_child(_label("Fabrication", 24, Color(1.0, 0.86, 0.55)))
 	box.add_child(_label("Action", 15, Color(0.6, 0.85, 0.82)))
-	var actions := GridContainer.new()
-	actions.columns = 2
-	actions.add_theme_constant_override("h_separation", roundi(6 * text_scale))
-	actions.add_theme_constant_override("v_separation", roundi(6 * text_scale))
+	# 0.0.8.8 (demande de l'utilisateur) : les actions en images (crafting_icons.gd), leur nom au survol et dessous.
+	var actions := HBoxContainer.new()
+	actions.add_theme_constant_override("separation", roundi(6 * text_scale))
 	box.add_child(actions)
 	for each in Rules.ACTIONS:
-		var text: String = Rules.ACTION_NAMES[each] + ("" if Rules.is_ready(each) else " (bientôt)")
-		var button := _button(text, actions, func(): choose_action(each))
-		button.toggle_mode = true
+		var button := CraftingIcons.new(each, roundf(78 * text_scale))
+		button.tooltip_text = Rules.ACTION_NAMES[each] + ("" if Rules.is_ready(each) else " (bientôt)")
 		button.disabled = not Rules.is_ready(each)
-		button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		button.pressed.connect(func(): choose_action(each))
+		actions.add_child(button)
 		action_buttons[each] = button
+	action_name = _label("", 17, Color(1.0, 0.95, 0.8))
+	box.add_child(action_name)
 	choice_box = VBoxContainer.new()
 	choice_box.add_theme_constant_override("separation", roundi(5 * text_scale))
 	box.add_child(choice_box)
@@ -225,13 +229,70 @@ func choose_action(next: String) -> void:
 	hold_time = 0.0
 	for each in action_buttons:
 		action_buttons[each].set_pressed_no_signal(each == action)
+	if is_instance_valid(action_name):
+		action_name.text = Rules.ACTION_NAMES.get(action, "")
 	refresh()
 
 func pick(role: String, choice: Dictionary) -> void:
+	# 0.0.8.8 (demande de l'utilisateur) : en Survie, l'objet choisi va vraiment dans la case de sa main (case 1 : main
+	# gauche, case 2 : main droite) ; ce qu'elle tenait va à sa place, dans une poche libre, ou au sol.
+	var roles: Array = ROLES.get(action, [])
+	var hand := roles.find(role)
+	if inventory.mode == Inventory.SURVIVAL and hand >= 0 and hand < Inventory.HANDS.size() and roles.size() == 2:
+		choice = _to_hand(choice, Inventory.HANDS[hand])
+		for other in roles:
+			if other != role and picks.has(other):
+				picks[other] = _relocate(other, picks[other])
+				if picks[other].is_empty():
+					picks.erase(other)
+	if choice.is_empty():
+		refresh()
+		return
 	picks[role] = choice
 	if role == "pierre":
 		hits = 0
 	refresh()
+
+# Met un objet choisi (une unité précise) dans la case d'une main ; rend le choix à sa nouvelle place.
+func _to_hand(choice: Dictionary, slot: int) -> Dictionary:
+	if choice.get("creative", false) or choice.get("area", "") == "" or int(choice.get("unit", -1)) < 0:
+		return choice
+	var there := inventory.item("bar", slot)
+	if choice.area == "bar" and choice.index == slot and Inventory.count(there) == 1:
+		return choice
+	if not Rules.still_there(inventory, choice):
+		return {}
+	var from_area: String = choice.area
+	var from_index: int = choice.index
+	var value := inventory.take_unit(from_area, from_index, choice.unit)
+	var moved := {}
+	if not inventory.item("bar", slot).is_empty():
+		moved = inventory.remove("bar", slot, true)
+	var rest := inventory._merge_into("bar", slot, Inventory.single(value))
+	if not rest.is_empty():
+		# Trop lourd pour une main : tout revient comme avant.
+		inventory._merge_into("bar", slot, moved)
+		inventory._merge_into(from_area, from_index, rest)
+		status.text = "Trop lourd pour une main."
+		return _relocate("", choice)
+	if not moved.is_empty():
+		var kept := inventory._merge_into(from_area, from_index, moved)
+		if not kept.is_empty():
+			var placed := inventory.add(kept)
+			if world.has_method("_drop_units"):
+				world._drop_units(kept, placed)
+	inventory.changed.emit()
+	return {"label": choice.label, "value": choice.value, "area": "bar", "index": slot, "unit": 0}
+
+# Retrouve un objet choisi qui a pu changer de place (même objet, même rôle).
+func _relocate(role: String, choice: Dictionary) -> Dictionary:
+	if choice.get("creative", false) or Rules.still_there(inventory, choice):
+		return choice
+	var list := _list(role) if not role.is_empty() else []
+	for other in list:
+		if other.value == choice.value:
+			return other
+	return {}
 
 func choose_head(next: String) -> void:
 	head = next
@@ -246,6 +307,9 @@ const ROLE_TITLES := {"fibres": "Fibres (3 du même type)", "percuteur": "Main g
 const HOLD_ACTIONS := ["tresser", "fendre", "ficeler"]
 
 func _list(role: String) -> Array:
+	# 0.0.8.8 : un éclat tranchant se taille dans une pierre de taille 2 à 5.
+	if role == "pierre" and head == "eclat":
+		return Rules.choices(inventory, "pierre_eclat")
 	if role in ["fibres", "percuteur", "pierre"]:
 		return Rules.choices(inventory, role)
 	return Rules.more_choices(inventory, role)
@@ -272,7 +336,7 @@ func refresh() -> void:
 		choice_box.add_child(_label("Forme", 15, Color(0.6, 0.85, 0.82)))
 		var forms := HBoxContainer.new()
 		choice_box.add_child(forms)
-		for each in ["hache", "pioche"]:
+		for each in ["hache", "pioche", "eclat"]:
 			var button := _button(Rules.HEAD_NAMES[each], forms, func(): choose_head(each))
 			button.toggle_mode = true
 			button.set_pressed_no_signal(each == head)
@@ -292,19 +356,32 @@ func ready_to_work() -> bool:
 
 func _hint() -> String:
 	if not ready_to_work():
-		return "Choisissez vos objets : ils viennent dans vos mains."
+		return "Choisissez vos objets : ils viennent dans vos mains." + _owned_text()
+	var text := ""
 	match action:
 		"tresser":
-			return "Clic gauche maintenu dans la scène (%d s) : tresser une ficelle de 33 cm." % roundi(Rules.BRAID_SECONDS)
+			text = "Clic gauche maintenu dans la scène (%d s) : tresser une ficelle de 33 cm." % roundi(Rules.BRAID_SECONDS)
 		"tailler":
-			return "Cliquez dans la scène pour frapper : %d coup%s sur %d." % [hits, "s" if hits > 1 else "", Rules.hits_for(picks.pierre.value)]
+			var left := Rules.hits_for(picks.pierre.value, head) - hits
+			text = "Cliquez dans la scène pour frapper : encore %d coup%s." % [left, "s" if left > 1 else ""]
 		"fendre":
-			return "Clic gauche maintenu dans la scène (%d s) : fendre le bout de la branche." % roundi(Rules.SPLIT_SECONDS)
+			text = "Clic gauche maintenu dans la scène (%d s) : fendre le bout de la branche." % roundi(Rules.SPLIT_SECONDS)
 		"assembler":
-			return "Cliquez dans la scène : la tête glisse dans la fente."
+			text = "Cliquez dans la scène : la tête glisse dans la fente."
 		"ficeler":
-			return "Clic gauche maintenu dans la scène : un tour toutes les %s s ; relâchez pour finir (%d à %d tours)." % [str(Rules.TURN_SECONDS).replace(".", ","), Rules.TURNS_MIN, Rules.TURNS_MAX]
-	return ""
+			text = "Clic gauche maintenu dans la scène : un tour toutes les %s s ; relâchez pour finir (%d à %d tours)." % [str(Rules.TURN_SECONDS).replace(".", ","), Rules.TURNS_MIN, Rules.TURNS_MAX]
+	return text + _owned_text()
+
+# 0.0.8.8 (demande de l'utilisateur) : combien on a déjà de ce qu'on fabrique (« Vous avez 2 têtes de pioche. »).
+func _owned_text() -> String:
+	var id := Rules.result_id(action, picks, head)
+	if id.is_empty():
+		return ""
+	var count := Rules.owned(inventory, id)
+	var name: String = "branche fendue" if id == "branche_fendue" else str(Inventory.ITEMS.get(id, {}).get("nom", "")).to_lower()
+	if count > 1:
+		name = "branches fendues" if id == "branche_fendue" else Inventory.plural_name({"objet": id})
+	return "\nVous avez %d %s." % [count, name] if count > 0 else "\nVous n'en avez pas encore."
 
 # --- Les mains ---
 
@@ -327,14 +404,14 @@ func _show_hands() -> void:
 		var role: String = roles[index] if index < roles.size() else ""
 		var value: Dictionary = picks[role].value if picks.has(role) else {}
 		hands[index].show_item(value)
-	if action != "tailler" or not picks.has("pierre") or hits == 0:
+	if action != "tailler" or not picks.has("pierre") or hits == 0 or head == "eclat":
 		return
 	# Coup après coup : la pierre prend la forme de la tête.
 	hands[1].show_item({})
 	shaped = MeshInstance3D.new()
 	shaped.name = "PierreTaillee"
 	var stone: Dictionary = picks.pierre.value
-	shaped.mesh = StoneHeads.mesh(head, float(hits) / Rules.hits_for(stone), int(stone.get("forme", 1)))
+	shaped.mesh = StoneHeads.mesh(head, float(hits) / Rules.hits_for(stone, head), int(stone.get("forme", 1)))
 	shaped.material_override = StoneHeads.material(Rules.KNAP_STONES.get(stone.objet, 1))
 	shaped.scale = Vector3.ONE * StoneHeads.scale_for(head, int(stone.get("taille", 4)))
 	shaped.position.y = 0.02
@@ -464,6 +541,9 @@ func step_braid(delta: float) -> bool:
 	hands[0].position = hands[0].rest + Vector3(-0.015 * share, 0.0, 0.0)
 	hands[1].position = hands[1].rest + Vector3(0.015 * share, 0.008 * sin(hold_time * 10.0), 0.0)
 	_draw_strands(share)
+	# 0.0.8.8 (demande de l'utilisateur) : tresser des fibres d'ortie pique un peu (Survie), chaque seconde.
+	if picks.fibres.fibres == "fibre_ortie" and floori(hold_time) > floori(hold_time - delta) and world.has_method("hurt"):
+		world.hurt(Fibers.NETTLE_BRAID)
 	if hold_time < Rules.BRAID_SECONDS:
 		return false
 	hold_time = 0.0
@@ -499,24 +579,48 @@ func strike() -> bool:
 		return false
 	hits += 1
 	_strike_motion()
-	if hits < Rules.hits_for(picks.pierre.value):
+	if hits < Rules.hits_for(picks.pierre.value, head):
 		_show_hands()
 		status.text = _hint()
 		return false
 	var stone: Dictionary = picks.pierre.value
+	var stone_slot := [picks.pierre.area, picks.pierre.index]
 	if not picks.pierre.get("creative", false):
 		inventory.take_unit(picks.pierre.area, picks.pierre.index, picks.pierre.unit)
-	var made: Array = Rules.knap_results(stone, head)
-	for value in made:
-		world.give_crafted(value)
 	hits = 0
-	var name: String = Inventory.item_name(Inventory.flat(made[0].objet, made[0].pile[0]))
-	picks.erase("pierre")
-	# Le percuteur a pu changer de place dans sa pile : on le retrouve.
-	if picks.has("percuteur") and not Rules.still_there(inventory, picks.percuteur):
-		picks.erase("percuteur")
+	var message := ""
+	if head == "eclat":
+		# 0.0.8.8 : un éclat tranchant ; la pierre, une taille plus petite, reste en main (la taille 2 est utilisée).
+		var flaked: Array = Rules.flake_results(stone)
+		var smaller: Dictionary = flaked[1]
+		if not smaller.is_empty() and not picks.pierre.get("creative", false):
+			var rest := inventory._merge_into(stone_slot[0], stone_slot[1], smaller)
+			if not rest.is_empty():
+				world.give_crafted(rest)
+		world.give_crafted(flaked[0])
+		message = "Un éclat tranchant%s." % ("" if not smaller.is_empty() else " (la pierre est entièrement utilisée)")
+		if not smaller.is_empty() and picks.pierre.get("creative", false):
+			picks.pierre.value = Inventory.flat(smaller.objet, smaller.pile[0])
+	else:
+		var made: Array = Rules.knap_results(stone, head)
+		for value in made:
+			world.give_crafted(value)
+		message = "%s taillée, et un éclat tranchant." % Inventory.item_name(Inventory.flat(made[0].objet, made[0].pile[0]))
+		picks.erase("pierre")
+	# Ce qui est fabriqué va dans la première main : le percuteur et la pierre ont pu changer de place.
+	for role in ["percuteur", "pierre"]:
+		if picks.has(role) and not picks[role].get("creative", false):
+			var found := _relocate(role, picks[role])
+			if found.is_empty() and role == "pierre":
+				# La pierre plus petite : la même, une taille de moins.
+				var list := _list("pierre").filter(func(c): return c.value.get("objet") == stone.objet and int(c.value.get("taille", 0)) == int(stone.get("taille", 0)) - 1)
+				found = list[0] if not list.is_empty() else {}
+			if found.is_empty():
+				picks.erase(role)
+			else:
+				picks[role] = found
 	refresh()
-	status.text = "%s taillée, et un éclat tranchant. %s" % [name, _hint()]
+	status.text = "%s %s" % [message, _hint()]
 	return true
 
 func _strike_motion() -> void:

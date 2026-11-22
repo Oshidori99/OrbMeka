@@ -1,6 +1,18 @@
-# OrbMeka™ — prototype 0.0.8.7
+# OrbMeka™ — prototype 0.0.8.8
 
 Godot 4.7 / GDScript. Formes et couleurs simples ; assets externes seulement sous licence vérifiée (sons CC0, assets/sounds/CREDITS.txt).
+
+## 0.0.8.8 — Les orties piquent (en marchant dedans, en les arrachant, en les tressant) ; un éclat tranchant à tailler soi-même, qui récolte deux fois plus vite (1,5 s au lieu de 3 s) ; arracher l'herbe ; la fabrication en images, avec les vraies mains et ce qui reste à faire ; cases gris bleuté
+Version locale (3 sur 4). Génération inchangée (version 33). Demandes de l'utilisateur.
+- **Orties** (Survie) : **marcher dedans** pique tant qu'on y reste (1 point toutes les 0,5 s, effet rouge, « Les orties piquent ! ») ; **arracher** une ortie à mains nues : −10 (coupée avec un éclat en main : −3) ; **tresser** des fibres d'ortie : −1 par seconde.
+- **Récolte** : **3 s à la main** (avant 1 s), **1,5 s avec un éclat** dans une main.
+- **Arracher l'herbe** du sol : R maintenu **0,6 s** en visant l'herbe : elle disparaît sur environ 45 cm autour (enregistré, « herbe_arrachee ») ; l'**herbe arrachée reste au sol**, ramassable (pas encore d'usage) : pour retrouver ce qui est tombé dans l'herbe.
+- **Tailler** : **2,5 fois plus de coups** (13, 15, 20 pour une tête de taille 3, 4, 5) ; 3e forme **« Éclat tranchant »** : **8 coups**, une pierre de taille 2 à 5 qui perd une taille (la 2 est entièrement utilisée).
+- **Fabrication** : les **actions en images** (tresser, tailler, fendre, assembler, ficeler), le nom au survol et dessous ; le texte dit **ce qui reste** (« encore 8 coups ») et **combien on en a** (« Vous avez 2 têtes de pioche ») ; en Survie, les objets choisis **vont dans les cases des mains** (1 : gauche, 2 : droite ; ce qu'elles tenaient va à sa place, dans une poche ou au sol) ; **ce qui est fabriqué va dans la première main** (ce qu'elle tenait passe dans la deuxième, sinon une poche, sinon au sol).
+- **Cases** de l'inventaire, de la barre et de la fabrication : **fond gris moyen un peu bleuté** (les objets sombres se voient).
+
+Tests réussis : crafting (47), fibers (33), hands_eat, return_orb, death, health, inventory (seul), inventory_more, lawn_ring, plants, forests, world_save, web_save, sticks, interface_info, layout_lines (+ tests juridiques). Capture hors écran : fabrication en images, cases gris bleuté.
+À tester : marcher dans des orties, arracher l'herbe et retrouver un objet, tailler un éclat, récolter avec un éclat en main ; les images des actions (assez claires ?).
 
 ## 0.0.8.7 — Tout à sa vraie taille : vue à 60° par défaut (mains toujours visibles), têtes et outils plus grands, cailloux 2,5 fois plus lourds et moins enfoncés, poches à 1 kg ; inventaire plus grand aux noms entiers ; poser en continu (manger en visant le vide) ; liane plus grande, récoltée en 3 morceaux
 Version locale (2 sur 4). Génération inchangée (version 33). Demandes de l'utilisateur (#243, #244, #245).

@@ -5,7 +5,21 @@ extends RefCounted
 # du tronc. Modèles faits en code : une petite botte de brins (fibre), un rouleau (liane).
 const PLANT_ITEMS := ["fibre_ortie", "fibre_lin", "fibre_herbe"]
 const LIANE := "liane"
-const HARVEST_SECONDS := 1.0
+# 0.0.8.8 (demande de l'utilisateur) : 3 s à la main (avant 1 s), 1,5 s avec un éclat tranchant en main.
+const HARVEST_SECONDS := 3.0
+const HARVEST_SECONDS_FLAKE := 1.5
+# 0.0.8.8 (demandes de l'utilisateur) : orties : arracher à mains nues : NETTLE_PULL points ; avec un éclat (coupée) :
+# NETTLE_CUT ; tresser leurs fibres : NETTLE_BRAID par seconde ; marcher dedans : NETTLE_WALK toutes les NETTLE_TICK s.
+const NETTLE_PULL := 10
+const NETTLE_CUT := 3
+const NETTLE_BRAID := 1
+const NETTLE_WALK := 1
+const NETTLE_TICK := 0.5
+# 0.0.8.8 (demande de l'utilisateur) : arracher l'herbe du sol : R maintenu GRASS_SECONDS ; l'herbe disparaît dans un
+# rayon de GRASS_RADIUS m (enregistré) et l'herbe arrachée reste au sol, ramassable (sans usage pour l'instant).
+const GRASS_SECONDS := 0.6
+const GRASS_RADIUS := 0.45
+const GRASS_ITEM := "herbe_arrachee"
 const HARVEST_SECONDS_CREATIVE := 0.3
 # 0.0.8.7 (demande de l'utilisateur) : une liane de tilleul se récolte en 3 morceaux.
 const LIANE_PARTS := 3

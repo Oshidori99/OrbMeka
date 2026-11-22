@@ -112,6 +112,9 @@ const ITEMS := {
 	"fibre_herbe": {"nom": "Fibre d'herbe", "forme": "fibre", "poids": 2.0, "couleur": Color("#9fae5e")},
 	# 0.0.8.6 (demande de l'utilisateur) : une vraie liane, environ 3 m enroulés en boucles : 300 g, 0,4 L.
 	"liane": {"nom": "Liane", "forme": "liane", "poids": 300.0, "couleur": Color("#5d6b34")},
+	# 0.0.8.8 (demande de l'utilisateur) : herbe arrachée du sol (pour voir ce qui est tombé dans l'herbe) : reste au sol,
+	# ramassable ; pas encore d'usage.
+	"herbe_arrachee": {"nom": "Herbe arrachée", "forme": "fibre", "poids": 15.0, "couleur": Color("#6f9a3c")},
 	# 0.0.8.5 (#213, #211) : ficelle tressée (3 fibres du même type, 33 cm ; elle garde son type) ; têtes taillées dans un
 	# silex ou un calcaire (crafting_rules.gd).
 	"ficelle_ortie": {"nom": "Ficelle d'ortie", "forme": "ficelle", "poids": 6.0, "couleur": Color("#6f7d4c")},

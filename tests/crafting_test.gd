@@ -38,7 +38,7 @@ static func survival() -> Inventory:
 func _run() -> void:
 	check(Controls.ACTIONS.crafting.default.key == KEY_O and Controls.ACTIONS.crafting.default.second.key == KEY_F and Controls.GROUPS.Inventaire.has("crafting"), "O + F: Fabrication, in Contrôles → Inventaire")
 	check(Rules.READY == Rules.ACTIONS and Rules.ACTIONS.size() == 5, "0.0.8.6: the five actions are ready")
-	check(Rules.KNAP_HITS == {3: 5, 4: 6, 5: 8} and Rules.BRAID_FIBERS == 3 and Rules.BRAID_SECONDS == 3.0, "5, 6 or 8 hits; 3 fibres in 3 s")
+	check(Rules.KNAP_HITS == {3: 13, 4: 15, 5: 20} and Rules.FLAKE_HITS == 8 and Rules.BRAID_FIBERS == 3 and Rules.BRAID_SECONDS == 3.0, "0.0.8.8: 13, 15 or 20 hits (8 for a sharp flake); 3 fibres in 3 s")
 	check(is_equal_approx(Inventory.instance_volume("fibre_lin", {}), 0.01), "a fibre: 10 ml")
 	# Tresser : fibres prises dans les mains et les poches.
 	var inv := survival()
@@ -58,7 +58,7 @@ func _run() -> void:
 	check(Rules.choices(inv, "percuteur").size() == 3, "any pebble can be the hammer")
 	var stones := Rules.choices(inv, "pierre")
 	check(stones.size() == 1 and stones[0].value.objet == "caillou_silex", "only flint or limestone of size 3 to 5 can be knapped")
-	check(Rules.hits_for(stones[0].value) == 6, "size 4: 6 hits")
+	check(Rules.hits_for(stones[0].value) == 15, "size 4: 15 hits")
 	var results := Rules.knap_results({"objet": "caillou_silex", "taille": 4}, "pioche")
 	var made_head: Dictionary = Inventory.flat(results[0].objet, results[0].pile[0])
 	check(made_head.objet == "tete_pioche" and made_head.pierre == 1 and made_head.taille == 4 and Inventory.item_name(made_head) == "Tête de pioche en silex" and results[1].objet == "eclat_silex", "a flint pickaxe head (size kept) and a flint flake")
@@ -116,13 +116,13 @@ func _run() -> void:
 	ui.choose_head("hache")
 	ui.strike()
 	check(ui.hits == 1 and is_instance_valid(ui.shaped), "first hit: the stone starts to take shape")
-	for i in range(4):
+	for i in range(12):
 		ui.strike()
 	var heads := Rules.places(world.inventory).filter(func(p): return world.inventory.item(p[0], p[1]).get("objet") == "tete_hache")
 	var flakes := Rules.places(world.inventory).filter(func(p): return world.inventory.item(p[0], p[1]).get("objet") == "eclat_silex")
 	var hammers := Rules.places(world.inventory).filter(func(p): return world.inventory.item(p[0], p[1]).get("objet") == "caillou")
 	var flints := Rules.places(world.inventory).filter(func(p): return world.inventory.item(p[0], p[1]).get("objet") == "caillou_silex")
-	check(heads.size() == 1 and flakes.size() == 1 and hammers.size() == 1 and flints.is_empty(), "5 hits (size 3): an axe head and a flake; the flint is used, the hammer stays")
+	check(heads.size() == 1 and flakes.size() == 1 and hammers.size() == 1 and flints.is_empty(), "13 hits (size 3): an axe head and a flake; the flint is used, the hammer stays")
 	# 0.0.8.6 : Fendre, Assembler, Ficeler (Survie).
 	for index in Inventory.HANDS + Inventory.POCKETS:
 		world.inventory.put("bar", index, {})
@@ -169,6 +169,26 @@ func _run() -> void:
 	var tied := Rules.bind_result({"objet": "pioche_a_ficeler", "pierre": 0, "taille": 3, "poids": 400.0}, "liane", 4)
 	check(tied.objet == "pioche_pierre" and tied.pile[0].lien == 3 and tied.pile[0].poids == 700.0, "a liane instead of 3 strings")
 	check(is_equal_approx(Inventory.instance_volume("liane", {}), 0.4) and Inventory.instance_weight("liane", {}) == 300.0 and Fibers.coil_mesh().get_surface_count() == 2, "0.0.8.6: a real liane (300 g, 0.4 L, stem and leaves)")
+	# 0.0.8.8 : objets choisis dans les cases des mains ; éclat tranchant (8 coups, la pierre perd une taille) ; ce qui est
+	# fabriqué va dans la première main ; « Vous avez … » ; actions en images.
+	check(ui.action_buttons.tresser is Button and ui.action_buttons.tresser.text == "" and ui.action_buttons.tresser.tooltip_text == "Tresser", "actions shown as pictures (name on hover)")
+	for index in Inventory.HANDS + Inventory.POCKETS:
+		world.inventory.put("bar", index, {})
+	world.inventory.put("bar", 2, pile("caillou", [{"taille": 2}]))
+	world.inventory.put("bar", 3, pile("caillou_silex", [{"taille": 3}]))
+	ui.choose_action("tailler")
+	ui.choose_head("eclat")
+	ui.pick("percuteur", Rules.choices(world.inventory, "percuteur").filter(func(c): return c.value.objet == "caillou")[0])
+	ui.pick("pierre", Rules.choices(world.inventory, "pierre_eclat")[0])
+	check(world.inventory.item("bar", 0).get("objet") == "caillou" and world.inventory.item("bar", 1).get("objet") == "caillou_silex" and world.inventory.item("bar", 2).is_empty() and world.inventory.item("bar", 3).is_empty(), "the chosen hammer and stone go into the hand slots (1: left, 2: right)")
+	check(ui.status.text.contains("encore 8 coups") and ui.status.text.contains("Vous n'en avez pas encore"), "hits left shown, and how many we have: " + ui.status.text)
+	for i in range(8):
+		ui.strike()
+	check(world.inventory.item("bar", 0).get("objet") == "eclat_silex", "8 hits: a sharp flake, in the first hand")
+	var smaller := Rules.places(world.inventory).filter(func(p): return world.inventory.item(p[0], p[1]).get("objet") == "caillou_silex")
+	check(smaller.size() == 1 and int(world.inventory.item(smaller[0][0], smaller[0][1]).pile[0].taille) == 2, "the flint is one size smaller and stays")
+	check(Rules.places(world.inventory).any(func(p): return world.inventory.item(p[0], p[1]).get("objet") == "caillou"), "the hammer moved out of the first hand, still carried")
+	check(ui.status.text.contains("Vous avez 1 éclat de silex"), "how many we have now: " + ui.status.text)
 	app._cancel_page()
 	check(not world.crafting_open and not ui.visible and not root.disable_3d and app.page == "playing" and world.hud_layer.visible, "Échap closes the crafting screen, back to the game (HUD shown again)")
 	# Créatif : le catalogue, rien n'est pris.

@@ -27,9 +27,14 @@ const HAMMERS := ["caillou", "caillou_calcaire", "caillou_silex"]
 # Pierre à tailler : identifiant → pierre de la tête (0 calcaire, 1 silex).
 const KNAP_STONES := {"caillou_calcaire": 0, "caillou_silex": 1}
 const KNAP_SIZES := [3, 4, 5]
-const KNAP_HITS := {3: 5, 4: 6, 5: 8}
+# 0.0.8.8 (demande de l'utilisateur) : 2,5 fois plus de coups (avant 5, 6, 8).
+const KNAP_HITS := {3: 13, 4: 15, 5: 20}
+# 0.0.8.8 : tailler un éclat tranchant : FLAKE_HITS coups, une pierre de taille 2 à 5, qui perd une taille (la 2 est
+# entièrement utilisée).
+const FLAKE_HITS := 8
+const FLAKE_SIZES := [2, 3, 4, 5]
 const HEADS := {"hache": "tete_hache", "pioche": "tete_pioche"}
-const HEAD_NAMES := {"hache": "Tête de hache", "pioche": "Tête de pioche"}
+const HEAD_NAMES := {"hache": "Tête de hache", "pioche": "Tête de pioche", "eclat": "Éclat tranchant"}
 const FLAKES := {0: "eclat_calcaire", 1: "eclat_silex"}
 const FLAKE_WEIGHT := 40.0
 # Poids de la tête : une part de la pierre de départ (le reste part en éclats).
@@ -61,7 +66,7 @@ static func choices(inventory: Inventory, role: String) -> Array:
 			"fibres":
 				if CORDS.has(there.objet):
 					fibre_totals[there.objet] = int(fibre_totals.get(there.objet, 0)) + units.size()
-			"percuteur", "pierre":
+			"percuteur", "pierre", "pierre_eclat":
 				for unit in range(units.size()):
 					var value: Dictionary = units[unit]
 					if _fits(role, value):
@@ -77,6 +82,8 @@ static func choices(inventory: Inventory, role: String) -> Array:
 static func _fits(role: String, value: Dictionary) -> bool:
 	if role == "percuteur":
 		return value.get("objet", "") in HAMMERS
+	if role == "pierre_eclat":
+		return KNAP_STONES.has(value.get("objet", "")) and int(value.get("taille", 0)) in FLAKE_SIZES
 	return KNAP_STONES.has(value.get("objet", "")) and int(value.get("taille", 0)) in KNAP_SIZES
 
 static func _label(value: Dictionary) -> String:
@@ -93,15 +100,61 @@ static func _catalog(role: String) -> Array:
 				result.append({"label": "%s (Créatif)" % Inventory.ITEMS[id].nom, "value": {"objet": id}, "area": "", "index": -1, "unit": -1, "fibres": id, "creative": true})
 		"percuteur":
 			result.append({"label": "Caillou (taille 4, Créatif)", "value": {"objet": "caillou", "taille": 4}, "area": "", "index": -1, "unit": -1, "creative": true})
-		"pierre":
+		"pierre", "pierre_eclat":
 			for id in KNAP_STONES:
-				for size in KNAP_SIZES:
+				for size in (FLAKE_SIZES if role == "pierre_eclat" else KNAP_SIZES):
 					var value := {"objet": id, "taille": size}
 					result.append({"label": "%s (taille %d, Créatif)" % [Inventory.ITEMS[id].nom, size], "value": value, "area": "", "index": -1, "unit": -1, "creative": true})
 	return result
 
-static func hits_for(stone: Dictionary) -> int:
-	return int(KNAP_HITS.get(int(stone.get("taille", 4)), 6))
+static func hits_for(stone: Dictionary, head: String = "hache") -> int:
+	if head == "eclat":
+		return FLAKE_HITS
+	return int(KNAP_HITS.get(int(stone.get("taille", 4)), 15))
+
+# 0.0.8.8 : un éclat tranchant de la pierre, et la pierre une taille plus petite ({} : taille 2, entièrement utilisée).
+static func flake_results(stone: Dictionary) -> Array:
+	var kind: int = KNAP_STONES.get(stone.get("objet", ""), 1)
+	var flake := {"objet": FLAKES[kind], "pile": [{"poids": FLAKE_WEIGHT}]}
+	var size := int(stone.get("taille", 3))
+	if size <= FLAKE_SIZES[0]:
+		return [flake, {}]
+	var smaller := stone.duplicate(true)
+	smaller.taille = size - 1
+	smaller.erase("poids")
+	smaller.erase("objet")
+	return [flake, {"objet": stone.objet, "pile": [smaller]}]
+
+# 0.0.8.8 (demande de l'utilisateur) : ce que fait l'action en cours (pour « Vous avez … »).
+static func result_id(action: String, picks: Dictionary, head: String) -> String:
+	match action:
+		"tresser":
+			return CORDS.get(picks.get("fibres", {}).get("fibres", ""), "")
+		"tailler":
+			if head == "eclat":
+				return FLAKES.get(KNAP_STONES.get(picks.get("pierre", {}).get("value", {}).get("objet", ""), 1), "")
+			return HEADS.get(head, "")
+		"fendre":
+			return "branche_fendue"
+		"assembler":
+			return UNBOUND.get(picks.get("tete", {}).get("value", {}).get("objet", ""), "")
+		"ficeler":
+			return BOUND.get(picks.get("a_ficeler", {}).get("value", {}).get("objet", ""), "")
+	return ""
+
+# Combien d'objets « id » dans les cases (« branche_fendue » : les branches fendues).
+static func owned(inventory: Inventory, id: String) -> int:
+	var total := 0
+	for place in places(inventory):
+		var there := inventory.item(place[0], place[1])
+		if there.is_empty():
+			continue
+		if id == "branche_fendue":
+			if there.objet == "branche":
+				total += Inventory.units(there).filter(func(v): return int(v.get("fendue", 0)) == 1).size()
+		elif there.objet == id:
+			total += Inventory.count(there)
+	return total
 
 # Prend 3 fibres du type choisi dans les cases (de la dernière case vers la première) ; Créatif : rien n'est pris.
 # Rend vrai si elles y étaient.

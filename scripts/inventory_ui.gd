@@ -19,6 +19,8 @@ const Controls = preload("res://scripts/controls.gd")
 const HUD_SLOT := 52.0
 const PANEL_SLOT := 58.0
 const GAP := 10
+# 0.0.8.8 : fond des cases (gris moyen un peu bleuté : objets sombres et clairs bien visibles).
+const SLOT_BACK := Color(0.4, 0.44, 0.52, 0.92)
 
 # Une case dessinée (barre, grille, catégorie ou objet tenu par la souris) ; sous la case : nom puis poids.
 class Slot extends Control:
@@ -101,7 +103,8 @@ class Slot extends Control:
 		var rect := Rect2(Vector2.ZERO, Vector2(width, side))
 		var square := Rect2(Vector2((width - side) * 0.5, 0.0), Vector2(side, side))
 		if not plain:
-			draw_rect(rect, Color(0.32, 0.32, 0.34, 0.5) if locked else (Color(0.1, 0.22, 0.13, 0.92) if variant else Color(0.13, 0.14, 0.16, 0.85)))
+			# 0.0.8.8 (demande de l'utilisateur : les objets sombres ne se voyaient pas) : fond gris moyen un peu bleuté.
+			draw_rect(rect, Color(0.32, 0.32, 0.34, 0.5) if locked else (Color(0.1, 0.22, 0.13, 0.92) if variant else SLOT_BACK))
 		if not item.is_empty():
 			var icon: Texture2D = ItemIcons.for_value(item)
 			if icon != null:

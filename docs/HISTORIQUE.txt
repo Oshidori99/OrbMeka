@@ -3,6 +3,10 @@ Du plus récent au plus ancien. Ce fichier est mis à jour à chaque version.
 
 === Thème « Fabrication et survie » (0.0.8) ===
 
+0.0.8.8 — Les orties piquent (en marchant dedans, en les arrachant, en les tressant) ; un éclat tranchant à tailler soi-même, qui récolte deux fois plus vite (1,5 s au lieu de 3 s) ; arracher l'herbe ; la fabrication en images, avec les vraies mains et ce qui reste à faire ; cases gris bleuté
+Génération du terrain : version 33 · Menus : version 10.
+Demandes de l'utilisateur. Tailler : 2,5 fois plus de coups ; ce qui est fabriqué va dans la première main.
+
 0.0.8.7 — Tout à sa vraie taille : vue à 60° par défaut (mains toujours visibles), têtes et outils plus grands, cailloux 2,5 fois plus lourds et moins enfoncés, poches à 1 kg ; inventaire plus grand aux noms entiers ; poser en continu (manger en visant le vide) ; liane plus grande, récoltée en 3 morceaux
 Génération du terrain : version 33 · Menus : version 10.
 Demandes de l'utilisateur (#243, #244, #245). Corrigé : couleur d'une pierre qui tombe, bois trop petit en main.

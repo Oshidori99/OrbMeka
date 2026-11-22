@@ -1077,7 +1077,8 @@ func _grass_skipped(at: Vector3) -> bool:
 	# 0.0.5.20 : ni sur la boue au bord des lacs.
 	var column := Vector2i(roundi(at.x / SmoothTerrain.STEP), roundi(at.z / SmoothTerrain.STEP))
 	# 0.0.6.15 : ni sur la litière d'aiguilles des pinèdes.
-	return terrain.column_changed(column) or terrain.is_desert(Vector2(at.x, at.z)) or terrain.muddy(column) or terrain.needle_floor(column)
+	# 0.0.8.8 : ni là où on l'a arrachée.
+	return pulled_grass.has(column) or terrain.column_changed(column) or terrain.is_desert(Vector2(at.x, at.z)) or terrain.muddy(column) or terrain.needle_floor(column)
 
 func _rebuild_lawn_tile(tile: Vector2i) -> void:
 	if is_instance_valid(lawn_tiles.get(tile)):
@@ -1221,16 +1222,38 @@ func close_crafting(recapture: bool = true) -> void:
 		Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
 
 # Ce qui est fabriqué : rangé dans les mains et les poches (Survie) ou l'inventaire (Créatif) ; ce qui ne tient pas tombe
-# au sol devant soi.
+# au sol devant soi. 0.0.8.8 (demande de l'utilisateur) : en Survie, dans la première main (case 1) ; ce qu'elle tenait
+# passe dans la deuxième main, sinon dans une poche, sinon au sol.
 func give_crafted(value: Dictionary) -> int:
 	var amount := Inventory.count(value)
-	var added := inventory.add(value)
-	if added < amount and is_instance_valid(ground) and is_instance_valid(player):
-		var near := player.global_position - player.global_transform.basis.z * 0.8
-		for unit in Inventory.units(value).slice(added):
-			ground.drop(unit, player.camera.global_position - player.global_transform.basis.z * 0.3, near, _rest_height, 0.15)
+	var rest := value
+	if game_mode == Inventory.SURVIVAL:
+		var hand: int = Inventory.HANDS[0]
+		var there := inventory.item("bar", hand)
+		if not there.is_empty() and not Inventory.same_kind(there, value):
+			var moved := inventory.remove("bar", hand, true)
+			rest = inventory._merge_into("bar", hand, value)
+			var kept := inventory._merge_into("bar", Inventory.HANDS[1], moved)
+			if not kept.is_empty():
+				var placed := inventory.add(kept)
+				_drop_units(kept, placed)
+		else:
+			rest = inventory._merge_into("bar", hand, value)
+		inventory.changed.emit()
+	var added := amount - Inventory.count(rest)
+	if not rest.is_empty():
+		var more := inventory.add(rest)
+		added += more
+		_drop_units(rest, more)
 	inventory_unsaved = true
 	return added
+
+func _drop_units(value: Dictionary, skip: int) -> void:
+	if not is_instance_valid(ground) or not is_instance_valid(player):
+		return
+	var near := player.global_position - player.global_transform.basis.z * 0.8
+	for unit in Inventory.units(value).slice(skip):
+		ground.drop(unit, player.camera.global_position - player.global_transform.basis.z * 0.3, near, _rest_height, 0.15)
 
 # Croix de visée et message du bas : cachés derrière l'inventaire ouvert (le panneau est un peu transparent).
 func _show_aim(on: bool) -> void:
@@ -3100,7 +3123,24 @@ func aimed_harvest(hit: Dictionary) -> Dictionary:
 			var distance: float = player.camera.global_position.distance_to(hit.position)
 			if distance <= player.break_reach + 0.01 and (plant.is_empty() or distance < plant.distance):
 				return {"kind": "liane", "key": "liane/" + str(tree.get_meta("id", "")), "tree": tree, "distance": distance}
+	if plant.is_empty():
+		return aimed_grass(hit)
 	return plant
+
+# 0.0.8.8 : l'herbe du sol visée (terre herbeuse, à portée, pas encore arrachée) : {} sinon.
+func aimed_grass(hit: Dictionary) -> Dictionary:
+	if hit.is_empty() or not is_instance_valid(hit.get("collider")) or not is_instance_valid(player):
+		return {}
+	var collider: Node = hit.collider
+	if collider.is_in_group("trees") or collider.is_in_group("ground_items") or collider.is_in_group("pebbles") or collider.is_in_group("rocks"):
+		return {}
+	var at: Vector3 = hit.position
+	if player.camera.global_position.distance_to(at) > player.break_reach + 0.01 or hit.normal.y < 0.5:
+		return {}
+	if _grass_skipped(at) or ground_kind_under(at + Vector3.UP * 0.3) != SmoothTerrain.DIRT or water_surface(Vector2(at.x, at.z)) > at.y + 0.05:
+		return {}
+	var cell := Vector2i(roundi(at.x / SmoothTerrain.STEP), roundi(at.z / SmoothTerrain.STEP))
+	return {"kind": "herbe", "key": "herbe/%d:%d" % [cell.x, cell.y], "point": at, "distance": player.camera.global_position.distance_to(at)}
 
 func step_harvest(delta: float, holding: bool) -> bool:
 	if not holding or not is_instance_valid(player):
@@ -3116,7 +3156,9 @@ func step_harvest(delta: float, holding: bool) -> bool:
 		harvest_key = target.key
 		harvest_time = 0.0
 	harvest_time += delta
-	var seconds := Fibers.HARVEST_SECONDS_CREATIVE if game_mode == Inventory.CREATIVE else Fibers.HARVEST_SECONDS
+	var seconds := Fibers.HARVEST_SECONDS_CREATIVE if game_mode == Inventory.CREATIVE else (Fibers.HARVEST_SECONDS_FLAKE if holding_flake() else Fibers.HARVEST_SECONDS)
+	if target.kind == "herbe":
+		seconds = minf(seconds, Fibers.GRASS_SECONDS)
 	show_ring(harvest_time / seconds)
 	# 0.0.8.4 (demande de l'utilisateur) : la main droite saisit la plante (ou la liane) et tire par petits coups.
 	if is_instance_valid(player.hand_view):
@@ -3132,7 +3174,41 @@ func _harvest_stop() -> void:
 	if is_instance_valid(player) and is_instance_valid(player.hand_view):
 		player.hand_view.pull(0.0, 0.0)
 
+
+# 0.0.8.8 (demande de l'utilisateur) : arracher l'herbe autour du point visé (Fibers.GRASS_RADIUS) ; l'herbe arrachée
+# tombe là, au sol (ramassable). Enregistré dans objets.json (« herbe_arrachee » : cases de 50 cm).
+var pulled_grass: Dictionary = {}
+
+func pull_grass(at: Vector3) -> bool:
+	var reach := ceili(Fibers.GRASS_RADIUS / SmoothTerrain.STEP)
+	var center := Vector2i(roundi(at.x / SmoothTerrain.STEP), roundi(at.z / SmoothTerrain.STEP))
+	var tiles := {}
+	for dx in range(-reach, reach + 1):
+		for dz in range(-reach, reach + 1):
+			var cell := center + Vector2i(dx, dz)
+			if (Vector2(cell) * SmoothTerrain.STEP).distance_to(Vector2(at.x, at.z)) > Fibers.GRASS_RADIUS:
+				continue
+			pulled_grass[cell] = true
+			tiles[Vector2i(floori(cell.x * SmoothTerrain.STEP / SmoothTerrain.ZONE_SIZE), floori(cell.y * SmoothTerrain.STEP / SmoothTerrain.ZONE_SIZE))] = true
+	for tile in tiles:
+		if lawn_tiles.has(tile):
+			_rebuild_lawn_tile(tile)
+	if is_instance_valid(ground):
+		ground.drop({"objet": Fibers.GRASS_ITEM}, at + Vector3.UP * 0.25, at, _rest_height, 0.0)
+	objects_dirty = true
+	show_choice("Herbe arrachée")
+	return true
+# 0.0.8.8 : un éclat tranchant dans une main (récolte plus rapide ; les orties piquent moins).
+func holding_flake() -> bool:
+	for index in Inventory.HANDS:
+		var there := inventory.item("bar", index)
+		if not there.is_empty() and Inventory.ITEMS.get(there.objet, {}).get("forme", "") == "eclat" and there.objet != "charbon":
+			return true
+	return false
+
 func harvest(target: Dictionary) -> bool:
+	if target.kind == "herbe":
+		return pull_grass(target.point)
 	var value := {}
 	if target.kind == "plante":
 		var plant: Dictionary = target.plant
@@ -3140,6 +3216,9 @@ func harvest(target: Dictionary) -> bool:
 		for index in range(Fibers.fiber_count(plant)):
 			value.pile.append({})
 		cut_plants[target.id] = true
+		# 0.0.8.8 : une ortie pique : à mains nues, beaucoup ; coupée avec un éclat, un peu.
+		if int(plant.plante) == Plants.NETTLE:
+			hurt(Fibers.NETTLE_CUT if holding_flake() else Fibers.NETTLE_PULL)
 		_refresh_column_plants(target.column)
 	else:
 		var tree: Node3D = target.tree
@@ -3933,10 +4012,42 @@ func go_home() -> bool:
 	_notify("Retour au point de départ.")
 	return true
 
+
+# 0.0.8.8 (demande de l'utilisateur) : marcher dans des orties pique, tant qu'on y reste (Survie) : NETTLE_WALK point toutes
+# les NETTLE_TICK s, avec l'effet de dégât.
+var nettle_time := 0.0
+
+func _step_nettles(delta: float) -> void:
+	nettle_time += delta
+	if nettle_time < Fibers.NETTLE_TICK:
+		return
+	nettle_time = 0.0
+	if in_nettles():
+		if hurt(Fibers.NETTLE_WALK) > 0 and notice_time <= 0.0:
+			_notify("Les orties piquent !")
+
+func in_nettles() -> bool:
+	if not is_instance_valid(player) or player.flying or player.swimming:
+		return false
+	var feet: Vector3 = player.global_position
+	var here := _player_column()
+	for dx in [-1, 0, 1]:
+		for dz in [-1, 0, 1]:
+			for plant: Dictionary in terrain.plants_in_zone(here + Vector2i(dx, dz)):
+				if int(plant.plante) != Plants.NETTLE or cut_plants.has(Fibers.plant_id(plant)):
+					continue
+				var size: float = Plants.SIZES[Plants.NETTLE] * float(plant.taille)
+				if Vector2(feet.x - float(plant.x), feet.z - float(plant.z)).length() > size * 0.35:
+					continue
+				if feet.y < terrain.height_at(float(plant.x), float(plant.z)) + size * 0.8:
+					return true
+	return false
 func _update_health(delta: float) -> void:
 	var on := survival()
 	if on:
 		health.step(delta)
+		if not death_open:
+			_step_nettles(delta)
 	if is_instance_valid(health_bar):
 		health_bar.visible = on
 		health_bar.value = health.value
@@ -5130,6 +5241,9 @@ func _read_carved(data: Dictionary) -> void:
 	# 0.0.7.5 : fruits cueillis, par arbre (numéros des fruits du modèle, trees.gd fruit_spots).
 	for id in data.get("branches_ramassees", []):
 		picked_branches[str(id)] = true
+	for cell in data.get("herbe_arrachee", []):
+		if cell is Array and cell.size() == 2:
+			pulled_grass[Vector2i(int(cell[0]), int(cell[1]))] = true
 	for id in data.get("plantes_coupees", []):
 		cut_plants[str(id)] = true
 	for id in data.get("lianes_coupees", []):
@@ -5855,6 +5969,8 @@ func _save_objects() -> bool:
 	# 0.0.8.7 : morceaux de liane pris par arbre (avant : seulement les arbres, liane entière).
 	data.erase("lianes_coupees")
 	data.lianes_recoltees = cut_vines.duplicate()
+	# 0.0.8.8 : herbe arrachée (cases de 50 cm).
+	data.herbe_arrachee = pulled_grass.keys().map(func(cell): return [cell.x, cell.y])
 	data.arbres_tombes = fallen_trees.duplicate(true)
 	data.arbres_coupes = cut_trees.keys()
 	data.arbres_branches = tree_cuts.duplicate(true)
