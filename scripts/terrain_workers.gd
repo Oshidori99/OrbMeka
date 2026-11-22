@@ -18,7 +18,9 @@ const FarTerrain = preload("res://scripts/far_terrain.gd")
 const MAX_WORKERS := 2
 const WEB_WORKERS := 2
 # Mémoire d'une copie : au-delà, ses hauteurs et sols déjà calculés sont oubliés (recalculés au besoin, mêmes nombres).
-const FORGET_AFTER := 150000
+# 0.0.8.14 (rapport d'optimisation : 2 copies = 187 Mo à l'ouverture, et plus en explorant) : 40 000 (avant 150 000), et
+# chaque colonne oubliée dès qu'elle est finie (elle n'est calculée qu'une fois ; seuls ses bords resservent à la voisine).
+const FORGET_AFTER := 40000
 
 # Propriétaire (monde, écran de chargement) : toujours appeler stop() avant de lâcher cet objet (les fils travaillent sur
 # lui ; Godot n'accepte pas d'appel de fonction pendant sa libération).
@@ -187,6 +189,8 @@ static func _column(terrain: SmoothTerrain, column: Vector2i) -> Dictionary:
 	for zone: Vector3i in zones:
 		if not terrain.is_flat(zone):
 			surfaces[zone] = terrain.zone_surface(zone)
+	terrain.forget_column(column)
+	terrain._surface_ys.erase(column)
 	return {"kind": "colonne", "column": column, "heights": heights, "zones": zones, "surfaces": surfaces}
 
 static func _far_survey(terrain: SmoothTerrain, job: Dictionary) -> Dictionary:

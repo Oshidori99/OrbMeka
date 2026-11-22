@@ -496,6 +496,24 @@ const LOADING_WORK_USEC := 80000
 const LOADING_WORK_PC_USEC := 80000
 var sun_light: DirectionalLight3D
 
+# 0.0.8.14 (rapport d'optimisation, demandes de l'utilisateur) : taille de la carte des ombres du soleil (points de côté),
+# réglage Paramètres → Vidéo « Taille de la carte des ombres » (512 à 8192 ; Performance 1024, Équilibré 2048, Beauté 4096),
+# appliquée pour tout le jeu par app_base.apply_appearance. Le Web : 4096 au plus (8192 y est très lourd, et certaines
+# cartes le refusent). Mesuré sur une Radeon 610M (PC bon marché) : 2048 au lieu de 4096 = 12 à 23 ms de moins par image.
+const SHADOW_ATLAS_SIZES := [512, 1024, 2048, 4096, 8192]
+const SHADOW_ATLAS_WEB_MAX := 4096
+static var shadow_atlas := 0
+
+static func shadow_atlas_size(size: int) -> int:
+	var chosen: int = size if size in SHADOW_ATLAS_SIZES else 2048
+	return mini(chosen, SHADOW_ATLAS_WEB_MAX) if OS.has_feature("web") else chosen
+
+static func apply_shadow_atlas(size: int) -> void:
+	shadow_atlas = shadow_atlas_size(size)
+	if DisplayServer.get_name() == "headless":
+		return
+	RenderingServer.directional_shadow_atlas_set_size(shadow_atlas, ProjectSettings.get_setting("rendering/lights_and_shadows/directional_shadow/16_bits", true))
+
 func set_shadows(quality: String) -> void:
 	shadow_quality = quality if SHADOW_DISTANCES.has(quality) or quality == "off" else "medium"
 	if sun_light == null:
@@ -1232,6 +1250,9 @@ func rebuild_terrain_piece(zone: Vector3i, flat_for_now: bool = false, ready_sur
 	if flat_for_now or terrain.is_flat(zone):
 		if not SmoothTerrain.ground_zone(zone):
 			body.free()
+			# 0.0.8.14 : zone vide : le modèle préparé n'est jamais montré (avant : jamais libéré, 200 à l'ouverture, 1 500 après
+			# un tour du monde en vol).
+			instance.free()
 			return
 		body.position = Vector3(zone.x, 0, zone.z) * SmoothTerrain.ZONE_SIZE
 		instance.mesh = flat_ground_mesh
@@ -1250,6 +1271,9 @@ func rebuild_terrain_piece(zone: Vector3i, flat_for_now: bool = false, ready_sur
 				perf_slow.append([zone, snappedf(spent, 0.1), surface[0].size(), terrain.caves_in_zone(zone).size(), _player_column()])
 		if surface[6].is_empty():
 			body.free()
+			# 0.0.8.14 : zone vide : le modèle préparé n'est jamais montré (avant : jamais libéré, 200 à l'ouverture, 1 500 après
+			# un tour du monde en vol).
+			instance.free()
 			return
 		var arrays := []
 		arrays.resize(Mesh.ARRAY_MAX)
@@ -6557,8 +6581,21 @@ func _far_survey(tile: Vector2i) -> Dictionary:
 	var cell := _far_cell(tile)
 	var key := Vector3i(tile.x, tile.y, int(cell))
 	if not far_surveys.has(key):
+		if far_surveys.size() >= FAR_SURVEYS_MAX:
+			_forget_far_surveys()
 		far_surveys[key] = FarTerrain.new_survey(tile, cell)
 	return far_surveys[key]
+
+# 0.0.8.14 (rapport d'optimisation : 2 256 relevés gardés après deux tours du monde en vol, environ 15 Ko chacun) : au-delà de
+# FAR_SURVEYS_MAX, ceux des carrés loin de la vue sont oubliés (refaits par les fils de calcul si on y revient).
+const FAR_SURVEYS_MAX := 400
+
+func _forget_far_surveys() -> void:
+	var here := FarTerrain.tile_of(far_center)
+	var keep := int(ceil(float(far_distance) / FarTerrain.TILE_ZONES)) + 3
+	for key: Vector3i in far_surveys.keys():
+		if maxi(absi(key.x - here.x), absi(key.y - here.y)) > keep and not worker_far.has(key):
+			far_surveys.erase(key)
 
 func _build_far_tile(tile: Vector2i, deadline: int = FAR_NO_LIMIT) -> bool:
 	var survey := _far_survey(tile)

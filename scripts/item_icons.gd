@@ -4,9 +4,12 @@ extends RefCounted
 # - matières : un petit tas de la matière, éclairé en haut à gauche, avec sa texture (grains de sable, mottes de terre,
 #   argile fendillée, boue luisante, graviers, morceaux de pierre) ;
 # - caillou : galet ovale moucheté ; éclat : morceau anguleux à facettes ;
-# - pioche, main, poche : petits dessins vectoriels (SVG écrits ici), style dessin de jeu vidéo.
+# - pioche : petit dessin vectoriel (SVG écrit ici), style dessin de jeu vidéo ;
+# - main et poche : 0.0.8.14 (#247, demande de l'utilisateur : le pouce n'allait pas ; une poche plus belle) : images
+#   faites dans Blender (menu_images.gd), la main du jeu dans la couleur de peau du personnage.
 # Performances (PC et Web) : chaque image est faite une seule fois, en SIZE pixels, puis gardée (_cache) ; rien par image.
 const Inventory = preload("res://scripts/inventory.gd")
+const MenuImages = preload("res://scripts/menu_images.gd")
 const SIZE := 48
 static var _cache := {}
 
@@ -88,10 +91,10 @@ static func tab(id: String, height: int) -> Texture2D:
 	return _cache[key] if _cache.has(key) else _keep(key, image)
 
 static func hand() -> Texture2D:
-	return _cache["#main"] if _cache.has("#main") else _keep("#main", _svg(HAND_SVG, SIZE))
+	return MenuImages.texture("main")
 
 static func pocket() -> Texture2D:
-	return _cache["#poche"] if _cache.has("#poche") else _keep("#poche", _svg(POCKET_SVG, SIZE))
+	return MenuImages.texture("poche")
 
 # Onglet Matériaux naturels : un tas de pierre, de terre et de sable.
 static func natural_tab(height: int) -> Texture2D:
@@ -718,34 +721,4 @@ const PICKAXE_SVG := "<svg xmlns='http://www.w3.org/2000/svg' width='64' height=
 <path d='M8 27 Q30 0 58 21 L56 26 Q34 13 12 31 Z' fill='#9aa1a8' stroke='#22272c' stroke-width='2.6' stroke-linejoin='round'/>
 <path d='M14 25 Q31 7 52 19' fill='none' stroke='#e9eef2' stroke-width='2' stroke-linecap='round'/>
 <rect x='33' y='12' width='11' height='10' rx='2' transform='rotate(32 38.5 17)' fill='#6d747b' stroke='#22272c' stroke-width='2.4'/>
-</svg>"
-
-const HAND_SVG := "<svg xmlns='http://www.w3.org/2000/svg' width='64' height='64' viewBox='0 0 64 64'>
-<g fill='#3b2618' stroke='#3b2618' stroke-width='5' stroke-linejoin='round'>
-<rect x='17' y='29' width='31' height='27' rx='11'/>
-<rect x='17' y='12' width='7.5' height='26' rx='3.75'/>
-<rect x='25.5' y='7' width='7.5' height='30' rx='3.75'/>
-<rect x='34' y='8' width='7.5' height='29' rx='3.75'/>
-<rect x='42.5' y='14' width='7' height='24' rx='3.5'/>
-<rect x='4' y='31' width='20' height='8' rx='4' transform='rotate(-38 16 35)'/>
-</g>
-<g fill='#f3c79b'>
-<rect x='17' y='29' width='31' height='27' rx='11'/>
-<rect x='17' y='12' width='7.5' height='26' rx='3.75'/>
-<rect x='25.5' y='7' width='7.5' height='30' rx='3.75'/>
-<rect x='34' y='8' width='7.5' height='29' rx='3.75'/>
-<rect x='42.5' y='14' width='7' height='24' rx='3.5'/>
-<rect x='4' y='31' width='20' height='8' rx='4' transform='rotate(-38 16 35)'/>
-</g>
-<path d='M20 16 L20 22 M29 11 L29 17 M38 12 L38 18 M46 18 L46 23' stroke='#fbe3c8' stroke-width='2' stroke-linecap='round'/>
-</svg>"
-
-const POCKET_SVG := "<svg xmlns='http://www.w3.org/2000/svg' width='64' height='64' viewBox='0 0 64 64'>
-<path d='M11 9 H53 V42 L32 58 L11 42 Z' fill='#3f6aa3' stroke='#18263b' stroke-width='3' stroke-linejoin='round'/>
-<path d='M11 9 H53 V20 H11 Z' fill='#4c7bb8' stroke='#18263b' stroke-width='2.4' stroke-linejoin='round'/>
-<path d='M15 24 H49 V40 L32 53 L15 40 Z' fill='none' stroke='#f0b860' stroke-width='1.8' stroke-dasharray='3 2.4'/>
-<path d='M14 15 H50' fill='none' stroke='#f0b860' stroke-width='1.6' stroke-dasharray='3 2.4'/>
-<circle cx='16' cy='24' r='2.6' fill='#e1b54c' stroke='#6b4d14' stroke-width='1'/>
-<circle cx='48' cy='24' r='2.6' fill='#e1b54c' stroke='#6b4d14' stroke-width='1'/>
-<path d='M22 30 Q26 28 30 31' fill='none' stroke='#86a8d6' stroke-width='1.6' stroke-linecap='round'/>
 </svg>"

@@ -24,6 +24,18 @@ func _ready() -> void:
 	get_viewport().size_changed.connect(fit_menus_to_window)
 	fit_menus_to_window()
 	show_page("home")
+	# 0.0.8.14 : qualité Performance proposée une fois si le jeu est trop lent sur ce PC (quality_hint.gd).
+	quality_hint = preload("res://scripts/quality_hint.gd").new()
+	quality_hint.app = self
+	add_child(quality_hint)
+	# 0.0.8.14 : mesures du rendu depuis la console de Chrome (window.orbmeka), version Web seulement.
+	if OS.has_feature("web"):
+		var diagnostic: Node = preload("res://scripts/web_diagnostic.gd").new()
+		diagnostic.name = "DiagnosticWeb"
+		diagnostic.app = self
+		add_child(diagnostic)
+
+var quality_hint: CanvasLayer
 
 func _build_interface() -> void:
 	var layer := CanvasLayer.new()

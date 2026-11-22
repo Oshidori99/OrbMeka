@@ -45,6 +45,7 @@ var skin := "light"
 const CharacterPreview = preload("res://scripts/character_preview.gd")
 const CharacterModel = preload("res://scripts/character_model.gd")
 const FirstPersonHand = preload("res://scripts/first_person_hand.gd")
+const MenuImages = preload("res://scripts/menu_images.gd")
 # Part de la hauteur d'un humain gardée sous le cou ; recul du corps derrière la caméra (m).
 const BODY_NECK := 0.52
 const BODY_BACK := 0.3
@@ -457,6 +458,10 @@ func apply_settings(values: Dictionary) -> void:
 	_apply_intervals()
 	character = str(values.get("character", "boy14"))
 	skin = str(values.get("skin", "light"))
+	# 0.0.8.14 (#247) : les images des menus où l'on voit la main prennent la couleur de peau du personnage.
+	MenuImages.skin = skin
+	if is_instance_valid(world) and world.get("inventory_ui") != null and is_instance_valid(world.inventory_ui):
+		world.inventory_ui.refresh()
 	sync_body()
 	_sync_body_view()
 	eye_height = float(values.get("eye_height", EYE_HEIGHT))

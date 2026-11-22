@@ -1,6 +1,21 @@
-# OrbMeka™ — prototype 0.0.8.13
+# OrbMeka™ — prototype 0.0.8.14
 
 Godot 4.7 / GDScript. Formes et couleurs simples ; assets externes seulement sous licence vérifiée (sons CC0, assets/sounds/CREDITS.txt).
+
+## 0.0.8.14 — Plus fluide sur les petits PC et nouvelles images des menus : feuilles et écorce allégées (mipmaps), détails fins du sol simplifiés au loin, fuite d'objets corrigée, taille de la carte des ombres au choix (512 à 8192 ; Performance 1024), qualité Performance proposée une fois sur un PC lent, console de mesure du Web ; images du menu des actions (B + T) et de la fabrication (O + F) faites dans Blender avec la main du personnage, nouvelles main et poche de l'inventaire
+Version locale (1 sur 4). Génération inchangée (version 33). Demandes de l'utilisateur : un rapport d'optimisation (mémoire, processeur, carte graphique, chargement ; les PC bon marché d'abord), rangé hors du dépôt (..\rapport-optimisation-0.0.8.14.md) ; issue #247 (images des menus).
+- **Mesuré d'abord** (nouveaux outils tools/mesure_gpu.gd et tools/mesure_memoire.gd ; module scripts/diagnostic.gd : cacher une sorte de choses, couper un effet, essayer un réglage), sur la Radeon 610M (PC bon marché) et la RTX 4070 : c'est la carte graphique qui limite, surtout les feuilles sans mipmaps, la grande carte des ombres, l'anticrénelage et les détails fins du sol.
+- **Feuilles et écorce avec mipmaps** : bien plus léger pour les petites cartes graphiques, et plus calme au loin.
+- **Détails fins du sol** (grains, miettes, fibres, reflets) remplacés par leur moyenne entre 14 et 24 m : identique de près, à peine différent au loin.
+- **Taille de la carte des ombres** : nouveau choix dans Paramètres → Vidéo → Jeu : 512, 1024, 2048, 4096 ou 8192 (rien entre deux) ; Performance 1024, Équilibré 2048, Beauté 4096 ; 4096 au plus sur le Web. Anciens réglages : la taille de leur qualité (elle reste la même).
+- **Qualité conseillée** : sur un PC trop lent pour sa qualité (moins de 30 images par seconde en jouant), une seule fois, le jeu se met en pause et propose la qualité Performance, ou de garder la sienne (retenu dans menus.json).
+- **Mémoire** : fuite corrigée (une zone vide du terrain gardait un objet jamais libéré : 200 à l'ouverture, 1 500 après un tour du monde en vol) ; les copies du terrain des fils de calcul oublient les colonnes déjà calculées ; relevés du lointain limités à 400. Rien ne grossit sans fin en explorant.
+- **Résultat** (Radeon 610M, temps de la carte graphique par image ; départ, forêt, lac, rivière) : Performance 36 → 13, 59 → 18, 23 → 20, 61 → 16 ms ; Équilibré 52 → 25, 92 → 44, 83 → 42, 88 → 32 ms.
+- **Console de mesure du Web** (scripts/web_diagnostic.gd) : dans la console de Chrome, window.orbmeka (aller à un endroit, cacher, montrer, mesurer).
+- **Images des menus** (#247) : faites dans Blender (sources_blender/menus/generer_images_menus.py) avec les modèles et les couleurs du jeu (sortis par tools/modeles_menus.gd) : les 8 cases du menu des actions (B + T, un peu plus grandes : 54 points, avant 46), les 5 actions de la fabrication (O + F), la main (le pouce à sa place) et la poche de l'inventaire. Même angle, même lumière, contour fin ; la main est celle du jeu, dans la couleur de peau du personnage (3 versions). Images des objets inchangées (choix de l'utilisateur).
+
+Tests réussis : optimisation (23, nouveau), action_menu, hands_eat, inventory, inventory_more, crafting, menu_style, settings_files, display_settings, quality, menu, workers, web_speed, loading_screen, perf_guard, terrain_visuals, smooth_terrain, zones, world_consistency, prototype, history_resume, views, appearance, game_mode, fixes_089, tools (+ tests juridiques).
+À tester : sur le PC bon marché, la fluidité en Performance et le message « Le jeu est lent… » (une seule fois, en Équilibré) ; Paramètres → Vidéo → Taille de la carte des ombres ; B + T, O + F et l'inventaire en Survie (main, poche) en petit et en grand texte, avec chaque couleur de peau ; sur le Web, la console window.orbmeka.
 
 ## 0.0.8.13 — Plusieurs cœurs : le terrain et le lointain calculés sur d'autres cœurs (PC et Web), monde ouvert et découvert plus vite, exactement le même monde ; version Web avec fils (SharedArrayBuffer)
 Version publiée (4 sur 4, avec 0.0.8.10 à 0.0.8.12). Génération inchangée (version 33). Rapports de mesures Web ; demande de l'utilisateur : les PC bon marché aussi.

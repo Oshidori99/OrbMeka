@@ -9,6 +9,15 @@ const TreeParts = preload("res://scripts/tree_parts.gd")
 const Inventory = preload("res://scripts/inventory.gd")
 
 func _initialize() -> void:
+	# 0.0.8.14 : jamais la souris de l'utilisateur capturée (un monde ouvert la capture) : rendue libre à chaque image.
+	process_frame.connect(func() -> void:
+		if Input.mouse_mode != Input.MOUSE_MODE_VISIBLE:
+			Input.mouse_mode = Input.MOUSE_MODE_VISIBLE)
+	# 0.0.8.14 : fenêtre de mesure (hors écran) : ne prend jamais le focus et ignore le clavier (sinon, les touches tapées
+	# ailleurs par l'utilisateur arrivaient dans le jeu : pause, fabrication, et la mesure était fausse).
+	DisplayServer.window_set_flag(DisplayServer.WINDOW_FLAG_NO_FOCUS, true)
+	root.gui_disable_input = true
+	root.set_disable_input(true)
 	call_deferred("_run")
 
 func report(key: String, value: Variant) -> void:

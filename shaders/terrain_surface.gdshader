@@ -57,6 +57,26 @@ float fbm(vec3 p) {
 	if (simple_look) { return noise3(p); }
 	return noise3(p)*0.57 + noise3(p*2.03+11.7)*0.28 + noise3(p*4.17+31.2)*0.15;
 }
+// 0.0.8.14 (rapport d'optimisation : ce shader prenait la moitié du temps de la carte graphique) : les détails fins (grains,
+// miettes, fibres, aiguilles, reflets : quelques centimètres) deviennent plus petits qu'un point d'écran au loin : exacts
+// jusqu'à FINE_NEAR m, fondus jusqu'à FINE_FAR m, puis remplacés par leur valeur moyenne (mesurée sur 200 000 points), sans
+// les calculer. Même image de près, même couleur moyenne au loin, et moins de scintillement.
+const float FINE_NEAR = 14.0;
+const float FINE_FAR = 24.0;
+float fine_noise(vec3 p, float fade) {
+	return fade > 0.0 ? mix(0.5, noise3(p), fade) : 0.5;
+}
+// Seuil d'un bruit fin (taches, reflets) : moyenne « mean » au loin.
+float fine_step(float low, float high, vec3 p, float fade, float mean) {
+	return fade > 0.0 ? mix(mean, smoothstep(low, high, noise3(p)), fade) : mean;
+}
+// fbm dont les deux petites octaves sont fines (la grande reste).
+float fbm_fine(vec3 p, float fade) {
+	if (simple_look) { return noise3(p); }
+	float large = noise3(p)*0.57;
+	if (fade <= 0.0) { return large + 0.5*0.43; }
+	return large + mix(0.5, noise3(p*2.03+11.7), fade)*0.28 + mix(0.5, noise3(p*4.17+31.2), fade)*0.15;
+}
 void vertex() {
 	world_position = (MODEL_MATRIX*vec4(VERTEX,1.0)).xyz;
 	world_normal = normalize(MODEL_NORMAL_MATRIX*NORMAL);
@@ -71,17 +91,21 @@ void fragment() {
 	bool earth = ground_surface || dirt_surface || (tint.r > tint.g*1.3 && tint.g > tint.b*1.2 && tint.r < 0.65);
 	vec3 albedo = tint.rgb;
 	float height = 0.0;
+	// 0.0.8.14 : part des détails fins à cette distance (1 de près, 0 au loin). earth_fine : grains, miettes et fibres de la
+	// terre et de l'herbe, que la qualité Performance n'a jamais (les autres détails fins, elle les a de près).
+	float fine_fade = 1.0 - smoothstep(FINE_NEAR, FINE_FAR, length(VERTEX));
+	float earth_fine = simple_look ? 0.0 : fine_fade;
 	if (earth) {
 		float patches = fbm(p*0.31);
-		float clods = fbm(p*7.0);
+		float clods = fbm_fine(p*7.0, fine_fade);
 		// 0.0.7.23 : qualité Performance : sans les grains, miettes et fibres (détails de quelques centimètres).
-		bool fine = !simple_look;
-		float grains = fine ? noise3(p*110.0) : 0.5;
-		float crumbs = fine ? smoothstep(0.71,0.91,noise3(p*34.0)) : 0.0;
+		// 0.0.8.14 : au loin aussi (leur moyenne).
+		float grains = fine_noise(p*110.0, earth_fine);
+		float crumbs = simple_look ? 0.0 : fine_step(0.71, 0.91, p*34.0, earth_fine, 0.0526);
 		vec3 soil = mix(vec3(0.095,0.058,0.031),vec3(0.28,0.174,0.087),clods);
 		soil *= 0.77 + patches*0.47;
 		soil += vec3(0.16,0.125,0.08)*crumbs*0.28;
-		float fibers = fine ? (noise3(p*vec3(60.0,30.0,25.0))+noise3(p*vec3(23.0,30.0,65.0)))*0.5 : 0.5;
+		float fibers = (fine_noise(p*vec3(60.0,30.0,25.0), earth_fine)+fine_noise(p*vec3(23.0,30.0,65.0), earth_fine))*0.5;
 		vec3 grass = mix(vec3(0.075,0.125,0.028),vec3(0.27,0.33,0.09),patches);
 		grass = mix(grass,vec3(0.37,0.32,0.14),smoothstep(0.63,0.81,fbm(p*1.8))*0.42);
 		grass *= 0.72 + fibers*0.48 + grains*0.12;
@@ -102,7 +126,7 @@ void fragment() {
 			float veins = smoothstep(0.55, 0.8, fbm(p*vec3(2.5,6.0,2.5)));
 			vec3 rock = mix(vec3(0.17,0.165,0.16), vec3(0.36,0.345,0.32), fbm(p*1.4));
 			rock = mix(rock, vec3(0.11,0.105,0.10), veins*0.55);
-			rock *= 0.88 + noise3(p*40.0)*0.24;
+			rock *= 0.88 + fine_noise(p*40.0, fine_fade)*0.24;
 			// 0.0.5.18 : Roche-mère (rouge du sommet à 0) : presque noire, teintée de rouge, veines plus rouges.
 			// 0.0.5.26 : pierre sombre (rouge à moitié) : la même pierre, un peu noircie.
 			rock *= 1.0 - 0.42 * smoothstep(0.15, 0.4, 1.0 - tint.r);
@@ -123,7 +147,7 @@ void fragment() {
 			else if (pick > 0.24) { deep = vec3(0.1,0.1,0.11); }
 			rock = mix(rock, deep, mother_rock);
 			albedo = mix(albedo, rock, stone);
-			height = mix(height, (fbm(p*9.0)*0.01 + grains*0.001)*detail_fade, stone);
+			height = mix(height, (fbm_fine(p*9.0, fine_fade)*0.01 + grains*0.001)*detail_fade, stone);
 		}
 	}
 	// 0.0.5.5 : sable réaliste (couleur du bloc #d8c291) : grains fins, teintes chaudes variées,
@@ -144,8 +168,8 @@ void fragment() {
 	float grass_height = height;
 	if (sand || beach > 0.0) {
 		float patches = fbm(p*0.6);
-		float grains = noise3(p*180.0);
-		float coarse = noise3(p*45.0);
+		float grains = fine_noise(p*180.0, fine_fade);
+		float coarse = fine_noise(p*45.0, fine_fade);
 		float warp = fbm(p*1.3)*2.2;
 		float ripple = sin((p.x*0.8 + p.z*0.45)*38.0 + warp*6.0)*0.5+0.5;
 		float top = smoothstep(0.6,0.95,n.y);
@@ -153,7 +177,7 @@ void fragment() {
 		vec3 dark_sand = vec3(0.37,0.26,0.13);
 		albedo = mix(dark_sand,light_sand,patches*0.6+grains*0.25+coarse*0.15);
 		albedo *= 0.88 + ripple*0.2*top;
-		albedo = mix(albedo,vec3(0.16,0.12,0.08),smoothstep(0.86,0.97,noise3(p*95.0))*0.6);
+		albedo = mix(albedo,vec3(0.16,0.12,0.08),fine_step(0.86,0.97,p*95.0,fine_fade,0.0071)*0.6);
 		float sides = 1.0-top;
 		albedo *= 1.0 - sides*0.06*(1.0-fract(p.y));
 		float detail_fade = 1.0-smoothstep(6.0,30.0,length(VERTEX));
@@ -173,7 +197,7 @@ void fragment() {
 	float clay_wet = 0.0;
 	if (clay + mud > 0.01) {
 		// 0.0.5.22 : argile plus vraie : lisse et un peu humide (grain presque invisible), fines craquelures sombres.
-		vec3 clay_color = mix(vec3(0.19,0.19,0.18), vec3(0.28,0.275,0.26), fbm(p*1.1)) * (0.97 + noise3(p*55.0)*0.04);
+		vec3 clay_color = mix(vec3(0.19,0.19,0.18), vec3(0.28,0.275,0.26), fbm(p*1.1)) * (0.97 + fine_noise(p*55.0, fine_fade)*0.04);
 		float cracks = (1.0 - smoothstep(0.0, 0.035, abs(noise3(p*vec3(2.6,1.0,2.6)) - 0.5))) * smoothstep(0.6,0.9,n.y);
 		clay_color = mix(clay_color, vec3(0.1,0.1,0.095), cracks * 0.6);
 		clay_color = mix(clay_color, vec3(0.31,0.3,0.285), smoothstep(0.6,0.7,noise3(p*vec3(3.0,14.0,3.0)))*0.2);
@@ -230,11 +254,11 @@ void fragment() {
 	if (snow > 0.01) {
 		float drifts = fbm(p * vec3(0.7, 0.3, 0.7));
 		vec3 snow_color = mix(vec3(0.74,0.79,0.88), vec3(0.95,0.96,0.98), smoothstep(0.25, 0.75, drifts));
-		snow_color *= 0.96 + noise3(p * 60.0) * 0.05;
+		snow_color *= 0.96 + fine_noise(p * 60.0, fine_fade) * 0.05;
 		// Moins de neige sur les pentes raides : la roche dessous se devine.
 		float steep = 1.0 - smoothstep(0.35, 0.7, n.y);
 		float hold = snow * (1.0 - steep * 0.7);
-		sparkle = step(0.992, noise3(p * 260.0)) * hold;
+		sparkle = (fine_fade > 0.0 ? step(0.992, noise3(p * 260.0)) * fine_fade : 0.0) * hold;
 		albedo = mix(albedo, snow_color, hold);
 		// Relief léger, effacé au loin (pas de motif régulier vu de loin).
 		height = mix(height, drifts * 0.004 * (1.0 - smoothstep(10.0, 40.0, length(VERTEX))), hold);
@@ -249,16 +273,16 @@ void fragment() {
 	if (ore.x > 0.01) {
 		// Calcaire : gris très clair à beige, mat, un peu granuleux, petits trous plus sombres.
 		vec3 lime = mix(vec3(0.62, 0.57, 0.46), vec3(0.82, 0.77, 0.64), fbm(p * 1.7));
-		lime *= 0.9 + noise3(p * 90.0) * 0.14;
-		lime = mix(lime, vec3(0.45, 0.43, 0.39), smoothstep(0.82, 0.95, noise3(p * 26.0)) * 0.5);
+		lime *= 0.9 + fine_noise(p * 90.0, fine_fade) * 0.14;
+		lime = mix(lime, vec3(0.45, 0.43, 0.39), fine_step(0.82, 0.95, p * 26.0, fine_fade, 0.0146) * 0.5);
 		albedo = mix(albedo, lime, ore.x);
-		height = mix(height, noise3(p * 60.0) * 0.004, ore.x);
+		height = mix(height, fine_noise(p * 60.0, fine_fade) * 0.004, ore.x);
 	}
 	if (ore.y > 0.01) {
 		// Charbon : noir mat en couches, quelques éclats légèrement brillants.
 		float layers = smoothstep(0.35, 0.65, sin(p.y * 26.0 + fbm(p * 2.0) * 5.0) * 0.5 + 0.5);
 		vec3 coal = mix(vec3(0.022, 0.022, 0.026), vec3(0.06, 0.06, 0.066), layers);
-		coal_glint = step(0.9, noise3(p * 70.0)) * ore.y;
+		coal_glint = (fine_fade > 0.0 ? mix(0.0094, step(0.9, noise3(p * 70.0)), fine_fade) : 0.0094) * ore.y;
 		albedo = mix(albedo, coal, ore.y);
 		height = mix(height, layers * 0.004, ore.y);
 	}
@@ -266,21 +290,26 @@ void fragment() {
 		// Silex : gris foncé à noir, lisse et un peu brillant ; croûte blanche crayeuse autour (bord du rognon,
 		// taches sur les cailloux).
 		vec3 core = mix(vec3(0.05, 0.05, 0.06), vec3(0.17, 0.17, 0.19), fbm(p * 3.5));
-		float crust = kind == 2 ? smoothstep(0.45, 0.6, fbm(p * 16.0)) : 1.0 - smoothstep(0.55, 0.85, ore.z);
-		vec3 chalk = mix(vec3(0.74, 0.73, 0.68), vec3(0.86, 0.85, 0.8), noise3(p * 40.0));
+		float crust = kind == 2 ? smoothstep(0.45, 0.6, fbm_fine(p * 16.0, fine_fade)) : 1.0 - smoothstep(0.55, 0.85, ore.z);
+		vec3 chalk = mix(vec3(0.74, 0.73, 0.68), vec3(0.86, 0.85, 0.8), fine_noise(p * 40.0, fine_fade));
 		albedo = mix(albedo, mix(core, chalk, crust), ore.z);
 		flint_gloss = ore.z * (1.0 - crust);
-		height = mix(height, crust * noise3(p * 50.0) * 0.004, ore.z);
+		height = mix(height, crust * fine_noise(p * 50.0, fine_fade) * 0.004, ore.z);
 	}
 	// 0.0.6.15 : litière d'aiguilles sous les pins : brun-orangé, fines aiguilles couchées en tous sens, taches plus sombres.
 	float litter = clamp(litter_share, 0.0, 1.0);
 	if (litter > 0.01) {
-		float streak_a = smoothstep(0.55, 0.9, noise3(vec3(p.x * 40.0 + p.z * 8.0, p.y, p.z * 6.0)));
-		float streak_b = smoothstep(0.6, 0.92, noise3(vec3(p.x * 7.0, p.y, p.z * 38.0 - p.x * 9.0)));
-		vec3 needles = mix(vec3(0.30, 0.19, 0.10), vec3(0.50, 0.33, 0.17), max(streak_a, streak_b));
+		// 0.0.8.14 : aiguilles de quelques centimètres : leur part moyenne au loin (0,22).
+		float streaks = 0.2203;
+		if (fine_fade > 0.0) {
+			float streak_a = smoothstep(0.55, 0.9, noise3(vec3(p.x * 40.0 + p.z * 8.0, p.y, p.z * 6.0)));
+			float streak_b = smoothstep(0.6, 0.92, noise3(vec3(p.x * 7.0, p.y, p.z * 38.0 - p.x * 9.0)));
+			streaks = mix(0.2203, max(streak_a, streak_b), fine_fade);
+		}
+		vec3 needles = mix(vec3(0.30, 0.19, 0.10), vec3(0.50, 0.33, 0.17), streaks);
 		needles = mix(needles, vec3(0.20, 0.14, 0.09), smoothstep(0.62, 0.85, fbm(p * 0.9)) * 0.6);
 		albedo = mix(albedo, needles, litter);
-		height = mix(height, max(streak_a, streak_b) * 0.003, litter);
+		height = mix(height, streaks * 0.003, litter);
 	}
 	if (compat_look) {
 		float sand_share = clamp(1.0 - tint.a, 0.0, 1.0);
@@ -290,7 +319,7 @@ void fragment() {
 	}
 	ALBEDO = albedo;
 	ROUGHNESS = mix(mix(mix(mix(mix(mix(mix(mix(mix(earth ? 0.96 : (sand ? 0.93 : 0.86), 0.62, clay_wet), 0.72, mud), (compat_look ? 0.6 : 0.12), puddle), 0.55, snow), 0.9, gravel), 0.92, ore.x), 0.8 - coal_glint * 0.45, ore.y), 0.6, flint_gloss), 0.95, ore.z - flint_gloss);
-	SPECULAR = mix(mix(mix(mix(mix(mix(mix(earth ? 0.12 : (sand ? 0.18 + step(0.985,noise3(p*240.0))*0.6 : 0.25), 0.22, mud), 0.5, puddle), 0.35 + sparkle * 0.6, snow), 0.2, gravel), 0.15, ore.x), 0.25 + coal_glint * 0.55, ore.y), 0.25, flint_gloss);
+	SPECULAR = mix(mix(mix(mix(mix(mix(mix(earth ? 0.12 : (sand ? 0.18 + (fine_fade > 0.0 ? step(0.985,noise3(p*240.0))*fine_fade : 0.0)*0.6 : 0.25), 0.22, mud), 0.5, puddle), 0.35 + sparkle * 0.6, snow), 0.2, gravel), 0.15, ore.x), 0.25 + coal_glint * 0.55, ore.y), 0.25, flint_gloss);
 	// 0.0.7.23 : sans relief fin en qualité Performance.
 	if (simple_look) {
 		NORMAL = normalize((VIEW_MATRIX*vec4(n,0.0)).xyz);

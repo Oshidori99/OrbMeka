@@ -274,6 +274,9 @@ var category := 0
 const INVENTORY_TAB := 5
 const CATALOG_ROWS := 2
 
+# 0.0.8.14 : images de la main (barre du bas à droite, Survie), à la couleur de peau du personnage.
+var hand_pictures: Array[TextureRect] = []
+
 func setup(owner_inventory: RefCounted, scale: float) -> void:
 	inventory = owner_inventory
 	text_scale = scale
@@ -340,6 +343,9 @@ func _build_hud() -> void:
 		weights_label.add_child(row)
 		var icon := TextureRect.new()
 		icon.texture = ItemIcons.hand() if what == "mains" else ItemIcons.pocket()
+		icon.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS
+		if what == "mains":
+			hand_pictures.append(icon)
 		icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 		icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 		icon.custom_minimum_size = Vector2.ONE * roundf(24 * text_scale)
@@ -383,6 +389,8 @@ func _tab_style(alpha: float) -> StyleBoxFlat:
 func _picture(texture: Texture2D, side: float) -> TextureRect:
 	var picture := TextureRect.new()
 	picture.texture = texture
+	# 0.0.8.14 : images réduites proprement (mipmaps : main et poche faites dans Blender, 192 points).
+	picture.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS
 	picture.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	picture.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 	picture.custom_minimum_size = Vector2(side, side)
@@ -569,6 +577,8 @@ func _survival_row(picture: Texture2D, indexes: Array, side: float, slots: Dicti
 	survival_box.add_child(row)
 	var image := _picture(picture, side)
 	image.tooltip_text = what
+	if what == "Mains":
+		hand_pictures.append(image)
 	row.add_child(image)
 	var shift := Control.new()
 	shift.custom_minimum_size = Vector2(8, 0)
@@ -672,6 +682,9 @@ func _carried(weight: float, limit: float) -> String:
 func refresh() -> void:
 	if inventory == null:
 		return
+	# 0.0.8.14 : la main de l'inventaire dans la couleur de peau du personnage (elle peut changer en jeu).
+	for picture: TextureRect in hand_pictures:
+		picture.texture = ItemIcons.hand()
 	var creative: bool = inventory.mode == Inventory.CREATIVE
 	var shown: Array = inventory.bar_slots()
 	bar_slots.clear()

@@ -3,8 +3,12 @@ extends RefCounted
 # Les versions de la génération sont celles enregistrées avec chaque monde (world_generation.gd) ; la version des menus
 # compte les changements des menus depuis 0.0.6 (1 : menus de 0.0.5.37 et avant). À compléter à chaque version.
 const Generation = preload("res://scripts/world_generation.gd")
-const MENUS_VERSION := 10
+const MENUS_VERSION := 11
 const MENUS := [
+	{"menu": "Paramètres", "version": "0.0.8.14", "text": "Vidéo : taille de la carte des ombres (512 à 8192 ; Performance 1024, Équilibré 2048, Beauté 4096)"},
+	{"menu": "Menu des actions", "version": "0.0.8.14", "text": "B + T : images faites dans Blender, avec la main du personnage, un peu plus grandes"},
+	{"menu": "Fabrication", "version": "0.0.8.14", "text": "O + F : images des actions faites dans Blender"},
+	{"menu": "Inventaire", "version": "0.0.8.14", "text": "nouvelles images de la main (couleur de peau du personnage) et de la poche"},
 	{"menu": "Inventaire", "version": "0.0.7.7", "text": "Survie : équipement à venir (sacs, paniers, travois, chariots), cases grisées"},
 	{"menu": "Contrôles", "version": "0.0.7.6", "text": "Arrêter de voler au sol : Exception (par défaut) ou Toujours"},
 	{"menu": "Inventaire", "version": "0.0.7.5", "text": "Créatif : onglets Cailloux, Fruits et Inventaire (la grille), Matériaux naturels en un seul tas"},
