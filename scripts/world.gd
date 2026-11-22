@@ -17,6 +17,8 @@ const Plants = preload("res://scripts/plants.gd")
 const Water = preload("res://scripts/water.gd")
 const Inventory = preload("res://scripts/inventory.gd")
 const InventoryUI = preload("res://scripts/inventory_ui.gd")
+const ReturnOrb = preload("res://scripts/return_orb.gd")
+const Fibers = preload("res://scripts/fibers.gd")
 const DIRT := 2
 const BLOCK_COLORS := [Color("#d8c291"), Color("#888b90"), Color("#855332")]
 const BLOCK_NAMES := ["Sable", "Pierre", "Terre"]
@@ -144,6 +146,9 @@ func _ready() -> void:
 	inventory.changed.connect(func(): inventory_unsaved = true)
 	_create_selection()
 	_create_hud()
+	# 0.0.8.2 (#231) : orbes de retour du début (Survie, une fois par monde ; ouvert en Créatif : jamais).
+	start_orbs_given = saved_player.get("orbes_depart", false) == true or game_mode != Inventory.SURVIVAL
+	give_start_orbs()
 	apply_held()
 	_warm_shaders()
 	# 0.0.7.26 : branches mortes et rejets des colonnes déjà construites (les objets au sol n'existaient pas encore).
@@ -1085,7 +1090,8 @@ func _rebuild_lawn_tile(tile: Vector2i) -> void:
 # Gestes de terrain (0.0.5.8, pinceaux en 0.0.5.9). Clic gauche : creuser ; clic droit : le pinceau
 # choisi avec B + T (poser, aplanir, lisser). Taille (B + molette) : 1/8, 1/4 ou 1/2 bloc, soit 1, 2 ou
 # 4 sous-cellules de 50 cm ; aplanir et lisser agissent autour, sur 50 cm, 1 m ou 1,5 m.
-const BRUSH_NAMES := ["Poser", "Aplanir", "Lisser"]
+# 0.0.8.3 (demande de l'utilisateur) : « Manger » au bout de la ligne du clic droit (EAT_BRUSH).
+const BRUSH_NAMES := ["Poser", "Aplanir", "Lisser", "Manger"]
 const SIZE_NAMES := ["1/8 de bloc", "1/4 de bloc", "1/2 bloc"]
 const SIZE_CELLS := [1, 2, 4]
 # Matières qu'on peut poser. 0.0.7.2 : plus pierre, calcaire, pierre sombre et silex (inventaire, Matériaux naturels) ;
@@ -1132,6 +1138,7 @@ func apply_held() -> void:
 		# 0.0.7.8 : plus lent quand les mains portent lourd.
 		player.carry_slow = inventory.carry_factor()
 
+
 func set_game_mode(new_mode: String) -> void:
 	# 0.0.7.9 : en Survie, on ne vole pas (on retombe si on volait).
 	if new_mode == Inventory.SURVIVAL and is_instance_valid(player):
@@ -1159,7 +1166,7 @@ func toggle_inventory() -> void:
 		open_inventory()
 
 func open_inventory() -> void:
-	if inventory_open or death_open or not is_instance_valid(inventory_ui):
+	if inventory_open or death_open or crafting_open or not is_instance_valid(inventory_ui):
 		return
 	inventory_open = true
 	player.release_controls()
@@ -1175,6 +1182,55 @@ func close_inventory(recapture: bool = true) -> void:
 	_show_aim(true)
 	if recapture and DisplayServer.get_name() != "headless":
 		Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
+
+# --- 0.0.8.5 (#211, demandes de l'utilisateur) : fabrication à la main (O + F, crafting_ui.gd), créée à la première ouverture ---
+const CraftingUI = preload("res://scripts/crafting_ui.gd")
+var crafting_ui: CanvasLayer
+var crafting_open := false
+
+func toggle_crafting() -> void:
+	if crafting_open:
+		close_crafting()
+	else:
+		open_crafting()
+
+func open_crafting() -> void:
+	if crafting_open or inventory_open or death_open or not is_instance_valid(player):
+		return
+	if not is_instance_valid(crafting_ui):
+		crafting_ui = CraftingUI.new()
+		crafting_ui.setup(self, inventory, player.skin, Callable(self, "_kind_material"), text_scale)
+		crafting_ui.closed.connect(close_crafting)
+		add_child(crafting_ui)
+	crafting_open = true
+	# L'interface du jeu (barre, vie, messages) cachée : l'écran de fabrication montre ses propres cases.
+	_set_hud_visible(false)
+	player.release_controls()
+	_show_aim(false)
+	crafting_ui.open()
+
+func close_crafting(recapture: bool = true) -> void:
+	if not crafting_open:
+		return
+	crafting_open = false
+	crafting_ui.close()
+	_set_hud_visible(true)
+	_show_aim(true)
+	apply_held()
+	if recapture and DisplayServer.get_name() != "headless":
+		Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
+
+# Ce qui est fabriqué : rangé dans les mains et les poches (Survie) ou l'inventaire (Créatif) ; ce qui ne tient pas tombe
+# au sol devant soi.
+func give_crafted(value: Dictionary) -> int:
+	var amount := Inventory.count(value)
+	var added := inventory.add(value)
+	if added < amount and is_instance_valid(ground) and is_instance_valid(player):
+		var near := player.global_position - player.global_transform.basis.z * 0.8
+		for unit in Inventory.units(value).slice(added):
+			ground.drop(unit, player.camera.global_position - player.global_transform.basis.z * 0.3, near, _rest_height, 0.15)
+	inventory_unsaved = true
+	return added
 
 # Croix de visée et message du bas : cachés derrière l'inventaire ouvert (le panneau est un peu transparent).
 func _show_aim(on: bool) -> void:
@@ -1896,12 +1952,15 @@ func _fall_part(tree: Node3D, part: int, number: int, t: float) -> void:
 	var radius := TreeParts.true_thickness(piece, t) * tree.scale.x * 0.5
 	var beside: Vector3 = tree.global_position + direction * (Trees.trunk(int(tree.get_meta("kind", 0)), int(tree.get_meta("size", 3))).x * tree.scale.x + 0.15)
 	var end := Vector3(beside.x, _ground_at(beside, tree) + radius, beside.z)
+	# 0.0.8.2 (#229) : le haut coupé se couche depuis la souche : ce qui reste au-dessus de la coupe blesse aussi.
+	var hit := _tree_hit(tree, beside, direction, maxf(start.y - tree.global_position.y, 0.0), radius * 2.0)
 	var tilt := func(s: float) -> void:
 		if is_instance_valid(made):
 			var turned := Basis(axis, s * PI * 0.5) * upright
 			made.global_basis = turned
 			made.global_position = start.lerp(end, s * s) - turned * local
 	var landed := func() -> void:
+		_tree_hurts(hit)
 		if not is_instance_valid(made):
 			return
 		made.remove_meta("falling")
@@ -1991,7 +2050,7 @@ func _part_wood_item(tree: Node3D, part: int, leafy := false) -> Dictionary:
 	var thickness := maxf(thick_low, thick_high)
 	var rng := RandomNumberGenerator.new()
 	rng.seed = hash(str(tree.get_meta("id", "")) + "_" + str(part))
-	var wood := Inventory.wood_piece("rameau" if leafy else ("tronc" if thickness >= 0.04 else "branche"), kind, (thick_low + thick_high) * 50.0, (high - low) * scale, rng)
+	var wood := Inventory.wood_piece("rameau" if leafy else ("tronc" if thickness >= 0.04 else "branche"), kind, (thick_low + thick_high) * 50.0, (high - low) * scale, rng, Inventory.tree_wood(str(tree.get_meta("id", "")), kind))
 	wood.epaisseur = snappedf(thickness * 100.0, 0.1)
 	wood.fin = snappedf(minf(thick_low, thick_high) * 100.0, 0.1)
 	var along: Vector3 = (_model_of(tree).basis * piece.direction).normalized()
@@ -2061,11 +2120,13 @@ func fell_tree(tree: Node3D) -> void:
 	var axis := Vector3.UP.cross(direction).normalized()
 	var lift := _tree_lift(tree)
 	var base := tree.global_position
+	var hit := _tree_hit(tree, base, direction, 0.0)
 	var tilt := func(t: float) -> void:
 		if is_instance_valid(tree):
 			tree.global_basis = Basis(axis, t * PI * 0.5) * upright
 			tree.global_position = base + Vector3.UP * lift * t
 	var landed := func() -> void:
+		_tree_hurts(hit)
 		if is_instance_valid(tree):
 			tree.remove_meta("falling")
 			_start_slide(tree, direction)
@@ -2073,6 +2134,26 @@ func fell_tree(tree: Node3D) -> void:
 	fall.tween_method(tilt, 0.0, 1.0, TREE_FALL_SECONDS).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
 	fall.tween_callback(landed)
 	_impact_sound(base)
+
+# 0.0.8.2 (#229, demandes de l'utilisateur) : ce qui tombe blesse en Survie celui qui est dessous à la fin de la chute
+# (Health.tree_damage : taille du tronc et endroit touché). cut : hauteur de la coupe (0 : tout l'arbre).
+func _tree_hit(tree: Node3D, base: Vector3, direction: Vector3, cut: float, diameter: float = -1.0) -> Dictionary:
+	var kind := int(tree.get_meta("kind", 0))
+	var size := int(tree.get_meta("size", 3))
+	var trunk := Trees.trunk(kind, size) * tree.scale.x
+	var box := Trees.mesh(kind, size, false, int(tree.get_meta("form", 0))).get_aabb()
+	return {"base": base, "direction": direction, "length": maxf(box.size.y * tree.scale.x - cut, 0.5),
+		"diameter": trunk.x if diameter < 0.0 else diameter, "crown_from": maxf(trunk.y - cut, 0.0),
+		"crown_radius": maxf(box.size.x, box.size.z) * 0.5 * tree.scale.x}
+
+func _tree_hurts(hit: Dictionary) -> int:
+	if not survival() or not is_instance_valid(player) or death_open:
+		return 0
+	var points := Health.tree_damage(hit.base, hit.direction, hit.length, hit.diameter, hit.crown_from, hit.crown_radius, player.global_position)
+	var lost := hurt(points)
+	if lost > 0 and not death_open:
+		_notify("L'arbre vous est tombé dessus : −%d." % lost)
+	return lost
 
 # Le tronc couché repose sur le sol : son centre à la hauteur de son rayon.
 func _tree_lift(tree: Node3D) -> float:
@@ -2549,7 +2630,7 @@ func _drop_wood_part(tree: Node3D, part: Array, to_world: Transform3D) -> void:
 	var thickness := maxf(base_thick, end_thick)
 	var rng := RandomNumberGenerator.new()
 	rng.seed = hash(str(tree.get_meta("id", "")) + str(part))
-	var piece := Inventory.wood_piece("tronc" if thickness >= 0.04 else "branche", kind, (base_thick + end_thick) * 50.0, (hi - lo) * scale, rng)
+	var piece := Inventory.wood_piece("tronc" if thickness >= 0.04 else "branche", kind, (base_thick + end_thick) * 50.0, (hi - lo) * scale, rng, Inventory.tree_wood(str(tree.get_meta("id", "")), kind))
 	piece.epaisseur = snappedf(thickness * 100.0, 0.1)
 	piece.fin = snappedf(minf(base_thick, end_thick) * 100.0, 0.1)
 	var along: Vector3 = (to_world.basis * Vector3.UP).normalized()
@@ -2827,8 +2908,7 @@ func _refused_message(reason: String, value: Dictionary) -> String:
 			var first: Dictionary = value.pile[-1] if value.has("pile") and not value.pile.is_empty() else value
 			return "Trop encombrant (%s) : 1,5 L par main, 3 L à deux mains, 0,5 L dans les poches." % Inventory.format_volume(Inventory.instance_volume(value.get("objet", ""), first))
 		"nombre":
-			var limit := Inventory.hand_count(value.get("objet", ""))
-			return "%d %s au plus dans une main (%d à deux mains)." % [limit, Inventory.plural_name(value), limit * 2]
+			return Inventory.count_rule(value)
 	return "Inventaire plein." if game_mode == Inventory.CREATIVE else "Mains et poches pleines."
 
 # --- 0.0.7.5 : cueillir (demande de l'utilisateur : il faut vraiment viser la pomme ou la noisette) ---
@@ -2952,6 +3032,144 @@ func pick_up(hit: Dictionary) -> bool:
 		_build_pebble_bodies(column)
 	show_choice("%s (%s)" % [Inventory.item_name(value), Inventory.format_weight(Inventory.unit_weight(value))])
 	return true
+
+# --- 0.0.8.4 (#213, demandes de l'utilisateur) : récolter des fibres et des lianes ---
+# R maintenu (Ramasser) Fibers.HARVEST_SECONDS en visant une ortie, du lin ou des herbes longues : 1 à 3 fibres (même
+# graine : même nombre), la plante reste coupée (tige basse) ; en visant le tronc d'un tilleul à liane : une liane, qui
+# disparaît du tronc. Dans la case choisie (comme ramasser) ; ce qui ne tient pas tombe au sol devant soi.
+var cut_plants: Dictionary = {}
+var cut_vines: Dictionary = {}
+var harvest_key := ""
+var harvest_time := 0.0
+
+# Plante à fibres visée (cylindre autour de la plante, à portée de casse, rien de solide devant) : {} si aucune.
+func aimed_plant(hit: Dictionary) -> Dictionary:
+	if not is_instance_valid(player):
+		return {}
+	var origin: Vector3 = player.camera.global_position
+	var direction: Vector3 = -player.camera.global_transform.basis.z
+	var reach: float = player.break_reach
+	if not hit.is_empty():
+		reach = minf(reach, origin.distance_to(hit.position) + 0.15)
+	var best := {}
+	var here := _player_column()
+	for dx in [-1, 0, 1]:
+		for dz in [-1, 0, 1]:
+			var column: Vector2i = here + Vector2i(dx, dz)
+			for plant: Dictionary in terrain.plants_in_zone(column):
+				var id := Fibers.plant_id(plant)
+				if cut_plants.has(id):
+					continue
+				var size: float = Plants.SIZES[int(plant.plante)] * float(plant.taille)
+				var foot := Vector3(float(plant.x), terrain.height_at(float(plant.x), float(plant.z)) - 0.15, float(plant.z))
+				# 0.0.8.4 (demande de l'utilisateur : sous certains angles, rien n'était récolté) : le regard doit passer près de
+				# la tige (segment vertical du pied à AIM_HEIGHT de sa hauteur), sous n'importe quel angle, même de haut.
+				var near := _ray_to_stem(origin, direction, reach, foot, size * Fibers.AIM_HEIGHT + 0.15)
+				if near.is_empty() or near.gap > size * Fibers.AIM_RADIUS:
+					continue
+				if best.is_empty() or near.distance < best.distance:
+					best = {"kind": "plante", "key": "plante/" + id, "id": id, "plant": plant, "column": column, "distance": near.distance}
+	return best
+
+# Plus courte distance entre le regard (de 0 à reach) et une tige verticale (pied, hauteur) : {gap, distance le long du
+# regard}, ou {} si la tige est trop loin.
+static func _ray_to_stem(origin: Vector3, direction: Vector3, reach: float, foot: Vector3, height: float) -> Dictionary:
+	var w := origin - foot
+	var b := direction.y
+	var d := direction.dot(w)
+	var e := w.y
+	var denominator := 1.0 - b * b
+	var t := 0.0
+	var s := 0.0
+	if denominator > 0.000001:
+		t = (b * e - d) / denominator
+	t = clampf(t, 0.0, reach)
+	s = clampf(e + b * t, 0.0, height)
+	# Recalcul du point du regard le plus proche du point de la tige trouvé.
+	t = clampf((foot + Vector3.UP * s - origin).dot(direction), 0.0, reach)
+	s = clampf(e + b * t, 0.0, height)
+	var gap := (origin + direction * t).distance_to(foot + Vector3.UP * s)
+	return {"gap": gap, "distance": t}
+
+# Ce que R maintenu récolte : la plante visée, ou la liane du tilleul visé (la plus proche).
+func aimed_harvest(hit: Dictionary) -> Dictionary:
+	var plant := aimed_plant(hit)
+	if not hit.is_empty() and is_instance_valid(hit.get("collider")):
+		var tree: Node = hit.collider
+		if tree.is_in_group("trees") and tree.get_meta("liane", false) == true and not tree.has_meta("falling") and not fallen_trees.has(str(tree.get_meta("id", ""))):
+			var distance: float = player.camera.global_position.distance_to(hit.position)
+			if distance <= player.break_reach + 0.01 and (plant.is_empty() or distance < plant.distance):
+				return {"kind": "liane", "key": "liane/" + str(tree.get_meta("id", "")), "tree": tree, "distance": distance}
+	return plant
+
+func step_harvest(delta: float, holding: bool) -> bool:
+	if not holding or not is_instance_valid(player):
+		_harvest_stop()
+		return false
+	var target := aimed_harvest(player.get_target())
+	if target.is_empty():
+		_harvest_stop()
+		return false
+	# 0.0.8.4 (demande de l'utilisateur : le lin, en touffes serrées, ne se récoltait presque jamais) : passer d'une plante à
+	# une autre en visant ne remet pas le temps à zéro (seulement de plante à liane, ou en ne visant plus rien).
+	if target.kind != harvest_key.get_slice("/", 0):
+		harvest_key = target.key
+		harvest_time = 0.0
+	harvest_time += delta
+	var seconds := Fibers.HARVEST_SECONDS_CREATIVE if game_mode == Inventory.CREATIVE else Fibers.HARVEST_SECONDS
+	show_ring(harvest_time / seconds)
+	# 0.0.8.4 (demande de l'utilisateur) : la main droite saisit la plante (ou la liane) et tire par petits coups.
+	if is_instance_valid(player.hand_view):
+		player.hand_view.pull(harvest_time / seconds, harvest_time)
+	if harvest_time < seconds:
+		return false
+	_harvest_stop()
+	return harvest(target)
+
+func _harvest_stop() -> void:
+	harvest_key = ""
+	harvest_time = 0.0
+	if is_instance_valid(player) and is_instance_valid(player.hand_view):
+		player.hand_view.pull(0.0, 0.0)
+
+func harvest(target: Dictionary) -> bool:
+	var value := {}
+	if target.kind == "plante":
+		var plant: Dictionary = target.plant
+		value = {"objet": Fibers.PLANT_ITEMS[int(plant.plante)], "pile": []}
+		for index in range(Fibers.fiber_count(plant)):
+			value.pile.append({})
+		cut_plants[target.id] = true
+		_refresh_column_plants(target.column)
+	else:
+		var tree: Node3D = target.tree
+		value = {"objet": Fibers.LIANE, "pile": [{}]}
+		cut_vines[str(tree.get_meta("id", ""))] = true
+		tree.set_meta("liane", false)
+		var climb := tree.get_node_or_null("Modele/Liane")
+		if climb != null:
+			climb.queue_free()
+	objects_dirty = true
+	var amount := Inventory.count(value)
+	var result := inventory.add_to_selected(value)
+	var rest: int = amount - int(result.added)
+	if rest > 0 and is_instance_valid(ground):
+		var near := player.global_position - player.global_transform.basis.z * 0.8
+		for unit in Inventory.units(value).slice(int(result.added)):
+			ground.drop(unit, player.camera.global_position - player.global_transform.basis.z * 0.3, near, _rest_height, 0.15)
+	var name := Inventory.plural_name(value) if amount > 1 else Inventory.item_name(value).to_lower()
+	show_choice("%d %s récoltée%s" % [amount, name, "s" if amount > 1 else ""] + (" (%d au sol)" % rest if rest > 0 else ""))
+	return true
+
+func _refresh_column_plants(column: Vector2i) -> void:
+	var kept: Array = []
+	for node in column_objects.get(column, []):
+		if is_instance_valid(node) and node.is_in_group("plants"):
+			node.queue_free()
+		else:
+			kept.append(node)
+	column_objects[column] = kept
+	_show_column_plants(column)
 
 # R + I maintenus : prendre une poignée de matière en vrac (terre, sable, argile, boue, gravier) là où l'on vise,
 # après GATHER_SECONDS (plus long que creuser). Survie seulement ; dans la case choisie (0.0.7.5), comme ramasser.
@@ -3504,7 +3722,9 @@ func player_data() -> Dictionary:
 		# 0.0.7.2 : inventaire (Survie et Créatif), barre d'objets et case en main.
 		"inventaire": inventory.to_dict(),
 		# 0.0.8 (#171) : points de vie (Survie).
-		"vie": Health.MAX if death_open else health.value}
+		"vie": Health.MAX if death_open else health.value,
+		# 0.0.8.2 (#231) : orbes de retour du début déjà données (ou monde ouvert en Créatif : jamais).
+		"orbes_depart": start_orbs_given}
 
 func _read_saved_player() -> Dictionary:
 	if save_folder.is_empty():
@@ -3518,12 +3738,14 @@ func _read_saved_player() -> Dictionary:
 # --- 0.0.8 (#171, #204) : vie en Survie ---
 # Barre en bas à gauche (health_bar.gd), dégâts de chute (player.gd, signal landed), régénération lente (health.gd).
 # Un dégât : le bord de l'écran rougit un court instant, la vue tremble un peu, la barre clignote (pas de sang).
-# Manger : un fruit en main, clic droit maintenu EAT_SECONDS (anneau) ; un clic court le pose comme avant.
+# Manger : un fruit en main, clic droit maintenu (anneau ; 0.0.8.3 : Health.eat_seconds, et on continue en restant appuyé) ; un clic court le pose comme avant.
 const Health = preload("res://scripts/health.gd")
 const HealthBar = preload("res://scripts/health_bar.gd")
 const HURT_SECONDS := 0.5
 const SHAKE := 0.05
-const EAT_SECONDS := 1.0
+# 0.0.8.3 : durée de chaque fruit : Health.eat_seconds (pomme 1 s, noisette 0,5 s).
+const EAT_BRUSH := 3
+var eat_chain := false
 const EAT_TAP := 0.25
 const HURT_SHADER := "shader_type canvas_item;
 uniform float strength = 0.0;
@@ -3598,6 +3820,7 @@ func _out_of_strength() -> void:
 	hurt_time = 0.0
 	player.actions.cancel()
 	close_inventory(false)
+	close_crafting(false)
 	eat_time = -1.0
 	var dropped := 0
 	if death_items != "keep":
@@ -3713,43 +3936,119 @@ func _update_health(delta: float) -> void:
 
 # Manger (#204) : seulement en Survie, un fruit en main, pinceau « Poser ».
 func can_eat() -> bool:
-	return survival() and player.brush == 0 and Health.food_points(inventory.held()) > 0
+	return hold_use() == "manger"
 
-# Clic droit appuyé : rend vrai s'il commence à manger (la pose attend le relâchement).
+# 0.0.8.2 : ce que fait le clic droit maintenu avec l'objet en main (Survie, pinceau « Poser ») : « manger » un fruit,
+# « orbe » : utiliser l'orbe de retour (#231) ; « » : rien (le clic droit pose comme avant).
+func hold_use() -> String:
+	if not survival():
+		return ""
+	var held := inventory.held()
+	# 0.0.8.3 (demandes de l'utilisateur) : un fruit en main se mange dans tous les modes du clic droit (Poser, Aplanir,
+	# Lisser, Manger) ; le mode « Manger » sert seulement à ne rien poser par erreur. L'orbe : en mode Poser.
+	if Health.food_points(held) > 0:
+		return "manger"
+	if player.brush != 0:
+		return ""
+	if ReturnOrb.is_orb(held):
+		return "orbe"
+	return ""
+
+# Clic droit appuyé : rend vrai s'il commence à manger ou à utiliser l'orbe (la pose attend le relâchement).
+# Clic droit « Manger » : toujours vrai (il ne pose jamais rien).
 func eat_press() -> bool:
-	if not can_eat():
+	eat_chain = false
+	if hold_use().is_empty():
+		if is_instance_valid(player) and player.brush == EAT_BRUSH:
+			_notify("Rien à manger en main." if survival() else "On mange seulement en Survie.")
+			return true
 		return false
 	eat_time = 0.0
 	return true
 
-# Clic droit relâché : un clic court pose le fruit (comme avant 0.0.8).
+# Clic droit relâché : un clic court pose l'objet (comme avant 0.0.8), sauf avec le clic droit « Manger » ou après avoir
+# déjà mangé en restant appuyé.
 func eat_release(hit: Dictionary) -> void:
 	if eat_time < 0.0:
 		return
-	var quick := eat_time < EAT_TAP
+	var quick: bool = eat_time < EAT_TAP and not eat_chain and player.brush != EAT_BRUSH
 	eat_time = -1.0
+	eat_chain = false
 	if quick:
-		put_down_held(hit)
+		# Clic court : l'action du mode (Poser : l'objet est posé ; Aplanir, Lisser : le geste).
+		if player.brush == 0:
+			put_down_held(hit)
+		else:
+			place_target(hit, player.selected_type)
 
 func step_eat(delta: float, holding: bool) -> bool:
 	if eat_time < 0.0:
 		return false
-	if not holding or not can_eat():
+	var use := hold_use()
+	if not holding or use.is_empty():
 		eat_time = -1.0
 		return false
 	eat_time += delta
-	if eat_time < EAT_TAP:
+	if eat_time < EAT_TAP and not eat_chain:
 		return false
-	if health.full():
+	if use == "manger" and health.full():
 		_notify("Vie pleine : pas besoin de manger.")
 		return false
-	show_ring((eat_time - EAT_TAP) / (EAT_SECONDS - EAT_TAP))
-	if eat_time < EAT_SECONDS:
+	# 0.0.8.3 : chaque fruit sa durée (noisette plus rapide).
+	var seconds := ReturnOrb.USE_SECONDS if use == "orbe" else Health.eat_seconds(inventory.held())
+	show_ring(eat_time / seconds)
+	if eat_time < seconds:
 		return false
+	if use == "orbe":
+		use_orb()
+		eat_time = -1.0
+		return true
 	eat_held()
-	# Un fruit à la fois : relâcher pour le suivant.
-	eat_time = -1.0
+	# 0.0.8.3 (demande de l'utilisateur) : en restant appuyé, on mange le suivant (relâcher pour s'arrêter).
+	eat_time = 0.0
+	eat_chain = true
 	return true
+
+# 0.0.8.2 (#231) : l'orbe en main ramène au point de départ, puis disparaît.
+func use_orb() -> bool:
+	if not ReturnOrb.is_orb(inventory.held()):
+		return false
+	inventory.pop_held()
+	_go_to_start()
+	inventory_unsaved = true
+	_notify("Orbe de retour : vous voici au point de départ.")
+	return true
+
+# 0.0.8.2 (#231, demande de l'utilisateur) : en Survie, une fois par monde : une orbe de retour dans une poche (au sol à
+# ses pieds si les poches sont pleines) et une deuxième posée au sol près du point de départ, en réserve. Aussi pour les
+# mondes de Survie d'avant 0.0.8.2, à leur première ouverture ; un monde ouvert en Créatif n'en reçoit jamais (pas au
+# changement de mode). Retenu dans joueur.json (« orbes_depart »).
+var start_orbs_given := false
+
+func give_start_orbs() -> int:
+	if start_orbs_given:
+		return 0
+	start_orbs_given = true
+	if not survival() or not is_instance_valid(ground):
+		return 0
+	var orb := {"objet": ReturnOrb.ID}
+	var given := 0
+	var placed := false
+	for index in Inventory.POCKETS:
+		if inventory.item("bar", index).is_empty() and inventory.usable("bar", index):
+			inventory.put("bar", index, Inventory.single(orb))
+			placed = not inventory.item("bar", index).is_empty()
+			if placed:
+				break
+	if not placed:
+		ground.drop(orb, player.global_position + Vector3.UP, player.global_position, _rest_height, 0.2)
+	given += 1
+	var reserve := spawn_position() + ReturnOrb.RESERVE_OFFSET
+	ground.drop(orb, reserve + Vector3.UP * 0.5, reserve, _rest_height, 0.0)
+	given += 1
+	inventory_unsaved = true
+	objects_dirty = true
+	return given
 
 # Mange le fruit en main ; rend les points regagnés.
 func eat_held() -> int:
@@ -4113,6 +4412,9 @@ static func hit_cell(hit: Dictionary) -> Vector3i:
 func place_target(hit: Dictionary, kind: int) -> bool:
 	if not hit.is_empty() and is_instance_valid(hit.get("collider")) and hit.collider.is_in_group("trees"):
 		return false
+	# 0.0.8.3 : clic droit « Manger » : il ne pose jamais rien.
+	if player.brush == EAT_BRUSH:
+		return false
 	# 0.0.7.4 : un objet en main (caillou, éclat…) se pose au sol là où l'on vise.
 	if player.brush == 0 and Inventory.is_object(inventory.held()):
 		return put_down_held(hit)
@@ -4193,7 +4495,7 @@ const LEFT_MODES := ["creuser / casser", "casser / récupérer des objets", "ré
 var action_menu: Control
 
 static func action_hint(left_mode: int, brush: int) -> String:
-	return "Clic gauche : %s · clic droit : %s · changer : B + T · taille : B + molette · inventaire : O + I" % [LEFT_MODES[clampi(left_mode, 0, 2)], BRUSH_NAMES[clampi(brush, 0, 2)].to_lower()]
+	return "Clic gauche : %s · clic droit : %s · changer : B + T · taille : B + molette · inventaire : O + I" % [LEFT_MODES[clampi(left_mode, 0, 2)], BRUSH_NAMES[clampi(brush, 0, BRUSH_NAMES.size() - 1)].to_lower()]
 
 func open_action_menu() -> void:
 	if is_instance_valid(action_menu) and is_instance_valid(player):
@@ -4210,8 +4512,11 @@ func _on_action_chosen(row: int, index: int) -> void:
 	if exploration != null:
 		exploration.text = action_hint(player.left_mode, player.brush)
 
+# 0.0.8.5 : calque de l'interface du jeu (caché pendant la fabrication).
+var hud_layer: CanvasLayer
 func _create_hud() -> void:
 	var layer := CanvasLayer.new()
+	hud_layer = layer
 	add_child(layer)
 	var left := VBoxContainer.new()
 	left.name = "LeftHUD"
@@ -4795,6 +5100,10 @@ func _read_carved(data: Dictionary) -> void:
 	# 0.0.7.5 : fruits cueillis, par arbre (numéros des fruits du modèle, trees.gd fruit_spots).
 	for id in data.get("branches_ramassees", []):
 		picked_branches[str(id)] = true
+	for id in data.get("plantes_coupees", []):
+		cut_plants[str(id)] = true
+	for id in data.get("lianes_coupees", []):
+		cut_vines[str(id)] = true
 	for id in data.get("rejets_casses", []):
 		broken_shoots[str(id)] = true
 	var picked: Variant = data.get("fruits_cueillis", {})
@@ -4942,6 +5251,9 @@ func _show_column_plants(column: Vector2i) -> void:
 	var plant_list: Array = terrain.plants_in_zone(column)
 	if plant_list.is_empty():
 		return
+	for plant: Dictionary in plant_list:
+		if cut_plants.has(Fibers.plant_id(plant)):
+			plant.coupee = true
 	for node in Plants.column_nodes(plant_list, terrain.height_at):
 		node.set_meta("column", column)
 		_rocks_parent().add_child(node)
@@ -4982,7 +5294,10 @@ func _make_column_tree(column: Vector2i, tree: Dictionary) -> void:
 		return
 	# 0.0.7.21 : arbre intact (ni tombé ni coupé) : dessiné en série avec ceux de sa colonne (_rebuild_series).
 	var intact: bool = not fallen_trees.has(id) and tree_cuts.get(id, {}).get("coupes", []).is_empty()
-	var made := Trees.tree_body(int(tree.espece), int(tree.get("classe", 3)), tree.get("liane", false), int(tree.get("forme", 0)), intact)
+	# 0.0.8.4 (#213) : liane récoltée : plus sur le tronc.
+	var vine: bool = tree.get("liane", false) == true and not cut_vines.has(id)
+	var made := Trees.tree_body(int(tree.espece), int(tree.get("classe", 3)), vine, int(tree.get("forme", 0)), intact)
+	made.set_meta("liane", vine)
 	made.position = Vector3(tree.x, terrain.height_at(tree.x, tree.z) - 0.05, tree.z)
 	made.rotation.y = deg_to_rad(float(tree.rotation))
 	made.scale = Vector3.ONE * float(tree.taille)
@@ -5497,6 +5812,9 @@ func _save_objects() -> bool:
 	# 0.0.7.26 (#212) : branches mortes de la graine ramassées, rejets cassés.
 	data.branches_ramassees = picked_branches.keys()
 	data.rejets_casses = broken_shoots.keys()
+	# 0.0.8.4 (#213) : plantes à fibres récoltées et lianes récoltées (identifiant de l'arbre).
+	data.plantes_coupees = cut_plants.keys()
+	data.lianes_coupees = cut_vines.keys()
 	data.arbres_tombes = fallen_trees.duplicate(true)
 	data.arbres_coupes = cut_trees.keys()
 	data.arbres_branches = tree_cuts.duplicate(true)
@@ -5633,3 +5951,9 @@ func _process_far_queue(budget_usec: int = FAR_BUDGET_USEC) -> void:
 		if not _build_far_tile(far_queue[0], deadline):
 			return
 		far_queue.pop_front()
+
+func _set_hud_visible(on: bool) -> void:
+	if is_instance_valid(hud_layer):
+		hud_layer.visible = on
+	if is_instance_valid(inventory_ui):
+		inventory_ui.visible = on

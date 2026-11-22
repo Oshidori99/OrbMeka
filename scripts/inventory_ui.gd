@@ -32,6 +32,9 @@ class Slot extends Control:
 	var note := ""
 	var font_px := 11
 	var with_text := false
+	# 0.0.8.3 (demande de l'utilisateur) : barre en jeu : plus de nom sous la case (seulement le poids) ; le nom
+	# s'affiche au milieu, au-dessus de la barre, quand on prend l'objet en main (world.gd, held_name).
+	var show_title := true
 	# 0.0.7.7 : silhouette grise d'une case vide (équipement à venir).
 	var picture: Texture2D
 	# 0.0.7.29 : bouton « + » en haut à droite (sous-possibilités) ; case d'une sous-possibilité (fond vert sombre).
@@ -67,9 +70,9 @@ class Slot extends Control:
 		locked = is_locked
 		chosen = is_chosen
 		note = weight_note
-		title = Inventory.item_name(value) if with_text else ""
+		title = Inventory.item_name(value) if with_text and show_title else ""
 		# 0.0.7.18 : bois : sous la case, l'arbre seulement (le nom complet coupé ne se lisait pas) ; tout au survol.
-		if with_text and value.get("objet", "") in ["tronc", "branche", "rameau"] and value.has("essence"):
+		if with_text and show_title and value.get("objet", "") in ["tronc", "branche", "rameau"] and value.has("essence"):
 			title = Inventory.ESSENCE_NAMES[clampi(int(value.essence), 0, 3)].capitalize()
 		var name := Inventory.item_name(value)
 		if not value.is_empty() and not Inventory.unlimited(value):
@@ -137,7 +140,7 @@ class Slot extends Control:
 				draw_string(mark_font, mark_at, drag_mark, HORIZONTAL_ALIGNMENT_LEFT, -1, mark_px, Color(1.0, 0.88, 0.4))
 		if with_text:
 			_text_line(title, side + font_px + 2.0, Color(0.97, 0.97, 0.93))
-			_text_line(note, side + 2.0 * font_px + 5.0, Color(0.85, 0.88, 0.8))
+			_text_line(note, side + (2.0 * font_px + 5.0 if show_title else font_px + 2.0), Color(0.85, 0.88, 0.8))
 
 	# Texte centré sous la case, raccourci (…) s'il dépasse un peu la largeur de la case.
 	func _text_line(text: String, baseline: float, color: Color) -> void:
@@ -251,6 +254,7 @@ func _build_hud() -> void:
 	add_child(hud_bar)
 	for index in range(Inventory.BAR_SIZE):
 		var slot := Slot.new(roundf(HUD_SLOT * text_scale), true, _text_px())
+		slot.show_title = false
 		slot.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		hud_bar.add_child(slot)
 		hud_slots.append(slot)
@@ -759,7 +763,7 @@ func _say_refusal(value: Dictionary) -> void:
 		"encombrant":
 			_say("Trop encombrant ici : 1,5 L par main, 3 L à deux mains, 0,5 L dans les poches.")
 		"nombre":
-			_say("%d %s au plus dans une main." % [Inventory.hand_count(value.get("objet", "")), Inventory.plural_name(value)])
+			_say(Inventory.count_rule(value))
 		_:
 			_say("Trop lourd ici : 4 kg par main, 8 kg à deux mains, 500 g dans les poches.")
 

@@ -27,6 +27,16 @@ static func texture(id: String) -> Texture2D:
 				image = _chip(spec.couleur, id.hash(), id == "eclat_silex" or id == "charbon")
 			"fruit":
 				image = _apple(Inventory.APPLE_COLORS[1], -1) if id == "pomme" else _hazelnut(spec.couleur)
+			"ficelle":
+				image = _cord(spec.couleur)
+			"tete":
+				image = _head(id == "tete_hache", 1)
+			"fibre":
+				image = _fiber(spec.couleur)
+			"liane":
+				image = _coil(spec.couleur)
+			"orbe":
+				image = _orb(spec.couleur)
 			"bois":
 				image = _stick(spec.couleur, id == "tronc", id.hash())
 				if spec.get("feuilles", false):
@@ -45,6 +55,12 @@ static func for_value(value: Dictionary) -> Texture2D:
 		if _cache.has(key):
 			return _cache[key]
 		return _keep(key, _apple(Inventory.APPLE_COLORS[color], color))
+	# 0.0.8.5 : tête taillée : la couleur de sa pierre (calcaire clair, silex sombre).
+	if id in ["tete_hache", "tete_pioche"]:
+		var shown_head: Dictionary = value.pile[-1] if value.has("pile") and not value.pile.is_empty() else value
+		var stone := clampi(int(shown_head.get("pierre", 1)), 0, 1)
+		var head_key := "%s/%d" % [id, stone]
+		return _cache[head_key] if _cache.has(head_key) else _keep(head_key, _head(id == "tete_hache", stone))
 	return texture(id)
 
 # Onglets du Créatif (0.0.7.5) : un caillou, une pomme, un petit sac (Inventaire).
@@ -57,7 +73,7 @@ static func tab(id: String, height: int) -> Texture2D:
 		"inventory":
 			var key := "#sac%d" % height
 			return _cache[key] if _cache.has(key) else _keep(key, _svg(BAG_SVG, maxi(height, 12)))
-	var source: Texture2D = texture("caillou" if id == "pebbles" else ("tronc" if id == "wood" else "pomme"))
+	var source: Texture2D = texture("caillou" if id == "pebbles" else ("tronc" if id == "wood" else ("fibre_lin" if id == "plants" else "pomme")))
 	var image := source.get_image()
 	image.resize(maxi(height, 12), maxi(height, 12), Image.INTERPOLATE_LANCZOS)
 	var key := "#%s%d" % [id, height]
@@ -436,6 +452,129 @@ static func _apple(base: Color, color_index: int) -> Image:
 				var green := Color("#4f8f2a") * (1.05 - 0.25 * (local.y / (SIZE * 0.06)))
 				green.a = clampf((1.0 - e) * SIZE * 0.06, 0.0, 1.0)
 				image.set_pixel(x, y, image.get_pixel(x, y).blend(green.clamp()))
+	return image
+
+# 0.0.8.5 (#213) : ficelle : un petit écheveau serré (trois tours), plus fin que la liane.
+static func _cord(base: Color) -> Image:
+	var image := _blank()
+	var center := Vector2(SIZE * 0.5, SIZE * 0.54)
+	_shadow(image, center + Vector2(1.0, SIZE * 0.26), Vector2(SIZE * 0.3, SIZE * 0.05))
+	for y in range(SIZE):
+		for x in range(SIZE):
+			var d := (Vector2(x + 0.5, y + 0.5) - center) / Vector2(SIZE * 0.32, SIZE * 0.26)
+			var r := d.length()
+			for ring in [0.62, 0.76, 0.9]:
+				var gap := absf(r - ring)
+				if gap < 0.055:
+					var shade := Color(base.r, base.g, base.b) * (1.15 - 0.35 * (gap / 0.055) - 0.15 * d.y)
+					shade.a = 1.0
+					image.set_pixel(x, y, shade.clamp())
+	return image
+
+# 0.0.8.5 (#211) : tête taillée vue de côté, à facettes : hache (large, tranchant à droite) ou pioche (longue, pointue).
+static func _head(axe: bool, stone: int) -> Image:
+	var image := _blank()
+	var base: Color = [Color("#c4bca8"), Color("#3a3a40")][clampi(stone, 0, 1)]
+	var center := Vector2(SIZE * 0.5, SIZE * 0.5)
+	_shadow(image, center + Vector2(0.0, SIZE * 0.3), Vector2(SIZE * 0.36, SIZE * 0.05))
+	for y in range(SIZE):
+		for x in range(SIZE):
+			var d := (Vector2(x + 0.5, y + 0.5) - center) / (SIZE * 0.42)
+			var half_height := 0.0
+			if axe:
+				# Large près du tranchant (droite), plus étroite au talon.
+				half_height = lerpf(0.32, 0.62, clampf((d.x + 0.9) / 1.8, 0.0, 1.0)) * (1.0 - pow(absf(d.x) / 0.92, 6.0))
+			else:
+				half_height = 0.3 * clampf((0.95 - d.x) / 1.2, 0.0, 1.0) * (1.0 - pow(maxf(-d.x, 0.0) / 0.95, 4.0))
+			if absf(d.x) > 0.95 or absf(d.y) > half_height:
+				continue
+			# Facettes : des bandes de lumière (éclats enlevés).
+			var facet := 0.85 + 0.25 * _hash(floori((d.x + 1.0) * 4.0), floori((d.y + 1.0) * 3.0), 31) - 0.25 * d.y
+			var shade := Color(base.r * facet, base.g * facet, base.b * facet)
+			shade.a = clampf((half_height - absf(d.y)) * SIZE * 0.4, 0.0, 1.0)
+			image.set_pixel(x, y, shade.clamp())
+	return image
+
+# 0.0.8.4 (#213) : fibres : une petite botte de brins clairs, serrée au milieu par un brin noué.
+static func _fiber(base: Color) -> Image:
+	var image := _blank()
+	var rng := RandomNumberGenerator.new()
+	rng.seed = int(base.to_rgba32()) & 0x7fffffff
+	_shadow(image, Vector2(SIZE * 0.5, SIZE * 0.8), Vector2(SIZE * 0.34, SIZE * 0.05))
+	for strand in range(9):
+		var a := Vector2(SIZE * 0.14, SIZE * (0.66 + rng.randf_range(-0.1, 0.1)))
+		var b := Vector2(SIZE * 0.86, SIZE * (0.3 + rng.randf_range(-0.1, 0.1)))
+		var middle := (a + b) * 0.5
+		var shade := base * rng.randf_range(0.8, 1.15)
+		shade.a = 1.0
+		for y in range(SIZE):
+			for x in range(SIZE):
+				var at := Vector2(x + 0.5, y + 0.5)
+				# Brins écartés aux bouts, serrés au milieu.
+				var spread := absf((at - middle).dot((b - a).normalized())) / (b - a).length()
+				var distance := _segment_distance(at, a.lerp(middle, 0.15 * (1.0 - spread)), b)
+				if distance < 0.9:
+					image.set_pixel(x, y, shade.clamp())
+	# Lien au milieu.
+	var tie := Vector2(SIZE * 0.5, SIZE * 0.48)
+	for y in range(SIZE):
+		for x in range(SIZE):
+			if Vector2(x + 0.5 - tie.x, (y + 0.5 - tie.y) * 0.6).length() < SIZE * 0.07 and absf(x + 0.5 - tie.x) < SIZE * 0.035:
+				image.set_pixel(x, y, Color(base.r * 0.55, base.g * 0.55, base.b * 0.55))
+	return image
+
+# 0.0.8.4 (#213) : liane : un rouleau de tige verte-brune, enroulée deux fois.
+static func _coil(base: Color) -> Image:
+	var image := _blank()
+	var center := Vector2(SIZE * 0.5, SIZE * 0.52)
+	_shadow(image, center + Vector2(1.0, SIZE * 0.3), Vector2(SIZE * 0.34, SIZE * 0.06))
+	for y in range(SIZE):
+		for x in range(SIZE):
+			var d := (Vector2(x + 0.5, y + 0.5) - center) / Vector2(SIZE * 0.36, SIZE * 0.3)
+			var r := d.length()
+			for ring in [0.72, 0.92]:
+				var gap := absf(r - ring)
+				if gap < 0.1:
+					var light := 1.15 - 0.4 * (gap / 0.1) - 0.15 * d.y
+					var shade := base * light
+					shade.a = 1.0
+					image.set_pixel(x, y, shade.clamp())
+	return image
+
+# 0.0.8.2 (#231) : orbe de retour : boule turquoise lumineuse (cœur clair, halo doux) cerclée d'un anneau doré incliné.
+static func _orb(base: Color) -> Image:
+	var image := _blank()
+	var center := Vector2(SIZE * 0.5, SIZE * 0.52)
+	var radius := SIZE * 0.32
+	_shadow(image, center + Vector2(1.0, radius * 0.95), Vector2(radius * 0.85, SIZE * 0.06))
+	var light := Vector3(-0.45, -0.6, 0.66).normalized()
+	var ring_color := Color("#e2b85a")
+	for y in range(SIZE):
+		for x in range(SIZE):
+			var at := Vector2(x + 0.5, y + 0.5)
+			var d := (at - center) / radius
+			var r := d.length()
+			var pixel := Color(0, 0, 0, 0)
+			# Halo autour de la boule.
+			if r >= 1.0 and r < 1.35:
+				pixel = Color(base.r, base.g, base.b, 0.35 * (1.35 - r) / 0.35)
+			elif r < 1.0:
+				var normal := Vector3(d.x, d.y, sqrt(1.0 - r * r))
+				var m := 0.55 + 0.55 * maxf(normal.dot(light), 0.0)
+				var color := base.lerp(Color(0.85, 1.0, 0.98), 0.55 * (1.0 - r) * (1.0 - r))
+				pixel = Color(color.r * m, color.g * m, color.b * m)
+				var spot := maxf(0.0, 1.0 - Vector2(d.x + 0.35, d.y + 0.38).length() * 4.0)
+				pixel = pixel.lerp(Color.WHITE, spot * 0.8)
+				pixel.a = clampf((1.0 - r) * radius, 0.0, 1.0)
+			# Anneau doré (ellipse inclinée) : devant la boule en bas, caché derrière en haut.
+			var ring := (at - center).rotated(-0.35)
+			var e := Vector2(ring.x / (radius * 1.25), ring.y / (radius * 0.38)).length()
+			if absf(e - 1.0) < 0.09 and (ring.y > 0.0 or r >= 1.0):
+				var gold := ring_color * (1.1 - 0.3 * (ring.y / (radius * 0.38)))
+				gold.a = 1.0
+				pixel = pixel.blend(gold.clamp()) if pixel.a > 0.0 else gold.clamp()
+			if pixel.a > 0.0:
+				image.set_pixel(x, y, pixel.clamp())
 	return image
 
 # Noisette : coque brune luisante, base plus claire et rugueuse, petite pointe.

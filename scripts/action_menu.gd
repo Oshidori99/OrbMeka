@@ -10,7 +10,7 @@ signal chosen(row: int, index: int)
 
 const ROWS := [
 	["Creuser / Casser", "Casser / Récupérer des objets", "Récupérer des matériaux"],
-	["Poser", "Aplanir", "Lisser"],
+	["Poser", "Aplanir", "Lisser", "Manger"],
 ]
 const ROW_NAMES := ["Clic gauche", "Clic droit"]
 const IDLE_SECONDS := 2.5
@@ -175,3 +175,11 @@ func _icon(row_index: int, index: int, box: Rect2, alpha: float) -> void:
 			ground.append(c + Vector2(-0.44, 0.4) * s)
 			draw_colored_polygon(ground, earth)
 			draw_polyline(wave, light, 0.05 * s)
+		[1, 3]:
+			# 0.0.8.3 : Manger : une pomme croquée sur le côté (queue et feuille).
+			var red := Color(0.75, 0.16, 0.12, alpha)
+			draw_circle(c + Vector2(0.0, 0.06) * s, 0.32 * s, red)
+			draw_circle(c + Vector2(0.34, 0.02) * s, 0.13 * s, Color(0.98, 0.93, 0.78, alpha))
+			draw_circle(c + Vector2(0.44, 0.02) * s, 0.12 * s, Color(0.08, 0.09, 0.1, 1.0))
+			draw_line(c + Vector2(0.0, -0.24) * s, c + Vector2(0.04, -0.42) * s, wood, 0.05 * s)
+			draw_colored_polygon(PackedVector2Array([c + Vector2(0.04, -0.36) * s, c + Vector2(0.24, -0.44) * s, c + Vector2(0.14, -0.3) * s]), leaf)

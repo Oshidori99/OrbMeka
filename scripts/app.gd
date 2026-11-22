@@ -1208,7 +1208,7 @@ func quit_game() -> void:
 # 0.0.7.34 : en jeu, souris pas capturée (inventaire fermé) : message « Cliquez dans le jeu ». Sur le Web, Échap est pris
 # par le navigateur pour libérer la souris (le jeu ne le reçoit pas) : la souris libérée ouvre la pause, comme Échap.
 func _watch_capture() -> void:
-	var playing: bool = page == "playing" and is_instance_valid(active_world) and not active_world.inventory_open and not active_world.death_open
+	var playing: bool = page == "playing" and is_instance_valid(active_world) and not active_world.inventory_open and not active_world.death_open and not active_world.crafting_open
 	var captured: bool = Input.mouse_mode == Input.MOUSE_MODE_CAPTURED
 	if is_instance_valid(click_hint):
 		click_hint.visible = playing and not captured and DisplayServer.get_name() != "headless"
@@ -1252,6 +1252,7 @@ func pause_game() -> void:
 	if page != "playing" or not is_instance_valid(active_world):
 		return
 	active_world.close_inventory(false)
+	active_world.close_crafting(false)
 	active_world.player.release_controls()
 	_send_combos(key_combos.release_all())
 	_freeze_world()
@@ -1336,6 +1337,9 @@ func _menu_shortcut(event: InputEvent) -> void:
 	if page == "playing" and is_instance_valid(active_world) and event.is_action_pressed("inventory"):
 		active_world.toggle_inventory()
 		get_viewport().set_input_as_handled()
+	elif page == "playing" and is_instance_valid(active_world) and event.is_action_pressed("crafting"):
+		active_world.toggle_crafting()
+		get_viewport().set_input_as_handled()
 	elif page == "playing" and is_instance_valid(active_world) and not active_world.inventory_open and event.is_action_pressed("go_home"):
 		active_world.go_home()
 		get_viewport().set_input_as_handled()
@@ -1400,6 +1404,10 @@ func _cancel_page() -> void:
 		return
 	# 0.0.8.1 (#205) : écran de mort : Échap ne fait rien (bouton « Revenir au départ »).
 	if page == "playing" and is_instance_valid(active_world) and active_world.death_open:
+		return
+	# 0.0.8.5 (#211) : Échap ferme la fabrication (retour au jeu), sans mettre en pause.
+	if page == "playing" and is_instance_valid(active_world) and active_world.crafting_open:
+		active_world.close_crafting()
 		return
 	# 0.0.7.2 : Échap ferme d'abord l'inventaire ouvert (retour au jeu), sans mettre en pause.
 	if page == "playing" and is_instance_valid(active_world) and active_world.inventory_open:

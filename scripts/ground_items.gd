@@ -10,6 +10,10 @@ extends Node3D
 const Inventory = preload("res://scripts/inventory.gd")
 const Rocks = preload("res://scripts/rocks.gd")
 const Trees = preload("res://scripts/trees.gd")
+const ReturnOrb = preload("res://scripts/return_orb.gd")
+const Fibers = preload("res://scripts/fibers.gd")
+const StoneHeads = preload("res://scripts/stone_heads.gd")
+const HEAD_SIZES := {3: 0.08, 4: 0.1, 5: 0.12}
 # Au-delà, les plus anciens disparaissent (seulement s'ils sont très nombreux).
 const MAX_ITEMS := 3000
 const FALL_SECONDS := 0.35
@@ -139,6 +143,15 @@ static func size_of(value: Dictionary) -> float:
 			return HAZELNUT_SIZE
 		"eclat":
 			return PIECE_SIZE
+		# 0.0.8.4 (#213) : fibres et liane : modèles déjà à leur taille (fibers.gd).
+		"fibre", "liane", "ficelle":
+			return 1.0
+		# 0.0.8.5 (#211) : tête taillée : selon sa taille (3 petite, 4 moyenne, 5 grande).
+		"tete":
+			return HEAD_SIZES.get(int(value.get("taille", 4)), 0.1)
+		# 0.0.8.2 (#231) : orbe de retour.
+		"orbe":
+			return ReturnOrb.SIZE
 		# 0.0.7.8 : bâton ou tronc : son épaisseur (la longueur est à part).
 		"bois":
 			return float(value.get("epaisseur", 3.0)) / 100.0
@@ -148,7 +161,9 @@ static func size_of(value: Dictionary) -> float:
 static func lift(value: Dictionary) -> float:
 	if _kind(value) == "caillou":
 		return Rocks.pebble_lift(clampi(int(value.get("taille", 3)), 1, 7), clampi(int(value.get("forme", 1)), 1, 7)) * (1.0 - 0.2 * int(value.get("coups", 0)))
-	return size_of(value) * (0.5 if _kind(value) in ["fruit", "bois"] else 0.3)
+	if _kind(value) in ["fibre", "liane", "ficelle"]:
+		return 0.012
+	return size_of(value) * (0.5 if _kind(value) in ["fruit", "bois", "orbe"] else 0.3)
 
 # Fruits : le modèle des arbres (rayon 1) ; bois : cylindre couché le long de son orientation ; autres : diamètre 1.
 static func _basis(value: Dictionary) -> Basis:
@@ -171,6 +186,16 @@ static func _two_tone(value: Dictionary) -> bool:
 
 # 0.0.7.6 : pommes et noisettes au sol avec le même petit modèle que dans les arbres (Trees._fruit_mesh).
 func _mesh(value: Dictionary) -> Mesh:
+	if _kind(value) == "fibre":
+		return Fibers.bundle_mesh()
+	if _kind(value) == "liane":
+		return Fibers.coil_mesh()
+	if _kind(value) == "ficelle":
+		return Fibers.cord_mesh()
+	if _kind(value) == "tete":
+		return StoneHeads.mesh("hache" if value.get("objet") == "tete_hache" else "pioche", 1.0)
+	if _kind(value) == "orbe":
+		return ReturnOrb.mesh()
 	if _kind(value) == "fruit":
 		return Trees._fruit_mesh(Trees.APPLE if value.get("objet") == "pomme" else Trees.HAZEL, _two_tone(value))
 	if _kind(value) == "bois":
@@ -251,6 +276,12 @@ func _fall_material(value: Dictionary) -> Material:
 func _plain_material(value: Dictionary) -> Material:
 	if _look(value) >= 0 and stone_material != null:
 		return stone_material
+	# 0.0.8.5 : tête taillée : la pierre (calcaire clair, silex sombre).
+	if _kind(value) == "tete":
+		return StoneHeads.material(int(value.get("pierre", 1)))
+	# 0.0.8.2 : orbe de retour : les matières de son modèle (boule lumineuse, anneau doré).
+	if _kind(value) == "orbe":
+		return null
 	# Fruits : le matériau de leur modèle (celui des arbres), couleur de chaque pomme dans ses données.
 	if _kind(value) == "fruit":
 		return null
@@ -262,6 +293,9 @@ func _plain_material(value: Dictionary) -> Material:
 		var made := StandardMaterial3D.new()
 		made.albedo_color = _color(value)
 		made.roughness = 0.5 if _kind(value) == "fruit" else 0.92
+		# 0.0.8.4 : brins de fibres plats : visibles des deux côtés.
+		if _kind(value) == "fibre":
+			made.cull_mode = BaseMaterial3D.CULL_DISABLED
 		_materials[key] = made
 	return _materials[key]
 
@@ -304,6 +338,8 @@ func _redraw() -> void:
 		var item: Dictionary = entry.item
 		var stone := _look(item) >= 0 and stone_material != null
 		var key: String = "pierre/%d" % int(item.get("forme", 1)) if stone else "%s/%d/%d/%d" % [item.objet, int(item.get("forme", 1)), int(item.get("couleur", -1)), int(item.get("essence", -1))]
+		if _kind(item) == "tete":
+			key += "/p%d" % int(item.get("pierre", 1))
 		if _kind(item) == "bois":
 			key += "/%d" % taper_step(item)
 		if not groups.has(key):
@@ -347,6 +383,26 @@ func _redraw() -> void:
 				multi.set_instance_custom_data(at, Color(float(_look(entry.item)), 0.0, 0.0, 0.0))
 			elif _kind(entry.item) == "fruit":
 				multi.set_instance_color(at, Color.WHITE if _two_tone(entry.item) or entry.item.objet != "pomme" else _color(entry.item))
+	_update_orb_lights()
+
+# 0.0.8.3 (demande de l'utilisateur) : chaque orbe de retour posée luit et éclaire un peu autour d'elle (au plus
+# MAX_ORB_LIGHTS, pour rester léger).
+const MAX_ORB_LIGHTS := 16
+var _orb_lights: Array = []
+
+func _update_orb_lights() -> void:
+	var spots: Array = []
+	for entry: Dictionary in entries:
+		if not entry.get("hidden", false) and ReturnOrb.is_orb(entry.item) and spots.size() < MAX_ORB_LIGHTS:
+			spots.append(entry.position)
+	while _orb_lights.size() > spots.size():
+		_orb_lights.pop_back().queue_free()
+	while _orb_lights.size() < spots.size():
+		var made := ReturnOrb.light()
+		add_child(made)
+		_orb_lights.append(made)
+	for index in range(spots.size()):
+		_orb_lights[index].position = spots[index] + Vector3.UP * 0.2
 
 # --- Sauvegarde (objets.json) ---
 

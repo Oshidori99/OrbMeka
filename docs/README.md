@@ -1,6 +1,54 @@
-# OrbMeka™ — prototype 0.0.8.1
+# OrbMeka™ — prototype 0.0.8.5
 
 Godot 4.7 / GDScript. Formes et couleurs simples ; assets externes seulement sous licence vérifiée (sons CC0, assets/sounds/CREDITS.txt).
+
+## 0.0.8.5 — Fabrication à la main (O + F) : tresser 3 fibres en une ficelle de 33 cm, tailler un silex ou un calcaire (5, 6 ou 8 coups) en tête de hache ou de pioche avec un éclat tranchant, dans une petite scène avec ses deux mains et ses cases ; et la main qui tire la plante en récoltant
+Version publiée (4 sur 4, avec 0.0.8.2 à 0.0.8.4). Génération inchangée (version 33). Demandes de l'utilisateur (#211, #213).
+- **O + F** (Contrôles → Inventaire, modifiable) ouvre la **fabrication** ; Échap, « Fermer » ou O + F la ferment. Le monde est figé derrière (dernière image floutée, sans l'interface ; la 3D du monde n'est plus dessinée : léger, aussi sur le Web).
+- À gauche : l'**action** (Tresser, Tailler ; Fendre, Assembler, Ficeler grisées « bientôt »), puis les **objets possibles** pris dans les mains et les poches (Créatif : aussi le catalogue) : un clic les met dans une main. À droite : une petite scène avec **les deux mains** et ce qu'elles tiennent ; en bas, **les cases habituelles** (mains et poches), à jour en direct.
+- **Tresser** : 3 fibres du même type, **clic gauche maintenu 3 s** dans la scène (anneau ; les mains se rapprochent et tournent) : **1 ficelle de 33 cm** de ce type (Ficelle d'ortie, de lin, d'herbe).
+- **Tailler** : un caillou **percuteur** (main gauche) et un **silex ou un calcaire** de taille 3, 4 ou 5 (main droite) ; **tête de hache** ou **de pioche** ; **un clic par coup** (5, 6 ou 8 coups) : la main gauche frappe, des éclats sautent (son), la pierre prend forme à facettes. Résultat : la tête (« Tête de hache en silex », taille petite / moyenne / grande : moins bonne à meilleure) et **un éclat tranchant** de la même pierre ; le percuteur reste. Pas de coup raté pour l'instant.
+- Ce qui ne tient pas dans les mains et les poches tombe au sol devant soi. Créatif : têtes dans l'onglet Outils.
+- **Fibres** : 10 ml chacune (encombrantes).
+- **Récolte** (demande de l'utilisateur) : en maintenant R, la main droite s'avance vers la plante (ou la liane), la saisit et tire par petits coups, puis revient.
+- Animations faites en code (pas de Blender) : Blender servira plus tard pour faire bouger les doigts.
+
+Tests réussis : crafting (25, nouveau), fibers (21), hands_eat, death, health, return_orb, inventory, inventory_more, controls, controls_groups, key_combos, shortcuts_selection, pause, interface_info, settings_walk (+ tests juridiques). Captures hors écran : tresser, tailler (5 coups sur 8).
+À tester : O + F en jeu, tresser et tailler à la souris, Échap, les cases en bas, la main qui tire en récoltant ; sur le Web, la légèreté de l'écran.
+
+## 0.0.8.4 — Récolte : R maintenu 1 s sur une ortie, du lin ou des herbes longues donne 1 à 3 fibres (la plante reste coupée), sur un tilleul à liane une liane ; et chaque arbre a son âge et sa souplesse, gardés par tout son bois
+Version locale (3 sur 4), publiée avec 0.0.8.5. Génération inchangée (version 33). Demandes de l'utilisateur (#213, #228).
+- **Fibres** : **R maintenu 1 s** (Créatif : 0,3 s, anneau) en visant une **ortie**, du **lin** ou des **herbes longues** (déjà dans le monde) : **1 à 3 fibres** (Fibre d'ortie, de lin, d'herbe ; même graine : même nombre). La plante reste **coupée** (tige basse), enregistrée ; pas encore de repousse.
+- **Liane** : R maintenu en visant le tronc d'un **tilleul à liane** : une **liane** (lien grossier) ; elle disparaît du tronc.
+- Dans la case choisie, comme ramasser ; ce qui ne tient pas tombe au sol devant soi. Message « 2 fibres d'herbe récoltées ».
+- Objets : icônes (botte de brins, rouleau), petite botte et rouleau en main et au sol ; Créatif : nouvel onglet **Plantes** (après Bois).
+- **Bois (#228)** : chaque arbre a son **âge** (1 à 5) et sa **souplesse** (1 à 5), toujours les mêmes pour lui ; tous ses bâtons et troncs les gardent (noisetier plus souple, pin plus raide ; avant : tirés au hasard à chaque morceau).
+- Corrections : le lin (touffes serrées) se récolte bien : passer d'une plante à l'autre en visant ne remet plus le temps à zéro ; une plante se vise sous tous les angles, même de haut (le regard doit passer près de sa tige) ; le nom de l'objet pris en main ne s'affiche plus deux fois (seulement en bas, au-dessus de la barre). Orties : au bord des forêts de feuillus et près de l'eau (souvent à plus de 70 m du départ).
+- Ensuite : tresser les fibres en ficelle (menu de fabrication O + F, 0.0.8.5).
+
+Tests réussis : fibers (17, nouveau), hands_eat, inventory (seul ; avec d'autres en même temps, il échoue parfois à viser le sol avant le terrain prêt, comme en 0.0.7.35), inventory_more, plants, forests, trees, tree_fall, sticks, world_save, web_save, hands_eat, return_orb, action_timing, lawn_ring (+ tests juridiques). Captures hors écran : herbe longue coupée, fibres en main, icônes.
+À tester : récolter des orties, du lin et des herbes longues, une liane sur un tilleul (cœur des forêts de feuillus) ; recharger le monde (plantes toujours coupées).
+
+## 0.0.8.3 — Mains et poches : 2 pommes par main et 3 à deux mains, 5 noisettes par main et 15 par poche (les fruits ne comptent plus en litres dans les mains, une noisette compte 4 ml) ; manger plus simple, dans tous les modes du clic droit : noisette en 0,5 s, on continue en restant appuyé, « Manger » dans B + T ; nom de l'objet pris en main au-dessus de la barre (plus sous les cases) ; orbe de retour plus grande, brillante, qui éclaire autour d'elle
+Version locale (2 sur 4). Génération inchangée (version 33). Demandes de l'utilisateur.
+- **Mains** : les objets comptés (pommes, noisettes, cailloux, éclats) ne comptent plus en litres, seulement en nombre : **2 pommes par main, 3 pour les deux mains** (une pile tenue à deux mains, ou 2 + 1) ; **5 noisettes par main, 10 à deux mains** (avant : 8 et 16). Cailloux et éclats : inchangés (4 par main, 8).
+- **Poches** : poids et volume comme avant, et **15 noisettes au plus par poche**. Une noisette compte comme une vraie (2 cm, environ 4 ml), quelle que soit sa taille dessinée dans l'arbre (avant : jusqu'à plus de 100 ml, 15 ne tenaient pas). Message : « 5 noisettes au plus dans une main, 10 à deux mains, 15 par poche. »
+- **Manger** : noisette en **0,5 s**, pomme en 1 s ; en **restant appuyé**, on mange le suivant (relâcher pour s'arrêter ; on ne pose rien en relâchant).
+- **Manger dans tous les modes** du clic droit (Poser, Aplanir, Lisser) : maintenu avec un fruit en main, on mange ; un clic court fait l'action du mode. **Menu B + T** : « **Manger** » au bout de la ligne du clic droit (pomme croquée) : le clic droit mange seulement, il ne pose jamais rien par erreur.
+- **Barre d'objets** : plus de nom sous les cases (seulement le poids) ; le **nom de l'objet pris en main** s'affiche au milieu, au-dessus de la barre, 2 s.
+- **Orbe de retour** : dessinée plus grande (11 cm au lieu de 7, poids et volume inchangés) pour la voir dans l'herbe ; plus brillante (reflets) ; posée au sol, elle **luit et éclaire autour d'elle** (2,5 m), ce qui la rendra visible la nuit (au plus 16 lumières).
+
+Tests réussis : hands_eat (23, nouveau), return_orb (22), health, death, inventory, inventory_more, action_menu, smooth_terrain, breaking, rock_place, action_timing, interface_info, web_fixes, layout_lines (+ tests juridiques). Capture hors écran : orbe qui éclaire le sable, nom « Noisette » au-dessus de la barre.
+À tester : prendre 3 pommes, des noisettes en poche, manger en restant appuyé, « Manger » dans B + T, l'orbe dans l'herbe.
+
+## 0.0.8.2 — Orbe de retour en Survie (200 g, 2 dl, clic droit maintenu : retour au point de départ, puis elle disparaît ; une en poche et une au sol près du départ au début), et un arbre qui tombe blesse : de 15 à 80 points selon sa taille, tout pile dessous, très peu en étant frôlé
+Version locale (1 sur 4). Génération inchangée (version 33). Demandes de l'utilisateur (#231, #229).
+- **Orbe de retour** (Survie) : boule turquoise lumineuse cerclée d'un anneau doré, 200 g, 2 dl. En main, **clic droit maintenu** 1 s (anneau) : retour au point de départ, puis l'orbe disparaît (usage unique). Clic court : elle est posée au sol ; J la jette ; R la reprend, comme tout objet.
+- **Au début** (une fois par monde de Survie) : une orbe dans une poche (au sol à ses pieds si les poches sont pleines) et une deuxième posée au sol à côté du point de départ, en réserve. Les mondes de Survie d'avant la reçoivent à leur première ouverture ; un monde ouvert en Créatif n'en reçoit jamais, même passé ensuite en Survie (Créatif : touche H).
+- **Arbre qui tombe** (Survie) : à la fin de sa chute, il blesse celui qui est dessous : de 15 points (petit tronc, 10 cm) à 80 (très gros, 45 cm et plus) ; tout pile sous le tronc, de moins en moins sur le côté, quelques points en étant frôlé (70 cm plus loin), la moitié au plus sous les branches. Le haut d'un arbre coupé debout blesse aussi. Même effet rouge que pour une chute ; message « L'arbre vous est tombé dessus : −N ». À mains nues (troncs de 40 cm au plus) : jusqu'à environ 70.
+
+Tests réussis : return_orb (21, nouveau), death, health, inventory, inventory_more, game_mode, tree_fall, trees, tree_stress, sticks, world_save, web_save, action_timing, breaking, appearance (+ tests juridiques). Capture hors écran : orbe en main et au sol, icône.
+À tester : utiliser l'orbe (et la poser, la reprendre), un ancien monde de Survie (orbes données), se faire tomber un arbre dessus de face et de côté.
 
 ## 0.0.8.1 — À bout de forces en Survie : petit écran puis retour au point de départ, objets tombés sur place et gardés au sol (ou gardés sur soi, au choix du monde, à la création, dans Paramètres → Monde, défaut dans Paramètres → Survie), et en Créatif retour au départ avec H ou depuis la pause
 Version publiée (4 sur 4, avec 0.0.7.34, 0.0.7.35 et 0.0.8). Génération inchangée (version 33). Demandes de l'utilisateur (#205, #188).
