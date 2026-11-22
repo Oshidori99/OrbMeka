@@ -1,6 +1,19 @@
-# OrbMeka™ — prototype 0.0.8.18
+# OrbMeka™ — prototype 0.0.8.19
 
 Godot 4.7 / GDScript. Formes et couleurs simples ; assets externes seulement sous licence vérifiée (sons CC0, assets/sounds/CREDITS.txt).
+
+## 0.0.8.19 — Carnet de route en arbre : la case Départ au centre, les commandes à gauche, ce qu'on récupère en haut, ce qu'on fabrique à droite (jusqu'à la hache et la pioche), du plus facile au plus difficile, cases reliées par des lignes, vue qu'on déplace et qu'on rapproche ; clic de la molette en Créatif aussi sur le sol, une plante, un arbre ; « Poche vide » au lieu de « Main vide »
+Version locale (la publication de 0.0.8.14 à 0.0.8.19 attend l'utilisateur). Génération inchangée (version 33). Demandes de l'utilisateur (le carnet de 0.0.8.16 ne correspondait pas).
+- **Carnet de route en arbre** (scripts/carnet.gd, carnet_ui.gd) : la case **Départ** au centre ; **à gauche** les commandes (se déplacer, inventaire, actions, fabrication, manger, jeter), **en haut** ce qu'on récupère (cailloux, fibres, branche, terre et sable, plantes), **à droite** ce qu'on fabrique (ficelle, éclat, tête taillée, fendre, assembler, puis la hache un peu plus haut et la pioche un peu plus bas). En bas : rien pour l'instant.
+- **Du plus facile au plus difficile** : plus une case est avancée, plus elle est loin du centre dans sa branche. Chaque case : une image et deux ou trois mots ; des lignes les relient (vertes une fois faites).
+- **Un clic sur une case : ses détails**, à droite (touches, explication, « À faire maintenant » ou « Plus tard : d'abord … »). Les cases faites : bord vert et ✓ ; celles qu'on ne peut pas encore faire : plus pâles.
+- **Vue** : on la déplace en glissant avec la souris, la molette rapproche ou éloigne ; à l'ouverture, le Départ au milieu. Réinitialiser, coches enregistrées par monde, O + C et le menu Échap : comme avant.
+- **Clic de la molette** (signalé par l'utilisateur : il ne faisait rien) : il prenait seulement un objet posé au sol ; en Créatif, il prend aussi ce qu'on vise dans le monde : la matière du sol (une motte sur l'herbe), une plante, un tronc d'arbre, la pierre d'un rocher, dans la case choisie.
+- **Poche vide** : en Survie, une poche vide choisie affiche « Poche vide » (avant : « Main vide »).
+- Aspect propre à OrbMeka (bleu-violet, cases arrondies, départ au centre avec ses branches) : pas l'écran d'un autre jeu.
+
+Tests réussis : carnet (31), plantes_inventaire (18), inventory, inventory_more, shortcuts_selection, menu, pause, controls, key_combos, prototype, history_resume (+ tests juridiques).
+À tester : O + C, glisser et la molette dans le carnet, cliquer les cases ; en Survie, faire une ficelle et voir la case se cocher et la ligne devenir verte.
 
 ## 0.0.8.18 — Fiche de fabrication de chaque outil : chaque étape notée (bien, moyen, à améliorer) avec son effet, et des conseils pour un meilleur outil ; bouton « Fiche de fabrication » sur les détails d'un outil ou d'une tête
 Version locale (5 : la publication de 0.0.8.14 à 0.0.8.18 attend l'utilisateur, absent). Génération inchangée (version 33). Issue #246.

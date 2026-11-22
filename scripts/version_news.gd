@@ -3,8 +3,9 @@ extends RefCounted
 # Les versions de la génération sont celles enregistrées avec chaque monde (world_generation.gd) ; la version des menus
 # compte les changements des menus depuis 0.0.6 (1 : menus de 0.0.5.37 et avant). À compléter à chaque version.
 const Generation = preload("res://scripts/world_generation.gd")
-const MENUS_VERSION := 14
+const MENUS_VERSION := 15
 const MENUS := [
+	{"menu": "Carnet de route", "version": "0.0.8.19", "text": "en arbre : Départ au centre, commandes à gauche, récupérer en haut, fabriquer à droite"},
 	{"menu": "Inventaire", "version": "0.0.8.18", "text": "fiche de fabrication d'un outil (notes et conseils), depuis ses détails"},
 	{"menu": "Carnet de route", "version": "0.0.8.16", "text": "nouveau (O + C, menu Échap) : commandes, chemin des premiers outils, coches, Réinitialiser"},
 	{"menu": "Pause", "version": "0.0.8.16", "text": "bouton Carnet de route"},

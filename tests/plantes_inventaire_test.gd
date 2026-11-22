@@ -122,6 +122,13 @@ func _run() -> void:
 	var before: Dictionary = world.inventory.held()
 	world.pick_aimed({})
 	check(world.inventory.held() == before, "middle click on nothing: nothing changes")
+	# 0.0.8.19 (signalé par l'utilisateur : rien en visant le sol) : en Créatif, la matière du sol visé (ou une motte sur
+	# l'herbe) dans la case choisie.
+	world.inventory.put("bar", world.inventory.selected(), {})
+	var feet: Vector3 = world.player.global_position
+	world.pick_aimed(ground_hit(world, feet.x + 0.8, feet.z))
+	var got := str(world.inventory.held().get("objet", ""))
+	check(got in ["terre", "sable", "gazon", "pierre", "gravier", "argile", "boue", "calcaire", "silex", "pierre_sombre"], "middle click (Créatif) on the ground: its material in the chosen slot (%s)" % got)
 	app.return_to_worlds()
 	for path in [fixture, fixture + ".worlds"]:
 		if FileAccess.file_exists(path):

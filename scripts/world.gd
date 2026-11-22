@@ -1415,7 +1415,10 @@ var inventory_open := false
 
 func held_text() -> String:
 	var name := Inventory.item_name(inventory.held())
-	return name if not name.is_empty() else "Main vide"
+	if not name.is_empty():
+		return name
+	# 0.0.8.19 (correction de l'utilisateur) : une poche choisie, vide : « Poche vide » (avant : « Main vide »).
+	return "Poche vide" if game_mode == Inventory.SURVIVAL and inventory.selected() in Inventory.POCKETS else "Main vide"
 
 # 0.0.7.10 (demande de l'utilisateur) : ce que montre chaque main. Créatif : l'objet choisi dans la main droite, la
 # gauche vide. Survie : case 1 dans la main gauche, case 2 dans la main droite ; une poche choisie : son objet sorti dans
@@ -3502,15 +3505,44 @@ func pick_aimed(hit: Dictionary) -> bool:
 	var before := inventory.take("bar", chosen)
 	var took := pick_up(hit)
 	if inventory.item("bar", chosen).is_empty():
-		# Rien pris (rien visé, trop loin) : la case reprend son objet.
-		inventory.put("bar", chosen, before)
-		return took
+		# 0.0.8.19 (signalé par l'utilisateur : la molette ne faisait rien en visant le sol) : en Créatif, aussi ce qu'on vise
+		# dans le monde : la matière du sol (ou une motte sur l'herbe), une plante, un tronc d'arbre, la pierre d'un rocher.
+		var copy := aimed_copy(hit)
+		if copy.is_empty():
+			# Rien pris (rien visé, trop loin) : la case reprend son objet.
+			inventory.put("bar", chosen, before)
+			return took
+		inventory.put("bar", chosen, copy)
+		show_choice(Inventory.item_name(copy))
 	if not before.is_empty() and not Inventory.unlimited(before):
 		for index in range(Inventory.GRID_SIZE):
 			if inventory.usable("grid", index) and inventory.item("grid", index).is_empty():
 				inventory.put("grid", index, before)
 				break
 	return true
+
+# 0.0.8.19 : en Créatif, ce que vise la molette dans le monde (objet du catalogue, illimité) ; {} si rien.
+func aimed_copy(hit: Dictionary) -> Dictionary:
+	if hit.is_empty() or not is_instance_valid(hit.get("collider")) or not is_instance_valid(player):
+		return {}
+	if player.camera.global_position.distance_to(hit.position) > player.break_reach + 0.01:
+		return {}
+	var plant := aimed_plant(hit)
+	if not plant.is_empty():
+		return Inventory.catalog_item(PLANT_ITEMS[clampi(int(plant.plant.plante), 0, 2)])
+	var collider: Node = hit.collider
+	if collider.is_in_group("trees") and collider.has_meta("kind"):
+		return Inventory.catalog_item("tronc:%d" % clampi(int(collider.get_meta("kind")), 0, 3))
+	if collider.is_in_group("rocks"):
+		return Inventory.catalog_item("pierre")
+	if not collider.is_in_group("ground"):
+		return {}
+	if not aimed_grass(hit).is_empty():
+		return Inventory.catalog_item(TURF_ITEM)
+	var point := SmoothTerrain.point_of(hit.position - hit.normal * 0.3)
+	var kind: int = terrain.materials.get(point, terrain.natural_kind(point))
+	var id: String = {SmoothTerrain.SAND: "sable", SmoothTerrain.DIRT: "terre", SmoothTerrain.CLAY: "argile", SmoothTerrain.MUD: "boue", SmoothTerrain.GRAVEL: "gravier", SmoothTerrain.NEEDLES: "terre", SmoothTerrain.STONE: "pierre", SmoothTerrain.LIMESTONE: "calcaire", SmoothTerrain.DARK_STONE: "pierre_sombre", SmoothTerrain.FLINT: "silex"}.get(kind if kind >= 0 else SmoothTerrain.DIRT, "")
+	return Inventory.catalog_item(id) if not id.is_empty() else {}
 
 func pick_up(hit: Dictionary) -> bool:
 	var fruit := aimed_fruit(hit)

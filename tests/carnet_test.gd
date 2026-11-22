@@ -1,7 +1,9 @@
 extends SceneTree
-# 0.0.8.16 (#208, demande de l'utilisateur) : Carnet de route (O + C, menu Échap) : commandes en cases avec leurs détails,
-# chemin des premiers outils, coches (cases faites, objets fabriqués), « Réinitialiser », message la première fois,
-# enregistré par monde ; l'aide de l'inventaire est dans le carnet.
+# 0.0.8.16 (#208) puis 0.0.8.19 (demande de l'utilisateur : en arbre) : Carnet de route (O + C, menu Échap) : la case
+# « Départ » au centre, à gauche les commandes, en haut ce qu'on récupère, à droite ce qu'on fabrique, chaque branche du
+# plus facile au plus difficile, de plus en plus loin du centre ; cases reliées par des lignes, un clic : les détails ;
+# coches (actions faites, objets sur soi), cases pas encore possibles plus pâles, « Réinitialiser », message la première
+# fois, enregistré par monde ; vue déplaçable et molette.
 const Settings = preload("res://scripts/user_settings.gd")
 const Catalog = preload("res://scripts/world_catalog.gd")
 const Inventory = preload("res://scripts/inventory.gd")
@@ -22,17 +24,27 @@ func check(ok: bool, label: String) -> void:
 		failures += 1
 		push_error("FAIL: " + label)
 
+func branch_ids(branch: String) -> Array:
+	return Carnet.NODES.filter(func(entry): return entry.branche == branch).map(func(entry): return entry.id)
+
 func _run() -> void:
-	# Données.
-	var ids: Array = (Carnet.CASES + Carnet.STEPS).map(func(entry): return entry.id)
+	# Données : un plan en arbre.
+	var ids: Array = Carnet.NODES.map(func(entry): return entry.id)
 	var unique := {}
 	for id in ids:
 		unique[id] = true
-	check(Carnet.CASES.size() == 10 and Carnet.STEPS.size() == 10 and unique.size() == ids.size(), "10 commands, 10 steps, all different")
-	check((Carnet.CASES + Carnet.STEPS).all(func(entry): return CarnetUI.picture(entry.image) != null), "every case and step has a picture")
-	check(Carnet.STEPS.map(func(step): return step.id).slice(2, 10) == ["tresser", "eclat", "tete", "branche", "fendre", "assembler", "hache", "pioche"], "the path: braid, knap, split, assemble, tie: axe then pickaxe")
+	check(unique.size() == ids.size() and Carnet.place_of(Carnet.node("depart")) == Vector2.ZERO, "every case different; Départ in the centre")
+	check(Carnet.NODES.all(func(entry): return CarnetUI.picture(entry.image) != null and entry.nom.split(" ").size() <= 3), "every case: a picture and two or three words")
+	check(Carnet.NODES.all(func(entry): return entry.parent == "" or not Carnet.node(entry.parent).is_empty()), "every case linked to the one before")
+	check(branch_ids("gauche").slice(0, 4) == ["deplacer", "inventaire", "actions", "fabrication"], "left: the commands, easiest first")
+	check(branch_ids("haut").slice(0, 3) == ["cailloux", "fibres", "branche"], "up: what we gather, easiest first")
+	check(branch_ids("droite") == ["tresser", "eclat", "tete", "fendre", "assembler", "hache", "pioche"], "right: what we make, up to the axe and the pickaxe")
+	check(Carnet.place_of(Carnet.node("jeter")).x < Carnet.place_of(Carnet.node("deplacer")).x and Carnet.place_of(Carnet.node("planter")).y < Carnet.place_of(Carnet.node("cailloux")).y and Carnet.place_of(Carnet.node("assembler")).x > Carnet.place_of(Carnet.node("tresser")).x, "further = more advanced: left goes left, up goes up, right goes right")
+	check(Carnet.place_of(Carnet.node("hache")).y < 0.0 and Carnet.place_of(Carnet.node("pioche")).y > 0.0, "after Assembler, a fork: the axe a bit up, the pickaxe a bit down")
+	check(branch_ids("bas").is_empty(), "nothing below for now")
 	var book := Carnet.new()
-	check(book.mark("inventaire") and not book.mark("inventaire") and not book.mark("inconnu") and book.is_done("inventaire"), "a case is ticked once; unknown ids ignored")
+	check(book.is_done("depart") and not book.is_open("inventaire") and book.is_open("deplacer"), "Départ always done; a case is possible once the one before is done")
+	check(book.mark("deplacer") and not book.mark("deplacer") and not book.mark("inconnu") and book.is_open("inventaire"), "a case is ticked once; unknown ids ignored")
 	book.from_array(["tresser", "faux"])
 	check(book.to_array() == ["tresser"], "read back from joueur.json (unknown ids dropped)")
 	book.reset()
@@ -53,14 +65,33 @@ func _run() -> void:
 	for i in range(5):
 		await process_frame
 	var world: Node3D = app.active_world
-	check(world.notebook_seen and world.notice.contains("O + C"), "first time in the world: how to open it (%s)" % world.notice)
+	check(world.notebook_seen and world.notice.contains("O + C"), "first time in the world: how to open it")
 	check(is_instance_valid(app.notebook_button) and app.notebook_button.text.begins_with("Carnet de route"), "a button in the Échap menu")
+	check(world.held_text() == "Main vide", "empty hand: « Main vide »")
+	# (Une poche vide : la première tient l'orbe de retour du début.)
+	world.inventory.select(Inventory.POCKETS.filter(func(index): return world.inventory.item("bar", index).is_empty())[0])
+	check(world.held_text() == "Poche vide", "an empty pocket chosen: « Poche vide » (0.0.8.19)")
+	world.inventory.select(Inventory.HANDS[0])
 	world.open_notebook()
-	await process_frame
+	for i in range(3):
+		await process_frame
 	var ui: CanvasLayer = world.notebook_ui
-	check(world.notebook_open and ui.visible and ui.case_buttons.size() == 10 and ui.step_marks.size() == 10, "opened: the cases and the path")
+	check(world.notebook_open and ui.visible and ui.tiles.size() == Carnet.NODES.size(), "opened: every case on the plan")
+	var left: Vector2 = ui.tiles.jeter.position
+	var right: Vector2 = ui.tiles.pioche.position
+	var up: Vector2 = ui.tiles.planter.position
+	var middle: Vector2 = ui.tiles.depart.position
+	check(left.x < middle.x and right.x > middle.x and up.y < middle.y, "on screen too: left, right and up from the centre")
+	check(ui.tiles.inventaire.modulate.a < 0.9 and ui.tiles.deplacer.modulate.a == 1.0, "not yet possible: paler")
 	ui.choose("inventaire")
-	check(ui.detail_title.text.ends_with("Ouvrir l'inventaire") and ui.detail_text.text.contains("deux mains") and ui.detail_keys.text == "O + I", "a case clicked: its details (the inventory help is here now)")
+	check(ui.detail_title.text == "Inventaire" and ui.detail_text.text.contains("deux mains") and ui.detail_keys.text == "O + I" and ui.detail_state.text.contains("d'abord"), "a case clicked: its details (and what comes first)")
+	var before: float = ui.zoom
+	ui.zoom_at(ui.view.size * 0.5, 1.12)
+	var moved: Vector2 = ui.plan.position
+	ui._on_view_input(_press(Vector2(100, 100), true))
+	ui._on_view_input(_motion(Vector2(160, 130)))
+	ui._on_view_input(_press(Vector2(160, 130), false))
+	check(ui.zoom > before and ui.plan.position.is_equal_approx(moved + Vector2(60, 30)), "the wheel brings closer; dragging moves the view")
 	world.open_inventory()
 	check(not world.inventory_open, "the inventory does not open over it")
 	world.close_notebook(false)
@@ -69,16 +100,15 @@ func _run() -> void:
 	await process_frame
 	check(world.notebook.is_done("inventaire") and world.inventory_ui.message.text.contains("Carnet de route"), "inventory opened: case ticked; its short line points to the notebook")
 	world.close_inventory(false)
-	# Étape du chemin : une ficelle sur soi.
 	world.inventory.put("bar", Inventory.HANDS[0], {"objet": "ficelle_lin", "pile": [{}]})
-	check(world.notebook.is_done("tresser") and not world.notebook.is_done("hache"), "a cord in hand: « Tresser » ticked")
+	check(world.notebook.is_done("tresser") and not world.notebook.is_done("hache"), "a cord in hand: « Ficelle » ticked")
 	world.open_notebook()
 	await process_frame
-	check(ui.step_marks.tresser.text == "✓" and ui.step_marks.hache.text == "○" and ui.case_buttons.inventaire.text.begins_with("✓"), "ticks shown")
+	check(ui.marks.tresser.visible and not ui.marks.hache.visible and ui.marks.inventaire.visible, "ticks shown on the cases")
 	ui._on_reset()
 	check(world.notebook.is_done("tresser"), "Réinitialiser asks first (one click: nothing yet)")
 	ui._on_reset()
-	check(world.notebook.to_array().is_empty() and ui.step_marks.tresser.text == "○", "second click: everything unticked")
+	check(world.notebook.to_array().is_empty() and not ui.marks.tresser.visible, "second click: everything unticked")
 	world.close_notebook(false)
 	world.notebook_mark("manger")
 	check(world.player_data().carnet == ["manger"] and world.player_data().carnet_vu == true, "saved in joueur.json")
@@ -88,3 +118,15 @@ func _run() -> void:
 			DirAccess.remove_absolute(ProjectSettings.globalize_path(path))
 	print("RESULT: %d notebook checks, %d failures" % [checks, failures])
 	quit(0 if failures == 0 else 1)
+
+func _press(at: Vector2, down: bool) -> InputEventMouseButton:
+	var event := InputEventMouseButton.new()
+	event.button_index = MOUSE_BUTTON_LEFT
+	event.pressed = down
+	event.position = at
+	return event
+
+func _motion(at: Vector2) -> InputEventMouseMotion:
+	var event := InputEventMouseMotion.new()
+	event.position = at
+	return event
