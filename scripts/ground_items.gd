@@ -12,6 +12,7 @@ const Rocks = preload("res://scripts/rocks.gd")
 const Trees = preload("res://scripts/trees.gd")
 const ReturnOrb = preload("res://scripts/return_orb.gd")
 const Fibers = preload("res://scripts/fibers.gd")
+const Plants = preload("res://scripts/plants.gd")
 const StoneHeads = preload("res://scripts/stone_heads.gd")
 const ToolModels = preload("res://scripts/tool_models.gd")
 # Au-delà, les plus anciens disparaissent (seulement s'ils sont très nombreux).
@@ -19,6 +20,47 @@ const MAX_ITEMS := 3000
 const FALL_SECONDS := 0.35
 # Taille d'un éclat et d'une poignée, en mètres (les cailloux et les fruits gardent leur taille).
 const PIECE_SIZE := 0.07
+# 0.0.8.15 (#239) : plante arrachée posée au sol (hauteur, m) ; motte de gazon (rayon, épaisseur).
+const PLANT_SIZE := 0.35
+const TURF_RADIUS := 0.12
+const TURF_HEIGHT := 0.05
+static var _turf: ArrayMesh
+
+# Motte : un disque de terre (côtés et dessous) au dessus vert.
+static func turf_mesh() -> ArrayMesh:
+	if _turf != null:
+		return _turf
+	var made := ArrayMesh.new()
+	var side := CylinderMesh.new()
+	side.top_radius = TURF_RADIUS
+	side.bottom_radius = TURF_RADIUS * 0.92
+	side.height = TURF_HEIGHT
+	side.radial_segments = 12
+	side.rings = 1
+	side.cap_top = false
+	made.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, side.get_mesh_arrays())
+	var soil := StandardMaterial3D.new()
+	soil.albedo_color = Color("#6b4a2c")
+	soil.roughness = 1.0
+	made.surface_set_material(0, soil)
+	var top := CylinderMesh.new()
+	top.top_radius = TURF_RADIUS * 1.02
+	top.bottom_radius = TURF_RADIUS * 1.02
+	top.height = 0.012
+	top.radial_segments = 12
+	top.rings = 1
+	var arrays := top.get_mesh_arrays()
+	var points: PackedVector3Array = arrays[Mesh.ARRAY_VERTEX]
+	for index in range(points.size()):
+		points[index].y += TURF_HEIGHT * 0.5
+	arrays[Mesh.ARRAY_VERTEX] = points
+	made.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arrays)
+	var grass := StandardMaterial3D.new()
+	grass.albedo_color = Color("#5e8a2f")
+	grass.roughness = 0.95
+	made.surface_set_material(1, grass)
+	_turf = made
+	return made
 const HANDFUL_SIZE := 0.08
 const HAZELNUT_SIZE := 0.025
 const AIM_RADIUS := 0.09
@@ -156,6 +198,11 @@ static func size_of(value: Dictionary) -> float:
 		# 0.0.8.2 (#231) : orbe de retour.
 		"orbe":
 			return ReturnOrb.SIZE
+		# 0.0.8.15 (#239) : plante : son modèle (Plants.SIZES m) mis à PLANT_SIZE de haut ; motte : modèle à sa taille.
+		"plante":
+			return PLANT_SIZE / Plants.SIZES[clampi(int(Inventory.ITEMS.get(value.get("objet", ""), {}).get("plante", 0)), 0, 2)]
+		"gazon":
+			return 1.0
 		# 0.0.7.8 : bâton ou tronc : son épaisseur (la longueur est à part).
 		"bois":
 			return float(value.get("epaisseur", 3.0)) / 100.0
@@ -169,6 +216,10 @@ static func lift(value: Dictionary) -> float:
 		return float(value.get("epaisseur", 3.5)) / 200.0
 	if _kind(value) in ["fibre", "liane", "ficelle"]:
 		return 0.012
+	if _kind(value) == "plante":
+		return 0.0
+	if _kind(value) == "gazon":
+		return TURF_HEIGHT * 0.5
 	return size_of(value) * (0.5 if _kind(value) in ["fruit", "bois", "orbe"] else 0.3)
 
 # Fruits : le modèle des arbres (rayon 1) ; bois : cylindre couché le long de son orientation ; autres : diamètre 1.
@@ -207,6 +258,11 @@ func _mesh(value: Dictionary) -> Mesh:
 		return StoneHeads.mesh("hache" if value.get("objet") == "tete_hache" else "pioche", 1.0)
 	if _kind(value) == "orbe":
 		return ReturnOrb.mesh()
+	# 0.0.8.15 (#239) : plante arrachée : la plante du monde, petite (PLANT_SIZE) ; motte de gazon.
+	if _kind(value) == "plante":
+		return Plants.mesh(int(Inventory.ITEMS.get(value.get("objet", ""), {}).get("plante", 0)))
+	if _kind(value) == "gazon":
+		return turf_mesh()
 	if _kind(value) == "fruit":
 		return Trees._fruit_mesh(Trees.APPLE if value.get("objet") == "pomme" else Trees.HAZEL, _two_tone(value))
 	if _kind(value) == "bois":
@@ -296,6 +352,9 @@ func _plain_material(value: Dictionary) -> Material:
 	# 0.0.8.2 : orbe de retour : les matières de son modèle (boule lumineuse, anneau doré).
 	if _kind(value) == "orbe":
 		return null
+	# 0.0.8.15 : plante (image du monde) et motte (terre, herbe) : les matières de leur modèle.
+	if _kind(value) in ["plante", "gazon"]:
+		return null
 	# Fruits : le matériau de leur modèle (celui des arbres), couleur de chaque pomme dans ses données.
 	if _kind(value) == "fruit":
 		return null
@@ -360,6 +419,12 @@ func _add_body(index: int) -> void:
 		shape.shape = tool
 		shape.position = Vector3(0.0, 0.0, length * 0.5)
 		body.rotation.y = float(entry.item.get("rotation", 0.0))
+	elif _kind(entry.item) in ["plante", "gazon"]:
+		# 0.0.8.15 : plante debout (PLANT_SIZE), motte plate : leur vraie taille.
+		var box := BoxShape3D.new()
+		box.size = Vector3(0.22, PLANT_SIZE, 0.22) if _kind(entry.item) == "plante" else Vector3(TURF_RADIUS * 2.0, TURF_HEIGHT + 0.02, TURF_RADIUS * 2.0)
+		shape.shape = box
+		shape.position = Vector3(0.0, PLANT_SIZE * 0.5, 0.0) if _kind(entry.item) == "plante" else Vector3.ZERO
 	elif _kind(entry.item) in ["fibre", "liane", "ficelle"]:
 		# 0.0.8.9 : fibres, herbe arrachée (botte de 25 cm), liane (boucles de 55 cm), ficelle (rouleau de 9 cm) : leur
 		# vraie taille (avant : une boule d'un mètre qui prenait la place des objets voisins).

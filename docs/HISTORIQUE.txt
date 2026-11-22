@@ -3,6 +3,34 @@ Du plus récent au plus ancien. Ce fichier est mis à jour à chaque version.
 
 === Thème « Fabrication et survie » (0.0.8) ===
 
+0.0.8.20 — Paramètres du monde : la date de création et sa version, la dernière ouverture, le temps de jeu, le mode de jeu et la version de la génération
+Génération du terrain : version 33 · Menus : version 16.
+Demande de l'utilisateur : ces détails n'étaient que dans Informations du monde (F3).
+
+0.0.8.19 — Carnet de route en arbre : la case Départ au centre, les commandes à gauche, ce qu'on récupère en haut, ce qu'on fabrique à droite (jusqu'à la hache et la pioche), du plus facile au plus difficile, cases reliées par des lignes, vue qu'on déplace et qu'on rapproche ; clic de la molette en Créatif aussi sur le sol, une plante, un arbre ; « Poche vide » au lieu de « Main vide »
+Génération du terrain : version 33 · Menus : version 15.
+Le carnet de 0.0.8.16 (trois colonnes) ne correspondait pas à la demande ; refait d'après la description de l'utilisateur, avec un aspect propre à OrbMeka.
+
+0.0.8.18 — Fiche de fabrication de chaque outil : chaque étape notée (bien, moyen, à améliorer) avec son effet, et des conseils pour un meilleur outil ; bouton « Fiche de fabrication » sur les détails d'un outil ou d'une tête
+Génération du terrain : version 33 · Menus : version 14.
+Issue #246 ; les notes et les effets viennent des règles des outils (0.0.8.10), rien d'inventé.
+
+0.0.8.17 — Bras et mains animés à la première personne : la main serre ce qu'elle tient, creuse en griffe, s'ouvre pour poser, attrape en ramassant, serre et tire en récoltant, porte le fruit à la bouche ; doigts animés pour tailler, fendre, assembler, tresser et ficeler
+Génération du terrain : version 33 · Menus : version 13.
+Issue #224 (première personne) ; la main du jeu refaite dans Blender avec 4 poses (sources_blender/main/generer_main.py).
+
+0.0.8.16 — Carnet de route (O + C, ou le menu Échap) : les commandes en cases avec leurs détails, le chemin des premiers outils (de la ficelle à la hache et la pioche), tout se coche quand c'est fait, bouton Réinitialiser ; message la première fois dans un monde ; l'aide de l'inventaire passe dans le carnet
+Génération du terrain : version 33 · Menus : version 13.
+Issue #208 (aide pour débuter), d'après la description de l'utilisateur ; nom original (« Carnet de route »), style bleu-violet d'OrbMeka.
+
+0.0.8.15 — Plantes et gazon dans l'inventaire : arracher une plante entière, la replanter (elle repousse après avoir été coupée), motte de gazon (l'herbe repousse où on la pose) ; clic de la molette : prendre l'objet visé en main ; onglet Plantes du Créatif réparé
+Génération du terrain : version 33 · Menus : version 12.
+Issues #239 et #238 ; l'onglet Plantes du Créatif montrait la grille depuis 0.0.8.4 (signalé par l'utilisateur).
+
+0.0.8.14 — Plus fluide sur les petits PC et nouvelles images des menus : feuilles et écorce allégées (mipmaps), détails fins du sol simplifiés au loin, fuite d'objets corrigée, taille de la carte des ombres au choix (512 à 8192 ; Performance 1024), qualité Performance proposée une fois sur un PC lent, console de mesure du Web ; images du menu des actions (B + T) et de la fabrication (O + F) faites dans Blender avec la main du personnage, nouvelles main et poche de l'inventaire
+Génération du terrain : version 33 · Menus : version 11.
+Rapport d'optimisation (mémoire, processeur, carte graphique, chargement ; PC bon marché d'abord) et issue #247. Radeon 610M en Performance : forêt 59 → 18 ms par image.
+
 0.0.8.13 — Plusieurs cœurs : le terrain et le lointain calculés sur d'autres cœurs (PC et Web), monde ouvert et découvert plus vite, exactement le même monde ; version Web avec fils (SharedArrayBuffer)
 Génération du terrain : version 33 · Menus : version 10.
 Rapports de mesures Web ; demande de l'utilisateur (PC bon marché aussi). Une copie du terrain par fil de calcul (2 au plus), mêmes nombres que le fil principal.

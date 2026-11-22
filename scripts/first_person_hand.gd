@@ -20,6 +20,8 @@ const SCALE := 0.8
 const PALM := Vector3(0.0, 0.014, -0.045)
 # 0.0.8.7 (#245, demande de l'utilisateur : tout paraissait trop petit en main) : 15 cm (avant 7 cm).
 const MAX_ITEM := 0.15
+const Plants = preload("res://scripts/plants.gd")
+const GroundItems = preload("res://scripts/ground_items.gd")
 
 var hand: Node3D
 # 0.0.7.10 : main gauche : la main droite en miroir gauche-droite (pouce toujours en haut), à gauche de l'écran.
@@ -52,6 +54,10 @@ func setup(skin_id: String, stone: Callable = Callable(), left_hand: bool = fals
 	if scene != null:
 		hand = scene.instantiate()
 		add_child(hand)
+		# 0.0.8.17 (#224) : le modèle porte ses poses (formes de mélange, sources_blender/main/generer_main.py).
+		var shapes: Array = hand.find_children("*", "MeshInstance3D", true, false)
+		if not shapes.is_empty():
+			pose_mesh = shapes[0]
 	held = Node3D.new()
 	held.name = "Tenu"
 	held.position = PALM
@@ -75,6 +81,8 @@ func show_item(value: Dictionary) -> void:
 		child.queue_free()
 	visible = value.get("objet", "") != "pioche"
 	if value.is_empty() or not Inventory.ITEMS.has(value.get("objet", "")):
+		hold_pose = ["", 0.0]
+		_go_pose("", 0.0)
 		return
 	var id: String = value.objet
 	var spec: Dictionary = Inventory.ITEMS[id]
@@ -153,6 +161,18 @@ func show_item(value: Dictionary) -> void:
 				made.scale = Vector3(thick, minf(float(shown.get("longueur", 1.0)), 0.5), thick)
 				made.rotation.z = PI * 0.5
 				made.position.y = thick * 0.5
+			# 0.0.8.15 (#239) : plante arrachée (debout, petite) et motte de gazon, dans la paume.
+			"plante":
+				made.mesh = Plants.mesh(clampi(int(spec.get("plante", 0)), 0, 2))
+				size = 0.22 / Plants.SIZES[clampi(int(spec.get("plante", 0)), 0, 2)]
+				made.scale = Vector3.ONE * size
+			"gazon":
+				made.mesh = GroundItems.turf_mesh()
+				made.scale = Vector3.ONE * 0.55
+				made.position.y = 0.012
+	# 0.0.8.17 (#224) : la main serre ce qu'elle tient (selon l'objet).
+	hold_pose = _hold_pose_for(spec)
+	_go_pose(hold_pose[0], hold_pose[1])
 	# La paume regarde vers +Y (repère de la main) : l'objet repose dessus.
 	made.position = grip if grip != Vector3.ZERO else Vector3(0.0, made.position.y, 0.0)
 	held.add_child(made)
@@ -239,6 +259,7 @@ func pull(share: float, time: float) -> void:
 	if share <= 0.0:
 		if pulling:
 			pulling = false
+			_go_pose(hold_pose[0], hold_pose[1])
 			if is_inside_tree():
 				if _tween != null:
 					_tween.kill()
@@ -250,6 +271,8 @@ func pull(share: float, time: float) -> void:
 		return
 	if not pulling and _tween != null:
 		_tween.kill()
+	if not pulling:
+		_go_pose("prise", 1.0)
 	pulling = true
 	var reach := minf(share * 3.0, 1.0)
 	var tug := sin(time * 16.0) * 0.012 * reach
@@ -272,3 +295,123 @@ func set_view_scale(value: float) -> void:
 	rest = _rest_for(both)
 	if not pulling:
 		position = rest
+
+# --- 0.0.8.17 (#224, demande de l'utilisateur) : animations des bras et des mains à la première personne ---
+# La main a des poses (formes de mélange du modèle) : prise (serrer), griffe (creuser), ouverte (poser), pince (pouce et
+# index). Elle passe de l'une à l'autre en douceur (POSE_SPEED). Au repos, elle serre ce qu'elle tient (hold_pose) ;
+# gestes : creuser (griffe qui gratte vers soi), poser (main ouverte qui pousse), ramasser (elle s'avance ouverte, se
+# ferme, revient), récolter et arracher (elle serre et tire), manger (le fruit monte vers la bouche).
+const POSES := ["prise", "griffe", "ouverte", "pince"]
+const POSE_SPEED := 14.0
+const DIG_REACH := Vector3(-0.03, -0.09, -0.12)
+const GRAB_REACH := Vector3(-0.06, -0.16, -0.22)
+const PLACE_REACH := Vector3(-0.02, -0.06, -0.14)
+const MOUTH := Vector3(-0.3, 0.12, 0.05)
+var pose_mesh: MeshInstance3D
+var hold_pose := ["", 0.0]
+var _pose_goal := {}
+var _pose_now := {}
+var _gesture_left := 0.0
+
+static func _hold_pose_for(spec: Dictionary) -> Array:
+	if spec.has("matiere"):
+		return ["prise", 0.25]
+	match spec.get("forme", ""):
+		"caillou", "eclat", "fruit", "tete", "orbe":
+			return ["prise", 0.55]
+		"fibre", "ficelle", "plante":
+			return ["pince", 0.7]
+		"liane", "gazon":
+			return ["prise", 0.35]
+		"outil_brut", "outil_pierre", "bois":
+			return ["prise", 0.9]
+	return ["", 0.0]
+
+# Pose voulue (une seule à la fois ; "" : la main de base).
+func _go_pose(name: String, amount: float) -> void:
+	for each in POSES:
+		_pose_goal[each] = amount if each == name else 0.0
+
+func pose_value(name: String) -> float:
+	return float(_pose_now.get(name, 0.0))
+
+func _process(delta: float) -> void:
+	if _gesture_left > 0.0:
+		_gesture_left -= delta
+		if _gesture_left <= 0.0 and not pulling:
+			_go_pose(hold_pose[0], hold_pose[1])
+	if pose_mesh == null or pose_mesh.mesh == null:
+		return
+	var step := minf(1.0, delta * POSE_SPEED)
+	for name: String in _pose_goal:
+		var now := lerpf(float(_pose_now.get(name, 0.0)), float(_pose_goal[name]), step)
+		if absf(now - float(_pose_now.get(name, 0.0))) < 0.0005 and absf(now - float(_pose_goal[name])) < 0.001:
+			now = float(_pose_goal[name])
+		_pose_now[name] = now
+		var index := pose_mesh.find_blend_shape_by_name(name)
+		if index >= 0:
+			pose_mesh.set_blend_shape_value(index, now)
+
+func _side(offset: Vector3) -> Vector3:
+	return Vector3(-offset.x if left else offset.x, offset.y, offset.z)
+
+func _gesture(pose: String, amount: float, reach: Vector3, out_seconds: float, back_seconds: float, turn: float = 0.0) -> void:
+	_go_pose(pose, amount)
+	_gesture_left = out_seconds + back_seconds
+	if not is_inside_tree() or pulling:
+		return
+	if _tween != null:
+		_tween.kill()
+	position = rest
+	rotation.x = 0.0
+	_tween = create_tween()
+	_tween.set_parallel(true)
+	_tween.tween_property(self, "position", rest + _side(reach), out_seconds).set_ease(Tween.EASE_OUT)
+	if turn != 0.0:
+		_tween.tween_property(self, "rotation:x", turn, out_seconds).set_ease(Tween.EASE_OUT)
+	_tween.chain().tween_property(self, "position", rest, back_seconds).set_ease(Tween.EASE_IN_OUT)
+	if turn != 0.0:
+		_tween.tween_property(self, "rotation:x", 0.0, back_seconds).set_ease(Tween.EASE_IN_OUT)
+
+# Creuser, casser à la main : les doigts en griffe grattent vers soi.
+func dig() -> void:
+	_gesture("griffe", 1.0, DIG_REACH, 0.09, 0.16, -0.35)
+
+# Poser : la main s'ouvre et pousse vers l'avant.
+func place() -> void:
+	_gesture("ouverte", 0.8, PLACE_REACH, 0.08, 0.15)
+
+# Ramasser : la main s'avance ouverte vers le sol, se ferme sur l'objet, revient.
+func grab() -> void:
+	_go_pose("ouverte", 0.9)
+	_gesture_left = 0.45
+	if not is_inside_tree() or pulling:
+		return
+	if _tween != null:
+		_tween.kill()
+	position = rest
+	_tween = create_tween()
+	_tween.tween_property(self, "position", rest + _side(GRAB_REACH), 0.13).set_ease(Tween.EASE_OUT)
+	_tween.tween_callback(func(): _go_pose("prise", 1.0))
+	_tween.tween_interval(0.06)
+	_tween.tween_property(self, "position", rest, 0.2).set_ease(Tween.EASE_IN_OUT)
+
+# Manger (share : 0 à 1 ; 0 : la main revient) : le fruit monte vers la bouche, en bas au milieu de l'écran.
+var eating := false
+
+func eat(share: float) -> void:
+	if share <= 0.0:
+		if eating:
+			eating = false
+			_go_pose(hold_pose[0], hold_pose[1])
+			position = rest
+			rotation.x = 0.0
+		return
+	if not eating and _tween != null:
+		_tween.kill()
+	eating = true
+	_go_pose("prise", 0.8)
+	var reach := smoothstep(0.0, 0.35, share)
+	var chew := sin(share * 40.0) * 0.008 * reach
+	position = rest + _side(MOUTH) * reach + Vector3(0.0, chew, 0.0)
+	rotation.x = 0.5 * reach

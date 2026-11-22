@@ -2,7 +2,9 @@ extends Control
 # 0.0.7.17 (demande de l'utilisateur) : menu des actions, ouvert avec B + T. Deux lignes de cases en bas de l'écran,
 # au-dessus de la barre d'objets : en haut, ce que fait le clic gauche (Creuser / Casser, Casser / Récupérer des
 # objets, Récupérer des matériaux) ; en bas, le clic droit (Poser, Aplanir, Lisser). Chaque case : une petite image
-# dessinée ici et un petit texte dessous (cases juste assez larges pour tout le texte).
+# et un petit texte dessous (cases juste assez larges pour tout le texte). 0.0.8.14 (#247, demande de l'utilisateur) :
+# les images sont faites dans Blender à partir des modèles du jeu (menu_images.gd), avec la main du personnage ; un peu
+# plus grandes (54 points, avant 46 : dessins plus simples).
 # La molette choisit dans la ligne active (aussitôt pris en compte) ; T (ou B + T) passe à l'autre ligne ; un clic,
 # Échap ou Entrée ferme le menu (Échap n'ouvre pas la pause), ou un moment sans rien toucher (IDLE_SECONDS).
 
@@ -15,7 +17,8 @@ const ROWS := [
 ]
 const ROW_NAMES := ["Clic gauche", "Clic droit"]
 const IDLE_SECONDS := 2.5
-const ICON := 46.0
+const ICON := 54.0
+const MenuImages = preload("res://scripts/menu_images.gd")
 const GAP := 10.0
 
 var selected := [0, 0]
@@ -27,6 +30,8 @@ var bottom_margin := 90.0
 func _ready() -> void:
 	set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
+	# Images réduites proprement (mipmaps), à toutes les tailles du texte.
+	texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS
 	visible = false
 
 func is_open() -> bool:
@@ -142,71 +147,8 @@ func _draw() -> void:
 				var baseline := rect.end.y - 5.0 * text_scale - (lines.size() - 1 - line) * (font_size + 2.0)
 				draw_string(font, Vector2(rect.position.x + (rect.size.x - width) * 0.5, baseline), lines[line], HORIZONTAL_ALIGNMENT_LEFT, -1, font_size, Color(1, 1, 1, 1.0 if active else 0.6))
 
-# Petites images simples (formes de base, couleurs du jeu).
+# Image d'une case (menu_images.gd), plus pâle sur la ligne qui n'est pas active.
 func _icon(row_index: int, index: int, box: Rect2, alpha: float) -> void:
-	var c := box.get_center()
-	var s := box.size.x
-	var wood := Color(0.55, 0.36, 0.2, alpha)
-	var earth := Color(0.48, 0.33, 0.2, alpha)
-	var light := Color(0.85, 0.7, 0.48, alpha)
-	var metal := Color(0.7, 0.72, 0.75, alpha)
-	var leaf := Color(0.35, 0.6, 0.25, alpha)
-	var white := Color(1, 1, 1, alpha)
-	match [row_index, index]:
-		[0, 0]:
-			# Creuser / Casser : une pelle plantée dans un tas de terre.
-			draw_colored_polygon(PackedVector2Array([c + Vector2(-0.42, 0.4) * s, c + Vector2(0.42, 0.4) * s, c + Vector2(0.0, 0.08) * s]), earth)
-			draw_line(c + Vector2(0.28, -0.4) * s, c + Vector2(0.02, 0.12) * s, wood, 0.07 * s)
-			draw_colored_polygon(PackedVector2Array([c + Vector2(-0.06, 0.06) * s, c + Vector2(0.1, 0.14) * s, c + Vector2(-0.02, 0.36) * s, c + Vector2(-0.16, 0.26) * s]), metal)
-		[0, 1]:
-			# Casser / Récupérer des objets : un bâton cassé en deux et une flèche vers le haut.
-			draw_line(c + Vector2(-0.42, 0.28) * s, c + Vector2(-0.06, 0.12) * s, wood, 0.11 * s)
-			draw_line(c + Vector2(0.06, 0.06) * s, c + Vector2(0.42, -0.1) * s, wood, 0.11 * s)
-			draw_circle(c + Vector2(-0.06, 0.12) * s, 0.05 * s, light)
-			draw_line(c + Vector2(0.0, -0.06) * s, c + Vector2(0.0, -0.42) * s, white, 0.05 * s)
-			draw_colored_polygon(PackedVector2Array([c + Vector2(-0.12, -0.3) * s, c + Vector2(0.12, -0.3) * s, c + Vector2(0.0, -0.46) * s]), white)
-		[0, 2]:
-			# Récupérer des matériaux : une poignée de terre au-dessus d'un tas.
-			draw_colored_polygon(PackedVector2Array([c + Vector2(-0.44, 0.4) * s, c + Vector2(0.44, 0.4) * s, c + Vector2(0.18, 0.12) * s, c + Vector2(-0.2, 0.14) * s]), earth)
-			draw_circle(c + Vector2(0.0, -0.16) * s, 0.15 * s, Color(earth.r * 1.15, earth.g * 1.15, earth.b * 1.15, alpha))
-			draw_line(c + Vector2(0.0, 0.06) * s, c + Vector2(0.0, -0.02) * s, white, 0.04 * s)
-			draw_colored_polygon(PackedVector2Array([c + Vector2(-0.3, -0.06) * s, c + Vector2(-0.18, -0.06) * s, c + Vector2(-0.24, -0.16) * s]), white)
-		[0, 3]:
-			# 0.0.8.9 : Casser / Arracher : une touffe d'herbe tirée hors du sol (racines), une flèche vers le haut.
-			draw_line(c + Vector2(-0.42, 0.36) * s, c + Vector2(0.42, 0.36) * s, earth, 0.06 * s)
-			for blade in [-0.12, -0.04, 0.04, 0.12]:
-				draw_line(c + Vector2(blade * 0.6, 0.06) * s, c + Vector2(blade * 1.6, -0.34) * s, leaf, 0.04 * s)
-			draw_line(c + Vector2(-0.05, 0.06) * s, c + Vector2(-0.1, 0.2) * s, light, 0.025 * s)
-			draw_line(c + Vector2(0.05, 0.06) * s, c + Vector2(0.09, 0.22) * s, light, 0.025 * s)
-			draw_line(c + Vector2(0.32, 0.2) * s, c + Vector2(0.32, -0.2) * s, white, 0.04 * s)
-			draw_colored_polygon(PackedVector2Array([c + Vector2(0.22, -0.14) * s, c + Vector2(0.42, -0.14) * s, c + Vector2(0.32, -0.3) * s]), white)
-		[1, 0]:
-			# Poser : un bloc de terre (cube vu de biais).
-			var top := PackedVector2Array([c + Vector2(0.0, -0.36) * s, c + Vector2(0.34, -0.18) * s, c + Vector2(0.0, 0.0) * s, c + Vector2(-0.34, -0.18) * s])
-			draw_colored_polygon(top, leaf)
-			draw_colored_polygon(PackedVector2Array([c + Vector2(-0.34, -0.18) * s, c, c + Vector2(0.0, 0.4) * s, c + Vector2(-0.34, 0.22) * s]), earth)
-			draw_colored_polygon(PackedVector2Array([c, c + Vector2(0.34, -0.18) * s, c + Vector2(0.34, 0.22) * s, c + Vector2(0.0, 0.4) * s]), Color(earth.r * 0.8, earth.g * 0.8, earth.b * 0.8, alpha))
-		[1, 1]:
-			# Aplanir : une bosse coupée à plat.
-			draw_colored_polygon(PackedVector2Array([c + Vector2(-0.44, 0.36) * s, c + Vector2(-0.24, 0.0) * s, c + Vector2(0.24, 0.0) * s, c + Vector2(0.44, 0.36) * s]), earth)
-			draw_line(c + Vector2(-0.4, 0.0) * s, c + Vector2(0.4, 0.0) * s, light, 0.05 * s)
-			draw_line(c + Vector2(-0.24, -0.2) * s, c + Vector2(0.24, -0.2) * s, Color(white.r, white.g, white.b, alpha * 0.5), 0.03 * s)
-		[1, 2]:
-			# Lisser : un sol en vague douce.
-			var wave := PackedVector2Array()
-			for step in range(13):
-				var x := -0.44 + step * 0.88 / 12.0
-				wave.append(c + Vector2(x, 0.08 + sin(x * 7.0) * 0.08) * s)
-			var ground := wave.duplicate()
-			ground.append(c + Vector2(0.44, 0.4) * s)
-			ground.append(c + Vector2(-0.44, 0.4) * s)
-			draw_colored_polygon(ground, earth)
-			draw_polyline(wave, light, 0.05 * s)
-		[1, 3]:
-			# 0.0.8.3 : Manger : une pomme croquée sur le côté (queue et feuille).
-			var red := Color(0.75, 0.16, 0.12, alpha)
-			draw_circle(c + Vector2(0.0, 0.06) * s, 0.32 * s, red)
-			draw_circle(c + Vector2(0.34, 0.02) * s, 0.13 * s, Color(0.98, 0.93, 0.78, alpha))
-			draw_circle(c + Vector2(0.44, 0.02) * s, 0.12 * s, Color(0.08, 0.09, 0.1, 1.0))
-			draw_line(c + Vector2(0.0, -0.24) * s, c + Vector2(0.04, -0.42) * s, wood, 0.05 * s)
-			draw_colored_polygon(PackedVector2Array([c + Vector2(0.04, -0.36) * s, c + Vector2(0.24, -0.44) * s, c + Vector2(0.14, -0.3) * s]), leaf)
+	var picture := MenuImages.action(row_index, index)
+	if picture != null:
+		draw_texture_rect(picture, box, false, Color(1.0, 1.0, 1.0, alpha))

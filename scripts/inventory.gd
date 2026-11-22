@@ -117,6 +117,12 @@ const ITEMS := {
 	# 0.0.8.8 (demande de l'utilisateur) : herbe arrachée du sol (pour voir ce qui est tombé dans l'herbe) : reste au sol,
 	# ramassable ; pas encore d'usage.
 	"herbe_arrachee": {"nom": "Herbe arrachée", "forme": "fibre", "poids": 15.0, "couleur": Color("#6f9a3c")},
+	# 0.0.8.15 (#239, demandes de l'utilisateur) : plantes entières (arrachées avec leurs racines, à replanter) et motte de
+	# gazon (prise sur l'herbe, à poser sur la terre : l'herbe y repousse). « plante » : sorte de plants.gd.
+	"plante_ortie": {"nom": "Plant d'ortie", "forme": "plante", "plante": 0, "poids": 120.0, "couleur": Color("#5f7a34")},
+	"plante_lin": {"nom": "Plant de lin", "forme": "plante", "plante": 1, "poids": 60.0, "couleur": Color("#8fa05a")},
+	"plante_herbe": {"nom": "Plant d'herbes longues", "forme": "plante", "plante": 2, "poids": 90.0, "couleur": Color("#7d9a45")},
+	"gazon": {"nom": "Motte de gazon", "forme": "gazon", "poids": 450.0, "couleur": Color("#5e8a2f")},
 	# 0.0.8.5 (#213, #211) : ficelle tressée (3 fibres du même type, 33 cm ; elle garde son type) ; têtes taillées dans un
 	# silex ou un calcaire (crafting_rules.gd).
 	"ficelle_ortie": {"nom": "Ficelle d'ortie", "forme": "ficelle", "poids": 6.0, "couleur": Color("#6f7d4c")},
@@ -153,7 +159,8 @@ const CATEGORIES := [
 	# séparés ; « objet:essence » (catalog_item).
 	{"id": "wood", "nom": "Bois", "objets": ["tronc:0", "branche:0", "tronc:1", "branche:1", "tronc:2", "branche:2", "tronc:3", "branche:3"]},
 	# 0.0.8.4 : fibres et liane (onglet Plantes, après Bois).
-	{"id": "plants", "nom": "Plantes", "objets": ["fibre_ortie", "fibre_lin", "fibre_herbe", "liane"]},
+	# 0.0.8.15 (#239) : plantes entières et motte de gazon, à planter ou poser.
+	{"id": "plants", "nom": "Plantes", "objets": ["plante_ortie", "plante_lin", "plante_herbe", "gazon", "fibre_ortie", "fibre_lin", "fibre_herbe", "liane"]},
 ]
 # Pour l'instant une seule version par objet : cailloux de taille 4, pomme rouge de taille 2.
 const CATALOG_MODELS := {"caillou": {"taille": 4}, "caillou_calcaire": {"taille": 4}, "caillou_silex": {"taille": 4}, "pomme": {"taille": 2, "couleur": 1}, "tete_hache": {"pierre": 1, "taille": 5, "poids": 420.0}, "tete_pioche": {"pierre": 1, "taille": 5, "poids": 420.0}, "hache_pierre": {"pierre": 1, "taille": 5, "essence": 1, "age": 3, "souplesse": 3, "epaisseur": 3.5, "longueur": 0.6, "lien": 1, "tours": 8, "poids": 700.0}, "pioche_pierre": {"pierre": 1, "taille": 5, "essence": 1, "age": 3, "souplesse": 3, "epaisseur": 3.5, "longueur": 0.6, "lien": 1, "tours": 8, "poids": 700.0}}
@@ -923,6 +930,71 @@ static func tool_lines(value: Dictionary) -> Array:
 	else:
 		lines.append("Pas encore ficelée")
 	return lines
+
+# --- 0.0.8.18 (#246, demande de l'utilisateur) : fiche de fabrication d'un outil (et d'une tête taillée) ---
+# Chaque étape : [étape, ce qu'on a, note (« bien », « moyen », « à améliorer »), son effet] ; puis des conseils pour un
+# meilleur outil, et un résumé (qualité, coups). Les effets sont ceux des règles ci-dessus (tool_quality,
+# tool_durability) : rien d'inventé.
+const RATINGS := ["bien", "moyen", "à améliorer"]
+
+static func has_tool_report(value: Dictionary) -> bool:
+	return ITEMS.get(value.get("objet", ""), {}).get("forme", "") in ["outil_brut", "outil_pierre", "tete"]
+
+static func tool_report(value: Dictionary) -> Dictionary:
+	var form: String = ITEMS.get(value.get("objet", ""), {}).get("forme", "")
+	var steps := []
+	var tips := []
+	if int(value.get("pierre", 1)) == 1:
+		steps.append(["Pierre de la tête", "silex", "bien", "la plus dure : 60 % de coups en plus qu'en calcaire"])
+	else:
+		steps.append(["Pierre de la tête", "calcaire", "à améliorer", "plus tendre : 10 % plus lente, beaucoup moins de coups"])
+		tips.append("Tailler la tête dans un silex (rognon de silex) plutôt que dans un calcaire.")
+	match int(value.get("taille", 4)):
+		5:
+			steps.append(["Taille de la tête", "grande", "bien", "+12 % de vitesse, +25 % de coups"])
+		3:
+			steps.append(["Taille de la tête", "petite", "à améliorer", "-15 % de vitesse, -25 % de coups"])
+			tips.append("Tailler une plus grande pierre (taille 5) : +12 % de vitesse et +25 % de coups.")
+		_:
+			steps.append(["Taille de la tête", "moyenne", "moyen", "normale"])
+			tips.append("Tailler une grande pierre (taille 5) : +12 % de vitesse et +25 % de coups.")
+	if form != "tete":
+		if int(value.get("morte", 0)) == 1:
+			steps.append(["Bois du manche", "bois mort", "à améliorer", "-8 % de vitesse, -25 % de coups"])
+			tips.append("Prendre une branche vivante (coupée sur un arbre) plutôt qu'une branche morte ramassée.")
+		else:
+			steps.append(["Bois du manche", "bois vivant", "bien", "solide"])
+		var supple := clampi(int(value.get("souplesse", 3)), 1, 5)
+		if supple in [2, 3]:
+			steps.append(["Souplesse du manche", "%s (%d sur 5)" % [SUPPLE_NAMES[supple - 1], supple], "bien", "+5 % de coups"])
+		else:
+			steps.append(["Souplesse du manche", "%s (%d sur 5)" % [SUPPLE_NAMES[supple - 1], supple], "à améliorer", "-8 % de coups (trop souple ou trop cassant)"])
+			tips.append("Un manche de souplesse 2 ou 3 (raide ou moyen) : ni trop souple, ni cassant.")
+		if not value.has("lien"):
+			steps.append(["Ficelage", "pas encore ficelé", "à améliorer", "l'outil ne sert pas encore"])
+			tips.append("Ficeler la tête (O + F → Ficeler) : 3 ficelles de lin et 8 tours, c'est le plus solide.")
+		else:
+			var bind := clampi(int(value.lien), 0, BIND_NAMES.size() - 1)
+			var bind_effects := ["normal", "+20 % de coups", "-15 % de coups", "-25 % de coups (lien grossier)"]
+			steps.append(["Lien", BIND_NAMES[bind], ["moyen", "bien", "à améliorer", "à améliorer"][bind], bind_effects[bind]])
+			if bind != 1:
+				tips.append("Ficeler avec de la ficelle de lin : le lien le plus solide (+20 % de coups).")
+			var turns := clampi(int(value.get("tours", 4)), 4, 8)
+			var rating := "bien" if turns == 8 else ("moyen" if turns >= 6 else "à améliorer")
+			steps.append(["Tours de ficelle", "%d tours" % turns, rating, "chaque tour en plus : +2 % de vitesse, +6 % de coups (8 au plus)"])
+			if turns < 8:
+				tips.append("Faire 8 tours en ficelant (relâcher le clic plus tard).")
+	var summary := ""
+	if form == "outil_pierre":
+		var work := "coupe le bois %s fois plus vite" % _number(3.0 * tool_quality(value)) if value.get("objet", "") == "hache_pierre" else "casse la pierre %s fois plus vite" % _number(4.0 * tool_quality(value))
+		summary = "Elle %s. Neuve : %d coups (300 au mieux) ; il en reste %d." % [work, tool_durability(value), tool_left(value)]
+	elif form == "outil_brut":
+		summary = "Pas encore ficelée : elle ne sert pas encore."
+	else:
+		summary = "La tête décide d'une grande part de la qualité de l'outil."
+	if tips.is_empty():
+		tips.append("Rien à améliorer : c'est le meilleur outil possible.")
+	return {"etapes": steps, "conseils": tips, "resume": summary}
 
 static func detail_lines(value: Dictionary) -> Array:
 	var id: String = value.get("objet", "")

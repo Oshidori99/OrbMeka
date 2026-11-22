@@ -1,6 +1,87 @@
-# OrbMeka™ — prototype 0.0.8.13
+# OrbMeka™ — prototype 0.0.8.20
 
 Godot 4.7 / GDScript. Formes et couleurs simples ; assets externes seulement sous licence vérifiée (sons CC0, assets/sounds/CREDITS.txt).
+
+## 0.0.8.20 — Paramètres du monde : la date de création et sa version, la dernière ouverture, le temps de jeu, le mode de jeu et la version de la génération
+Version locale (la publication de 0.0.8.14 à 0.0.8.20 attend l'utilisateur). Génération inchangée (version 33). Demande de l'utilisateur.
+- **Paramètres du monde** (liste des mondes, ⚙️) : en plus du nom, du mode, de la graine et de la taille : la date de création et la version qui a créé le monde, la dernière ouverture (date, version) et le nombre d'ouvertures, le temps de jeu, le mode de jeu (Créatif, Survie) et la version de la génération (comme Informations du monde, F3).
+
+Tests réussis : world_mode, developer_return, world_options, world_stats, world_info, prototype, history_resume (+ tests juridiques).
+À tester : Mes mondes → ⚙️ sur un monde ancien et un monde récent.
+
+## 0.0.8.19 — Carnet de route en arbre : la case Départ au centre, les commandes à gauche, ce qu'on récupère en haut, ce qu'on fabrique à droite (jusqu'à la hache et la pioche), du plus facile au plus difficile, cases reliées par des lignes, vue qu'on déplace et qu'on rapproche ; clic de la molette en Créatif aussi sur le sol, une plante, un arbre ; « Poche vide » au lieu de « Main vide »
+Version locale (la publication de 0.0.8.14 à 0.0.8.19 attend l'utilisateur). Génération inchangée (version 33). Demandes de l'utilisateur (le carnet de 0.0.8.16 ne correspondait pas).
+- **Carnet de route en arbre** (scripts/carnet.gd, carnet_ui.gd) : la case **Départ** au centre ; **à gauche** les commandes (se déplacer, inventaire, actions, fabrication, manger, jeter), **en haut** ce qu'on récupère (cailloux, fibres, branche, terre et sable, plantes), **à droite** ce qu'on fabrique (ficelle, éclat, tête taillée, fendre, assembler, puis la hache un peu plus haut et la pioche un peu plus bas). En bas : rien pour l'instant.
+- **Du plus facile au plus difficile** : plus une case est avancée, plus elle est loin du centre dans sa branche. Chaque case : une image et deux ou trois mots ; des lignes les relient (vertes une fois faites).
+- **Un clic sur une case : ses détails**, à droite (touches, explication, « À faire maintenant » ou « Plus tard : d'abord … »). Les cases faites : bord vert et ✓ ; celles qu'on ne peut pas encore faire : plus pâles.
+- **Vue** : on la déplace en glissant avec la souris, la molette rapproche ou éloigne ; à l'ouverture, le Départ au milieu. Réinitialiser, coches enregistrées par monde, O + C et le menu Échap : comme avant.
+- **Clic de la molette** (signalé par l'utilisateur : il ne faisait rien) : il prenait seulement un objet posé au sol ; en Créatif, il prend aussi ce qu'on vise dans le monde : la matière du sol (une motte sur l'herbe), une plante, un tronc d'arbre, la pierre d'un rocher, dans la case choisie.
+- **Poche vide** : en Survie, une poche vide choisie affiche « Poche vide » (avant : « Main vide »).
+- Aspect propre à OrbMeka (bleu-violet, cases arrondies, départ au centre avec ses branches) : pas l'écran d'un autre jeu.
+
+Tests réussis : carnet (31), plantes_inventaire (18), inventory, inventory_more, shortcuts_selection, menu, pause, controls, key_combos, prototype, history_resume (+ tests juridiques).
+À tester : O + C, glisser et la molette dans le carnet, cliquer les cases ; en Survie, faire une ficelle et voir la case se cocher et la ligne devenir verte.
+
+## 0.0.8.18 — Fiche de fabrication de chaque outil : chaque étape notée (bien, moyen, à améliorer) avec son effet, et des conseils pour un meilleur outil ; bouton « Fiche de fabrication » sur les détails d'un outil ou d'une tête
+Version locale (5 : la publication de 0.0.8.14 à 0.0.8.18 attend l'utilisateur, absent). Génération inchangée (version 33). Issue #246.
+- **Fiche de fabrication** (Inventory.tool_report, inventory_ui.gd) : pour une hache ou une pioche (à ficeler ou ficelée) et une tête taillée. Ouverte par le bouton « Fiche de fabrication » des détails (« + » sur la case, ou D + T) ; Fermer ou Échap.
+- **Chaque étape** : pierre de la tête (silex bien, calcaire à améliorer), taille de la tête (grande, moyenne, petite), bois du manche (vivant ou mort), souplesse (2 ou 3 : bien), lien (lin bien, ortie moyen, herbe et liane à améliorer), tours de ficelle (8 : bien) ; avec son effet sur la vitesse et le nombre de coups, d'après les vraies règles des outils (0.0.8.10).
+- **Résumé** : combien de fois plus vite elle coupe le bois ou casse la pierre, ses coups neuve (300 au mieux) et ceux qui restent.
+- **Conseils** : « Pour un meilleur outil : … » (silex, grande pierre, branche vivante, souplesse 2 ou 3, ficelle de lin, 8 tours) ; le meilleur outil : « Rien à améliorer ».
+
+Tests réussis : fiche_outil (11, nouveau), inventory, inventory_more, tools, crafting, prototype, history_resume (+ tests juridiques).
+À tester : fabriquer une hache (O + F), puis « + » ou D + T sur elle, « Fiche de fabrication ».
+
+## 0.0.8.17 — Bras et mains animés à la première personne : la main serre ce qu'elle tient, creuse en griffe, s'ouvre pour poser, attrape en ramassant, serre et tire en récoltant, porte le fruit à la bouche ; doigts animés pour tailler, fendre, assembler, tresser et ficeler
+Version locale (4 sur 4 : à publier, mais pas avant que l'utilisateur, absent, ait regardé 0.0.8.14 à 0.0.8.17). Génération inchangée (version 33). Issue #224.
+- **La main du jeu a des poses** (sources_blender/main/generer_main.py, dans Blender) : prise (serrer), griffe (creuser), ouverte (poser), pince (pouce et index), en formes de mélange du même modèle ; le jeu passe de l'une à l'autre en douceur (scripts/first_person_hand.gd).
+- **Au repos, elle serre ce qu'elle tient** : un caillou, un fruit, une tête, une orbe (prise) ; des fibres, une ficelle, une plante (pince) ; un outil, du bois (prise forte) ; une poignée de matière (un peu).
+- **Gestes** : creuser ou casser à la main (griffe qui gratte vers soi), poser (main ouverte qui pousse), ramasser (R, molette : elle s'avance ouverte, se ferme, revient), récolter et arracher (elle serre et tire), manger (le fruit monte vers la bouche, petits mouvements).
+- **Fabrication (O + F)** : les doigts suivent les gestes : tresser (les deux mains pincent, la droite roule), tailler (la main qui frappe serre son caillou), fendre (les deux mains serrent), assembler (la tête pincée glisse dans la fente), ficeler (la droite pince la ficelle en tournant).
+- **Reste à faire** (#224, #225) : les bras des personnages vus de derrière et de devant (F4) et ceux des autres personnages. Leurs modèles n'ont pas encore de squelette : il faut les préparer dans Blender (personnages.blend).
+- Plante et motte de gazon tenues en main (0.0.8.15) : maintenant visibles dans la main.
+
+Tests réussis : bras (13, nouveau), crafting, hands_eat, breaking, inventory, inventory_more, fibers, plantes_inventaire, tools, fixes_089, carnet, views, prototype, history_resume (+ tests juridiques).
+À tester : regarder ses mains en jouant : tenir un caillou, des fibres, un outil ; creuser à la main, poser, ramasser (R, molette), récolter (R), manger une pomme ; fabriquer (O + F) chaque action.
+
+## 0.0.8.16 — Carnet de route (O + C, ou le menu Échap) : les commandes en cases avec leurs détails, le chemin des premiers outils (de la ficelle à la hache et la pioche), tout se coche quand c'est fait, bouton Réinitialiser ; message la première fois dans un monde ; l'aide de l'inventaire passe dans le carnet
+Version locale (3 sur 4). Génération inchangée (version 33). Issue #208, décrite par l'utilisateur.
+- **Carnet de route** (scripts/carnet.gd, carnet_ui.gd) : O + C (Contrôles → Inventaire, modifiable) ou le bouton « Carnet de route » du menu Échap ; Échap ou O + C le ferme. Un grand panneau bleu-violet sur le jeu assombri.
+- **À gauche, les commandes** en cases (image, nom, touches) : se déplacer, ouvrir l'inventaire, ouvrir la fabrication, changer d'action (B + T), ramasser, récolter des fibres, récupérer des matériaux, planter, manger, jeter. Un clic : **les détails au milieu**. L'aide de l'inventaire y est maintenant (l'inventaire garde une ligne qui y renvoie).
+- **À droite, le chemin des premiers outils**, de haut en bas : cailloux → fibres → tresser une ficelle → tailler un éclat → tailler une tête → ramasser une branche → la fendre → assembler → ficeler une hache, puis une pioche.
+- **Tout se coche** quand c'est fait : une case quand on a fait la chose (ouvert l'inventaire, mangé…), une étape quand on a l'objet sur soi (Survie). Un petit message à chaque coche. **Réinitialiser** (deux clics, on confirme) efface tout pour recommencer. Enregistré par monde (joueur.json « carnet »).
+- **La première fois** qu'on entre dans un monde : « Pour ouvrir le Carnet de route… appuyez sur O + C (aussi dans le menu Échap) ».
+
+Tests réussis : carnet (19, nouveau), inventory, inventory_more, controls, key_combos, controls_groups, menu, pause, pause_settings, crafting, optimisation, hands_eat, plantes_inventaire, world_save, shortcuts_selection, death, prototype, history_resume (+ tests juridiques).
+À tester : O + C et le menu Échap, cliquer les cases, faire une ficelle en Survie et voir l'étape se cocher, Réinitialiser ; à plusieurs tailles de texte.
+
+## 0.0.8.15 — Plantes et gazon dans l'inventaire : arracher une plante entière, la replanter (elle repousse après avoir été coupée), motte de gazon (l'herbe repousse où on la pose) ; clic de la molette : prendre l'objet visé en main ; onglet Plantes du Créatif réparé
+Version locale (2 sur 4). Génération inchangée (version 33). Demandes de l'utilisateur : issues #239 et #238, onglet Plantes buggé.
+- **Onglet Plantes du Créatif** : il montrait la grille de l'inventaire (depuis 0.0.8.4, la grille était encore comptée comme 6e onglet) ; il montre maintenant ses objets, la grille reste le dernier onglet.
+- **Plantes entières** (ortie, lin, herbes longues) : clic gauche maintenu 1,2 s sur une plante, en mode « Casser / Arracher » (elle tombe au sol) ou « Casser / Récupérer des objets » (dans la main) ; l'ortie pique à mains nues. R donne toujours les fibres (la plante reste, coupée).
+- **Planter** : clic droit « Poser » avec la plante en main, dans la terre ou l'herbe (pas dans le sable, la pierre ou sous l'eau). Une plante plantée, coupée (R), **repousse** après 10 minutes de jeu.
+- **Gazon** : « Récupérer des matériaux » (R + I, ou le mode du clic gauche) sur l'herbe donne une **motte de gazon** (450 g ; l'herbe disparaît là, la terre est dessous) ; posée (clic droit) sur la terre, l'herbe repousse autour, même sur un sol creusé.
+- **Créatif** : onglet Plantes avec les trois plantes et la motte, à poser où on veut.
+- **Clic de la molette** (#238, Contrôles → Inventaire, modifiable) : l'objet visé au sol (ou un caillou, un fruit) va dans la main ; Survie : comme Ramasser (s'il reste de la place) ; Créatif : toujours dans la case choisie, ce qui y était part dans la grille.
+- Tout est enregistré dans objets.json (plantes arrachées, plantées, repousse, gazon posé).
+
+Tests réussis : plantes_inventaire (17, nouveau), inventory, inventory_more, fibers, plants, lawn_ring, controls, key_combos, controls_groups, hands_eat, crafting, breaking, world_save, shortcuts_selection, prototype, history_resume (+ tests juridiques).
+À tester : en Survie, arracher une ortie (ça pique), la replanter, la couper, attendre 10 minutes de jeu ; prendre une motte sur l'herbe et la poser sur un trou de terre ; la molette sur un objet au sol (Survie et Créatif).
+
+## 0.0.8.14 — Plus fluide sur les petits PC et nouvelles images des menus : feuilles et écorce allégées (mipmaps), détails fins du sol simplifiés au loin, fuite d'objets corrigée, taille de la carte des ombres au choix (512 à 8192 ; Performance 1024), qualité Performance proposée une fois sur un PC lent, console de mesure du Web ; images du menu des actions (B + T) et de la fabrication (O + F) faites dans Blender avec la main du personnage, nouvelles main et poche de l'inventaire
+Version locale (1 sur 4). Génération inchangée (version 33). Demandes de l'utilisateur : un rapport d'optimisation (mémoire, processeur, carte graphique, chargement ; les PC bon marché d'abord), rangé hors du dépôt (..\rapport-optimisation-0.0.8.14.md) ; issue #247 (images des menus).
+- **Mesuré d'abord** (nouveaux outils tools/mesure_gpu.gd et tools/mesure_memoire.gd ; module scripts/diagnostic.gd : cacher une sorte de choses, couper un effet, essayer un réglage), sur la Radeon 610M (PC bon marché) et la RTX 4070 : c'est la carte graphique qui limite, surtout les feuilles sans mipmaps, la grande carte des ombres, l'anticrénelage et les détails fins du sol.
+- **Feuilles et écorce avec mipmaps** : bien plus léger pour les petites cartes graphiques, et plus calme au loin.
+- **Détails fins du sol** (grains, miettes, fibres, reflets) remplacés par leur moyenne entre 14 et 24 m : identique de près, à peine différent au loin.
+- **Taille de la carte des ombres** : nouveau choix dans Paramètres → Vidéo → Jeu : 512, 1024, 2048, 4096 ou 8192 (rien entre deux) ; Performance 1024, Équilibré 2048, Beauté 4096 ; 4096 au plus sur le Web. Anciens réglages : la taille de leur qualité (elle reste la même).
+- **Qualité conseillée** : sur un PC trop lent pour sa qualité (moins de 30 images par seconde en jouant), une seule fois, le jeu se met en pause et propose la qualité Performance, ou de garder la sienne (retenu dans menus.json).
+- **Mémoire** : fuite corrigée (une zone vide du terrain gardait un objet jamais libéré : 200 à l'ouverture, 1 500 après un tour du monde en vol) ; les copies du terrain des fils de calcul oublient les colonnes déjà calculées ; relevés du lointain limités à 400. Rien ne grossit sans fin en explorant.
+- **Résultat** (Radeon 610M, temps de la carte graphique par image ; départ, forêt, lac, rivière) : Performance 36 → 13, 59 → 18, 23 → 20, 61 → 16 ms ; Équilibré 52 → 25, 92 → 44, 83 → 42, 88 → 32 ms.
+- **Console de mesure du Web** (scripts/web_diagnostic.gd) : dans la console de Chrome, window.orbmeka (aller à un endroit, cacher, montrer, mesurer).
+- **Images des menus** (#247) : faites dans Blender (sources_blender/menus/generer_images_menus.py) avec les modèles et les couleurs du jeu (sortis par tools/modeles_menus.gd) : les 8 cases du menu des actions (B + T, un peu plus grandes : 54 points, avant 46), les 5 actions de la fabrication (O + F), la main (le pouce à sa place) et la poche de l'inventaire. Même angle, même lumière, contour fin ; la main est celle du jeu, dans la couleur de peau du personnage (3 versions). Images des objets inchangées (choix de l'utilisateur).
+
+Tests réussis : optimisation (23, nouveau), action_menu, hands_eat, inventory, inventory_more, crafting, menu_style, settings_files, display_settings, quality, menu, workers, web_speed, loading_screen, perf_guard, terrain_visuals, smooth_terrain, zones, world_consistency, prototype, history_resume, views, appearance, game_mode, fixes_089, tools (+ tests juridiques).
+À tester : sur le PC bon marché, la fluidité en Performance et le message « Le jeu est lent… » (une seule fois, en Équilibré) ; Paramètres → Vidéo → Taille de la carte des ombres ; B + T, O + F et l'inventaire en Survie (main, poche) en petit et en grand texte, avec chaque couleur de peau ; sur le Web, la console window.orbmeka.
 
 ## 0.0.8.13 — Plusieurs cœurs : le terrain et le lointain calculés sur d'autres cœurs (PC et Web), monde ouvert et découvert plus vite, exactement le même monde ; version Web avec fils (SharedArrayBuffer)
 Version publiée (4 sur 4, avec 0.0.8.10 à 0.0.8.12). Génération inchangée (version 33). Rapports de mesures Web ; demande de l'utilisateur : les PC bon marché aussi.

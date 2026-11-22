@@ -95,10 +95,15 @@ func _run() -> void:
 	ui._toggle_more(hand)
 	# Jeter en Survie : par la zone, l'objet tombe au sol.
 	ui._on_slot(MOUSE_BUTTON_LEFT, "bar", 2)
-	before = world.ground.entries.size()
+	# On compte les cailloux de calcaire au sol (d'autres objets peuvent tomber en même temps, comme l'orbe du départ).
+	var limestone := func() -> int: return world.ground.entries.filter(func(entry): return str(entry.item.get("objet", "")) == "caillou_calcaire").size()
+	before = limestone.call()
 	ui.throw_cursor()
-	await process_frame
-	check(ui.cursor_item.is_empty() and world.inventory.item("bar", 2).is_empty() and world.ground.entries.size() == before + 1, "survival: thrown on the ground with the Jeter zone")
+	# (Selon le temps, pas une seule image : la machine des Actions GitHub est parfois lente.)
+	var waited := Time.get_ticks_msec()
+	while limestone.call() < before + 1 and Time.get_ticks_msec() - waited < 1500:
+		await process_frame
+	check(ui.cursor_item.is_empty() and world.inventory.item("bar", 2).is_empty() and limestone.call() == before + 1, "survival: thrown on the ground with the Jeter zone")
 	var zones: Array = ui.screen.find_children("Throw", "", true, false)
 	check(zones.size() == 2 and zones.any(func(zone): return zone.is_visible_in_tree()), "a Jeter zone under the bar (one shown)")
 	world.close_inventory(false)

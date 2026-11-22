@@ -9,6 +9,15 @@ const Generation = preload("res://scripts/world_generation.gd")
 const UserSettings = preload("res://scripts/user_settings.gd")
 
 func _initialize() -> void:
+	# 0.0.8.14 : jamais la souris de l'utilisateur capturée (un monde ouvert la capture) : rendue libre à chaque image.
+	process_frame.connect(func() -> void:
+		if Input.mouse_mode != Input.MOUSE_MODE_VISIBLE:
+			Input.mouse_mode = Input.MOUSE_MODE_VISIBLE)
+	# 0.0.8.14 : fenêtre de mesure (hors écran) : ne prend jamais le focus et ignore le clavier (sinon, les touches tapées
+	# ailleurs par l'utilisateur arrivaient dans le jeu : pause, fabrication, et la mesure était fausse).
+	DisplayServer.window_set_flag(DisplayServer.WINDOW_FLAG_NO_FOCUS, true)
+	root.gui_disable_input = true
+	root.set_disable_input(true)
 	call_deferred("_run")
 
 func report(key: String, value: Variant) -> void:
@@ -18,6 +27,8 @@ func _run() -> void:
 	var fixture := "user://mesure-ouverture-%d.json" % Time.get_ticks_usec()
 	var app: Control = load("res://scenes/main.tscn").instantiate()
 	app.settings = UserSettings.new(fixture)
+	# Mesure : jamais le message « qualité conseillée » (il met le jeu en pause sur un PC lent).
+	app.settings.quality_hint_done = true
 	app.catalog = load("res://scripts/world_catalog.gd").new(fixture + ".worlds")
 	var quality := OS.get_environment("QUALITE") if not OS.get_environment("QUALITE").is_empty() else "performance"
 	app.settings.values.merge(UserSettings.preset_values(quality, true), true)

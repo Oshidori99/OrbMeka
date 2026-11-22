@@ -45,6 +45,7 @@ var skin := "light"
 const CharacterPreview = preload("res://scripts/character_preview.gd")
 const CharacterModel = preload("res://scripts/character_model.gd")
 const FirstPersonHand = preload("res://scripts/first_person_hand.gd")
+const MenuImages = preload("res://scripts/menu_images.gd")
 # Part de la hauteur d'un humain gardée sous le cou ; recul du corps derrière la caméra (m).
 const BODY_NECK := 0.52
 const BODY_BACK := 0.3
@@ -210,7 +211,7 @@ func _unhandled_input(event: InputEvent) -> void:
 	if Engine.get_process_frames() <= input_ready_frame:
 		return
 	# 0.0.7.2 : inventaire ouvert : ses clics et Échap sont à lui (la souris ne revient pas au jeu).
-	if is_instance_valid(world) and (world.get("inventory_open") == true or world.get("death_open") == true or world.get("crafting_open") == true):
+	if is_instance_valid(world) and (world.get("inventory_open") == true or world.get("death_open") == true or world.get("crafting_open") == true or world.get("notebook_open") == true):
 		return
 	# Changer de vue en combinaison (0.0.5.10, touche modifiable) : arrive comme une action.
 	if event is InputEventAction and event.is_action_pressed("change_view"):
@@ -240,6 +241,9 @@ func _unhandled_input(event: InputEvent) -> void:
 		# 0.0.8.9 : un objet ramassé : R, encore tenu, ne récolte ni n'arrache rien derrière lui.
 		if world.pick_up(get_target()):
 			world.set("harvest_block", true)
+	# 0.0.8.15 (#238) : clic de la molette : l'objet visé dans la main (Créatif : dans la case choisie).
+	if event.is_action_pressed("pick_aimed") and is_instance_valid(world) and world.has_method("pick_aimed"):
+		world.pick_aimed(get_target())
 	# 0.0.7.29 : Jeter (J par défaut) : l'objet en main tombe au sol devant soi. 0.0.7.30 : aussi en Créatif ; Ctrl + J :
 	# tout le tas ; Supprimer (D + E, Créatif) : rien ne tombe (0.0.7.31 : tout le tas).
 	if event.is_action_pressed("throw") and is_instance_valid(world) and world.has_method("throw_held"):
@@ -396,7 +400,8 @@ func _break_once() -> bool:
 	if selected_type == world.PICKAXE:
 		swing_pickaxe()
 	elif is_instance_valid(hand_view):
-		hand_view.nudge()
+		# 0.0.8.17 (#224) : la main creuse (griffe).
+		hand_view.dig()
 	return world.break_target(get_target())
 
 func begin_placement() -> bool:
@@ -405,14 +410,14 @@ func begin_placement() -> bool:
 		return false
 	actions.set_place_pressed(true, true)
 	if is_instance_valid(hand_view):
-		hand_view.nudge()
+		hand_view.place()
 	return world.place_target(get_target(), selected_type)
 
 func step_placement(delta: float, active: bool, button_held: bool) -> bool:
 	if not actions.tick_place(delta, active, button_held):
 		return false
 	if is_instance_valid(hand_view):
-		hand_view.nudge()
+		hand_view.place()
 	return world.place_target(get_target(), selected_type)
 
 func release_controls() -> void:
@@ -457,6 +462,10 @@ func apply_settings(values: Dictionary) -> void:
 	_apply_intervals()
 	character = str(values.get("character", "boy14"))
 	skin = str(values.get("skin", "light"))
+	# 0.0.8.14 (#247) : les images des menus où l'on voit la main prennent la couleur de peau du personnage.
+	MenuImages.skin = skin
+	if is_instance_valid(world) and world.get("inventory_ui") != null and is_instance_valid(world.inventory_ui):
+		world.inventory_ui.refresh()
 	sync_body()
 	_sync_body_view()
 	eye_height = float(values.get("eye_height", EYE_HEIGHT))

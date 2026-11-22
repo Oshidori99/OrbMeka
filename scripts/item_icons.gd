@@ -4,9 +4,12 @@ extends RefCounted
 # - matières : un petit tas de la matière, éclairé en haut à gauche, avec sa texture (grains de sable, mottes de terre,
 #   argile fendillée, boue luisante, graviers, morceaux de pierre) ;
 # - caillou : galet ovale moucheté ; éclat : morceau anguleux à facettes ;
-# - pioche, main, poche : petits dessins vectoriels (SVG écrits ici), style dessin de jeu vidéo.
+# - pioche : petit dessin vectoriel (SVG écrit ici), style dessin de jeu vidéo ;
+# - main et poche : 0.0.8.14 (#247, demande de l'utilisateur : le pouce n'allait pas ; une poche plus belle) : images
+#   faites dans Blender (menu_images.gd), la main du jeu dans la couleur de peau du personnage.
 # Performances (PC et Web) : chaque image est faite une seule fois, en SIZE pixels, puis gardée (_cache) ; rien par image.
 const Inventory = preload("res://scripts/inventory.gd")
+const MenuImages = preload("res://scripts/menu_images.gd")
 const SIZE := 48
 static var _cache := {}
 
@@ -39,6 +42,11 @@ static func texture(id: String) -> Texture2D:
 				image = _coil(spec.couleur)
 			"orbe":
 				image = _orb(spec.couleur)
+			# 0.0.8.15 (#239) : plante entière : son image du monde (assets/plants) ; gazon : une motte de terre herbue.
+			"plante":
+				image = _plant_picture(int(spec.get("plante", 0)))
+			"gazon":
+				image = _turf()
 			"bois":
 				image = _stick(spec.couleur, id == "tronc", id.hash())
 				if spec.get("feuilles", false):
@@ -88,10 +96,10 @@ static func tab(id: String, height: int) -> Texture2D:
 	return _cache[key] if _cache.has(key) else _keep(key, image)
 
 static func hand() -> Texture2D:
-	return _cache["#main"] if _cache.has("#main") else _keep("#main", _svg(HAND_SVG, SIZE))
+	return MenuImages.texture("main")
 
 static func pocket() -> Texture2D:
-	return _cache["#poche"] if _cache.has("#poche") else _keep("#poche", _svg(POCKET_SVG, SIZE))
+	return MenuImages.texture("poche")
 
 # Onglet Matériaux naturels : un tas de pierre, de terre et de sable.
 static func natural_tab(height: int) -> Texture2D:
@@ -113,6 +121,59 @@ static func natural_tab(height: int) -> Texture2D:
 static func tools_tab(height: int) -> Texture2D:
 	var key := "#outils%d" % height
 	return _cache[key] if _cache.has(key) else _keep(key, _svg(PICKAXE_SVG, maxi(height, 12)))
+
+# 0.0.8.15 (#239) : l'image de la plante du monde (ortie, lin, herbes longues), réduite, posée sur une petite ombre.
+static func _plant_picture(kind: int) -> Image:
+	var names := ["ortie", "lin", "herbe_longue"]
+	var source: Texture2D = load("res://assets/plants/%s.png" % names[clampi(kind, 0, 2)])
+	var image := _blank()
+	if source == null:
+		return image
+	var picture := source.get_image()
+	if picture.is_compressed():
+		picture.decompress()
+	picture.convert(Image.FORMAT_RGBA8)
+	# Sans les marges vides de l'image : la plante remplit la case (en gardant ses proportions).
+	picture = picture.get_region(picture.get_used_rect())
+	var fit := minf(float(SIZE - 4) / picture.get_width(), float(SIZE - 3) / picture.get_height())
+	var width := maxi(1, roundi(picture.get_width() * fit))
+	var height := maxi(1, roundi(picture.get_height() * fit))
+	picture.resize(width, height, Image.INTERPOLATE_LANCZOS)
+	_shadow(image, Vector2(SIZE * 0.5, SIZE - 4.0), Vector2(SIZE * 0.3, 3.0))
+	image.blend_rect(picture, Rect2i(0, 0, width, height), Vector2i((SIZE - width) / 2, SIZE - 3 - height))
+	return image
+
+# 0.0.8.15 (#239) : motte de gazon : un petit tas de terre, le dessus vert (avec quelques brins).
+static func _turf() -> Image:
+	var image := _pile("terre", Inventory.ITEMS.terre.couleur)
+	var tops := []
+	for x in range(SIZE):
+		var top := -1
+		for y in range(SIZE):
+			if image.get_pixel(x, y).a > 0.5:
+				top = y
+				break
+		tops.append(top)
+	for x in range(SIZE):
+		if tops[x] < 0:
+			continue
+		for y in range(tops[x], mini(SIZE, tops[x] + 9)):
+			var there := image.get_pixel(x, y)
+			if there.a <= 0.0:
+				continue
+			var shade := 0.85 + 0.3 * _noise(x, y, 3.0, 7)
+			var green := Color(0.33 * shade, 0.55 * shade, 0.16 * shade, there.a)
+			image.set_pixel(x, y, there.lerp(green, clampf(1.0 - float(y - tops[x]) / 9.0 + 0.35, 0.0, 1.0)))
+	for blade in range(9):
+		var x := 9 + blade * 3 + int(_hash(blade, 3, 11) * 2.0)
+		if x >= SIZE or tops[x] < 0:
+			continue
+		var tall := 4 + int(_hash(blade, 5, 13) * 5.0)
+		for step in range(tall):
+			var y: int = int(tops[x]) - step
+			if y >= 0:
+				image.set_pixel(x, y, Color(0.38, 0.62, 0.2, 1.0))
+	return image
 
 static func _keep(key: String, image: Image) -> Texture2D:
 	var made := ImageTexture.create_from_image(image)
@@ -718,34 +779,4 @@ const PICKAXE_SVG := "<svg xmlns='http://www.w3.org/2000/svg' width='64' height=
 <path d='M8 27 Q30 0 58 21 L56 26 Q34 13 12 31 Z' fill='#9aa1a8' stroke='#22272c' stroke-width='2.6' stroke-linejoin='round'/>
 <path d='M14 25 Q31 7 52 19' fill='none' stroke='#e9eef2' stroke-width='2' stroke-linecap='round'/>
 <rect x='33' y='12' width='11' height='10' rx='2' transform='rotate(32 38.5 17)' fill='#6d747b' stroke='#22272c' stroke-width='2.4'/>
-</svg>"
-
-const HAND_SVG := "<svg xmlns='http://www.w3.org/2000/svg' width='64' height='64' viewBox='0 0 64 64'>
-<g fill='#3b2618' stroke='#3b2618' stroke-width='5' stroke-linejoin='round'>
-<rect x='17' y='29' width='31' height='27' rx='11'/>
-<rect x='17' y='12' width='7.5' height='26' rx='3.75'/>
-<rect x='25.5' y='7' width='7.5' height='30' rx='3.75'/>
-<rect x='34' y='8' width='7.5' height='29' rx='3.75'/>
-<rect x='42.5' y='14' width='7' height='24' rx='3.5'/>
-<rect x='4' y='31' width='20' height='8' rx='4' transform='rotate(-38 16 35)'/>
-</g>
-<g fill='#f3c79b'>
-<rect x='17' y='29' width='31' height='27' rx='11'/>
-<rect x='17' y='12' width='7.5' height='26' rx='3.75'/>
-<rect x='25.5' y='7' width='7.5' height='30' rx='3.75'/>
-<rect x='34' y='8' width='7.5' height='29' rx='3.75'/>
-<rect x='42.5' y='14' width='7' height='24' rx='3.5'/>
-<rect x='4' y='31' width='20' height='8' rx='4' transform='rotate(-38 16 35)'/>
-</g>
-<path d='M20 16 L20 22 M29 11 L29 17 M38 12 L38 18 M46 18 L46 23' stroke='#fbe3c8' stroke-width='2' stroke-linecap='round'/>
-</svg>"
-
-const POCKET_SVG := "<svg xmlns='http://www.w3.org/2000/svg' width='64' height='64' viewBox='0 0 64 64'>
-<path d='M11 9 H53 V42 L32 58 L11 42 Z' fill='#3f6aa3' stroke='#18263b' stroke-width='3' stroke-linejoin='round'/>
-<path d='M11 9 H53 V20 H11 Z' fill='#4c7bb8' stroke='#18263b' stroke-width='2.4' stroke-linejoin='round'/>
-<path d='M15 24 H49 V40 L32 53 L15 40 Z' fill='none' stroke='#f0b860' stroke-width='1.8' stroke-dasharray='3 2.4'/>
-<path d='M14 15 H50' fill='none' stroke='#f0b860' stroke-width='1.6' stroke-dasharray='3 2.4'/>
-<circle cx='16' cy='24' r='2.6' fill='#e1b54c' stroke='#6b4d14' stroke-width='1'/>
-<circle cx='48' cy='24' r='2.6' fill='#e1b54c' stroke='#6b4d14' stroke-width='1'/>
-<path d='M22 30 Q26 28 30 31' fill='none' stroke='#86a8d6' stroke-width='1.6' stroke-linecap='round'/>
 </svg>"

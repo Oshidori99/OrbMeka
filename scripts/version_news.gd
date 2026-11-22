@@ -3,8 +3,20 @@ extends RefCounted
 # Les versions de la génération sont celles enregistrées avec chaque monde (world_generation.gd) ; la version des menus
 # compte les changements des menus depuis 0.0.6 (1 : menus de 0.0.5.37 et avant). À compléter à chaque version.
 const Generation = preload("res://scripts/world_generation.gd")
-const MENUS_VERSION := 10
+const MENUS_VERSION := 16
 const MENUS := [
+	{"menu": "Paramètres du monde", "version": "0.0.8.20", "text": "date de création et version, dernière ouverture, temps de jeu, mode de jeu, génération"},
+	{"menu": "Carnet de route", "version": "0.0.8.19", "text": "en arbre : Départ au centre, commandes à gauche, récupérer en haut, fabriquer à droite"},
+	{"menu": "Inventaire", "version": "0.0.8.18", "text": "fiche de fabrication d'un outil (notes et conseils), depuis ses détails"},
+	{"menu": "Carnet de route", "version": "0.0.8.16", "text": "nouveau (O + C, menu Échap) : commandes, chemin des premiers outils, coches, Réinitialiser"},
+	{"menu": "Pause", "version": "0.0.8.16", "text": "bouton Carnet de route"},
+	{"menu": "Inventaire", "version": "0.0.8.16", "text": "l'aide complète passe dans le Carnet de route"},
+	{"menu": "Inventaire", "version": "0.0.8.15", "text": "Créatif : onglet Plantes réparé, plantes entières et motte de gazon"},
+	{"menu": "Contrôles", "version": "0.0.8.15", "text": "Inventaire : prendre l'objet visé en main (clic de la molette)"},
+	{"menu": "Paramètres", "version": "0.0.8.14", "text": "Vidéo : taille de la carte des ombres (512 à 8192 ; Performance 1024, Équilibré 2048, Beauté 4096)"},
+	{"menu": "Menu des actions", "version": "0.0.8.14", "text": "B + T : images faites dans Blender, avec la main du personnage, un peu plus grandes"},
+	{"menu": "Fabrication", "version": "0.0.8.14", "text": "O + F : images des actions faites dans Blender"},
+	{"menu": "Inventaire", "version": "0.0.8.14", "text": "nouvelles images de la main (couleur de peau du personnage) et de la poche"},
 	{"menu": "Inventaire", "version": "0.0.7.7", "text": "Survie : équipement à venir (sacs, paniers, travois, chariots), cases grisées"},
 	{"menu": "Contrôles", "version": "0.0.7.6", "text": "Arrêter de voler au sol : Exception (par défaut) ou Toujours"},
 	{"menu": "Inventaire", "version": "0.0.7.5", "text": "Créatif : onglets Cailloux, Fruits et Inventaire (la grille), Matériaux naturels en un seul tas"},

@@ -92,24 +92,24 @@ static func default_of(key: String, web: bool = OS.has_feature("web")) -> float:
 	return WEB_DEFAULTS[key] if web and WEB_DEFAULTS.has(key) else SPECS[key].default
 # 0.0.6.20 : herbe peu dense par défaut sur le Web (le joueur peut la remettre dans Vidéo).
 # 0.0.7.23 (mesures Web sur une petite carte graphique) : Performance sur le Web sans ombres, herbe très basse.
-const WEB_CHOICES := {"grass_density": "minimal", "quality": "performance", "shadows": "off", "antialiasing": "off"}
+const WEB_CHOICES := {"grass_density": "minimal", "quality": "performance", "shadows": "off", "shadow_size": "1024", "antialiasing": "off"}
 const WEB_PERFORMANCE := {"grass_density": "minimal", "shadows": "off"}
 # 0.0.7.24 (mesures Web, accord de l'utilisateur) : sur le Web, Équilibré et Beauté moins loin (Beauté 16 zones : plus de 1 800
 # dessins, moins de 9 images par seconde). 0.0.7.25 : résolution 3D à 100 % aussi sur le Web (mesures : 75 % y était le plus
 # lent, 60 % ne gagnait presque rien ; le rendu réduit puis agrandi coûte plus qu'il ne fait gagner sur une petite carte).
 const WEB_BALANCED := {"view_distance": 6.0, "far_extra": 10.0}
-const WEB_BEAUTY := {"view_distance": 8.0, "far_extra": 16.0}
+const WEB_BEAUTY := {"view_distance": 8.0, "far_extra": 16.0, "shadow_size": "2048"}
 static func choice_default(key: String, web: bool = OS.has_feature("web")) -> String:
 	return WEB_CHOICES[key] if web and WEB_CHOICES.has(key) else CHOICES[key].default
 # 0.0.7.21 : préréglages de « Qualité d'affichage ». Beauté : l'affichage d'avant 0.0.7.21, et depuis 0.0.7.22 (demande de
 # l'utilisateur) 16 zones et lointain +24 ; Équilibré (défaut sur PC) :
 # ombres un peu moins loin, herbe un peu moins dense (même portée) ; Performance (défaut sur le Web) : toutes les
 # concessions (sur le Web, ses distances courtes, WEB_DEFAULTS). Les optimisations qui ne changent pas l'image valent pour tous.
-const QUALITY_KEYS := ["grass_density", "grass_zones", "view_distance", "far_extra", "shadows", "antialiasing", "resolution_3d"]
+const QUALITY_KEYS := ["grass_density", "grass_zones", "view_distance", "far_extra", "shadows", "shadow_size", "antialiasing", "resolution_3d"]
 const PRESETS := {
-	"performance": {"grass_density": "low", "grass_zones": 3.0, "view_distance": 6.0, "far_extra": 10.0, "shadows": "near", "antialiasing": "off", "resolution_3d": 100.0},
-	"balanced": {"grass_density": "reduced", "grass_zones": 4.0, "view_distance": 8.0, "far_extra": 16.0, "shadows": "medium", "antialiasing": "on", "resolution_3d": 100.0},
-	"beauty": {"grass_density": "medium", "grass_zones": 4.0, "view_distance": 16.0, "far_extra": 24.0, "shadows": "far", "antialiasing": "on", "resolution_3d": 100.0},
+	"performance": {"grass_density": "low", "grass_zones": 3.0, "view_distance": 6.0, "far_extra": 10.0, "shadows": "near", "shadow_size": "1024", "antialiasing": "off", "resolution_3d": 100.0},
+	"balanced": {"grass_density": "reduced", "grass_zones": 4.0, "view_distance": 8.0, "far_extra": 16.0, "shadows": "medium", "shadow_size": "2048", "antialiasing": "on", "resolution_3d": 100.0},
+	"beauty": {"grass_density": "medium", "grass_zones": 4.0, "view_distance": 16.0, "far_extra": 24.0, "shadows": "far", "shadow_size": "4096", "antialiasing": "on", "resolution_3d": 100.0},
 }
 
 static func preset_values(name: String, web: bool = OS.has_feature("web")) -> Dictionary:
@@ -141,6 +141,14 @@ static func upgrade_web(current: Dictionary, web: bool = OS.has_feature("web")) 
 	return true
 
 # Préréglage dont toutes les valeurs correspondent, sinon « custom » (Personnalisé).
+# 0.0.8.14 : taille de la carte des ombres du préréglage dont les autres réglages correspondent (sinon le défaut).
+static func shadow_size_for(current: Dictionary, web: bool = OS.has_feature("web")) -> String:
+	for name in PRESETS:
+		var preset := preset_values(name, web)
+		if preset.keys().all(func(key: String): return key == "shadow_size" or current.get(key) == preset[key]):
+			return preset.shadow_size
+	return choice_default("shadow_size", web)
+
 static func matching_preset(current: Dictionary, web: bool = OS.has_feature("web")) -> String:
 	for name in PRESETS:
 		var preset := preset_values(name, web)
@@ -162,6 +170,9 @@ const CHOICES := {
 	"quality": {"label": "Qualité d'affichage", "options": {"performance": "Performance", "balanced": "Équilibré", "beauty": "Beauté", "custom": "Personnalisé"}, "default": "balanced"},
 	# 0.0.7.21 : ombres du soleil : jusqu'à 64 m (Loin, comme avant), 48 m (Moyennes) ou 32 m (Proches, un seul niveau).
 	"shadows": {"label": "Ombres", "options": {"off": "Aucune", "near": "Proches", "medium": "Moyennes", "far": "Loin"}, "default": "medium"},
+	# 0.0.8.14 (rapport d'optimisation, demande de l'utilisateur) : taille de la carte des ombres du soleil (points de côté) ;
+	# plus grande = ombres plus nettes mais plus lent (Radeon 610M : 2048 au lieu de 4096 = 12 à 23 ms de moins par image).
+	"shadow_size": {"label": "Taille de la carte des ombres", "options": {"512": "512", "1024": "1024", "2048": "2048", "4096": "4096", "8192": "8192"}, "default": "2048"},
 	# 0.0.7.21 : anticrénelage (MSAA 2×) : bords lisses ; sans, un peu en escalier mais plus rapide.
 	"antialiasing": {"label": "Anticrénelage", "options": {"on": "Oui", "off": "Non"}, "default": "on"},
 	# 0.0.3.16 : personnage choisi (Paramètres → Personnage), enregistré dans personnage.json.
@@ -197,8 +208,12 @@ const MENUS_FILE := "menus.json"
 const MENU_OPEN_MODES := ["last", "expanded", "collapsed"]
 # 0.0.4.22 : fichiers du joueur rangés dans user://parametres/ (avant : directement dans user://).
 const FOLDER := "parametres"
+# Réglages lus dans les fichiers (les absents viennent d'une version précédente).
+var _seen_keys: Dictionary = {}
 var menu_open_mode := "last"
 var menu_folded: Array = []
+# 0.0.8.14 : qualité Performance déjà proposée une fois (PC trop lent : quality_hint.gd), gardé dans menus.json.
+var quality_hint_done := false
 var values: Dictionary = {}
 var controls: Dictionary = {}
 var control_options: Dictionary = {}
@@ -224,6 +239,9 @@ func _init(path: String = DEFAULT_PATH) -> void:
 	control_options = Controls.default_options()
 	_read_controls()
 	_read_menus()
+	# 0.0.8.14 : fichiers d'avant la taille de la carte des ombres : celle de leur qualité (sinon, « Personnalisé »).
+	if not _seen_keys.has("shadow_size"):
+		values.shadow_size = shadow_size_for(values)
 	# 0.0.7.21 : qualité d'affichage toujours d'accord avec les réglages lus (anciens fichiers : Personnalisé, ou le
 	# préréglage auquel ils correspondent).
 	upgrade_web(values)
@@ -262,9 +280,14 @@ func _read_menus() -> void:
 		menu_open_mode = data.open_mode
 	if data.get("folded") is Array:
 		menu_folded = data.folded.filter(func(key): return key is String)
+	quality_hint_done = data.get("qualite_conseillee", false) == true
 
 func _write_menus() -> bool:
-	return _write(menus_path(), {"open_mode": menu_open_mode, "folded": menu_folded})
+	return _write(menus_path(), {"open_mode": menu_open_mode, "folded": menu_folded, "qualite_conseillee": quality_hint_done})
+
+func set_quality_hint_done() -> bool:
+	quality_hint_done = true
+	return _write_menus()
 
 func set_menu_folded(keys: Array) -> bool:
 	menu_folded = keys.duplicate()
@@ -377,6 +400,8 @@ func _read(path: String) -> void:
 	if file == null or parser.parse(file.get_as_text()) != OK or not parser.data is Dictionary:
 		load_notice = "Réglages illisibles : valeurs par défaut chargées."
 		return
+	for key in parser.data:
+		_seen_keys[key] = true
 	for key in SPECS:
 		# Réglage absent (fichier d'une version précédente) : défaut, sans avertissement.
 		if not parser.data.has(key):

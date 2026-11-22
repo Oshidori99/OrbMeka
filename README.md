@@ -1,4 +1,4 @@
-# OrbMeka™ 0.0.8.13
+# OrbMeka™ 0.0.8.20
 
 Jeu de construction et d'exploration en 3D, fait avec Godot 4.7.2 (GDScript).
 Monde au terrain lisse qu'on peut creuser et sculpter, généré à partir d'une graine.
@@ -7,26 +7,34 @@ Monde au terrain lisse qu'on peut creuser et sculpter, généré à partir d'une
 - **Windows** : télécharger le zip de la dernière version dans les [Releases](../../releases), puis lancer OrbMeka.exe.
 - **Navigateur** : version Web sur itch.io.
 
-## Ce que contient le jeu (0.0.6.25)
+## Ce que contient le jeu (0.0.8.19)
 - **Monde** de 96 × 96 zones (768 m de côté), découpé en zones de 8 m chargées autour du joueur ;
-  même graine = même monde.
-- **Terrain lisse** : creuser, ajouter, aplanir et lisser au pinceau, par morceaux de 50 cm ;
-  pioche pour la pierre ; terre et sable tombent s'ils n'ont pas de support.
+  même graine = même monde ; calculé sur plusieurs cœurs (PC et Web).
+- **Terrain lisse** : creuser, poser, aplanir et lisser, par morceaux de 50 cm ; terre et sable tombent s'ils
+  n'ont pas de support.
 - **Relief** : plaines, collines, montagnes enneigées, déserts, lacs, rivières, grottes et crevasses.
 - **Sous-sol** : terre, pierre, pierre sombre, puis la Roche-mère incassable à 45 m ;
   calcaire, charbon et silex ; cailloux et rochers en surface.
 - **Eau** : lacs et rivières ; l'eau coule quand on creuse à côté ; on peut nager.
-- **Végétation** : herbe, forêts de pins et de tilleuls, pommiers, noisetiers, plantes à fibres et lianes.
+- **Végétation** : herbe, forêts de pins et de tilleuls, pommiers, noisetiers, orties, lin, herbes longues et lianes.
+- **Modes Créatif et Survie** : en Créatif, tout est illimité ; en Survie, deux mains et quatre poches (poids et
+  volume), la vie, manger des fruits, et une orbe de retour au point de départ.
+- **Récolter** : ramasser cailloux, branches et fruits, couper et abattre les arbres, récolter des fibres et des
+  lianes, arracher et replanter les plantes, prendre de la terre, du sable ou une motte de gazon.
+- **Fabriquer à la main** (O + F) : tresser une ficelle, tailler une pierre (tête de hache ou de pioche, éclat
+  tranchant), fendre une branche, assembler, ficeler : une hache et une pioche en pierre, qui s'usent ; chaque outil
+  a sa fiche de fabrication, avec des conseils.
+- **Carnet de route** (O + C) : les commandes, ce qu'on récupère et ce qu'on fabrique, du plus facile au plus
+  difficile, coché au fur et à mesure.
+- **Mains animées** : elles serrent ce qu'elles tiennent, creusent, attrapent, mangent, fabriquent.
 - **Personnages** : enfants, adultes et animaux (chats, renard, écureuil, tortue, lapin bleu), trois couleurs de peau.
-- **Déplacements** : marcher, courir (plusieurs vitesses), se baisser, sauter, voler, trois vues.
-- **Menus** : mondes enregistrés et sécurisés, paramètres (vidéo, son, contrôles à deux touches, attributs), launcher Windows.
-
-Pas encore d'inventaire, de récolte ni de modes Créatif et Survie : ils arrivent en 0.0.7.
+- **Déplacements** : marcher, courir (plusieurs vitesses), se baisser, sauter, voler, nager, trois vues.
+- **Menus** : mondes enregistrés et sécurisés, paramètres (qualité d'affichage, ombres, son, contrôles
+  modifiables), launcher Windows.
 
 ## Suite prévue
-- **0.0.7 — Gameplay et inventaire** : récolte, fabrication (Simple, Classique, Réaliste), outils en pierre,
-  Créatif et Survie, vie, jour et nuit.
-- **0.0.8 — Animaux**, puis **0.1 — Enfin un jeu**, puis **0.1.1 — Paramètres 3**.
+- **0.0.8 — Fabrication et survie** (en cours) : sac en filet, jour et nuit, torche, bras des personnages animés.
+- **0.0.9 — Animaux**, puis **0.1 — Enfin un jeu**, puis **0.1.1 — Paramètres 3**.
 - Plus tard : climat et météo, monde vivant (animaux qui construisent), métaux, cultures.
 
 Détails et suivi : [GitHub Project](https://github.com/users/Oshidori99/projects/10).

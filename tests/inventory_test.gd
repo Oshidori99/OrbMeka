@@ -47,7 +47,7 @@ func _run() -> void:
 	current_scene = app
 	await process_frame
 	# Contrôles : O + I, nouvelle partie Inventaire avec la molette.
-	check(Controls.GROUPS.has("Inventaire") and Controls.GROUPS.Inventaire == ["inventory", "crafting", "block_previous", "block_next", "pick_up", "gather", "throw", "delete_item", "show_details"] and not "block_next" in Controls.GROUPS.Blocs, "Contrôles: Inventaire part with O + I, O + F (0.0.8.5) and the wheel")
+	check(Controls.GROUPS.has("Inventaire") and Controls.GROUPS.Inventaire == ["inventory", "crafting", "notebook", "block_previous", "block_next", "pick_up", "pick_aimed", "gather", "throw", "delete_item", "show_details"] and not "block_next" in Controls.GROUPS.Blocs, "Contrôles: Inventaire part with O + I, O + F (0.0.8.5), the wheel and its click (0.0.8.15)")
 	check(Controls.combo_kind(Controls.options(Controls.default_for("inventory"))[0]) == "chord" and Controls.ACTIONS.inventory.label == "Inventaire", "Inventaire: O and I at the same time")
 	app.open_world(item.id)
 	await process_frame
@@ -79,8 +79,11 @@ func _run() -> void:
 	check(wood.size() == 8 and wood.map(func(item): return item.objet) == ["tronc", "branche", "tronc", "branche", "tronc", "branche", "tronc", "branche"] and wood.map(func(item): return int(item.essence)) == [0, 0, 1, 1, 2, 2, 3, 3], "Bois: a trunk and a branch for each tree")
 	check(wood.all(func(item): return float(item.longueur) == 1.0 and float(item.epaisseur) == (20.0 if item.objet == "tronc" else 4.0)) and Inventory.catalog_item("tronc:2") == Inventory.catalog_item("tronc:2"), "trunks 20 cm, branches 4 cm, 1 m long, always the same")
 	check(Inventory.item_name(wood[2]) == "Tronc de noisetier" and Inventory.item_name(wood[7]) == "Branche de tilleul" and ItemIcons.tab("wood", 34) != null, "named after their tree, with a tab picture")
+	# 0.0.8.15 : l'onglet Plantes montre ses objets (avant : la grille, par erreur), la grille est le dernier onglet.
 	ui.show_category(5)
-	check(not ui.catalog.visible and ui.grid_box.visible and ui.creative_bar.visible, "Inventaire tab: the grid of 5 rows and the bar")
+	check(ui.catalog.visible and not ui.grid_box.visible and ui.catalog_slots.filter(func(slot): return slot.visible).map(func(slot): return slot.item.objet).has("fibre_lin"), "Plantes tab: its items, not the grid")
+	ui.show_category(ui.INVENTORY_TAB)
+	check(ui.INVENTORY_TAB == Inventory.CATEGORIES.size() and not ui.catalog.visible and ui.grid_box.visible and ui.creative_bar.visible, "Inventaire tab (last): the grid of 5 rows and the bar")
 	ui.show_category(0)
 	check(ui.grid_slots.all(func(slot): return not slot.locked) and ui.bar_slots.all(func(slot): return not slot.locked and slot.visible), "creative: nothing greyed, 10 bar slots")
 	# Prendre dans une catégorie, poser dans la barre.
@@ -228,6 +231,14 @@ func _run() -> void:
 	var aim_point: Vector3i = world.SmoothTerrain.point_of(aimed.position - aimed.normal * 0.3)
 	check(gathered, "a handful after 1 s or more (" + world.notice + ", sorte " + str(world.terrain.materials.get(aim_point, world.terrain.natural_kind(aim_point))) + ")")
 	var handful: Dictionary = world.inventory.item("bar", 0)
+	# 0.0.8.15 (#239) : sur l'herbe, d'abord une motte de gazon (l'herbe disparaît) ; ensuite la terre dessous.
+	if handful.get("objet") == "gazon":
+		check(true, "on grass: a turf first")
+		world.inventory.take("bar", 0)
+		world.step_gather(0.1, false)
+		world.step_gather(0.6, true)
+		world.step_gather(0.6, true)
+		handful = world.inventory.item("bar", 0)
 	check(world.GATHER_ITEMS.values().has(handful.get("objet")) and handful.nombre == 1, "handful in the left hand: " + str(handful))
 	world.step_gather(0.1, false)
 	world.inventory.select(0)

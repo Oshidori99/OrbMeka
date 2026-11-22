@@ -271,8 +271,13 @@ var cursor_from: Array = []
 var category := 0
 # 0.0.7.5 : onglet Inventaire (après les catégories) ; objets des onglets sur 2 lignes au plus.
 # 0.0.7.18 : après les onglets d'objets (Bois compris), toujours le dernier.
-const INVENTORY_TAB := 5
+# 0.0.8.15 (demande de l'utilisateur : l'onglet Plantes montrait la grille) : la grille vient après tous les onglets
+# d'objets (avant : 5 écrit à la main, devenu faux quand l'onglet Plantes est arrivé en 0.0.8.4).
+static var INVENTORY_TAB: int = Inventory.CATEGORIES.size()
 const CATALOG_ROWS := 2
+
+# 0.0.8.14 : images de la main (barre du bas à droite, Survie), à la couleur de peau du personnage.
+var hand_pictures: Array[TextureRect] = []
 
 func setup(owner_inventory: RefCounted, scale: float) -> void:
 	inventory = owner_inventory
@@ -340,6 +345,9 @@ func _build_hud() -> void:
 		weights_label.add_child(row)
 		var icon := TextureRect.new()
 		icon.texture = ItemIcons.hand() if what == "mains" else ItemIcons.pocket()
+		icon.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS
+		if what == "mains":
+			hand_pictures.append(icon)
 		icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 		icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 		icon.custom_minimum_size = Vector2.ONE * roundf(24 * text_scale)
@@ -383,6 +391,8 @@ func _tab_style(alpha: float) -> StyleBoxFlat:
 func _picture(texture: Texture2D, side: float) -> TextureRect:
 	var picture := TextureRect.new()
 	picture.texture = texture
+	# 0.0.8.14 : images réduites proprement (mipmaps : main et poche faites dans Blender, 192 points).
+	picture.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS
 	picture.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	picture.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 	picture.custom_minimum_size = Vector2(side, side)
@@ -569,6 +579,8 @@ func _survival_row(picture: Texture2D, indexes: Array, side: float, slots: Dicti
 	survival_box.add_child(row)
 	var image := _picture(picture, side)
 	image.tooltip_text = what
+	if what == "Mains":
+		hand_pictures.append(image)
 	row.add_child(image)
 	var shift := Control.new()
 	shift.custom_minimum_size = Vector2(8, 0)
@@ -655,6 +667,10 @@ class FillBar extends Control:
 var panel_bars := {}
 
 func _hint() -> String:
+	# 0.0.8.16 (#208, demande de l'utilisateur) : l'aide complète est dans le Carnet de route (case « Ouvrir l'inventaire »).
+	return "Toute l'aide : Carnet de route (O + C) → Ouvrir l'inventaire · Échap : fermer"
+
+func _full_hint() -> String:
 	if inventory.mode == Inventory.CREATIVE:
 		return "Clic gauche : prendre ou poser (glisser : partager le tas entre les cases) · clic droit avec un objet tenu : en poser un (glisser : un par case) ; sur un objet du haut : dans la première case libre · « + » : détails (ce qu'on a) ou variantes (en haut) · D + T : détails de l'objet en main · Jeter (au sol) : la croix, hors de la fenêtre ou J (Ctrl + J : tout le tas) · D + E : supprimer le tas · Échap : fermer"
 	return "Clic gauche : prendre ou poser (glisser : partager le tas entre les cases ; mains : 4 kg et 1,5 L chacune, 8 kg et 3 L à deux ; poches : 1 kg et 0,5 L) · clic droit avec un objet tenu : en poser un (glisser : un par case) · « + » : les détails · D + T : détails de l'objet en main · Jeter (au sol) : la croix, hors de la fenêtre ou J (Ctrl + J : tout le tas) · Échap : fermer"
@@ -672,6 +688,9 @@ func _carried(weight: float, limit: float) -> String:
 func refresh() -> void:
 	if inventory == null:
 		return
+	# 0.0.8.14 : la main de l'inventaire dans la couleur de peau du personnage (elle peut changer en jeu).
+	for picture: TextureRect in hand_pictures:
+		picture.texture = ItemIcons.hand()
 	var creative: bool = inventory.mode == Inventory.CREATIVE
 	var shown: Array = inventory.bar_slots()
 	bar_slots.clear()
@@ -734,7 +753,7 @@ func refresh() -> void:
 		_open_more(more_slot, more_sticky)
 	_fit_scroll.call_deferred()
 
-# index : un onglet d'objets (0 à 4) ou INVENTORY_TAB (la grille de 5 × 10, tout à droite).
+# index : un onglet d'objets (0 à CATEGORIES.size() - 1) ou INVENTORY_TAB (la grille de 5 × 10, tout à droite).
 func show_category(index: int) -> void:
 	_close_more()
 	category = clampi(index, 0, INVENTORY_TAB)
@@ -763,6 +782,7 @@ func prewarm(on: bool) -> void:
 	screen.visible = on
 
 func close() -> void:
+	close_tool_card()
 	_close_more()
 	drag_button = 0
 	drag_places = []
@@ -1415,7 +1435,98 @@ func _detail_card(value: Dictionary, amount: int, side: float) -> Control:
 	column.add_child(details)
 	for line in lines.slice(1):
 		details.add_child(_label(line, 11))
+	# 0.0.8.18 (#246) : outil ou tête taillée : sa fiche de fabrication (notes et conseils).
+	if Inventory.has_tool_report(value):
+		var open_card := Button.new()
+		open_card.name = "FicheButton"
+		open_card.text = "Fiche de fabrication"
+		open_card.focus_mode = Control.FOCUS_NONE
+		open_card.add_theme_font_size_override("font_size", 11)
+		open_card.pressed.connect(open_tool_card.bind(value))
+		column.add_child(open_card)
 	return card
+
+# --- 0.0.8.18 (#246, demande de l'utilisateur) : fiche de fabrication d'un outil ---
+# Chaque étape avec sa note (bien, moyen, à améliorer, en couleur) et son effet, puis les conseils pour un meilleur outil
+# (Inventory.tool_report). Ouverte par le bouton « Fiche de fabrication » des détails (« + » ou D + T) ; Fermer ou Échap.
+const RATING_COLORS := {"bien": Color(0.55, 0.9, 0.5), "moyen": Color(1.0, 0.85, 0.4), "à améliorer": Color(1.0, 0.6, 0.4)}
+var tool_card: PanelContainer
+var tool_card_value: Dictionary = {}
+
+func open_tool_card(value: Dictionary) -> void:
+	close_tool_card()
+	tool_card_value = value.duplicate(true)
+	var report := Inventory.tool_report(value)
+	tool_card = PanelContainer.new()
+	tool_card.name = "FicheOutil"
+	var style := StyleBoxFlat.new()
+	style.bg_color = Color(0.12, 0.1, 0.23, 0.98)
+	style.border_color = Color(0.62, 0.55, 1.0, 0.6)
+	style.set_border_width_all(2)
+	style.set_corner_radius_all(12)
+	style.set_content_margin_all(roundf(16 * text_scale))
+	tool_card.add_theme_stylebox_override("panel", style)
+	tool_card.set_anchors_and_offsets_preset(Control.PRESET_CENTER)
+	tool_card.grow_horizontal = Control.GROW_DIRECTION_BOTH
+	tool_card.grow_vertical = Control.GROW_DIRECTION_BOTH
+	tool_card.custom_minimum_size = Vector2(roundf(620 * text_scale), 0)
+	add_child(tool_card)
+	var column := VBoxContainer.new()
+	column.add_theme_constant_override("separation", roundi(8 * text_scale))
+	tool_card.add_child(column)
+	var top := HBoxContainer.new()
+	top.add_theme_constant_override("separation", 10)
+	column.add_child(top)
+	top.add_child(_picture(ItemIcons.for_value(value), roundf(48 * text_scale)))
+	var title := _label("Fiche : " + Inventory.item_name(value), 18)
+	title.name = "Title"
+	title.add_theme_color_override("font_color", Color(1.0, 0.86, 0.55))
+	top.add_child(title)
+	var summary := _label(report.resume, 13)
+	summary.name = "Summary"
+	summary.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	column.add_child(summary)
+	var grid := GridContainer.new()
+	grid.name = "Steps"
+	grid.columns = 4
+	grid.add_theme_constant_override("h_separation", roundi(14 * text_scale))
+	grid.add_theme_constant_override("v_separation", roundi(4 * text_scale))
+	column.add_child(grid)
+	for heading in ["Étape", "Ici", "Note", "Effet"]:
+		var head := _label(heading, 12)
+		head.add_theme_color_override("font_color", Color(0.6, 0.85, 0.82))
+		grid.add_child(head)
+	for step: Array in report.etapes:
+		grid.add_child(_label(step[0], 13))
+		grid.add_child(_label(step[1], 13))
+		var rating := _label(step[2], 13)
+		rating.add_theme_color_override("font_color", RATING_COLORS.get(step[2], Color.WHITE))
+		grid.add_child(rating)
+		var effect := _label(step[3], 12)
+		effect.add_theme_color_override("font_color", Color(0.85, 0.84, 0.92))
+		grid.add_child(effect)
+	var tips_title := _label("Pour un meilleur outil :", 14)
+	tips_title.add_theme_color_override("font_color", Color(0.6, 0.85, 0.82))
+	column.add_child(tips_title)
+	var tips := VBoxContainer.new()
+	tips.name = "Tips"
+	column.add_child(tips)
+	for tip: String in report.conseils:
+		var line := _label("• " + tip, 13)
+		line.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		tips.add_child(line)
+	var close := Button.new()
+	close.text = "Fermer"
+	close.focus_mode = Control.FOCUS_NONE
+	close.size_flags_horizontal = Control.SIZE_SHRINK_END
+	close.pressed.connect(close_tool_card)
+	column.add_child(close)
+
+func close_tool_card() -> void:
+	if is_instance_valid(tool_card):
+		tool_card.queue_free()
+	tool_card = null
+	tool_card_value = {}
 
 func _on_variant(button: int, value: Dictionary) -> void:
 	if button == MOUSE_BUTTON_RIGHT:
@@ -1474,6 +1585,9 @@ func _input(event: InputEvent) -> void:
 		get_viewport().set_input_as_handled()
 	elif event.is_action_pressed("delete_item"):
 		throw_key(true, true)
+		get_viewport().set_input_as_handled()
+	elif event is InputEventKey and event.keycode == KEY_ESCAPE and is_instance_valid(tool_card):
+		close_tool_card()
 		get_viewport().set_input_as_handled()
 	elif event is InputEventKey and event.keycode == KEY_ESCAPE and more_slot != null:
 		_close_more()
