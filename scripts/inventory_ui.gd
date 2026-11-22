@@ -381,8 +381,9 @@ func _build_screen() -> void:
 	panel = PanelContainer.new()
 	panel.name = "InventoryPanel"
 	var style := StyleBoxFlat.new()
-	style.bg_color = Color(0.07, 0.08, 0.1, 0.8)
-	style.border_color = Color(1, 1, 1, 0.14)
+	# 0.0.8.9 (demande de l'utilisateur) : bleu-violet, un peu futuriste (avant presque noir), comme les menus du jeu.
+	style.bg_color = Color(0.13, 0.1, 0.25, 0.84)
+	style.border_color = Color(0.62, 0.55, 1.0, 0.35)
 	style.set_border_width_all(1)
 	style.set_corner_radius_all(12)
 	style.set_content_margin_all(18)

@@ -1,6 +1,19 @@
-# OrbMeka™ — prototype 0.0.8.8
+# OrbMeka™ — prototype 0.0.8.9
 
 Godot 4.7 / GDScript. Formes et couleurs simples ; assets externes seulement sous licence vérifiée (sons CC0, assets/sounds/CREDITS.txt).
+
+## 0.0.8.9 — On prend exactement ce qu'on vise ; objets couchés sur les pentes ; arracher l'herbe avec R ou le clic gauche (nouveau mode « Casser / Arracher ») ; ficelage en croix sur la tête et outils bien tenus ; effet de dégât selon sa force ; inventaire, fabrication et menu B + T en bleu-violet
+Version publiée (4 sur 4, avec 0.0.8.6 à 0.0.8.8). Génération inchangée (version 33). Corrections et demandes de l'utilisateur (#242).
+- **Visée** (bug) : les fibres, l'herbe arrachée, la liane, la ficelle et les outils posés avaient une zone de visée invisible d'un mètre : on prenait souvent eux à la place de ce qu'on visait. Chaque objet a maintenant une zone à sa vraie taille (une boîte le long du manche pour les outils) ; on prend le plus proche au centre du viseur. Un R court qui ramasse n'arrache plus l'herbe derrière.
+- **Pentes** (bug) : un objet posé se couche sur la pente (avant : à plat, à moitié dans le sol).
+- **Herbe** : R maintenu l'arrache enfin (le sol herbeux d'origine n'était pas reconnu) ; clic gauche maintenu 0,6 s : mode **« Casser / Arracher »** (nouveau, B + T) : l'herbe arrachée reste au sol ; mode « Casser / Récupérer des objets » : elle est ramassée.
+- **Ficelage** réaliste : tours serrés sous la tête et **bandes en croix par-dessus la tête**, des deux côtés.
+- **Outils en main** (bug : la pioche était de travers) : manche dressé vers l'avant, tête en haut, la main sur le bas du manche.
+- **Effet de dégât** proportionné (#242) : une piqûre, à peine ; une grosse chute ou un arbre, rouge marqué, plus long, vraie secousse.
+- **Couleurs** : inventaire, fabrication et menu B + T en **bleu-violet** (Paramètres et menu Échap inchangés). Menu B + T : **toutes les cases de la même largeur**, noms longs sur deux lignes.
+
+Tests réussis : fixes_089 (11, nouveau), action_menu, crafting, fibers, hands_eat, health, death, return_orb, inventory_more (seul), inventory (seul), breaking, sticks, rock_place, tree_fall, world_save, web_save, lawn_ring (+ tests juridiques). Captures hors écran : outils en main, menu B + T, inventaire.
+À tester : ramasser exactement ce qu'on vise parmi plusieurs objets ; poser sur une pente ; arracher l'herbe (R, et les deux modes du clic gauche) ; l'aspect du ficelage.
 
 ## 0.0.8.8 — Les orties piquent (en marchant dedans, en les arrachant, en les tressant) ; un éclat tranchant à tailler soi-même, qui récolte deux fois plus vite (1,5 s au lieu de 3 s) ; arracher l'herbe ; la fabrication en images, avec les vraies mains et ce qui reste à faire ; cases gris bleuté
 Version locale (3 sur 4). Génération inchangée (version 33). Demandes de l'utilisateur.

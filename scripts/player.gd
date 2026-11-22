@@ -237,7 +237,9 @@ func _unhandled_input(event: InputEvent) -> void:
 		return
 	# 0.0.7.3 : Ramasser (R par défaut) : l'objet visé (au sol, ou un petit caillou), main gauche puis droite.
 	if event.is_action_pressed("pick_up") and is_instance_valid(world) and world.has_method("pick_up"):
-		world.pick_up(get_target())
+		# 0.0.8.9 : un objet ramassé : R, encore tenu, ne récolte ni n'arrache rien derrière lui.
+		if world.pick_up(get_target()):
+			world.set("harvest_block", true)
 	# 0.0.7.29 : Jeter (J par défaut) : l'objet en main tombe au sol devant soi. 0.0.7.30 : aussi en Créatif ; Ctrl + J :
 	# tout le tas ; Supprimer (D + E, Créatif) : rien ne tombe (0.0.7.31 : tout le tas).
 	if event.is_action_pressed("throw") and is_instance_valid(world) and world.has_method("throw_held"):
@@ -515,6 +517,9 @@ func _physics_process(delta: float) -> void:
 	# 0.0.7.27 (#217) : Survie : creuser en maintenant, durée selon la matière.
 	if is_instance_valid(world) and world.has_method("step_dig"):
 		world.step_dig(delta, breaking_held)
+	# 0.0.8.9 : clic gauche maintenu sur l'herbe (modes « arracher », « récupérer des objets ») : l'arracher.
+	if is_instance_valid(world) and world.has_method("step_weed"):
+		world.step_weed(delta, breaking_held)
 	# 0.0.8.4 (#213) : R maintenu (pas R + I) sur une plante à fibres ou une liane : la récolter.
 	if is_instance_valid(world) and world.has_method("step_harvest"):
 		world.step_harvest(delta, active and Input.is_action_pressed("pick_up") and not gathering)

@@ -51,26 +51,32 @@ func _run() -> void:
 	# assez large pour son texte, sans chevauchement.
 	var top: Array = menu.tiles(0)
 	var bottom: Array = menu.tiles(1)
-	check(top.size() == 3 and bottom.size() == 4, "three left-click modes, three right-click brushes and Manger (0.0.8.3)")
+	check(top.size() == 4 and bottom.size() == 4, "four left-click modes (0.0.8.9 : Casser / Arracher), three right-click brushes and Manger (0.0.8.3)")
 	check((top[0][0] as Rect2).end.y < (bottom[0][0] as Rect2).position.y, "the left-click row is above the right-click row")
 	check((bottom[0][0] as Rect2).end.y <= menu.get_viewport_rect().size.y - world.inventory_ui.hud_height() and (top[0][0] as Rect2).position.y > 0.0, "both rows stay above the item bar")
 	var fits := true
 	for row in [top, bottom]:
 		for index in range(row.size()):
 			var rect: Rect2 = row[index][0]
-			var width: float = menu.get_theme_default_font().get_string_size(row[index][1], HORIZONTAL_ALIGNMENT_LEFT, -1, roundi(12 * menu.text_scale)).x
+			var lines: Array = menu._label_lines(row[index][1])
+			var width: float = 0.0
+			for line in lines:
+				width = maxf(width, menu.get_theme_default_font().get_string_size(line, HORIZONTAL_ALIGNMENT_LEFT, -1, roundi(12 * menu.text_scale)).x)
 			fits = fits and rect.size.x >= width and rect.position.x >= 0.0 and rect.end.x <= menu.get_viewport_rect().size.x
 			if index > 0:
 				fits = fits and rect.position.x > (row[index - 1][0] as Rect2).end.x
-	check(fits, "every tile is wide enough for its text, none overlap, all on screen (screen %s, %s)" % [str(menu.size), str(top.map(func(t): return t[0]) + bottom.map(func(t): return t[0]))])
+	var same: bool = (top + bottom).all(func(t): return is_equal_approx((t[0] as Rect2).size.x, (top[0][0] as Rect2).size.x))
+	check(fits and same, "0.0.8.9: every tile the same width, long names on two lines, none overlap, all on screen (screen %s, %s)" % [str(menu.size), str(top.map(func(t): return t[0]) + bottom.map(func(t): return t[0]))])
 	# Molette : choisit dans la ligne active, aussitôt.
 	wheel(menu, true)
 	check(player.left_mode == 1 and world.notice == "Clic gauche : Casser / Récupérer des objets", "wheel down: left click breaks and picks up objects")
 	wheel(menu, true)
 	wheel(menu, true)
+	wheel(menu, true)
 	check(player.left_mode == 0, "the wheel loops back to Creuser / Casser")
 	wheel(menu, false)
-	check(player.left_mode == 2, "wheel up: Récupérer des matériaux")
+	wheel(menu, false)
+	check(player.left_mode == 2, "wheel up twice: Récupérer des matériaux (after Casser / Arracher, 0.0.8.9)")
 	# T : l'autre ligne.
 	key(menu, KEY_T)
 	check(menu.row == 1, "T switches to the right-click row")

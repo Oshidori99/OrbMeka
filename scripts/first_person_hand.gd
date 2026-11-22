@@ -70,6 +70,7 @@ func set_skin(skin_id: String) -> void:
 
 # L'objet en main (case choisie de la barre) ; {} : main vide.
 func show_item(value: Dictionary) -> void:
+	var grip := Vector3.ZERO
 	for child in held.get_children():
 		child.queue_free()
 	visible = value.get("objet", "") != "pioche"
@@ -117,11 +118,13 @@ func show_item(value: Dictionary) -> void:
 			# 0.0.8.6 (#211) : outil (à ficeler ou ficelé) en travers de la paume, raccourci pour ne pas cacher le jeu.
 			"outil_brut", "outil_pierre":
 				made.mesh = ToolModels.mesh(shown)
-				# 0.0.8.7 (#245) : 70 % de leur vraie taille (avant 45 %).
-				size = 0.7
-				made.scale = Vector3.ONE * size
-				made.rotation.z = PI * 0.5
-				made.position.y = 0.02
+				# 0.0.8.9 (bug signalé par l'utilisateur : la pioche était de travers) : tenu comme un vrai outil, en repère de
+				# la caméra : le manche dressé vers l'avant et un peu vers le centre, la tête en haut, la main sur le bas du manche.
+				# 0.0.8.7 (#245) : 70 % de sa vraie taille.
+				var want := Basis(Vector3.BACK, 0.35 * (-1.0 if left else 1.0)) * Basis(Vector3.RIGHT, -0.75)
+				want = want.scaled(Vector3.ONE * 0.7)
+				made.basis = basis.inverse() * want
+				grip = basis.inverse() * (want * Vector3(0.0, -0.12, 0.0))
 			# 0.0.8.5 (#211) : tête taillée dans la paume.
 			"tete":
 				made.mesh = StoneHeads.mesh("hache" if id == "tete_hache" else "pioche", 1.0)
@@ -151,7 +154,7 @@ func show_item(value: Dictionary) -> void:
 				made.rotation.z = PI * 0.5
 				made.position.y = thick * 0.5
 	# La paume regarde vers +Y (repère de la main) : l'objet repose dessus.
-	made.position = Vector3(0.0, made.position.y, 0.0)
+	made.position = grip if grip != Vector3.ZERO else Vector3(0.0, made.position.y, 0.0)
 	held.add_child(made)
 
 func _stone(spec: Dictionary) -> Material:

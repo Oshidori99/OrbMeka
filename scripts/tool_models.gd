@@ -33,7 +33,8 @@ static func mesh(value: Dictionary) -> ArrayMesh:
 	var head: ArrayMesh = StoneHeads.mesh("hache" if axe else "pioche", 1.0)
 	var head_basis := Basis.from_scale(Vector3.ONE * head_size)
 	_add(made, head.surface_get_arrays(0), Transform3D(head_basis, Vector3(head_size * (0.35 if axe else 0.1), length - head_size * 0.35, 0.0)), StoneHeads.material(int(value.get("pierre", 1))))
-	# Lien : les tours, de part et d'autre de la tête.
+	# Lien (0.0.8.9, demande de l'utilisateur : on ne voyait pas qu'il tenait la pierre) : des tours serrés autour du manche
+	# juste sous la tête, et des bandes en croix par-dessus la tête, de chaque côté (un « X » par paire de tours).
 	var turns := int(value.get("tours", 0))
 	if value.has("lien") and turns > 0:
 		var thick := 0.006 if int(value.lien) == 3 else 0.0035
@@ -42,13 +43,27 @@ static func mesh(value: Dictionary) -> ArrayMesh:
 		ring.outer_radius = radius + thick * 2.0
 		ring.rings = 10
 		ring.ring_segments = 4
-		var arrays := ring.get_mesh_arrays()
+		var ring_arrays := ring.get_mesh_arrays()
+		var band := BoxMesh.new()
+		var head_y := length - head_size * 0.35
+		var head_x := head_size * (0.35 if axe else 0.1)
+		var half_depth := head_size * (0.24 if axe else 0.38)
+		band.size = Vector3(thick * 1.4, head_size * 0.6, thick * 1.8)
+		var band_arrays := band.get_mesh_arrays()
 		var tool := SurfaceTool.new()
 		tool.begin(Mesh.PRIMITIVE_TRIANGLES)
-		for index in range(turns):
-			var along := length - head_size * 0.9 + (index - turns * 0.5) * thick * 1.6 + (head_size * 0.55 if index % 2 == 0 else 0.0)
-			var turn := Transform3D(Basis(Vector3.FORWARD, 0.18 * (1.0 if index % 2 == 0 else -1.0)), Vector3(0.0, along, 0.0))
-			tool.append_from(_mesh_of(arrays), 0, turn)
+		# Autour du manche, sous la tête.
+		var wraps := maxi(2, turns / 2)
+		for index in range(wraps):
+			tool.append_from(_mesh_of(ring_arrays), 0, Transform3D(Basis(), Vector3(0.0, head_y - head_size * 0.45 - index * thick * 2.2, 0.0)))
+		# En croix par-dessus la tête, des deux côtés (devant, derrière), autour du manche.
+		var crosses := maxi(1, (turns + 1) / 2)
+		for index in range(crosses):
+			var shift := (index - (crosses - 1) * 0.5) * thick * 2.4
+			for side in [1.0, -1.0]:
+				for lean in [0.75, -0.75]:
+					var place := Transform3D(Basis(Vector3.BACK, lean), Vector3(shift, head_y, side * (half_depth + thick)))
+					tool.append_from(_mesh_of(band_arrays), 0, place)
 		var bound := tool.commit()
 		made.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, bound.surface_get_arrays(0))
 		made.surface_set_material(made.get_surface_count() - 1, bind_material(int(value.lien)))

@@ -104,7 +104,8 @@ func _button(text: String, parent: Node, pressed: Callable) -> Button:
 func _build_panel(row: HBoxContainer) -> void:
 	panel = PanelContainer.new()
 	panel.custom_minimum_size = Vector2(PANEL_WIDTH * text_scale, 0)
-	panel.add_theme_stylebox_override("panel", _style(Color(0.09, 0.1, 0.13, 0.9)))
+	# 0.0.8.9 (demande de l'utilisateur) : bleu-violet, comme l'inventaire.
+	panel.add_theme_stylebox_override("panel", _style(Color(0.13, 0.1, 0.25, 0.9)))
 	row.add_child(panel)
 	var scroll := ScrollContainer.new()
 	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED

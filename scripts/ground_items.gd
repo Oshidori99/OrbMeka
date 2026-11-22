@@ -27,6 +27,8 @@ signal changed
 
 # Matière des pierres du monde (world.gd, aspect par objet : données propres à chaque instance).
 var stone_material: Material
+# 0.0.8.9 : pente du sol sous un point (donnée par le monde) : les objets se couchent dessus.
+var normal_at := Callable()
 # {"item": objet à plat {"objet": id, …caractéristiques}, "position": Vector3}
 var entries: Array = []
 var bodies: Array = []
@@ -311,6 +313,28 @@ func _plain_material(value: Dictionary) -> Material:
 		_materials[key] = made
 	return _materials[key]
 
+
+# 0.0.8.9 (bug signalé par l'utilisateur) : un objet posé sur une pente se couche sur elle (et non plus à plat, à moitié
+# dans le sol). Pente calculée une fois par objet (gardée pendant la partie, pas enregistrée).
+func _slope(entry: Dictionary) -> Vector3:
+	if not entry.has("normal"):
+		entry.normal = Vector3.UP
+		if normal_at.is_valid():
+			var ground := Vector3(entry.position.x, entry.position.y - lift(entry.item), entry.position.z)
+			var normal: Vector3 = normal_at.call(ground)
+			entry.normal = normal if normal.y > 0.3 else Vector3.UP
+	return entry.normal
+
+# Place d'un objet : couché sur la pente, son centre à « lift » au-dessus du sol, le long de la pente.
+func place_of(entry: Dictionary, basis: Basis) -> Transform3D:
+	var normal := _slope(entry)
+	var lifted := lift(entry.item)
+	var ground := Vector3(entry.position.x, entry.position.y - lifted, entry.position.z)
+	var tilt := Basis()
+	if normal.dot(Vector3.UP) < 0.9999:
+		var axis := Vector3.UP.cross(normal).normalized()
+		tilt = Basis(axis, Vector3.UP.angle_to(normal))
+	return Transform3D(tilt * basis, ground + normal * lifted)
 func _add_body(index: int) -> void:
 	var entry: Dictionary = entries[index]
 	var body := StaticBody3D.new()
@@ -327,12 +351,35 @@ func _add_body(index: int) -> void:
 		stick.size = Vector3(thick, thick, float(entry.item.get("longueur", 1.0)))
 		shape.shape = stick
 		body.rotation.y = float(entry.item.get("rotation", 0.0))
+	elif _kind(entry.item) in ["outil_brut", "outil_pierre"]:
+		# 0.0.8.9 (bug signalé par l'utilisateur : on prenait autre chose que ce qu'on visait) : outil : une boîte le long
+		# de son manche (avant : une boule d'un mètre).
+		var tool := BoxShape3D.new()
+		var length := float(entry.item.get("longueur", 0.6))
+		tool.size = Vector3(0.12, 0.08, length)
+		shape.shape = tool
+		shape.position = Vector3(0.0, 0.0, length * 0.5)
+		body.rotation.y = float(entry.item.get("rotation", 0.0))
+	elif _kind(entry.item) in ["fibre", "liane", "ficelle"]:
+		# 0.0.8.9 : fibres, herbe arrachée (botte de 25 cm), liane (boucles de 55 cm), ficelle (rouleau de 9 cm) : leur
+		# vraie taille (avant : une boule d'un mètre qui prenait la place des objets voisins).
+		var flat := BoxShape3D.new()
+		match _kind(entry.item):
+			"fibre":
+				flat.size = Vector3(0.26, 0.06, 0.08)
+			"liane":
+				flat.size = Vector3(0.55, 0.06, 0.55)
+			_:
+				flat.size = Vector3(0.12, 0.05, 0.12)
+		shape.shape = flat
+		body.rotation.y = float(entry.item.get("rotation", 0.0))
 	else:
 		var sphere := SphereShape3D.new()
 		sphere.radius = maxf(size_of(entry.item) * 0.5, AIM_RADIUS)
 		shape.shape = sphere
 	body.add_child(shape)
-	body.position = entry.position
+	# 0.0.8.9 : couché sur la pente comme l'objet dessiné.
+	body.transform = place_of(entry, body.transform.basis)
 	add_child(body)
 	bodies.append(body)
 
@@ -389,9 +436,9 @@ func _redraw() -> void:
 		for at in range(group.list.size()):
 			var entry: Dictionary = group.list[at]
 			if group.get("leaves", false):
-				multi.set_instance_transform(at, Transform3D(leaf_basis(entry.item), entry.position))
+				multi.set_instance_transform(at, place_of(entry, leaf_basis(entry.item)))
 				continue
-			multi.set_instance_transform(at, Transform3D(_basis(entry.item), entry.position))
+			multi.set_instance_transform(at, place_of(entry, _basis(entry.item)))
 			if group.stone:
 				multi.set_instance_color(at, Color.WHITE)
 				multi.set_instance_custom_data(at, Color(float(_look(entry.item)), 0.0, 0.0, 0.0))

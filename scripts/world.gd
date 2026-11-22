@@ -2813,6 +2813,8 @@ func _create_ground_items() -> void:
 	ground = GroundItems.new()
 	# 0.0.7.5 : cailloux et éclats au sol avec la matière des cailloux du monde (même aspect une fois reposés).
 	ground.stone_material = _pebble_material()
+	# 0.0.8.9 : pente du sol sous chaque objet (posé à plat sur elle).
+	ground.normal_at = _rest_normal
 	add_child(ground)
 	ground.from_array(objects_data.get("objets_au_sol"))
 	ground.changed.connect(func(): objects_dirty = true)
@@ -2829,6 +2831,21 @@ func _rest_height(spot: Vector3) -> float:
 			return hit.position.y
 	return terrain.height_at(spot.x, spot.z)
 
+
+# 0.0.8.9 (bug signalé par l'utilisateur : sur une pente, les objets posés étaient à moitié dans le sol) : la pente du sol
+# sous un point (collisions du terrain, sinon le relief de la graine).
+func _rest_normal(spot: Vector3) -> Vector3:
+	if is_inside_tree():
+		var query := PhysicsRayQueryParameters3D.create(spot + Vector3.UP * 1.5, spot + Vector3.DOWN * 6.0, 1)
+		if is_instance_valid(player):
+			query.exclude = [player.get_rid()]
+		var hit := get_world_3d().direct_space_state.intersect_ray(query)
+		if not hit.is_empty() and hit.normal.y > 0.3:
+			return hit.normal
+	var step := 0.25
+	var dx := terrain.height_at(spot.x + step, spot.z) - terrain.height_at(spot.x - step, spot.z)
+	var dz := terrain.height_at(spot.x, spot.z + step) - terrain.height_at(spot.x, spot.z - step)
+	return Vector3(-dx, 2.0 * step, -dz).normalized()
 # Point au sol à côté du joueur (à sa droite, un peu devant) : là où tombent les morceaux.
 func _beside_player() -> Vector3:
 	var basis := player.global_transform.basis
@@ -3064,6 +3081,8 @@ var cut_plants: Dictionary = {}
 var cut_vines: Dictionary = {}
 var harvest_key := ""
 var harvest_time := 0.0
+# 0.0.8.9 : R vient de ramasser un objet : pas de récolte avant de le relâcher.
+var harvest_block := false
 
 # Plante à fibres visée (cylindre autour de la plante, à portée de casse, rien de solide devant) : {} si aucune.
 func aimed_plant(hit: Dictionary) -> Dictionary:
@@ -3137,12 +3156,17 @@ func aimed_grass(hit: Dictionary) -> Dictionary:
 	var at: Vector3 = hit.position
 	if player.camera.global_position.distance_to(at) > player.break_reach + 0.01 or hit.normal.y < 0.5:
 		return {}
-	if _grass_skipped(at) or ground_kind_under(at + Vector3.UP * 0.3) != SmoothTerrain.DIRT or water_surface(Vector2(at.x, at.z)) > at.y + 0.05:
+	# 0.0.8.9 (bug signalé par l'utilisateur : R n'arrachait rien) : le sol herbeux d'origine n'a pas de matière (-1).
+	if _grass_skipped(at) or not ground_kind_under(at + Vector3.UP * 0.3) in [-1, SmoothTerrain.DIRT] or water_surface(Vector2(at.x, at.z)) > at.y + 0.05:
 		return {}
 	var cell := Vector2i(roundi(at.x / SmoothTerrain.STEP), roundi(at.z / SmoothTerrain.STEP))
 	return {"kind": "herbe", "key": "herbe/%d:%d" % [cell.x, cell.y], "point": at, "distance": player.camera.global_position.distance_to(at)}
 
 func step_harvest(delta: float, holding: bool) -> bool:
+	if not holding:
+		harvest_block = false
+	if harvest_block:
+		return false
 	if not holding or not is_instance_valid(player):
 		_harvest_stop()
 		return false
@@ -3179,7 +3203,7 @@ func _harvest_stop() -> void:
 # tombe là, au sol (ramassable). Enregistré dans objets.json (« herbe_arrachee » : cases de 50 cm).
 var pulled_grass: Dictionary = {}
 
-func pull_grass(at: Vector3) -> bool:
+func pull_grass(at: Vector3, collect: bool = false) -> bool:
 	var reach := ceili(Fibers.GRASS_RADIUS / SmoothTerrain.STEP)
 	var center := Vector2i(roundi(at.x / SmoothTerrain.STEP), roundi(at.z / SmoothTerrain.STEP))
 	var tiles := {}
@@ -3193,11 +3217,41 @@ func pull_grass(at: Vector3) -> bool:
 	for tile in tiles:
 		if lawn_tiles.has(tile):
 			_rebuild_lawn_tile(tile)
-	if is_instance_valid(ground):
+	# Ramassée (mode « récupérer des objets ») : dans la case choisie ; sinon (ou si elle ne tient pas) : au sol.
+	var picked := 0
+	if collect:
+		picked = int(inventory.add_to_selected({"objet": Fibers.GRASS_ITEM, "pile": [{}]}).added)
+	if picked == 0 and is_instance_valid(ground):
 		ground.drop({"objet": Fibers.GRASS_ITEM}, at + Vector3.UP * 0.25, at, _rest_height, 0.0)
 	objects_dirty = true
 	show_choice("Herbe arrachée")
 	return true
+
+# 0.0.8.9 (demande de l'utilisateur) : clic gauche maintenu sur l'herbe, modes « casser / arracher » (l'herbe arrachée
+# reste au sol) et « casser / récupérer des objets » (elle est ramassée) : Fibers.GRASS_SECONDS, la main tire.
+var weed_time := 0.0
+
+func step_weed(delta: float, holding: bool) -> bool:
+	if not holding or not is_instance_valid(player) or not player.left_mode in [1, 3]:
+		if weed_time > 0.0 and is_instance_valid(player) and is_instance_valid(player.hand_view):
+			player.hand_view.pull(0.0, 0.0)
+		weed_time = 0.0
+		return false
+	var target := aimed_grass(player.get_target())
+	if target.is_empty():
+		weed_time = 0.0
+		return false
+	weed_time += delta
+	var seconds := Fibers.HARVEST_SECONDS_CREATIVE if game_mode == Inventory.CREATIVE else Fibers.GRASS_SECONDS
+	show_ring(weed_time / seconds)
+	if is_instance_valid(player.hand_view):
+		player.hand_view.pull(weed_time / seconds, weed_time)
+	if weed_time < seconds:
+		return false
+	weed_time = 0.0
+	if is_instance_valid(player.hand_view):
+		player.hand_view.pull(0.0, 0.0)
+	return pull_grass(target.point, player.left_mode == 1)
 # 0.0.8.8 : un éclat tranchant dans une main (récolte plus rapide ; les orties piquent moins).
 func holding_flake() -> bool:
 	for index in Inventory.HANDS:
@@ -3855,6 +3909,10 @@ var health := Health.new()
 var health_bar: Control
 var hurt_veil: ColorRect
 var hurt_time := 0.0
+# 0.0.8.9 (#242, demande de l'utilisateur) : force de l'effet selon les points perdus : une piqûre, à peine ; une grosse
+# chute ou un arbre, un rouge marqué, plus long, et une vraie secousse de la vue (HURT_FULL points : effet entier).
+var hurt_power := 1.0
+const HURT_FULL := 30.0
 var fall_ignored := false
 var eat_time := -1.0
 
@@ -3893,7 +3951,8 @@ func hurt(points: int) -> int:
 		return 0
 	var lost := health.damage(points)
 	if lost > 0:
-		hurt_time = HURT_SECONDS
+		hurt_power = maxf(clampf(lost / HURT_FULL, 0.15, 1.0), hurt_power if hurt_time > 0.0 else 0.0)
+		hurt_time = HURT_SECONDS * (0.6 + 0.8 * hurt_power)
 		inventory_unsaved = true
 		if is_instance_valid(health_bar):
 			health_bar.hurt()
@@ -4054,14 +4113,14 @@ func _update_health(delta: float) -> void:
 	if hurt_time <= 0.0 and not is_instance_valid(hurt_veil):
 		return
 	hurt_time = maxf(0.0, hurt_time - delta) if on else 0.0
-	var k := hurt_time / HURT_SECONDS
+	var k := clampf(hurt_time / HURT_SECONDS, 0.0, 1.0) * hurt_power
 	if is_instance_valid(hurt_veil):
 		hurt_veil.visible = k > 0.0
 		(hurt_veil.material as ShaderMaterial).set_shader_parameter("strength", k)
 	var camera := get_viewport().get_camera_3d() if is_inside_tree() else null
 	if is_instance_valid(camera):
-		camera.h_offset = randf_range(-1.0, 1.0) * SHAKE * k
-		camera.v_offset = randf_range(-1.0, 1.0) * SHAKE * k
+		camera.h_offset = randf_range(-1.0, 1.0) * SHAKE * 2.0 * k * k
+		camera.v_offset = randf_range(-1.0, 1.0) * SHAKE * 2.0 * k * k
 
 # Manger (#204) : seulement en Survie, un fruit en main, pinceau « Poser ».
 func can_eat() -> bool:
@@ -4475,6 +4534,9 @@ func _valid_hit(hit: Dictionary, reach: float) -> bool:
 
 # 0.0.5.8 : clic gauche : creuser le terrain lisse (les blocs posés avant restent, sans casse ni pose).
 func break_target(hit: Dictionary) -> bool:
+	# 0.0.8.9 : modes « arracher » et « récupérer des objets » : l'herbe visée s'arrache (step_weed), on ne creuse pas.
+	if is_instance_valid(player) and player.left_mode in [1, 3] and not aimed_grass(hit).is_empty():
+		return false
 	# 0.0.6.9 : les arbres ne se coupent pas (série 0.0.6).
 	if not hit.is_empty() and is_instance_valid(hit.get("collider")) and hit.collider.is_in_group("trees"):
 		return false
@@ -4632,11 +4694,13 @@ func _create_selection() -> void:
 # jamais : clic maintenu casse, clic court ramasse), 2 Récupérer des matériaux (clic maintenu : une poignée de terre,
 # de sable…). Clic droit : le pinceau (Poser, Aplanir, Lisser). R reste le raccourci pour ramasser.
 const ActionMenu = preload("res://scripts/action_menu.gd")
-const LEFT_MODES := ["creuser / casser", "casser / récupérer des objets", "récupérer des matériaux"]
+# 0.0.8.9 (demande de l'utilisateur) : « casser / arracher » (3) : arrache les mauvaises herbes, qui restent au sol ;
+# « casser / récupérer des objets » (1) arrache aussi l'herbe, et la ramasse.
+const LEFT_MODES := ["creuser / casser", "casser / récupérer des objets", "récupérer des matériaux", "casser / arracher"]
 var action_menu: Control
 
 static func action_hint(left_mode: int, brush: int) -> String:
-	return "Clic gauche : %s · clic droit : %s · changer : B + T · taille : B + molette · inventaire : O + I" % [LEFT_MODES[clampi(left_mode, 0, 2)], BRUSH_NAMES[clampi(brush, 0, BRUSH_NAMES.size() - 1)].to_lower()]
+	return "Clic gauche : %s · clic droit : %s · changer : B + T · taille : B + molette · inventaire : O + I" % [LEFT_MODES[clampi(left_mode, 0, LEFT_MODES.size() - 1)], BRUSH_NAMES[clampi(brush, 0, BRUSH_NAMES.size() - 1)].to_lower()]
 
 func open_action_menu() -> void:
 	if is_instance_valid(action_menu) and is_instance_valid(player):
