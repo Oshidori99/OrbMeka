@@ -171,7 +171,7 @@ func _ready() -> void:
 	add_child(collision)
 	camera = Camera3D.new()
 	camera.position.y = EYE_HEIGHT
-	camera.fov = 75.0
+	camera.fov = DEFAULT_FOV
 	camera.rotation.x = -0.12
 	camera.current = true
 	add_child(camera)
@@ -187,6 +187,7 @@ func _ready() -> void:
 	left_hand_view = FirstPersonHand.new()
 	camera.add_child(left_hand_view)
 	left_hand_view.setup(skin, Callable(world, "_kind_material") if world.has_method("_kind_material") else Callable(), true)
+	set_fov(camera.fov)
 	# Capture only after the player explicitly clicks in the game.
 	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
 
@@ -236,7 +237,9 @@ func _unhandled_input(event: InputEvent) -> void:
 		return
 	# 0.0.7.3 : Ramasser (R par défaut) : l'objet visé (au sol, ou un petit caillou), main gauche puis droite.
 	if event.is_action_pressed("pick_up") and is_instance_valid(world) and world.has_method("pick_up"):
-		world.pick_up(get_target())
+		# 0.0.8.9 : un objet ramassé : R, encore tenu, ne récolte ni n'arrache rien derrière lui.
+		if world.pick_up(get_target()):
+			world.set("harvest_block", true)
 	# 0.0.7.29 : Jeter (J par défaut) : l'objet en main tombe au sol devant soi. 0.0.7.30 : aussi en Créatif ; Ctrl + J :
 	# tout le tas ; Supprimer (D + E, Créatif) : rien ne tombe (0.0.7.31 : tout le tas).
 	if event.is_action_pressed("throw") and is_instance_valid(world) and world.has_method("throw_held"):
@@ -295,11 +298,15 @@ func cycle_block(direction: int) -> void:
 # Pioche tenue en main, en vue à la première personne, quand elle est choisie.
 var pickaxe: Node3D
 const PICKAXE_REST := Vector3(-0.35, 0.45, 0.02)
+const PICKAXE_PLACE := Vector3(0.34, -0.32, -0.6)
+# 0.0.8.7 (demande de l'utilisateur) : champ de vision par défaut 60° (avant 75° : tout paraissait plus petit et plus
+# loin qu'en vrai). Les mains et la pioche se placent selon lui (set_fov).
+const DEFAULT_FOV := 60.0
 
 func _make_pickaxe() -> void:
 	pickaxe = Node3D.new()
 	pickaxe.name = "Pickaxe"
-	pickaxe.position = Vector3(0.34, -0.32, -0.6)
+	pickaxe.position = PICKAXE_PLACE
 	pickaxe.rotation = PICKAXE_REST
 	var wood := StandardMaterial3D.new()
 	wood.albedo_color = Color("#7a5230")
@@ -458,7 +465,7 @@ func apply_settings(values: Dictionary) -> void:
 	place_reach = float(values.get("place_reach", REACH))
 	sensitivity = SENSITIVITY * float(values.get("mouse_sensitivity", 100.0)) / 100.0
 	# Champ de vision réglé (Vidéo → Jeu), valable dans tous les mondes.
-	camera.fov = float(values.get("fov", 75.0))
+	set_fov(float(values.get("fov", DEFAULT_FOV)))
 	view_camera.fov = camera.fov
 	actions.cancel()
 
@@ -510,6 +517,9 @@ func _physics_process(delta: float) -> void:
 	# 0.0.7.27 (#217) : Survie : creuser en maintenant, durée selon la matière.
 	if is_instance_valid(world) and world.has_method("step_dig"):
 		world.step_dig(delta, breaking_held)
+	# 0.0.8.9 : clic gauche maintenu sur l'herbe (modes « arracher », « récupérer des objets ») : l'arracher.
+	if is_instance_valid(world) and world.has_method("step_weed"):
+		world.step_weed(delta, breaking_held)
 	# 0.0.8.4 (#213) : R maintenu (pas R + I) sur une plante à fibres ou une liane : la récolter.
 	if is_instance_valid(world) and world.has_method("step_harvest"):
 		world.step_harvest(delta, active and Input.is_action_pressed("pick_up") and not gathering)
@@ -1050,3 +1060,14 @@ func get_target() -> Dictionary:
 func overlaps_cell(cell: Vector3i) -> bool:
 	var body_box := AABB(global_position + Vector3(-0.33, 0.01, -0.33), Vector3(0.66, 1.78, 0.66))
 	return body_box.intersects(AABB(Vector3(cell), Vector3.ONE))
+
+func set_fov(fov: float) -> void:
+	camera.fov = fov
+	if is_instance_valid(view_camera):
+		view_camera.fov = fov
+	var scale := FirstPersonHand.scale_for_fov(fov)
+	for hand in [hand_view, left_hand_view]:
+		if is_instance_valid(hand):
+			hand.set_view_scale(scale)
+	if is_instance_valid(pickaxe):
+		pickaxe.position = Vector3(PICKAXE_PLACE.x * scale, PICKAXE_PLACE.y * scale, PICKAXE_PLACE.z)

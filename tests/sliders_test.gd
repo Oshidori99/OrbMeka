@@ -51,7 +51,7 @@ func _run() -> void:
 	check(settings.values.fov == 90 and settings.values.walk_forward == 8.5, "Enter saves typed values")
 	# Réinitialisations : les barres suivent.
 	app.setting_resets.fov.pressed.emit()
-	check(app.setting_fields.fov.text == Settings.number_text(75) and app.setting_sliders.fov.value == 75, "field reset moves the slider back")
+	check(app.setting_fields.fov.text == Settings.number_text(60) and app.setting_sliders.fov.value == 60, "field reset moves the slider back")
 	app.settings_reset_all_button.pressed.emit()
 	check(app.setting_sliders.walk_forward.value == Settings.SPECS.walk_forward.default, "reset all moves attribute sliders back")
 	app.category_resets.Panneaux.pressed.emit()

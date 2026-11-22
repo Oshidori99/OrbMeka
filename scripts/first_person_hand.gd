@@ -10,6 +10,7 @@ const Trees = preload("res://scripts/trees.gd")
 const ReturnOrb = preload("res://scripts/return_orb.gd")
 const Fibers = preload("res://scripts/fibers.gd")
 const StoneHeads = preload("res://scripts/stone_heads.gd")
+const ToolModels = preload("res://scripts/tool_models.gd")
 const CharacterPreview = preload("res://scripts/character_preview.gd")
 const MODEL := "res://assets/hands/main_droite.glb"
 # Place du poignet (repère de la caméra), taille ; doigts vers l'avant et un peu vers le centre, paume tournée vers soi.
@@ -17,7 +18,8 @@ const REST := Vector3(0.41, -0.29, -0.47)
 const SCALE := 0.8
 # Objet tenu : au creux de la paume (repère de la main), jamais plus grand que MAX_ITEM (pour ne pas cacher le jeu).
 const PALM := Vector3(0.0, 0.014, -0.045)
-const MAX_ITEM := 0.07
+# 0.0.8.7 (#245, demande de l'utilisateur : tout paraissait trop petit en main) : 15 cm (avant 7 cm).
+const MAX_ITEM := 0.15
 
 var hand: Node3D
 # 0.0.7.10 : main gauche : la main droite en miroir gauche-droite (pouce toujours en haut), à gauche de l'écran.
@@ -44,7 +46,7 @@ func setup(skin_id: String, stone: Callable = Callable(), left_hand: bool = fals
 		# Miroir par le plan vertical de la caméra (gauche ↔ droite) : le haut reste en haut.
 		var mirror := Basis.from_scale(Vector3(-1.0, 1.0, 1.0))
 		basis = mirror * basis
-		rest = Vector3(-REST.x, REST.y, REST.z)
+		rest = _rest_for(false)
 	position = rest
 	var scene: PackedScene = load(MODEL) if ResourceLoader.exists(MODEL) else null
 	if scene != null:
@@ -68,6 +70,7 @@ func set_skin(skin_id: String) -> void:
 
 # L'objet en main (case choisie de la barre) ; {} : main vide.
 func show_item(value: Dictionary) -> void:
+	var grip := Vector3.ZERO
 	for child in held.get_children():
 		child.queue_free()
 	visible = value.get("objet", "") != "pioche"
@@ -108,15 +111,25 @@ func show_item(value: Dictionary) -> void:
 			# 0.0.8.4 (#213) : fibres (petite botte) et liane (rouleau) dans la paume.
 			"fibre", "liane", "ficelle":
 				made.mesh = Fibers.bundle_mesh() if spec.forme == "fibre" else (Fibers.coil_mesh() if spec.forme == "liane" else Fibers.cord_mesh())
-				made.material_override = _plain(spec.couleur)
-				size = 0.6 if spec.forme == "fibre" else (0.45 if spec.forme == "liane" else 0.8)
+				made.material_override = null if spec.forme == "liane" else _plain(spec.couleur)
+				size = 0.6 if spec.forme == "fibre" else (0.3 if spec.forme == "liane" else 0.8)
 				made.scale = Vector3.ONE * size
 				made.position.y = 0.01
+			# 0.0.8.6 (#211) : outil (à ficeler ou ficelé) en travers de la paume, raccourci pour ne pas cacher le jeu.
+			"outil_brut", "outil_pierre":
+				made.mesh = ToolModels.mesh(shown)
+				# 0.0.8.9 (bug signalé par l'utilisateur : la pioche était de travers) : tenu comme un vrai outil, en repère de
+				# la caméra : le manche dressé vers l'avant et un peu vers le centre, la tête en haut, la main sur le bas du manche.
+				# 0.0.8.7 (#245) : 70 % de sa vraie taille.
+				var want := Basis(Vector3.BACK, 0.35 * (-1.0 if left else 1.0)) * Basis(Vector3.RIGHT, -0.75)
+				want = want.scaled(Vector3.ONE * 0.7)
+				made.basis = basis.inverse() * want
+				grip = basis.inverse() * (want * Vector3(0.0, -0.12, 0.0))
 			# 0.0.8.5 (#211) : tête taillée dans la paume.
 			"tete":
 				made.mesh = StoneHeads.mesh("hache" if id == "tete_hache" else "pioche", 1.0)
 				made.material_override = StoneHeads.material(int(shown.get("pierre", 1)))
-				size = minf({3: 0.08, 4: 0.1, 5: 0.12}.get(int(shown.get("taille", 4)), 0.1), _max_item())
+				size = StoneHeads.scale_for("hache" if id == "tete_hache" else "pioche", int(shown.get("taille", 4)))
 				made.scale = Vector3.ONE * size
 				made.position.y = size * 0.2
 			# 0.0.8.2 (#231) : orbe de retour, posée dans la paume.
@@ -133,13 +146,15 @@ func show_item(value: Dictionary) -> void:
 				stick.height = 1.0
 				stick.radial_segments = 8
 				made.mesh = stick
-				var thick := minf(float(shown.get("epaisseur", 3.0)) / 100.0, 0.05 if not both else 0.12)
+				# 0.0.8.7 (demande de l'utilisateur : le bois paraissait plus petit qu'en vrai) : jusqu'à 10 cm (20 cm à deux mains)
+				# d'épaisseur et 50 cm de long (avant 5 cm, 12 cm et 30 cm).
+				var thick := minf(float(shown.get("epaisseur", 3.0)) / 100.0, 0.1 if not both else 0.2)
 				made.material_override = Trees.material(clampi(int(shown.get("essence", 0)), 0, 3), "bark")
-				made.scale = Vector3(thick, minf(float(shown.get("longueur", 1.0)), 0.3), thick)
+				made.scale = Vector3(thick, minf(float(shown.get("longueur", 1.0)), 0.5), thick)
 				made.rotation.z = PI * 0.5
 				made.position.y = thick * 0.5
 	# La paume regarde vers +Y (repère de la main) : l'objet repose dessus.
-	made.position = Vector3(0.0, made.position.y, 0.0)
+	made.position = grip if grip != Vector3.ZERO else Vector3(0.0, made.position.y, 0.0)
 	held.add_child(made)
 
 func _stone(spec: Dictionary) -> Material:
@@ -199,7 +214,7 @@ func set_both(value: bool) -> void:
 	if value == both:
 		return
 	both = value
-	rest = Vector3(TWO_HANDS_REST.x * (-1.0 if left else 1.0), TWO_HANDS_REST.y, TWO_HANDS_REST.z) if both else Vector3(REST.x * (-1.0 if left else 1.0), REST.y, REST.z)
+	rest = _rest_for(both)
 	# Main droite : l'objet glisse au milieu, entre les deux mains (repère de la caméra ramené à celui de la main).
 	if is_instance_valid(held) and not left:
 		held.position = PALM + (basis.inverse() * Vector3(-TWO_HANDS_REST.x, 0.03, 0.0) if both else Vector3.ZERO)
@@ -240,3 +255,20 @@ func pull(share: float, time: float) -> void:
 	var tug := sin(time * 16.0) * 0.012 * reach
 	var toward := Vector3(-PULL_REACH.x if left else PULL_REACH.x, PULL_REACH.y, PULL_REACH.z)
 	position = rest + toward * reach + Vector3(0.0, tug, -tug * 0.6)
+
+# 0.0.8.7 (demande de l'utilisateur : à 60° de champ de vision, les bras sortaient de l'écran) : la place des mains suit le
+# champ de vision (réglée pour 75°) : plus il est étroit, plus elles se rapprochent du centre.
+var view_scale := 1.0
+
+static func scale_for_fov(fov: float) -> float:
+	return tan(deg_to_rad(clampf(fov, 30.0, 120.0)) * 0.5) / tan(deg_to_rad(75.0) * 0.5)
+
+func _rest_for(two: bool) -> Vector3:
+	var base := TWO_HANDS_REST if two else REST
+	return Vector3(base.x * (-1.0 if left else 1.0) * view_scale, base.y * view_scale, base.z)
+
+func set_view_scale(value: float) -> void:
+	view_scale = value
+	rest = _rest_for(both)
+	if not pulling:
+		position = rest

@@ -18,7 +18,8 @@ const SHAPES := [
 	{"name": "en coin", "scale": Vector3(1.1, 0.95, 1.0), "rough": 0.1, "cut": true},
 ]
 # Part du rocher enfoncée dans le sol (il ne flotte pas sur les pentes).
-const SINK := 0.18
+# 0.0.8.7 (demande de l'utilisateur : les cailloux paraissaient plus petits qu'en vrai) : moins enfoncés (avant 0,18).
+const SINK := 0.08
 static var _meshes := {}
 static var _shapes := {}
 

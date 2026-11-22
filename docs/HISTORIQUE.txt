@@ -3,6 +3,22 @@ Du plus récent au plus ancien. Ce fichier est mis à jour à chaque version.
 
 === Thème « Fabrication et survie » (0.0.8) ===
 
+0.0.8.9 — On prend exactement ce qu'on vise ; objets couchés sur les pentes ; arracher l'herbe avec R ou le clic gauche (nouveau mode « Casser / Arracher ») ; ficelage en croix sur la tête et outils bien tenus ; effet de dégât selon sa force ; inventaire, fabrication et menu B + T en bleu-violet
+Génération du terrain : version 33 · Menus : version 10.
+Corrections et demandes de l'utilisateur (#242).
+
+0.0.8.8 — Les orties piquent (en marchant dedans, en les arrachant, en les tressant) ; un éclat tranchant à tailler soi-même, qui récolte deux fois plus vite (1,5 s au lieu de 3 s) ; arracher l'herbe ; la fabrication en images, avec les vraies mains et ce qui reste à faire ; cases gris bleuté
+Génération du terrain : version 33 · Menus : version 10.
+Demandes de l'utilisateur. Tailler : 2,5 fois plus de coups ; ce qui est fabriqué va dans la première main.
+
+0.0.8.7 — Tout à sa vraie taille : vue à 60° par défaut (mains toujours visibles), têtes et outils plus grands, cailloux 2,5 fois plus lourds et moins enfoncés, poches à 1 kg ; inventaire plus grand aux noms entiers ; poser en continu (manger en visant le vide) ; liane plus grande, récoltée en 3 morceaux
+Génération du terrain : version 33 · Menus : version 10.
+Demandes de l'utilisateur (#243, #244, #245). Corrigé : couleur d'une pierre qui tombe, bois trop petit en main.
+
+0.0.8.6 — Première hache et première pioche en pierre (O + F) : fendre une branche avec un éclat, y glisser la tête, la ficeler (3 ficelles ou 1 liane, 4 à 8 tours) ; chaque outil garde sa fabrication ; tressage réaliste en spirale entre les mains et vraie liane de 3 m
+Génération du terrain : version 33 · Menus : version 10.
+Demandes de l'utilisateur (#211, #145). Les outils ne servent pas encore (0.0.8.8).
+
 0.0.8.5 — Fabrication à la main (O + F) : tresser 3 fibres en une ficelle de 33 cm, tailler un silex ou un calcaire (5, 6 ou 8 coups) en tête de hache ou de pioche avec un éclat tranchant, dans une petite scène avec ses deux mains et ses cases ; et la main qui tire la plante en récoltant
 Génération du terrain : version 33 · Menus : version 10.
 Demandes de l'utilisateur (#211, #213). Fendre, Assembler, Ficeler : bientôt. Fibres : 10 ml chacune.

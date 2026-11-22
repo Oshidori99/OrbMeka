@@ -29,6 +29,8 @@ static func texture(id: String) -> Texture2D:
 				image = _apple(Inventory.APPLE_COLORS[1], -1) if id == "pomme" else _hazelnut(spec.couleur)
 			"ficelle":
 				image = _cord(spec.couleur)
+			"outil_brut", "outil_pierre":
+				image = _tool(id.begins_with("hache"), spec.forme == "outil_pierre", 1)
 			"tete":
 				image = _head(id == "tete_hache", 1)
 			"fibre":
@@ -56,6 +58,12 @@ static func for_value(value: Dictionary) -> Texture2D:
 			return _cache[key]
 		return _keep(key, _apple(Inventory.APPLE_COLORS[color], color))
 	# 0.0.8.5 : tête taillée : la couleur de sa pierre (calcaire clair, silex sombre).
+	# 0.0.8.6 : outil : la couleur de la pierre de sa tête.
+	if Inventory.ITEMS.get(id, {}).get("forme", "") in ["outil_brut", "outil_pierre"]:
+		var shown_tool: Dictionary = value.pile[-1] if value.has("pile") and not value.pile.is_empty() else value
+		var tool_stone := clampi(int(shown_tool.get("pierre", 1)), 0, 1)
+		var tool_key := "%s/%d" % [id, tool_stone]
+		return _cache[tool_key] if _cache.has(tool_key) else _keep(tool_key, _tool(id.begins_with("hache"), Inventory.ITEMS[id].forme == "outil_pierre", tool_stone))
 	if id in ["tete_hache", "tete_pioche"]:
 		var shown_head: Dictionary = value.pile[-1] if value.has("pile") and not value.pile.is_empty() else value
 		var stone := clampi(int(shown_head.get("pierre", 1)), 0, 1)
@@ -454,6 +462,48 @@ static func _apple(base: Color, color_index: int) -> Image:
 				image.set_pixel(x, y, image.get_pixel(x, y).blend(green.clamp()))
 	return image
 
+# 0.0.8.6 (#211) : outil : le manche en diagonale (bas à gauche → haut à droite), la tête en haut ; ficelé : des tours.
+static func _tool(axe: bool, bound: bool, stone: int) -> Image:
+	var image := _blank()
+	var base: Color = [Color("#c4bca8"), Color("#3a3a40")][clampi(stone, 0, 1)]
+	var low := Vector2(SIZE * 0.2, SIZE * 0.88)
+	var high := Vector2(SIZE * 0.66, SIZE * 0.22)
+	_shadow(image, Vector2(SIZE * 0.5, SIZE * 0.9), Vector2(SIZE * 0.32, SIZE * 0.04))
+	for y in range(SIZE):
+		for x in range(SIZE):
+			var at := Vector2(x + 0.5, y + 0.5)
+			var stick := _segment_distance(at, low, high)
+			if stick < SIZE * 0.045:
+				var shade := Color("#7a5634") * (1.1 - 0.4 * stick / (SIZE * 0.045))
+				shade.a = 1.0
+				image.set_pixel(x, y, shade.clamp())
+	# Tête, en travers du haut du manche.
+	var across := (high - low).normalized().orthogonal()
+	var center := high + (high - low).normalized() * SIZE * 0.02
+	for y in range(SIZE):
+		for x in range(SIZE):
+			var local := Vector2(x + 0.5, y + 0.5) - center
+			var u := local.dot(-across) / (SIZE * 0.3)
+			var v := local.dot((high - low).normalized()) / (SIZE * 0.3)
+			var inside := false
+			if axe:
+				inside = u > -0.35 and u < 0.9 and absf(v) < lerpf(0.2, 0.55, clampf((u + 0.35) / 1.25, 0.0, 1.0))
+			else:
+				inside = u > -0.9 and u < 0.9 and absf(v) < 0.22 * (1.0 - pow(absf(u) / 0.9, 2.0))
+			if inside:
+				var facet := 0.85 + 0.25 * _hash(floori((u + 1.0) * 4.0), floori((v + 1.0) * 3.0), 17)
+				image.set_pixel(x, y, Color(base.r * facet, base.g * facet, base.b * facet).clamp())
+	# Tours du lien sous la tête.
+	if bound:
+		for turn in range(3):
+			var spot := high - (high - low).normalized() * SIZE * (0.08 + turn * 0.04)
+			for y in range(SIZE):
+				for x in range(SIZE):
+					var local := Vector2(x + 0.5, y + 0.5) - spot
+					if absf(local.dot((high - low).normalized())) < SIZE * 0.012 and absf(local.dot(across)) < SIZE * 0.06:
+						image.set_pixel(x, y, Color("#c2b27c"))
+	return image
+
 # 0.0.8.5 (#213) : ficelle : un petit écheveau serré (trois tours), plus fin que la liane.
 static func _cord(base: Color) -> Image:
 	var image := _blank()
@@ -532,8 +582,9 @@ static func _coil(base: Color) -> Image:
 		for x in range(SIZE):
 			var d := (Vector2(x + 0.5, y + 0.5) - center) / Vector2(SIZE * 0.36, SIZE * 0.3)
 			var r := d.length()
-			for ring in [0.72, 0.92]:
-				var gap := absf(r - ring)
+			var wobble := 1.0 + 0.1 * sin(atan2(d.y, d.x) * 3.0) + 0.05 * sin(atan2(d.y, d.x) * 7.0)
+			for ring in [0.58, 0.78, 0.95]:
+				var gap := absf(r - ring * wobble)
 				if gap < 0.1:
 					var light := 1.15 - 0.4 * (gap / 0.1) - 0.15 * d.y
 					var shade := base * light

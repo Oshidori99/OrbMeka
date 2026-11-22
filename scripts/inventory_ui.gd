@@ -14,9 +14,13 @@ extends CanvasLayer
 const Inventory = preload("res://scripts/inventory.gd")
 const ItemIcons = preload("res://scripts/item_icons.gd")
 const Controls = preload("res://scripts/controls.gd")
-const HUD_SLOT := 46.0
-const PANEL_SLOT := 48.0
-const GAP := 6
+# 0.0.8.7 (demandes de l'utilisateur) : cases plus grandes (barre 46 → 52, inventaire 48 → 58), un peu plus espacées
+# (#244), noms un peu plus petits.
+const HUD_SLOT := 52.0
+const PANEL_SLOT := 58.0
+const GAP := 10
+# 0.0.8.8 : fond des cases (gris moyen un peu bleuté : objets sombres et clairs bien visibles).
+const SLOT_BACK := Color(0.4, 0.44, 0.52, 0.92)
 
 # Une case dessinée (barre, grille, catégorie ou objet tenu par la souris) ; sous la case : nom puis poids.
 class Slot extends Control:
@@ -48,7 +52,8 @@ class Slot extends Control:
 	var dragged := false
 
 	func more_rect() -> Rect2:
-		var badge := maxf(roundf(side * 0.3), 13.0)
+		# 0.0.8.7 (demande de l'utilisateur) : « + » plus petit (avant 30 % de la case), pour mieux voir l'objet.
+		var badge := maxf(roundf(side * 0.22), 11.0)
 		return Rect2(Vector2(width - badge - 2.0, 2.0), Vector2(badge, badge))
 
 	func _init(box_side: float, text_lines: bool = false, text_px: int = 11) -> void:
@@ -56,7 +61,8 @@ class Slot extends Control:
 		width = box_side
 		font_px = text_px
 		with_text = text_lines
-		custom_minimum_size = Vector2(side, side + (2.0 * (font_px + 3.0) + 2.0 if with_text else 0.0))
+		# 0.0.8.7 (#244) : le nom peut aller sur deux lignes (puis le poids).
+		custom_minimum_size = Vector2(side, side + (3.0 * (font_px + 3.0) + 2.0 if with_text else 0.0))
 		size = custom_minimum_size
 
 	func set_width(new_width: float) -> void:
@@ -97,7 +103,8 @@ class Slot extends Control:
 		var rect := Rect2(Vector2.ZERO, Vector2(width, side))
 		var square := Rect2(Vector2((width - side) * 0.5, 0.0), Vector2(side, side))
 		if not plain:
-			draw_rect(rect, Color(0.32, 0.32, 0.34, 0.5) if locked else (Color(0.1, 0.22, 0.13, 0.92) if variant else Color(0.13, 0.14, 0.16, 0.85)))
+			# 0.0.8.8 (demande de l'utilisateur : les objets sombres ne se voyaient pas) : fond gris moyen un peu bleuté.
+			draw_rect(rect, Color(0.32, 0.32, 0.34, 0.5) if locked else (Color(0.1, 0.22, 0.13, 0.92) if variant else SLOT_BACK))
 		if not item.is_empty():
 			var icon: Texture2D = ItemIcons.for_value(item)
 			if icon != null:
@@ -139,8 +146,31 @@ class Slot extends Control:
 				draw_string_outline(mark_font, mark_at, drag_mark, HORIZONTAL_ALIGNMENT_LEFT, -1, mark_px, 3, Color(0, 0, 0, 0.9))
 				draw_string(mark_font, mark_at, drag_mark, HORIZONTAL_ALIGNMENT_LEFT, -1, mark_px, Color(1.0, 0.88, 0.4))
 		if with_text:
-			_text_line(title, side + font_px + 2.0, Color(0.97, 0.97, 0.93))
-			_text_line(note, side + (2.0 * font_px + 5.0 if show_title else font_px + 2.0), Color(0.85, 0.88, 0.8))
+			var title_lines := _wrap(title)
+			for line in range(title_lines.size()):
+				_text_line(title_lines[line], side + font_px + 2.0 + line * (font_px + 3.0), Color(0.97, 0.97, 0.93))
+			_text_line(note, side + font_px + 2.0 + _wrap(title).size() * (font_px + 3.0) if show_title and not title.is_empty() else side + font_px + 2.0, Color(0.85, 0.88, 0.8))
+
+	# 0.0.8.7 (#244, demande de l'utilisateur : noms coupés) : le nom sur deux lignes au plus, coupé entre les mots ; la
+	# seconde ligne raccourcie (…) seulement s'il le faut encore.
+	func _wrap(text: String) -> Array:
+		if text.is_empty():
+			return []
+		var font := ThemeDB.fallback_font
+		var room := width + 10.0
+		if font.get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1, font_px).x <= room:
+			return [text]
+		var words := text.split(" ")
+		var first := ""
+		var index := 0
+		while index < words.size():
+			var next := words[index] if first.is_empty() else first + " " + words[index]
+			if not first.is_empty() and font.get_string_size(next, HORIZONTAL_ALIGNMENT_LEFT, -1, font_px).x > room:
+				break
+			first = next
+			index += 1
+		var rest := " ".join(words.slice(index))
+		return [first] if rest.is_empty() else [first, rest]
 
 	# Texte centré sous la case, raccourci (…) s'il dépasse un peu la largeur de la case.
 	func _text_line(text: String, baseline: float, color: Color) -> void:
@@ -236,7 +266,7 @@ func is_open() -> bool:
 	return is_instance_valid(screen) and screen.visible
 
 func _text_px() -> int:
-	return roundi(11 * text_scale)
+	return roundi(10 * text_scale)
 
 func _build_hud() -> void:
 	hud_bar = HBoxContainer.new()
@@ -255,6 +285,8 @@ func _build_hud() -> void:
 	for index in range(Inventory.BAR_SIZE):
 		var slot := Slot.new(roundf(HUD_SLOT * text_scale), true, _text_px())
 		slot.show_title = false
+		# Barre : le poids seulement (une ligne sous la case).
+		slot.custom_minimum_size.y = slot.side + slot.font_px + 5.0
 		slot.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		hud_bar.add_child(slot)
 		hud_slots.append(slot)
@@ -349,8 +381,9 @@ func _build_screen() -> void:
 	panel = PanelContainer.new()
 	panel.name = "InventoryPanel"
 	var style := StyleBoxFlat.new()
-	style.bg_color = Color(0.07, 0.08, 0.1, 0.8)
-	style.border_color = Color(1, 1, 1, 0.14)
+	# 0.0.8.9 (demande de l'utilisateur) : bleu-violet, un peu futuriste (avant presque noir), comme les menus du jeu.
+	style.bg_color = Color(0.13, 0.1, 0.25, 0.84)
+	style.border_color = Color(0.62, 0.55, 1.0, 0.35)
 	style.set_border_width_all(1)
 	style.set_corner_radius_all(12)
 	style.set_content_margin_all(18)
@@ -603,7 +636,7 @@ var panel_bars := {}
 func _hint() -> String:
 	if inventory.mode == Inventory.CREATIVE:
 		return "Clic gauche : prendre ou poser (glisser : partager le tas entre les cases) · clic droit avec un objet tenu : en poser un (glisser : un par case) ; sur un objet du haut : dans la première case libre · « + » : détails (ce qu'on a) ou variantes (en haut) · D + T : détails de l'objet en main · Jeter (au sol) : la croix, hors de la fenêtre ou J (Ctrl + J : tout le tas) · D + E : supprimer le tas · Échap : fermer"
-	return "Clic gauche : prendre ou poser (glisser : partager le tas entre les cases ; mains : 4 kg et 1,5 L chacune, 8 kg et 3 L à deux ; poches : 500 g et 0,5 L) · clic droit avec un objet tenu : en poser un (glisser : un par case) · « + » : les détails · D + T : détails de l'objet en main · Jeter (au sol) : la croix, hors de la fenêtre ou J (Ctrl + J : tout le tas) · Échap : fermer"
+	return "Clic gauche : prendre ou poser (glisser : partager le tas entre les cases ; mains : 4 kg et 1,5 L chacune, 8 kg et 3 L à deux ; poches : 1 kg et 0,5 L) · clic droit avec un objet tenu : en poser un (glisser : un par case) · « + » : les détails · D + T : détails de l'objet en main · Jeter (au sol) : la croix, hors de la fenêtre ou J (Ctrl + J : tout le tas) · Échap : fermer"
 
 # Poids écrit sous une case (Survie seulement ; rien sous une case vide).
 func _note(index: int) -> String:
@@ -765,7 +798,7 @@ func _say_refusal(value: Dictionary) -> void:
 		"nombre":
 			_say(Inventory.count_rule(value))
 		_:
-			_say("Trop lourd ici : 4 kg par main, 8 kg à deux mains, 500 g dans les poches.")
+			_say("Trop lourd ici : 4 kg par main, 8 kg à deux mains, 1 kg dans les poches.")
 
 # --- 0.0.7.31 : glisser l'objet tenu sur plusieurs cases ---
 var drag_button := 0

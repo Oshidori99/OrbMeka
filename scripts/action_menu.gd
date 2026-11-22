@@ -9,7 +9,8 @@ extends Control
 signal chosen(row: int, index: int)
 
 const ROWS := [
-	["Creuser / Casser", "Casser / Récupérer des objets", "Récupérer des matériaux"],
+	# 0.0.8.9 (demande de l'utilisateur) : « Casser / Arracher » : arrache les mauvaises herbes, qui restent au sol.
+	["Creuser / Casser", "Casser / Récupérer des objets", "Récupérer des matériaux", "Casser / Arracher"],
 	["Poser", "Aplanir", "Lisser", "Manger"],
 ]
 const ROW_NAMES := ["Clic gauche", "Clic droit"]
@@ -81,11 +82,25 @@ func _input(event: InputEvent) -> void:
 		switch_row()
 		get_viewport().set_input_as_handled()
 
-# Largeur d'une case : l'image, ou le texte s'il est plus large.
-func _tile_width(label: String) -> float:
+# 0.0.8.9 (demandes de l'utilisateur) : toutes les cases du menu ont la même largeur ; un nom long va sur deux lignes.
+const TILE_WIDTH := 112.0
+
+func _tile_width(_label: String) -> float:
+	return TILE_WIDTH * text_scale
+
+# Le nom en une ou deux lignes (coupé à l'espace le plus proche du milieu).
+func _label_lines(label: String) -> Array:
 	var font := get_theme_default_font()
 	var size := roundi(12 * text_scale)
-	return maxf(ICON * text_scale, font.get_string_size(label, HORIZONTAL_ALIGNMENT_LEFT, -1, size).x + 10.0 * text_scale)
+	if font.get_string_size(label, HORIZONTAL_ALIGNMENT_LEFT, -1, size).x <= (TILE_WIDTH - 6.0) * text_scale:
+		return [label]
+	var best := -1
+	for index in range(label.length()):
+		if label[index] == " " and (best < 0 or absi(index - label.length() / 2) < absi(best - label.length() / 2)):
+			best = index
+	if best < 0:
+		return [label]
+	return [label.left(best).strip_edges(), label.substr(best + 1).strip_edges()]
 
 # Cases d'une ligne : [rectangle de la case, texte], centrées en bas.
 func tiles(row_index: int) -> Array:
@@ -94,7 +109,7 @@ func tiles(row_index: int) -> Array:
 	for width in widths:
 		total += width
 	total += GAP * text_scale * (widths.size() - 1)
-	var tile_height := ICON * text_scale + 20.0 * text_scale
+	var tile_height := ICON * text_scale + 34.0 * text_scale
 	var screen := get_viewport_rect().size
 	var bottom := screen.y - bottom_margin - (1 - row_index) * (tile_height + 14.0 * text_scale)
 	var x := (screen.x - total) * 0.5
@@ -115,14 +130,17 @@ func _draw() -> void:
 		for index in range(row_tiles.size()):
 			var rect: Rect2 = row_tiles[index][0]
 			var picked: bool = selected[row_index] == index
-			draw_rect(rect, Color(0.08, 0.09, 0.1, 0.78 if active else 0.5))
+			# 0.0.8.9 (demande de l'utilisateur) : bleu-violet, un peu futuriste (avant presque noir).
+			draw_rect(rect, Color(0.17, 0.14, 0.32, 0.82 if active else 0.55))
 			if picked:
 				draw_rect(rect, Color("#f2c94c") if active else Color(0.95, 0.8, 0.3, 0.6), false, 3.0 * text_scale)
 			var icon := Rect2(rect.position.x + (rect.size.x - ICON * text_scale) * 0.5, rect.position.y + 2.0 * text_scale, ICON * text_scale, ICON * text_scale)
 			_icon(row_index, index, icon, 1.0 if active else 0.6)
-			var label: String = row_tiles[index][1]
-			var width := font.get_string_size(label, HORIZONTAL_ALIGNMENT_LEFT, -1, font_size).x
-			draw_string(font, Vector2(rect.position.x + (rect.size.x - width) * 0.5, rect.end.y - 5.0 * text_scale), label, HORIZONTAL_ALIGNMENT_LEFT, -1, font_size, Color(1, 1, 1, 1.0 if active else 0.6))
+			var lines := _label_lines(row_tiles[index][1])
+			for line in range(lines.size()):
+				var width := font.get_string_size(lines[line], HORIZONTAL_ALIGNMENT_LEFT, -1, font_size).x
+				var baseline := rect.end.y - 5.0 * text_scale - (lines.size() - 1 - line) * (font_size + 2.0)
+				draw_string(font, Vector2(rect.position.x + (rect.size.x - width) * 0.5, baseline), lines[line], HORIZONTAL_ALIGNMENT_LEFT, -1, font_size, Color(1, 1, 1, 1.0 if active else 0.6))
 
 # Petites images simples (formes de base, couleurs du jeu).
 func _icon(row_index: int, index: int, box: Rect2, alpha: float) -> void:
@@ -153,6 +171,15 @@ func _icon(row_index: int, index: int, box: Rect2, alpha: float) -> void:
 			draw_circle(c + Vector2(0.0, -0.16) * s, 0.15 * s, Color(earth.r * 1.15, earth.g * 1.15, earth.b * 1.15, alpha))
 			draw_line(c + Vector2(0.0, 0.06) * s, c + Vector2(0.0, -0.02) * s, white, 0.04 * s)
 			draw_colored_polygon(PackedVector2Array([c + Vector2(-0.3, -0.06) * s, c + Vector2(-0.18, -0.06) * s, c + Vector2(-0.24, -0.16) * s]), white)
+		[0, 3]:
+			# 0.0.8.9 : Casser / Arracher : une touffe d'herbe tirée hors du sol (racines), une flèche vers le haut.
+			draw_line(c + Vector2(-0.42, 0.36) * s, c + Vector2(0.42, 0.36) * s, earth, 0.06 * s)
+			for blade in [-0.12, -0.04, 0.04, 0.12]:
+				draw_line(c + Vector2(blade * 0.6, 0.06) * s, c + Vector2(blade * 1.6, -0.34) * s, leaf, 0.04 * s)
+			draw_line(c + Vector2(-0.05, 0.06) * s, c + Vector2(-0.1, 0.2) * s, light, 0.025 * s)
+			draw_line(c + Vector2(0.05, 0.06) * s, c + Vector2(0.09, 0.22) * s, light, 0.025 * s)
+			draw_line(c + Vector2(0.32, 0.2) * s, c + Vector2(0.32, -0.2) * s, white, 0.04 * s)
+			draw_colored_polygon(PackedVector2Array([c + Vector2(0.22, -0.14) * s, c + Vector2(0.42, -0.14) * s, c + Vector2(0.32, -0.3) * s]), white)
 		[1, 0]:
 			# Poser : un bloc de terre (cube vu de biais).
 			var top := PackedVector2Array([c + Vector2(0.0, -0.36) * s, c + Vector2(0.34, -0.18) * s, c + Vector2(0.0, 0.0) * s, c + Vector2(-0.34, -0.18) * s])

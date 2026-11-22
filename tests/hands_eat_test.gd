@@ -112,6 +112,25 @@ func _run() -> void:
 	world.inventory.put("bar", 1, {})
 	check(world.eat_press() and world.eat_time < 0.0, "Manger brush with nothing to eat: nothing happens")
 	world.player.brush = 0
+	# 0.0.8.7 (#243) : un fruit en main, hors du mode « Manger » : viser une surface pose (à répétition en maintenant),
+	# viser le vide mange.
+	world.inventory.put("bar", 1, nuts(3))
+	world.inventory.select(1)
+	for i in range(30):
+		await process_frame
+	var pitch: float = world.player.camera.rotation.x
+	world.player.camera.rotation.x = -1.3
+	var surface: bool = world.aiming_surface()
+	check(surface and world.hold_use() == "", "aiming at the ground: right click puts the fruit down (no eating)")
+	world.player.brush = world.EAT_BRUSH
+	check(world.hold_use() == "manger", "Manger mode: always eats, even aiming at the ground")
+	world.player.brush = 0
+	world.player.camera.rotation.x = 1.3
+	check(not world.aiming_surface() and world.hold_use() == "manger", "aiming at the sky: right click eats")
+	world.player.camera.rotation.x = pitch
+	check(Inventory.POCKETS_LIMIT == 1000.0 and Inventory.PEBBLE_WEIGHTS == [125.0, 300.0, 625.0, 1000.0, 1750.0, 2750.0, 5000.0], "0.0.8.7: pockets 1 kg, pebbles 2.5 times heavier")
+	var StoneHeads = load("res://scripts/stone_heads.gd")
+	check(is_equal_approx(StoneHeads.scale_for("hache", 4) * 1.3, 0.18) and is_equal_approx(StoneHeads.scale_for("pioche", 5) * 1.8, 0.26), "#245: axe heads 15 to 22 cm, pickaxe heads 18 to 26 cm long")
 	# Correction 0.0.8.3 : on mange aussi en Aplanir et en Lisser.
 	world.inventory.put("bar", 1, nuts(3))
 	world.health.value = 50

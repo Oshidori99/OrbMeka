@@ -1,6 +1,58 @@
-# OrbMeka™ — prototype 0.0.8.5
+# OrbMeka™ — prototype 0.0.8.9
 
 Godot 4.7 / GDScript. Formes et couleurs simples ; assets externes seulement sous licence vérifiée (sons CC0, assets/sounds/CREDITS.txt).
+
+## 0.0.8.9 — On prend exactement ce qu'on vise ; objets couchés sur les pentes ; arracher l'herbe avec R ou le clic gauche (nouveau mode « Casser / Arracher ») ; ficelage en croix sur la tête et outils bien tenus ; effet de dégât selon sa force ; inventaire, fabrication et menu B + T en bleu-violet
+Version publiée (4 sur 4, avec 0.0.8.6 à 0.0.8.8). Génération inchangée (version 33). Corrections et demandes de l'utilisateur (#242).
+- **Visée** (bug) : les fibres, l'herbe arrachée, la liane, la ficelle et les outils posés avaient une zone de visée invisible d'un mètre : on prenait souvent eux à la place de ce qu'on visait. Chaque objet a maintenant une zone à sa vraie taille (une boîte le long du manche pour les outils) ; on prend le plus proche au centre du viseur. Un R court qui ramasse n'arrache plus l'herbe derrière.
+- **Pentes** (bug) : un objet posé se couche sur la pente (avant : à plat, à moitié dans le sol).
+- **Herbe** : R maintenu l'arrache enfin (le sol herbeux d'origine n'était pas reconnu) ; clic gauche maintenu 0,6 s : mode **« Casser / Arracher »** (nouveau, B + T) : l'herbe arrachée reste au sol ; mode « Casser / Récupérer des objets » : elle est ramassée.
+- **Ficelage** réaliste : tours serrés sous la tête et **bandes en croix par-dessus la tête**, des deux côtés.
+- **Outils en main** (bug : la pioche était de travers) : manche dressé vers l'avant, tête en haut, la main sur le bas du manche.
+- **Effet de dégât** proportionné (#242) : une piqûre, à peine ; une grosse chute ou un arbre, rouge marqué, plus long, vraie secousse.
+- **Couleurs** : inventaire, fabrication et menu B + T en **bleu-violet** (Paramètres et menu Échap inchangés). Menu B + T : **toutes les cases de la même largeur**, noms longs sur deux lignes.
+
+Tests réussis : fixes_089 (11, nouveau), action_menu, crafting, fibers, hands_eat, health, death, return_orb, inventory_more (seul), inventory (seul), breaking, sticks, rock_place, tree_fall, world_save, web_save, lawn_ring (+ tests juridiques). Captures hors écran : outils en main, menu B + T, inventaire.
+À tester : ramasser exactement ce qu'on vise parmi plusieurs objets ; poser sur une pente ; arracher l'herbe (R, et les deux modes du clic gauche) ; l'aspect du ficelage.
+
+## 0.0.8.8 — Les orties piquent (en marchant dedans, en les arrachant, en les tressant) ; un éclat tranchant à tailler soi-même, qui récolte deux fois plus vite (1,5 s au lieu de 3 s) ; arracher l'herbe ; la fabrication en images, avec les vraies mains et ce qui reste à faire ; cases gris bleuté
+Version locale (3 sur 4). Génération inchangée (version 33). Demandes de l'utilisateur.
+- **Orties** (Survie) : **marcher dedans** pique tant qu'on y reste (1 point toutes les 0,5 s, effet rouge, « Les orties piquent ! ») ; **arracher** une ortie à mains nues : −10 (coupée avec un éclat en main : −3) ; **tresser** des fibres d'ortie : −1 par seconde.
+- **Récolte** : **3 s à la main** (avant 1 s), **1,5 s avec un éclat** dans une main.
+- **Arracher l'herbe** du sol : R maintenu **0,6 s** en visant l'herbe : elle disparaît sur environ 45 cm autour (enregistré, « herbe_arrachee ») ; l'**herbe arrachée reste au sol**, ramassable (pas encore d'usage) : pour retrouver ce qui est tombé dans l'herbe.
+- **Tailler** : **2,5 fois plus de coups** (13, 15, 20 pour une tête de taille 3, 4, 5) ; 3e forme **« Éclat tranchant »** : **8 coups**, une pierre de taille 2 à 5 qui perd une taille (la 2 est entièrement utilisée).
+- **Fabrication** : les **actions en images** (tresser, tailler, fendre, assembler, ficeler), le nom au survol et dessous ; le texte dit **ce qui reste** (« encore 8 coups ») et **combien on en a** (« Vous avez 2 têtes de pioche ») ; en Survie, les objets choisis **vont dans les cases des mains** (1 : gauche, 2 : droite ; ce qu'elles tenaient va à sa place, dans une poche ou au sol) ; **ce qui est fabriqué va dans la première main** (ce qu'elle tenait passe dans la deuxième, sinon une poche, sinon au sol).
+- **Cases** de l'inventaire, de la barre et de la fabrication : **fond gris moyen un peu bleuté** (les objets sombres se voient).
+
+Tests réussis : crafting (47), fibers (33), hands_eat, return_orb, death, health, inventory (seul), inventory_more, lawn_ring, plants, forests, world_save, web_save, sticks, interface_info, layout_lines (+ tests juridiques). Capture hors écran : fabrication en images, cases gris bleuté.
+À tester : marcher dans des orties, arracher l'herbe et retrouver un objet, tailler un éclat, récolter avec un éclat en main ; les images des actions (assez claires ?).
+
+## 0.0.8.7 — Tout à sa vraie taille : vue à 60° par défaut (mains toujours visibles), têtes et outils plus grands, cailloux 2,5 fois plus lourds et moins enfoncés, poches à 1 kg ; inventaire plus grand aux noms entiers ; poser en continu (manger en visant le vide) ; liane plus grande, récoltée en 3 morceaux
+Version locale (2 sur 4). Génération inchangée (version 33). Demandes de l'utilisateur (#243, #244, #245).
+- **Vue à 60°** par défaut (avant 75° : environ 106° en largeur, tout paraissait plus petit et plus loin qu'en vrai ; les mesures du monde, elles, étaient justes). Toujours réglable (Vidéo → Jeu, 50 à 110°). **Les mains, les bras et la pioche se placent selon le champ de vision** : toujours visibles.
+- **Tailles (#245)** : tête de hache 15, 18, 22 cm (taille 3, 4, 5), tête de pioche 18, 22, 26 cm et plus épaisse ; en main, plus de réduction à 7 cm (15 cm au plus), outils à 70 % de leur taille (avant 45 %), bois jusqu'à 10 cm d'épaisseur et 50 cm de long (20 cm à deux mains). Pommes et noisettes inchangées.
+- **Cailloux** 2,5 fois plus lourds (125 g à 5 kg, tailles 1 à 7), **moins enfoncés** dans le sol (on voit leur vraie taille) ; **poches : 1 kg** (avant 500 g).
+- **Inventaire** plus grand : cases 58 au lieu de 48 (barre : 52 au lieu de 46), plus espacées ; **noms entiers sur deux lignes** (#244), un peu plus petits ; « + » plus petit.
+- **Poser en continu (#243)** : clic droit maintenu en visant une surface : l'objet en main est posé à répétition (intervalle de pose, réglable). Un fruit : visant une surface, il est posé ; visant le vide (le ciel, rien à portée), il est mangé ; mode « Manger » (B + T) : il mange toujours, ne pose jamais.
+- **Liane** : plus grande (4 m, boucles d'environ 55 cm) ; un tilleul en donne **3 morceaux** : la liane du tronc raccourcit à chaque récolte et disparaît au dernier (enregistré : « lianes_recoltees »).
+- Corrigé : un silex (ou une pierre) posé n'avait pas sa couleur pendant sa petite chute ; le bois paraissait trop petit en main.
+
+Tests réussis : hands_eat (27), fibers (24), crafting (40), inventory (106, seul), inventory_more, return_orb, death, health, settings_files, pause_settings, sliders, display_settings, layout_lines, interface_info, breaking, rock_place, sticks, tree_fall, world_save, views, body, appearance (+ tests juridiques). Captures hors écran : mains à 60°, inventaire du Créatif.
+À tester : l'impression de taille à 60° ; les noms dans l'inventaire (Survie, objets longs, plusieurs tailles de fenêtre, Web) ; poser des noisettes en continu et manger en regardant le ciel ; récolter une liane 3 fois.
+
+## 0.0.8.6 — Première hache et première pioche en pierre (O + F) : fendre une branche avec un éclat, y glisser la tête, la ficeler (3 ficelles ou 1 liane, 4 à 8 tours) ; chaque outil garde sa fabrication ; tressage réaliste en spirale entre les mains et vraie liane de 3 m
+Version locale (1 sur 4). Génération inchangée (version 33). Demandes de l'utilisateur (#211, #145).
+- **Fendre** (O + F) : une **branche** de 2 à 5 cm d'épaisseur et de 40 cm à 1 m (pas pourrie ; morte : acceptée, moins bon outil plus tard) et un **éclat**, **clic gauche maintenu 4 s** : la main droite enfonce l'éclat par petits coups ; la branche devient **« Branche fendue de … »**. L'éclat reste.
+- **Assembler** : une branche fendue et une tête, **un clic** : la tête glisse dans la fente : **Hache (ou Pioche) à ficeler**.
+- **Ficeler** : l'outil à ficeler et **3 ficelles du même type** ou **1 liane** (lien grossier) ; **clic gauche maintenu** : un tour toutes les 0,6 s, chaque tour se voit sur le manche ; **relâcher pour finir** (4 tours au moins, 8 au plus) : **Hache en pierre** ou **Pioche en pierre**.
+- **Détails des outils (#145)**, au survol ou avec D + T : tête (pierre, taille), manche (essence, bois mort, épaisseur × longueur, souplesse, âge), lien et nombre de tours, poids.
+- **Modèles faits en code** : manche (écorce de son arbre), tête taillée, tours du lien ; en main (en travers de la paume) et couchés au sol ; icônes. Créatif : hache et pioche en pierre dans l'onglet Outils (et le catalogue dans la fabrication).
+- **Tresser** (demande de l'utilisateur : l'ancienne animation n'était pas réaliste) : les 3 brins sont **tendus entre les deux mains** et **s'enroulent en spirale**, de plus en plus serrés, pendant que la main droite roule.
+- **Liane** (demande de l'utilisateur : petit anneau parfait, perdu dans l'herbe) : une vraie liane d'environ **3 m**, enroulée en **boucles irrégulières** d'environ 40 cm, avec des **feuilles** ; **300 g, 0,4 L** (dans une main, pas dans les poches).
+- Les outils ne coupent ni ne cassent encore plus vite : en 0.0.8.8 (avec leur usure).
+
+Tests réussis : crafting (40), fibers, hands_eat, return_orb, death, inventory, inventory_more, sticks, world_save, web_save, tree_fall, controls_groups (+ tests juridiques). Captures hors écran : liane et pioche au sol, hache en main, tresser, ficeler (4 tours).
+À tester : fendre, assembler et ficeler à la souris ; l'aspect des outils en main et au sol ; la liane dans l'herbe ; D + T sur une hache.
 
 ## 0.0.8.5 — Fabrication à la main (O + F) : tresser 3 fibres en une ficelle de 33 cm, tailler un silex ou un calcaire (5, 6 ou 8 coups) en tête de hache ou de pioche avec un éclat tranchant, dans une petite scène avec ses deux mains et ses cases ; et la main qui tire la plante en récoltant
 Version publiée (4 sur 4, avec 0.0.8.2 à 0.0.8.4). Génération inchangée (version 33). Demandes de l'utilisateur (#211, #213).

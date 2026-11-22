@@ -13,7 +13,7 @@ const Trees = preload("res://scripts/trees.gd")
 const ReturnOrb = preload("res://scripts/return_orb.gd")
 const Fibers = preload("res://scripts/fibers.gd")
 const StoneHeads = preload("res://scripts/stone_heads.gd")
-const HEAD_SIZES := {3: 0.08, 4: 0.1, 5: 0.12}
+const ToolModels = preload("res://scripts/tool_models.gd")
 # Au-delà, les plus anciens disparaissent (seulement s'ils sont très nombreux).
 const MAX_ITEMS := 3000
 const FALL_SECONDS := 0.35
@@ -27,6 +27,8 @@ signal changed
 
 # Matière des pierres du monde (world.gd, aspect par objet : données propres à chaque instance).
 var stone_material: Material
+# 0.0.8.9 : pente du sol sous un point (donnée par le monde) : les objets se couchent dessus.
+var normal_at := Callable()
 # {"item": objet à plat {"objet": id, …caractéristiques}, "position": Vector3}
 var entries: Array = []
 var bodies: Array = []
@@ -73,7 +75,9 @@ func drop(value: Dictionary, from: Vector3, near: Vector3, rest_height: Callable
 	if is_inside_tree() and from.distance_to(entry.position) > 0.05:
 		var falling := MeshInstance3D.new()
 		falling.mesh = _mesh(item)
-		falling.material_override = _plain_material(item) if _kind(item) != "fruit" else _fall_material(item)
+		# 0.0.8.7 (bug signalé par l'utilisateur : un silex posé n'avait pas tout de suite sa couleur) : une pierre qui tombe
+		# n'a pas encore son aspect par objet (donné par la série au sol) : couleur unie de sa pierre pendant la chute.
+		falling.material_override = _fall_material(item) if _kind(item) == "fruit" or (_look(item) >= 0 and stone_material != null) else _plain_material(item)
 		falling.basis = _basis(item)
 		add_child(falling)
 		falling.global_position = from
@@ -144,11 +148,11 @@ static func size_of(value: Dictionary) -> float:
 		"eclat":
 			return PIECE_SIZE
 		# 0.0.8.4 (#213) : fibres et liane : modèles déjà à leur taille (fibers.gd).
-		"fibre", "liane", "ficelle":
+		"fibre", "liane", "ficelle", "outil_brut", "outil_pierre":
 			return 1.0
 		# 0.0.8.5 (#211) : tête taillée : selon sa taille (3 petite, 4 moyenne, 5 grande).
 		"tete":
-			return HEAD_SIZES.get(int(value.get("taille", 4)), 0.1)
+			return StoneHeads.scale_for("hache" if value.get("objet") == "tete_hache" else "pioche", int(value.get("taille", 4)))
 		# 0.0.8.2 (#231) : orbe de retour.
 		"orbe":
 			return ReturnOrb.SIZE
@@ -161,6 +165,8 @@ static func size_of(value: Dictionary) -> float:
 static func lift(value: Dictionary) -> float:
 	if _kind(value) == "caillou":
 		return Rocks.pebble_lift(clampi(int(value.get("taille", 3)), 1, 7), clampi(int(value.get("forme", 1)), 1, 7)) * (1.0 - 0.2 * int(value.get("coups", 0)))
+	if _kind(value) in ["outil_brut", "outil_pierre"]:
+		return float(value.get("epaisseur", 3.5)) / 200.0
 	if _kind(value) in ["fibre", "liane", "ficelle"]:
 		return 0.012
 	return size_of(value) * (0.5 if _kind(value) in ["fruit", "bois", "orbe"] else 0.3)
@@ -168,6 +174,9 @@ static func lift(value: Dictionary) -> float:
 # Fruits : le modèle des arbres (rayon 1) ; bois : cylindre couché le long de son orientation ; autres : diamètre 1.
 static func _basis(value: Dictionary) -> Basis:
 	var turn := Basis(Vector3.UP, float(value.get("rotation", 0.0)))
+	# 0.0.8.6 : outil couché, le manche le long du sol (son modèle est déjà à sa taille).
+	if _kind(value) in ["outil_brut", "outil_pierre"]:
+		return turn * Basis(Vector3.RIGHT, PI * 0.5)
 	if _kind(value) == "bois":
 		var thick := size_of(value)
 		return turn * Basis(Vector3.RIGHT, PI * 0.5) * Basis.from_scale(Vector3(thick, float(value.get("longueur", 1.0)), thick))
@@ -190,6 +199,8 @@ func _mesh(value: Dictionary) -> Mesh:
 		return Fibers.bundle_mesh()
 	if _kind(value) == "liane":
 		return Fibers.coil_mesh()
+	if _kind(value) in ["outil_brut", "outil_pierre"]:
+		return ToolModels.mesh(value)
 	if _kind(value) == "ficelle":
 		return Fibers.cord_mesh()
 	if _kind(value) == "tete":
@@ -276,6 +287,9 @@ func _fall_material(value: Dictionary) -> Material:
 func _plain_material(value: Dictionary) -> Material:
 	if _look(value) >= 0 and stone_material != null:
 		return stone_material
+	# 0.0.8.6 : liane (tige et feuilles) et outils (manche, tête, lien) : les matières de leur modèle.
+	if _kind(value) in ["liane", "outil_brut", "outil_pierre"]:
+		return null
 	# 0.0.8.5 : tête taillée : la pierre (calcaire clair, silex sombre).
 	if _kind(value) == "tete":
 		return StoneHeads.material(int(value.get("pierre", 1)))
@@ -299,6 +313,28 @@ func _plain_material(value: Dictionary) -> Material:
 		_materials[key] = made
 	return _materials[key]
 
+
+# 0.0.8.9 (bug signalé par l'utilisateur) : un objet posé sur une pente se couche sur elle (et non plus à plat, à moitié
+# dans le sol). Pente calculée une fois par objet (gardée pendant la partie, pas enregistrée).
+func _slope(entry: Dictionary) -> Vector3:
+	if not entry.has("normal"):
+		entry.normal = Vector3.UP
+		if normal_at.is_valid():
+			var ground := Vector3(entry.position.x, entry.position.y - lift(entry.item), entry.position.z)
+			var normal: Vector3 = normal_at.call(ground)
+			entry.normal = normal if normal.y > 0.3 else Vector3.UP
+	return entry.normal
+
+# Place d'un objet : couché sur la pente, son centre à « lift » au-dessus du sol, le long de la pente.
+func place_of(entry: Dictionary, basis: Basis) -> Transform3D:
+	var normal := _slope(entry)
+	var lifted := lift(entry.item)
+	var ground := Vector3(entry.position.x, entry.position.y - lifted, entry.position.z)
+	var tilt := Basis()
+	if normal.dot(Vector3.UP) < 0.9999:
+		var axis := Vector3.UP.cross(normal).normalized()
+		tilt = Basis(axis, Vector3.UP.angle_to(normal))
+	return Transform3D(tilt * basis, ground + normal * lifted)
 func _add_body(index: int) -> void:
 	var entry: Dictionary = entries[index]
 	var body := StaticBody3D.new()
@@ -315,12 +351,35 @@ func _add_body(index: int) -> void:
 		stick.size = Vector3(thick, thick, float(entry.item.get("longueur", 1.0)))
 		shape.shape = stick
 		body.rotation.y = float(entry.item.get("rotation", 0.0))
+	elif _kind(entry.item) in ["outil_brut", "outil_pierre"]:
+		# 0.0.8.9 (bug signalé par l'utilisateur : on prenait autre chose que ce qu'on visait) : outil : une boîte le long
+		# de son manche (avant : une boule d'un mètre).
+		var tool := BoxShape3D.new()
+		var length := float(entry.item.get("longueur", 0.6))
+		tool.size = Vector3(0.12, 0.08, length)
+		shape.shape = tool
+		shape.position = Vector3(0.0, 0.0, length * 0.5)
+		body.rotation.y = float(entry.item.get("rotation", 0.0))
+	elif _kind(entry.item) in ["fibre", "liane", "ficelle"]:
+		# 0.0.8.9 : fibres, herbe arrachée (botte de 25 cm), liane (boucles de 55 cm), ficelle (rouleau de 9 cm) : leur
+		# vraie taille (avant : une boule d'un mètre qui prenait la place des objets voisins).
+		var flat := BoxShape3D.new()
+		match _kind(entry.item):
+			"fibre":
+				flat.size = Vector3(0.26, 0.06, 0.08)
+			"liane":
+				flat.size = Vector3(0.55, 0.06, 0.55)
+			_:
+				flat.size = Vector3(0.12, 0.05, 0.12)
+		shape.shape = flat
+		body.rotation.y = float(entry.item.get("rotation", 0.0))
 	else:
 		var sphere := SphereShape3D.new()
 		sphere.radius = maxf(size_of(entry.item) * 0.5, AIM_RADIUS)
 		shape.shape = sphere
 	body.add_child(shape)
-	body.position = entry.position
+	# 0.0.8.9 : couché sur la pente comme l'objet dessiné.
+	body.transform = place_of(entry, body.transform.basis)
 	add_child(body)
 	bodies.append(body)
 
@@ -338,6 +397,8 @@ func _redraw() -> void:
 		var item: Dictionary = entry.item
 		var stone := _look(item) >= 0 and stone_material != null
 		var key: String = "pierre/%d" % int(item.get("forme", 1)) if stone else "%s/%d/%d/%d" % [item.objet, int(item.get("forme", 1)), int(item.get("couleur", -1)), int(item.get("essence", -1))]
+		if _kind(item) in ["outil_brut", "outil_pierre"]:
+			key = "outil/" + ToolModels.key_of(item)
 		if _kind(item) == "tete":
 			key += "/p%d" % int(item.get("pierre", 1))
 		if _kind(item) == "bois":
@@ -375,9 +436,9 @@ func _redraw() -> void:
 		for at in range(group.list.size()):
 			var entry: Dictionary = group.list[at]
 			if group.get("leaves", false):
-				multi.set_instance_transform(at, Transform3D(leaf_basis(entry.item), entry.position))
+				multi.set_instance_transform(at, place_of(entry, leaf_basis(entry.item)))
 				continue
-			multi.set_instance_transform(at, Transform3D(_basis(entry.item), entry.position))
+			multi.set_instance_transform(at, place_of(entry, _basis(entry.item)))
 			if group.stone:
 				multi.set_instance_color(at, Color.WHITE)
 				multi.set_instance_custom_data(at, Color(float(_look(entry.item)), 0.0, 0.0, 0.0))
