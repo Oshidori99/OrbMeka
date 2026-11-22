@@ -15,11 +15,13 @@ const Fibers = preload("res://scripts/fibers.gd")
 const Plants = preload("res://scripts/plants.gd")
 const StoneHeads = preload("res://scripts/stone_heads.gd")
 const ToolModels = preload("res://scripts/tool_models.gd")
+const NetBag = preload("res://scripts/net_bag.gd")
 # Au-delà, les plus anciens disparaissent (seulement s'ils sont très nombreux).
 const MAX_ITEMS := 3000
 const FALL_SECONDS := 0.35
 # Taille d'un éclat et d'une poignée, en mètres (les cailloux et les fruits gardent leur taille).
-const PIECE_SIZE := 0.07
+# 0.0.8.21 (demande de l'utilisateur : on le voyait mal) : éclats un peu plus grands au sol (avant 7 cm).
+const PIECE_SIZE := 0.1
 # 0.0.8.15 (#239) : plante arrachée posée au sol (hauteur, m) ; motte de gazon (rayon, épaisseur).
 const PLANT_SIZE := 0.35
 const TURF_RADIUS := 0.12
@@ -190,7 +192,7 @@ static func size_of(value: Dictionary) -> float:
 		"eclat":
 			return PIECE_SIZE
 		# 0.0.8.4 (#213) : fibres et liane : modèles déjà à leur taille (fibers.gd).
-		"fibre", "liane", "ficelle", "outil_brut", "outil_pierre":
+		"fibre", "liane", "ficelle", "outil_brut", "outil_pierre", "sac":
 			return 1.0
 		# 0.0.8.5 (#211) : tête taillée : selon sa taille (3 petite, 4 moyenne, 5 grande).
 		"tete":
@@ -216,7 +218,7 @@ static func lift(value: Dictionary) -> float:
 		return float(value.get("epaisseur", 3.5)) / 200.0
 	if _kind(value) in ["fibre", "liane", "ficelle"]:
 		return 0.012
-	if _kind(value) == "plante":
+	if _kind(value) in ["plante", "sac"]:
 		return 0.0
 	if _kind(value) == "gazon":
 		return TURF_HEIGHT * 0.5
@@ -258,6 +260,9 @@ func _mesh(value: Dictionary) -> Mesh:
 		return StoneHeads.mesh("hache" if value.get("objet") == "tete_hache" else "pioche", 1.0)
 	if _kind(value) == "orbe":
 		return ReturnOrb.mesh()
+	# 0.0.8.21 (#207) : sac en filet posé à plat (modèle fait dans Blender).
+	if _kind(value) == "sac":
+		return NetBag.mesh()
 	# 0.0.8.15 (#239) : plante arrachée : la plante du monde, petite (PLANT_SIZE) ; motte de gazon.
 	if _kind(value) == "plante":
 		return Plants.mesh(int(Inventory.ITEMS.get(value.get("objet", ""), {}).get("plante", 0)))
@@ -352,8 +357,8 @@ func _plain_material(value: Dictionary) -> Material:
 	# 0.0.8.2 : orbe de retour : les matières de son modèle (boule lumineuse, anneau doré).
 	if _kind(value) == "orbe":
 		return null
-	# 0.0.8.15 : plante (image du monde) et motte (terre, herbe) : les matières de leur modèle.
-	if _kind(value) in ["plante", "gazon"]:
+	# 0.0.8.15 : plante (image du monde) et motte (terre, herbe) : les matières de leur modèle ; 0.0.8.21 : sac aussi.
+	if _kind(value) in ["plante", "gazon", "sac"]:
 		return null
 	# Fruits : le matériau de leur modèle (celui des arbres), couleur de chaque pomme dans ses données.
 	if _kind(value) == "fruit":
@@ -425,6 +430,13 @@ func _add_body(index: int) -> void:
 		box.size = Vector3(0.22, PLANT_SIZE, 0.22) if _kind(entry.item) == "plante" else Vector3(TURF_RADIUS * 2.0, TURF_HEIGHT + 0.02, TURF_RADIUS * 2.0)
 		shape.shape = box
 		shape.position = Vector3(0.0, PLANT_SIZE * 0.5, 0.0) if _kind(entry.item) == "plante" else Vector3.ZERO
+	elif _kind(entry.item) == "sac":
+		# 0.0.8.21 : sac à plat, environ 35 × 30 cm.
+		var lying := BoxShape3D.new()
+		lying.size = Vector3(0.36, 0.08, 0.3)
+		shape.shape = lying
+		shape.position = Vector3(0.0, 0.04, 0.0)
+		body.rotation.y = float(entry.item.get("rotation", 0.0))
 	elif _kind(entry.item) in ["fibre", "liane", "ficelle"]:
 		# 0.0.8.9 : fibres, herbe arrachée (botte de 25 cm), liane (boucles de 55 cm), ficelle (rouleau de 9 cm) : leur
 		# vraie taille (avant : une boule d'un mètre qui prenait la place des objets voisins).

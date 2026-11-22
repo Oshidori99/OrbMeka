@@ -3,6 +3,10 @@ Du plus récent au plus ancien. Ce fichier est mis à jour à chaque version.
 
 === Thème « Fabrication et survie » (0.0.8) ===
 
+0.0.8.21 — Sac en filet : cordelette (3 ficelles tressées), Nouer (5 cordelettes, ou 4 et une liane), sur l'épaule ses 4 cases sont les cases 7 à 10, un deuxième sac au-dessus des mains dans l'inventaire, environ 3 kg et 10 L, fiche de fabrication ; tresser deux fois plus vite avec un éclat ; fiche de la branche fendue ; mains moins blanches sur le Web ; troncs posés qui restaient en double corrigés ; éclats plus grands ; noms complets dans les cases ; après Assembler, l'outil reste en main gauche
+Génération du terrain : version 33 · Menus : version 17.
+Issue #207 et demandes de l'utilisateur ; modèle du sac et images (sac, Nouer) faits dans Blender (sources_blender/sac/generer_sac.py).
+
 0.0.8.20 — Paramètres du monde : la date de création et sa version, la dernière ouverture, le temps de jeu, le mode de jeu et la version de la génération
 Génération du terrain : version 33 · Menus : version 16.
 Demande de l'utilisateur : ces détails n'étaient que dans Informations du monde (F3).

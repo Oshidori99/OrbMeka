@@ -3,8 +3,11 @@ extends RefCounted
 # Les versions de la génération sont celles enregistrées avec chaque monde (world_generation.gd) ; la version des menus
 # compte les changements des menus depuis 0.0.6 (1 : menus de 0.0.5.37 et avant). À compléter à chaque version.
 const Generation = preload("res://scripts/world_generation.gd")
-const MENUS_VERSION := 16
+const MENUS_VERSION := 17
 const MENUS := [
+	{"menu": "Inventaire", "version": "0.0.8.21", "text": "Survie : sac en filet (cases 7 à 10), deuxième sac au-dessus des mains, places de sac dans Équipement"},
+	{"menu": "Fabrication", "version": "0.0.8.21", "text": "O + F : cordelette (3 ficelles), Nouer un sac en filet ; tresser deux fois plus vite avec un éclat"},
+	{"menu": "Carnet de route", "version": "0.0.8.21", "text": "Éclat (récolte deux fois plus rapide), Cordelette, Sac en filet"},
 	{"menu": "Paramètres du monde", "version": "0.0.8.20", "text": "date de création et version, dernière ouverture, temps de jeu, mode de jeu, génération"},
 	{"menu": "Carnet de route", "version": "0.0.8.19", "text": "en arbre : Départ au centre, commandes à gauche, récupérer en haut, fabriquer à droite"},
 	{"menu": "Inventaire", "version": "0.0.8.18", "text": "fiche de fabrication d'un outil (notes et conseils), depuis ses détails"},

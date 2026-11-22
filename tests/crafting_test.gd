@@ -37,7 +37,7 @@ static func survival() -> Inventory:
 
 func _run() -> void:
 	check(Controls.ACTIONS.crafting.default.key == KEY_O and Controls.ACTIONS.crafting.default.second.key == KEY_F and Controls.GROUPS.Inventaire.has("crafting"), "O + F: Fabrication, in Contrôles → Inventaire")
-	check(Rules.READY == Rules.ACTIONS and Rules.ACTIONS.size() == 5, "0.0.8.6: the five actions are ready")
+	check(Rules.READY == Rules.ACTIONS and Rules.ACTIONS.size() == 6, "0.0.8.6: the actions are ready (0.0.8.21 : six, with Nouer)")
 	check(Rules.KNAP_HITS == {3: 13, 4: 15, 5: 20} and Rules.FLAKE_HITS == 8 and Rules.BRAID_FIBERS == 3 and Rules.BRAID_SECONDS == 3.0, "0.0.8.8: 13, 15 or 20 hits (8 for a sharp flake); 3 fibres in 3 s")
 	check(is_equal_approx(Inventory.instance_volume("fibre_lin", {}), 0.01), "a fibre: 10 ml")
 	# Tresser : fibres prises dans les mains et les poches.
@@ -197,7 +197,7 @@ func _run() -> void:
 	await process_frame
 	await process_frame
 	var creative: Array = Rules.choices(world.inventory, "fibres").filter(func(c): return c.get("creative", false))
-	check(creative.size() == 3, "Créatif: every fibre type from the catalogue")
+	check(creative.size() == 6, "Créatif: every fibre type from the catalogue (0.0.8.21 : and every string, for cords)")
 	ui.choose_action("tresser")
 	ui.pick("fibres", creative[1])
 	ui.holding = true

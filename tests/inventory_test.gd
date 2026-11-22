@@ -187,7 +187,7 @@ func _run() -> void:
 	action(app, "inventory")
 	check(ui.is_open() and not ui.creative_box.visible and not ui.grid_box.visible and ui.survival_box.visible and ui.hands_weight.text == "0,000 g / 8,000 kg · 0,00 L / 3,0 L" and ui.pockets_weight.text == "0,000 g / 1,000 kg · 0,00 L / 0,50 L" and ui.panel_bars.Mains.size() == 2, "survival screen: a row for the hands, a row for the pockets, no grid")
 	check(ui.bar_slots.size() == 10 and ui.survival_box.is_ancestor_of(ui.bar_slots[0]) and ui.survival_box.is_ancestor_of(ui.bar_slots[5]), "survival slots are in the hands and pockets rows")
-	check(ui.equipment_slots.size() == 8 and ui.equipment_slots.all(func(slot): return slot.locked and slot.item.is_empty() and slot.picture != null) and ui.survival_area.is_ancestor_of(ui.equipment_slots[0]), "equipment to come at the right: 2 bags, 2 baskets, 2 travois, 2 carts, greyed (0.0.7.7)")
+	check(ui.equipment_slots.size() == 8 and ui.equipment_slots.all(func(slot): return (slot.locked or slot in ui.bag_equipment) and slot.item.is_empty() and slot.picture != null) and ui.bag_equipment.size() == 2 and ui.survival_area.is_ancestor_of(ui.equipment_slots[0]), "equipment to come at the right: 2 bags, 2 baskets, 2 travois, 2 carts, greyed (0.0.7.7 ; 0.0.8.21 : the 2 bag places work)")
 	action(app, "inventory")
 	check(not ui.is_open(), "O + I closes it again")
 	key(world, KEY_7)
@@ -320,7 +320,8 @@ func _data_checks() -> void:
 	check(bag.put("bar", 4, {"objet": "silex", "nombre": 1}) == {"objet": "silex", "nombre": 1}, "a 650 g stone does not fit in the 425 g left in the pockets")
 	bag.select(0)
 	check(bag.use_held(3) and Inventory.count(bag.held()) == 9 and bag.held_kind() == 2, "placing uses handfuls")
-	var icons := Inventory.ITEMS.keys().all(func(id): return ItemIcons.texture(id) != null and ItemIcons.texture(id).get_width() == ItemIcons.SIZE)
+	# 0.0.8.21 : le sac en filet : son image faite dans Blender (plus grande, avec mipmaps).
+	var icons := Inventory.ITEMS.keys().all(func(id): return ItemIcons.texture(id) != null and (ItemIcons.texture(id).get_width() == ItemIcons.SIZE or Inventory.ITEMS[id].get("forme", "") == "sac"))
 	check(icons and ItemIcons.hand() != null and ItemIcons.pocket() != null and ItemIcons.natural_tab(34) != null and ItemIcons.texture("sable") == ItemIcons.texture("sable"), "an icon for every item, hand and pocket pictures, made once")
 	var weights := [[0.0, "0,000 g"], [0.5, "500,0 mg"], [1.0, "1,000 g"], [12.5, "12,50 g"], [150.0, "150,0 g"], [999.96, "1,000 kg"], [1000.0, "1,000 kg"], [12345.0, "12,35 kg"], [999999.0, "1,000 Mg"], [2500000.0, "2,500 Mg"]]
 	check(weights.all(func(pair): return Inventory.format_weight(pair[0]) == pair[1]), "weights always with 4 digits: " + str(weights.map(func(pair): return Inventory.format_weight(pair[0]))))

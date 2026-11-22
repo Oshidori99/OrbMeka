@@ -128,6 +128,9 @@ les modèles et couleurs du jeu sortis par tools/modeles_menus.gd (sources_blend
 lancer tools/modeles_menus.gd (si un modèle a changé), puis le script dans Blender (ORBMEKA_IMAGES=nom : une seule).
 scripts/first_person_hand.gd (0.0.7.6) : main droite vue à la première personne (assets/hands/main_droite.glb, faite par
 sources_blender/main/generer_main.py dans Blender), qui tient l'objet choisi dans la barre.
+scripts/net_bag.gd (0.0.8.21, #207) : modèle du sac en filet (assets/items/sac_filet.glb posé, sac_filet_porte.glb porté),
+fait par sources_blender/sac/generer_sac.py dans Blender. Règles des sacs : inventory.gd (BAG, wear_bag, bag_capacity) ;
+Nouer et cordelette : crafting_rules.gd.
 Plantes et gazon (0.0.8.15, #239) : world.gd (pull_plant, plant_held, lay_turf, column_plants : plantes de la graine sans
 les arrachées, plus les plantées ; repousse des plantées) ; objets plante_ortie, plante_lin, plante_herbe, gazon
 (inventory.gd). Clic de la molette (#238) : world.gd pick_aimed. Test : tests/plantes_inventaire_test.gd.

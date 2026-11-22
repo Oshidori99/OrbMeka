@@ -246,6 +246,13 @@ var text_scale := 1.0
 var hud_bar: HBoxContainer
 var hud_slots: Array = []
 var hud_gap: Control
+# 0.0.8.21 (#207) : espace entre les poches et les cases du sac (7 à 10) ; lignes du sac (en jeu et dans l'inventaire),
+# cases du deuxième sac (zone « sac »).
+var hud_bag_gap: Control
+var hud_rows := {}
+var survival_rows := {}
+var sac_slots := {}
+var bag_weights := {}
 var weights_label: VBoxContainer
 # 0.0.7.19 : barres et textes des mains et des poches : en jeu {"mains": [barre, texte], …}.
 var hud_carried := {}
@@ -322,6 +329,12 @@ func _build_hud() -> void:
 			hud_gap.custom_minimum_size = Vector2(14, 0)
 			hud_gap.mouse_filter = Control.MOUSE_FILTER_IGNORE
 			hud_bar.add_child(hud_gap)
+		if index == Inventory.POCKETS[-1]:
+			hud_bag_gap = Control.new()
+			hud_bag_gap.name = "BagGap"
+			hud_bag_gap.custom_minimum_size = Vector2(14, 0)
+			hud_bag_gap.mouse_filter = Control.MOUSE_FILTER_IGNORE
+			hud_bar.add_child(hud_bag_gap)
 	# Poids portés, en bas à droite (Survie). 0.0.7.19 (demande de l'utilisateur) : pour les mains et les poches, une petite
 	# image (au lieu des mots), une barre (la limite la plus proche : poids ou volume) et le texte un peu plus petit.
 	weights_label = VBoxContainer.new()
@@ -337,14 +350,15 @@ func _build_hud() -> void:
 	weights_label.offset_bottom = -12
 	weights_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(weights_label)
-	for what in ["mains", "poches"]:
+	for what in ["mains", "poches", "sac"]:
 		var row := HBoxContainer.new()
 		row.alignment = BoxContainer.ALIGNMENT_END
 		row.add_theme_constant_override("separation", 6)
 		row.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		weights_label.add_child(row)
+		hud_rows[what] = row
 		var icon := TextureRect.new()
-		icon.texture = ItemIcons.hand() if what == "mains" else ItemIcons.pocket()
+		icon.texture = ItemIcons.hand() if what == "mains" else (ItemIcons.pocket() if what == "poches" else ItemIcons.texture(Inventory.BAG_ID))
 		icon.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS
 		if what == "mains":
 			hand_pictures.append(icon)
@@ -526,8 +540,12 @@ func _build_screen() -> void:
 	survival_area.add_child(survival_box)
 	_build_equipment(survival_area, side)
 	var survival_slots := {}
+	# 0.0.8.21 (#207, demande de l'utilisateur) : le deuxième sac au-dessus (dessin du sac à gauche, ses 4 cases à
+	# droite), puis les mains, les poches et le sac porté (cases 7 à 10 de la barre).
+	bag_weights["Sac 2"] = _survival_row(ItemIcons.texture(Inventory.BAG_ID), range(Inventory.BAG_SLOTS), side, sac_slots, "Sac 2", "sac")
 	hands_weight = _survival_row(ItemIcons.hand(), Inventory.HANDS, side, survival_slots, "Mains")
 	pockets_weight = _survival_row(ItemIcons.pocket(), Inventory.POCKETS, side, survival_slots, "Poches")
+	bag_weights["Sac"] = _survival_row(ItemIcons.texture(Inventory.BAG_ID), Inventory.BAG, side, survival_slots, "Sac")
 	_throw_row(survival_box)
 	_creative_bar_slots = creative_slots
 	_survival_bar_slots = survival_slots
@@ -562,21 +580,61 @@ func _build_equipment(parent: Node, side: float) -> void:
 	for kind in EQUIPMENT:
 		for index in range(2):
 			var slot := Slot.new(small)
-			slot.locked = true
+			slot.locked = kind[0] != "sac"
 			slot.picture = ItemIcons.equipment(kind[0])
 			slot.tooltip_text = kind[1]
 			slot.name = "Equipement_%s_%d" % [kind[0], index]
 			grid.add_child(slot)
 			equipment_slots.append(slot)
+			# 0.0.8.21 (#207) : les deux places de sac : un sac tenu par la souris s'y met ; clic sur un sac porté (vide) :
+			# on l'enlève (il vient sous la souris).
+			if kind[0] == "sac":
+				slot.clicked.connect(_on_equipment.bind(index))
+				bag_equipment.append(slot)
+
+var bag_equipment: Array = []
+
+func _on_equipment(_button: int, which: int) -> void:
+	if inventory.mode != Inventory.SURVIVAL:
+		return
+	if not cursor_item.is_empty():
+		if not Inventory.is_bag(cursor_item):
+			_say("Ici, seulement un sac.")
+			return
+		if inventory.bag_worn(which):
+			_say("Il y a déjà un sac à cette place.")
+			return
+		var placed: int = inventory.wear_bag(cursor_item, which)
+		if placed < 0:
+			_say("Un seul sac à la fois sous la souris.")
+			return
+		cursor_item = {}
+		cursor_from = []
+		_show_cursor()
+		_say("Sac en filet sur l'épaule : %s." % ("cases 7 à 10 de la barre" if placed == 0 else "ses cases sont ici, au-dessus des mains"))
+		return
+	if not inventory.bag_worn(which):
+		_say("Prenez un sac en filet avec la souris et posez-le ici pour le porter.")
+		return
+	var taken: Dictionary = inventory.take_off_bag(which)
+	if taken.is_empty():
+		_say("Videz d'abord le sac pour l'enlever.")
+		return
+	cursor_item = Inventory.single(taken)
+	cursor_from = []
+	_show_cursor()
+	_say("Sac enlevé : posez-le dans une main, ou jetez-le.")
 
 var _creative_bar_slots := {}
 var _survival_bar_slots := {}
 
 # Une ligne de Survie : image (non cliquable), les cases un peu décalées à droite, et le poids tout à droite.
-func _survival_row(picture: Texture2D, indexes: Array, side: float, slots: Dictionary, what: String) -> Label:
+func _survival_row(picture: Texture2D, indexes: Array, side: float, slots: Dictionary, what: String, area: String = "bar") -> Label:
 	var row := HBoxContainer.new()
+	row.name = "Ligne " + what
 	row.add_theme_constant_override("separation", GAP)
 	survival_box.add_child(row)
+	survival_rows[what] = row
 	var image := _picture(picture, side)
 	image.tooltip_text = what
 	if what == "Mains":
@@ -587,7 +645,7 @@ func _survival_row(picture: Texture2D, indexes: Array, side: float, slots: Dicti
 	row.add_child(shift)
 	for index in indexes:
 		var slot := Slot.new(side, true, _text_px())
-		slot.clicked.connect(_on_slot.bind("bar", index))
+		slot.clicked.connect(_on_slot.bind(area, index))
 		slot.more_clicked.connect(_toggle_more.bind(slot))
 		row.add_child(slot)
 		slots[index] = slot
@@ -714,6 +772,34 @@ func refresh() -> void:
 				slot.visible = not busy
 	for index in range(Inventory.GRID_SIZE):
 		grid_slots[index].show_item(inventory.item("grid", index))
+	# 0.0.8.21 (#207) : sacs portés : leurs lignes, leurs cases, leurs places dans l'équipement.
+	var worn := [not creative and inventory.bag_worn(0), not creative and inventory.bag_worn(1)]
+	for index in sac_slots:
+		var value: Dictionary = inventory.item("sac", index)
+		sac_slots[index].show_item(value, false, false, "" if value.is_empty() else Inventory.format_weight(Inventory.stack_weight(value)))
+	if survival_rows.has("Sac"):
+		survival_rows["Sac"].visible = worn[0]
+		survival_rows["Sac 2"].visible = worn[1]
+	hud_rows["sac"].visible = worn[0]
+	hud_bag_gap.visible = worn[0]
+	for which in range(bag_equipment.size()):
+		var place: Slot = bag_equipment[which]
+		place.show_item(inventory.bag(which) if worn[which] else {})
+		place.tooltip_text = ("Sac en filet porté (clic : l'enlever, s'il est vide)\n" + "\n".join(Inventory.bag_lines(inventory.bag(which)))) if worn[which] else "Sac : prenez un sac en filet avec la souris et posez-le ici"
+	for pair in [["Sac", 0, "sac"], ["Sac 2", 1, "sac2"]]:
+		if not worn[pair[1]]:
+			continue
+		var share: Dictionary = inventory.fill(pair[2])
+		bag_weights[pair[0]].text = "%s · %s / %s" % [_carried(inventory.bag_weight(pair[1]), inventory.bag_limit(pair[1])), Inventory.format_volume(inventory.bag_volume(pair[1])), Inventory.format_volume(Inventory.BAG_VOLUME)]
+		var bars: Array = panel_bars.get(pair[0], [])
+		if bars.size() == 2:
+			bars[0].set_share(share.poids)
+			bars[1].set_share(share.volume)
+		if pair[1] == 0:
+			var in_game: Array = hud_carried.get("sac", [])
+			var heavier: bool = share.poids >= share.volume
+			in_game[0].set_share(share.poids if heavier else share.volume, "kg" if heavier else "L")
+			in_game[1].text = bag_weights[pair[0]].text
 	hud_gap.visible = not creative
 	# 0.0.7.5 : en Créatif, la grille seulement dans l'onglet Inventaire ; sinon les objets de l'onglet et la barre.
 	grid_box.visible = creative and category == INVENTORY_TAB
@@ -842,6 +928,9 @@ func _put_cursor(area: String, index: int) -> void:
 # 0.0.7.19 : dit pourquoi (poids, volume ou nombre).
 func _say_refusal(value: Dictionary) -> void:
 	match inventory.last_refusal:
+		# 0.0.8.21 (#207) : terre, sable… et fibres passent entre les mailles du sac.
+		"mailles":
+			_say("%s passe entre les mailles du sac : gardez-le en main ou en poche." % Inventory.item_name(value))
 		"encombrant":
 			_say("Trop encombrant ici : 1,5 L par main, 3 L à deux mains, 0,5 L dans les poches.")
 		"nombre":
@@ -968,6 +1057,8 @@ func _mark_drag() -> void:
 func _slot_for(place: Array) -> Slot:
 	if place[0] == "grid":
 		return grid_slots[place[1]] if place[1] < grid_slots.size() else null
+	if place[0] == "sac":
+		return sac_slots.get(place[1])
 	var slots: Dictionary = _creative_bar_slots if inventory.mode == Inventory.CREATIVE else _survival_bar_slots
 	return slots.get(place[1])
 
@@ -1164,6 +1255,8 @@ func _place_under_mouse(any: bool = false) -> Array:
 	for slots in [_creative_bar_slots, _survival_bar_slots]:
 		for index in slots:
 			places.append([slots[index], "bar", index])
+	for index in sac_slots:
+		places.append([sac_slots[index], "sac", index])
 	for place in places:
 		var slot: Slot = place[0]
 		if slot.is_visible_in_tree() and (any or not slot.item.is_empty()) and slot.get_global_rect().has_point(mouse):
@@ -1175,6 +1268,7 @@ func _panel_slots() -> Array:
 	var slots: Array = catalog_slots + grid_slots
 	slots.append_array(_creative_bar_slots.values())
 	slots.append_array(_survival_bar_slots.values())
+	slots.append_array(sac_slots.values())
 	return slots
 
 # « + » : Survie, sur tout objet porté (ses détails). 0.0.7.31 (demande de l'utilisateur : distinguer ce qu'on a de ce qui
@@ -1368,8 +1462,8 @@ func _detail_cards(value: Dictionary, only: bool = false) -> Array:
 		stacks = [value]
 	else:
 		var kind := _kind_of(value)
-		for index in Inventory.HANDS + Inventory.POCKETS:
-			var there: Dictionary = inventory.item("bar", index)
+		for place in inventory.carried_places():
+			var there: Dictionary = inventory.item(place[0], place[1])
 			if not there.is_empty() and _kind_of(there) == kind:
 				stacks.append(there)
 	var hidden := 0

@@ -42,6 +42,13 @@ static func texture(id: String) -> Texture2D:
 				image = _coil(spec.couleur)
 			"orbe":
 				image = _orb(spec.couleur)
+			# 0.0.8.21 (#207) : sac en filet : image faite dans Blender (menu_images.gd), sinon la silhouette de sac.
+			"sac":
+				var drawn := MenuImages.texture(id)
+				if drawn != null:
+					_cache[id] = drawn
+					return drawn
+				image = _svg(BAG_SVG, SIZE)
 			# 0.0.8.15 (#239) : plante entière : son image du monde (assets/plants) ; gazon : une motte de terre herbue.
 			"plante":
 				image = _plant_picture(int(spec.get("plante", 0)))

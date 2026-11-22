@@ -5,6 +5,9 @@ extends RefCounted
 # - Survie (0.0.7.3, décision du 15.11.2026, issue #40) : presque pas d'inventaire. Seulement deux mains (case 1 : main
 #   gauche, case 2 : main droite, 1 kg à elles deux) et quatre poches (cases 3 à 6, 500 g en tout ; 0.0.7.4). Plus tard,
 #   sacs et paniers ajouteront des cases (10 au plus dans la barre). Le reste se pose au sol.
+# - 0.0.8.21 (#207, demandes de l'utilisateur) : sac en filet sur l'épaule : ses 4 cases sont les cases 7 à 10 de la barre
+#   (BAG) ; un deuxième sac : ses 4 cases dans l'inventaire (zone « sac »), au-dessus des mains. On se sert d'un objet du
+#   sac comme d'une poche (case choisie), même la main pleine. Les sacs portés : « sacs » (2 places).
 # Contenu d'une case :
 # - matière (poignées, toutes pareilles) : {"objet": id, "nombre": n} ;
 # - objet unique (caillou, éclat, fruit ; 0.0.7.5) : {"objet": id, "pile": [objet, …]} : chacun garde TOUTES ses
@@ -18,10 +21,21 @@ const GRID_SIZE := COLUMNS * ROWS
 const BAR_SIZE := 10
 const SURVIVAL := "survival"
 const CREATIVE := "creative"
-const FORMAT := 3
+# 0.0.8.21 : format 4 (sacs portés et cases du deuxième sac).
+const FORMAT := 4
 # Survie : mains et poches (cases de la barre), limites en grammes.
 const HANDS := [0, 1]
 const POCKETS := [2, 3, 4, 5]
+# 0.0.8.21 (#207) : cases du premier sac dans la barre ; le deuxième sac a sa propre zone (« sac », BAG_SLOTS cases).
+const BAG := [6, 7, 8, 9]
+const BAG_SLOTS := 4
+const BAG_ID := "sac_filet"
+# Charge d'un sac en filet : environ 3 kg (2,5 à 3,5 kg selon sa fabrication, bag_capacity) et BAG_VOLUME litres.
+const BAG_LOAD := 3000.0
+const BAG_VOLUME := 10.0
+# Fil des cordelettes (lien) : 0 ortie, 1 lin, 2 herbe ; bretelle : 0 cordelette, 1 liane.
+const BAG_CORD_FACTORS := [1.0, 1.1, 0.9]
+const BAG_ROWS := Vector2i(6, 10)
 # 0.0.7.4 (demande de l'utilisateur) : 1 kg pour les deux mains ensemble (0.0.7.6 : 1,4 kg), 500 g pour les quatre poches.
 # 0.0.7.19 (demande de l'utilisateur) : 4 kg par main, 8 kg à deux mains ; et un volume : 1,5 L par main, 3 L à deux
 # mains, 0,5 L pour les poches (instance_volume : le bois compte par sa longueur, 1 L par mètre). Au-delà de ce que tient
@@ -75,6 +89,8 @@ const INSTANCE_FIELDS := {"taille": TYPE_INT, "poids": TYPE_FLOAT, "forme": TYPE
 	# 0.0.8.6 (#211, #145) : bâton fendu (1) ; outil ficelé : son lien (0 ortie, 1 lin, 2 herbe : ficelles ; 3 liane) et son
 	# nombre de tours.
 	"fendue": TYPE_INT, "lien": TYPE_INT, "tours": TYPE_INT,
+	# 0.0.8.21 (#207) : sac en filet : rangées de mailles (6 lâches à 10 serrées) et bretelle (0 cordelette, 1 liane).
+	"rangees": TYPE_INT, "bretelle": TYPE_INT,
 	# 0.0.8.10 : coups restants d'un outil (absent : neuf).
 	"usure": TYPE_INT}
 # Matières : valeurs de smooth_terrain.gd (SAND 0, STONE 1, DIRT 2, CLAY 4, MUD 5, DARK_STONE 6, GRAVEL 8, LIMESTONE 9,
@@ -128,6 +144,12 @@ const ITEMS := {
 	"ficelle_ortie": {"nom": "Ficelle d'ortie", "forme": "ficelle", "poids": 6.0, "couleur": Color("#6f7d4c")},
 	"ficelle_lin": {"nom": "Ficelle de lin", "forme": "ficelle", "poids": 6.0, "couleur": Color("#c2b27c")},
 	"ficelle_herbe": {"nom": "Ficelle d'herbe", "forme": "ficelle", "poids": 6.0, "couleur": Color("#8e9c52")},
+	# 0.0.8.21 (#207, demande de l'utilisateur : une ficelle seule est trop fine) : cordelette, 3 ficelles du même type
+	# tressées ensemble (plus épaisse) ; sac en filet noué avec 5 cordelettes (4 pour les mailles, 1 pour la bretelle).
+	"cordelette_ortie": {"nom": "Cordelette d'ortie", "forme": "ficelle", "poids": 18.0, "couleur": Color("#64713f")},
+	"cordelette_lin": {"nom": "Cordelette de lin", "forme": "ficelle", "poids": 18.0, "couleur": Color("#b9a66c")},
+	"cordelette_herbe": {"nom": "Cordelette d'herbe", "forme": "ficelle", "poids": 18.0, "couleur": Color("#7f8d45")},
+	"sac_filet": {"nom": "Sac en filet", "forme": "sac", "poids": 90.0, "couleur": Color("#b9a66c")},
 	"tete_hache": {"nom": "Tête de hache", "forme": "tete", "couleur": Color("#2e2e33")},
 	"tete_pioche": {"nom": "Tête de pioche", "forme": "tete", "couleur": Color("#2e2e33")},
 	# 0.0.8.6 (#211) : tête glissée dans un bâton fendu (à ficeler), puis outil ficelé (#145 : pierre et taille de la tête,
@@ -177,7 +199,10 @@ static func _empty_store() -> Dictionary:
 	var bar := []
 	bar.resize(BAR_SIZE)
 	bar.fill({})
-	return {"grid": grid, "bar": bar, "selected": 0}
+	var bag := []
+	bag.resize(BAG_SLOTS)
+	bag.fill({})
+	return {"grid": grid, "bar": bar, "selected": 0, "sacs": [{}, {}], "sac": bag}
 
 func _store() -> Dictionary:
 	return _stores[mode]
@@ -189,20 +214,24 @@ func set_mode(new_mode: String) -> void:
 		store.selected = 0
 	changed.emit()
 
-# area : « grid » (grille de 5 × 10) ou « bar » (barre d'objets).
+# area : « grid » (grille de 5 × 10), « bar » (barre d'objets) ou « sac » (deuxième sac, 0.0.8.21).
 func size_of(area: String) -> int:
-	return BAR_SIZE if area == "bar" else GRID_SIZE
+	return BAR_SIZE if area == "bar" else (BAG_SLOTS if area == "sac" else GRID_SIZE)
 
 func item(area: String, index: int) -> Dictionary:
 	if index < 0 or index >= size_of(area):
 		return {}
 	return _store()[area][index]
 
-# Survie : seulement les mains et les poches (pas de grille avant les sacs).
+# Survie : seulement les mains, les poches et les sacs portés (pas de grille).
 func usable(area: String, index: int) -> bool:
 	if index < 0 or index >= size_of(area):
 		return false
-	return mode == CREATIVE or (area == "bar" and (index in HANDS or index in POCKETS))
+	if area == "sac":
+		return mode == SURVIVAL and bag_worn(1)
+	if mode == CREATIVE:
+		return true
+	return area == "bar" and (index in HANDS or index in POCKETS or (index in BAG and bag_worn(0)))
 
 # Cases de la barre montrées : toutes en Créatif ; en Survie, les mains et les poches. 0.0.7.10 : objet lourd porté à
 # deux mains : une seule case pour les deux mains (l'autre main n'est plus une case : une de moins dans la barre).
@@ -448,12 +477,16 @@ func _hand_holds(index: int, id: String, weight: float, volume: float, amount: i
 func room(area: String, index: int) -> float:
 	if mode == CREATIVE:
 		return INF
+	if area == "sac":
+		return bag_limit(1) - bag_weight(1, index)
 	if area != "bar":
 		return 0.0
 	if index in HANDS:
 		return HANDS_LIMIT - hands_weight(index)
 	if index in POCKETS:
 		return POCKETS_LIMIT - pockets_weight(index)
+	if index in BAG:
+		return bag_limit(0) - bag_weight(0, index)
 	return 0.0
 
 # Sépare les « amount » premiers objets d'une pile (ou poignées) du reste : [début, reste].
@@ -485,9 +518,106 @@ func carry_factor() -> float:
 
 # 0.0.7.19 : remplissage (0 à 1) des mains et des poches : poids et volume (barres de l'inventaire et du jeu).
 func fill(group: String) -> Dictionary:
+	if group in ["sac", "sac2"]:
+		var which := 0 if group == "sac" else 1
+		return {"poids": bag_weight(which) / maxf(bag_limit(which), 1.0), "volume": bag_volume(which) / BAG_VOLUME}
 	if group == "mains":
 		return {"poids": hands_weight() / HANDS_LIMIT, "volume": hands_volume() / HANDS_VOLUME}
 	return {"poids": pockets_weight() / POCKETS_LIMIT, "volume": pockets_volume() / POCKETS_VOLUME}
+
+# --- 0.0.8.21 (#207, demandes de l'utilisateur) : sacs en filet ---
+# Deux places : le premier sac (ses cases : BAG, dans la barre), le deuxième (zone « sac », dans l'inventaire). Un sac
+# s'enlève seulement vide. Il ne garde pas ce qui passe entre les mailles : poignées de terre, sable… et fibres.
+func bag(which: int) -> Dictionary:
+	var bags: Array = _store().get("sacs", [{}, {}])
+	return bags[which] if which >= 0 and which < bags.size() else {}
+
+func bag_worn(which: int) -> bool:
+	return not bag(which).is_empty()
+
+static func is_bag(value: Dictionary) -> bool:
+	return value.get("objet", "") == BAG_ID
+
+# Cases d'un sac : [zone, numéro].
+static func bag_places(which: int) -> Array:
+	if which == 0:
+		return BAG.map(func(index): return ["bar", index])
+	return range(BAG_SLOTS).map(func(index): return ["sac", index])
+
+func bag_weight(which: int, except: int = -1) -> float:
+	var total := 0.0
+	for place in bag_places(which):
+		if place[1] != except:
+			total += stack_weight(_store()[place[0]][place[1]])
+	return total
+
+func bag_volume(which: int, except: int = -1) -> float:
+	var total := 0.0
+	for place in bag_places(which):
+		if place[1] != except:
+			total += stack_volume(_store()[place[0]][place[1]])
+	return total
+
+func bag_empty(which: int) -> bool:
+	return bag_places(which).all(func(place): return _store()[place[0]][place[1]].is_empty())
+
+func bag_limit(which: int) -> float:
+	return bag_capacity(bag(which)) if bag_worn(which) else 0.0
+
+# Charge d'un sac selon sa fabrication : lin plus solide, mailles serrées (plus de rangées), bretelle en liane un peu
+# moins bonne ; de 2,5 à 3,5 kg.
+static func bag_capacity(value: Dictionary) -> float:
+	var cord: float = BAG_CORD_FACTORS[clampi(int(value.get("lien", 0)), 0, BAG_CORD_FACTORS.size() - 1)]
+	var rows := 0.92 + 0.035 * (clampi(int(value.get("rangees", 8)), BAG_ROWS.x, BAG_ROWS.y) - BAG_ROWS.x)
+	var strap := 0.97 if int(value.get("bretelle", 0)) == 1 else 1.0
+	return clampf(snappedf(BAG_LOAD * cord * rows * strap, 10.0), 2500.0, 3500.0)
+
+# Ce qui passe entre les mailles : une poignée de matière (terre, sable…), une fibre ; un sac dans un sac : non plus.
+static func bag_accepts(id: String) -> bool:
+	var spec: Dictionary = ITEMS.get(id, {})
+	return not spec.has("matiere") and not spec.has("outil") and not spec.get("forme", "") in ["fibre", "sac"]
+
+func _bag_holds(which: int, index: int, id: String, weight: float, volume: float) -> String:
+	if not bag_worn(which):
+		return "lourd"
+	if not bag_accepts(id):
+		return "mailles"
+	if bag_weight(which, index) + weight > bag_limit(which) + 0.001:
+		return "lourd"
+	if bag_volume(which, index) + volume > BAG_VOLUME + 0.0001:
+		return "encombrant"
+	return ""
+
+# Met un sac sur l'épaule (Survie) : la première place libre (ou seulement « place ») ; rend la place (0, 1) ou -1.
+# value : une case (un seul sac) ou à plat.
+func wear_bag(value: Dictionary, place: int = -1) -> int:
+	if mode != SURVIVAL or not is_bag(value) or (value.has("pile") and value.pile.size() != 1) or value.has("nombre"):
+		return -1
+	var flat_value: Dictionary = flat(value.objet, value.pile[0]) if value.has("pile") else value.duplicate(true)
+	for which in ([place] if place in [0, 1] else [0, 1]):
+		if not bag_worn(which):
+			_store().sacs[which] = flat_value
+			changed.emit()
+			return which
+	return -1
+
+# Enlève un sac vide ; rend le sac (à plat) ou {} s'il n'est pas vide.
+func take_off_bag(which: int) -> Dictionary:
+	if not bag_worn(which) or not bag_empty(which):
+		return {}
+	var taken := bag(which).duplicate(true)
+	_store().sacs[which] = {}
+	if which == 0 and selected() in BAG:
+		_store().selected = HANDS[0]
+	changed.emit()
+	return taken
+
+# Lignes des détails d'un sac : mailles, bretelle, charge.
+static func bag_lines(value: Dictionary) -> Array:
+	var cord: String = ["d'ortie", "de lin", "d'herbe"][clampi(int(value.get("lien", 0)), 0, 2)]
+	return ["Mailles : cordelettes %s, %d rangées" % [cord, clampi(int(value.get("rangees", 8)), BAG_ROWS.x, BAG_ROWS.y)],
+		"Bretelle : %s" % ("liane" if int(value.get("bretelle", 0)) == 1 else "cordelette"),
+		"Porte : %s et %s" % [format_weight(bag_capacity(value)), format_volume(BAG_VOLUME)]]
 
 # 0.0.7.8 : un tronc ou une branche (#212), à plat {"objet": …, caractéristiques} : épaisseur (cm), longueur (m),
 # essence, âge (1 très jeune à 5 vieux, un peu pourri) et souplesse (1 cassant à 5 très souple : surtout le bois jeune ;
@@ -552,6 +682,8 @@ func fit_count(area: String, index: int, value: Dictionary) -> int:
 				why = "encombrant"
 			elif pocket_count(value.objet) > 0 and amount > pocket_count(value.objet):
 				why = "nombre"
+		elif (area == "bar" and index in BAG) or area == "sac":
+			why = _bag_holds(0 if area == "bar" else 1, index, value.objet, weight, volume)
 		else:
 			why = "lourd"
 		if not why.is_empty():
@@ -635,8 +767,17 @@ static func units(value: Dictionary) -> Array:
 
 func _places() -> Array:
 	if mode == SURVIVAL:
-		return (HANDS + POCKETS).map(func(index): return ["bar", index])
+		return carried_places()
 	return bar_slots().map(func(index): return ["bar", index]) + range(GRID_SIZE).map(func(index): return ["grid", index])
+
+# 0.0.8.21 : ce qu'on porte en Survie : mains, poches, puis les cases des sacs portés ([zone, numéro]).
+func carried_places() -> Array:
+	var list: Array = (HANDS + POCKETS).map(func(index): return ["bar", index])
+	if bag_worn(0):
+		list.append_array(BAG.map(func(index): return ["bar", index]))
+	if bag_worn(1):
+		list.append_array(range(BAG_SLOTS).map(func(index): return ["sac", index]))
+	return list
 
 # Range des objets n'importe où (retour d'un objet tenu dans l'écran d'inventaire) : d'abord sur un même type, puis dans
 # une case vide. Rend le nombre ajouté.
@@ -659,6 +800,9 @@ func add(value: Dictionary) -> int:
 func add_to_selected(value: Dictionary) -> Dictionary:
 	if not valid_item(value) or unlimited(value):
 		return {"added": 0, "reason": "plein"}
+	# 0.0.8.21 (#207) : un sac en filet ramassé va sur l'épaule s'il reste une place.
+	if wear_bag(value) >= 0:
+		return {"added": 1, "reason": ""}
 	var rest := _merge_into("bar", selected(), value)
 	# 0.0.7.10 (Survie) : case choisie pleine : dans l'autre main libre (la droite d'abord), qu'on voit le tenir.
 	if mode == SURVIVAL and not rest.is_empty():
@@ -698,9 +842,16 @@ func use_held(amount: int = 1) -> bool:
 	if count(there) < amount:
 		return false
 	var parts := _split(there, count(there) - amount)
-	_store().bar[selected()] = parts[0]
+	_store().bar[held_index()] = parts[0]
 	changed.emit()
 	return true
+
+# 0.0.8.21 (bug signalé par l'utilisateur : des troncs posés étaient dupliqués) : la case de l'objet en main. Un objet
+# porté à deux mains est dans une seule des deux cases des mains ; la main choisie peut être l'autre (held() le
+# trouve) : c'est de sa vraie case qu'il faut le retirer (avant : on écrivait dans la case choisie, il restait en double).
+func held_index() -> int:
+	var heavy := two_handed()
+	return heavy if heavy >= 0 and selected() in HANDS else selected()
 
 # 0.0.7.5 : prend en main un seul objet à reposer : le dernier pris (pile) ; illimité : une copie de son modèle.
 # Rend l'objet à plat {"objet": id, …caractéristiques}, ou {}.
@@ -713,7 +864,7 @@ func pop_held() -> Dictionary:
 	if there.has("pile"):
 		var kept := there.duplicate(true)
 		var last: Dictionary = kept.pile.pop_back()
-		_store().bar[selected()] = kept if not kept.pile.is_empty() else {}
+		_store().bar[held_index()] = kept if not kept.pile.is_empty() else {}
 		changed.emit()
 		return flat(there.objet, last)
 	use_held(1)
@@ -938,10 +1089,73 @@ static func tool_lines(value: Dictionary) -> Array:
 const RATINGS := ["bien", "moyen", "à améliorer"]
 
 static func has_tool_report(value: Dictionary) -> bool:
-	return ITEMS.get(value.get("objet", ""), {}).get("forme", "") in ["outil_brut", "outil_pierre", "tete"]
+	# 0.0.8.21 (demande de l'utilisateur) : la branche fendue aussi (fera-t-elle un bon manche ?).
+	if value.get("objet", "") == "branche" and int(value.get("fendue", 0)) == 1:
+		return true
+	return ITEMS.get(value.get("objet", ""), {}).get("forme", "") in ["outil_brut", "outil_pierre", "tete", "sac"]
+
+# 0.0.8.21 (demande de l'utilisateur) : fiche d'une branche fendue : le manche qu'elle fera (mêmes effets que les outils,
+# tool_quality et tool_durability) ; ses mesures et son bois.
+static func handle_report(value: Dictionary) -> Dictionary:
+	var steps := []
+	var tips := []
+	var essence := clampi(int(value.get("essence", 0)), 0, ESSENCE_NAMES.size() - 1)
+	var good_wood := essence == 1 or int(value.get("rejet", 0)) == 1
+	steps.append(["Essence", ESSENCE_NAMES[essence], "bien" if good_wood else ("moyen" if essence == 0 else "à améliorer"), "le noisetier fait les meilleurs manches"])
+	if not good_wood:
+		tips.append("Une branche de noisetier (ou un rejet de noisetier) : le meilleur manche.")
+	if int(value.get("morte", 0)) == 1:
+		steps.append(["Bois", "mort", "à améliorer", "-8 % de vitesse, -25 % de coups"])
+		tips.append("Couper une branche vivante sur un arbre plutôt qu'une branche morte ramassée.")
+	else:
+		steps.append(["Bois", "vivant", "bien", "solide"])
+	var supple := clampi(int(value.get("souplesse", 3)), 1, 5)
+	if supple in [2, 3]:
+		steps.append(["Souplesse", "%s (%d sur 5)" % [SUPPLE_NAMES[supple - 1], supple], "bien", "+5 % de coups"])
+	else:
+		steps.append(["Souplesse", "%s (%d sur 5)" % [SUPPLE_NAMES[supple - 1], supple], "à améliorer", "-8 % de coups (trop souple ou trop cassant)"])
+		tips.append("Une souplesse de 2 ou 3 (raide ou moyen) : ni trop souple, ni cassant.")
+	var length := float(value.get("longueur", 0.0))
+	var thick := float(value.get("epaisseur", 0.0))
+	var fits := length >= 0.4 and length <= 0.7 and thick >= 2.0 and thick <= 4.0
+	steps.append(["Mesures", "%d cm × %s cm" % [roundi(length * 100.0), _number(thick)], "bien" if fits else "moyen", "idéal : 40 à 70 cm, 2 à 4 cm d'épaisseur"])
+	if not fits:
+		tips.append("Une branche de 40 à 70 cm de long et de 2 à 4 cm d'épaisseur.")
+	if tips.is_empty():
+		tips.append("Rien à améliorer : c'est la meilleure branche possible pour un manche.")
+	var quality := handle_quality(value)
+	var summary := "Manche %s. Il reste à y glisser une tête (O + F → Assembler), puis à la ficeler." % (HANDLE_NAMES[quality] if quality >= 0 else "moyen")
+	return {"etapes": steps, "conseils": tips, "resume": summary}
+
+# 0.0.8.21 (#207) : fiche du sac en filet : cordelettes, rangées de mailles, bretelle ; effets : bag_capacity.
+static func bag_report(value: Dictionary) -> Dictionary:
+	var steps := []
+	var tips := []
+	var cord := clampi(int(value.get("lien", 0)), 0, 2)
+	steps.append(["Cordelettes des mailles", ["ortie", "lin", "herbe"][cord], ["moyen", "bien", "à améliorer"][cord], ["normal", "+10 % de charge", "-10 % de charge"][cord]])
+	if cord != 1:
+		tips.append("Tresser les cordelettes en lin : +10 % de charge.")
+	var rows := clampi(int(value.get("rangees", 8)), BAG_ROWS.x, BAG_ROWS.y)
+	var rating := "bien" if rows == BAG_ROWS.y else ("moyen" if rows >= 8 else "à améliorer")
+	steps.append(["Rangées de mailles", "%d rangées (%s)" % [rows, "serrées" if rows >= 9 else ("moyennes" if rows >= 8 else "lâches")], rating, "chaque rangée en plus : +3,5 %% de charge (%d au plus)" % BAG_ROWS.y])
+	if rows < BAG_ROWS.y:
+		tips.append("Nouer %d rangées (relâcher le clic plus tard) : des mailles plus serrées." % BAG_ROWS.y)
+	if int(value.get("bretelle", 0)) == 1:
+		steps.append(["Bretelle", "liane", "moyen", "-3 % de charge (plus grossière)"])
+		tips.append("Une bretelle en cordelette plutôt qu'en liane : +3 % de charge.")
+	else:
+		steps.append(["Bretelle", "cordelette", "bien", "normale"])
+	if tips.is_empty():
+		tips.append("Rien à améliorer : c'est le meilleur sac possible.")
+	var summary := "Il porte %s et %s (3,5 kg au mieux), en plus des mains et des poches. Les poignées de terre, de sable… et les fibres passent entre les mailles." % [format_weight(bag_capacity(value)), format_volume(BAG_VOLUME)]
+	return {"etapes": steps, "conseils": tips, "resume": summary}
 
 static func tool_report(value: Dictionary) -> Dictionary:
 	var form: String = ITEMS.get(value.get("objet", ""), {}).get("forme", "")
+	if form == "sac":
+		return bag_report(value)
+	if value.get("objet", "") == "branche":
+		return handle_report(value)
 	var steps := []
 	var tips := []
 	if int(value.get("pierre", 1)) == 1:
@@ -1002,6 +1216,9 @@ static func detail_lines(value: Dictionary) -> Array:
 	# 0.0.8.6 (#211, #145) : outil (à ficeler ou ficelé) : sa fabrication.
 	if ITEMS.get(id, {}).get("forme", "") in ["outil_brut", "outil_pierre"]:
 		return lines + tool_lines(value) + (["Poids : %s" % format_weight(instance_weight(id, value))] if instance_weight(id, value) > 0.0 else [])
+	# 0.0.8.21 (#207) : sac en filet : sa fabrication et ce qu'il porte.
+	if is_bag(value):
+		return lines + bag_lines(value) + ["Poids : %s" % format_weight(instance_weight(id, value))]
 	if value.has("longueur"):
 		lines.append("Longueur : %d cm" % roundi(float(value.longueur) * 100.0))
 	if value.has("epaisseur"):
@@ -1038,6 +1255,10 @@ static func detail_lines(value: Dictionary) -> Array:
 
 static func item_name(value: Dictionary) -> String:
 	var id: String = value.get("objet", "")
+	# 0.0.8.21 (signalé par l'utilisateur : « Branche » au lieu de « Branche fendue », tête sans sa pierre) : une case (pile)
+	# porte ses caractéristiques dans ses objets : le nom vient du dernier pris (celui qui sort en premier).
+	if value.has("pile") and value.pile is Array and not value.pile.is_empty() and value.pile[-1] is Dictionary:
+		value = flat(id, value.pile[-1])
 	if id == "rameau" and value.has("essence"):
 		return LEAFY_NAMES[clampi(int(value.essence), 0, LEAFY_NAMES.size() - 1)]
 	# 0.0.7.26 (#212) : branche morte ramassée au sol, rejet de noisetier.
@@ -1106,6 +1327,10 @@ func to_dict() -> Dictionary:
 	for key in SAVE_NAMES:
 		var store: Dictionary = _stores[key]
 		data[SAVE_NAMES[key]] = {"grille": store.grid.map(_saved), "barre": store.bar.map(_saved), "main": store.selected}
+		# 0.0.8.21 (#207) : sacs portés et cases du deuxième sac (seulement s'il y a un sac).
+		if store.sacs.any(func(worn): return not worn.is_empty()):
+			data[SAVE_NAMES[key]]["sacs"] = store.sacs.map(func(worn): return null if worn.is_empty() else _saved(worn))
+			data[SAVE_NAMES[key]]["sac"] = store.sac.map(_saved)
 	return data
 
 static func _saved(value: Dictionary) -> Variant:
@@ -1153,7 +1378,14 @@ func from_dict(data: Variant) -> void:
 			if not saved is Dictionary:
 				continue
 			var store: Dictionary = _stores[key]
-			for pair in [["grille", "grid"], ["barre", "bar"]]:
+			# 0.0.8.21 : les sacs d'abord (leurs cases n'existent que s'ils sont portés) ; Survie seulement.
+			var worn: Variant = saved.get("sacs")
+			if key == SURVIVAL and worn is Array:
+				for which in range(mini(worn.size(), 2)):
+					var one := _read(worn[which])
+					if is_bag(one) and not one.has("pile") and not one.has("nombre"):
+						store.sacs[which] = one
+			for pair in [["grille", "grid"], ["barre", "bar"], ["sac", "sac"]]:
 				var cells: Variant = saved.get(pair[0])
 				if not cells is Array:
 					continue

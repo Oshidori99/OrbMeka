@@ -1418,6 +1418,8 @@ func held_text() -> String:
 	if not name.is_empty():
 		return name
 	# 0.0.8.19 (correction de l'utilisateur) : une poche choisie, vide : « Poche vide » (avant : « Main vide »).
+	if game_mode == Inventory.SURVIVAL and inventory.selected() in Inventory.BAG:
+		return "Sac : case vide"
 	return "Poche vide" if game_mode == Inventory.SURVIVAL and inventory.selected() in Inventory.POCKETS else "Main vide"
 
 # 0.0.7.10 (demande de l'utilisateur) : ce que montre chaque main. Créatif : l'objet choisi dans la main droite, la
@@ -1435,7 +1437,8 @@ func right_hand_item() -> Dictionary:
 	if heavy >= 0:
 		return inventory.item("bar", heavy)
 	var right: Dictionary = inventory.item("bar", Inventory.HANDS[1])
-	if inventory.selected() in Inventory.POCKETS and right.is_empty():
+	# 0.0.8.21 (#207) : une case du sac choisie : comme une poche.
+	if (inventory.selected() in Inventory.POCKETS or inventory.selected() in Inventory.BAG) and right.is_empty():
 		return inventory.held()
 	return right
 
@@ -1443,6 +1446,9 @@ func apply_held() -> void:
 	if is_instance_valid(player):
 		player.selected_type = inventory.held_kind()
 		player.show_hands(left_hand_item(), right_hand_item(), game_mode == Inventory.SURVIVAL and inventory.two_handed() >= 0)
+		# 0.0.8.21 (#207) : les sacs portés, sur le personnage.
+		var survival_mode: bool = game_mode == Inventory.SURVIVAL
+		player.show_bags([survival_mode and inventory.bag_worn(0), survival_mode and inventory.bag_worn(1)])
 		# 0.0.7.8 : plus lent quand les mains portent lourd.
 		player.carry_slow = inventory.carry_factor()
 
@@ -1658,6 +1664,16 @@ func give_crafted(value: Dictionary) -> int:
 		_drop_units(rest, more)
 	inventory_unsaved = true
 	return added
+
+# 0.0.8.21 (#207) : un sac en filet fabriqué va directement sur l'épaule (Survie) s'il reste une place ; rend la place
+# (0 : cases 7 à 10, 1 : dans l'inventaire) ou -1.
+func wear_crafted_bag(value: Dictionary) -> int:
+	if game_mode != Inventory.SURVIVAL:
+		return -1
+	var which := inventory.wear_bag(value)
+	if which >= 0:
+		inventory_unsaved = true
+	return which
 
 func _drop_units(value: Dictionary, skip: int) -> void:
 	if not is_instance_valid(ground) or not is_instance_valid(player):
@@ -3418,7 +3434,10 @@ func _refused_message(reason: String, value: Dictionary) -> String:
 			return "Trop encombrant (%s) : 1,5 L par main, 3 L à deux mains, 0,5 L dans les poches." % Inventory.format_volume(Inventory.instance_volume(value.get("objet", ""), first))
 		"nombre":
 			return Inventory.count_rule(value)
-	return "Inventaire plein." if game_mode == Inventory.CREATIVE else "Mains et poches pleines."
+		# 0.0.8.21 (#207) : ce qui passe entre les mailles du sac.
+		"mailles":
+			return "%s passe entre les mailles du sac : gardez-le en main ou en poche." % Inventory.item_name(value)
+	return "Inventaire plein." if game_mode == Inventory.CREATIVE else ("Mains, poches et sacs pleins." if inventory.bag_worn(0) else "Mains et poches pleines.")
 
 # --- 0.0.7.5 : cueillir (demande de l'utilisateur : il faut vraiment viser la pomme ou la noisette) ---
 # Les fruits des arbres proches (colonne du joueur et voisines) sont des petites sphères (trees.gd fruit_spots) ; le rayon
@@ -3684,6 +3703,10 @@ func aimed_grass(hit: Dictionary) -> Dictionary:
 	var cell := Vector2i(roundi(at.x / SmoothTerrain.STEP), roundi(at.z / SmoothTerrain.STEP))
 	return {"kind": "herbe", "key": "herbe/%d:%d" % [cell.x, cell.y], "point": at, "distance": player.camera.global_position.distance_to(at)}
 
+const FLAKE_TIP := "Conseil : avec un éclat tranchant en main, on récolte deux fois plus vite (O + F → Tailler → Éclat tranchant)."
+const FLAKE_TIP_EVERY_MS := 60000
+var flake_tip_at := -FLAKE_TIP_EVERY_MS
+
 func step_harvest(delta: float, holding: bool) -> bool:
 	if not holding:
 		harvest_block = false
@@ -3705,6 +3728,11 @@ func step_harvest(delta: float, holding: bool) -> bool:
 	var seconds := Fibers.HARVEST_SECONDS_CREATIVE if game_mode == Inventory.CREATIVE else (Fibers.HARVEST_SECONDS_FLAKE if holding_flake() else Fibers.HARVEST_SECONDS)
 	if target.kind == "herbe":
 		seconds = minf(seconds, Fibers.GRASS_SECONDS)
+	# 0.0.8.21 (demande de l'utilisateur) : à mains nues, un petit conseil (au plus une fois par minute) : l'éclat tranchant
+	# récolte deux fois plus vite.
+	elif harvest_time <= delta and game_mode == Inventory.SURVIVAL and not holding_flake() and Time.get_ticks_msec() - flake_tip_at > FLAKE_TIP_EVERY_MS:
+		flake_tip_at = Time.get_ticks_msec()
+		_notify(FLAKE_TIP)
 	show_ring(harvest_time / seconds)
 	# 0.0.8.4 (demande de l'utilisateur) : la main droite saisit la plante (ou la liane) et tire par petits coups.
 	if is_instance_valid(player.hand_view):
@@ -4680,9 +4708,16 @@ func drop_all_items(at: Vector3) -> int:
 	if not is_instance_valid(ground):
 		return 0
 	var count := 0
-	for index in Inventory.HANDS + Inventory.POCKETS:
-		var taken := inventory.remove("bar", index, true)
-		for unit in Inventory.units(taken):
+	# 0.0.8.21 (#207) : aussi ce que contiennent les sacs, puis les sacs eux-mêmes.
+	var dropped := []
+	for place in inventory.carried_places():
+		dropped.append_array(Inventory.units(inventory.remove(place[0], place[1], true)))
+	for which in [1, 0]:
+		var worn := inventory.take_off_bag(which)
+		if not worn.is_empty():
+			dropped.append(worn)
+	if not dropped.is_empty():
+		for unit in dropped:
 			var angle := randf() * TAU
 			var reach := randf_range(DEATH_SPREAD.x, DEATH_SPREAD.y)
 			var near := at + Vector3(cos(angle) * reach, 0.0, sin(angle) * reach)
