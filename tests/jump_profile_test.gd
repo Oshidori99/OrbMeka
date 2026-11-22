@@ -28,6 +28,12 @@ func _run() -> void:
 	player.position = Vector3(45.5, 0.02, 45.5)
 	player.velocity = Vector3.ZERO
 	player.actions.cancel()
+	# 0.0.8.5 : sur une machine lente (Action GitHub), le sol sous le joueur n'est pas encore construit : le joueur attend
+	# sur place (0.0.7.22) et le saut ne partait pas. On attend que le sol soit prêt.
+	for index in range(900):
+		if world.ground_ready(player.global_position):
+			break
+		await process_frame
 	for index in range(10):
 		await step(player)
 	var base := player.position.y
