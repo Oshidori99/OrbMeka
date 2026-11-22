@@ -97,6 +97,11 @@ func _run() -> void:
 	await process_frame
 	await process_frame
 	check(world.crafting_open and crafting.root.visible and crafting.root.modulate.a == 1.0, "crafting opens normally after the prewarm")
+	# 0.0.8.12 (rapport Web 0.0.8.11) : la barre de la fabrication à la place de la barre du jeu (mêmes cases, même hauteur, centrée).
+	await process_frame
+	var hud: Rect2 = world.inventory_ui.hud_bar.get_global_rect()
+	var own: Rect2 = crafting.slot_row.get_global_rect()
+	check(absf(own.end.y - hud.end.y) < 1.0 and absf(own.size.y - hud.size.y) < 1.0 and (absf(own.get_center().x - hud.get_center().x) < 1.0 or absf(own.position.x - crafting.panel.get_global_rect().end.x - crafting.PANEL_MARGIN * crafting.text_scale) < 1.0), "crafting bar exactly where the game bar is (%s, game %s)" % [str(own), str(hud)])
 	world.close_crafting(false)
 	# Plantes : images avec mipmaps (plus de colonnes pixelisées au loin).
 	var mipmaps := true

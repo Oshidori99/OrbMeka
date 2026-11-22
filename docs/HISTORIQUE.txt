@@ -3,6 +3,10 @@ Du plus récent au plus ancien. Ce fichier est mis à jour à chaque version.
 
 === Thème « Fabrication et survie » (0.0.8) ===
 
+0.0.8.12 — La barre de la fabrication (O + F) exactement à la place de la barre du jeu, mêmes cases ; coût des ombres sur le Web mesuré
+Génération du terrain : version 33 · Menus : version 10.
+Rapport de mesures Web 0.0.8.11 : barre décalée ; ombres : environ 50 dessins de plus (arbres), pas un second dessin de tout.
+
 0.0.8.11 — Web plus rapide : monde ouvert sans gel (shaders préparés derrière l'écran de chargement, avec et sans ombres), terrain sans ombre projetée, inventaire et fabrication prêts d'avance, retour au départ immédiat, noisetiers solides, plantes nettes au loin, fabrication sans barre en double ni flou en gros pixels
 Génération du terrain : version 33 · Menus : version 10.
 Rapport de mesures Web 0.0.8.9 (Chrome, petite carte graphique) et demande de l'utilisateur : PC bon marché aussi.

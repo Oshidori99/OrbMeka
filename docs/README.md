@@ -1,6 +1,14 @@
-# OrbMeka™ — prototype 0.0.8.11
+# OrbMeka™ — prototype 0.0.8.12
 
 Godot 4.7 / GDScript. Formes et couleurs simples ; assets externes seulement sous licence vérifiée (sons CC0, assets/sounds/CREDITS.txt).
+
+## 0.0.8.12 — La barre de la fabrication (O + F) exactement à la place de la barre du jeu, mêmes cases ; coût des ombres sur le Web mesuré
+Version locale (3 sur 4). Génération inchangée (version 33). Rapport de mesures Web 0.0.8.11.
+- **Fabrication (O + F)** : la barre des mains et des poches (Créatif : la barre d'objets) a les mêmes cases et la même place que la barre du jeu, en bas au centre de l'écran (avant : plus petite, centrée sous la scène, donc décalée). Poussée à droite seulement si elle toucherait le panneau ; la scène s'arrête au-dessus.
+- **Ombres sur le Web, mesurées** (PC, rendu Compatibility, au bord du lac) : avec les ombres, environ 50 dessins de plus par image (les arbres, pour la carte des ombres), pas un second dessin de tout. Les 35 ms de plus mesurées sur la Radeon 610M ne viennent donc pas d'un second passage ; rien n'est changé pour l'instant.
+
+Tests réussis : web_speed (13), crafting, fixes_089, tools, fibers (+ tests juridiques).
+À tester : O + F en Survie et en Créatif, à plusieurs tailles de fenêtre : la barre ne doit plus bouger en ouvrant la fabrication.
 
 ## 0.0.8.11 — Web plus rapide : monde ouvert sans gel (shaders préparés derrière l'écran de chargement, avec et sans ombres), terrain sans ombre projetée, inventaire et fabrication prêts d'avance, retour au départ immédiat, noisetiers solides, plantes nettes au loin, fabrication sans barre en double ni flou en gros pixels
 Version locale (2 sur 4). Génération inchangée (version 33). Rapport de mesures Web 0.0.8.9 (Chrome, Radeon 610M) ; demande de l'utilisateur : les PC bon marché (~320 CHF) aussi.

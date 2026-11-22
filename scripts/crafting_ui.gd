@@ -40,6 +40,7 @@ var shaped: MeshInstance3D
 var chips: Array = []
 # Les cases habituelles (mains et poches ; Créatif : la barre), sous la scène, à jour en direct.
 var slot_row: HBoxContainer
+var slot_gap: Control
 var slots: Array = []
 
 var action := ""
@@ -156,13 +157,25 @@ func _build_scene(row: HBoxContainer, skin: String, stone_look: Callable) -> voi
 	view_box.mouse_filter = Control.MOUSE_FILTER_STOP
 	view_box.gui_input.connect(_scene_input)
 	column.add_child(view_box)
+	# 0.0.8.12 (rapport Web 0.0.8.11 : barre décalée par rapport à la barre du jeu) : mêmes cases et même place que la barre
+	# du jeu (inventory_ui.gd, en bas au centre de l'écran) ; la scène s'arrête au-dessus (bottom) ; poussée à droite
+	# seulement si elle toucherait le panneau (place_slot_row).
 	slot_row = HBoxContainer.new()
+	slot_row.name = "BarreFabrication"
 	slot_row.alignment = BoxContainer.ALIGNMENT_CENTER
-	slot_row.add_theme_constant_override("separation", roundi(6 * text_scale))
+	slot_row.add_theme_constant_override("separation", InventoryUI.GAP + 4)
 	slot_row.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	column.add_child(slot_row)
+	slot_row.anchor_left = 0.5
+	slot_row.anchor_right = 0.5
+	slot_row.anchor_top = 1.0
+	slot_row.anchor_bottom = 1.0
+	slot_row.grow_horizontal = Control.GROW_DIRECTION_BOTH
+	slot_row.grow_vertical = Control.GROW_DIRECTION_BEGIN
+	slot_row.offset_bottom = -6
+	root.add_child(slot_row)
+	slot_row.resized.connect(place_slot_row)
 	var bottom := Control.new()
-	bottom.custom_minimum_size = Vector2(0, 8)
+	bottom.custom_minimum_size = Vector2(0, _slot_side() + roundi(10 * text_scale) + 16.0)
 	column.add_child(bottom)
 	view = SubViewport.new()
 	view.own_world_3d = true
@@ -215,6 +228,7 @@ func open() -> void:
 	root.visible = true
 	choose_action(action if not action.is_empty() else "tresser")
 	refresh_slots()
+	place_slot_row.call_deferred()
 
 const BACKGROUND_WAIT_FRAMES := 2
 # 0.0.8.11 (rapport Web : flou en gros pixels) : réduite peu à peu (moitié par moitié, chaque point mêlé à ses voisins) au
@@ -817,8 +831,9 @@ func refresh_slots() -> void:
 		return
 	var shown: Array = Inventory.HANDS + Inventory.POCKETS if inventory.mode == Inventory.SURVIVAL else inventory.bar_slots()
 	while slots.size() < shown.size():
-		var slot = InventoryUI.Slot.new(roundf(SLOT * text_scale), true, roundi(11 * text_scale))
+		var slot = InventoryUI.Slot.new(_slot_side(), true, roundi(10 * text_scale))
 		slot.show_title = false
+		slot.custom_minimum_size.y = slot.side + slot.font_px + 5.0
 		slot.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		slot_row.add_child(slot)
 		slots.append(slot)
@@ -831,8 +846,28 @@ func refresh_slots() -> void:
 		var value := inventory.item("bar", index)
 		var note := "" if value.is_empty() or inventory.mode == Inventory.CREATIVE else Inventory.format_weight(Inventory.stack_weight(value))
 		slot.show_item(value, false, false, note)
-		# Un peu d'espace entre les mains et les poches (Survie).
-		slot.custom_minimum_size.x = roundf(SLOT * text_scale) + (14.0 if inventory.mode == Inventory.SURVIVAL and index == Inventory.HANDS[-1] else 0.0)
+	# Un peu d'espace entre les mains et les poches (Survie), comme la barre du jeu.
+	if not is_instance_valid(slot_gap):
+		slot_gap = Control.new()
+		slot_gap.custom_minimum_size = Vector2(14, 0)
+		slot_gap.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		slot_row.add_child(slot_gap)
+	slot_row.move_child(slot_gap, mini(Inventory.HANDS.size(), slot_row.get_child_count() - 1))
+	slot_gap.visible = inventory.mode == Inventory.SURVIVAL
+
+# Taille des cases : celle de la barre du jeu.
+func _slot_side() -> float:
+	return roundf(InventoryUI.HUD_SLOT * text_scale)
+
+# Centrée sur l'écran comme la barre du jeu ; poussée à droite seulement si elle toucherait le panneau.
+func place_slot_row() -> void:
+	if not is_instance_valid(slot_row) or not is_instance_valid(panel):
+		return
+	var width := slot_row.size.x
+	var screen_width := root.size.x
+	var left := maxf(screen_width * 0.5 - width * 0.5, panel.get_global_rect().end.x + PANEL_MARGIN * text_scale)
+	slot_row.offset_left = left - screen_width * 0.5
+	slot_row.offset_right = slot_row.offset_left + width
 
 func _on_inventory_changed() -> void:
 	if visible:
