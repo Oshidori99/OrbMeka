@@ -91,14 +91,10 @@ func _run() -> void:
 	# Barre : plus de nom sous les cases, seulement le poids.
 	var slot: Control = world.inventory_ui.hud_slots[2]
 	check(not slot.show_title and slot.title == "" and not slot.note.is_empty(), "hot bar: no name under the slot, only the weight")
-	# Le nom en main, au-dessus.
+	# Le nom en main : une seule fois, dans le message du bas (0.0.8.4 : plus d'étiquette en double au-dessus).
 	world.inventory.put("bar", 1, nuts(5))
-	world.inventory.select(1)
-	await process_frame
-	check(world.held_label.visible and world.held_label.text == "Noisette", "name of the item taken in hand shown above (%s)" % world.held_label.text)
-	for i in range(int(world.HELD_NAME_SECONDS * 60) + 30):
-		world._update_held_name(1.0 / 60.0)
-	check(not world.held_label.visible, "then it fades away")
+	world.select_slot(1)
+	check(world.notice.begins_with("Noisette") and world.find_child("HeldName", true, false) == null, "name of the item taken in hand shown once, at the bottom (%s)" % world.notice)
 	# Manger en continu, noisette rapide.
 	world.health.value = 50
 	check(world.eat_press(), "right click held: eating starts")

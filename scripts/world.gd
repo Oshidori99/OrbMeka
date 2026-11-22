@@ -1137,33 +1137,7 @@ func apply_held() -> void:
 		player.show_hands(left_hand_item(), right_hand_item(), game_mode == Inventory.SURVIVAL and inventory.two_handed() >= 0)
 		# 0.0.7.8 : plus lent quand les mains portent lourd.
 		player.carry_slow = inventory.carry_factor()
-		_show_held_name()
 
-# 0.0.8.3 (demande de l'utilisateur) : le nom de l'objet pris en main s'affiche au milieu, juste au-dessus des messages,
-# HELD_NAME_SECONDS, puis s'efface (la barre ne montre plus les noms sous ses cases). Seulement quand la case choisie ou
-# l'objet qu'elle contient change (pas à chaque objet ajouté au même tas).
-const HELD_NAME_SECONDS := 2.0
-var held_label: Label
-var held_name_key := ""
-var held_name_time := 0.0
-
-func _show_held_name() -> void:
-	var value := inventory.held()
-	var key := "%d/%s" % [inventory.selected(), value.get("objet", "")]
-	if key == held_name_key:
-		return
-	held_name_key = key
-	if not is_instance_valid(held_label):
-		return
-	held_label.text = "" if value.is_empty() else Inventory.item_name(value)
-	held_name_time = HELD_NAME_SECONDS if not value.is_empty() else 0.0
-
-func _update_held_name(delta: float) -> void:
-	if not is_instance_valid(held_label):
-		return
-	held_name_time = maxf(0.0, held_name_time - delta)
-	held_label.visible = held_name_time > 0.0 and not inventory_open
-	held_label.modulate.a = clampf(held_name_time / 0.4, 0.0, 1.0)
 
 func set_game_mode(new_mode: String) -> void:
 	# 0.0.7.9 : en Survie, on ne vole pas (on retombe si on volait).
@@ -3083,7 +3057,9 @@ func step_harvest(delta: float, holding: bool) -> bool:
 		harvest_key = ""
 		harvest_time = 0.0
 		return false
-	if target.key != harvest_key:
+	# 0.0.8.4 (demande de l'utilisateur : le lin, en touffes serrées, ne se récoltait presque jamais) : passer d'une plante à
+	# une autre en visant ne remet pas le temps à zéro (seulement de plante à liane, ou en ne visant plus rien).
+	if target.kind != harvest_key.get_slice("/", 0):
 		harvest_key = target.key
 		harvest_time = 0.0
 	harvest_time += delta
@@ -4539,19 +4515,6 @@ func _create_hud() -> void:
 	hint.add_theme_color_override("font_shadow_color", Color.BLACK)
 	hint.add_theme_constant_override("shadow_outline_size", 4)
 	layer.add_child(hint)
-	# 0.0.8.3 : nom de l'objet pris en main, au milieu, au-dessus des messages (_show_held_name).
-	held_label = Label.new()
-	held_label.name = "HeldName"
-	held_label.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_WIDE)
-	held_label.offset_bottom = hint.offset_top - 2
-	held_label.offset_top = held_label.offset_bottom - 34
-	held_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	held_label.add_theme_font_size_override("font_size", roundi(20 * text_scale))
-	held_label.add_theme_color_override("font_shadow_color", Color.BLACK)
-	held_label.add_theme_constant_override("shadow_outline_size", 4)
-	held_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	held_label.visible = false
-	layer.add_child(held_label)
 	# Coordonnées (0.0.3.14) : en haut à droite, sous les rappels F1 à F3, si activées dans Vidéo.
 	coordinates_label = Label.new()
 	coordinates_label.name = "Coordinates"
@@ -4631,7 +4594,6 @@ func _process(delta: float) -> void:
 	_update_fps(delta)
 	_update_ring()
 	_update_health(delta)
-	_update_held_name(delta)
 	if not sliding_trees.is_empty():
 		_update_slides(delta)
 	_update_collisions()
@@ -4773,7 +4735,6 @@ func _process_measured(delta: float) -> void:
 	_update_fps(delta)
 	_update_ring()
 	_update_health(delta)
-	_update_held_name(delta)
 	if not sliding_trees.is_empty():
 		_update_slides(delta)
 	_perf("hud", at)
