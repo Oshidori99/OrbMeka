@@ -228,11 +228,11 @@ static func sand_mountain(rng: RandomNumberGenerator, zone: Vector2i) -> Diction
 	return {"center": center, "height": height, "radius": height * rng.randf_range(2.1, 2.3), "stretch": rng.randf_range(1.0, 1.2), "turn": rng.randf() * TAU, "sand": true}
 
 # 0.0.5.35 (version 13) : chaîne de montagnes : 3 à 5 sommets douces les uns à la suite des autres, tracé un peu sinueux.
-static func mountain_chain(terrain_seed: int, zone: Vector2i, options: Dictionary) -> Array:
+static func mountain_chain(terrain_seed: int, zone: Vector2i, options: Dictionary, own_rng: RandomNumberGenerator = null) -> Array:
 	var denominator: int = options.get("mountain_chains", 0)
 	if denominator == 0:
 		return []
-	var rng := _scan_rng
+	var rng := own_rng if own_rng != null else _scan_rng()
 	rng.seed = hash([terrain_seed, zone.x, zone.y, "mountain_chains"])
 	if rng.randf() >= 1.0 / denominator:
 		return []
@@ -252,15 +252,29 @@ static func mountain_chain(terrain_seed: int, zone: Vector2i, options: Dictionar
 	return peaks
 
 # 0.0.5.37 : un seul tirage réutilisé pour parcourir tout le monde (mêmes résultats, bien plus rapide).
-static var _scan_rng := RandomNumberGenerator.new()
+# 0.0.8.13 (plusieurs cœurs) : un tirage par fil de calcul (deux fils qui partageraient le même mélangeraient leurs
+# nombres : le monde changerait) ; la liste est protégée par un verrou. Le terrain (smooth_terrain.gd) donne le sien
+# (own_rng, un par terrain, donc par fil) : pas de verrou à chaque zone (mesuré : préparation 30 % plus lente à 4 fils).
+static var _scan_rngs := {}
+static var _scan_lock := Mutex.new()
 
-static func zone_mountain(terrain_seed: int, zone: Vector2i, options: Dictionary) -> Dictionary:
+static func _scan_rng() -> RandomNumberGenerator:
+	var thread := OS.get_thread_caller_id()
+	_scan_lock.lock()
+	var found: RandomNumberGenerator = _scan_rngs.get(thread)
+	if found == null:
+		found = RandomNumberGenerator.new()
+		_scan_rngs[thread] = found
+	_scan_lock.unlock()
+	return found
+
+static func zone_mountain(terrain_seed: int, zone: Vector2i, options: Dictionary, own_rng: RandomNumberGenerator = null) -> Dictionary:
 	var version := int(options.version)
 	for key in ["mountains", "steep_mountains", "sand_mountains"]:
 		var denominator: int = options.get(key, 0)
 		if denominator == 0:
 			continue
-		var rng := _scan_rng
+		var rng := own_rng if own_rng != null else _scan_rng()
 		rng.seed = hash([mini(version, 8), terrain_seed, zone.x, zone.y, key])
 		if rng.randf() < 1.0 / denominator:
 			if key == "sand_mountains":

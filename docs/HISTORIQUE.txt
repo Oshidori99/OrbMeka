@@ -3,6 +3,22 @@ Du plus récent au plus ancien. Ce fichier est mis à jour à chaque version.
 
 === Thème « Fabrication et survie » (0.0.8) ===
 
+0.0.8.13 — Plusieurs cœurs : le terrain et le lointain calculés sur d'autres cœurs (PC et Web), monde ouvert et découvert plus vite, exactement le même monde ; version Web avec fils (SharedArrayBuffer)
+Génération du terrain : version 33 · Menus : version 10.
+Rapports de mesures Web ; demande de l'utilisateur (PC bon marché aussi). Une copie du terrain par fil de calcul (2 au plus), mêmes nombres que le fil principal.
+
+0.0.8.12 — La barre de la fabrication (O + F) exactement à la place de la barre du jeu, mêmes cases ; coût des ombres sur le Web mesuré
+Génération du terrain : version 33 · Menus : version 10.
+Rapport de mesures Web 0.0.8.11 : barre décalée ; ombres : environ 50 dessins de plus (arbres), pas un second dessin de tout.
+
+0.0.8.11 — Web plus rapide : monde ouvert sans gel (shaders préparés derrière l'écran de chargement, avec et sans ombres), terrain sans ombre projetée, inventaire et fabrication prêts d'avance, retour au départ immédiat, noisetiers solides, plantes nettes au loin, fabrication sans barre en double ni flou en gros pixels
+Génération du terrain : version 33 · Menus : version 10.
+Rapport de mesures Web 0.0.8.9 (Chrome, petite carte graphique) et demande de l'utilisateur : PC bon marché aussi.
+
+0.0.8.10 — Les outils servent : la hache coupe le bois 3 fois plus vite (troncs jusqu'à 1 m), la pioche casse la pierre 4 fois plus vite avec des éclats et creuse la terre 2 fois plus vite ; ils s'usent (50 à 300 coups selon leur fabrication), barre verte à rouge, puis cassent
+Génération du terrain : version 33 · Menus : version 10.
+Demandes de l'utilisateur (#202).
+
 0.0.8.9 — On prend exactement ce qu'on vise ; objets couchés sur les pentes ; arracher l'herbe avec R ou le clic gauche (nouveau mode « Casser / Arracher ») ; ficelage en croix sur la tête et outils bien tenus ; effet de dégât selon sa force ; inventaire, fabrication et menu B + T en bleu-violet
 Génération du terrain : version 33 · Menus : version 10.
 Corrections et demandes de l'utilisateur (#242).

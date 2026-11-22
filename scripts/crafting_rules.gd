@@ -348,4 +348,6 @@ static func bind_result(tool: Dictionary, bind: String, turns: int) -> Dictionar
 	made.tours = clampi(turns, TURNS_MIN, TURNS_MAX)
 	var tie := Inventory.instance_weight(bind, {}) * (1 if bind == "liane" else CORDS_PER_TOOL)
 	made.poids = snappedf(float(tool.get("poids", 0.0)) + tie, 1.0)
+	# 0.0.8.10 : un outil neuf a tous ses coups.
+	made.usure = Inventory.tool_durability(made)
 	return _pile(made)

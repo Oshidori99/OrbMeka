@@ -74,7 +74,9 @@ const INSTANCE_FIELDS := {"taille": TYPE_INT, "poids": TYPE_FLOAT, "forme": TYPE
 	"pierre": TYPE_INT,
 	# 0.0.8.6 (#211, #145) : bâton fendu (1) ; outil ficelé : son lien (0 ortie, 1 lin, 2 herbe : ficelles ; 3 liane) et son
 	# nombre de tours.
-	"fendue": TYPE_INT, "lien": TYPE_INT, "tours": TYPE_INT}
+	"fendue": TYPE_INT, "lien": TYPE_INT, "tours": TYPE_INT,
+	# 0.0.8.10 : coups restants d'un outil (absent : neuf).
+	"usure": TYPE_INT}
 # Matières : valeurs de smooth_terrain.gd (SAND 0, STONE 1, DIRT 2, CLAY 4, MUD 5, DARK_STONE 6, GRAVEL 8, LIMESTONE 9,
 # FLINT 11). Poids : une poignée. 0.0.7.6 (plus réaliste, accepté par l'utilisateur) : une grosse poignée d'environ 0,25 L × la
 # densité de la matière ; elle compte toujours pour une sous-cellule de 50 cm (règle de jeu).
@@ -862,6 +864,43 @@ static func _number(value: float) -> String:
 # Détails d'un objet, un par ligne, toujours dans le même ordre (accepté par l'utilisateur) : nom, longueur, épaisseur,
 # forme, état, souplesse, âge, note de manche ; puis taille, couleur, diamètre, coups ; le poids toujours en dernier.
 
+
+# --- 0.0.8.10 (#202, demandes de l'utilisateur) : outils utiles et usure ---
+# Vitesse : hache : couper et abattre le bois 3 fois plus vite ; pioche : casser la pierre 4 fois plus vite (avec des
+# éclats), creuser la terre, le sable et le gravier 2 fois plus vite. Qualité (0,8 à 1,25) : taille de la tête, silex ou
+# calcaire, manche, tours. Usure : TOOL_WEAR_PER_SECOND coups par seconde de travail ; à 0 l'outil casse (la tête et le
+# manche tombent au sol). Coups d'un outil neuf : de 50 (petite tête de calcaire, bois mort, liane, 4 tours) à 300.
+const TOOL_SPEEDS := {"hache_pierre": {"bois": 3.0}, "pioche_pierre": {"pierre": 4.0, "terre": 2.0}}
+const TOOL_WEAR_PER_SECOND := 2.0
+const BIND_STRENGTH := [1.0, 1.2, 0.85, 0.75]
+
+static func is_stone_tool(value: Dictionary) -> bool:
+	return TOOL_SPEEDS.has(value.get("objet", ""))
+
+static func tool_quality(value: Dictionary) -> float:
+	var size: float = {3: 0.85, 4: 1.0, 5: 1.12}.get(int(value.get("taille", 4)), 1.0)
+	var stone := 1.0 if int(value.get("pierre", 1)) == 1 else 0.9
+	var handle := 0.92 if int(value.get("morte", 0)) == 1 else 1.0
+	var turns := 0.96 + 0.02 * (clampi(int(value.get("tours", 4)), 4, 8) - 4)
+	return clampf(size * stone * handle * turns, 0.8, 1.25)
+
+static func tool_durability(value: Dictionary) -> int:
+	var stone := 1.6 if int(value.get("pierre", 1)) == 1 else 1.0
+	var size: float = {3: 0.75, 4: 1.0, 5: 1.25}.get(int(value.get("taille", 4)), 1.0)
+	var wood := 0.75 if int(value.get("morte", 0)) == 1 else 1.0
+	# Un bon manche : sain et peu souple (2 ou 3) ; trop souple ou cassant : moins.
+	wood *= 1.05 if int(value.get("souplesse", 3)) in [2, 3] else 0.92
+	var bind: float = BIND_STRENGTH[clampi(int(value.get("lien", 0)), 0, BIND_STRENGTH.size() - 1)]
+	var turns := 0.8 + 0.06 * (clampi(int(value.get("tours", 4)), 4, 8) - 4)
+	return clampi(roundi(150.0 * stone * size * wood * bind * turns), 50, 300)
+
+static func tool_left(value: Dictionary) -> int:
+	return int(value.get("usure", tool_durability(value)))
+
+# Vitesse d'un outil pour un travail (« bois », « pierre », « terre ») ; 1 : sans effet.
+static func tool_speed(value: Dictionary, work: String) -> float:
+	var base := float(TOOL_SPEEDS.get(value.get("objet", ""), {}).get(work, 1.0))
+	return base * tool_quality(value) if base > 1.0 else 1.0
 # 0.0.8.6 (#145) : fabrication d'un outil : tête (pierre, taille), manche (bois, état, épaisseur, longueur), lien, tours.
 static func tool_lines(value: Dictionary) -> Array:
 	var lines := []
@@ -878,6 +917,9 @@ static func tool_lines(value: Dictionary) -> Array:
 		lines.append("Âge du bois : %s (%d sur 5)" % [AGE_NAMES[clampi(int(value.age), 1, 5) - 1], int(value.age)])
 	if value.has("lien"):
 		lines.append("Lien : %s, %d tours" % [BIND_NAMES[clampi(int(value.lien), 0, BIND_NAMES.size() - 1)], int(value.get("tours", 0))])
+		# 0.0.8.10 (demande de l'utilisateur) : coups restants sur ceux de l'outil neuf.
+		if is_stone_tool(value):
+			lines.append("Usure : %d coups restants sur %d" % [tool_left(value), tool_durability(value)])
 	else:
 		lines.append("Pas encore ficelée")
 	return lines

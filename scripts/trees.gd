@@ -115,7 +115,9 @@ static func read_ahead(forms := 1) -> void:
 					var path := _path(kind, size, far, form)
 					# Rendu Compatibility (Web, vieux PC) : les fichiers y sont lus un par un (warm_next) ; en arrière-plan,
 					# ses maillages bloquaient la première image 5 s.
-					if RenderingServer.get_current_rendering_method() != "gl_compatibility" and ResourceLoader.load_threaded_request(path) == OK:
+					# 0.0.8.13 : jamais sans fenêtre (tests) : le serveur graphique factice n'accepte pas des maillages créés par deux
+					# fils à la fois (modèles d'arbres abîmés, vu avec les fils de calcul du terrain qui chargent le processeur).
+					if RenderingServer.get_current_rendering_method() != "gl_compatibility" and DisplayServer.get_name() != "headless" and ResourceLoader.load_threaded_request(path) == OK:
 						_requested[path] = true
 
 # Prépare le prochain modèle pas encore prêt ; faux quand tous le sont.

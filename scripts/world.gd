@@ -19,6 +19,8 @@ const Inventory = preload("res://scripts/inventory.gd")
 const InventoryUI = preload("res://scripts/inventory_ui.gd")
 const ReturnOrb = preload("res://scripts/return_orb.gd")
 const Fibers = preload("res://scripts/fibers.gd")
+const ToolModels = preload("res://scripts/tool_models.gd")
+const StoneHeads = preload("res://scripts/stone_heads.gd")
 const DIRT := 2
 const BLOCK_COLORS := [Color("#d8c291"), Color("#888b90"), Color("#855332")]
 const BLOCK_NAMES := ["Sable", "Pierre", "Terre"]
@@ -173,12 +175,81 @@ func _warm_shaders() -> void:
 	warm_node.position = Vector3(0.0, 0.0, -0.5)
 	warm_node.scale = Vector3.ONE * 0.0005
 	player.camera.add_child(warm_node)
-	var seen := {}
+	_warm_collect()
+	# Ce qui n'est pas encore autour : arbres de chaque espèce (de près et de loin), faces coupées, eau, rivière.
+	if relief and int(generation_options.get("version", 0)) >= 21:
+		for kind in range(Trees.FILES.size()):
+			for far in [false, true]:
+				var tree := MeshInstance3D.new()
+				tree.mesh = Trees.mesh(kind, 1, far)
+				warm_pending.append(tree)
+	var plane := QuadMesh.new()
+	for material: Material in [Trees.cut_material(), _water_or_new(), _river_or_new(), FarTerrain.material()]:
+		var flat := MeshInstance3D.new()
+		flat.mesh = plane
+		flat.material_override = material
+		warm_pending.append(flat)
+	# 0.0.8.11 (rapport Web : gels de 4,5 à 5 s à la première ouverture) : les objets de la série 0.0.8, en main (modèle
+	# seul) et au sol (en série) : orbe, fibres, liane, ficelle, têtes, outils ficelés, et une matière simple (mains).
+	var simple := StandardMaterial3D.new()
+	simple.roughness = 0.7
+	var ball := SphereMesh.new()
+	ball.material = simple
+	for mesh: Mesh in [ball, ReturnOrb.mesh(), Fibers.bundle_mesh(), Fibers.coil_mesh(), Fibers.cord_mesh(), StoneHeads.mesh("hache", 1.0), ToolModels.mesh({"objet": "hache_pierre", "lien": 3, "tours": 4}), ToolModels.mesh({"objet": "pioche_pierre", "lien": 0, "tours": 4})]:
+		var held := MeshInstance3D.new()
+		held.mesh = mesh
+		warm_pending.append(held)
+		var series := MultiMesh.new()
+		series.transform_format = MultiMesh.TRANSFORM_3D
+		series.use_colors = true
+		series.mesh = mesh
+		series.instance_count = 1
+		var lying := MultiMeshInstance3D.new()
+		lying.multimesh = series
+		warm_pending.append(lying)
+	# Lueur des orbes posées (Survie : une près du départ) : chaque matière éclairée par une petite lumière se dessine une
+	# fois de plus, avec son propre shader (rendu Compatibility).
+	if survival() or not ground_orb_lights().is_empty():
+		var glow := OmniLight3D.new()
+		glow.name = "LumierePrechauffage"
+		glow.omni_range = 0.3
+		glow.layers = WARM_LAYER
+		glow.position = Vector3(0.0, 0.0, -0.4)
+		player.camera.add_child(glow)
+		warm_light = glow
+	warm_left = WARM_FRAMES
+	# 0.0.8.11 (rapport Web : 10 à 15 s pour ouvrir un monde) : derrière l'écran de chargement, la caméra ne dessine que les
+	# copies (WARM_LAYER) : plus de monde dessiné pour rien à chaque image (le rendu prenait une bonne part de l'image sur
+	# une petite carte graphique), et chaque shader se prépare à son tour au lieu de tous d'un coup à la première image.
+	# Le reste (terrain, herbe, plantes, rochers, objets construits entre-temps) : second passage quand la vue est construite.
+	if behind_loading:
+		warm_waiting_late = true
+		loading_cull = true
+		player.camera.cull_mask = WARM_LAYER
+		if sun_light != null:
+			sun_light.layers |= WARM_LAYER
+
+# Couche des copies du préchauffage (seule dessinée derrière l'écran de chargement, rendu Compatibility).
+const WARM_LAYER := 1 << 19
+const ALL_LAYERS := (1 << 20) - 1
+var warm_seen := {}
+var warm_waiting_late := false
+var loading_cull := false
+var warm_light: OmniLight3D
+
+func ground_orb_lights() -> Array:
+	return ground._orb_lights if is_instance_valid(ground) else []
+
+# Une copie de chaque sorte de modèle du monde pas encore vue (le joueur et ses mains : même cachés).
+func _warm_collect() -> void:
+	var own: Array = player.find_children("*", "GeometryInstance3D", true, false) if is_instance_valid(player) else []
 	for node in find_children("*", "GeometryInstance3D", true, false):
-		var key := _warm_key(node)
-		if key.is_empty() or seen.has(key):
+		if is_instance_valid(warm_node) and warm_node.is_ancestor_of(node):
 			continue
-		seen[key] = true
+		var key := _warm_key(node, own.has(node))
+		if key.is_empty() or warm_seen.has(key):
+			continue
+		warm_seen[key] = true
 		var copy: GeometryInstance3D = null
 		if node is MultiMeshInstance3D and node.multimesh != null and node.multimesh.mesh != null:
 			var series := MultiMesh.new()
@@ -199,29 +270,15 @@ func _warm_shaders() -> void:
 		copy.material_override = node.material_override
 		copy.cast_shadow = node.cast_shadow
 		warm_pending.append(copy)
-	# Ce qui n'est pas encore autour : arbres de chaque espèce (de près et de loin), faces coupées, eau, rivière.
-	if relief and int(generation_options.get("version", 0)) >= 21:
-		for kind in range(Trees.FILES.size()):
-			for far in [false, true]:
-				var tree := MeshInstance3D.new()
-				tree.mesh = Trees.mesh(kind, 1, far)
-				warm_pending.append(tree)
-	var plane := QuadMesh.new()
-	for material: Material in [Trees.cut_material(), _water_or_new(), _river_or_new(), FarTerrain.material()]:
-		var flat := MeshInstance3D.new()
-		flat.mesh = plane
-		flat.material_override = material
-		warm_pending.append(flat)
-	warm_left = WARM_FRAMES
 
 # Sorte de modèle : format de ses sommets et matières (une copie suffit pour chaque sorte).
-func _warm_key(node: GeometryInstance3D) -> String:
+func _warm_key(node: GeometryInstance3D, even_hidden := false) -> String:
 	var mesh: Mesh = null
 	if node is MultiMeshInstance3D and node.multimesh != null:
 		mesh = node.multimesh.mesh
 	elif node is MeshInstance3D:
 		mesh = node.mesh
-	if mesh == null or not node.is_visible_in_tree():
+	if mesh == null or not (even_hidden or node.is_visible_in_tree()):
 		return ""
 	var parts := [node.get_class(), node.material_override.get_instance_id() if node.material_override != null else 0]
 	for surface in range(mesh.get_surface_count()):
@@ -247,23 +304,76 @@ func _river_or_new() -> ShaderMaterial:
 	return _river_material
 
 func _end_warm() -> void:
+	# Monde montré : la caméra dessine de nouveau tout.
+	if loading_cull and not behind_loading:
+		loading_cull = false
+		if is_instance_valid(player) and player.camera != null:
+			player.camera.cull_mask = ALL_LAYERS
+		if sun_light != null:
+			sun_light.layers &= ~WARM_LAYER
+		_restore_warm_shadows()
 	# 0.0.7.24 : quelques copies par image (WARM_PER_FRAME) : la compilation des shaders étalée (mesures Web : 11 et 8 s
 	# figées d'un coup à la première ouverture).
 	if not warm_pending.is_empty():
 		if not is_instance_valid(warm_node):
 			warm_pending.clear()
 			return
-		for index in range(mini(WARM_PER_FRAME, warm_pending.size())):
-			warm_node.add_child(warm_pending.pop_front())
+		var count := 1 if get_process_delta_time() > WARM_SLOW_FRAME else WARM_PER_FRAME
+		for index in range(mini(count, warm_pending.size())):
+			var copy: GeometryInstance3D = warm_pending.pop_front()
+			copy.layers = WARM_LAYER
+			warm_node.add_child(copy)
+		return
+	# 0.0.8.11 : second passage, quand les colonnes, leurs arbres et leurs détails sont construits (ou le monde déjà montré).
+	if warm_waiting_late:
+		if behind_loading and not (terrain_queue.is_empty() and tree_queue.is_empty() and detail_queue.is_empty()):
+			return
+		warm_waiting_late = false
+		if is_instance_valid(warm_node):
+			_warm_collect()
+			warm_left = WARM_FRAMES
 		return
 	if warm_left <= 0:
 		return
 	warm_left -= 1
-	if warm_left == 0 and is_instance_valid(warm_node):
-		warm_node.queue_free()
+	if warm_left == 0:
+		# 0.0.8.11 (rapport Web : gels de 4 à 20 s) : toutes les copies encore une fois, ombres du soleil dans l'autre état
+		# (activées si elles sont coupées, coupées sinon) : changer les ombres en jeu ne prépare plus rien d'un coup. Seulement
+		# derrière l'écran de chargement (rien ne se voit).
+		if not warm_flipped and loading_cull and sun_light != null and is_instance_valid(warm_node):
+			warm_flipped = true
+			warm_shadows_changed = true
+			if shadow_quality == "off":
+				sun_light.shadow_enabled = true
+				sun_light.directional_shadow_mode = DirectionalLight3D.SHADOW_ORTHOGONAL
+				sun_light.directional_shadow_max_distance = SHADOW_DISTANCES.near
+			else:
+				sun_light.shadow_enabled = false
+			for child in warm_node.get_children():
+				warm_node.remove_child(child)
+				warm_pending.append(child)
+			warm_left = WARM_FRAMES
+			return
+		_restore_warm_shadows()
+		if is_instance_valid(warm_node):
+			warm_node.queue_free()
 		warm_node = null
+		if is_instance_valid(warm_light):
+			warm_light.queue_free()
+		warm_light = null
 
-const WARM_PER_FRAME := 3
+var warm_flipped := false
+var warm_shadows_changed := false
+
+func _restore_warm_shadows() -> void:
+	if warm_shadows_changed:
+		warm_shadows_changed = false
+		set_shadows(shadow_quality)
+
+const WARM_PER_FRAME := 4
+# 0.0.8.11 : après une image lente (un shader préparé pour la première fois : jusqu'à plusieurs secondes sur le Web), une
+# seule copie à la fois.
+const WARM_SLOW_FRAME := 0.2
 var warm_pending: Array = []
 
 # Ouverture prête (écran de chargement, app.gd) : shaders préparés, colonnes autour construites, arbres créés.
@@ -281,7 +391,7 @@ func opening_progress(near_only: bool = false) -> float:
 		if built_columns.has(column):
 			built += 1
 	var columns := built / float(maxi(wanted, 1))
-	var warm := 1.0 if warm_pending.is_empty() and warm_left <= 0 else (0.5 if warm_pending.is_empty() else 0.0)
+	var warm := 1.0 if warm_pending.is_empty() and warm_left <= 0 and not warm_waiting_late else (0.5 if warm_pending.is_empty() else 0.0)
 	var details_left := tree_queue.size() + detail_queue.size()
 	if near_only:
 		details_left = tree_queue.filter(func(entry): return _ring(entry[0]) <= NEAR_REVEAL_ZONES).size() + detail_queue.filter(func(column): return _ring(column) <= NEAR_REVEAL_ZONES).size()
@@ -377,9 +487,12 @@ var tree_detail_end := Trees.DETAIL_END
 var simple_ground := false
 # 0.0.7.24 : ouvert derrière l'écran de chargement (app.gd) : colonnes autour par la file, grand budget de fond.
 var behind_loading := false
-const LOADING_WORK_USEC := 40000
+# 0.0.8.11 (rapport Web : 10 à 15 s pour ouvrir un monde) : 80 ms par image sur le Web aussi (avant 40) : la caméra n'y
+# dessine plus le monde derrière l'écran (préchauffage), chaque image en moins est du temps gagné ; la barre avance
+# encore une dizaine de fois par seconde.
+const LOADING_WORK_USEC := 80000
 # 0.0.7.34 (demande de l'utilisateur) : sur PC, deux fois plus de travail par image derrière l'écran de chargement (moins
-# d'images à dessiner pour rien) ; le Web garde 40 ms (barre et page qui répondent).
+# d'images à dessiner pour rien).
 const LOADING_WORK_PC_USEC := 80000
 var sun_light: DirectionalLight3D
 
@@ -409,6 +522,7 @@ func _create_ground() -> void:
 	box.size = base_size
 	mesh.mesh = box
 	ground_material = TerrainMaterials.surface(true)
+	mesh.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	# 0.0.6.17 : le sol lit les minerais et la litière (CUSTOM0) ; pas les rochers ni les cailloux (rendu Web).
 	ground_material.set_shader_parameter("terrain_layers", true)
 	ground_material.set_shader_parameter("compat_look", is_compat())
@@ -442,12 +556,20 @@ func _create_terrain(start_at: Vector3 = Vector3.ZERO) -> void:
 	generated_max_height = 0
 	# 0.0.5.14 : petites collines selon la graine, plates autour de l'apparition et de la plage.
 	if relief:
+		# 0.0.8.13 : fils de calcul du terrain (déjà lancés par l'écran de chargement, sinon maintenant) ; ils se préparent à
+		# côté, le fil principal fait tout lui-même en attendant.
+		if terrain_workers == null and TerrainWorkers.available():
+			terrain_workers = TerrainWorkers.new()
+			terrain_workers.start(terrain_seed, flat_spots(), generation_options)
 		# 0.0.7.23 : graine déjà préparée par étapes pendant l'écran de chargement (prepare_terrain), sinon d'un coup.
 		if prepared_terrain != null:
 			prepared_terrain.prepare_step(1 << 40)
 			terrain = prepared_terrain
 		else:
 			terrain.setup(terrain_seed, flat_spots(), generation_options)
+	elif terrain_workers != null:
+		terrain_workers.stop()
+		terrain_workers = null
 	_read_terrain_changes()
 	_read_objects()
 	# 0.0.6.6 (#124) : eau qui coule (lacs qui baissent, eau libre), relue depuis le dossier du monde.
@@ -566,7 +688,8 @@ func _surveyed(column: Vector2i) -> Array:
 # Colonne affichée : ses zones de surface et son herbe.
 func _show_column(column: Vector2i) -> void:
 	for zone: Vector3i in _surveyed(column):
-		rebuild_terrain_piece(zone)
+		# 0.0.8.13 : surface d'un fil de calcul si elle est déjà là.
+		rebuild_terrain_piece(zone, false, _take_worker_surface(zone))
 	column_pending.erase(column)
 	_finish_column(column)
 
@@ -631,6 +754,13 @@ func _hide_column(column: Vector2i) -> void:
 	terrain.forget_column(column)
 	heights_ready.erase(column)
 	column_height_rows.erase(column)
+	worker_done.erase(column)
+	if worker_columns.has(column) and terrain_workers != null:
+		terrain_workers.cancel_column(column)
+	worker_columns.erase(column)
+	for zone: Vector3i in worker_surfaces.keys():
+		if zone.x == column.x and zone.z == column.y:
+			worker_surfaces.erase(zone)
 	for zone: Vector3i in surface_jobs.keys():
 		if zone.x == column.x and zone.z == column.y:
 			surface_jobs.erase(zone)
@@ -679,6 +809,9 @@ func _process_terrain_queue(budget_usec: int = TERRAIN_BUDGET_USEC) -> void:
 				var surface: Array = cave_job.result
 				cave_job = null
 				rebuild_terrain_piece(cave_zone, false, surface)
+	if _workers_on():
+		_collect_worker_results()
+		_dispatch_worker_columns()
 	var started := Time.get_ticks_usec()
 	# 0.0.6.2 : zone par zone (une colonne de montagne dépassait 40 ms d’un coup) ; l’herbe et les objets quand la colonne est finie.
 	# 0.0.6.18 (#175) : une étape de plus seulement si elle tient dans le temps restant (durée moyenne des dernières) :
@@ -687,7 +820,10 @@ func _process_terrain_queue(budget_usec: int = TERRAIN_BUDGET_USEC) -> void:
 		var step_started := Time.get_ticks_usec()
 		if step_started > started and step_started - started + terrain_step_usec > budget_usec:
 			break
-		_terrain_step()
+		var index := _next_terrain_index()
+		if index < 0:
+			break
+		_terrain_step(index)
 		terrain_step_usec = terrain_step_usec * 0.8 + (Time.get_ticks_usec() - step_started) * 0.2
 
 # Colonnes dont les hauteurs sont prêtes (oubliées quand la colonne sort de la vue : terrain.forget_column).
@@ -710,10 +846,10 @@ var cave_job_edits := 0
 var terrain_edits := 0
 var opening_columns := true
 
-func _terrain_step() -> void:
-	var column: Vector2i = terrain_queue[0]
+func _terrain_step(index: int = 0) -> void:
+	var column: Vector2i = terrain_queue[index]
 	if not shown_columns.has(column):
-		terrain_queue.pop_front()
+		terrain_queue.remove_at(index)
 		column_pending.erase(column)
 		column_height_rows.erase(column)
 		return
@@ -740,19 +876,26 @@ func _terrain_step() -> void:
 		column_pending[column] = _surveyed(column).duplicate()
 	var pending: Array = column_pending[column]
 	if pending.is_empty():
-		terrain_queue.pop_front()
+		terrain_queue.remove_at(index)
 		column_pending.erase(column)
 		column_height_rows.erase(column)
+		worker_done.erase(column)
 		_finish_column(column, true)
 	else:
 		var at := Time.get_ticks_usec()
 		var zone: Vector3i = pending.back()
 		# 0.0.7.20 : zone plate (carré partagé) : tout de suite ; sinon sa surface est calculée en petites étapes
 		# (surface_job.gd, 3 ms au plus par image), puis la zone est montée d'un coup.
+		# 0.0.8.13 : surface déjà calculée par un fil de calcul (colonne sans changement du joueur autour), sinon [].
+		var ready_surface: Array = [] if close else _take_worker_surface(zone)
 		if close or terrain.is_flat(zone):
 			surface_jobs.erase(zone)
 			pending.pop_back()
 			rebuild_terrain_piece(zone)
+		elif not ready_surface.is_empty():
+			surface_jobs.erase(zone)
+			pending.pop_back()
+			rebuild_terrain_piece(zone, false, ready_surface)
 		else:
 			# 0.0.7.22 : un calcul commencé par zone, repris où il en était si une autre colonne passe devant (le joueur
 			# attend au bord d'une autre) ; recommencé si le terrain a changé depuis (terrain_edits).
@@ -770,6 +913,133 @@ func _terrain_step() -> void:
 		if perf_on:
 			_perf("terrain_morceau", at)
 
+# 0.0.8.13 « Plusieurs cœurs » : les hauteurs et les surfaces des colonnes sans changement du joueur autour (la plupart, en
+# découvrant le monde) sont calculées par les fils de calcul (terrain_workers.gd, une copie du terrain chacun) ; le fil
+# principal reçoit les nombres, ne monte plus que les morceaux (maillage, collision), l'herbe et les objets. Les colonnes
+# changées par le joueur, celles d'à côté, les grottes et les tout premiers instants de l'ouverture restent faits ici.
+const TerrainWorkers = preload("res://scripts/terrain_workers.gd")
+# Colonnes envoyées par fil de calcul prêt, au plus (les plus proches du joueur d'abord, comme la file).
+const WORKER_AHEAD := 6
+# Carrés du lointain envoyés par fil de calcul prêt, au plus.
+const WORKER_FAR_AHEAD := 3
+# Colonne en tête de la file attendue plus longtemps (fils de calcul très occupés ou ralentis par le système) : faite ici.
+const WORKER_PATIENCE_MSEC := 1500
+var terrain_workers: RefCounted = null
+# Colonne envoyée → heure de l'envoi (ms) ; retirée quand son résultat arrive.
+var worker_columns: Dictionary = {}
+# Colonne dont les hauteurs viennent d'un fil de calcul (ses surfaces dans worker_surfaces), jusqu'à ce qu'elle soit finie.
+var worker_done: Dictionary = {}
+var worker_surfaces: Dictionary = {}
+# Carré du lointain envoyé (clé de far_surveys) → résultat attendu.
+var worker_far: Dictionary = {}
+# Zones montées avec une surface d'un fil de calcul (mesures, tests).
+var worker_built := 0
+
+func _workers_on() -> bool:
+	return terrain_workers != null and terrain_workers.is_ready()
+
+# La colonne peut être calculée par un fil de calcul : sa copie ne connaît que la graine (aucun changement du joueur dans
+# la colonne ni autour) ; les colonnes juste autour du joueur à l'ouverture sont faites tout de suite ici.
+func _worker_fits(column: Vector2i) -> bool:
+	if opening_columns and maxi(absi(column.x - view_center.x), absi(column.y - view_center.y)) <= 1:
+		return false
+	return not terrain.zone_column_changed(column)
+
+# La colonne est (ou sera) faite ici : pas pour un fil de calcul, ou déjà commencée ici.
+func _main_builds(column: Vector2i) -> bool:
+	if worker_done.has(column):
+		return false
+	return not _worker_fits(column) or heights_ready.has(column) or column_height_rows.has(column) or column_pending.has(column)
+
+# Prochaine colonne à avancer ici : la première de la file qui n'attend pas un fil de calcul ; -1 : toutes attendent.
+# Seulement le début de la file (au-delà, rien n'est encore envoyé : les colonnes y attendent leur tour, plus proches
+# d'abord) : la file entière (jusqu'à plus de 1 000 colonnes en Beauté) parcourue à chaque étape coûterait des millisecondes.
+func _next_terrain_index() -> int:
+	if not _workers_on():
+		return 0
+	var window := mini(terrain_queue.size(), terrain_workers.ready_count() * WORKER_AHEAD + WORKER_SCAN_EXTRA)
+	for index in range(window):
+		var column: Vector2i = terrain_queue[index]
+		if not shown_columns.has(column) or worker_done.has(column) or _main_builds(column):
+			return index
+		# En tête et attendue trop longtemps : faite ici (son résultat, s'il arrive, sera laissé).
+		if index == 0 and worker_columns.has(column) and Time.get_ticks_msec() - int(worker_columns[column]) > WORKER_PATIENCE_MSEC:
+			return 0
+	return -1
+
+const WORKER_SCAN_EXTRA := 8
+
+func _dispatch_worker_columns() -> void:
+	var limit: int = terrain_workers.ready_count() * WORKER_AHEAD
+	if worker_columns.size() >= limit:
+		return
+	var window := mini(terrain_queue.size(), limit + WORKER_SCAN_EXTRA)
+	for index in range(window):
+		if worker_columns.size() >= limit:
+			return
+		var column: Vector2i = terrain_queue[index]
+		if worker_columns.has(column) or worker_done.has(column) or not shown_columns.has(column) or _main_builds(column):
+			continue
+		# La première de la file (le joueur attend peut-être au bord : ground_ready) passe devant les autres travaux.
+		terrain_workers.add_column(column, index == 0)
+		worker_columns[column] = Time.get_ticks_msec()
+
+func _collect_worker_results() -> void:
+	for result: Dictionary in terrain_workers.take_results():
+		if result.kind == "lointain":
+			worker_far.erase(result.key)
+			var survey: Dictionary = far_surveys.get(result.key, {})
+			if survey.is_empty() or survey.next < survey.side:
+				far_surveys[result.key] = result.survey
+			continue
+		var column: Vector2i = result.column
+		worker_columns.erase(column)
+		# Sortie de la vue, déjà finie ou commencée ici entre-temps : rien à reprendre.
+		if not shown_columns.has(column) or built_columns.has(column) or column_pending.has(column) or column_height_rows.has(column):
+			continue
+		# Hauteurs de la graine (jamais changées par le joueur) : gardées comme si elles avaient été calculées ici.
+		var known: Dictionary = terrain._heights
+		var heights: Dictionary = result.heights
+		for point: Vector2i in heights:
+			if not known.has(point):
+				known[point] = heights[point]
+		heights_ready[column] = true
+		worker_done[column] = true
+		# Changée par le joueur pendant le calcul : surfaces refaites ici (avec ses changements).
+		if terrain.zone_column_changed(column):
+			continue
+		var surfaces: Dictionary = result.surfaces
+		for zone: Vector3i in surfaces:
+			worker_surfaces[zone] = surfaces[zone]
+
+# Surface d'une zone reçue d'un fil de calcul (et toujours valable : rien changé autour depuis), sinon [] ; retirée.
+func _take_worker_surface(zone: Vector3i) -> Array:
+	if not worker_surfaces.has(zone):
+		return []
+	var surface: Array = worker_surfaces[zone]
+	worker_surfaces.erase(zone)
+	if terrain.zone_column_changed(Vector2i(zone.x, zone.z)):
+		return []
+	worker_built += 1
+	return surface
+
+# Lointain : les relevés des prochains carrés envoyés aux fils de calcul (une fois par image).
+func _dispatch_worker_far() -> void:
+	_collect_worker_results()
+	var limit: int = terrain_workers.ready_count() * WORKER_FAR_AHEAD
+	if worker_far.size() >= limit:
+		return
+	for tile: Vector2i in far_queue:
+		if worker_far.size() >= limit:
+			return
+		var survey := _far_survey(tile)
+		if survey.next >= survey.side:
+			continue
+		var key := Vector3i(tile.x, tile.y, int(survey.cell))
+		if worker_far.has(key):
+			continue
+		terrain_workers.add_far(key, tile, survey.cell)
+		worker_far[key] = true
 # Tout le terrain en attente, d'un coup (tests, captures).
 func finish_terrain() -> void:
 	_process_hide_queue(FAR_NO_LIMIT)
@@ -954,6 +1224,9 @@ func rebuild_terrain_piece(zone: Vector3i, flat_for_now: bool = false, ready_sur
 	body.set_meta("zone", zone)
 	var instance := MeshInstance3D.new()
 	instance.material_override = ground_material
+	# 0.0.8.11 (rapport Web : les ombres coûtaient 17 ms de GPU ; demande de l'utilisateur : aussi pour les PC bon marché) :
+	# le terrain reçoit les ombres mais n'en projette plus (seuls arbres, rochers et personnages), sur le Web comme sur PC.
+	instance.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	var collision: CollisionShape3D = null
 	var faces: Array = []
 	if flat_for_now or terrain.is_flat(zone):
@@ -1198,17 +1471,44 @@ func toggle_crafting() -> void:
 func open_crafting() -> void:
 	if crafting_open or inventory_open or death_open or not is_instance_valid(player):
 		return
-	if not is_instance_valid(crafting_ui):
-		crafting_ui = CraftingUI.new()
-		crafting_ui.setup(self, inventory, player.skin, Callable(self, "_kind_material"), text_scale)
-		crafting_ui.closed.connect(close_crafting)
-		add_child(crafting_ui)
+	_prepare_crafting()
 	crafting_open = true
 	# L'interface du jeu (barre, vie, messages) cachée : l'écran de fabrication montre ses propres cases.
 	_set_hud_visible(false)
 	player.release_controls()
 	_show_aim(false)
 	crafting_ui.open()
+
+func _prepare_crafting() -> void:
+	if not is_instance_valid(crafting_ui):
+		crafting_ui = CraftingUI.new()
+		crafting_ui.setup(self, inventory, player.skin, Callable(self, "_kind_material"), text_scale)
+		crafting_ui.closed.connect(close_crafting)
+		add_child(crafting_ui)
+
+# 0.0.8.11 (rapport Web : 104 ms à la première ouverture de l'inventaire, 196 ms pour la fabrication) : derrière l'écran de
+# chargement, une fois la vue construite, l'inventaire et la fabrication (créée d'avance) sont dessinés UI_PREWARM_FRAMES
+# images, presque transparents, puis cachés. -1 : pas encore ; 0 : fait.
+const UI_PREWARM_FRAMES := 3
+var ui_prewarm_left := -1
+
+func _step_ui_prewarm() -> void:
+	if ui_prewarm_left == 0:
+		return
+	if ui_prewarm_left < 0:
+		if not behind_loading or not terrain_queue.is_empty() or not is_instance_valid(inventory_ui):
+			return
+		_prepare_crafting()
+		inventory_ui.prewarm(true)
+		crafting_ui.prewarm(true)
+		ui_prewarm_left = UI_PREWARM_FRAMES
+		return
+	ui_prewarm_left -= 1
+	if ui_prewarm_left == 0:
+		if not inventory_open:
+			inventory_ui.prewarm(false)
+		if is_instance_valid(crafting_ui) and not crafting_open:
+			crafting_ui.prewarm(false)
 
 func close_crafting(recapture: bool = true) -> void:
 	if not crafting_open:
@@ -1265,7 +1565,8 @@ func _show_aim(on: bool) -> void:
 
 # Message quand une pioche manque (Survie seulement depuis 0.0.7.27 : en Créatif, les mains cassent tout).
 func _needs_pickaxe(subject: String) -> String:
-	return subject + (" avec la pioche (inventaire : O + I, onglet Outils)." if game_mode == Inventory.CREATIVE else " avec une pioche : pas encore en Survie.")
+	# 0.0.8.10 : en Survie, la pioche en pierre (fabriquée : O + F).
+	return subject + (" avec la pioche (inventaire : O + I, onglet Outils)." if game_mode == Inventory.CREATIVE else " plus vite avec une pioche en pierre (fabrication : O + F).")
 
 
 # --- 0.0.7.8 : anneau de chargement, abattre et couper les arbres (demande de l'utilisateur) ---
@@ -1341,16 +1642,17 @@ func step_chop(delta: float, holding: bool) -> bool:
 		local.y = maxf(local.y, 0.3)
 		chop_thickness = Trees.wood_thickness(int(tree.get_meta("kind", 0)), int(tree.get_meta("size", 3)), int(tree.get_meta("form", 0)), local) * tree.scale.x
 		chop_seconds = maxf(CHOP_SECONDS * chop_thickness / 0.1, 0.5)
-	if game_mode == Inventory.SURVIVAL and chop_thickness > MAX_HAND_THICKNESS + 0.001:
-		_notify("Trop épais à mains nues : %d cm (%d cm au plus)." % [roundi(chop_thickness * 100.0), roundi(MAX_HAND_THICKNESS * 100.0)])
+	if game_mode == Inventory.SURVIVAL and chop_thickness > max_chop_thickness() + 0.001:
+		_notify(_too_thick_message())
 		return false
-	var seconds := CHOP_SECONDS_CREATIVE if game_mode == Inventory.CREATIVE else chop_seconds
+	var seconds := CHOP_SECONDS_CREATIVE if game_mode == Inventory.CREATIVE else chop_seconds / tool_speed("bois")
 	chop_time += delta
 	show_ring(chop_time / seconds)
 	if chop_time < seconds:
 		return false
 	chop_target = null
 	chop_time = 0.0
+	use_tool("bois", seconds)
 	if lying:
 		cut_tree(tree, hit.position)
 	else:
@@ -1651,10 +1953,10 @@ func _step_chop_parts(delta: float, hit: Dictionary) -> bool:
 		chop_time = 0.0
 		chop_thickness = _aim_thickness(aim)
 		chop_seconds = maxf(CHOP_SECONDS * chop_thickness / 0.1, 0.5)
-	if game_mode == Inventory.SURVIVAL and chop_thickness > MAX_HAND_THICKNESS + 0.001:
-		_notify("Trop épais à mains nues : %d cm (%d cm au plus)." % [roundi(chop_thickness * 100.0), roundi(MAX_HAND_THICKNESS * 100.0)])
+	if game_mode == Inventory.SURVIVAL and chop_thickness > max_chop_thickness() + 0.001:
+		_notify(_too_thick_message())
 		return false
-	var seconds := CHOP_SECONDS_CREATIVE if game_mode == Inventory.CREATIVE else chop_seconds
+	var seconds := CHOP_SECONDS_CREATIVE if game_mode == Inventory.CREATIVE else chop_seconds / tool_speed("bois")
 	chop_time += delta
 	show_ring(chop_time / seconds)
 	if chop_time < seconds:
@@ -1662,6 +1964,7 @@ func _step_chop_parts(delta: float, hit: Dictionary) -> bool:
 	chop_target = null
 	chop_time = 0.0
 	chop_aim = {}
+	use_tool("bois", seconds)
 	cut_wood(aim.tree, aim.piece, aim.t, aim.point)
 	return true
 
@@ -1698,16 +2001,17 @@ func _step_chop_ground(delta: float, index: int, point: Vector3) -> bool:
 		chop_time = 0.0
 		chop_thickness = thickness
 		chop_seconds = ground_wood_seconds(item, thickness)
-	if game_mode == Inventory.SURVIVAL and chop_thickness > MAX_HAND_THICKNESS + 0.001:
-		_notify("Trop épais à mains nues : %d cm (%d cm au plus)." % [roundi(chop_thickness * 100.0), roundi(MAX_HAND_THICKNESS * 100.0)])
+	if game_mode == Inventory.SURVIVAL and chop_thickness > max_chop_thickness() + 0.001:
+		_notify(_too_thick_message())
 		return false
-	var seconds := CHOP_SECONDS_CREATIVE if game_mode == Inventory.CREATIVE else chop_seconds
+	var seconds := CHOP_SECONDS_CREATIVE if game_mode == Inventory.CREATIVE else chop_seconds / tool_speed("bois")
 	chop_time += delta
 	show_ring(chop_time / seconds)
 	if chop_time < seconds:
 		return false
 	chop_time = 0.0
 	chop_aim = {}
+	use_tool("bois", seconds)
 	return split_wood(index, point)
 
 # 0.0.7.26 (#212) : durée pour recasser un bois au sol (Survie) : comme une branche (CHOP_SECONDS par 10 cm d'épaisseur),
@@ -2923,6 +3227,59 @@ func _held_index() -> int:
 	var heavy: int = inventory.two_handed()
 	return heavy if heavy >= 0 and index in Inventory.HANDS else index
 
+
+# --- 0.0.8.10 (#202, demandes de l'utilisateur) : outils utiles et usure (règles : inventory.gd, TOOL_SPEEDS) ---
+# L'outil en main (Survie) accélère son travail ; chaque travail fini l'use (Inventory.TOOL_WEAR_PER_SECOND coups par
+# seconde de travail) ; à 0 coup, il casse : la tête et le manche tombent au sol.
+func held_tool() -> Dictionary:
+	if game_mode != Inventory.SURVIVAL:
+		return {}
+	var there := inventory.item("bar", _held_index())
+	if there.is_empty() or not Inventory.is_stone_tool(there):
+		return {}
+	var units := Inventory.units(there)
+	return units[-1] if not units.is_empty() else {}
+
+func tool_speed(work: String) -> float:
+	var tool := held_tool()
+	return Inventory.tool_speed(tool, work) if not tool.is_empty() else 1.0
+
+# Le plus gros bois qu'on coupe : 40 cm à mains nues ; une hache : jusqu'à 1 m.
+func max_chop_thickness() -> float:
+	return 1.0 if tool_speed("bois") > 1.0 else MAX_HAND_THICKNESS
+
+func _too_thick_message() -> String:
+	return "Trop épais %s : %d cm (%d cm au plus)." % ["pour cette hache" if tool_speed("bois") > 1.0 else "à mains nues", roundi(chop_thickness * 100.0), roundi(max_chop_thickness() * 100.0)]
+
+# Use l'outil en main après un travail de « seconds » s (seulement s'il l'a accéléré) ; rend vrai s'il casse.
+func use_tool(work: String, seconds: float) -> bool:
+	var tool := held_tool()
+	if tool.is_empty() or Inventory.tool_speed(tool, work) <= 1.0:
+		return false
+	var index := _held_index()
+	var there := inventory.item("bar", index).duplicate(true)
+	var left := Inventory.tool_left(tool) - maxi(1, roundi(seconds * Inventory.TOOL_WEAR_PER_SECOND))
+	if left > 0:
+		there.pile[-1].usure = left
+		inventory._store().bar[index] = there
+		inventory.changed.emit()
+		inventory_unsaved = true
+		return false
+	# Cassé : la tête et le manche (une branche fendue) tombent à ses pieds.
+	inventory.take_unit("bar", index)
+	var head := {"objet": "tete_hache" if tool.objet == "hache_pierre" else "tete_pioche", "pierre": int(tool.get("pierre", 1)), "taille": int(tool.get("taille", 4))}
+	var handle := {"objet": "branche", "fendue": 1}
+	for key in ["essence", "age", "souplesse", "epaisseur", "fin", "longueur", "morte"]:
+		if tool.has(key):
+			handle[key] = tool[key]
+	var feet := player.global_position + player.global_transform.basis.x * 0.4 - player.global_transform.basis.z * 0.4
+	ground.drop(head, player.camera.global_position, feet, _rest_height, 0.1)
+	ground.drop(handle, player.camera.global_position, feet + player.global_transform.basis.x * 0.3, _rest_height, 0.1)
+	_impact_sound(player.global_position)
+	_notify("%s s'est cassée : la tête et le manche sont au sol." % Inventory.ITEMS[tool.objet].nom)
+	notice_time = 4.0
+	inventory_unsaved = true
+	return true
 # « Caillou » ou « Caillou × 3 » (tout un tas).
 static func _thrown_name(value: Dictionary) -> String:
 	var amount := Inventory.count(value)
@@ -3098,7 +3455,7 @@ func aimed_plant(hit: Dictionary) -> Dictionary:
 	for dx in [-1, 0, 1]:
 		for dz in [-1, 0, 1]:
 			var column: Vector2i = here + Vector2i(dx, dz)
-			for plant: Dictionary in terrain.plants_in_zone(column):
+			for plant: Dictionary in plants_near(column):
 				var id := Fibers.plant_id(plant)
 				if cut_plants.has(id):
 					continue
@@ -3563,25 +3920,36 @@ func step_dig(delta: float, holding: bool, aimed: Dictionary = {}) -> bool:
 	if plan.is_empty() or plan.seconds <= 0.0 or is_inf(float(plan.seconds)):
 		dig_time = 0.0
 		return false
+	# 0.0.8.10 (#202) : pioche en pierre en main : la pierre 4 fois plus vite (avec des éclats), la terre 2 fois.
+	var work := "pierre" if plan.stone else "terre"
+	var speed := tool_speed(work)
+	var seconds: float = plan.seconds / speed
 	if typeof(plan.center) != typeof(dig_point) or plan.center != dig_point:
 		dig_point = plan.center
 		dig_time = 0.0
 	dig_time += delta
-	if plan.seconds > RING_FROM_SECONDS:
-		show_ring(dig_time / plan.seconds)
-	if dig_time < plan.seconds:
+	if seconds > RING_FROM_SECONDS:
+		show_ring(dig_time / seconds)
+	if dig_time < seconds:
 		return false
 	dig_point = null
 	dig_time = 0.0
+	var pick: bool = speed > 1.0 and plan.stone
 	if hit.collider.is_in_group("rocks"):
-		return mine_rock(hit.collider, hit, false)
+		use_tool(work, seconds)
+		return mine_rock(hit.collider, hit, pick)
 	if hit.collider.is_in_group("pebbles"):
-		return strike_pebble(hit.collider, true, false)
+		use_tool(work, seconds)
+		return strike_pebble(hit.collider, true, pick)
+	var stone_kind: int = _kind_at(plan.center) if plan.stone and plan.center is Vector3i else -1
 	var done := sculpt(hit, false, -1, plan.cells, plan.stone)
 	if done:
 		_debris(hit.position, Color("#6f6b66") if plan.stone else Color("#6b4a2e"))
 		if plan.stone:
 			_impact_sound(hit.position)
+		if pick and STONE_PIECES.has(stone_kind):
+			drop_pieces(STONE_PIECES[stone_kind], 2, STONE_PIECE_WEIGHT, hit.position)
+		use_tool(work, seconds)
 	return done
 
 # Creuser (add false) ou poser (add true, matière kind). limit (Survie) : sous-cellules posées au plus (ce qu'on tient).
@@ -4061,6 +4429,38 @@ func _go_to_start() -> void:
 	player.position = spawn_position()
 	player.velocity = Vector3.ZERO
 	player.airborne = false
+	_build_around_now()
+
+# 0.0.8.11 (rapport Web : après « Revenir au point de départ », quelques secondes de relief simplifié seul, sans arbres ni
+# rochers) : la vue suit tout de suite, et les 3 × 3 colonnes autour du joueur sont construites aussitôt, avec leurs
+# arbres, leur herbe et leurs plantes ; le reste par la file, comme en marchant.
+func _build_around_now() -> void:
+	if not is_inside_tree() or not is_instance_valid(player):
+		return
+	var center := Vector2i(floori(player.position.x / SmoothTerrain.ZONE_SIZE), floori(player.position.z / SmoothTerrain.ZONE_SIZE))
+	update_terrain_view(false, center)
+	var near := {}
+	for dx in [-1, 0, 1]:
+		for dz in [-1, 0, 1]:
+			var column := center + Vector2i(dx, dz)
+			near[column] = true
+			if shown_columns.has(column) and not built_columns.has(column):
+				terrain_queue.erase(column)
+				column_height_rows.erase(column)
+				_show_column(column)
+	var others: Array = []
+	for entry: Array in tree_queue:
+		if near.has(entry[0]) and built_columns.has(entry[0]):
+			_make_column_tree(entry[0], entry[1])
+		else:
+			others.append(entry)
+	tree_queue = others
+	_rebuild_dirty_series()
+	for column: Vector2i in near:
+		if detail_queue.has(column):
+			detail_queue.erase(column)
+			_rebuild_lawn_tile(column)
+			_show_column_plants(column)
 
 # 0.0.8.1 (#188) : Créatif : revenir au point de départ (touche H par défaut, ou bouton de la pause).
 func go_home() -> bool:
@@ -4085,6 +4485,18 @@ func _step_nettles(delta: float) -> void:
 		if hurt(Fibers.NETTLE_WALK) > 0 and notice_time <= 0.0:
 			_notify("Les orties piquent !")
 
+# 0.0.8.11 (rapport Web) : plantes de la graine d'une colonne, gardées (avant : refaites pour 9 colonnes toutes les 0,5 s
+# dans les orties, et à chaque image en visant une plante). En lecture seule ; au plus PLANT_CACHE_MAX colonnes gardées.
+const PLANT_CACHE_MAX := 64
+var _plant_cache := {}
+
+func plants_near(column: Vector2i) -> Array:
+	if not _plant_cache.has(column):
+		if _plant_cache.size() >= PLANT_CACHE_MAX:
+			_plant_cache.clear()
+		_plant_cache[column] = terrain.plants_in_zone(column)
+	return _plant_cache[column]
+
 func in_nettles() -> bool:
 	if not is_instance_valid(player) or player.flying or player.swimming:
 		return false
@@ -4092,7 +4504,7 @@ func in_nettles() -> bool:
 	var here := _player_column()
 	for dx in [-1, 0, 1]:
 		for dz in [-1, 0, 1]:
-			for plant: Dictionary in terrain.plants_in_zone(here + Vector2i(dx, dz)):
+			for plant: Dictionary in plants_near(here + Vector2i(dx, dz)):
 				if int(plant.plante) != Plants.NETTLE or cut_plants.has(Fibers.plant_id(plant)):
 					continue
 				var size: float = Plants.SIZES[Plants.NETTLE] * float(plant.taille)
@@ -4858,6 +5270,7 @@ func _process(delta: float) -> void:
 	# 90 à 110 ms par image mesurées sur le Web).
 	frame_usec = lerpf(frame_usec, maxf(delta * 1_000_000.0 - last_work_usec, 1000.0), 0.1)
 	_end_warm()
+	_step_ui_prewarm()
 	if perf_on:
 		_process_measured(delta)
 		return
@@ -5146,6 +5559,10 @@ func _update_fps(delta: float) -> void:
 	fps_label.text = "FPS : %d" % Engine.get_frames_per_second()
 
 func _notification(what: int) -> void:
+	# 0.0.8.13 : monde fermé : les fils de calcul du terrain s'arrêtent.
+	if what == NOTIFICATION_PREDELETE and terrain_workers != null:
+		terrain_workers.stop()
+		terrain_workers = null
 	if is_instance_valid(fps_label) and what in [NOTIFICATION_PAUSED,NOTIFICATION_UNPAUSED]:
 		fps_label.visible = what == NOTIFICATION_UNPAUSED
 		fps_elapsed = 0.0
@@ -5535,7 +5952,9 @@ func _make_column_tree(column: Vector2i, tree: Dictionary) -> void:
 # 0.0.7.25 (mesures Web : la caméra entrait dans les troncs d'un arbre à plusieurs tiges) : une collision par tige
 # principale et par grosse branche basse (sous BRANCH_COLLISION_TOP m, au moins BRANCH_COLLISION_RADIUS de rayon), le long
 # de leur axe (squelette de tree_parts.gd), STEM_COLLISIONS_MAX au plus ; en plus du tronc au pied (Trees.tree_body).
-const STEM_COLLISIONS_MAX := 8
+# 0.0.8.11 (rapport Web : la caméra entrait encore dans les noisetiers, 9 à 11 tiges) : d'abord toutes les tiges, puis les
+# branches basses (avant : dans l'ordre du squelette, 8 au plus : des tiges restaient sans collision).
+const STEM_COLLISIONS_MAX := 12
 const BRANCH_COLLISION_TOP := 2.2
 const BRANCH_COLLISION_RADIUS := 0.05
 const STEM_COLLISION_LENGTH := 2.5
@@ -5544,7 +5963,8 @@ func _add_stem_collisions(tree: Node3D) -> void:
 	var model: Node3D = tree.get_node_or_null("Modele")
 	if model == null:
 		return
-	var pieces: Array = TreeParts.skeleton(int(tree.get_meta("kind")), int(tree.get_meta("size")), int(tree.get_meta("form"))).pieces
+	var pieces: Array = TreeParts.skeleton(int(tree.get_meta("kind")), int(tree.get_meta("size")), int(tree.get_meta("form"))).pieces.duplicate()
+	pieces.sort_custom(func(a: Dictionary, b: Dictionary) -> bool: return (a.root and a.tip.y > 0.5) and not (b.root and b.tip.y > 0.5))
 	var added := 0
 	for piece: Dictionary in pieces:
 		if added >= STEM_COLLISIONS_MAX:
@@ -5806,6 +6226,8 @@ func _rebuild_pebble_block(block: Vector2i) -> void:
 		drawn.name = "Cailloux"
 		drawn.multimesh = multi
 		drawn.material_override = _pebble_material()
+		# 0.0.8.11 : les petits cailloux ne projettent plus d'ombre (les rochers, si).
+		drawn.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 		_rocks_parent().add_child(drawn)
 		nodes.append(drawn)
 	if not nodes.is_empty():
@@ -6167,7 +6589,15 @@ func _process_far_queue(budget_usec: int = FAR_BUDGET_USEC) -> void:
 	var deadline := Time.get_ticks_usec() + (budget_usec * 2 if far_opening and far_queue.size() > 20 else budget_usec)
 	if far_queue.is_empty():
 		far_opening = false
+	# 0.0.8.13 : relevés faits par les fils de calcul ; ici, seulement le maillage d'un relevé fini.
+	var by_workers := _workers_on()
+	if by_workers and not far_queue.is_empty():
+		_dispatch_worker_far()
 	while not far_queue.is_empty() and Time.get_ticks_usec() < deadline:
+		if by_workers:
+			var front := _far_survey(far_queue[0])
+			if front.next < front.side:
+				return
 		if not _build_far_tile(far_queue[0], deadline):
 			return
 		far_queue.pop_front()

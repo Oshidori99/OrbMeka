@@ -1,6 +1,53 @@
-# OrbMeka™ — prototype 0.0.8.9
+# OrbMeka™ — prototype 0.0.8.13
 
 Godot 4.7 / GDScript. Formes et couleurs simples ; assets externes seulement sous licence vérifiée (sons CC0, assets/sounds/CREDITS.txt).
+
+## 0.0.8.13 — Plusieurs cœurs : le terrain et le lointain calculés sur d'autres cœurs (PC et Web), monde ouvert et découvert plus vite, exactement le même monde ; version Web avec fils (SharedArrayBuffer)
+Version publiée (4 sur 4, avec 0.0.8.10 à 0.0.8.12). Génération inchangée (version 33). Rapports de mesures Web ; demande de l'utilisateur : les PC bon marché aussi.
+- **Fils de calcul** (scripts/terrain_workers.gd) : 2 au plus (PC selon ses cœurs, Web 2). Chacun prépare **sa propre copie du terrain** (même graine) et calcule les hauteurs et les surfaces des colonnes, et les relevés du lointain. Le fil principal ne monte plus que les morceaux, l'herbe, les arbres et les objets.
+- **Toujours le même monde** : mêmes nombres que le fil principal, vérifiés (hauteurs, surfaces, lointain ; générations 20, 28 et 33). Une colonne changée par le joueur (ou sa voisine) reste calculée par le fil principal, avec ses changements.
+- **Corrigé en route** : le tirage des montagnes était partagé par toute la génération (avec plusieurs fils, le monde aurait changé) : un tirage par terrain maintenant.
+- **Mesuré (PC)** : ouverture d'un monde 3,3 → 2,5 à 2,8 s (rendu du Web : 4,1 → 3,2 s, puis 3,5 → 2,6 s) ; en marchant en forêt, travail de fond du fil principal 4,1 → 1,7 s, temps du jeu par image 13,9 → 10,0 ms ; monde entièrement construit aussitôt après la traversée (avant 0,7 s d'attente).
+- **Pourquoi 2 au plus** : à 3, les fils se gênent entre eux et gênent le fil principal (14,4 ms par image). La graine se prépare un peu plus lentement quand les copies se préparent en même temps (1,3 → 1,6 s), largement rattrapé ensuite.
+- **Mémoire** : environ 60 Mo par copie (PC : 310 → 450 Mo).
+- **Web** : export avec fils (SharedArrayBuffer obligatoire sur la page itch.io) ; sans l'option, le jeu ne démarre pas. Actions GitHub : modèle Web avec fils installé.
+- Tests sans fenêtre : 1 fil de calcul par test (plusieurs tests à la fois sur la même machine).
+
+Tests réussis : workers (20, nouveau), loading_screen, perf_guard, web_speed, zones, smooth_terrain, surface_job, world_consistency, world_save, loaded_edge, fly, terrain_visuals, forests, plants, lawn_ring, cliff_fall, breaking, sticks, trees, tree_fall, tree_stress, water, swim, coordinates, step_over, developer_return, death, custom_generation, world_options, world_management, catalog_restart, web_save, rock_place, reach, folds, quality, views, prototype, history_resume, menu, fibers, return_orb (+ tests juridiques).
+À tester : la version Web avec fils (page d'essais) : démarrage, ouverture d'un monde, saccades en marchant et en vol, mémoire (Gestionnaire de tâches de Chrome) ; sur PC, rien ne doit changer à l'œil.
+
+## 0.0.8.12 — La barre de la fabrication (O + F) exactement à la place de la barre du jeu, mêmes cases ; coût des ombres sur le Web mesuré
+Version locale (3 sur 4), publiée avec 0.0.8.13. Génération inchangée (version 33). Rapport de mesures Web 0.0.8.11.
+- **Fabrication (O + F)** : la barre des mains et des poches (Créatif : la barre d'objets) a les mêmes cases et la même place que la barre du jeu, en bas au centre de l'écran (avant : plus petite, centrée sous la scène, donc décalée). Poussée à droite seulement si elle toucherait le panneau ; la scène s'arrête au-dessus.
+- **Ombres sur le Web, mesurées** (PC, rendu Compatibility, au bord du lac) : avec les ombres, environ 50 dessins de plus par image (les arbres, pour la carte des ombres), pas un second dessin de tout. Les 35 ms de plus mesurées sur la Radeon 610M ne viennent donc pas d'un second passage ; rien n'est changé pour l'instant.
+
+Tests réussis : web_speed (13), crafting, fixes_089, tools, fibers (+ tests juridiques).
+À tester : O + F en Survie et en Créatif, à plusieurs tailles de fenêtre : la barre ne doit plus bouger en ouvrant la fabrication.
+
+## 0.0.8.11 — Web plus rapide : monde ouvert sans gel (shaders préparés derrière l'écran de chargement, avec et sans ombres), terrain sans ombre projetée, inventaire et fabrication prêts d'avance, retour au départ immédiat, noisetiers solides, plantes nettes au loin, fabrication sans barre en double ni flou en gros pixels
+Version locale (2 sur 4). Génération inchangée (version 33). Rapport de mesures Web 0.0.8.9 (Chrome, Radeon 610M) ; demande de l'utilisateur : les PC bon marché (~320 CHF) aussi.
+- **Mesuré d'abord** (PC, rendu du Web, nouvel outil tools/mesure_ouverture.gd) : l'ouverture n'a presque pas grossi depuis 0.0.7.25 (4,1 → 4,5 s) ; le temps perdu sur le Web venait du monde dessiné pour rien derrière l'écran de chargement et des shaders préparés tous d'un coup la première fois.
+- **Chargement (Web)** : derrière l'écran, la caméra ne dessine que les petites copies du préchauffage ; chaque sorte de modèle est préparée à son tour (4 par image, 1 seule après une image lente), puis un second passage pour tout ce qui a été construit, puis tout encore une fois **ombres du soleil dans l'autre état** ; aussi les mains, outils, orbe, fibres, liane, ficelle, têtes, la lueur des orbes (Survie). 80 ms de travail par image (avant 40), graine 100 ms (avant 60).
+- **Inventaire et fabrication** préparés derrière l'écran de chargement (dessinés une fois, invisibles) : plus de saccade à la première ouverture.
+- **Ombres** : le terrain, le sol, les cailloux et les petits objets au sol ne projettent plus d'ombre (ils les reçoivent toujours), **sur le Web et sur PC** ; arbres, rochers et personnages en projettent. L'herbe et les plantes n'en projetaient déjà pas.
+- **Lueur des orbes** estompée au-delà de 20 à 28 m ; **orties** : plantes de chaque colonne gardées (avant : recalculées pour 9 colonnes toutes les 0,5 s).
+- **Résolution 3D** : sur le Web, toujours 100 % (en dessous, c'était plus lent).
+- **Bugs** : fabrication (O + F) sans barre d'objets en double (fond pris deux images plus tard), flou doux et lissé, panneau avec une marge ; noisetiers : toutes les tiges solides (12 collisions au plus, tiges d'abord : la caméra n'y entre plus) ; plantes nettes au loin (images avec mipmaps) ; « Revenir au point de départ » : les 3 × 3 colonnes autour construites aussitôt, avec arbres, herbe et plantes.
+- **Pas changé** : le plafond de 60 images/s du Web. Le code de Godot ne fait pas d'attente active sur le Web (il saute les appels du navigateur) ; l'enlever ferait dessiner jusqu'à 240 images/s sur un écran 240 Hz.
+
+Tests réussis : web_speed (12, nouveau), loading_screen, trees, fibers, plants, inventory, inventory_more, crafting, death, return_orb, display_settings, quality, web_fixes, perf_guard, sticks, hands_eat, tools (+ tests juridiques). Mesures hors écran en rendu Compatibility : ouverture 4,2 à 5,2 s sur PC, aucune image lente après l'arrivée.
+À tester : sur le Web (Chrome, petite carte graphique) : durée d'ouverture d'un monde (1re fois après la mise à jour et ensuite), images par seconde en Équilibré et Beauté (ombres), 1re ouverture de l'inventaire et de O + F ; l'aspect des collines sans ombre projetée et des plantes au loin.
+
+## 0.0.8.10 — Les outils servent : la hache coupe le bois 3 fois plus vite (troncs jusqu'à 1 m), la pioche casse la pierre 4 fois plus vite avec des éclats et creuse la terre 2 fois plus vite ; ils s'usent (50 à 300 coups selon leur fabrication), barre verte à rouge, puis cassent
+Version locale (1 sur 4). Génération inchangée (version 33). Demandes de l'utilisateur (#202).
+- **Hache en pierre** en main (Survie) : couper, abattre et recasser le bois **3 fois plus vite** ; troncs et branches jusqu'à **1 m** d'épaisseur (40 cm à mains nues).
+- **Pioche en pierre** : la **pierre 4 fois plus vite**, avec **2 éclats** de sa pierre par sous-cellule (et les rochers, les cailloux) ; la **terre, le sable, le gravier 2 fois plus vite**.
+- **Qualité** (0,8 à 1,25) : grande tête, silex, bois sain, beaucoup de tours : un peu plus rapide.
+- **Usure** : 2 coups par seconde de travail accéléré par l'outil ; un outil neuf a de **50** (petite tête de calcaire, bois mort, liane, 4 tours) à **300 coups** (grande tête de silex, bon manche, ficelle de lin, 8 tours). **Barre en haut de la case** : verte (neuf) → jaune → orange → rouge. À 0, l'outil **casse** : sa tête et son manche (branche fendue) tombent à ses pieds, réutilisables.
+- **Détails** (D + T, survol) : « Usure : 120 coups restants sur 300 ».
+
+Tests réussis : tools (14, nouveau), crafting, fixes_089, breaking, sticks, tree_fall, trees, rock_place, smooth_terrain, cliff_fall, hands_eat, fibers, health, world_save, inventory, inventory_more (+ tests juridiques). Capture hors écran : barres d'usure.
+À tester : abattre un gros arbre à la hache, casser de la pierre à la pioche (éclats), user un outil jusqu'à la casse, les durées (trop lentes ou trop rapides ?).
 
 ## 0.0.8.9 — On prend exactement ce qu'on vise ; objets couchés sur les pentes ; arracher l'herbe avec R ou le clic gauche (nouveau mode « Casser / Arracher ») ; ficelage en croix sur la tête et outils bien tenus ; effet de dégât selon sa force ; inventaire, fabrication et menu B + T en bleu-violet
 Version publiée (4 sur 4, avec 0.0.8.6 à 0.0.8.8). Génération inchangée (version 33). Corrections et demandes de l'utilisateur (#242).

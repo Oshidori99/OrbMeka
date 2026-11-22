@@ -394,7 +394,8 @@ func apply_appearance() -> void:
 	# 0.0.7.21 : anticrénelage (Paramètres → Vidéo), menus et jeu.
 	get_viewport().msaa_3d = Viewport.MSAA_2X if settings.values.get("antialiasing", "on") == "on" else Viewport.MSAA_DISABLED
 	# 0.0.7.24 : résolution du rendu 3D (Paramètres → Vidéo) ; l'interface reste nette.
-	get_viewport().scaling_3d_scale = float(settings.values.get("resolution_3d", 100.0)) / 100.0
+	# 0.0.8.11 (rapport Web, choix de l'utilisateur) : sur le Web, sans effet sous 100 % (mesuré : 75 % plus lent qu'à 100 %).
+	get_viewport().scaling_3d_scale = 1.0 if OS.has_feature("web") else float(settings.values.get("resolution_3d", 100.0)) / 100.0
 	menu_root.theme = _build_theme()
 	for control in scaled_sizes:
 		control.custom_minimum_size = scaled_sizes[control] * _element_scale()

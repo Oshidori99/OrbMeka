@@ -1065,6 +1065,12 @@ func open_world(id: String, prepared: RefCounted = null, behind_loading := false
 	# 0.0.8.1 (#205) : objets à la mort de ce monde.
 	active_world.death_items = item.get("death_items", Catalog.DEATH_DROP)
 	active_world.prepared_terrain = prepared
+	# 0.0.8.13 : fils de calcul lancés par l'écran de chargement (seulement avec la graine préparée par lui).
+	if prepared != null and loading_workers != null:
+		active_world.terrain_workers = loading_workers
+	elif loading_workers != null:
+		loading_workers.stop()
+	loading_workers = null
 	active_world.behind_loading = behind_loading
 	add_child(active_world)
 	if not behind_loading:
@@ -1088,11 +1094,13 @@ func open_world(id: String, prepared: RefCounted = null, behind_loading := false
 # grottes : 1 à 2 s sur PC, bien plus sur le Web, d'un coup avant) se prépare par étapes, la barre avance ; puis le monde
 # s'ouvre (environ 0,2 s sur PC). open_world reste d'un coup (tests).
 # 0.0.7.24 : 60 ms par image (avant 30) : rien d'autre à dessiner, le fond 3D de l'accueil est retiré pendant le chargement.
-const LOADING_STEP_USEC := 60000
+# 0.0.8.11 : 100 ms par image sur le Web aussi (avant 60) : graine préparée en moins d'images.
+const LOADING_STEP_USEC := 100000
 # 0.0.7.34 : sur PC, 100 ms par image (graine préparée en moins d'images).
 const LOADING_STEP_PC_USEC := 100000
 var loading_id := ""
 var loading_terrain: RefCounted
+var loading_workers: RefCounted
 var loading_ready := false
 
 func open_world_loading(id: String) -> void:
@@ -1105,6 +1113,10 @@ func open_world_loading(id: String) -> void:
 	loading_id = id
 	loading_ready = false
 	loading_terrain = WorldRules.prepare_terrain(item.seed, item.get("generation", {}).duplicate(true))
+	# 0.0.8.13 : les fils de calcul du terrain préparent leur copie en même temps (autres cœurs).
+	if WorldRules.TerrainWorkers.available():
+		loading_workers = WorldRules.TerrainWorkers.new()
+		loading_workers.start(int(item.seed), WorldRules.flat_spots(), item.get("generation", {}).duplicate(true))
 	if showcase.is_inside_tree():
 		remove_child(showcase)
 	loading_bar.value = 0.0
@@ -1124,6 +1136,8 @@ func _process_loading() -> void:
 		# 0.0.7.25 : jamais en arrière (des colonnes entrent dans la vue pendant la préparation).
 		loading_bar.value = maxf(loading_bar.value, LOADING_SEED_SHARE + (100.0 - LOADING_SEED_SHARE) * ready)
 		if ready >= 1.0 or Time.get_ticks_msec() - loading_opened_at > LOADING_OPENING_MAX_MS:
+			# 0.0.8.13 : préparation au moment de l'affichage (tests : 1 = tout prêt, moins = délai dépassé).
+			loading_reveal_progress = ready
 			reveal_world()
 		return
 	if loading_id.is_empty():
@@ -1145,6 +1159,7 @@ const LOADING_SEED_SHARE := 70.0
 # Ouverture : montrée au plus tard après ce temps, même si tout n'est pas prêt (ne jamais rester bloqué).
 const LOADING_OPENING_MAX_MS := 30000
 var loading_opening := false
+var loading_reveal_progress := 0.0
 var loading_opened_at := 0
 
 func _open_behind_loading() -> void:
@@ -1438,6 +1453,10 @@ func _cancel_page() -> void:
 		show_page("home")
 
 func _notification(what: int) -> void:
+	# 0.0.8.13 : jeu fermé pendant l'écran de chargement : les fils de calcul du terrain s'arrêtent d'abord.
+	if what == NOTIFICATION_PREDELETE and loading_workers != null:
+		loading_workers.stop()
+		loading_workers = null
 	# Fenêtre quittée : les touches tenues ne seront pas relâchées ici.
 	if what == NOTIFICATION_APPLICATION_FOCUS_OUT:
 		_send_combos(key_combos.release_all())
