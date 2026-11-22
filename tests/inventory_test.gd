@@ -117,7 +117,7 @@ func _run() -> void:
 	check(ui.hud_slots[0].chosen and ui.hud_slots[0].item.objet == "terre", "bar shows the chosen slot and its item")
 	# 0.0.7.6 : main à la première personne, qui tient l'objet choisi ; gravier enfin posable ; caillou de taille 6 ramassable.
 	check(world.player.hand_view != null and world.player.hand_view.held.get_child_count() >= 1 and world.player.hand_view.visible, "the first-person hand holds the chosen item")
-	check(world.PLACEABLE.has(world.SmoothTerrain.GRAVEL) and Inventory.PICKABLE_SIZE == 6 and Inventory.PEBBLE_WEIGHTS[5] == 1100.0 and Inventory.HANDS_LIMIT == 8000.0 and Inventory.TWO_HANDS == 4000.0, "gravel can be placed; size 6 pebbles (1,1 kg) fit in the hands (4 kg per hand, 8 kg for both since 0.0.7.19)")
+	check(world.PLACEABLE.has(world.SmoothTerrain.GRAVEL) and Inventory.PICKABLE_SIZE == 6 and Inventory.PEBBLE_WEIGHTS[5] == 2750.0 and Inventory.HANDS_LIMIT == 8000.0 and Inventory.TWO_HANDS == 4000.0, "gravel can be placed; size 6 pebbles (2,75 kg since 0.0.8.7) fit in the hands (4 kg per hand, 8 kg for both since 0.0.7.19)")
 	check(world.PLACEABLE.has(world.SmoothTerrain.STONE) and world.PLACEABLE.has(world.SmoothTerrain.FLINT), "stone kinds can be placed")
 	# Créatif : un morceau de pierre (pioche) se ramasse aussi. 0.0.7.5 : dans la case choisie, avec ses caractéristiques.
 	world.drop_pieces("eclat_calcaire", 1, 125.0, world.player.global_position + Vector3.UP)
@@ -180,9 +180,9 @@ func _run() -> void:
 	check(world.inventory.mode == Inventory.SURVIVAL and world.inventory.selected() == 0 and world.player.selected_type == -1, "survival: own empty inventory, left hand chosen")
 	var shown: Array = range(10).filter(func(index): return ui.hud_slots[index].visible)
 	check(world.inventory.bar_slots() == [0, 1, 2, 3, 4, 5] and shown == [0, 1, 2, 3, 4, 5] and ui.hud_gap.visible, "survival bar: 2 hands, a gap, 4 pockets")
-	check(ui.weights_label.visible and ui.hud_carried.mains[1].text == "0,000 g / 8,000 kg · 0,00 L / 3,0 L" and ui.hud_carried.poches[1].text == "0,000 g / 500,0 g · 0,00 L / 0,50 L" and ui.hud_carried.mains[0].share == 0.0, "hands and pockets at the bottom right: a picture, a bar, weight and volume (0.0.7.19)")
+	check(ui.weights_label.visible and ui.hud_carried.mains[1].text == "0,000 g / 8,000 kg · 0,00 L / 3,0 L" and ui.hud_carried.poches[1].text == "0,000 g / 1,000 kg · 0,00 L / 0,50 L" and ui.hud_carried.mains[0].share == 0.0, "hands and pockets at the bottom right: a picture, a bar, weight and volume (0.0.7.19)")
 	action(app, "inventory")
-	check(ui.is_open() and not ui.creative_box.visible and not ui.grid_box.visible and ui.survival_box.visible and ui.hands_weight.text == "0,000 g / 8,000 kg · 0,00 L / 3,0 L" and ui.pockets_weight.text == "0,000 g / 500,0 g · 0,00 L / 0,50 L" and ui.panel_bars.Mains.size() == 2, "survival screen: a row for the hands, a row for the pockets, no grid")
+	check(ui.is_open() and not ui.creative_box.visible and not ui.grid_box.visible and ui.survival_box.visible and ui.hands_weight.text == "0,000 g / 8,000 kg · 0,00 L / 3,0 L" and ui.pockets_weight.text == "0,000 g / 1,000 kg · 0,00 L / 0,50 L" and ui.panel_bars.Mains.size() == 2, "survival screen: a row for the hands, a row for the pockets, no grid")
 	check(ui.bar_slots.size() == 10 and ui.survival_box.is_ancestor_of(ui.bar_slots[0]) and ui.survival_box.is_ancestor_of(ui.bar_slots[5]), "survival slots are in the hands and pockets rows")
 	check(ui.equipment_slots.size() == 8 and ui.equipment_slots.all(func(slot): return slot.locked and slot.item.is_empty() and slot.picture != null) and ui.survival_area.is_ancestor_of(ui.equipment_slots[0]), "equipment to come at the right: 2 bags, 2 baskets, 2 travois, 2 carts, greyed (0.0.7.7)")
 	action(app, "inventory")
@@ -204,7 +204,7 @@ func _run() -> void:
 	world.pick_up({"collider": world.ground.bodies[0], "position": world.ground.entries[0].position})
 	check(world.inventory.item("bar", 1).get("objet") == "charbon" and world.ground.entries.is_empty(), "chosen hand busy: the coal goes to the other (right) hand (0.0.7.10)")
 	check(ui.hud_slots[0].title == "" and ui.hud_slots[0].note == "250,0 g" and ui.hud_slots[1].note == "125,0 g" and ui.hud_slots[2].title == "" and ui.hud_slots[2].note == "", "0.0.8.3: only the weight under each slot (name shown above when taken in hand), nothing under an empty one")
-	check(world.inventory.add({"objet": "terre", "nombre": 6}) == 1 and ui.hud_carried.poches[1].text.begins_with("325,0 g / 500,0 g") and is_equal_approx(ui.panel_bars.Poches[0].share, 0.65) and is_equal_approx(ui.panel_bars.Poches[1].share, 0.5), "pockets: 500 g in all (one handful of earth of 325 g, 0.0.7.6)")
+	check(world.inventory.add({"objet": "terre", "nombre": 6}) == 2 and ui.hud_carried.poches[1].text.begins_with("650,0 g / 1,000 kg") and is_equal_approx(ui.panel_bars.Poches[0].share, 0.65) and is_equal_approx(ui.panel_bars.Poches[1].share, 1.0), "pockets: 1 kg in all since 0.0.8.7 (two handfuls of earth of 325 g fill the 0,5 L)")
 	# Reposer un objet tenu (clic droit) : il retourne au sol là où l'on vise.
 	world.inventory.select(1)
 	world.player.brush = 0
@@ -300,13 +300,13 @@ func _data_checks() -> void:
 	bag.set_mode(Inventory.SURVIVAL)
 	check(bag.put("bar", 0, {"objet": "terre"}) == {"objet": "terre"} and bag.item("bar", 0).is_empty() and bag.put("bar", 7, {"objet": "terre", "nombre": 1}) == {"objet": "terre", "nombre": 1}, "survival: no unlimited items, no slot 8")
 	# Poids et piles (0.0.7.3).
-	# 0.0.7.4 : 1 kg pour les deux mains ensemble, 500 g pour les quatre poches ensemble.
-	# 0.0.7.19 : une poignée = 0,25 L : 3 L à deux mains = 12 poignées (3,9 kg) ; une seule tient dans les poches (0,5 L, 500 g).
-	check(bag.add({"objet": "terre", "nombre": 20}) == 13 and Inventory.count(bag.item("bar", 0)) == 12 and bag.item("bar", 1).is_empty() and Inventory.count(bag.item("bar", 2)) == 1 and bag.two_handed() == 0, "3 L in both hands (0.0.7.19): 12 handfuls of earth carried with both hands, the right hand stays empty, 1 in the pockets")
-	check(bag.add({"objet": "caillou", "pile": [{"taille": 4}]}) == 0, "a 400 g pebble no longer fits anywhere")
-	check(bag.add({"objet": "caillou", "pile": [{"taille": 1, "forme": 2}, {"taille": 1, "forme": 5}, {"taille": 1, "forme": 7}]}) == 3 and bag.item("bar", 1).is_empty() and Inventory.count(bag.item("bar", 3)) == 3 and bag.hands_weight() == 3900.0 and bag.pockets_weight() == 475.0 and bag.two_handed() == 0, "three 50 g pebbles: not in the busy right hand, all in a pocket")
+	# 0.0.7.4 : 1 kg pour les deux mains ensemble, 500 g pour les quatre poches ensemble (0.0.8.7 : 1 kg).
+	# 0.0.7.19 : une poignée = 0,25 L : 3 L à deux mains = 12 poignées (3,9 kg) ; la 13e va dans les poches (0,5 L, 1 kg depuis 0.0.8.7).
+	check(bag.add({"objet": "terre", "nombre": 13}) == 13 and Inventory.count(bag.item("bar", 0)) == 12 and bag.item("bar", 1).is_empty() and Inventory.count(bag.item("bar", 2)) == 1 and bag.two_handed() == 0, "3 L in both hands (0.0.7.19): 12 handfuls of earth carried with both hands, the right hand stays empty, 1 in the pockets")
+	check(bag.add({"objet": "caillou", "pile": [{"taille": 4}]}) == 0, "a 1 kg pebble no longer fits anywhere")
+	check(bag.add({"objet": "caillou", "pile": [{"taille": 1, "forme": 2}, {"taille": 1, "forme": 5}]}) == 2 and bag.item("bar", 1).is_empty() and Inventory.count(bag.item("bar", 3)) == 2 and bag.hands_weight() == 3900.0 and bag.pockets_weight() == 575.0 and bag.two_handed() == 0, "two 125 g pebbles: not in the busy right hand, both in a pocket (%s / %s / %d g)" % [bag.item("bar", 3), bag.item("bar", 4), bag.pockets_weight()])
 	check(Inventory.same_kind({"objet": "caillou", "pile": [{"taille": 1}]}, {"objet": "caillou", "pile": [{"taille": 2}]}) and not Inventory.same_kind({"objet": "caillou", "pile": [{"taille": 1}]}, {"objet": "caillou_silex", "pile": [{"taille": 1}]}), "pebbles of different sizes share a slot, not different kinds (0.0.7.5)")
-	check(bag.put("bar", 4, {"objet": "silex", "nombre": 1}) == {"objet": "silex", "nombre": 1}, "a 250 g stone does not fit in the 150 g left in the pockets")
+	check(bag.put("bar", 4, {"objet": "silex", "nombre": 1}) == {"objet": "silex", "nombre": 1}, "a 650 g stone does not fit in the 425 g left in the pockets")
 	bag.select(0)
 	check(bag.use_held(3) and Inventory.count(bag.held()) == 9 and bag.held_kind() == 2, "placing uses handfuls")
 	var icons := Inventory.ITEMS.keys().all(func(id): return ItemIcons.texture(id) != null and ItemIcons.texture(id).get_width() == ItemIcons.SIZE)
@@ -316,16 +316,16 @@ func _data_checks() -> void:
 	var saved_bag := Inventory.new()
 	saved_bag.mode = Inventory.SURVIVAL
 	saved_bag.from_dict(JSON.parse_string(JSON.stringify(bag.to_dict())))
-	check(saved_bag.item("bar", 3) == {"objet": "caillou", "pile": [{"taille": 1, "forme": 2}, {"taille": 1, "forme": 5}, {"taille": 1, "forme": 7}]} and saved_bag.item("bar", 0) == {"objet": "terre", "nombre": 9}, "each object saved with its own characteristics")
+	check(saved_bag.item("bar", 3) == {"objet": "caillou", "pile": [{"taille": 1, "forme": 2}, {"taille": 1, "forme": 5}]} and saved_bag.item("bar", 0) == {"objet": "terre", "nombre": 9}, "each object saved with its own characteristics")
 	# 0.0.7.5 : le dernier pris est le premier reposé ; chacun garde sa taille.
 	var mixed := Inventory.new()
 	mixed.mode = Inventory.SURVIVAL
 	mixed.set_mode(Inventory.SURVIVAL)
 	check(mixed.add_to_selected({"objet": "caillou_silex", "pile": [{"taille": 4, "forme": 3, "rotation": 1.25}]}).added == 1 and mixed.add_to_selected({"objet": "caillou_silex", "pile": [{"taille": 1, "forme": 6}]}).added == 1, "a big then a small flint nodule in the same hand")
-	check(Inventory.stack_weight(mixed.held()) == 450.0 and mixed.pop_held() == {"objet": "caillou_silex", "taille": 1, "forme": 6} and mixed.pop_held() == {"objet": "caillou_silex", "taille": 4, "forme": 3, "rotation": 1.25} and mixed.held().is_empty(), "put down: the small one first, then the big one, each unchanged")
-	# 0.0.7.19 : 700 g + 2 kg + 2 kg (4,7 kg : à deux mains), puis 2 kg (6,7 kg) ; le dernier (8,7 kg) est refusé.
-	check(mixed.add_to_selected({"objet": "caillou", "pile": [{"taille": 5}]}).added == 1 and mixed.add_to_selected({"objet": "caillou", "pile": [{"taille": 7}, {"taille": 7}]}).added == 2, "4,7 kg of stones: carried with both hands")
-	var too_much: Dictionary = mixed.add_to_selected({"objet": "caillou", "pile": [{"taille": 7}, {"taille": 7}]})
+	check(Inventory.stack_weight(mixed.held()) == 1125.0 and mixed.pop_held() == {"objet": "caillou_silex", "taille": 1, "forme": 6} and mixed.pop_held() == {"objet": "caillou_silex", "taille": 4, "forme": 3, "rotation": 1.25} and mixed.held().is_empty(), "put down: the small one first, then the big one, each unchanged")
+	# 0.0.7.19 : à deux mains au-delà de 4 kg ; 8 kg au plus. 0.0.8.7 : 1,75 kg + 2,75 kg (4,5 kg : à deux mains), puis 2,75 kg (7,25 kg) ; le dernier (10 kg) est refusé.
+	check(mixed.add_to_selected({"objet": "caillou", "pile": [{"taille": 5}]}).added == 1 and mixed.add_to_selected({"objet": "caillou", "pile": [{"taille": 6}]}).added == 1, "4,5 kg of stones: carried with both hands")
+	var too_much: Dictionary = mixed.add_to_selected({"objet": "caillou", "pile": [{"taille": 6}, {"taille": 6}]})
 	check(too_much.added == 1 and too_much.reason == "lourd", "8 kg in the hands at most: the last big stone is refused (too heavy)")
 	mixed.select(1)
 	check(mixed.two_handed() == 0 and mixed.add_to_selected({"objet": "sable", "nombre": 1}).added == 0 and mixed.carry_factor() < 0.8, "carried with both hands: the other hand takes nothing, walking is slower")

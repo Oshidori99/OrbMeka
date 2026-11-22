@@ -110,10 +110,21 @@ func _run() -> void:
 	world.add_child(linden)
 	world.inventory.put("bar", 1, {})
 	world.inventory.select(1)
-	check(world.harvest({"kind": "liane", "tree": linden, "key": "liane/tilleul-essai", "distance": 1.0}) and world.inventory.item("bar", 1).get("objet") == "liane" and world.cut_vines.has("tilleul-essai") and linden.get_meta("liane") == false, "a liane harvested from a linden")
+	var full_height: float = linden.get_node("Modele/Liane").mesh.get_aabb().size.y
+	check(world.harvest({"kind": "liane", "tree": linden, "key": "liane/tilleul-essai", "distance": 1.0}) and world.inventory.item("bar", 1).get("objet") == "liane" and world.vines_taken("tilleul-essai") == 1 and linden.get_meta("liane") == true, "a piece of liane harvested from a linden (0.0.8.7: only a part)")
+	check(linden.get_node("Modele/Liane").mesh.get_aabb().size.y < full_height * 0.8, "the liane on the trunk is shorter")
+	world.inventory.put("bar", 1, {})
+	world.harvest({"kind": "liane", "tree": linden, "key": "liane/tilleul-essai", "distance": 1.0})
+	world.inventory.put("bar", 1, {})
+	world.harvest({"kind": "liane", "tree": linden, "key": "liane/tilleul-essai", "distance": 1.0})
+	check(world.vines_taken("tilleul-essai") == 3 and linden.get_meta("liane") == false, "3 pieces: none left")
 	await process_frame
 	check(linden.get_node_or_null("Modele/Liane") == null, "the liane is gone from the trunk")
-	world.cut_vines["tilleul-graine"] = true
+	world.cut_vines["tilleul-moitie"] = 1
+	world._make_column_tree(Vector2i(51, 51), {"id": "tilleul-moitie", "espece": Trees.LINDEN, "classe": 3, "x": 410.0, "z": 410.0, "rotation": 0.0, "taille": 1.0, "liane": true})
+	var half: Array = world.column_objects.get(Vector2i(51, 51), []).filter(func(n): return is_instance_valid(n) and n.get_meta("id", "") == "tilleul-moitie")
+	check(half.size() == 1 and half[0].get_meta("liane") == true and half[0].get_node("Modele/Liane").mesh.get_aabb().size.y < full_height * 0.8, "rebuilt with one piece taken: a shorter liane")
+	world.cut_vines["tilleul-graine"] = 3
 	world._make_column_tree(Vector2i(50, 50), {"id": "tilleul-graine", "espece": Trees.LINDEN, "classe": 3, "x": 400.0, "z": 400.0, "rotation": 0.0, "taille": 1.0, "liane": true})
 	var regrown: Array = world.column_objects.get(Vector2i(50, 50), []).filter(func(n): return is_instance_valid(n) and n.get_meta("id", "") == "tilleul-graine")
 	check(regrown.size() == 1 and regrown[0].get_meta("liane") == false and regrown[0].get_node_or_null("Modele/Liane") == null, "a harvested liane stays gone when the tree is built again")

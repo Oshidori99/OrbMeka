@@ -46,7 +46,8 @@ static func _shape(head: String, point: Vector3) -> Vector3:
 		return Vector3(point.x * 1.3, point.y * 1.05, point.z * thin)
 	# Pioche : longue, pointue vers x > 0.
 	var taper := lerpf(1.0, 0.25, clampf(point.x + 0.5, 0.0, 1.0))
-	return Vector3(point.x * 1.8, point.y * 0.55 * taper, point.z * 0.55 * taper)
+	# 0.0.8.7 (#245) : plus épaisse (avant 0,55).
+	return Vector3(point.x * 1.8, point.y * 0.75 * taper, point.z * 0.7 * taper)
 
 static func material(stone: int) -> StandardMaterial3D:
 	var key := clampi(stone, 0, 1)
@@ -56,3 +57,11 @@ static func material(stone: int) -> StandardMaterial3D:
 		made.roughness = 0.45 if key == 1 else 0.85
 		_materials[key] = made
 	return _materials[key]
+
+# 0.0.8.7 (#245, demande de l'utilisateur : la tête de pioche était beaucoup trop petite) : longueur réelle des têtes selon
+# la taille de la pierre (3, 4, 5) : hache 15, 18, 22 cm ; pioche 18, 22, 26 cm. Rend l'échelle du modèle (diamètre 1).
+const LENGTHS := {"hache": {3: 0.15, 4: 0.18, 5: 0.22}, "pioche": {3: 0.18, 4: 0.22, 5: 0.26}}
+
+static func scale_for(head: String, size: int) -> float:
+	var length: float = LENGTHS.get(head, LENGTHS.hache).get(clampi(size, 3, 5), 0.18)
+	return length / (1.3 if head == "hache" else 1.8)

@@ -87,7 +87,8 @@ func _run() -> void:
 		world.inventory.put("bar", index, {})
 	world.inventory.put("bar", 0, pile("fibre_ortie", [{}, {}, {}, {}]))
 	world.inventory.put("bar", 2, pile("caillou", [{"taille": 3}]))
-	world.inventory.put("bar", 3, pile("caillou_silex", [{"taille": 3}]))
+	# 0.0.8.7 : cailloux plus lourds (625 g) : le silex dans la main droite (les poches : 1 kg).
+	world.inventory.put("bar", 1, pile("caillou_silex", [{"taille": 3}]))
 	world.toggle_crafting()
 	await process_frame
 	await process_frame

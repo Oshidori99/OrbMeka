@@ -2902,7 +2902,7 @@ func _refused_message(reason: String, value: Dictionary) -> String:
 		"occupee":
 			return "Case choisie occupée : choisissez une case vide (molette ou chiffres)."
 		"lourd":
-			return "Trop lourd (%s) : 4 kg par main, 8 kg à deux mains, 500 g dans les poches." % Inventory.format_weight(Inventory.unit_weight(value))
+			return "Trop lourd (%s) : 4 kg par main, 8 kg à deux mains, 1 kg dans les poches." % Inventory.format_weight(Inventory.unit_weight(value))
 		# 0.0.7.19 : volume et nombre.
 		"encombrant":
 			var first: Dictionary = value.pile[-1] if value.has("pile") and not value.pile.is_empty() else value
@@ -3144,11 +3144,11 @@ func harvest(target: Dictionary) -> bool:
 	else:
 		var tree: Node3D = target.tree
 		value = {"objet": Fibers.LIANE, "pile": [{}]}
-		cut_vines[str(tree.get_meta("id", ""))] = true
-		tree.set_meta("liane", false)
-		var climb := tree.get_node_or_null("Modele/Liane")
-		if climb != null:
-			climb.queue_free()
+		# 0.0.8.7 (demande de l'utilisateur) : on n'en prend qu'un morceau ; la liane du tronc raccourcit, et disparaît au
+		# dernier (Fibers.LIANE_PARTS).
+		var id := str(tree.get_meta("id", ""))
+		cut_vines[id] = vines_taken(id) + 1
+		_show_vine(tree)
 	objects_dirty = true
 	var amount := Inventory.count(value)
 	var result := inventory.add_to_selected(value)
@@ -3161,6 +3161,24 @@ func harvest(target: Dictionary) -> bool:
 	show_choice("%d %s récoltée%s" % [amount, name, "s" if amount > 1 else ""] + (" (%d au sol)" % rest if rest > 0 else ""))
 	return true
 
+
+# 0.0.8.7 : morceaux de liane déjà pris sur un arbre (0 à Fibers.LIANE_PARTS ; anciens mondes : « true » = tout).
+func vines_taken(id: String) -> int:
+	var taken: Variant = cut_vines.get(id, 0)
+	return Fibers.LIANE_PARTS if taken is bool and taken else int(taken)
+
+# La liane du tronc selon ce qui reste : plus courte à chaque morceau pris, plus rien au dernier.
+func _show_vine(tree: Node3D) -> void:
+	var left := Fibers.LIANE_PARTS - vines_taken(str(tree.get_meta("id", "")))
+	var climb: MeshInstance3D = tree.get_node_or_null("Modele/Liane")
+	if left <= 0:
+		tree.set_meta("liane", false)
+		if climb != null:
+			climb.queue_free()
+		return
+	if climb != null and left < Fibers.LIANE_PARTS:
+		var base := Trees.trunk(int(tree.get_meta("kind", Trees.LINDEN)), int(tree.get_meta("size", 3)))
+		climb.mesh = Plants.vine_mesh(base.x, (base.y + 1.5) * float(left) / Fibers.LIANE_PARTS)
 func _refresh_column_plants(column: Vector2i) -> void:
 	var kept: Array = []
 	for node in column_objects.get(column, []):
@@ -3944,15 +3962,27 @@ func hold_use() -> String:
 	if not survival():
 		return ""
 	var held := inventory.held()
-	# 0.0.8.3 (demandes de l'utilisateur) : un fruit en main se mange dans tous les modes du clic droit (Poser, Aplanir,
-	# Lisser, Manger) ; le mode « Manger » sert seulement à ne rien poser par erreur. L'orbe : en mode Poser.
+	# 0.0.8.3 (demandes de l'utilisateur) : un fruit se mange dans tous les modes du clic droit ; le mode « Manger » sert
+	# à ne rien poser par erreur. 0.0.8.7 (#243) : hors du mode « Manger », viser une surface (à portée) pose l'objet, à
+	# répétition en maintenant ; viser le vide (le ciel, rien à portée) mange. L'orbe : en mode Poser.
 	if Health.food_points(held) > 0:
-		return "manger"
+		if player.brush == EAT_BRUSH or not aiming_surface():
+			return "manger"
+		return ""
 	if player.brush != 0:
 		return ""
 	if ReturnOrb.is_orb(held):
 		return "orbe"
 	return ""
+
+# 0.0.8.7 (#243) : vise-t-on une surface où poser, à portée de pose ?
+func aiming_surface() -> bool:
+	if not is_instance_valid(player):
+		return false
+	var hit: Dictionary = player.get_target()
+	if hit.is_empty() or not is_instance_valid(hit.get("collider")):
+		return false
+	return player.camera.global_position.distance_to(hit.position) <= player.place_reach + 0.01
 
 # Clic droit appuyé : rend vrai s'il commence à manger ou à utiliser l'orbe (la pose attend le relâchement).
 # Clic droit « Manger » : toujours vrai (il ne pose jamais rien).
@@ -5103,7 +5133,12 @@ func _read_carved(data: Dictionary) -> void:
 	for id in data.get("plantes_coupees", []):
 		cut_plants[str(id)] = true
 	for id in data.get("lianes_coupees", []):
-		cut_vines[str(id)] = true
+		cut_vines[str(id)] = Fibers.LIANE_PARTS
+	# 0.0.8.7 : morceaux pris par arbre.
+	var vines: Variant = data.get("lianes_recoltees", {})
+	if vines is Dictionary:
+		for id in vines:
+			cut_vines[str(id)] = clampi(int(vines[id]), 0, Fibers.LIANE_PARTS)
 	for id in data.get("rejets_casses", []):
 		broken_shoots[str(id)] = true
 	var picked: Variant = data.get("fruits_cueillis", {})
@@ -5295,13 +5330,16 @@ func _make_column_tree(column: Vector2i, tree: Dictionary) -> void:
 	# 0.0.7.21 : arbre intact (ni tombé ni coupé) : dessiné en série avec ceux de sa colonne (_rebuild_series).
 	var intact: bool = not fallen_trees.has(id) and tree_cuts.get(id, {}).get("coupes", []).is_empty()
 	# 0.0.8.4 (#213) : liane récoltée : plus sur le tronc.
-	var vine: bool = tree.get("liane", false) == true and not cut_vines.has(id)
+	var vine: bool = tree.get("liane", false) == true and vines_taken(id) < Fibers.LIANE_PARTS
 	var made := Trees.tree_body(int(tree.espece), int(tree.get("classe", 3)), vine, int(tree.get("forme", 0)), intact)
 	made.set_meta("liane", vine)
 	made.position = Vector3(tree.x, terrain.height_at(tree.x, tree.z) - 0.05, tree.z)
 	made.rotation.y = deg_to_rad(float(tree.rotation))
 	made.scale = Vector3.ONE * float(tree.taille)
 	made.set_meta("id", tree.id)
+	# 0.0.8.7 : liane dont des morceaux ont été pris : plus courte.
+	if vine and vines_taken(id) > 0:
+		_show_vine(made)
 	if picked_fruits.has(id):
 		Trees.apply_picked(made, picked_fruits[id])
 	made.set_meta("column", column)
@@ -5814,7 +5852,9 @@ func _save_objects() -> bool:
 	data.rejets_casses = broken_shoots.keys()
 	# 0.0.8.4 (#213) : plantes à fibres récoltées et lianes récoltées (identifiant de l'arbre).
 	data.plantes_coupees = cut_plants.keys()
-	data.lianes_coupees = cut_vines.keys()
+	# 0.0.8.7 : morceaux de liane pris par arbre (avant : seulement les arbres, liane entière).
+	data.erase("lianes_coupees")
+	data.lianes_recoltees = cut_vines.duplicate()
 	data.arbres_tombes = fallen_trees.duplicate(true)
 	data.arbres_coupes = cut_trees.keys()
 	data.arbres_branches = tree_cuts.duplicate(true)

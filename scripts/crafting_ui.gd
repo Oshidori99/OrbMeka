@@ -17,7 +17,6 @@ const SLOT := 46.0
 const PANEL_WIDTH := 380.0
 const HAND_LEFT := Vector3(-0.14, -0.2, -0.42)
 const HAND_RIGHT := Vector3(0.14, -0.2, -0.42)
-const STONE_SIZES := {3: 0.075, 4: 0.09, 5: 0.11}
 
 var world: Node
 var inventory: Inventory
@@ -337,7 +336,7 @@ func _show_hands() -> void:
 	var stone: Dictionary = picks.pierre.value
 	shaped.mesh = StoneHeads.mesh(head, float(hits) / Rules.hits_for(stone), int(stone.get("forme", 1)))
 	shaped.material_override = StoneHeads.material(Rules.KNAP_STONES.get(stone.objet, 1))
-	shaped.scale = Vector3.ONE * STONE_SIZES.get(int(stone.get("taille", 4)), 0.09)
+	shaped.scale = Vector3.ONE * StoneHeads.scale_for(head, int(stone.get("taille", 4)))
 	shaped.position.y = 0.02
 	hands[1].held.add_child(shaped)
 

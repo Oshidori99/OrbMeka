@@ -31,7 +31,8 @@ const HANDS_LIMIT := 8000.0
 const TWO_HANDS := 4000.0
 const HAND_VOLUME := 1.5
 const HANDS_VOLUME := 3.0
-const POCKETS_LIMIT := 500.0
+# 0.0.8.7 (demande de l'utilisateur) : poches 1 kg (avant 500 g), cailloux plus lourds.
+const POCKETS_LIMIT := 1000.0
 const POCKETS_VOLUME := 0.5
 const HAND_COUNTS := {"noisette": 5, "pomme": 2, "caillou": 4, "eclat": 4}
 # 0.0.8.3 (demandes de l'utilisateur) : dans les mains, les objets comptés (HAND_COUNTS) ne comptent plus en litres, seulement
@@ -54,7 +55,8 @@ const WOOD_LITERS_PER_METER := 1.0
 # Valeur d'outil de la pioche (même valeur que world.gd PICKAXE) ; -1 : main vide ou objet sans usage.
 const PICKAXE := 3
 # Poids d'un caillou selon sa taille (1 à 7, comme rocks.gd), en grammes. 0.0.7.6 : la taille 6 (1,1 kg) se ramasse ; la 7, non.
-const PEBBLE_WEIGHTS := [50.0, 120.0, 250.0, 400.0, 700.0, 1100.0, 2000.0]
+# 0.0.8.7 (demande de l'utilisateur) : 2,5 fois plus lourds (avant 50 g à 2 kg), plus proches de leur taille.
+const PEBBLE_WEIGHTS := [125.0, 300.0, 625.0, 1000.0, 1750.0, 2750.0, 5000.0]
 const PICKABLE_SIZE := 6
 # 0.0.7.5 : pommes en trois tailles (taille 2 : la normale) et cinq couleurs, comme les vraies.
 const APPLE_WEIGHTS := [130.0, 200.0, 300.0]

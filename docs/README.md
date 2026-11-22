@@ -1,6 +1,19 @@
-# OrbMeka™ — prototype 0.0.8.6
+# OrbMeka™ — prototype 0.0.8.7
 
 Godot 4.7 / GDScript. Formes et couleurs simples ; assets externes seulement sous licence vérifiée (sons CC0, assets/sounds/CREDITS.txt).
+
+## 0.0.8.7 — Tout à sa vraie taille : vue à 60° par défaut (mains toujours visibles), têtes et outils plus grands, cailloux 2,5 fois plus lourds et moins enfoncés, poches à 1 kg ; inventaire plus grand aux noms entiers ; poser en continu (manger en visant le vide) ; liane plus grande, récoltée en 3 morceaux
+Version locale (2 sur 4). Génération inchangée (version 33). Demandes de l'utilisateur (#243, #244, #245).
+- **Vue à 60°** par défaut (avant 75° : environ 106° en largeur, tout paraissait plus petit et plus loin qu'en vrai ; les mesures du monde, elles, étaient justes). Toujours réglable (Vidéo → Jeu, 50 à 110°). **Les mains, les bras et la pioche se placent selon le champ de vision** : toujours visibles.
+- **Tailles (#245)** : tête de hache 15, 18, 22 cm (taille 3, 4, 5), tête de pioche 18, 22, 26 cm et plus épaisse ; en main, plus de réduction à 7 cm (15 cm au plus), outils à 70 % de leur taille (avant 45 %), bois jusqu'à 10 cm d'épaisseur et 50 cm de long (20 cm à deux mains). Pommes et noisettes inchangées.
+- **Cailloux** 2,5 fois plus lourds (125 g à 5 kg, tailles 1 à 7), **moins enfoncés** dans le sol (on voit leur vraie taille) ; **poches : 1 kg** (avant 500 g).
+- **Inventaire** plus grand : cases 58 au lieu de 48 (barre : 52 au lieu de 46), plus espacées ; **noms entiers sur deux lignes** (#244), un peu plus petits ; « + » plus petit.
+- **Poser en continu (#243)** : clic droit maintenu en visant une surface : l'objet en main est posé à répétition (intervalle de pose, réglable). Un fruit : visant une surface, il est posé ; visant le vide (le ciel, rien à portée), il est mangé ; mode « Manger » (B + T) : il mange toujours, ne pose jamais.
+- **Liane** : plus grande (4 m, boucles d'environ 55 cm) ; un tilleul en donne **3 morceaux** : la liane du tronc raccourcit à chaque récolte et disparaît au dernier (enregistré : « lianes_recoltees »).
+- Corrigé : un silex (ou une pierre) posé n'avait pas sa couleur pendant sa petite chute ; le bois paraissait trop petit en main.
+
+Tests réussis : hands_eat (27), fibers (24), crafting (40), inventory (106, seul), inventory_more, return_orb, death, health, settings_files, pause_settings, sliders, display_settings, layout_lines, interface_info, breaking, rock_place, sticks, tree_fall, world_save, views, body, appearance (+ tests juridiques). Captures hors écran : mains à 60°, inventaire du Créatif.
+À tester : l'impression de taille à 60° ; les noms dans l'inventaire (Survie, objets longs, plusieurs tailles de fenêtre, Web) ; poser des noisettes en continu et manger en regardant le ciel ; récolter une liane 3 fois.
 
 ## 0.0.8.6 — Première hache et première pioche en pierre (O + F) : fendre une branche avec un éclat, y glisser la tête, la ficeler (3 ficelles ou 1 liane, 4 à 8 tours) ; chaque outil garde sa fabrication ; tressage réaliste en spirale entre les mains et vraie liane de 3 m
 Version locale (1 sur 4). Génération inchangée (version 33). Demandes de l'utilisateur (#211, #145).

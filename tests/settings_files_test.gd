@@ -87,7 +87,7 @@ func _run() -> void:
 	file.store_string("{ pas du json")
 	file.close()
 	var damaged := Settings.new(fixture)
-	check(not damaged.load_notice.is_empty() and damaged.values.fov == 75 and damaged.values.jump_height == 3, "unreadable menu file: its settings fall back to defaults, others kept")
+	check(not damaged.load_notice.is_empty() and damaged.values.fov == 60 and damaged.values.jump_height == 3, "unreadable menu file: its settings fall back to defaults, others kept")
 	# Échelle des menus et FOV dans le jeu.
 	var app: Control = load("res://scenes/main.tscn").instantiate()
 	app.settings = Settings.new(fixture + ".app.json")
@@ -140,9 +140,9 @@ func _run() -> void:
 	app.open_world(item.id)
 	check(app.active_world.player.camera.fov == 100, "FOV applies in game, even in a default-mode world")
 	app.return_to_worlds()
-	apply(app, {"fov": "75"})
+	apply(app, {"fov": "60"})
 	app.open_world(item.id)
-	check(app.active_world.player.camera.fov == 75, "default FOV is the original view")
+	check(app.active_world.player.camera.fov == 60 and is_equal_approx(app.active_world.player.hand_view.view_scale, tan(deg_to_rad(30.0)) / tan(deg_to_rad(37.5))), "default FOV 60° (0.0.8.7), the hands placed for it")
 	app.return_to_worlds()
 	# 0.0.6.12 : images par seconde limitées (60 par défaut) dans les menus et le jeu : le PC ne siffle plus.
 	check(Engine.max_fps == 60 and app.setting_fields.has("max_fps"), "frame rate limited to 60 by default (Vidéo → Jeu)")

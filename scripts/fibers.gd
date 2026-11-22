@@ -7,6 +7,8 @@ const PLANT_ITEMS := ["fibre_ortie", "fibre_lin", "fibre_herbe"]
 const LIANE := "liane"
 const HARVEST_SECONDS := 1.0
 const HARVEST_SECONDS_CREATIVE := 0.3
+# 0.0.8.7 (demande de l'utilisateur) : une liane de tilleul se récolte en 3 morceaux.
+const LIANE_PARTS := 3
 const FIBERS_MIN := 1
 const FIBERS_MAX := 3
 # Plante coupée : hauteur gardée (part de sa hauteur).
@@ -61,7 +63,8 @@ static func bundle_mesh() -> ArrayMesh:
 # 0.0.8.6 (demande de l'utilisateur : la liane était un petit anneau parfait, pas réaliste et perdu dans l'herbe) : une
 # vraie liane d'environ 3 m, épaisse d'environ 1,5 cm, enroulée en boucles irrégulières d'environ 40 cm, couchée, avec
 # quelques feuilles. Deux surfaces : la tige (vert-brun) et les feuilles (vertes, visibles des deux côtés).
-const LIANE_LENGTH := 3.0
+# 0.0.8.7 (demande de l'utilisateur : encore un peu petite) : 4 m, boucles d'environ 55 cm.
+const LIANE_LENGTH := 4.0
 const LIANE_RADIUS := 0.0075
 static var _stem_material: StandardMaterial3D
 static var _leaf_material: StandardMaterial3D
@@ -73,13 +76,13 @@ static func coil_mesh() -> ArrayMesh:
 	rng.seed = 2131
 	# Le chemin : des boucles de rayon un peu différent, qui se décalent et montent à peine les unes sur les autres.
 	var path := PackedVector3Array()
-	var steps := 90
-	var turns := LIANE_LENGTH / (TAU * 0.2)
+	var steps := 110
+	var turns := LIANE_LENGTH / (TAU * 0.29)
 	for index in range(steps + 1):
 		var t := float(index) / steps
 		var angle := t * turns * TAU
-		var loop := 0.17 + 0.05 * sin(t * 7.0) + rng.randf_range(-0.008, 0.008)
-		var drift := Vector3(0.04 * sin(t * 5.0), 0.0, 0.05 * cos(t * 3.0))
+		var loop := 0.27 + 0.06 * sin(t * 7.0) + rng.randf_range(-0.01, 0.01)
+		var drift := Vector3(0.06 * sin(t * 5.0), 0.0, 0.07 * cos(t * 3.0))
 		path.append(Vector3(cos(angle) * loop, LIANE_RADIUS + 0.01 * (0.5 + 0.5 * sin(angle * 0.5 + t * 4.0)), sin(angle) * loop) + drift)
 	var stem := SurfaceTool.new()
 	stem.begin(Mesh.PRIMITIVE_TRIANGLES)
@@ -108,7 +111,7 @@ static func coil_mesh() -> ArrayMesh:
 		var at := path[index]
 		var along := (path[index + 1] - at).normalized()
 		var out := along.cross(Vector3.UP).normalized() * (1.0 if index % 2 == 0 else -1.0)
-		var size := rng.randf_range(0.035, 0.05)
+		var size := rng.randf_range(0.045, 0.065)
 		var tip := at + out * size * 1.6 + Vector3.UP * 0.012
 		var left := at + out * size * 0.6 + along * size * 0.5 + Vector3.UP * 0.008
 		var right := at + out * size * 0.6 - along * size * 0.5 + Vector3.UP * 0.008

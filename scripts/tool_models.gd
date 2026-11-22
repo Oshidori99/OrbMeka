@@ -18,7 +18,7 @@ static func mesh(value: Dictionary) -> ArrayMesh:
 		return _meshes[key]
 	var length := clampf(float(value.get("longueur", 0.6)), 0.3, 1.0)
 	var radius := clampf(float(value.get("epaisseur", 3.5)), 1.5, 6.0) / 200.0
-	var head_size: float = {3: 0.08, 4: 0.1, 5: 0.12}.get(int(value.get("taille", 4)), 0.1)
+	var head_size: float = StoneHeads.scale_for("hache" if str(value.get("objet", "")).begins_with("hache") else "pioche", int(value.get("taille", 4)))
 	var axe: bool = str(value.get("objet", "")).begins_with("hache")
 	var made := ArrayMesh.new()
 	# Manche.
@@ -32,8 +32,6 @@ static func mesh(value: Dictionary) -> ArrayMesh:
 	# Tête : en travers du haut du manche, le tranchant (ou la pointe) vers +x.
 	var head: ArrayMesh = StoneHeads.mesh("hache" if axe else "pioche", 1.0)
 	var head_basis := Basis.from_scale(Vector3.ONE * head_size)
-	if not axe:
-		head_basis = Basis.from_scale(Vector3(head_size * 1.4, head_size, head_size))
 	_add(made, head.surface_get_arrays(0), Transform3D(head_basis, Vector3(head_size * (0.35 if axe else 0.1), length - head_size * 0.35, 0.0)), StoneHeads.material(int(value.get("pierre", 1))))
 	# Lien : les tours, de part et d'autre de la tête.
 	var turns := int(value.get("tours", 0))

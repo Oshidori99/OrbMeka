@@ -68,7 +68,8 @@ const SPECS := {
 	# 0.0.3.10 : taille des zones et boutons (marges, espaces, boutons), sans le texte ;
 	# remplace l'échelle totale de 0.0.3.6 (ancien réglage ui_scale ignoré). 0.0.3.6 : FOV en jeu.
 	"element_scale": {"label": "Taille des zones et boutons", "unit": "%", "default": 100.0, "min": 50.0, "max": 150.0},
-	"fov": {"label": "Champ de vision (FOV)", "unit": "°", "default": 75.0, "min": 50.0, "max": 110.0},
+	# 0.0.8.7 (demande de l'utilisateur) : 60° par défaut (avant 75°).
+	"fov": {"label": "Champ de vision (FOV)", "unit": "°", "default": 60.0, "min": 50.0, "max": 110.0},
 	# 0.0.5.1 : zones de 8 m chargées autour du joueur (dans chaque direction).
 	# 0.0.5.17 : en zones de 8 m (avant : en mètres, 0.0.5.16), ancien réglage ignoré.
 	"grass_zones": {"label": "Distance d’affichage de l’herbe", "unit": "zones de 8 m", "default": 4.0, "min": 1.0, "max": 12.0, "step": 1.0},

@@ -14,7 +14,6 @@ const ReturnOrb = preload("res://scripts/return_orb.gd")
 const Fibers = preload("res://scripts/fibers.gd")
 const StoneHeads = preload("res://scripts/stone_heads.gd")
 const ToolModels = preload("res://scripts/tool_models.gd")
-const HEAD_SIZES := {3: 0.08, 4: 0.1, 5: 0.12}
 # Au-delà, les plus anciens disparaissent (seulement s'ils sont très nombreux).
 const MAX_ITEMS := 3000
 const FALL_SECONDS := 0.35
@@ -74,7 +73,9 @@ func drop(value: Dictionary, from: Vector3, near: Vector3, rest_height: Callable
 	if is_inside_tree() and from.distance_to(entry.position) > 0.05:
 		var falling := MeshInstance3D.new()
 		falling.mesh = _mesh(item)
-		falling.material_override = _plain_material(item) if _kind(item) != "fruit" else _fall_material(item)
+		# 0.0.8.7 (bug signalé par l'utilisateur : un silex posé n'avait pas tout de suite sa couleur) : une pierre qui tombe
+		# n'a pas encore son aspect par objet (donné par la série au sol) : couleur unie de sa pierre pendant la chute.
+		falling.material_override = _fall_material(item) if _kind(item) == "fruit" or (_look(item) >= 0 and stone_material != null) else _plain_material(item)
 		falling.basis = _basis(item)
 		add_child(falling)
 		falling.global_position = from
@@ -149,7 +150,7 @@ static func size_of(value: Dictionary) -> float:
 			return 1.0
 		# 0.0.8.5 (#211) : tête taillée : selon sa taille (3 petite, 4 moyenne, 5 grande).
 		"tete":
-			return HEAD_SIZES.get(int(value.get("taille", 4)), 0.1)
+			return StoneHeads.scale_for("hache" if value.get("objet") == "tete_hache" else "pioche", int(value.get("taille", 4)))
 		# 0.0.8.2 (#231) : orbe de retour.
 		"orbe":
 			return ReturnOrb.SIZE
