@@ -13,6 +13,7 @@ const Trees = preload("res://scripts/trees.gd")
 const ReturnOrb = preload("res://scripts/return_orb.gd")
 const Fibers = preload("res://scripts/fibers.gd")
 const StoneHeads = preload("res://scripts/stone_heads.gd")
+const ToolModels = preload("res://scripts/tool_models.gd")
 const HEAD_SIZES := {3: 0.08, 4: 0.1, 5: 0.12}
 # Au-delà, les plus anciens disparaissent (seulement s'ils sont très nombreux).
 const MAX_ITEMS := 3000
@@ -144,7 +145,7 @@ static func size_of(value: Dictionary) -> float:
 		"eclat":
 			return PIECE_SIZE
 		# 0.0.8.4 (#213) : fibres et liane : modèles déjà à leur taille (fibers.gd).
-		"fibre", "liane", "ficelle":
+		"fibre", "liane", "ficelle", "outil_brut", "outil_pierre":
 			return 1.0
 		# 0.0.8.5 (#211) : tête taillée : selon sa taille (3 petite, 4 moyenne, 5 grande).
 		"tete":
@@ -161,6 +162,8 @@ static func size_of(value: Dictionary) -> float:
 static func lift(value: Dictionary) -> float:
 	if _kind(value) == "caillou":
 		return Rocks.pebble_lift(clampi(int(value.get("taille", 3)), 1, 7), clampi(int(value.get("forme", 1)), 1, 7)) * (1.0 - 0.2 * int(value.get("coups", 0)))
+	if _kind(value) in ["outil_brut", "outil_pierre"]:
+		return float(value.get("epaisseur", 3.5)) / 200.0
 	if _kind(value) in ["fibre", "liane", "ficelle"]:
 		return 0.012
 	return size_of(value) * (0.5 if _kind(value) in ["fruit", "bois", "orbe"] else 0.3)
@@ -168,6 +171,9 @@ static func lift(value: Dictionary) -> float:
 # Fruits : le modèle des arbres (rayon 1) ; bois : cylindre couché le long de son orientation ; autres : diamètre 1.
 static func _basis(value: Dictionary) -> Basis:
 	var turn := Basis(Vector3.UP, float(value.get("rotation", 0.0)))
+	# 0.0.8.6 : outil couché, le manche le long du sol (son modèle est déjà à sa taille).
+	if _kind(value) in ["outil_brut", "outil_pierre"]:
+		return turn * Basis(Vector3.RIGHT, PI * 0.5)
 	if _kind(value) == "bois":
 		var thick := size_of(value)
 		return turn * Basis(Vector3.RIGHT, PI * 0.5) * Basis.from_scale(Vector3(thick, float(value.get("longueur", 1.0)), thick))
@@ -190,6 +196,8 @@ func _mesh(value: Dictionary) -> Mesh:
 		return Fibers.bundle_mesh()
 	if _kind(value) == "liane":
 		return Fibers.coil_mesh()
+	if _kind(value) in ["outil_brut", "outil_pierre"]:
+		return ToolModels.mesh(value)
 	if _kind(value) == "ficelle":
 		return Fibers.cord_mesh()
 	if _kind(value) == "tete":
@@ -276,6 +284,9 @@ func _fall_material(value: Dictionary) -> Material:
 func _plain_material(value: Dictionary) -> Material:
 	if _look(value) >= 0 and stone_material != null:
 		return stone_material
+	# 0.0.8.6 : liane (tige et feuilles) et outils (manche, tête, lien) : les matières de leur modèle.
+	if _kind(value) in ["liane", "outil_brut", "outil_pierre"]:
+		return null
 	# 0.0.8.5 : tête taillée : la pierre (calcaire clair, silex sombre).
 	if _kind(value) == "tete":
 		return StoneHeads.material(int(value.get("pierre", 1)))
@@ -338,6 +349,8 @@ func _redraw() -> void:
 		var item: Dictionary = entry.item
 		var stone := _look(item) >= 0 and stone_material != null
 		var key: String = "pierre/%d" % int(item.get("forme", 1)) if stone else "%s/%d/%d/%d" % [item.objet, int(item.get("forme", 1)), int(item.get("couleur", -1)), int(item.get("essence", -1))]
+		if _kind(item) in ["outil_brut", "outil_pierre"]:
+			key = "outil/" + ToolModels.key_of(item)
 		if _kind(item) == "tete":
 			key += "/p%d" % int(item.get("pierre", 1))
 		if _kind(item) == "bois":

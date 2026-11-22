@@ -42,6 +42,9 @@ const BOTH_HANDS_COUNTS := {"pomme": 3, "noisette": 10}
 const POCKET_COUNTS := {"noisette": 15}
 # Volume d'une noisette (litres) : une boule de 2 cm.
 const FIBER_VOLUME := 0.01
+const LIANE_VOLUME := 0.4
+# 0.0.8.6 (#145) : liens des outils (« lien ») : ficelles puis liane.
+const BIND_NAMES := ["ficelle d'ortie", "ficelle de lin", "ficelle d'herbe", "liane"]
 # 0.0.8.5 (#211) : têtes taillées : pierre (0 calcaire, 1 silex) et taille (3 petite, 4 moyenne, 5 grande).
 const HEAD_STONES := ["calcaire", "silex"]
 const HEAD_SIZE_NAMES := {3: "petite (moins bonne)", 4: "moyenne", 5: "grande (la meilleure)"}
@@ -66,7 +69,10 @@ const INSTANCE_FIELDS := {"taille": TYPE_INT, "poids": TYPE_FLOAT, "forme": TYPE
 	# 0.0.7.26 (#212) : bois mort (1), tordu (1), pourri (1), rejet de noisetier (1) ; 0 ou absent : non.
 	"morte": TYPE_INT, "tordue": TYPE_INT, "pourrie": TYPE_INT, "rejet": TYPE_INT,
 	# 0.0.8.5 (#211) : tête taillée : sa pierre (0 calcaire, 1 silex) ; sa taille (3 petite, 4 moyenne, 5 grande).
-	"pierre": TYPE_INT}
+	"pierre": TYPE_INT,
+	# 0.0.8.6 (#211, #145) : bâton fendu (1) ; outil ficelé : son lien (0 ortie, 1 lin, 2 herbe : ficelles ; 3 liane) et son
+	# nombre de tours.
+	"fendue": TYPE_INT, "lien": TYPE_INT, "tours": TYPE_INT}
 # Matières : valeurs de smooth_terrain.gd (SAND 0, STONE 1, DIRT 2, CLAY 4, MUD 5, DARK_STONE 6, GRAVEL 8, LIMESTONE 9,
 # FLINT 11). Poids : une poignée. 0.0.7.6 (plus réaliste, accepté par l'utilisateur) : une grosse poignée d'environ 0,25 L × la
 # densité de la matière ; elle compte toujours pour une sous-cellule de 50 cm (règle de jeu).
@@ -102,7 +108,8 @@ const ITEMS := {
 	"fibre_ortie": {"nom": "Fibre d'ortie", "forme": "fibre", "poids": 2.0, "couleur": Color("#7f8f5a")},
 	"fibre_lin": {"nom": "Fibre de lin", "forme": "fibre", "poids": 2.0, "couleur": Color("#cdbf8e")},
 	"fibre_herbe": {"nom": "Fibre d'herbe", "forme": "fibre", "poids": 2.0, "couleur": Color("#9fae5e")},
-	"liane": {"nom": "Liane", "forme": "liane", "poids": 80.0, "couleur": Color("#5d6b34")},
+	# 0.0.8.6 (demande de l'utilisateur) : une vraie liane, environ 3 m enroulés en boucles : 300 g, 0,4 L.
+	"liane": {"nom": "Liane", "forme": "liane", "poids": 300.0, "couleur": Color("#5d6b34")},
 	# 0.0.8.5 (#213, #211) : ficelle tressée (3 fibres du même type, 33 cm ; elle garde son type) ; têtes taillées dans un
 	# silex ou un calcaire (crafting_rules.gd).
 	"ficelle_ortie": {"nom": "Ficelle d'ortie", "forme": "ficelle", "poids": 6.0, "couleur": Color("#6f7d4c")},
@@ -110,6 +117,12 @@ const ITEMS := {
 	"ficelle_herbe": {"nom": "Ficelle d'herbe", "forme": "ficelle", "poids": 6.0, "couleur": Color("#8e9c52")},
 	"tete_hache": {"nom": "Tête de hache", "forme": "tete", "couleur": Color("#2e2e33")},
 	"tete_pioche": {"nom": "Tête de pioche", "forme": "tete", "couleur": Color("#2e2e33")},
+	# 0.0.8.6 (#211) : tête glissée dans un bâton fendu (à ficeler), puis outil ficelé (#145 : pierre et taille de la tête,
+	# bois du manche, lien, tours). Ils ne servent pas encore (0.0.8.8).
+	"hache_a_ficeler": {"nom": "Hache à ficeler", "forme": "outil_brut", "couleur": Color("#7a5634")},
+	"pioche_a_ficeler": {"nom": "Pioche à ficeler", "forme": "outil_brut", "couleur": Color("#7a5634")},
+	"hache_pierre": {"nom": "Hache en pierre", "forme": "outil_pierre", "couleur": Color("#7a5634")},
+	"pioche_pierre": {"nom": "Pioche en pierre", "forme": "outil_pierre", "couleur": Color("#7a5634")},
 	# 0.0.7.8 : bois d'un arbre coupé (#212) : tronc et branches, chacun unique.
 	"tronc": {"nom": "Tronc", "forme": "bois", "couleur": Color("#6b4a2e")},
 	"branche": {"nom": "Branche", "forme": "bois", "couleur": Color("#7a5634")},
@@ -128,7 +141,7 @@ const CATEGORIES := [
 	{"id": "pebbles", "nom": "Cailloux", "objets": ["caillou", "caillou_calcaire", "caillou_silex"]},
 	{"id": "fruits", "nom": "Fruits", "objets": ["pomme", "noisette"]},
 	# 0.0.8.5 : têtes de hache et de pioche taillées (silex, grandes).
-	{"id": "tools", "nom": "Outils", "objets": ["pioche", "tete_hache", "tete_pioche"]},
+	{"id": "tools", "nom": "Outils", "objets": ["pioche", "tete_hache", "tete_pioche", "hache_pierre", "pioche_pierre"]},
 	# 0.0.7.18 (demande de l'utilisateur) : pour chaque espèce, un tronc (20 cm × 1 m) et une branche (4 cm × 1 m),
 	# séparés ; « objet:essence » (catalog_item).
 	{"id": "wood", "nom": "Bois", "objets": ["tronc:0", "branche:0", "tronc:1", "branche:1", "tronc:2", "branche:2", "tronc:3", "branche:3"]},
@@ -136,7 +149,7 @@ const CATEGORIES := [
 	{"id": "plants", "nom": "Plantes", "objets": ["fibre_ortie", "fibre_lin", "fibre_herbe", "liane"]},
 ]
 # Pour l'instant une seule version par objet : cailloux de taille 4, pomme rouge de taille 2.
-const CATALOG_MODELS := {"caillou": {"taille": 4}, "caillou_calcaire": {"taille": 4}, "caillou_silex": {"taille": 4}, "pomme": {"taille": 2, "couleur": 1}, "tete_hache": {"pierre": 1, "taille": 5, "poids": 420.0}, "tete_pioche": {"pierre": 1, "taille": 5, "poids": 420.0}}
+const CATALOG_MODELS := {"caillou": {"taille": 4}, "caillou_calcaire": {"taille": 4}, "caillou_silex": {"taille": 4}, "pomme": {"taille": 2, "couleur": 1}, "tete_hache": {"pierre": 1, "taille": 5, "poids": 420.0}, "tete_pioche": {"pierre": 1, "taille": 5, "poids": 420.0}, "hache_pierre": {"pierre": 1, "taille": 5, "essence": 1, "age": 3, "souplesse": 3, "epaisseur": 3.5, "longueur": 0.6, "lien": 1, "tours": 8, "poids": 700.0}, "pioche_pierre": {"pierre": 1, "taille": 5, "essence": 1, "age": 3, "souplesse": 3, "epaisseur": 3.5, "longueur": 0.6, "lien": 1, "tours": 8, "poids": 700.0}}
 
 signal changed
 
@@ -278,6 +291,9 @@ static func instance_volume(id: String, instance: Dictionary) -> float:
 		"bois":
 			return float(instance.get("longueur", 1.0)) * WOOD_LITERS_PER_METER
 		# 0.0.8.4 (demande de l'utilisateur) : une fibre, légère mais encombrante : 10 ml.
+		# 0.0.8.6 : une liane enroulée (environ 3 m) : 0,4 L.
+		"liane":
+			return LIANE_VOLUME
 		"fibre":
 			return FIBER_VOLUME
 		"fruit":
@@ -840,9 +856,33 @@ static func _number(value: float) -> String:
 
 # Détails d'un objet, un par ligne, toujours dans le même ordre (accepté par l'utilisateur) : nom, longueur, épaisseur,
 # forme, état, souplesse, âge, note de manche ; puis taille, couleur, diamètre, coups ; le poids toujours en dernier.
+
+# 0.0.8.6 (#145) : fabrication d'un outil : tête (pierre, taille), manche (bois, état, épaisseur, longueur), lien, tours.
+static func tool_lines(value: Dictionary) -> Array:
+	var lines := []
+	lines.append("Tête : %s, %s" % [HEAD_STONES[clampi(int(value.get("pierre", 1)), 0, 1)], HEAD_SIZE_NAMES.get(int(value.get("taille", 4)), "moyenne")])
+	var wood := "Manche : %s" % ESSENCE_NAMES[clampi(int(value.get("essence", 0)), 0, ESSENCE_NAMES.size() - 1)]
+	if int(value.get("morte", 0)) == 1:
+		wood += ", bois mort"
+	lines.append(wood)
+	if value.has("epaisseur") and value.has("longueur"):
+		lines.append("Manche : %s cm × %d cm" % [_number(float(value.epaisseur)), roundi(float(value.longueur) * 100.0)])
+	if value.has("souplesse"):
+		lines.append("Souplesse : %s (%d sur 5)" % [SUPPLE_NAMES[clampi(int(value.souplesse), 1, 5) - 1], int(value.souplesse)])
+	if value.has("age"):
+		lines.append("Âge du bois : %s (%d sur 5)" % [AGE_NAMES[clampi(int(value.age), 1, 5) - 1], int(value.age)])
+	if value.has("lien"):
+		lines.append("Lien : %s, %d tours" % [BIND_NAMES[clampi(int(value.lien), 0, BIND_NAMES.size() - 1)], int(value.get("tours", 0))])
+	else:
+		lines.append("Pas encore ficelée")
+	return lines
+
 static func detail_lines(value: Dictionary) -> Array:
 	var id: String = value.get("objet", "")
 	var lines := [item_name(value)]
+	# 0.0.8.6 (#211, #145) : outil (à ficeler ou ficelé) : sa fabrication.
+	if ITEMS.get(id, {}).get("forme", "") in ["outil_brut", "outil_pierre"]:
+		return lines + tool_lines(value) + (["Poids : %s" % format_weight(instance_weight(id, value))] if instance_weight(id, value) > 0.0 else [])
 	if value.has("longueur"):
 		lines.append("Longueur : %d cm" % roundi(float(value.longueur) * 100.0))
 	if value.has("epaisseur"):
@@ -890,6 +930,9 @@ static func item_name(value: Dictionary) -> String:
 	if id in ["tete_hache", "tete_pioche"] and value.has("pierre"):
 		return "%s en %s" % [ITEMS[id].nom, HEAD_STONES[clampi(int(value.pierre), 0, 1)]]
 	# 0.0.7.18 : tronc et branche nommés selon leur arbre (« Tronc de pin », « Branche de noisetier »).
+	# 0.0.8.6 (#211) : branche fendue (prête à recevoir une tête).
+	if id == "branche" and int(value.get("fendue", 0)) == 1 and value.has("essence"):
+		return "Branche fendue de %s" % ESSENCE_NAMES[clampi(int(value.essence), 0, ESSENCE_NAMES.size() - 1)]
 	if id in ["tronc", "branche"] and value.has("essence"):
 		return "%s de %s" % [ITEMS[id].nom, ESSENCE_NAMES[clampi(int(value.essence), 0, ESSENCE_NAMES.size() - 1)]]
 	return ITEMS[id].nom if ITEMS.has(id) else ""

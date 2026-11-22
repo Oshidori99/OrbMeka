@@ -1,6 +1,20 @@
-# OrbMeka™ — prototype 0.0.8.5
+# OrbMeka™ — prototype 0.0.8.6
 
 Godot 4.7 / GDScript. Formes et couleurs simples ; assets externes seulement sous licence vérifiée (sons CC0, assets/sounds/CREDITS.txt).
+
+## 0.0.8.6 — Première hache et première pioche en pierre (O + F) : fendre une branche avec un éclat, y glisser la tête, la ficeler (3 ficelles ou 1 liane, 4 à 8 tours) ; chaque outil garde sa fabrication ; tressage réaliste en spirale entre les mains et vraie liane de 3 m
+Version locale (1 sur 4). Génération inchangée (version 33). Demandes de l'utilisateur (#211, #145).
+- **Fendre** (O + F) : une **branche** de 2 à 5 cm d'épaisseur et de 40 cm à 1 m (pas pourrie ; morte : acceptée, moins bon outil plus tard) et un **éclat**, **clic gauche maintenu 4 s** : la main droite enfonce l'éclat par petits coups ; la branche devient **« Branche fendue de … »**. L'éclat reste.
+- **Assembler** : une branche fendue et une tête, **un clic** : la tête glisse dans la fente : **Hache (ou Pioche) à ficeler**.
+- **Ficeler** : l'outil à ficeler et **3 ficelles du même type** ou **1 liane** (lien grossier) ; **clic gauche maintenu** : un tour toutes les 0,6 s, chaque tour se voit sur le manche ; **relâcher pour finir** (4 tours au moins, 8 au plus) : **Hache en pierre** ou **Pioche en pierre**.
+- **Détails des outils (#145)**, au survol ou avec D + T : tête (pierre, taille), manche (essence, bois mort, épaisseur × longueur, souplesse, âge), lien et nombre de tours, poids.
+- **Modèles faits en code** : manche (écorce de son arbre), tête taillée, tours du lien ; en main (en travers de la paume) et couchés au sol ; icônes. Créatif : hache et pioche en pierre dans l'onglet Outils (et le catalogue dans la fabrication).
+- **Tresser** (demande de l'utilisateur : l'ancienne animation n'était pas réaliste) : les 3 brins sont **tendus entre les deux mains** et **s'enroulent en spirale**, de plus en plus serrés, pendant que la main droite roule.
+- **Liane** (demande de l'utilisateur : petit anneau parfait, perdu dans l'herbe) : une vraie liane d'environ **3 m**, enroulée en **boucles irrégulières** d'environ 40 cm, avec des **feuilles** ; **300 g, 0,4 L** (dans une main, pas dans les poches).
+- Les outils ne coupent ni ne cassent encore plus vite : en 0.0.8.8 (avec leur usure).
+
+Tests réussis : crafting (40), fibers, hands_eat, return_orb, death, inventory, inventory_more, sticks, world_save, web_save, tree_fall, controls_groups (+ tests juridiques). Captures hors écran : liane et pioche au sol, hache en main, tresser, ficeler (4 tours).
+À tester : fendre, assembler et ficeler à la souris ; l'aspect des outils en main et au sol ; la liane dans l'herbe ; D + T sur une hache.
 
 ## 0.0.8.5 — Fabrication à la main (O + F) : tresser 3 fibres en une ficelle de 33 cm, tailler un silex ou un calcaire (5, 6 ou 8 coups) en tête de hache ou de pioche avec un éclat tranchant, dans une petite scène avec ses deux mains et ses cases ; et la main qui tire la plante en récoltant
 Version publiée (4 sur 4, avec 0.0.8.2 à 0.0.8.4). Génération inchangée (version 33). Demandes de l'utilisateur (#211, #213).

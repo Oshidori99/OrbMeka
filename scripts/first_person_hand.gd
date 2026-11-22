@@ -10,6 +10,7 @@ const Trees = preload("res://scripts/trees.gd")
 const ReturnOrb = preload("res://scripts/return_orb.gd")
 const Fibers = preload("res://scripts/fibers.gd")
 const StoneHeads = preload("res://scripts/stone_heads.gd")
+const ToolModels = preload("res://scripts/tool_models.gd")
 const CharacterPreview = preload("res://scripts/character_preview.gd")
 const MODEL := "res://assets/hands/main_droite.glb"
 # Place du poignet (repère de la caméra), taille ; doigts vers l'avant et un peu vers le centre, paume tournée vers soi.
@@ -108,10 +109,17 @@ func show_item(value: Dictionary) -> void:
 			# 0.0.8.4 (#213) : fibres (petite botte) et liane (rouleau) dans la paume.
 			"fibre", "liane", "ficelle":
 				made.mesh = Fibers.bundle_mesh() if spec.forme == "fibre" else (Fibers.coil_mesh() if spec.forme == "liane" else Fibers.cord_mesh())
-				made.material_override = _plain(spec.couleur)
-				size = 0.6 if spec.forme == "fibre" else (0.45 if spec.forme == "liane" else 0.8)
+				made.material_override = null if spec.forme == "liane" else _plain(spec.couleur)
+				size = 0.6 if spec.forme == "fibre" else (0.3 if spec.forme == "liane" else 0.8)
 				made.scale = Vector3.ONE * size
 				made.position.y = 0.01
+			# 0.0.8.6 (#211) : outil (à ficeler ou ficelé) en travers de la paume, raccourci pour ne pas cacher le jeu.
+			"outil_brut", "outil_pierre":
+				made.mesh = ToolModels.mesh(shown)
+				size = 0.45
+				made.scale = Vector3.ONE * size
+				made.rotation.z = PI * 0.5
+				made.position.y = 0.02
 			# 0.0.8.5 (#211) : tête taillée dans la paume.
 			"tete":
 				made.mesh = StoneHeads.mesh("hache" if id == "tete_hache" else "pioche", 1.0)

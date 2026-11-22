@@ -10,6 +10,8 @@ const Rules = preload("res://scripts/crafting_rules.gd")
 const Controls = preload("res://scripts/controls.gd")
 const StoneHeads = preload("res://scripts/stone_heads.gd")
 const ItemIcons = preload("res://scripts/item_icons.gd")
+const ToolModels = preload("res://scripts/tool_models.gd")
+const Fibers = preload("res://scripts/fibers.gd")
 var checks := 0
 var failures := 0
 
@@ -35,7 +37,7 @@ static func survival() -> Inventory:
 
 func _run() -> void:
 	check(Controls.ACTIONS.crafting.default.key == KEY_O and Controls.ACTIONS.crafting.default.second.key == KEY_F and Controls.GROUPS.Inventaire.has("crafting"), "O + F: Fabrication, in Contrôles → Inventaire")
-	check(Rules.READY == ["tresser", "tailler"] and Rules.ACTIONS.size() == 5, "Tresser and Tailler ready; Fendre, Assembler, Ficeler: later")
+	check(Rules.READY == Rules.ACTIONS and Rules.ACTIONS.size() == 5, "0.0.8.6: the five actions are ready")
 	check(Rules.KNAP_HITS == {3: 5, 4: 6, 5: 8} and Rules.BRAID_FIBERS == 3 and Rules.BRAID_SECONDS == 3.0, "5, 6 or 8 hits; 3 fibres in 3 s")
 	check(is_equal_approx(Inventory.instance_volume("fibre_lin", {}), 0.01), "a fibre: 10 ml")
 	# Tresser : fibres prises dans les mains et les poches.
@@ -96,7 +98,12 @@ func _run() -> void:
 	check(not world.inventory_open, "no inventory while crafting")
 	ui.choose_action("tresser")
 	ui.pick("fibres", Rules.choices(world.inventory, "fibres")[0])
-	check(ui.hands[0].held.get_child_count() > 0 and ui.hands[1].held.get_child_count() > 0, "the fibres come into both hands")
+	check(is_instance_valid(ui.strands) and ui.hands[0].held.get_child_count() == 0, "0.0.8.6: the three strands stretched between the hands (not in the palms)")
+	ui.holding = true
+	ui.step_braid(1.5)
+	check(ui.ring.progress > 0.4 and ui.hands[1].position != ui.hands[1].rest, "braiding: the right hand rolls, the strands twist")
+	ui.release_hold()
+	check(Inventory.count(world.inventory.item("bar", 0)) == 4, "released before 3 s: nothing made")
 	ui.holding = true
 	for i in range(31):
 		ui.step_braid(0.1)
@@ -115,6 +122,52 @@ func _run() -> void:
 	var hammers := Rules.places(world.inventory).filter(func(p): return world.inventory.item(p[0], p[1]).get("objet") == "caillou")
 	var flints := Rules.places(world.inventory).filter(func(p): return world.inventory.item(p[0], p[1]).get("objet") == "caillou_silex")
 	check(heads.size() == 1 and flakes.size() == 1 and hammers.size() == 1 and flints.is_empty(), "5 hits (size 3): an axe head and a flake; the flint is used, the hammer stays")
+	# 0.0.8.6 : Fendre, Assembler, Ficeler (Survie).
+	for index in Inventory.HANDS + Inventory.POCKETS:
+		world.inventory.put("bar", index, {})
+	world.inventory.put("bar", 0, pile("branche", [{"essence": 1, "age": 3, "souplesse": 3, "epaisseur": 3.0, "longueur": 0.6, "poids": 300.0}]))
+	world.inventory.put("bar", 1, pile("eclat_silex", [{"poids": 40.0}]))
+	world.inventory.put("bar", 2, pile("ficelle_lin", [{"longueur": 0.33}, {"longueur": 0.33}, {"longueur": 0.33}, {"longueur": 0.33}]))
+	world.inventory.put("bar", 3, pile("tete_hache", [{"pierre": 1, "taille": 4, "poids": 200.0}]))
+	ui.choose_action("fendre")
+	ui.pick("manche", Rules.more_choices(world.inventory, "manche")[0])
+	ui.pick("eclat", Rules.more_choices(world.inventory, "eclat")[0])
+	ui.holding = true
+	for i in range(41):
+		ui.step_split(0.1)
+	var split_stick: Dictionary = Inventory.flat("branche", world.inventory.item("bar", 0).pile[0]) if not world.inventory.item("bar", 0).is_empty() else {}
+	var split_places := Rules.places(world.inventory).filter(func(p): return world.inventory.item(p[0], p[1]).get("objet") == "branche" and int(world.inventory.item(p[0], p[1]).pile[0].get("fendue", 0)) == 1)
+	check(split_places.size() == 1 and Rules.places(world.inventory).any(func(p): return world.inventory.item(p[0], p[1]).get("objet") == "eclat_silex"), "Fendre, 4 s: a split branch; the flake stays")
+	ui.choose_action("assembler")
+	ui.pick("fendu", Rules.more_choices(world.inventory, "fendu")[0])
+	ui.pick("tete", Rules.more_choices(world.inventory, "tete")[0])
+	check(ui.assemble(), "Assembler: one click")
+	var unbound := Rules.places(world.inventory).filter(func(p): return world.inventory.item(p[0], p[1]).get("objet") == "hache_a_ficeler")
+	check(unbound.size() == 1 and not Rules.places(world.inventory).any(func(p): return world.inventory.item(p[0], p[1]).get("objet") == "tete_hache"), "an axe to bind (head and split branch used)")
+	ui.choose_action("ficeler")
+	ui.pick("a_ficeler", Rules.more_choices(world.inventory, "a_ficeler")[0])
+	ui.pick("lien", Rules.more_choices(world.inventory, "lien")[0])
+	ui.holding = true
+	for i in range(13):
+		ui.step_bind(0.1)
+	check(not ui.release_hold() and Rules.places(world.inventory).any(func(p): return world.inventory.item(p[0], p[1]).get("objet") == "hache_a_ficeler"), "released after 2 turns: not enough (4 at least)")
+	ui.holding = true
+	for i in range(32):
+		ui.step_bind(0.1)
+	check(ui.release_hold(), "released after 5 turns: bound")
+	var axes := Rules.places(world.inventory).filter(func(p): return world.inventory.item(p[0], p[1]).get("objet") == "hache_pierre")
+	check(axes.size() == 1, "a stone axe")
+	var axe: Dictionary = Inventory.flat("hache_pierre", world.inventory.item(axes[0][0], axes[0][1]).pile[0])
+	check(axe.lien == 1 and axe.tours == 5 and axe.pierre == 1 and axe.taille == 4 and axe.essence == 1, "it keeps how it was made: flint head size 4, hazel handle, flax string, 5 turns")
+	check(Inventory.count(world.inventory.item("bar", 2)) == 1, "3 strings used")
+	var lines := Inventory.detail_lines(axe)
+	check(lines[0] == "Hache en pierre" and lines.has("Lien : ficelle de lin, 5 tours") and lines.has("Tête : silex, moyenne") and lines.any(func(l): return l.begins_with("Manche : noisetier")), "details (#145): " + " | ".join(lines))
+	check(ToolModels.mesh(axe).get_surface_count() == 3 and ItemIcons.for_value({"objet": "hache_pierre", "pile": [axe]}) != null, "model (handle, head, string) and icon")
+	# Pas de bois pourri ; une liane suffit.
+	check(not Rules.fits_more("manche", {"objet": "branche", "epaisseur": 3.0, "longueur": 0.6, "pourrie": 1}) and Rules.fits_more("manche", {"objet": "branche", "epaisseur": 3.0, "longueur": 0.6, "morte": 1}) and not Rules.fits_more("manche", {"objet": "branche", "epaisseur": 8.0, "longueur": 0.6}), "handle: rotten wood refused, dead wood accepted, too thick refused")
+	var tied := Rules.bind_result({"objet": "pioche_a_ficeler", "pierre": 0, "taille": 3, "poids": 400.0}, "liane", 4)
+	check(tied.objet == "pioche_pierre" and tied.pile[0].lien == 3 and tied.pile[0].poids == 700.0, "a liane instead of 3 strings")
+	check(is_equal_approx(Inventory.instance_volume("liane", {}), 0.4) and Inventory.instance_weight("liane", {}) == 300.0 and Fibers.coil_mesh().get_surface_count() == 2, "0.0.8.6: a real liane (300 g, 0.4 L, stem and leaves)")
 	app._cancel_page()
 	check(not world.crafting_open and not ui.visible and not root.disable_3d and app.page == "playing" and world.hud_layer.visible, "Échap closes the crafting screen, back to the game (HUD shown again)")
 	# Créatif : le catalogue, rien n'est pris.

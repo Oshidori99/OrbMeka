@@ -239,16 +239,30 @@ func choose_head(next: String) -> void:
 	hits = 0
 	refresh()
 
+const ROLES := {"tresser": ["fibres"], "tailler": ["percuteur", "pierre"], "fendre": ["manche", "eclat"], "assembler": ["fendu", "tete"], "ficeler": ["a_ficeler", "lien"]}
+const ROLE_TITLES := {"fibres": "Fibres (3 du même type)", "percuteur": "Main gauche : percuteur (un caillou)", "pierre": "Main droite : pierre à tailler (silex ou calcaire, taille 3 à 5)",
+	"manche": "Main gauche : branche (2 à 5 cm, 40 cm à 1 m, pas pourrie)", "eclat": "Main droite : éclat tranchant",
+	"fendu": "Main gauche : branche fendue", "tete": "Main droite : tête de hache ou de pioche",
+	"a_ficeler": "Main gauche : hache ou pioche à ficeler", "lien": "Main droite : 3 ficelles du même type, ou 1 liane"}
+const HOLD_ACTIONS := ["tresser", "fendre", "ficeler"]
+
+func _list(role: String) -> Array:
+	if role in ["fibres", "percuteur", "pierre"]:
+		return Rules.choices(inventory, role)
+	return Rules.more_choices(inventory, role)
+
 func refresh() -> void:
+	shown_turns = -1
 	for child in choice_box.get_children():
 		child.queue_free()
-	var roles: Array = ["fibres"] if action == "tresser" else ["percuteur", "pierre"]
+	var roles: Array = ROLES.get(action, [])
 	for role in roles:
-		var title: String = {"fibres": "Fibres (3 du même type)", "percuteur": "Main gauche : percuteur (un caillou)", "pierre": "Main droite : pierre à tailler (silex ou calcaire, taille 3 à 5)"}[role]
-		choice_box.add_child(_label(title, 15, Color(0.6, 0.85, 0.82)))
-		var list := Rules.choices(inventory, role)
-		# La pierre choisie n'est pas proposée comme percuteur, et inversement.
-		list = list.filter(func(choice): return not _same(choice, picks.get("pierre" if role == "percuteur" else "percuteur", {})))
+		choice_box.add_child(_label(ROLE_TITLES[role], 15, Color(0.6, 0.85, 0.82)))
+		var list := _list(role)
+		# Un même objet n'est jamais dans les deux mains.
+		for other in roles:
+			if other != role:
+				list = list.filter(func(choice): return not _same(choice, picks.get(other, {})))
 		if list.is_empty():
 			choice_box.add_child(_label("Rien qui convienne en main ou en poche." if inventory.mode == Inventory.SURVIVAL else "Rien qui convienne.", 14, Color(0.8, 0.8, 0.8)))
 		for choice in list:
@@ -272,16 +286,26 @@ func _same(a: Dictionary, b: Dictionary) -> bool:
 	return a.get("area") == b.get("area") and a.get("index") == b.get("index") and a.get("unit") == b.get("unit") and a.get("value") == b.get("value") and a.get("label") == b.get("label")
 
 func ready_to_work() -> bool:
-	if action == "tresser":
-		return picks.has("fibres")
-	return picks.has("percuteur") and picks.has("pierre")
+	for role in ROLES.get(action, []):
+		if not picks.has(role):
+			return false
+	return true
 
 func _hint() -> String:
-	if action == "tresser":
-		return "Clic gauche maintenu dans la scène (%d s) : tresser une ficelle de 33 cm." % roundi(Rules.BRAID_SECONDS) if picks.has("fibres") else "Choisissez vos fibres : elles viennent dans vos mains."
 	if not ready_to_work():
-		return "Choisissez le percuteur et la pierre : ils viennent dans vos mains."
-	return "Cliquez dans la scène pour frapper : %d coup%s sur %d." % [hits, "s" if hits > 1 else "", Rules.hits_for(picks.pierre.value)]
+		return "Choisissez vos objets : ils viennent dans vos mains."
+	match action:
+		"tresser":
+			return "Clic gauche maintenu dans la scène (%d s) : tresser une ficelle de 33 cm." % roundi(Rules.BRAID_SECONDS)
+		"tailler":
+			return "Cliquez dans la scène pour frapper : %d coup%s sur %d." % [hits, "s" if hits > 1 else "", Rules.hits_for(picks.pierre.value)]
+		"fendre":
+			return "Clic gauche maintenu dans la scène (%d s) : fendre le bout de la branche." % roundi(Rules.SPLIT_SECONDS)
+		"assembler":
+			return "Cliquez dans la scène : la tête glisse dans la fente."
+		"ficeler":
+			return "Clic gauche maintenu dans la scène : un tour toutes les %s s ; relâchez pour finir (%d à %d tours)." % [str(Rules.TURN_SECONDS).replace(".", ","), Rules.TURNS_MIN, Rules.TURNS_MAX]
+	return ""
 
 # --- Les mains ---
 
@@ -291,17 +315,20 @@ func _show_hands() -> void:
 	if is_instance_valid(shaped):
 		shaped.queue_free()
 		shaped = null
+	_clear_strands()
 	if action == "tresser":
-		var fibre: Dictionary = {"objet": picks.fibres.fibres} if picks.has("fibres") else {}
-		hands[0].show_item(fibre)
-		hands[1].show_item(fibre)
-		return
-	hands[0].show_item(picks.percuteur.value if picks.has("percuteur") else {})
-	if not picks.has("pierre"):
+		# Les fibres tendues entre les deux mains (_draw_strands), pas dans les paumes.
+		hands[0].show_item({})
 		hands[1].show_item({})
+		if picks.has("fibres"):
+			_draw_strands(0.0)
 		return
-	if hits == 0:
-		hands[1].show_item(picks.pierre.value)
+	var roles: Array = ROLES.get(action, [])
+	for index in range(2):
+		var role: String = roles[index] if index < roles.size() else ""
+		var value: Dictionary = picks[role].value if picks.has(role) else {}
+		hands[index].show_item(value)
+	if action != "tailler" or not picks.has("pierre") or hits == 0:
 		return
 	# Coup après coup : la pierre prend la forme de la tête.
 	hands[1].show_item({})
@@ -314,24 +341,85 @@ func _show_hands() -> void:
 	shaped.position.y = 0.02
 	hands[1].held.add_child(shaped)
 
+# --- 0.0.8.6 (demande de l'utilisateur : l'animation d'avant n'était pas réaliste) : tresser ---
+# Les 3 brins sont tendus d'une paume à l'autre ; en maintenant, la main droite roule et les brins s'enroulent en
+# spirale, de plus en plus serrés, jusqu'à ne faire qu'une ficelle.
+var strands: MeshInstance3D
+var strand_material: StandardMaterial3D
+
+func _clear_strands() -> void:
+	if is_instance_valid(strands):
+		strands.queue_free()
+		strands = null
+
+func _draw_strands(share: float) -> void:
+	if not picks.has("fibres"):
+		return
+	if not is_instance_valid(strands):
+		strands = MeshInstance3D.new()
+		strands.name = "Brins"
+		strands.mesh = ImmediateMesh.new()
+		camera.add_child(strands)
+	if strand_material == null:
+		strand_material = StandardMaterial3D.new()
+		strand_material.cull_mode = BaseMaterial3D.CULL_DISABLED
+		strand_material.roughness = 0.9
+	strand_material.albedo_color = Inventory.ITEMS[picks.fibres.fibres].couleur
+	var a: Vector3 = camera.to_local(hands[0].held.global_position) + Vector3(0.02, 0.01, 0.0)
+	var b: Vector3 = camera.to_local(hands[1].held.global_position) + Vector3(-0.02, 0.01, 0.0)
+	var along := b - a
+	var side := along.cross(Vector3.BACK).normalized()
+	var up := along.cross(side).normalized()
+	var radius := lerpf(0.008, 0.0018, share)
+	var twists := lerpf(0.4, 7.0, share)
+	var width := lerpf(0.0012, 0.0018, share)
+	var mesh: ImmediateMesh = strands.mesh
+	mesh.clear_surfaces()
+	mesh.surface_begin(Mesh.PRIMITIVE_TRIANGLES, strand_material)
+	var steps := 40
+	for strand in range(3):
+		var previous := Vector3.ZERO
+		for step in range(steps + 1):
+			var t := float(step) / steps
+			# Serré au milieu, un peu plus lâche près des mains ; légère courbe vers le bas.
+			var loose := radius * (0.6 + 0.4 * absf(t - 0.5) * 2.0)
+			var angle := t * twists * TAU + strand * TAU / 3.0 + hold_time * 2.0
+			var point := a + along * t + side * cos(angle) * loose + up * sin(angle) * loose - up * 0.015 * sin(PI * t)
+			if step > 0:
+				var lift := Vector3.UP * width
+				for corner in [previous - lift, point - lift, point + lift, previous - lift, point + lift, previous + lift]:
+					mesh.surface_set_normal(Vector3.BACK)
+					mesh.surface_add_vertex(corner)
+			previous = point
+	mesh.surface_end()
+
 # --- Faire l'action ---
 
 func _scene_input(event: InputEvent) -> void:
 	if not event is InputEventMouseButton or event.button_index != MOUSE_BUTTON_LEFT:
 		return
-	if action == "tresser":
+	if action in HOLD_ACTIONS:
+		var was := holding
 		holding = event.pressed and ready_to_work()
-		if not holding:
-			hold_time = 0.0
-			ring.progress = 0.0
+		if was and not holding:
+			release_hold()
 	elif event.pressed and ready_to_work():
-		strike()
+		if action == "tailler":
+			strike()
+		elif action == "assembler":
+			assemble()
 
 func _process(delta: float) -> void:
 	if not visible:
 		return
-	if holding and action == "tresser":
-		step_braid(delta)
+	if holding:
+		match action:
+			"tresser":
+				step_braid(delta)
+			"fendre":
+				step_split(delta)
+			"ficeler":
+				step_bind(delta)
 	for chip in chips.duplicate():
 		if not is_instance_valid(chip):
 			chips.erase(chip)
@@ -346,25 +434,43 @@ func _process(delta: float) -> void:
 			chip.queue_free()
 			chips.erase(chip)
 
-# Tresser : clic gauche maintenu ; les mains se rapprochent et tournent l'une contre l'autre.
+# Clic relâché pendant une action maintenue : tresser et fendre s'arrêtent (rien n'est fait) ; ficeler finit l'outil s'il
+# a assez de tours.
+func release_hold() -> bool:
+	holding = false
+	shown_turns = -1
+	var done := false
+	if action == "ficeler":
+		done = finish_bind(floori(hold_time / Rules.TURN_SECONDS))
+	hold_time = 0.0
+	ring.progress = 0.0
+	_rest_hands()
+	if action == "tresser" and picks.has("fibres"):
+		_draw_strands(0.0)
+	return done
+
+func _rest_hands() -> void:
+	for hand in hands:
+		hand.position = hand.rest
+		hand.held.rotation = Vector3.ZERO
+		hand.held.position = FirstPersonHand.PALM
+
 func step_braid(delta: float) -> bool:
 	if not ready_to_work():
 		return false
 	hold_time += delta
 	var share := clampf(hold_time / Rules.BRAID_SECONDS, 0.0, 1.0)
 	ring.progress = share
-	for index in range(hands.size()):
-		var hand: Node3D = hands[index]
-		hand.position = hand.rest.lerp(Vector3(0.0, hand.rest.y, hand.rest.z), share * 0.45)
-		hand.held.rotation.z = sin(hold_time * 9.0) * 0.6 * (1.0 if index == 0 else -1.0)
+	# Les mains tendent les brins (un peu plus écartées) ; la main droite roule d'avant en arrière.
+	hands[0].position = hands[0].rest + Vector3(-0.015 * share, 0.0, 0.0)
+	hands[1].position = hands[1].rest + Vector3(0.015 * share, 0.008 * sin(hold_time * 10.0), 0.0)
+	_draw_strands(share)
 	if hold_time < Rules.BRAID_SECONDS:
 		return false
 	hold_time = 0.0
 	holding = false
 	ring.progress = 0.0
-	for hand in hands:
-		hand.position = hand.rest
-		hand.held.rotation = Vector3.ZERO
+	_rest_hands()
 	return braid()
 
 func braid() -> bool:
@@ -439,6 +545,137 @@ func _strike_motion() -> void:
 		chip.set_meta("life", 0.5)
 		camera.add_child(chip)
 		chips.append(chip)
+
+# --- 0.0.8.6 : Fendre, Assembler, Ficeler ---
+
+# Fendre : clic maintenu ; la main droite enfonce l'éclat dans le bout de la branche par petits coups.
+func step_split(delta: float) -> bool:
+	if not ready_to_work():
+		return false
+	hold_time += delta
+	var share := clampf(hold_time / Rules.SPLIT_SECONDS, 0.0, 1.0)
+	ring.progress = share
+	var push := absf(sin(hold_time * 7.0)) * 0.04
+	hands[1].position = hands[1].rest + Vector3(-0.07 - push, 0.02, 0.0)
+	if hold_time < Rules.SPLIT_SECONDS:
+		return false
+	hold_time = 0.0
+	holding = false
+	ring.progress = 0.0
+	_rest_hands()
+	return split()
+
+func split() -> bool:
+	var stick: Dictionary = picks.get("manche", {})
+	if stick.is_empty() or not Rules.still_there(inventory, picks.get("eclat", {})) or not Rules.take_choice(inventory, stick):
+		status.text = "La branche ou l'éclat n'est plus là."
+		picks = {}
+		refresh()
+		return false
+	var made := Rules.split_result(stick.value)
+	world.give_crafted(made)
+	picks.erase("manche")
+	if picks.has("eclat") and not Rules.still_there(inventory, picks.eclat):
+		picks.erase("eclat")
+	refresh()
+	status.text = "%s : prête à recevoir une tête. %s" % [Inventory.item_name(Inventory.flat(made.objet, made.pile[0])), _hint()]
+	return true
+
+# Assembler : un clic ; la main droite glisse la tête dans la fente.
+func assemble() -> bool:
+	var stick: Dictionary = picks.get("fendu", {})
+	var stone: Dictionary = picks.get("tete", {})
+	if stick.is_empty() or stone.is_empty() or not Rules.still_there(inventory, stick) or not Rules.still_there(inventory, stone):
+		status.text = "La branche fendue ou la tête n'est plus là."
+		picks = {}
+		refresh()
+		return false
+	Rules.take_choice(inventory, stick)
+	if not stone.get("creative", false):
+		# La branche a pu être prise dans la même case : on retrouve la tête.
+		var found := Rules.more_choices(inventory, "tete").filter(func(other): return other.value == stone.value)
+		if found.is_empty() or not Rules.take_choice(inventory, found[0]):
+			status.text = "La tête n'est plus là."
+			picks = {}
+			refresh()
+			return false
+	var made := Rules.assemble_result(stick.value, stone.value)
+	world.give_crafted(made)
+	if is_inside_tree():
+		var motion := create_tween()
+		motion.tween_property(hands[1], "position", hands[0].rest + Vector3(0.06, 0.04, 0.0), 0.15)
+		motion.tween_property(hands[1], "position", hands[1].rest, 0.2)
+	picks.erase("fendu")
+	picks.erase("tete")
+	refresh()
+	status.text = "%s : il reste à la ficeler." % Inventory.item_name(Inventory.flat(made.objet, made.pile[0]))
+	return true
+
+# Ficeler : clic maintenu ; la main droite tourne autour du haut du manche, un tour toutes les TURN_SECONDS.
+var shown_turns := -1
+
+func step_bind(delta: float) -> bool:
+	if not ready_to_work():
+		return false
+	hold_time += delta
+	var turns := mini(floori(hold_time / Rules.TURN_SECONDS), Rules.TURNS_MAX)
+	ring.progress = float(turns) / Rules.TURNS_MAX + fmod(hold_time, Rules.TURN_SECONDS) / Rules.TURN_SECONDS / Rules.TURNS_MAX
+	var angle := hold_time / Rules.TURN_SECONDS * TAU
+	hands[1].position = hands[0].rest + Vector3(0.2 + cos(angle) * 0.03, 0.0 + sin(angle) * 0.02, sin(angle) * 0.03)
+	status.text = "Tours : %d (relâchez pour finir, %d au moins, %d au plus)." % [turns, Rules.TURNS_MIN, Rules.TURNS_MAX]
+	# Chaque tour se voit sur le manche (le lien et ses tours sur l'outil de la main gauche).
+	if turns != shown_turns:
+		shown_turns = turns
+		var preview: Dictionary = picks.a_ficeler.value.duplicate()
+		if turns > 0:
+			preview.lien = int(Rules.BINDS.get(picks.lien.bind, 1))
+			preview.tours = turns
+		hands[0].show_item(preview)
+	if turns < Rules.TURNS_MAX:
+		return false
+	holding = false
+	var done := finish_bind(turns)
+	hold_time = 0.0
+	ring.progress = 0.0
+	_rest_hands()
+	return done
+
+func finish_bind(turns: int) -> bool:
+	if turns < Rules.TURNS_MIN:
+		status.text = "Pas assez de tours : %d au moins. Maintenez plus longtemps." % Rules.TURNS_MIN
+		return false
+	var tool: Dictionary = picks.get("a_ficeler", {})
+	var bind: Dictionary = picks.get("lien", {})
+	if tool.is_empty() or bind.is_empty() or not Rules.still_there(inventory, tool):
+		status.text = "L'outil ou le lien n'est plus là."
+		picks = {}
+		refresh()
+		return false
+	var creative: bool = bind.get("creative", false)
+	var tied := false
+	if bind.bind == "liane":
+		tied = Rules.take_choice(inventory, bind)
+	else:
+		tied = Rules.take_count(inventory, bind.bind, Rules.CORDS_PER_TOOL, creative)
+	if not tied:
+		status.text = "Il faut 3 ficelles du même type, ou une liane."
+		picks.erase("lien")
+		refresh()
+		return false
+	# L'outil a pu changer de place : on le retrouve.
+	if not tool.get("creative", false):
+		var found := Rules.more_choices(inventory, "a_ficeler").filter(func(other): return other.value == tool.value)
+		if found.is_empty() or not Rules.take_choice(inventory, found[0]):
+			status.text = "L'outil n'est plus là."
+			picks = {}
+			refresh()
+			return false
+	var made := Rules.bind_result(tool.value, bind.bind, turns)
+	world.give_crafted(made)
+	picks = {}
+	refresh()
+	status.text = "%s ficelée (%d tours) !" % [Inventory.item_name(Inventory.flat(made.objet, made.pile[0])), turns]
+	return true
 
 # --- Cases d'inventaire (demande de l'utilisateur) ---
 

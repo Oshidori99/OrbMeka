@@ -3,6 +3,10 @@ Du plus récent au plus ancien. Ce fichier est mis à jour à chaque version.
 
 === Thème « Fabrication et survie » (0.0.8) ===
 
+0.0.8.6 — Première hache et première pioche en pierre (O + F) : fendre une branche avec un éclat, y glisser la tête, la ficeler (3 ficelles ou 1 liane, 4 à 8 tours) ; chaque outil garde sa fabrication ; tressage réaliste en spirale entre les mains et vraie liane de 3 m
+Génération du terrain : version 33 · Menus : version 10.
+Demandes de l'utilisateur (#211, #145). Les outils ne servent pas encore (0.0.8.8).
+
 0.0.8.5 — Fabrication à la main (O + F) : tresser 3 fibres en une ficelle de 33 cm, tailler un silex ou un calcaire (5, 6 ou 8 coups) en tête de hache ou de pioche avec un éclat tranchant, dans une petite scène avec ses deux mains et ses cases ; et la main qui tire la plante en récoltant
 Génération du terrain : version 33 · Menus : version 10.
 Demandes de l'utilisateur (#211, #213). Fendre, Assembler, Ficeler : bientôt. Fibres : 10 ml chacune.
