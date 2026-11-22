@@ -130,7 +130,9 @@ func _build_panel(row: HBoxContainer) -> void:
 	actions.add_theme_constant_override("separation", roundi(6 * text_scale))
 	box.add_child(actions)
 	for each in Rules.ACTIONS:
-		var button := CraftingIcons.new(each, roundf(78 * text_scale))
+		# 0.0.8.21 : 6 actions (Nouer) : images un peu plus petites (avant 78), pour que le panneau garde sa largeur et ne
+		# pousse pas la barre (elle reste à la place de celle du jeu).
+		var button := CraftingIcons.new(each, roundf(66 * text_scale))
 		button.tooltip_text = Rules.ACTION_NAMES[each] + ("" if Rules.is_ready(each) else " (bientôt)")
 		button.disabled = not Rules.is_ready(each)
 		button.pressed.connect(func(): choose_action(each))
