@@ -252,12 +252,13 @@ def mat_stone():
 
 def mat_flint():
     # Silex : cassure sombre et brillante, croûte blanchâtre et mate par taches.
-    return noisy("Silex", (0.03, 0.03, 0.036), (0.085, 0.082, 0.095), scale=7.0, roughness=0.2, bump=0.06,
-                 specular=0.9, spots=((0.62, 0.58, 0.5), 0.57, 0.9))
+    return noisy("Silex", (0.03, 0.03, 0.036), (0.085, 0.082, 0.095), scale=7.0, roughness=0.32, bump=0.06,
+                 specular=0.9, spots=((0.62, 0.58, 0.5), 0.6, 0.9))
 
 
 def mat_flint_inside():
-    return principled("Silex_cassure", (0.04, 0.039, 0.046), roughness=0.16, specular=0.95, coat=0.4)
+    # Un peu plus clair que le silex entier : les éclats se voient sur le fond sombre des menus.
+    return principled("Silex_cassure", (0.09, 0.088, 0.1), roughness=0.18, specular=0.95, coat=0.4)
 
 
 def mat_skin(skin):
@@ -534,6 +535,9 @@ POSES = {
     # Griffe (creuser).
     "griffe": {"doigts": [(30, 48, 36), (28, 46, 34), (30, 48, 36), (34, 50, 38)], "ecart": 0.15,
                "pouce": [(0.022, 0.012, -0.004), (0.046, 0.034, 0.014), (0.058, 0.056, 0.034), (0.058, 0.072, 0.052)]},
+    # Pince (tenir un caillou au bout des doigts, qu'on voit en entier).
+    "pince": {"doigts": [(14, 22, 16), (12, 20, 14), (16, 24, 18), (20, 26, 20)],
+              "pouce": [(0.022, 0.012, -0.004), (0.042, 0.04, 0.012), (0.046, 0.068, 0.03), (0.036, 0.09, 0.044)]},
     # Prise (tenir un caillou, une touffe) : doigts bien repliés autour.
     "prise": {"doigts": [(42, 62, 44), (40, 60, 42), (44, 62, 44), (48, 64, 46)],
               "pouce": [(0.022, 0.012, -0.004), (0.044, 0.036, 0.018), (0.046, 0.06, 0.04), (0.036, 0.074, 0.054)]},
@@ -981,6 +985,32 @@ def stick_frame(screen_angle, opening, location=(0.0, 0.0, 0.0)):
     return Matrix.Translation(Vector(location)) @ Matrix((x, side, axis)).transposed().to_4x4()
 
 
+def hold(obj, grip, point):
+    """Déplace la main pour que son point `grip` (repère de la main) soit à `point` (monde)."""
+    obj.matrix_world = Matrix.Translation(Vector(point) - in_hand(obj, grip)) @ obj.matrix_world
+    return obj
+
+
+def broken_stick(name, a, b, gap, radius):
+    """Bâton cassé en deux : deux morceaux de a à b (monde), écartés de `gap` au milieu, bois clair et échardes à la
+    cassure."""
+    a, b = Vector(a), Vector(b)
+    middle = (a + b) * 0.5
+    along = (b - a).normalized()
+    side = along.cross(Vector((0.0, 0.0, 1.0))).normalized()
+    ends = [(a, middle - along * gap * 0.5 + side * 0.012), (middle + along * gap * 0.5 - side * 0.006, b)]
+    rng = random.Random(9)
+    for index, (start, end) in enumerate(ends):
+        stick("%s_%d" % (name, index), start, end, radius, radius * 0.92)
+        broken = end if index == 0 else start
+        direction = (end - start).normalized() * (1 if index == 0 else -1)
+        for splinter in range(4):
+            offset = Vector((rng.uniform(-1, 1), rng.uniform(-1, 1), rng.uniform(-0.3, 1))).normalized() * radius * 0.55
+            tip = broken + offset + direction * rng.uniform(0.006, 0.013)
+            piece = tube("%s_echarde_%d_%d" % (name, index, splinter), [broken + offset * 0.8 - direction * 0.002, tip], radius * 0.28, radius * 0.05, sides=5)
+            assign(piece, mat_wood())
+
+
 # --- Les images ---
 
 def img_main(skin):
@@ -1029,13 +1059,20 @@ def img_creuser(skin):
 
 
 def img_casser_objets(skin):
-    """Clic gauche « Casser / Récupérer des objets » : la main ramasse un caillou posé sur l'herbe, à côté d'un bâton."""
-    ground("Sol", size=(0.22, 0.17), depth=0.03, layer=0.01)
-    stick("Baton", (-0.08, 0.05, 0.007), (0.09, -0.04, 0.007), 0.0075, 0.006)
-    obj = hand("Main", skin, "prise", arm=0.4)
-    orient(obj, (0.35, 0.15, -0.92), (0.15, -0.95, 0.1), (-0.04, 0.02, 0.15))
-    stone = pebble("Caillou", 3, 0.058, mat_stone())
-    stone.location = in_hand(obj, (0.004, 0.088, 0.03))
+    """Clic gauche « Casser / Récupérer des objets » : la main, de côté, soulève un caillou tenu au bout des doigts
+    (on le voit en entier ; flèche vers le haut : ramasser) ; sur l'herbe, un bâton cassé en deux (casser)."""
+    right, up, forward = view_axes()
+    ground("Sol", size=(0.24, 0.18), depth=0.03, layer=0.01)
+    broken_stick("Baton", (-0.06, 0.06, 0.007), (0.105, 0.035, 0.007), 0.02, 0.0075)
+    point = Vector((-0.01, -0.03, 0.075))
+    stone = pebble("Caillou", 3, 0.05, mat_stone())
+    stone.location = point
+    obj = hand("Main", skin, "pince", arm=0.4)
+    # Doigts vers le bas, paume vers la gauche de l'image (vers le caillou, du côté de la lumière), un peu vers nous.
+    orient(obj, (-up * 0.9 - right * 0.12).normalized(), (-right * 0.9 - forward * 0.3).normalized(), (0.0, 0.0, 0.0))
+    hold(obj, (0.004, 0.122, 0.036), point)
+    base = point - right * 0.068 - forward * 0.01
+    arrow("Fleche", (base.x, base.y, 0.018), (base.x, base.y, 0.1), 0.011)
 
 
 def img_arracher(skin):
@@ -1184,25 +1221,33 @@ def img_tresser(skin=None):
             obj.matrix_world = turn @ obj.matrix_world
 
 def img_tailler(skin):
-    """Fabrication « Tailler » : la main frappe un silex avec un caillou, des éclats et des étincelles sautent."""
-    nodule = pebble("Silex", 4, 0.085, mat_flint())
-    nodule.location = (0.03, 0.0, 0.0)
-    nodule.rotation_euler = Euler((0.2, 0.3, 0.5))
-    obj = hand("Main", skin, "prise", arm=0.4)
-    orient(obj, (0.4, 0.3, -0.85), (0.2, -0.95, 0.05), (-0.085, 0.01, 0.13))
-    stone = pebble("Percuteur", 2, 0.055, mat_stone())
-    stone.location = in_hand(obj, (0.004, 0.085, 0.026))
-    impact = Vector((0.008, -0.012, 0.042))
+    """Fabrication « Tailler » : un silex devant, en entier ; au-dessus, la main tient un caillou au bout des doigts et
+    frappe le bord du silex ; des éclats sautent vers nous, avec des étincelles."""
+    right, up, forward = view_axes()
+    # Rognon de silex : bosselé mais lisse (sans facettes qui brillent en triangle), sombre, un peu de croûte claire.
+    nodule = blob("Silex", 0.045, 23, squash=(1.2, 1.0, 0.82), rough=0.34, subdiv=4)
+    assign(nodule, mat_flint())
+    nodule.location = (0.0, 0.0, 0.0)
+    impact = right * 0.022 + up * 0.036 - forward * 0.004
+    hammer_center = impact + (right * 0.25 + up * 0.97).normalized() * 0.027
+    stone = pebble("Percuteur", 2, 0.048, mat_stone())
+    stone.location = hammer_center
+    obj = hand("Main", skin, "pince", arm=0.4)
+    # Doigts vers le bas, paume vers la gauche de l'image (vers le caillou et le silex).
+    orient(obj, (-up * 0.85 - right * 0.2).normalized(), (-right * 0.85 - forward * 0.35).normalized(), (0.0, 0.0, 0.0))
+    hold(obj, (0.004, 0.122, 0.036), hammer_center)
     rng = random.Random(5)
-    for index, (direction, size) in enumerate([((0.9, -0.3, 0.6), 0.03), ((0.3, -0.7, 0.9), 0.024), ((1.0, 0.2, 0.25), 0.02), ((-0.1, -0.9, 0.35), 0.017)]):
+    for index, (direction, size) in enumerate([((-0.6, 0.5), 0.034), ((0.6, 0.3), 0.029), ((-0.9, -0.1), 0.025), ((0.95, -0.2), 0.021)]):
+        d = (right * direction[0] + up * direction[1] - forward * 0.45).normalized()
         piece = flake("Eclat_%d" % index, size, 70 + index)
-        piece.location = impact + Vector(direction).normalized() * (0.035 + 0.012 * index)
+        piece.location = impact + d * (0.04 + 0.01 * index)
         piece.rotation_euler = Euler((rng.uniform(0, 6.3), rng.uniform(0, 6.3), rng.uniform(0, 6.3)))
         assign(piece, mat_flint_inside())
-    for index, direction in enumerate([(0.7, -0.5, 0.5), (0.1, -0.9, 0.4), (0.95, 0.1, 0.35), (0.5, -0.8, 0.0), (0.4, -0.2, 0.9)]):
-        d = Vector(direction).normalized()
-        spark = tube("Etincelle_%d" % index, [impact + d * 0.01, impact + d * 0.032], 0.0018, 0.0005, sides=6)
+    for index, direction in enumerate([(-0.7, 0.4), (0.8, 0.5), (-1.0, -0.05), (0.95, 0.0), (-0.4, 0.75)]):
+        d = (right * direction[0] + up * direction[1] - forward * 0.3).normalized()
+        spark = tube("Etincelle_%d" % index, [impact + d * 0.01, impact + d * 0.04], 0.0026, 0.0006, sides=6)
         assign(spark, mat_white())
+
 
 def img_fendre(skin=None):
     """Fabrication « Fendre » : le bout d'une branche fendu en V (bois clair dedans), un éclat de silex enfoncé dans la
