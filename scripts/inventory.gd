@@ -91,6 +91,12 @@ const ITEMS := {
 	"noisette": {"nom": "Noisette", "forme": "fruit", "poids": 3.0, "couleur": Color("#8a5a2b")},
 	# 0.0.8.2 (#231) : orbe de retour (return_orb.gd), 200 g, 2 dl (volume : poids / 1 kg par L).
 	"orbe_retour": {"nom": "Orbe de retour", "forme": "orbe", "poids": 200.0, "couleur": Color("#3fd6c8")},
+	# 0.0.8.4 (#213) : fibres récoltées (R maintenu) sur les orties, le lin et les herbes longues, 1 à 3 par plante ;
+	# liane récoltée sur un tilleul (lien grossier). Pour tresser la ficelle et ficeler (0.0.8.5, 0.0.8.6).
+	"fibre_ortie": {"nom": "Fibre d'ortie", "forme": "fibre", "poids": 2.0, "couleur": Color("#7f8f5a")},
+	"fibre_lin": {"nom": "Fibre de lin", "forme": "fibre", "poids": 2.0, "couleur": Color("#cdbf8e")},
+	"fibre_herbe": {"nom": "Fibre d'herbe", "forme": "fibre", "poids": 2.0, "couleur": Color("#9fae5e")},
+	"liane": {"nom": "Liane", "forme": "liane", "poids": 80.0, "couleur": Color("#5d6b34")},
 	# 0.0.7.8 : bois d'un arbre coupé (#212) : tronc et branches, chacun unique.
 	"tronc": {"nom": "Tronc", "forme": "bois", "couleur": Color("#6b4a2e")},
 	"branche": {"nom": "Branche", "forme": "bois", "couleur": Color("#7a5634")},
@@ -112,6 +118,8 @@ const CATEGORIES := [
 	# 0.0.7.18 (demande de l'utilisateur) : pour chaque espèce, un tronc (20 cm × 1 m) et une branche (4 cm × 1 m),
 	# séparés ; « objet:essence » (catalog_item).
 	{"id": "wood", "nom": "Bois", "objets": ["tronc:0", "branche:0", "tronc:1", "branche:1", "tronc:2", "branche:2", "tronc:3", "branche:3"]},
+	# 0.0.8.4 : fibres et liane (onglet Plantes, après Bois).
+	{"id": "plants", "nom": "Plantes", "objets": ["fibre_ortie", "fibre_lin", "fibre_herbe", "liane"]},
 ]
 # Pour l'instant une seule version par objet : cailloux de taille 4, pomme rouge de taille 2.
 const CATALOG_MODELS := {"caillou": {"taille": 4}, "caillou_calcaire": {"taille": 4}, "caillou_silex": {"taille": 4}, "pomme": {"taille": 2, "couleur": 1}}
@@ -439,9 +447,23 @@ func fill(group: String) -> Dictionary:
 # noisetier plus souple, pin plus raide) ; taille 1 à 7 selon l'épaisseur ; poids : bois frais d'environ 0,75 kg/L.
 const WOOD_SIZES := [2.0, 3.0, 4.0, 6.0, 8.0, 11.0, 15.0]
 
-static func wood_piece(id: String, essence: int, thickness: float, length: float, rng: RandomNumberGenerator) -> Dictionary:
+# 0.0.8.4 (#228, demande de l'utilisateur) : âge (1 très jeune à 5 vieux) et souplesse (1 cassant à 5 très souple) propres
+# à chaque arbre (même graine : mêmes valeurs), gardés par tous ses bâtons et troncs. Comme dans la nature : bois jeune
+# souple, vieux bois cassant ; le noisetier plus souple, le pin plus raide.
+static func tree_wood(tree_id: String, essence: int) -> Vector2i:
+	var rng := RandomNumberGenerator.new()
+	rng.seed = hash(tree_id + "/bois")
 	var age := clampi(int(round(rng.randfn(2.6, 1.0))), 1, 5)
 	var supple := clampi(6 - age + (1 if essence == 1 else 0) - (1 if essence == 2 else 0) + rng.randi_range(-1, 1), 1, 5)
+	return Vector2i(age, supple)
+
+static func wood_piece(id: String, essence: int, thickness: float, length: float, rng: RandomNumberGenerator, traits := Vector2i(-1, -1)) -> Dictionary:
+	var age := clampi(int(round(rng.randfn(2.6, 1.0))), 1, 5)
+	var supple := clampi(6 - age + (1 if essence == 1 else 0) - (1 if essence == 2 else 0) + rng.randi_range(-1, 1), 1, 5)
+	# 0.0.8.4 : bois d'un arbre : son âge et sa souplesse (tree_wood) ; les tirages restent faits pour garder la suite du hasard.
+	if traits.x > 0:
+		age = traits.x
+		supple = traits.y
 	var size := WOOD_SIZES.size()
 	for index in range(WOOD_SIZES.size()):
 		if thickness <= WOOD_SIZES[index]:

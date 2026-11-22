@@ -510,6 +510,9 @@ func _physics_process(delta: float) -> void:
 	# 0.0.7.27 (#217) : Survie : creuser en maintenant, durée selon la matière.
 	if is_instance_valid(world) and world.has_method("step_dig"):
 		world.step_dig(delta, breaking_held)
+	# 0.0.8.4 (#213) : R maintenu (pas R + I) sur une plante à fibres ou une liane : la récolter.
+	if is_instance_valid(world) and world.has_method("step_harvest"):
+		world.step_harvest(delta, active and Input.is_action_pressed("pick_up") and not gathering)
 	# 0.0.8 (#204) : manger, clic droit maintenu avec un fruit en main (Survie).
 	if is_instance_valid(world) and world.has_method("step_eat"):
 		world.step_eat(delta, active and Input.is_action_pressed("place_block") and not click_modified())

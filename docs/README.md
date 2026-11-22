@@ -1,6 +1,18 @@
-# OrbMeka™ — prototype 0.0.8.3
+# OrbMeka™ — prototype 0.0.8.4
 
 Godot 4.7 / GDScript. Formes et couleurs simples ; assets externes seulement sous licence vérifiée (sons CC0, assets/sounds/CREDITS.txt).
+
+## 0.0.8.4 — Récolte : R maintenu 1 s sur une ortie, du lin ou des herbes longues donne 1 à 3 fibres (la plante reste coupée), sur un tilleul à liane une liane ; et chaque arbre a son âge et sa souplesse, gardés par tout son bois
+Version locale (3 sur 4). Génération inchangée (version 33). Demandes de l'utilisateur (#213, #228).
+- **Fibres** : **R maintenu 1 s** (Créatif : 0,3 s, anneau) en visant une **ortie**, du **lin** ou des **herbes longues** (déjà dans le monde) : **1 à 3 fibres** (Fibre d'ortie, de lin, d'herbe ; même graine : même nombre). La plante reste **coupée** (tige basse), enregistrée ; pas encore de repousse.
+- **Liane** : R maintenu en visant le tronc d'un **tilleul à liane** : une **liane** (lien grossier) ; elle disparaît du tronc.
+- Dans la case choisie, comme ramasser ; ce qui ne tient pas tombe au sol devant soi. Message « 2 fibres d'herbe récoltées ».
+- Objets : icônes (botte de brins, rouleau), petite botte et rouleau en main et au sol ; Créatif : nouvel onglet **Plantes** (après Bois).
+- **Bois (#228)** : chaque arbre a son **âge** (1 à 5) et sa **souplesse** (1 à 5), toujours les mêmes pour lui ; tous ses bâtons et troncs les gardent (noisetier plus souple, pin plus raide ; avant : tirés au hasard à chaque morceau).
+- Ensuite : tresser les fibres en ficelle (menu de fabrication O + F, 0.0.8.5).
+
+Tests réussis : fibers (17, nouveau), inventory, inventory_more, plants, forests, trees, tree_fall, sticks, world_save, web_save, hands_eat, return_orb, action_timing, lawn_ring (+ tests juridiques). Captures hors écran : herbe longue coupée, fibres en main, icônes.
+À tester : récolter des orties, du lin et des herbes longues, une liane sur un tilleul (cœur des forêts de feuillus) ; recharger le monde (plantes toujours coupées).
 
 ## 0.0.8.3 — Mains et poches : 2 pommes par main et 3 à deux mains, 5 noisettes par main et 15 par poche (les fruits ne comptent plus en litres dans les mains, une noisette compte 4 ml) ; manger plus simple, dans tous les modes du clic droit : noisette en 0,5 s, on continue en restant appuyé, « Manger » dans B + T ; nom de l'objet pris en main au-dessus de la barre (plus sous les cases) ; orbe de retour plus grande, brillante, qui éclaire autour d'elle
 Version locale (2 sur 4). Génération inchangée (version 33). Demandes de l'utilisateur.

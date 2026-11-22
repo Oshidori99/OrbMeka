@@ -18,6 +18,7 @@ const Water = preload("res://scripts/water.gd")
 const Inventory = preload("res://scripts/inventory.gd")
 const InventoryUI = preload("res://scripts/inventory_ui.gd")
 const ReturnOrb = preload("res://scripts/return_orb.gd")
+const Fibers = preload("res://scripts/fibers.gd")
 const DIRT := 2
 const BLOCK_COLORS := [Color("#d8c291"), Color("#888b90"), Color("#855332")]
 const BLOCK_NAMES := ["Sable", "Pierre", "Terre"]
@@ -2026,7 +2027,7 @@ func _part_wood_item(tree: Node3D, part: int, leafy := false) -> Dictionary:
 	var thickness := maxf(thick_low, thick_high)
 	var rng := RandomNumberGenerator.new()
 	rng.seed = hash(str(tree.get_meta("id", "")) + "_" + str(part))
-	var wood := Inventory.wood_piece("rameau" if leafy else ("tronc" if thickness >= 0.04 else "branche"), kind, (thick_low + thick_high) * 50.0, (high - low) * scale, rng)
+	var wood := Inventory.wood_piece("rameau" if leafy else ("tronc" if thickness >= 0.04 else "branche"), kind, (thick_low + thick_high) * 50.0, (high - low) * scale, rng, Inventory.tree_wood(str(tree.get_meta("id", "")), kind))
 	wood.epaisseur = snappedf(thickness * 100.0, 0.1)
 	wood.fin = snappedf(minf(thick_low, thick_high) * 100.0, 0.1)
 	var along: Vector3 = (_model_of(tree).basis * piece.direction).normalized()
@@ -2606,7 +2607,7 @@ func _drop_wood_part(tree: Node3D, part: Array, to_world: Transform3D) -> void:
 	var thickness := maxf(base_thick, end_thick)
 	var rng := RandomNumberGenerator.new()
 	rng.seed = hash(str(tree.get_meta("id", "")) + str(part))
-	var piece := Inventory.wood_piece("tronc" if thickness >= 0.04 else "branche", kind, (base_thick + end_thick) * 50.0, (hi - lo) * scale, rng)
+	var piece := Inventory.wood_piece("tronc" if thickness >= 0.04 else "branche", kind, (base_thick + end_thick) * 50.0, (hi - lo) * scale, rng, Inventory.tree_wood(str(tree.get_meta("id", "")), kind))
 	piece.epaisseur = snappedf(thickness * 100.0, 0.1)
 	piece.fin = snappedf(minf(base_thick, end_thick) * 100.0, 0.1)
 	var along: Vector3 = (to_world.basis * Vector3.UP).normalized()
@@ -3008,6 +3009,130 @@ func pick_up(hit: Dictionary) -> bool:
 		_build_pebble_bodies(column)
 	show_choice("%s (%s)" % [Inventory.item_name(value), Inventory.format_weight(Inventory.unit_weight(value))])
 	return true
+
+# --- 0.0.8.4 (#213, demandes de l'utilisateur) : récolter des fibres et des lianes ---
+# R maintenu (Ramasser) Fibers.HARVEST_SECONDS en visant une ortie, du lin ou des herbes longues : 1 à 3 fibres (même
+# graine : même nombre), la plante reste coupée (tige basse) ; en visant le tronc d'un tilleul à liane : une liane, qui
+# disparaît du tronc. Dans la case choisie (comme ramasser) ; ce qui ne tient pas tombe au sol devant soi.
+var cut_plants: Dictionary = {}
+var cut_vines: Dictionary = {}
+var harvest_key := ""
+var harvest_time := 0.0
+
+# Plante à fibres visée (cylindre autour de la plante, à portée de casse, rien de solide devant) : {} si aucune.
+func aimed_plant(hit: Dictionary) -> Dictionary:
+	if not is_instance_valid(player):
+		return {}
+	var origin: Vector3 = player.camera.global_position
+	var direction: Vector3 = -player.camera.global_transform.basis.z
+	var reach: float = player.break_reach
+	if not hit.is_empty():
+		reach = minf(reach, origin.distance_to(hit.position) + 0.15)
+	var flat := Vector2(direction.x, direction.z)
+	var a := flat.length_squared()
+	if a < 0.000001:
+		return {}
+	var best := {}
+	var here := _player_column()
+	for dx in [-1, 0, 1]:
+		for dz in [-1, 0, 1]:
+			var column: Vector2i = here + Vector2i(dx, dz)
+			for plant: Dictionary in terrain.plants_in_zone(column):
+				var id := Fibers.plant_id(plant)
+				if cut_plants.has(id):
+					continue
+				var size: float = Plants.SIZES[int(plant.plante)] * float(plant.taille)
+				var radius := size * Fibers.AIM_RADIUS
+				var foot := terrain.height_at(float(plant.x), float(plant.z))
+				var from := Vector2(origin.x - float(plant.x), origin.z - float(plant.z))
+				var b := 2.0 * from.dot(flat)
+				var c := from.length_squared() - radius * radius
+				var gap := b * b - 4.0 * a * c
+				if gap < 0.0:
+					continue
+				var distance := (-b - sqrt(gap)) / (2.0 * a)
+				if distance < 0.0:
+					distance = (-b + sqrt(gap)) / (2.0 * a)
+				if distance < 0.0 or distance > reach:
+					continue
+				var height := origin.y + direction.y * distance - foot
+				if height < -0.15 or height > size * Fibers.AIM_HEIGHT:
+					continue
+				if best.is_empty() or distance < best.distance:
+					best = {"kind": "plante", "key": "plante/" + id, "id": id, "plant": plant, "column": column, "distance": distance}
+	return best
+
+# Ce que R maintenu récolte : la plante visée, ou la liane du tilleul visé (la plus proche).
+func aimed_harvest(hit: Dictionary) -> Dictionary:
+	var plant := aimed_plant(hit)
+	if not hit.is_empty() and is_instance_valid(hit.get("collider")):
+		var tree: Node = hit.collider
+		if tree.is_in_group("trees") and tree.get_meta("liane", false) == true and not tree.has_meta("falling") and not fallen_trees.has(str(tree.get_meta("id", ""))):
+			var distance: float = player.camera.global_position.distance_to(hit.position)
+			if distance <= player.break_reach + 0.01 and (plant.is_empty() or distance < plant.distance):
+				return {"kind": "liane", "key": "liane/" + str(tree.get_meta("id", "")), "tree": tree, "distance": distance}
+	return plant
+
+func step_harvest(delta: float, holding: bool) -> bool:
+	if not holding or not is_instance_valid(player):
+		harvest_key = ""
+		harvest_time = 0.0
+		return false
+	var target := aimed_harvest(player.get_target())
+	if target.is_empty():
+		harvest_key = ""
+		harvest_time = 0.0
+		return false
+	if target.key != harvest_key:
+		harvest_key = target.key
+		harvest_time = 0.0
+	harvest_time += delta
+	var seconds := Fibers.HARVEST_SECONDS_CREATIVE if game_mode == Inventory.CREATIVE else Fibers.HARVEST_SECONDS
+	show_ring(harvest_time / seconds)
+	if harvest_time < seconds:
+		return false
+	harvest_key = ""
+	harvest_time = 0.0
+	return harvest(target)
+
+func harvest(target: Dictionary) -> bool:
+	var value := {}
+	if target.kind == "plante":
+		var plant: Dictionary = target.plant
+		value = {"objet": Fibers.PLANT_ITEMS[int(plant.plante)], "pile": []}
+		for index in range(Fibers.fiber_count(plant)):
+			value.pile.append({})
+		cut_plants[target.id] = true
+		_refresh_column_plants(target.column)
+	else:
+		var tree: Node3D = target.tree
+		value = {"objet": Fibers.LIANE, "pile": [{}]}
+		cut_vines[str(tree.get_meta("id", ""))] = true
+		tree.set_meta("liane", false)
+		var climb := tree.get_node_or_null("Modele/Liane")
+		if climb != null:
+			climb.queue_free()
+	objects_dirty = true
+	var amount := Inventory.count(value)
+	var result := inventory.add_to_selected(value)
+	var rest: int = amount - int(result.added)
+	if rest > 0 and is_instance_valid(ground):
+		var near := player.global_position - player.global_transform.basis.z * 0.8
+		for unit in Inventory.units(value).slice(int(result.added)):
+			ground.drop(unit, player.camera.global_position - player.global_transform.basis.z * 0.3, near, _rest_height, 0.15)
+	var name := Inventory.plural_name(value) if amount > 1 else Inventory.item_name(value).to_lower()
+	show_choice("%d %s récoltée%s" % [amount, name, "s" if amount > 1 else ""] + (" (%d au sol)" % rest if rest > 0 else ""))
+	return true
+
+func _refresh_column_plants(column: Vector2i) -> void:
+	var kept: Array = []
+	for node in column_objects.get(column, []):
+		if is_instance_valid(node) and node.is_in_group("plants"):
+			node.queue_free()
+		else:
+			kept.append(node)
+	column_objects[column] = kept
+	_show_column_plants(column)
 
 # R + I maintenus : prendre une poignée de matière en vrac (terre, sable, argile, boue, gravier) là où l'on vise,
 # après GATHER_SECONDS (plus long que creuser). Survie seulement ; dans la case choisie (0.0.7.5), comme ramasser.
@@ -4949,6 +5074,10 @@ func _read_carved(data: Dictionary) -> void:
 	# 0.0.7.5 : fruits cueillis, par arbre (numéros des fruits du modèle, trees.gd fruit_spots).
 	for id in data.get("branches_ramassees", []):
 		picked_branches[str(id)] = true
+	for id in data.get("plantes_coupees", []):
+		cut_plants[str(id)] = true
+	for id in data.get("lianes_coupees", []):
+		cut_vines[str(id)] = true
 	for id in data.get("rejets_casses", []):
 		broken_shoots[str(id)] = true
 	var picked: Variant = data.get("fruits_cueillis", {})
@@ -5096,6 +5225,9 @@ func _show_column_plants(column: Vector2i) -> void:
 	var plant_list: Array = terrain.plants_in_zone(column)
 	if plant_list.is_empty():
 		return
+	for plant: Dictionary in plant_list:
+		if cut_plants.has(Fibers.plant_id(plant)):
+			plant.coupee = true
 	for node in Plants.column_nodes(plant_list, terrain.height_at):
 		node.set_meta("column", column)
 		_rocks_parent().add_child(node)
@@ -5136,7 +5268,10 @@ func _make_column_tree(column: Vector2i, tree: Dictionary) -> void:
 		return
 	# 0.0.7.21 : arbre intact (ni tombé ni coupé) : dessiné en série avec ceux de sa colonne (_rebuild_series).
 	var intact: bool = not fallen_trees.has(id) and tree_cuts.get(id, {}).get("coupes", []).is_empty()
-	var made := Trees.tree_body(int(tree.espece), int(tree.get("classe", 3)), tree.get("liane", false), int(tree.get("forme", 0)), intact)
+	# 0.0.8.4 (#213) : liane récoltée : plus sur le tronc.
+	var vine: bool = tree.get("liane", false) == true and not cut_vines.has(id)
+	var made := Trees.tree_body(int(tree.espece), int(tree.get("classe", 3)), vine, int(tree.get("forme", 0)), intact)
+	made.set_meta("liane", vine)
 	made.position = Vector3(tree.x, terrain.height_at(tree.x, tree.z) - 0.05, tree.z)
 	made.rotation.y = deg_to_rad(float(tree.rotation))
 	made.scale = Vector3.ONE * float(tree.taille)
@@ -5651,6 +5786,9 @@ func _save_objects() -> bool:
 	# 0.0.7.26 (#212) : branches mortes de la graine ramassées, rejets cassés.
 	data.branches_ramassees = picked_branches.keys()
 	data.rejets_casses = broken_shoots.keys()
+	# 0.0.8.4 (#213) : plantes à fibres récoltées et lianes récoltées (identifiant de l'arbre).
+	data.plantes_coupees = cut_plants.keys()
+	data.lianes_coupees = cut_vines.keys()
 	data.arbres_tombes = fallen_trees.duplicate(true)
 	data.arbres_coupes = cut_trees.keys()
 	data.arbres_branches = tree_cuts.duplicate(true)

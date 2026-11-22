@@ -10,6 +10,7 @@ const NAMES := ["ortie", "lin", "herbe_longue"]
 # Taille de l'image (m) : largeur = hauteur (rendu carré de Blender, pied en bas).
 const SIZES := [1.5, 1.0, 1.5]
 const VIEW_END := 45.0
+const CUT_HEIGHT := 0.2
 const FOLDER := "res://assets/plants/"
 const TINT := Color(1.08, 1.12, 0.85)
 static var _meshes: Dictionary = {}
@@ -73,7 +74,9 @@ static func column_nodes(plants: Array, height_at: Callable) -> Array:
 		multi.instance_count = list.size()
 		for index in range(list.size()):
 			var plant: Dictionary = list[index]
-			var basis := Basis(Vector3.UP, deg_to_rad(float(plant.rotation))).scaled(Vector3.ONE * float(plant.taille))
+			# 0.0.8.4 (#213) : plante récoltée : tige basse (CUT_HEIGHT de sa hauteur).
+			var high := float(plant.taille) * (CUT_HEIGHT if plant.get("coupee", false) else 1.0)
+			var basis := Basis(Vector3.UP, deg_to_rad(float(plant.rotation))).scaled(Vector3(float(plant.taille), high, float(plant.taille)))
 			multi.set_instance_transform(index, Transform3D(basis, Vector3(plant.x, height_at.call(plant.x, plant.z) - 0.03, plant.z)))
 		var node := MultiMeshInstance3D.new()
 		node.name = "Plantes_" + NAMES[kind]
