@@ -3,6 +3,10 @@ Du plus récent au plus ancien. Ce fichier est mis à jour à chaque version.
 
 === Thème « Fabrication et survie » (0.0.8) ===
 
+0.0.8.17 — Bras et mains animés à la première personne : la main serre ce qu'elle tient, creuse en griffe, s'ouvre pour poser, attrape en ramassant, serre et tire en récoltant, porte le fruit à la bouche ; doigts animés pour tailler, fendre, assembler, tresser et ficeler
+Génération du terrain : version 33 · Menus : version 13.
+Issue #224 (première personne) ; la main du jeu refaite dans Blender avec 4 poses (sources_blender/main/generer_main.py).
+
 0.0.8.16 — Carnet de route (O + C, ou le menu Échap) : les commandes en cases avec leurs détails, le chemin des premiers outils (de la ficelle à la hache et la pioche), tout se coche quand c'est fait, bouton Réinitialiser ; message la première fois dans un monde ; l'aide de l'inventaire passe dans le carnet
 Génération du terrain : version 33 · Menus : version 13.
 Issue #208 (aide pour débuter), d'après la description de l'utilisateur ; nom original (« Carnet de route »), style bleu-violet d'OrbMeka.

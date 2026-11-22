@@ -3558,6 +3558,9 @@ func pick_up(hit: Dictionary) -> bool:
 		_build_pebble_bodies(column)
 	show_choice("%s (%s)" % [Inventory.item_name(value), Inventory.format_weight(Inventory.unit_weight(value))])
 	notebook_mark("ramasser")
+	# 0.0.8.17 (#224) : la main s'avance et attrape.
+	if is_instance_valid(player.hand_view):
+		player.hand_view.grab()
 	return true
 
 # --- 0.0.8.4 (#213, demandes de l'utilisateur) : récolter des fibres et des lianes ---
@@ -4881,6 +4884,10 @@ func eat_release(hit: Dictionary) -> void:
 			place_target(hit, player.selected_type)
 
 func step_eat(delta: float, holding: bool) -> bool:
+	# 0.0.8.17 (#224) : la main revient quand on ne mange plus.
+	if eat_time < 0.0 or not holding:
+		if is_instance_valid(player) and is_instance_valid(player.hand_view):
+			player.hand_view.eat(0.0)
 	if eat_time < 0.0:
 		return false
 	var use := hold_use()
@@ -4896,6 +4903,9 @@ func step_eat(delta: float, holding: bool) -> bool:
 	# 0.0.8.3 : chaque fruit sa durée (noisette plus rapide).
 	var seconds := ReturnOrb.USE_SECONDS if use == "orbe" else Health.eat_seconds(inventory.held())
 	show_ring(eat_time / seconds)
+	# 0.0.8.17 (#224) : le fruit monte vers la bouche.
+	if use == "manger" and is_instance_valid(player.hand_view):
+		player.hand_view.eat(eat_time / seconds)
 	if eat_time < seconds:
 		return false
 	if use == "orbe":

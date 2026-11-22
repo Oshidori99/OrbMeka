@@ -584,6 +584,11 @@ func step_braid(delta: float) -> bool:
 	# Les mains tendent les brins (un peu plus écartées) ; la main droite roule d'avant en arrière.
 	hands[0].position = hands[0].rest + Vector3(-0.015 * share, 0.0, 0.0)
 	hands[1].position = hands[1].rest + Vector3(0.015 * share, 0.008 * sin(hold_time * 10.0), 0.0)
+	# 0.0.8.17 (#224) : les doigts pincent les brins ; la main droite roule (la pince s'ouvre et se ferme un peu).
+	hands[0]._go_pose("pince", 1.0)
+	hands[1]._go_pose("pince", 0.75 + 0.25 * sin(hold_time * 10.0))
+	for hand in hands:
+		hand._gesture_left = 0.2
 	_draw_strands(share)
 	# 0.0.8.8 (demande de l'utilisateur) : tresser des fibres d'ortie pique un peu (Survie), chaque seconde.
 	if picks.fibres.fibres == "fibre_ortie" and floori(hold_time) > floori(hold_time - delta) and world.has_method("hurt"):
@@ -672,6 +677,11 @@ func _strike_motion() -> void:
 		return
 	var hammer: Node3D = hands[0]
 	var target: Vector3 = hands[1].rest + Vector3(-0.07, 0.03, 0.0)
+	# 0.0.8.17 (#224) : la main qui frappe serre fort son caillou, l'autre tient la pierre.
+	hammer._go_pose("prise", 1.0)
+	hammer._gesture_left = 0.3
+	hands[1]._go_pose("prise", 0.8)
+	hands[1]._gesture_left = 0.3
 	var motion := create_tween()
 	motion.tween_property(hammer, "position", target, 0.08).set_ease(Tween.EASE_IN)
 	motion.tween_property(hammer, "position", hammer.rest, 0.16).set_ease(Tween.EASE_OUT)
@@ -704,6 +714,10 @@ func step_split(delta: float) -> bool:
 	ring.progress = share
 	var push := absf(sin(hold_time * 7.0)) * 0.04
 	hands[1].position = hands[1].rest + Vector3(-0.07 - push, 0.02, 0.0)
+	# 0.0.8.17 (#224) : les deux mains serrent (la branche, l'éclat qu'on enfonce).
+	for hand in hands:
+		hand._go_pose("prise", 1.0)
+		hand._gesture_left = 0.2
 	if hold_time < Rules.SPLIT_SECONDS:
 		return false
 	hold_time = 0.0
@@ -749,6 +763,9 @@ func assemble() -> bool:
 	var made := Rules.assemble_result(stick.value, stone.value)
 	world.give_crafted(made)
 	if is_inside_tree():
+		# 0.0.8.17 (#224) : la tête, pincée, glisse dans la fente.
+		hands[1]._go_pose("pince", 1.0)
+		hands[1]._gesture_left = 0.4
 		var motion := create_tween()
 		motion.tween_property(hands[1], "position", hands[0].rest + Vector3(0.06, 0.04, 0.0), 0.15)
 		motion.tween_property(hands[1], "position", hands[1].rest, 0.2)
@@ -769,6 +786,11 @@ func step_bind(delta: float) -> bool:
 	ring.progress = float(turns) / Rules.TURNS_MAX + fmod(hold_time, Rules.TURN_SECONDS) / Rules.TURN_SECONDS / Rules.TURNS_MAX
 	var angle := hold_time / Rules.TURN_SECONDS * TAU
 	hands[1].position = hands[0].rest + Vector3(0.2 + cos(angle) * 0.03, 0.0 + sin(angle) * 0.02, sin(angle) * 0.03)
+	# 0.0.8.17 (#224) : la main droite pince la ficelle en tournant, la gauche serre le manche.
+	hands[1]._go_pose("pince", 1.0)
+	hands[0]._go_pose("prise", 1.0)
+	for hand in hands:
+		hand._gesture_left = 0.2
 	status.text = "Tours : %d (relâchez pour finir, %d au moins, %d au plus)." % [turns, Rules.TURNS_MIN, Rules.TURNS_MAX]
 	# Chaque tour se voit sur le manche (le lien et ses tours sur l'outil de la main gauche).
 	if turns != shown_turns:

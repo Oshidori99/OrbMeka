@@ -1,6 +1,18 @@
-# OrbMeka™ — prototype 0.0.8.16
+# OrbMeka™ — prototype 0.0.8.17
 
 Godot 4.7 / GDScript. Formes et couleurs simples ; assets externes seulement sous licence vérifiée (sons CC0, assets/sounds/CREDITS.txt).
+
+## 0.0.8.17 — Bras et mains animés à la première personne : la main serre ce qu'elle tient, creuse en griffe, s'ouvre pour poser, attrape en ramassant, serre et tire en récoltant, porte le fruit à la bouche ; doigts animés pour tailler, fendre, assembler, tresser et ficeler
+Version locale (4 sur 4 : à publier, mais pas avant que l'utilisateur, absent, ait regardé 0.0.8.14 à 0.0.8.17). Génération inchangée (version 33). Issue #224.
+- **La main du jeu a des poses** (sources_blender/main/generer_main.py, dans Blender) : prise (serrer), griffe (creuser), ouverte (poser), pince (pouce et index), en formes de mélange du même modèle ; le jeu passe de l'une à l'autre en douceur (scripts/first_person_hand.gd).
+- **Au repos, elle serre ce qu'elle tient** : un caillou, un fruit, une tête, une orbe (prise) ; des fibres, une ficelle, une plante (pince) ; un outil, du bois (prise forte) ; une poignée de matière (un peu).
+- **Gestes** : creuser ou casser à la main (griffe qui gratte vers soi), poser (main ouverte qui pousse), ramasser (R, molette : elle s'avance ouverte, se ferme, revient), récolter et arracher (elle serre et tire), manger (le fruit monte vers la bouche, petits mouvements).
+- **Fabrication (O + F)** : les doigts suivent les gestes : tresser (les deux mains pincent, la droite roule), tailler (la main qui frappe serre son caillou), fendre (les deux mains serrent), assembler (la tête pincée glisse dans la fente), ficeler (la droite pince la ficelle en tournant).
+- **Reste à faire** (#224, #225) : les bras des personnages vus de derrière et de devant (F4) et ceux des autres personnages. Leurs modèles n'ont pas encore de squelette : il faut les préparer dans Blender (personnages.blend).
+- Plante et motte de gazon tenues en main (0.0.8.15) : maintenant visibles dans la main.
+
+Tests réussis : bras (13, nouveau), crafting, hands_eat, breaking, inventory, inventory_more, fibers, plantes_inventaire, tools, fixes_089, carnet, views, prototype, history_resume (+ tests juridiques).
+À tester : regarder ses mains en jouant : tenir un caillou, des fibres, un outil ; creuser à la main, poser, ramasser (R, molette), récolter (R), manger une pomme ; fabriquer (O + F) chaque action.
 
 ## 0.0.8.16 — Carnet de route (O + C, ou le menu Échap) : les commandes en cases avec leurs détails, le chemin des premiers outils (de la ficelle à la hache et la pioche), tout se coche quand c'est fait, bouton Réinitialiser ; message la première fois dans un monde ; l'aide de l'inventaire passe dans le carnet
 Version locale (3 sur 4). Génération inchangée (version 33). Issue #208, décrite par l'utilisateur.

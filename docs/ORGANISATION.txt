@@ -134,4 +134,7 @@ les arrachées, plus les plantées ; repousse des plantées) ; objets plante_ort
 Carnet de route (0.0.8.16, #208) : scripts/carnet.gd (commandes, chemin des premiers outils, coches), scripts/carnet_ui.gd
 (écran, O + C ou menu Échap) ; world.gd notebook_mark (cases), _on_notebook_inventory (étapes : objets sur soi), joueur.json
 « carnet » et « carnet_vu ». Test : tests/carnet_test.gd.
+Mains animées (0.0.8.17, #224) : assets/hands/main_droite.glb a 4 poses (formes de mélange : prise, griffe, ouverte, pince ;
+sources_blender/main/generer_main.py) ; scripts/first_person_hand.gd : pose au repos selon l'objet tenu, gestes (dig, place,
+grab, pull, eat) ; crafting_ui.gd : poses pendant les actions. Test : tests/bras_test.gd.
 scripts/progress_ring.gd (0.0.7.8) : anneau de chargement autour de la croix de visée (abattre, couper, récupérer).

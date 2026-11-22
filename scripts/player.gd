@@ -400,7 +400,8 @@ func _break_once() -> bool:
 	if selected_type == world.PICKAXE:
 		swing_pickaxe()
 	elif is_instance_valid(hand_view):
-		hand_view.nudge()
+		# 0.0.8.17 (#224) : la main creuse (griffe).
+		hand_view.dig()
 	return world.break_target(get_target())
 
 func begin_placement() -> bool:
@@ -409,14 +410,14 @@ func begin_placement() -> bool:
 		return false
 	actions.set_place_pressed(true, true)
 	if is_instance_valid(hand_view):
-		hand_view.nudge()
+		hand_view.place()
 	return world.place_target(get_target(), selected_type)
 
 func step_placement(delta: float, active: bool, button_held: bool) -> bool:
 	if not actions.tick_place(delta, active, button_held):
 		return false
 	if is_instance_valid(hand_view):
-		hand_view.nudge()
+		hand_view.place()
 	return world.place_target(get_target(), selected_type)
 
 func release_controls() -> void:
