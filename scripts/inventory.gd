@@ -931,6 +931,71 @@ static func tool_lines(value: Dictionary) -> Array:
 		lines.append("Pas encore ficelée")
 	return lines
 
+# --- 0.0.8.18 (#246, demande de l'utilisateur) : fiche de fabrication d'un outil (et d'une tête taillée) ---
+# Chaque étape : [étape, ce qu'on a, note (« bien », « moyen », « à améliorer »), son effet] ; puis des conseils pour un
+# meilleur outil, et un résumé (qualité, coups). Les effets sont ceux des règles ci-dessus (tool_quality,
+# tool_durability) : rien d'inventé.
+const RATINGS := ["bien", "moyen", "à améliorer"]
+
+static func has_tool_report(value: Dictionary) -> bool:
+	return ITEMS.get(value.get("objet", ""), {}).get("forme", "") in ["outil_brut", "outil_pierre", "tete"]
+
+static func tool_report(value: Dictionary) -> Dictionary:
+	var form: String = ITEMS.get(value.get("objet", ""), {}).get("forme", "")
+	var steps := []
+	var tips := []
+	if int(value.get("pierre", 1)) == 1:
+		steps.append(["Pierre de la tête", "silex", "bien", "la plus dure : 60 % de coups en plus qu'en calcaire"])
+	else:
+		steps.append(["Pierre de la tête", "calcaire", "à améliorer", "plus tendre : 10 % plus lente, beaucoup moins de coups"])
+		tips.append("Tailler la tête dans un silex (rognon de silex) plutôt que dans un calcaire.")
+	match int(value.get("taille", 4)):
+		5:
+			steps.append(["Taille de la tête", "grande", "bien", "+12 % de vitesse, +25 % de coups"])
+		3:
+			steps.append(["Taille de la tête", "petite", "à améliorer", "-15 % de vitesse, -25 % de coups"])
+			tips.append("Tailler une plus grande pierre (taille 5) : +12 % de vitesse et +25 % de coups.")
+		_:
+			steps.append(["Taille de la tête", "moyenne", "moyen", "normale"])
+			tips.append("Tailler une grande pierre (taille 5) : +12 % de vitesse et +25 % de coups.")
+	if form != "tete":
+		if int(value.get("morte", 0)) == 1:
+			steps.append(["Bois du manche", "bois mort", "à améliorer", "-8 % de vitesse, -25 % de coups"])
+			tips.append("Prendre une branche vivante (coupée sur un arbre) plutôt qu'une branche morte ramassée.")
+		else:
+			steps.append(["Bois du manche", "bois vivant", "bien", "solide"])
+		var supple := clampi(int(value.get("souplesse", 3)), 1, 5)
+		if supple in [2, 3]:
+			steps.append(["Souplesse du manche", "%s (%d sur 5)" % [SUPPLE_NAMES[supple - 1], supple], "bien", "+5 % de coups"])
+		else:
+			steps.append(["Souplesse du manche", "%s (%d sur 5)" % [SUPPLE_NAMES[supple - 1], supple], "à améliorer", "-8 % de coups (trop souple ou trop cassant)"])
+			tips.append("Un manche de souplesse 2 ou 3 (raide ou moyen) : ni trop souple, ni cassant.")
+		if not value.has("lien"):
+			steps.append(["Ficelage", "pas encore ficelé", "à améliorer", "l'outil ne sert pas encore"])
+			tips.append("Ficeler la tête (O + F → Ficeler) : 3 ficelles de lin et 8 tours, c'est le plus solide.")
+		else:
+			var bind := clampi(int(value.lien), 0, BIND_NAMES.size() - 1)
+			var bind_effects := ["normal", "+20 % de coups", "-15 % de coups", "-25 % de coups (lien grossier)"]
+			steps.append(["Lien", BIND_NAMES[bind], ["moyen", "bien", "à améliorer", "à améliorer"][bind], bind_effects[bind]])
+			if bind != 1:
+				tips.append("Ficeler avec de la ficelle de lin : le lien le plus solide (+20 % de coups).")
+			var turns := clampi(int(value.get("tours", 4)), 4, 8)
+			var rating := "bien" if turns == 8 else ("moyen" if turns >= 6 else "à améliorer")
+			steps.append(["Tours de ficelle", "%d tours" % turns, rating, "chaque tour en plus : +2 % de vitesse, +6 % de coups (8 au plus)"])
+			if turns < 8:
+				tips.append("Faire 8 tours en ficelant (relâcher le clic plus tard).")
+	var summary := ""
+	if form == "outil_pierre":
+		var work := "coupe le bois %s fois plus vite" % _number(3.0 * tool_quality(value)) if value.get("objet", "") == "hache_pierre" else "casse la pierre %s fois plus vite" % _number(4.0 * tool_quality(value))
+		summary = "Elle %s. Neuve : %d coups (300 au mieux) ; il en reste %d." % [work, tool_durability(value), tool_left(value)]
+	elif form == "outil_brut":
+		summary = "Pas encore ficelée : elle ne sert pas encore."
+	else:
+		summary = "La tête décide d'une grande part de la qualité de l'outil."
+	if tips.is_empty():
+		tips.append("Rien à améliorer : c'est le meilleur outil possible.")
+	return {"etapes": steps, "conseils": tips, "resume": summary}
+
 static func detail_lines(value: Dictionary) -> Array:
 	var id: String = value.get("objet", "")
 	var lines := [item_name(value)]

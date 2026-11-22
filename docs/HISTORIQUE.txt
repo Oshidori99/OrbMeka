@@ -3,6 +3,10 @@ Du plus récent au plus ancien. Ce fichier est mis à jour à chaque version.
 
 === Thème « Fabrication et survie » (0.0.8) ===
 
+0.0.8.18 — Fiche de fabrication de chaque outil : chaque étape notée (bien, moyen, à améliorer) avec son effet, et des conseils pour un meilleur outil ; bouton « Fiche de fabrication » sur les détails d'un outil ou d'une tête
+Génération du terrain : version 33 · Menus : version 14.
+Issue #246 ; les notes et les effets viennent des règles des outils (0.0.8.10), rien d'inventé.
+
 0.0.8.17 — Bras et mains animés à la première personne : la main serre ce qu'elle tient, creuse en griffe, s'ouvre pour poser, attrape en ramassant, serre et tire en récoltant, porte le fruit à la bouche ; doigts animés pour tailler, fendre, assembler, tresser et ficeler
 Génération du terrain : version 33 · Menus : version 13.
 Issue #224 (première personne) ; la main du jeu refaite dans Blender avec 4 poses (sources_blender/main/generer_main.py).

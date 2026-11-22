@@ -1,6 +1,16 @@
-# OrbMeka™ — prototype 0.0.8.17
+# OrbMeka™ — prototype 0.0.8.18
 
 Godot 4.7 / GDScript. Formes et couleurs simples ; assets externes seulement sous licence vérifiée (sons CC0, assets/sounds/CREDITS.txt).
+
+## 0.0.8.18 — Fiche de fabrication de chaque outil : chaque étape notée (bien, moyen, à améliorer) avec son effet, et des conseils pour un meilleur outil ; bouton « Fiche de fabrication » sur les détails d'un outil ou d'une tête
+Version locale (5 : la publication de 0.0.8.14 à 0.0.8.18 attend l'utilisateur, absent). Génération inchangée (version 33). Issue #246.
+- **Fiche de fabrication** (Inventory.tool_report, inventory_ui.gd) : pour une hache ou une pioche (à ficeler ou ficelée) et une tête taillée. Ouverte par le bouton « Fiche de fabrication » des détails (« + » sur la case, ou D + T) ; Fermer ou Échap.
+- **Chaque étape** : pierre de la tête (silex bien, calcaire à améliorer), taille de la tête (grande, moyenne, petite), bois du manche (vivant ou mort), souplesse (2 ou 3 : bien), lien (lin bien, ortie moyen, herbe et liane à améliorer), tours de ficelle (8 : bien) ; avec son effet sur la vitesse et le nombre de coups, d'après les vraies règles des outils (0.0.8.10).
+- **Résumé** : combien de fois plus vite elle coupe le bois ou casse la pierre, ses coups neuve (300 au mieux) et ceux qui restent.
+- **Conseils** : « Pour un meilleur outil : … » (silex, grande pierre, branche vivante, souplesse 2 ou 3, ficelle de lin, 8 tours) ; le meilleur outil : « Rien à améliorer ».
+
+Tests réussis : fiche_outil (11, nouveau), inventory, inventory_more, tools, crafting, prototype, history_resume (+ tests juridiques).
+À tester : fabriquer une hache (O + F), puis « + » ou D + T sur elle, « Fiche de fabrication ».
 
 ## 0.0.8.17 — Bras et mains animés à la première personne : la main serre ce qu'elle tient, creuse en griffe, s'ouvre pour poser, attrape en ramassant, serre et tire en récoltant, porte le fruit à la bouche ; doigts animés pour tailler, fendre, assembler, tresser et ficeler
 Version locale (4 sur 4 : à publier, mais pas avant que l'utilisateur, absent, ait regardé 0.0.8.14 à 0.0.8.17). Génération inchangée (version 33). Issue #224.

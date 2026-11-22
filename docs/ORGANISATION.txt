@@ -137,4 +137,6 @@ Carnet de route (0.0.8.16, #208) : scripts/carnet.gd (commandes, chemin des prem
 Mains animées (0.0.8.17, #224) : assets/hands/main_droite.glb a 4 poses (formes de mélange : prise, griffe, ouverte, pince ;
 sources_blender/main/generer_main.py) ; scripts/first_person_hand.gd : pose au repos selon l'objet tenu, gestes (dig, place,
 grab, pull, eat) ; crafting_ui.gd : poses pendant les actions. Test : tests/bras_test.gd.
+Fiche d'un outil (0.0.8.18, #246) : Inventory.tool_report (étapes notées, conseils, résumé), inventory_ui.gd open_tool_card
+(bouton « Fiche de fabrication » sur la carte de détails). Test : tests/fiche_outil_test.gd.
 scripts/progress_ring.gd (0.0.7.8) : anneau de chargement autour de la croix de visée (abattre, couper, récupérer).

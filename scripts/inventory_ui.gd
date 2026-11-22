@@ -782,6 +782,7 @@ func prewarm(on: bool) -> void:
 	screen.visible = on
 
 func close() -> void:
+	close_tool_card()
 	_close_more()
 	drag_button = 0
 	drag_places = []
@@ -1434,7 +1435,98 @@ func _detail_card(value: Dictionary, amount: int, side: float) -> Control:
 	column.add_child(details)
 	for line in lines.slice(1):
 		details.add_child(_label(line, 11))
+	# 0.0.8.18 (#246) : outil ou tête taillée : sa fiche de fabrication (notes et conseils).
+	if Inventory.has_tool_report(value):
+		var open_card := Button.new()
+		open_card.name = "FicheButton"
+		open_card.text = "Fiche de fabrication"
+		open_card.focus_mode = Control.FOCUS_NONE
+		open_card.add_theme_font_size_override("font_size", 11)
+		open_card.pressed.connect(open_tool_card.bind(value))
+		column.add_child(open_card)
 	return card
+
+# --- 0.0.8.18 (#246, demande de l'utilisateur) : fiche de fabrication d'un outil ---
+# Chaque étape avec sa note (bien, moyen, à améliorer, en couleur) et son effet, puis les conseils pour un meilleur outil
+# (Inventory.tool_report). Ouverte par le bouton « Fiche de fabrication » des détails (« + » ou D + T) ; Fermer ou Échap.
+const RATING_COLORS := {"bien": Color(0.55, 0.9, 0.5), "moyen": Color(1.0, 0.85, 0.4), "à améliorer": Color(1.0, 0.6, 0.4)}
+var tool_card: PanelContainer
+var tool_card_value: Dictionary = {}
+
+func open_tool_card(value: Dictionary) -> void:
+	close_tool_card()
+	tool_card_value = value.duplicate(true)
+	var report := Inventory.tool_report(value)
+	tool_card = PanelContainer.new()
+	tool_card.name = "FicheOutil"
+	var style := StyleBoxFlat.new()
+	style.bg_color = Color(0.12, 0.1, 0.23, 0.98)
+	style.border_color = Color(0.62, 0.55, 1.0, 0.6)
+	style.set_border_width_all(2)
+	style.set_corner_radius_all(12)
+	style.set_content_margin_all(roundf(16 * text_scale))
+	tool_card.add_theme_stylebox_override("panel", style)
+	tool_card.set_anchors_and_offsets_preset(Control.PRESET_CENTER)
+	tool_card.grow_horizontal = Control.GROW_DIRECTION_BOTH
+	tool_card.grow_vertical = Control.GROW_DIRECTION_BOTH
+	tool_card.custom_minimum_size = Vector2(roundf(620 * text_scale), 0)
+	add_child(tool_card)
+	var column := VBoxContainer.new()
+	column.add_theme_constant_override("separation", roundi(8 * text_scale))
+	tool_card.add_child(column)
+	var top := HBoxContainer.new()
+	top.add_theme_constant_override("separation", 10)
+	column.add_child(top)
+	top.add_child(_picture(ItemIcons.for_value(value), roundf(48 * text_scale)))
+	var title := _label("Fiche : " + Inventory.item_name(value), 18)
+	title.name = "Title"
+	title.add_theme_color_override("font_color", Color(1.0, 0.86, 0.55))
+	top.add_child(title)
+	var summary := _label(report.resume, 13)
+	summary.name = "Summary"
+	summary.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	column.add_child(summary)
+	var grid := GridContainer.new()
+	grid.name = "Steps"
+	grid.columns = 4
+	grid.add_theme_constant_override("h_separation", roundi(14 * text_scale))
+	grid.add_theme_constant_override("v_separation", roundi(4 * text_scale))
+	column.add_child(grid)
+	for heading in ["Étape", "Ici", "Note", "Effet"]:
+		var head := _label(heading, 12)
+		head.add_theme_color_override("font_color", Color(0.6, 0.85, 0.82))
+		grid.add_child(head)
+	for step: Array in report.etapes:
+		grid.add_child(_label(step[0], 13))
+		grid.add_child(_label(step[1], 13))
+		var rating := _label(step[2], 13)
+		rating.add_theme_color_override("font_color", RATING_COLORS.get(step[2], Color.WHITE))
+		grid.add_child(rating)
+		var effect := _label(step[3], 12)
+		effect.add_theme_color_override("font_color", Color(0.85, 0.84, 0.92))
+		grid.add_child(effect)
+	var tips_title := _label("Pour un meilleur outil :", 14)
+	tips_title.add_theme_color_override("font_color", Color(0.6, 0.85, 0.82))
+	column.add_child(tips_title)
+	var tips := VBoxContainer.new()
+	tips.name = "Tips"
+	column.add_child(tips)
+	for tip: String in report.conseils:
+		var line := _label("• " + tip, 13)
+		line.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		tips.add_child(line)
+	var close := Button.new()
+	close.text = "Fermer"
+	close.focus_mode = Control.FOCUS_NONE
+	close.size_flags_horizontal = Control.SIZE_SHRINK_END
+	close.pressed.connect(close_tool_card)
+	column.add_child(close)
+
+func close_tool_card() -> void:
+	if is_instance_valid(tool_card):
+		tool_card.queue_free()
+	tool_card = null
+	tool_card_value = {}
 
 func _on_variant(button: int, value: Dictionary) -> void:
 	if button == MOUSE_BUTTON_RIGHT:
@@ -1493,6 +1585,9 @@ func _input(event: InputEvent) -> void:
 		get_viewport().set_input_as_handled()
 	elif event.is_action_pressed("delete_item"):
 		throw_key(true, true)
+		get_viewport().set_input_as_handled()
+	elif event is InputEventKey and event.keycode == KEY_ESCAPE and is_instance_valid(tool_card):
+		close_tool_card()
 		get_viewport().set_input_as_handled()
 	elif event is InputEventKey and event.keycode == KEY_ESCAPE and more_slot != null:
 		_close_more()
