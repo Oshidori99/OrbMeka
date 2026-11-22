@@ -117,6 +117,12 @@ const ITEMS := {
 	# 0.0.8.8 (demande de l'utilisateur) : herbe arrachée du sol (pour voir ce qui est tombé dans l'herbe) : reste au sol,
 	# ramassable ; pas encore d'usage.
 	"herbe_arrachee": {"nom": "Herbe arrachée", "forme": "fibre", "poids": 15.0, "couleur": Color("#6f9a3c")},
+	# 0.0.8.15 (#239, demandes de l'utilisateur) : plantes entières (arrachées avec leurs racines, à replanter) et motte de
+	# gazon (prise sur l'herbe, à poser sur la terre : l'herbe y repousse). « plante » : sorte de plants.gd.
+	"plante_ortie": {"nom": "Plant d'ortie", "forme": "plante", "plante": 0, "poids": 120.0, "couleur": Color("#5f7a34")},
+	"plante_lin": {"nom": "Plant de lin", "forme": "plante", "plante": 1, "poids": 60.0, "couleur": Color("#8fa05a")},
+	"plante_herbe": {"nom": "Plant d'herbes longues", "forme": "plante", "plante": 2, "poids": 90.0, "couleur": Color("#7d9a45")},
+	"gazon": {"nom": "Motte de gazon", "forme": "gazon", "poids": 450.0, "couleur": Color("#5e8a2f")},
 	# 0.0.8.5 (#213, #211) : ficelle tressée (3 fibres du même type, 33 cm ; elle garde son type) ; têtes taillées dans un
 	# silex ou un calcaire (crafting_rules.gd).
 	"ficelle_ortie": {"nom": "Ficelle d'ortie", "forme": "ficelle", "poids": 6.0, "couleur": Color("#6f7d4c")},
@@ -153,7 +159,8 @@ const CATEGORIES := [
 	# séparés ; « objet:essence » (catalog_item).
 	{"id": "wood", "nom": "Bois", "objets": ["tronc:0", "branche:0", "tronc:1", "branche:1", "tronc:2", "branche:2", "tronc:3", "branche:3"]},
 	# 0.0.8.4 : fibres et liane (onglet Plantes, après Bois).
-	{"id": "plants", "nom": "Plantes", "objets": ["fibre_ortie", "fibre_lin", "fibre_herbe", "liane"]},
+	# 0.0.8.15 (#239) : plantes entières et motte de gazon, à planter ou poser.
+	{"id": "plants", "nom": "Plantes", "objets": ["plante_ortie", "plante_lin", "plante_herbe", "gazon", "fibre_ortie", "fibre_lin", "fibre_herbe", "liane"]},
 ]
 # Pour l'instant une seule version par objet : cailloux de taille 4, pomme rouge de taille 2.
 const CATALOG_MODELS := {"caillou": {"taille": 4}, "caillou_calcaire": {"taille": 4}, "caillou_silex": {"taille": 4}, "pomme": {"taille": 2, "couleur": 1}, "tete_hache": {"pierre": 1, "taille": 5, "poids": 420.0}, "tete_pioche": {"pierre": 1, "taille": 5, "poids": 420.0}, "hache_pierre": {"pierre": 1, "taille": 5, "essence": 1, "age": 3, "souplesse": 3, "epaisseur": 3.5, "longueur": 0.6, "lien": 1, "tours": 8, "poids": 700.0}, "pioche_pierre": {"pierre": 1, "taille": 5, "essence": 1, "age": 3, "souplesse": 3, "epaisseur": 3.5, "longueur": 0.6, "lien": 1, "tours": 8, "poids": 700.0}}

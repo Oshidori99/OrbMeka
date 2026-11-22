@@ -3,6 +3,10 @@ Du plus récent au plus ancien. Ce fichier est mis à jour à chaque version.
 
 === Thème « Fabrication et survie » (0.0.8) ===
 
+0.0.8.15 — Plantes et gazon dans l'inventaire : arracher une plante entière, la replanter (elle repousse après avoir été coupée), motte de gazon (l'herbe repousse où on la pose) ; clic de la molette : prendre l'objet visé en main ; onglet Plantes du Créatif réparé
+Génération du terrain : version 33 · Menus : version 12.
+Issues #239 et #238 ; l'onglet Plantes du Créatif montrait la grille depuis 0.0.8.4 (signalé par l'utilisateur).
+
 0.0.8.14 — Plus fluide sur les petits PC et nouvelles images des menus : feuilles et écorce allégées (mipmaps), détails fins du sol simplifiés au loin, fuite d'objets corrigée, taille de la carte des ombres au choix (512 à 8192 ; Performance 1024), qualité Performance proposée une fois sur un PC lent, console de mesure du Web ; images du menu des actions (B + T) et de la fabrication (O + F) faites dans Blender avec la main du personnage, nouvelles main et poche de l'inventaire
 Génération du terrain : version 33 · Menus : version 11.
 Rapport d'optimisation (mémoire, processeur, carte graphique, chargement ; PC bon marché d'abord) et issue #247. Radeon 610M en Performance : forêt 59 → 18 ms par image.

@@ -39,6 +39,9 @@ static func is_fiber(id: String) -> bool:
 
 # Identifiant stable d'une plante de la graine (sa place, au centimètre).
 static func plant_id(plant: Dictionary) -> String:
+	# 0.0.8.15 (#239) : plante plantée par le joueur : son propre identifiant (« p… »), jamais celui d'une plante de la graine.
+	if plant.has("id"):
+		return str(plant.id)
 	return "%d:%d" % [roundi(float(plant.x) * 100.0), roundi(float(plant.z) * 100.0)]
 
 # Nombre de fibres d'une plante (même graine : même nombre).

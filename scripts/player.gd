@@ -241,6 +241,9 @@ func _unhandled_input(event: InputEvent) -> void:
 		# 0.0.8.9 : un objet ramassé : R, encore tenu, ne récolte ni n'arrache rien derrière lui.
 		if world.pick_up(get_target()):
 			world.set("harvest_block", true)
+	# 0.0.8.15 (#238) : clic de la molette : l'objet visé dans la main (Créatif : dans la case choisie).
+	if event.is_action_pressed("pick_aimed") and is_instance_valid(world) and world.has_method("pick_aimed"):
+		world.pick_aimed(get_target())
 	# 0.0.7.29 : Jeter (J par défaut) : l'objet en main tombe au sol devant soi. 0.0.7.30 : aussi en Créatif ; Ctrl + J :
 	# tout le tas ; Supprimer (D + E, Créatif) : rien ne tombe (0.0.7.31 : tout le tas).
 	if event.is_action_pressed("throw") and is_instance_valid(world) and world.has_method("throw_held"):

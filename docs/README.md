@@ -1,6 +1,19 @@
-# OrbMeka™ — prototype 0.0.8.14
+# OrbMeka™ — prototype 0.0.8.15
 
 Godot 4.7 / GDScript. Formes et couleurs simples ; assets externes seulement sous licence vérifiée (sons CC0, assets/sounds/CREDITS.txt).
+
+## 0.0.8.15 — Plantes et gazon dans l'inventaire : arracher une plante entière, la replanter (elle repousse après avoir été coupée), motte de gazon (l'herbe repousse où on la pose) ; clic de la molette : prendre l'objet visé en main ; onglet Plantes du Créatif réparé
+Version locale (2 sur 4). Génération inchangée (version 33). Demandes de l'utilisateur : issues #239 et #238, onglet Plantes buggé.
+- **Onglet Plantes du Créatif** : il montrait la grille de l'inventaire (depuis 0.0.8.4, la grille était encore comptée comme 6e onglet) ; il montre maintenant ses objets, la grille reste le dernier onglet.
+- **Plantes entières** (ortie, lin, herbes longues) : clic gauche maintenu 1,2 s sur une plante, en mode « Casser / Arracher » (elle tombe au sol) ou « Casser / Récupérer des objets » (dans la main) ; l'ortie pique à mains nues. R donne toujours les fibres (la plante reste, coupée).
+- **Planter** : clic droit « Poser » avec la plante en main, dans la terre ou l'herbe (pas dans le sable, la pierre ou sous l'eau). Une plante plantée, coupée (R), **repousse** après 10 minutes de jeu.
+- **Gazon** : « Récupérer des matériaux » (R + I, ou le mode du clic gauche) sur l'herbe donne une **motte de gazon** (450 g ; l'herbe disparaît là, la terre est dessous) ; posée (clic droit) sur la terre, l'herbe repousse autour, même sur un sol creusé.
+- **Créatif** : onglet Plantes avec les trois plantes et la motte, à poser où on veut.
+- **Clic de la molette** (#238, Contrôles → Inventaire, modifiable) : l'objet visé au sol (ou un caillou, un fruit) va dans la main ; Survie : comme Ramasser (s'il reste de la place) ; Créatif : toujours dans la case choisie, ce qui y était part dans la grille.
+- Tout est enregistré dans objets.json (plantes arrachées, plantées, repousse, gazon posé).
+
+Tests réussis : plantes_inventaire (17, nouveau), inventory, inventory_more, fibers, plants, lawn_ring, controls, key_combos, controls_groups, hands_eat, crafting, breaking, world_save, shortcuts_selection, prototype, history_resume (+ tests juridiques).
+À tester : en Survie, arracher une ortie (ça pique), la replanter, la couper, attendre 10 minutes de jeu ; prendre une motte sur l'herbe et la poser sur un trou de terre ; la molette sur un objet au sol (Survie et Créatif).
 
 ## 0.0.8.14 — Plus fluide sur les petits PC et nouvelles images des menus : feuilles et écorce allégées (mipmaps), détails fins du sol simplifiés au loin, fuite d'objets corrigée, taille de la carte des ombres au choix (512 à 8192 ; Performance 1024), qualité Performance proposée une fois sur un PC lent, console de mesure du Web ; images du menu des actions (B + T) et de la fabrication (O + F) faites dans Blender avec la main du personnage, nouvelles main et poche de l'inventaire
 Version locale (1 sur 4). Génération inchangée (version 33). Demandes de l'utilisateur : un rapport d'optimisation (mémoire, processeur, carte graphique, chargement ; les PC bon marché d'abord), rangé hors du dépôt (..\rapport-optimisation-0.0.8.14.md) ; issue #247 (images des menus).

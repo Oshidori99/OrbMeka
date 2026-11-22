@@ -3,8 +3,10 @@ extends RefCounted
 # Les versions de la génération sont celles enregistrées avec chaque monde (world_generation.gd) ; la version des menus
 # compte les changements des menus depuis 0.0.6 (1 : menus de 0.0.5.37 et avant). À compléter à chaque version.
 const Generation = preload("res://scripts/world_generation.gd")
-const MENUS_VERSION := 11
+const MENUS_VERSION := 12
 const MENUS := [
+	{"menu": "Inventaire", "version": "0.0.8.15", "text": "Créatif : onglet Plantes réparé, plantes entières et motte de gazon"},
+	{"menu": "Contrôles", "version": "0.0.8.15", "text": "Inventaire : prendre l'objet visé en main (clic de la molette)"},
 	{"menu": "Paramètres", "version": "0.0.8.14", "text": "Vidéo : taille de la carte des ombres (512 à 8192 ; Performance 1024, Équilibré 2048, Beauté 4096)"},
 	{"menu": "Menu des actions", "version": "0.0.8.14", "text": "B + T : images faites dans Blender, avec la main du personnage, un peu plus grandes"},
 	{"menu": "Fabrication", "version": "0.0.8.14", "text": "O + F : images des actions faites dans Blender"},

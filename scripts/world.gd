@@ -1375,6 +1375,9 @@ func _grass_skipped(at: Vector3) -> bool:
 	var column := Vector2i(roundi(at.x / SmoothTerrain.STEP), roundi(at.z / SmoothTerrain.STEP))
 	# 0.0.6.15 : ni sur la litière d'aiguilles des pinèdes.
 	# 0.0.8.8 : ni là où on l'a arrachée.
+	# 0.0.8.15 (#239) : gazon posé : l'herbe repousse là, même sur un sol creusé.
+	if turf_cells.has(column) and not pulled_grass.has(column):
+		return false
 	return pulled_grass.has(column) or terrain.column_changed(column) or terrain.is_desert(Vector2(at.x, at.z)) or terrain.muddy(column) or terrain.needle_floor(column)
 
 func _rebuild_lawn_tile(tile: Vector2i) -> void:
@@ -3407,6 +3410,26 @@ func _pick_fruit(fruit: Dictionary) -> bool:
 # 0.0.7.5 (demande de l'utilisateur) : dans la case choisie de la barre ; barre pleine : dans une case libre de l'inventaire.
 # Faux si rien n'est visé (R garde alors son autre usage : courir).
 # 0.0.7.5 : aussi cueillir une pomme ou une noisette, seulement si la visée passe vraiment par elle.
+# 0.0.8.15 (#238, demande de l'utilisateur) : clic de la molette sur un objet au sol (ou un caillou, un fruit). Survie :
+# comme Ramasser (main, sinon l'autre main ou les poches, s'il reste de la place). Créatif : toujours dans la case choisie
+# de la barre, même si on n'a pas cet objet ; ce qui y était va dans la première case libre de la grille.
+func pick_aimed(hit: Dictionary) -> bool:
+	if game_mode != Inventory.CREATIVE:
+		return pick_up(hit)
+	var chosen := inventory.selected()
+	var before := inventory.take("bar", chosen)
+	var took := pick_up(hit)
+	if inventory.item("bar", chosen).is_empty():
+		# Rien pris (rien visé, trop loin) : la case reprend son objet.
+		inventory.put("bar", chosen, before)
+		return took
+	if not before.is_empty() and not Inventory.unlimited(before):
+		for index in range(Inventory.GRID_SIZE):
+			if inventory.usable("grid", index) and inventory.item("grid", index).is_empty():
+				inventory.put("grid", index, before)
+				break
+	return true
+
 func pick_up(hit: Dictionary) -> bool:
 	var fruit := aimed_fruit(hit)
 	if not fruit.is_empty():
@@ -3584,7 +3607,8 @@ func _harvest_stop() -> void:
 # tombe là, au sol (ramassable). Enregistré dans objets.json (« herbe_arrachee » : cases de 50 cm).
 var pulled_grass: Dictionary = {}
 
-func pull_grass(at: Vector3, collect: bool = false) -> bool:
+# 0.0.8.15 : l'herbe enlevée (grow faux) ou qui repousse (vrai : gazon posé, même sur un sol creusé) autour de at.
+func _set_grass(at: Vector3, grow: bool) -> void:
 	var reach := ceili(Fibers.GRASS_RADIUS / SmoothTerrain.STEP)
 	var center := Vector2i(roundi(at.x / SmoothTerrain.STEP), roundi(at.z / SmoothTerrain.STEP))
 	var tiles := {}
@@ -3593,12 +3617,21 @@ func pull_grass(at: Vector3, collect: bool = false) -> bool:
 			var cell := center + Vector2i(dx, dz)
 			if (Vector2(cell) * SmoothTerrain.STEP).distance_to(Vector2(at.x, at.z)) > Fibers.GRASS_RADIUS:
 				continue
-			pulled_grass[cell] = true
+			if grow:
+				pulled_grass.erase(cell)
+				turf_cells[cell] = true
+			else:
+				pulled_grass[cell] = true
+				turf_cells.erase(cell)
 			tiles[Vector2i(floori(cell.x * SmoothTerrain.STEP / SmoothTerrain.ZONE_SIZE), floori(cell.y * SmoothTerrain.STEP / SmoothTerrain.ZONE_SIZE))] = true
 	for tile in tiles:
 		if lawn_tiles.has(tile):
 			_rebuild_lawn_tile(tile)
+	objects_dirty = true
+
+func pull_grass(at: Vector3, collect: bool = false) -> bool:
 	# Ramassée (mode « récupérer des objets ») : dans la case choisie ; sinon (ou si elle ne tient pas) : au sol.
+	_set_grass(at, false)
 	var picked := 0
 	if collect:
 		picked = int(inventory.add_to_selected({"objet": Fibers.GRASS_ITEM, "pile": [{}]}).added)
@@ -3618,12 +3651,16 @@ func step_weed(delta: float, holding: bool) -> bool:
 			player.hand_view.pull(0.0, 0.0)
 		weed_time = 0.0
 		return false
-	var target := aimed_grass(player.get_target())
+	# 0.0.8.15 (#239) : une plante visée s'arrache entière (avant l'herbe du sol).
+	var hit: Dictionary = player.get_target()
+	var target := aimed_plant(hit)
+	if target.is_empty():
+		target = aimed_grass(hit)
 	if target.is_empty():
 		weed_time = 0.0
 		return false
 	weed_time += delta
-	var seconds := Fibers.HARVEST_SECONDS_CREATIVE if game_mode == Inventory.CREATIVE else Fibers.GRASS_SECONDS
+	var seconds := Fibers.HARVEST_SECONDS_CREATIVE if game_mode == Inventory.CREATIVE else (PULL_PLANT_SECONDS if target.kind == "plante" else Fibers.GRASS_SECONDS)
 	show_ring(weed_time / seconds)
 	if is_instance_valid(player.hand_view):
 		player.hand_view.pull(weed_time / seconds, weed_time)
@@ -3632,6 +3669,8 @@ func step_weed(delta: float, holding: bool) -> bool:
 	weed_time = 0.0
 	if is_instance_valid(player.hand_view):
 		player.hand_view.pull(0.0, 0.0)
+	if target.kind == "plante":
+		return pull_plant(target, player.left_mode == 1)
 	return pull_grass(target.point, player.left_mode == 1)
 # 0.0.8.8 : un éclat tranchant dans une main (récolte plus rapide ; les orties piquent moins).
 func holding_flake() -> bool:
@@ -3651,6 +3690,9 @@ func harvest(target: Dictionary) -> bool:
 		for index in range(Fibers.fiber_count(plant)):
 			value.pile.append({})
 		cut_plants[target.id] = true
+		# 0.0.8.15 (#239) : une plante plantée par le joueur repousse après PLANT_REGROW_SECONDS de jeu.
+		if plant.has("id"):
+			plant_regrow[target.id] = played_total() + PLANT_REGROW_SECONDS
 		# 0.0.8.8 : une ortie pique : à mains nues, beaucoup ; coupée avec un éclat, un peu.
 		if int(plant.plante) == Plants.NETTLE:
 			hurt(Fibers.NETTLE_CUT if holding_flake() else Fibers.NETTLE_PULL)
@@ -3703,6 +3745,127 @@ func _refresh_column_plants(column: Vector2i) -> void:
 	column_objects[column] = kept
 	_show_column_plants(column)
 
+# --- 0.0.8.15 (#239, demandes de l'utilisateur) : plantes et gazon dans l'inventaire ---
+# Arracher une plante entière : clic gauche maintenu PULL_PLANT_SECONDS (mode « Casser / Arracher » : elle tombe au sol ;
+# « Casser / Récupérer des objets » : dans la main) ; l'ortie pique à mains nues. R donne toujours les fibres. Planter :
+# clic droit « Poser » avec la plante en main, sur la terre ou l'herbe (pas sous l'eau) ; coupée (R), une plante plantée
+# repousse après PLANT_REGROW_SECONDS de jeu. Gazon : « Récupérer des matériaux » sur l'herbe donne une motte (l'herbe
+# disparaît là) ; posée (clic droit), l'herbe repousse autour, même sur un sol creusé. Tout est enregistré (objets.json).
+const PULL_PLANT_SECONDS := 1.2
+const PLANT_REGROW_SECONDS := 600.0
+const PLANT_ITEMS := ["plante_ortie", "plante_lin", "plante_herbe"]
+const TURF_ITEM := "gazon"
+const PLANT_GROUNDS := [-1, SmoothTerrain.DIRT, SmoothTerrain.NEEDLES, SmoothTerrain.CLAY, SmoothTerrain.MUD]
+var removed_plants: Dictionary = {}
+var planted_plants: Array = []
+var plant_regrow: Dictionary = {}
+var turf_cells: Dictionary = {}
+var _regrow_check := 0.0
+
+static func plant_column(x: float, z: float) -> Vector2i:
+	return Vector2i(floori(x / SmoothTerrain.ZONE_SIZE), floori(z / SmoothTerrain.ZONE_SIZE))
+
+# Plantes d'une colonne : celles de la graine (sans les arrachées) et celles plantées par le joueur.
+func column_plants(column: Vector2i) -> Array:
+	var list: Array = terrain.plants_in_zone(column).filter(func(plant: Dictionary): return not removed_plants.has(Fibers.plant_id(plant)))
+	for plant: Dictionary in planted_plants:
+		if plant_column(float(plant.x), float(plant.z)) == column:
+			list.append(plant.duplicate())
+	return list
+
+func played_total() -> float:
+	return float(world_stats.get("temps_de_jeu", 0.0)) + played_since_save
+
+func _replant_column(column: Vector2i) -> void:
+	_plant_cache.erase(column)
+	if column_objects.has(column):
+		_refresh_column_plants(column)
+
+func pull_plant(target: Dictionary, collect: bool) -> bool:
+	var plant: Dictionary = target.plant
+	var id: String = target.id
+	var value := {"objet": PLANT_ITEMS[clampi(int(plant.plante), 0, 2)], "pile": [{}]}
+	if plant.has("id"):
+		planted_plants = planted_plants.filter(func(other: Dictionary): return str(other.id) != id)
+		plant_regrow.erase(id)
+	else:
+		removed_plants[id] = true
+	cut_plants.erase(id)
+	if int(plant.plante) == Plants.NETTLE:
+		hurt(Fibers.NETTLE_CUT if holding_flake() else Fibers.NETTLE_PULL)
+	_replant_column(target.column)
+	objects_dirty = true
+	var foot := Vector3(float(plant.x), terrain.height_at(float(plant.x), float(plant.z)), float(plant.z))
+	var picked := 0
+	if collect:
+		picked = int(inventory.add_to_selected(value).added)
+	if picked == 0 and is_instance_valid(ground):
+		ground.drop({"objet": value.objet}, foot + Vector3.UP * 0.3, foot, _rest_height, 0.0)
+	show_choice("Plante arrachée : %s" % Inventory.item_name(value).to_lower())
+	return true
+
+# Le sol visé convient-il à une plante ou au gazon (terre, herbe, pas sous l'eau, à portée) ? Message sinon.
+func _plant_spot(hit: Dictionary, what: String) -> bool:
+	if hit.is_empty() or not is_instance_valid(hit.get("collider")) or not hit.collider.is_in_group("ground") or hit.normal.y < 0.6:
+		_notify("Visez la terre ou l'herbe pour %s." % what)
+		return false
+	if player.camera.global_position.distance_to(hit.position) > player.place_reach + 0.01:
+		_notify("Trop loin : %s m au plus." % str(snappedf(player.place_reach, 0.1)).replace(".", ","))
+		return false
+	var at: Vector3 = hit.position
+	if water_surface(Vector2(at.x, at.z)) > at.y + 0.05:
+		_notify("Pas sous l'eau.")
+		return false
+	if not ground_kind_under(at + Vector3.UP * 0.3) in PLANT_GROUNDS:
+		_notify("Seulement dans la terre ou l'herbe.")
+		return false
+	return true
+
+func plant_held(hit: Dictionary) -> bool:
+	if not _plant_spot(hit, "planter"):
+		return false
+	var one := inventory.pop_held()
+	if one.is_empty():
+		return false
+	var at: Vector3 = hit.position
+	var rng := RandomNumberGenerator.new()
+	rng.seed = hash([roundi(at.x * 100.0), roundi(at.z * 100.0), "plantee"])
+	var plant := {"id": "p%d:%d" % [roundi(at.x * 100.0), roundi(at.z * 100.0)], "plante": clampi(int(Inventory.ITEMS.get(one.objet, {}).get("plante", 0)), 0, 2), "x": at.x, "z": at.z, "taille": rng.randf_range(0.85, 1.1), "rotation": rng.randf_range(0.0, 360.0)}
+	planted_plants = planted_plants.filter(func(other: Dictionary): return str(other.id) != plant.id)
+	planted_plants.append(plant)
+	cut_plants.erase(plant.id)
+	_replant_column(plant_column(at.x, at.z))
+	objects_dirty = true
+	show_choice("Planté : %s" % Inventory.item_name(one).to_lower())
+	return true
+
+func lay_turf(hit: Dictionary) -> bool:
+	if not _plant_spot(hit, "poser le gazon"):
+		return false
+	if inventory.pop_held().is_empty():
+		return false
+	_set_grass(hit.position, true)
+	show_choice("Gazon posé : l'herbe repousse")
+	return true
+
+func _step_regrow(delta: float) -> void:
+	if plant_regrow.is_empty():
+		return
+	_regrow_check += delta
+	if _regrow_check < 2.0:
+		return
+	_regrow_check = 0.0
+	var now := played_total()
+	for id: String in plant_regrow.keys():
+		if now < float(plant_regrow[id]):
+			continue
+		plant_regrow.erase(id)
+		cut_plants.erase(id)
+		objects_dirty = true
+		for plant: Dictionary in planted_plants:
+			if str(plant.id) == id:
+				_replant_column(plant_column(float(plant.x), float(plant.z)))
+
 # R + I maintenus : prendre une poignée de matière en vrac (terre, sable, argile, boue, gravier) là où l'on vise,
 # après GATHER_SECONDS (plus long que creuser). Survie seulement ; dans la case choisie (0.0.7.5), comme ramasser.
 const GATHER_SECONDS := 1.0
@@ -3728,6 +3891,8 @@ func step_gather(delta: float, holding: bool) -> bool:
 		_notify("Visez la terre ou le sable pour en prendre une poignée.")
 		return false
 	var point := SmoothTerrain.point_of(hit.position - hit.normal * 0.3)
+	# 0.0.8.15 (#239) : sur l'herbe : une motte de gazon (l'herbe disparaît là, le sol ne bouge pas).
+	var turf := not aimed_grass(hit).is_empty()
 	# Terre ordinaire : -1 dans le terrain (sans matière particulière).
 	var kind: int = terrain.materials.get(point, terrain.natural_kind(point))
 	if kind < 0:
@@ -3742,12 +3907,20 @@ func step_gather(delta: float, holding: bool) -> bool:
 	if point != gather_point:
 		gather_point = point
 		gather_time = 0.0
-	var id: String = GATHER_ITEMS[kind]
+	var id: String = TURF_ITEM if turf else GATHER_ITEMS[kind]
 	gather_time += delta
 	if gather_time < GATHER_SECONDS:
 		show_ring(gather_time / GATHER_SECONDS)
 		return false
 	gather_time = 0.0
+	if turf:
+		var taken := inventory.add_to_selected({"objet": TURF_ITEM, "pile": [{}]})
+		if taken.added == 0:
+			_notify(_refused_message(taken.reason, {"objet": TURF_ITEM}))
+			return false
+		_set_grass(hit.position, false)
+		show_choice("Motte de gazon (%s)" % Inventory.format_weight(Inventory.unit_weight({"objet": TURF_ITEM})))
+		return true
 	var result := inventory.add_to_selected({"objet": id, "nombre": 1})
 	if result.added == 0:
 		_notify(_refused_message(result.reason, {"objet": id}))
@@ -4518,7 +4691,7 @@ func plants_near(column: Vector2i) -> Array:
 	if not _plant_cache.has(column):
 		if _plant_cache.size() >= PLANT_CACHE_MAX:
 			_plant_cache.clear()
-		_plant_cache[column] = terrain.plants_in_zone(column)
+		_plant_cache[column] = column_plants(column)
 	return _plant_cache[column]
 
 func in_nettles() -> bool:
@@ -5054,6 +5227,12 @@ func place_target(hit: Dictionary, kind: int) -> bool:
 	# 0.0.8.3 : clic droit « Manger » : il ne pose jamais rien.
 	if player.brush == EAT_BRUSH:
 		return false
+	# 0.0.8.15 (#239) : une plante en main se plante, une motte de gazon se pose (l'herbe repousse).
+	var held_form: String = Inventory.ITEMS.get(inventory.held().get("objet", ""), {}).get("forme", "")
+	if player.brush == 0 and held_form == "plante":
+		return plant_held(hit)
+	if player.brush == 0 and held_form == "gazon":
+		return lay_turf(hit)
 	# 0.0.7.4 : un objet en main (caillou, éclat…) se pose au sol là où l'on vise.
 	if player.brush == 0 and Inventory.is_object(inventory.held()):
 		return put_down_held(hit)
@@ -5308,6 +5487,7 @@ func _process(delta: float) -> void:
 	_update_water(delta)
 	# Sauvegarde régulière (petits fichiers, seulement les zones modifiées : pas de saccade).
 	played_since_save += delta
+	_step_regrow(delta)
 	autosave_time += delta
 	if _save_due(delta):
 		save_now()
@@ -5453,6 +5633,7 @@ func _process_measured(delta: float) -> void:
 	_update_water(delta)
 	_perf("eau", at)
 	played_since_save += delta
+	_step_regrow(delta)
 	autosave_time += delta
 	if _save_due(delta):
 		at = Time.get_ticks_usec()
@@ -5751,6 +5932,19 @@ func _read_carved(data: Dictionary) -> void:
 			pulled_grass[Vector2i(int(cell[0]), int(cell[1]))] = true
 	for id in data.get("plantes_coupees", []):
 		cut_plants[str(id)] = true
+	# 0.0.8.15 (#239) : plantes arrachées, plantées, repousse, gazon posé.
+	for id in data.get("plantes_arrachees", []):
+		removed_plants[str(id)] = true
+	for plant in data.get("plantes_plantees", []):
+		if plant is Dictionary and plant.has("id") and plant.has("x") and plant.has("z"):
+			planted_plants.append({"id": str(plant.id), "plante": clampi(int(plant.get("plante", 0)), 0, 2), "x": float(plant.x), "z": float(plant.z), "taille": float(plant.get("taille", 1.0)), "rotation": float(plant.get("rotation", 0.0))})
+	var regrow: Variant = data.get("plantes_repousse", {})
+	if regrow is Dictionary:
+		for id in regrow:
+			plant_regrow[str(id)] = float(regrow[id])
+	for cell in data.get("gazon_pose", []):
+		if cell is Array and cell.size() == 2:
+			turf_cells[Vector2i(int(cell[0]), int(cell[1]))] = true
 	for id in data.get("lianes_coupees", []):
 		cut_vines[str(id)] = Fibers.LIANE_PARTS
 	# 0.0.8.7 : morceaux pris par arbre.
@@ -5902,7 +6096,7 @@ const TREE_BUDGET_USEC := 3000
 
 
 func _show_column_plants(column: Vector2i) -> void:
-	var plant_list: Array = terrain.plants_in_zone(column)
+	var plant_list: Array = column_plants(column)
 	if plant_list.is_empty():
 		return
 	for plant: Dictionary in plant_list:
@@ -6481,6 +6675,11 @@ func _save_objects() -> bool:
 	data.lianes_recoltees = cut_vines.duplicate()
 	# 0.0.8.8 : herbe arrachée (cases de 50 cm).
 	data.herbe_arrachee = pulled_grass.keys().map(func(cell): return [cell.x, cell.y])
+	# 0.0.8.15 (#239) : plantes arrachées (de la graine), plantées par le joueur, leur repousse, gazon posé.
+	data.plantes_arrachees = removed_plants.keys()
+	data.plantes_plantees = planted_plants.duplicate(true)
+	data.plantes_repousse = plant_regrow.duplicate()
+	data.gazon_pose = turf_cells.keys().map(func(cell): return [cell.x, cell.y])
 	data.arbres_tombes = fallen_trees.duplicate(true)
 	data.arbres_coupes = cut_trees.keys()
 	data.arbres_branches = tree_cuts.duplicate(true)

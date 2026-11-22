@@ -42,6 +42,11 @@ static func texture(id: String) -> Texture2D:
 				image = _coil(spec.couleur)
 			"orbe":
 				image = _orb(spec.couleur)
+			# 0.0.8.15 (#239) : plante entière : son image du monde (assets/plants) ; gazon : une motte de terre herbue.
+			"plante":
+				image = _plant_picture(int(spec.get("plante", 0)))
+			"gazon":
+				image = _turf()
 			"bois":
 				image = _stick(spec.couleur, id == "tronc", id.hash())
 				if spec.get("feuilles", false):
@@ -116,6 +121,59 @@ static func natural_tab(height: int) -> Texture2D:
 static func tools_tab(height: int) -> Texture2D:
 	var key := "#outils%d" % height
 	return _cache[key] if _cache.has(key) else _keep(key, _svg(PICKAXE_SVG, maxi(height, 12)))
+
+# 0.0.8.15 (#239) : l'image de la plante du monde (ortie, lin, herbes longues), réduite, posée sur une petite ombre.
+static func _plant_picture(kind: int) -> Image:
+	var names := ["ortie", "lin", "herbe_longue"]
+	var source: Texture2D = load("res://assets/plants/%s.png" % names[clampi(kind, 0, 2)])
+	var image := _blank()
+	if source == null:
+		return image
+	var picture := source.get_image()
+	if picture.is_compressed():
+		picture.decompress()
+	picture.convert(Image.FORMAT_RGBA8)
+	# Sans les marges vides de l'image : la plante remplit la case (en gardant ses proportions).
+	picture = picture.get_region(picture.get_used_rect())
+	var fit := minf(float(SIZE - 4) / picture.get_width(), float(SIZE - 3) / picture.get_height())
+	var width := maxi(1, roundi(picture.get_width() * fit))
+	var height := maxi(1, roundi(picture.get_height() * fit))
+	picture.resize(width, height, Image.INTERPOLATE_LANCZOS)
+	_shadow(image, Vector2(SIZE * 0.5, SIZE - 4.0), Vector2(SIZE * 0.3, 3.0))
+	image.blend_rect(picture, Rect2i(0, 0, width, height), Vector2i((SIZE - width) / 2, SIZE - 3 - height))
+	return image
+
+# 0.0.8.15 (#239) : motte de gazon : un petit tas de terre, le dessus vert (avec quelques brins).
+static func _turf() -> Image:
+	var image := _pile("terre", Inventory.ITEMS.terre.couleur)
+	var tops := []
+	for x in range(SIZE):
+		var top := -1
+		for y in range(SIZE):
+			if image.get_pixel(x, y).a > 0.5:
+				top = y
+				break
+		tops.append(top)
+	for x in range(SIZE):
+		if tops[x] < 0:
+			continue
+		for y in range(tops[x], mini(SIZE, tops[x] + 9)):
+			var there := image.get_pixel(x, y)
+			if there.a <= 0.0:
+				continue
+			var shade := 0.85 + 0.3 * _noise(x, y, 3.0, 7)
+			var green := Color(0.33 * shade, 0.55 * shade, 0.16 * shade, there.a)
+			image.set_pixel(x, y, there.lerp(green, clampf(1.0 - float(y - tops[x]) / 9.0 + 0.35, 0.0, 1.0)))
+	for blade in range(9):
+		var x := 9 + blade * 3 + int(_hash(blade, 3, 11) * 2.0)
+		if x >= SIZE or tops[x] < 0:
+			continue
+		var tall := 4 + int(_hash(blade, 5, 13) * 5.0)
+		for step in range(tall):
+			var y: int = int(tops[x]) - step
+			if y >= 0:
+				image.set_pixel(x, y, Color(0.38, 0.62, 0.2, 1.0))
+	return image
 
 static func _keep(key: String, image: Image) -> Texture2D:
 	var made := ImageTexture.create_from_image(image)

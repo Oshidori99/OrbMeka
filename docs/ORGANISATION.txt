@@ -91,7 +91,8 @@ hauteurs et surfaces des colonnes sans changement du joueur autour, relevés du 
 Mêmes nombres que le fil principal (tests/workers_test.gd). MULTICOEUR=0 les coupe, COEURS=n en impose le nombre (mesures).
 tools/mesure_perf.gd (0.0.7.20) : mesures sur PC (accueil, ouverture, marche en forêt), fenêtre hors écran.
 tools/mesure_ouverture.gd (0.0.8.11) : ouverture d'un monde comme sur le Web (écran de chargement, rendu Compatibility), durées, images lentes, tâches.
-Optimisation (0.0.8.14, rapport hors du dépôt : ..apport-optimisation-0.0.8.14.md) :
+Optimisation (0.0.8.14, rapport hors du dépôt : ..
+apport-optimisation-0.0.8.14.md) :
 tools/mesure_gpu.gd : temps de la carte graphique à 4 endroits (départ, forêt, lac, rivière), mesures par paires (avec, sans,
 avec) ; QUALITE, ECHELLE, SORTES (cacher), EFFETS (couper), APPLIQUER (réglages à essayer). --gpu-index 1 : la Radeon 610M.
 tools/mesure_memoire.gd : tours du monde en vol, mémoire, objets, orphelins et tailles des listes du monde.
@@ -127,4 +128,7 @@ les modèles et couleurs du jeu sortis par tools/modeles_menus.gd (sources_blend
 lancer tools/modeles_menus.gd (si un modèle a changé), puis le script dans Blender (ORBMEKA_IMAGES=nom : une seule).
 scripts/first_person_hand.gd (0.0.7.6) : main droite vue à la première personne (assets/hands/main_droite.glb, faite par
 sources_blender/main/generer_main.py dans Blender), qui tient l'objet choisi dans la barre.
+Plantes et gazon (0.0.8.15, #239) : world.gd (pull_plant, plant_held, lay_turf, column_plants : plantes de la graine sans
+les arrachées, plus les plantées ; repousse des plantées) ; objets plante_ortie, plante_lin, plante_herbe, gazon
+(inventory.gd). Clic de la molette (#238) : world.gd pick_aimed. Test : tests/plantes_inventaire_test.gd.
 scripts/progress_ring.gd (0.0.7.8) : anneau de chargement autour de la croix de visée (abattre, couper, récupérer).

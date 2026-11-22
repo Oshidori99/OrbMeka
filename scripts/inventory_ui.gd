@@ -271,7 +271,9 @@ var cursor_from: Array = []
 var category := 0
 # 0.0.7.5 : onglet Inventaire (après les catégories) ; objets des onglets sur 2 lignes au plus.
 # 0.0.7.18 : après les onglets d'objets (Bois compris), toujours le dernier.
-const INVENTORY_TAB := 5
+# 0.0.8.15 (demande de l'utilisateur : l'onglet Plantes montrait la grille) : la grille vient après tous les onglets
+# d'objets (avant : 5 écrit à la main, devenu faux quand l'onglet Plantes est arrivé en 0.0.8.4).
+static var INVENTORY_TAB: int = Inventory.CATEGORIES.size()
 const CATALOG_ROWS := 2
 
 # 0.0.8.14 : images de la main (barre du bas à droite, Survie), à la couleur de peau du personnage.
@@ -747,7 +749,7 @@ func refresh() -> void:
 		_open_more(more_slot, more_sticky)
 	_fit_scroll.call_deferred()
 
-# index : un onglet d'objets (0 à 4) ou INVENTORY_TAB (la grille de 5 × 10, tout à droite).
+# index : un onglet d'objets (0 à CATEGORIES.size() - 1) ou INVENTORY_TAB (la grille de 5 × 10, tout à droite).
 func show_category(index: int) -> void:
 	_close_more()
 	category = clampi(index, 0, INVENTORY_TAB)

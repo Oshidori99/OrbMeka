@@ -59,6 +59,9 @@ const ACTIONS := {
 	# 0.0.7.3 : ramasser l'objet visé (R, comme Courir : R ramasse seulement si un objet est visé) et récupérer une
 	# poignée de matière en vrac (R et I maintenus en même temps) ; choix de l'utilisateur.
 	"pick_up": {"label": "Ramasser", "default": {"key": KEY_R}, "by_letter": true, "fixed": []},
+	# 0.0.8.15 (#238, demande de l'utilisateur) : clic de la molette sur un objet au sol : il va dans la main (Survie : comme
+	# Ramasser, s'il reste de la place ; Créatif : dans la case choisie, ce qui y était part dans la grille).
+	"pick_aimed": {"label": "Prendre l'objet visé en main (molette)", "default": {"mouse": MOUSE_BUTTON_MIDDLE}, "fixed": []},
 	"gather": {"label": "Récupérer une poignée (maintenir)", "default": {"key": KEY_R, "second": {"key": KEY_I}}, "by_letter": true, "fixed": []},
 	# 0.0.7.29 (demande de l'utilisateur) : Survie : jeter au sol l'objet en main, un à la fois.
 	"throw": {"label": "Jeter un objet au sol (avec Ctrl : tout le tas)", "default": {"key": KEY_J}, "by_letter": true, "fixed": []},
@@ -511,7 +514,7 @@ const GROUPS := {
 	"Mouvements": ["move_forward", "move_back", "move_left", "move_right", "jump", "crouch", "sprint", "fly"],
 	"Blocs": ["break_block", "place_block", "brush_next", "size_up", "size_down"],
 	# 0.0.7.2 : nouvelle partie : l'inventaire et le choix de la case de la barre d'objets.
-	"Inventaire": ["inventory", "crafting", "block_previous", "block_next", "pick_up", "gather", "throw", "delete_item", "show_details"],
+	"Inventaire": ["inventory", "crafting", "block_previous", "block_next", "pick_up", "pick_aimed", "gather", "throw", "delete_item", "show_details"],
 	"Vitesses": ["speed_up", "speed_down", "walk_up", "walk_down", "run_up", "run_down", "break_up", "break_down", "place_up", "place_down"],
 	"Vitesses — réinitialiser": ["move_reset", "walk_reset", "run_reset", "break_reset", "place_reset", "speed_reset_all"],
 	"Raccourcis": ["worlds_menu", "world_info_page", "change_view", "go_home"],
