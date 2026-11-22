@@ -1,6 +1,13 @@
-# OrbMeka™ — prototype 0.0.8.19
+# OrbMeka™ — prototype 0.0.8.20
 
 Godot 4.7 / GDScript. Formes et couleurs simples ; assets externes seulement sous licence vérifiée (sons CC0, assets/sounds/CREDITS.txt).
+
+## 0.0.8.20 — Paramètres du monde : la date de création et sa version, la dernière ouverture, le temps de jeu, le mode de jeu et la version de la génération
+Version locale (la publication de 0.0.8.14 à 0.0.8.20 attend l'utilisateur). Génération inchangée (version 33). Demande de l'utilisateur.
+- **Paramètres du monde** (liste des mondes, ⚙️) : en plus du nom, du mode, de la graine et de la taille : la date de création et la version qui a créé le monde, la dernière ouverture (date, version) et le nombre d'ouvertures, le temps de jeu, le mode de jeu (Créatif, Survie) et la version de la génération (comme Informations du monde, F3).
+
+Tests réussis : world_mode, developer_return, world_options, world_stats, world_info, prototype, history_resume (+ tests juridiques).
+À tester : Mes mondes → ⚙️ sur un monde ancien et un monde récent.
 
 ## 0.0.8.19 — Carnet de route en arbre : la case Départ au centre, les commandes à gauche, ce qu'on récupère en haut, ce qu'on fabrique à droite (jusqu'à la hache et la pioche), du plus facile au plus difficile, cases reliées par des lignes, vue qu'on déplace et qu'on rapproche ; clic de la molette en Créatif aussi sur le sol, une plante, un arbre ; « Poche vide » au lieu de « Main vide »
 Version locale (la publication de 0.0.8.14 à 0.0.8.19 attend l'utilisateur). Génération inchangée (version 33). Demandes de l'utilisateur (le carnet de 0.0.8.16 ne correspondait pas).

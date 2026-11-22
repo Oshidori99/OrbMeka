@@ -99,6 +99,8 @@ func _run() -> void:
 	app.refresh_world_list(normal_id)
 	app.world_settings_button.pressed.emit()
 	check(app.world_settings_text.text.contains("Mode : Par défaut") and app.world_developer_button.visible, "default world offers developer mode")
+	# 0.0.8.20 (demande de l'utilisateur) : les détails du monde aussi : création et version, temps de jeu, mode de jeu.
+	check(app.world_settings_text.text.contains("Création") and app.world_settings_text.text.contains("version") and app.world_settings_text.text.contains("Temps de jeu") and app.world_settings_text.text.contains("Mode de jeu") and app.world_settings_text.text.contains("génération : version"), "world settings: creation date and version, play time, game mode, generation")
 	app.world_developer_button.pressed.emit()
 	check(app.page == "developer_confirm" and app.developer_confirm_message.text.contains("irréversible") and app.developer_cancel_button.has_focus(), "clear confirmation with Cancel focused")
 	app.developer_cancel_button.pressed.emit()

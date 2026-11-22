@@ -914,10 +914,22 @@ func _show_world_settings(item: Dictionary) -> void:
 Mode : %s" % [item.name, mode_name], "Monde : %s
 Mode : %s
 %s" % [item.name, mode_name, plus]]) + "
-Graine : %d · Taille : %s" % [item.seed, Catalog.Store.size_text(catalog.world_size(item.id))]
+Graine : %d · Taille : %s" % [item.seed, Catalog.Store.size_text(catalog.world_size(item.id))] + "
+" + world_details_text(item)
 	world_developer_button.visible = not developer
 	world_default_button.visible = developer
 	show_page("world_settings")
+
+# 0.0.8.20 (demande de l'utilisateur : on ne voyait pas la date de création ni les autres détails) : comme la page
+# Informations du monde (F3) : création (date, version), dernière ouverture, ouvertures, temps de jeu, mode de jeu,
+# version de la génération. Lecture seule (monde.json, statistiques.json).
+func world_details_text(item: Dictionary) -> String:
+	var folder: String = catalog.world_folder(item.id)
+	var stats := Catalog.WorldMetadata.read_stats(folder)
+	var lines := [Catalog.WorldMetadata.stats_text(Catalog.WorldMetadata.read_creation(folder), stats, float(stats.get("temps_de_jeu", 0.0)))]
+	lines.append("Mode de jeu : %s · génération : version %d" % [Catalog.GAME_MODES.get(item.get("game_mode", Catalog.GAME_CREATIVE), "Créatif"), int(item.get("generation", {}).get("version", Catalog.Generation.VERSION))])
+	return "
+".join(lines)
 
 func request_developer_mode() -> void:
 	var item: Dictionary = catalog.find_world(pending_world_id)
