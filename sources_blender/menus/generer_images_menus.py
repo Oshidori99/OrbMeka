@@ -1296,6 +1296,32 @@ def img_ficeler(skin=None):
     assign(end_cord, noisy("Ficelle", tuple(c * 0.78 for c in bind), bind, scale=300.0, roughness=0.9, bump=0.2))
 
 
+def img_sac_filet(skin=None):
+    """0.0.8.21 (#207) : le sac en filet du jeu (../sac/generer_sac.py), posé, vu de trois quarts : les mailles nouées,
+    l'ourlet et la bretelle."""
+    bag = import_model("sac_filet")
+    bag.rotation_euler = Euler((0.0, 0.0, math.radians(-35.0)))
+
+
+def img_nouer(skin=None):
+    """0.0.8.21 (#207) : fabrication « Nouer » : le sac en filet en train d'être noué : une cordelette encore libre sort
+    de l'ourlet, un gros nœud serré au bout des dernières mailles."""
+    bag = import_model("sac_filet")
+    bag.rotation_euler = Euler((0.0, 0.0, math.radians(-35.0)))
+    bpy.context.view_layer.update()
+    # Le haut du filet (le point le plus haut), sans la bretelle couchée au sol ; sans la bretelle dans l'image.
+    high = max((bag.matrix_world @ v.co for v in bag.data.vertices), key=lambda p: p.z)
+    bag["cadre_axe"] = 2
+    bag["cadre_min"] = 0.012
+    cord = lin((0xb9 / 255.0, 0xa6 / 255.0, 0x6c / 255.0))
+    loose = tube("Cordelette", curve_points(high, high + Vector((0.06, -0.08, 0.07)), Vector((0.015, 0.0, 0.04)), 18, 0.002, 7), 0.006, 0.0055, sides=8)
+    assign(loose, noisy("Cordelette", tuple(c * 0.75 for c in cord), cord, scale=200.0, roughness=0.9, bump=0.25))
+    subject(loose)
+    knot = blob("Noeud_sac", 0.016, 41, rough=0.2)
+    knot.location = high + Vector((0.004, -0.003, 0.004))
+    assign(knot, bpy.data.materials["Cordelette"])
+
+
 def img_poche(skin=None):
     """Inventaire : la poche : poche de tissu cousue, un peu gonflée, un caillou qui dépasse."""
     width, height = 0.12, 0.13
@@ -1406,6 +1432,8 @@ IMAGES = {
     "fendre": img_fendre,
     "assembler": img_assembler,
     "ficeler": img_ficeler,
+    "nouer": img_nouer,
+    "sac_filet": img_sac_filet,
 }
 WITH_HAND = {"main", "recuperer_materiaux", "creuser", "casser_objets", "arracher", "tailler"}
 

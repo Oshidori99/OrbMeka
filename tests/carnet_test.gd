@@ -38,7 +38,8 @@ func _run() -> void:
 	check(Carnet.NODES.all(func(entry): return entry.parent == "" or not Carnet.node(entry.parent).is_empty()), "every case linked to the one before")
 	check(branch_ids("gauche").slice(0, 4) == ["deplacer", "inventaire", "actions", "fabrication"], "left: the commands, easiest first")
 	check(branch_ids("haut").slice(0, 3) == ["cailloux", "fibres", "branche"], "up: what we gather, easiest first")
-	check(branch_ids("droite") == ["tresser", "eclat", "tete", "fendre", "assembler", "hache", "pioche"], "right: what we make, up to the axe and the pickaxe")
+	# 0.0.8.21 (#207) : après l'éclat, une branche vers le bas : cordelette puis sac en filet.
+	check(branch_ids("droite") == ["tresser", "eclat", "cordelette", "sac", "tete", "fendre", "assembler", "hache", "pioche"], "right: what we make, up to the axe and the pickaxe (and the net bag)")
 	check(Carnet.place_of(Carnet.node("jeter")).x < Carnet.place_of(Carnet.node("deplacer")).x and Carnet.place_of(Carnet.node("planter")).y < Carnet.place_of(Carnet.node("cailloux")).y and Carnet.place_of(Carnet.node("assembler")).x > Carnet.place_of(Carnet.node("tresser")).x, "further = more advanced: left goes left, up goes up, right goes right")
 	check(Carnet.place_of(Carnet.node("hache")).y < 0.0 and Carnet.place_of(Carnet.node("pioche")).y > 0.0, "after Assembler, a fork: the axe a bit up, the pickaxe a bit down")
 	check(branch_ids("bas").is_empty(), "nothing below for now")

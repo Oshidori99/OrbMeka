@@ -350,6 +350,31 @@ func show_held(value: Dictionary) -> void:
 	if is_instance_valid(left_hand_view):
 		left_hand_view.visible = view == "first"
 
+# 0.0.8.21 (#207) : sacs en filet portés : le premier pend à la hanche droite (bretelle sur l'épaule gauche), le
+# deuxième à la hanche gauche. Modèle : net_bag.gd (Blender). Ils suivent le corps (vue F4, autres vues).
+const NetBag = preload("res://scripts/net_bag.gd")
+var bag_views: Array = []
+
+func show_bags(worn: Array) -> void:
+	while bag_views.size() < 2:
+		var made := MeshInstance3D.new()
+		made.name = "Sac%d" % (bag_views.size() + 1)
+		made.mesh = NetBag.mesh(true)
+		made.visible = false
+		add_child(made)
+		bag_views.append(made)
+	var height := 1.4
+	if is_instance_valid(body):
+		height = maxf(_body_bounds(body).size.y * body.scale.y, 0.6)
+	for which in range(2):
+		var shown: bool = which < worn.size() and bool(worn[which])
+		var view_node: MeshInstance3D = bag_views[which]
+		view_node.visible = shown
+		if shown:
+			var side := 1.0 if which == 0 else -1.0
+			view_node.position = Vector3(side * height * 0.15, height * 0.42, BODY_BACK + 0.02)
+			view_node.rotation = Vector3(0.0, PI + side * 0.25, side * 0.08)
+
 # 0.0.7.10 : ce que tient chaque main (main gauche à gauche de l'écran, main droite à droite).
 func show_hands(left_value: Dictionary, right_value: Dictionary, both_hands: bool = false) -> void:
 	_left_item = left_value

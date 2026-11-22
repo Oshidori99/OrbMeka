@@ -64,11 +64,25 @@ func setup(skin_id: String, stone: Callable = Callable(), left_hand: bool = fals
 	add_child(held)
 	set_skin(skin_id)
 
+# 0.0.8.21 (signalé par l'utilisateur : mains trop blanches sur le Web) : en rendu Compatibility (Web), la lumière est plus
+# forte (world.gd, COMPAT_AMBIENT) : la peau claire saturait en blanc (mesuré sur captures : #dcc1a0 au PC, #ffffff au
+# Web). La couleur des mains et des objets tenus y est assombrie (comme les feuilles des arbres, trees.gd).
+# Le Web enlève aussi un peu de couleur (saturation 0,68) : elle est un peu renforcée ici.
+const WEB_TONE := 0.52
+const WEB_SATURATION := 1.4
+static var _web := RenderingServer.get_current_rendering_method() == "gl_compatibility"
+
+static func web_tone(color: Color) -> Color:
+	if not _web:
+		return color
+	var toned := Color.from_hsv(color.h, minf(color.s * WEB_SATURATION, 1.0), color.v * WEB_TONE, color.a)
+	return toned
+
 func set_skin(skin_id: String) -> void:
 	if skin_material == null:
 		skin_material = StandardMaterial3D.new()
 		skin_material.roughness = 0.7
-	skin_material.albedo_color = CharacterPreview.tone_color(skin_id)
+	skin_material.albedo_color = web_tone(CharacterPreview.tone_color(skin_id))
 	if hand != null:
 		for node in hand.find_children("*", "MeshInstance3D", true, false):
 			(node as MeshInstance3D).material_override = skin_material
@@ -105,7 +119,8 @@ func show_item(value: Dictionary) -> void:
 		match spec.get("forme", ""):
 			"caillou", "eclat":
 				made.mesh = Rocks.pebble_mesh(clampi(int(shown.get("forme", 1)), 1, 7))
-				size = minf(Rocks.PEBBLE_SIZES[clampi(int(shown.get("taille", 2)), 1, 7) - 1], _max_item()) if spec.forme == "caillou" else 0.05
+				# 0.0.8.21 (demande de l'utilisateur : on le voyait mal) : éclat en main plus grand (avant 5 cm).
+				size = minf(Rocks.PEBBLE_SIZES[clampi(int(shown.get("taille", 2)), 1, 7) - 1], _max_item()) if spec.forme == "caillou" else 0.08
 				made.material_override = _stone(spec)
 				made.scale = Vector3(size, size * (1.0 if spec.forme == "caillou" else 0.6), size)
 				made.position.y = size * 0.25
@@ -187,7 +202,7 @@ func _plain(color: Color) -> StandardMaterial3D:
 	var key := color.to_html()
 	if not _materials.has(key):
 		var made := StandardMaterial3D.new()
-		made.albedo_color = color
+		made.albedo_color = web_tone(color)
 		made.roughness = 0.6
 		# 0.0.8.4 : brins de fibres plats : visibles des deux côtés.
 		made.cull_mode = BaseMaterial3D.CULL_DISABLED
@@ -208,7 +223,7 @@ func _pile_material(id: String, color: Color) -> StandardMaterial3D:
 		grain.noise = noise
 		var made := StandardMaterial3D.new()
 		made.albedo_texture = grain
-		made.albedo_color = Color(minf(color.r * 1.5, 1.0), minf(color.g * 1.5, 1.0), minf(color.b * 1.5, 1.0))
+		made.albedo_color = web_tone(Color(minf(color.r * 1.5, 1.0), minf(color.g * 1.5, 1.0), minf(color.b * 1.5, 1.0)))
 		made.roughness = 0.95 if id != "boue" else 0.35
 		made.uv1_scale = Vector3(2.0, 2.0, 2.0)
 		_materials[key] = made

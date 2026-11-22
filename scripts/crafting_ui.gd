@@ -330,7 +330,8 @@ func _to_hand(choice: Dictionary, slot: int) -> Dictionary:
 
 # Retrouve un objet choisi qui a pu changer de place (même objet, même rôle).
 func _relocate(role: String, choice: Dictionary) -> Dictionary:
-	if choice.get("creative", false) or Rules.still_there(inventory, choice):
+	# Un choix « × n » (fibres, ficelles, cordelettes : area vide) n'a pas de place précise : vérifié en finissant.
+	if choice.get("creative", false) or str(choice.get("area", "")).is_empty() or Rules.still_there(inventory, choice):
 		return choice
 	var list := _list(role) if not role.is_empty() else []
 	for other in list:
@@ -343,12 +344,14 @@ func choose_head(next: String) -> void:
 	hits = 0
 	refresh()
 
-const ROLES := {"tresser": ["fibres"], "tailler": ["percuteur", "pierre"], "fendre": ["manche", "eclat"], "assembler": ["fendu", "tete"], "ficeler": ["a_ficeler", "lien"]}
-const ROLE_TITLES := {"fibres": "Fibres (3 du même type)", "percuteur": "Main gauche : percuteur (un caillou)", "pierre": "Main droite : pierre à tailler (silex ou calcaire, taille 3 à 5)",
+const ROLES := {"tresser": ["fibres"], "tailler": ["percuteur", "pierre"], "fendre": ["manche", "eclat"], "assembler": ["fendu", "tete"], "ficeler": ["a_ficeler", "lien"], "nouer": ["filet", "bretelle"]}
+# 0.0.8.21 (#207) : tresser 3 ficelles donne une cordelette ; Nouer : le sac en filet.
+const ROLE_TITLES := {"fibres": "3 fibres (une ficelle) ou 3 ficelles (une cordelette), du même type", "percuteur": "Main gauche : percuteur (un caillou)", "pierre": "Main droite : pierre à tailler (silex ou calcaire, taille 3 à 5)",
+	"filet": "Main gauche : 4 cordelettes du même type (les mailles)", "bretelle": "Main droite : 1 cordelette ou 1 liane (la bretelle)",
 	"manche": "Main gauche : branche (2 à 5 cm, 40 cm à 1 m, pas pourrie)", "eclat": "Main droite : éclat tranchant",
 	"fendu": "Main gauche : branche fendue", "tete": "Main droite : tête de hache ou de pioche",
 	"a_ficeler": "Main gauche : hache ou pioche à ficeler", "lien": "Main droite : 3 ficelles du même type, ou 1 liane"}
-const HOLD_ACTIONS := ["tresser", "fendre", "ficeler"]
+const HOLD_ACTIONS := ["tresser", "fendre", "ficeler", "nouer"]
 
 func _list(role: String) -> Array:
 	# 0.0.8.8 : un éclat tranchant se taille dans une pierre de taille 2 à 5.
@@ -404,7 +407,12 @@ func _hint() -> String:
 	var text := ""
 	match action:
 		"tresser":
-			text = "Clic gauche maintenu dans la scène (%d s) : tresser une ficelle de 33 cm." % roundi(Rules.BRAID_SECONDS)
+			var cordelette: bool = str(picks.fibres.get("fibres", "")).begins_with("ficelle_")
+			var fast := Rules.has_flake(inventory)
+			text = "Clic gauche maintenu dans la scène (%s s) : tresser %s de 33 cm." % [str(Rules.braid_seconds(inventory)).replace(".", ","), "une cordelette (plus épaisse)" if cordelette else "une ficelle"]
+			text += " Avec votre éclat tranchant : deux fois plus vite." if fast else " Avec un éclat tranchant sur vous : deux fois plus vite."
+		"nouer":
+			text = "Clic gauche maintenu dans la scène : une rangée de mailles toutes les %s s ; relâchez pour finir (%d à %d rangées : plus il y en a, plus les mailles sont serrées)." % [str(Rules.ROW_SECONDS).replace(".", ","), Inventory.BAG_ROWS.x, Inventory.BAG_ROWS.y]
 		"tailler":
 			var left := Rules.hits_for(picks.pierre.value, head) - hits
 			text = "Cliquez dans la scène pour frapper : encore %d coup%s." % [left, "s" if left > 1 else ""]
@@ -540,6 +548,8 @@ func _process(delta: float) -> void:
 				step_split(delta)
 			"ficeler":
 				step_bind(delta)
+			"nouer":
+				step_knot(delta)
 	for chip in chips.duplicate():
 		if not is_instance_valid(chip):
 			chips.erase(chip)
@@ -562,6 +572,8 @@ func release_hold() -> bool:
 	var done := false
 	if action == "ficeler":
 		done = finish_bind(floori(hold_time / Rules.TURN_SECONDS))
+	elif action == "nouer":
+		done = finish_knot(floori(hold_time / Rules.ROW_SECONDS))
 	hold_time = 0.0
 	ring.progress = 0.0
 	_rest_hands()
@@ -579,7 +591,9 @@ func step_braid(delta: float) -> bool:
 	if not ready_to_work():
 		return false
 	hold_time += delta
-	var share := clampf(hold_time / Rules.BRAID_SECONDS, 0.0, 1.0)
+	# 0.0.8.21 (demande de l'utilisateur) : deux fois plus vite avec un éclat tranchant sur soi.
+	var seconds := Rules.braid_seconds(inventory)
+	var share := clampf(hold_time / seconds, 0.0, 1.0)
 	ring.progress = share
 	# Les mains tendent les brins (un peu plus écartées) ; la main droite roule d'avant en arrière.
 	hands[0].position = hands[0].rest + Vector3(-0.015 * share, 0.0, 0.0)
@@ -593,7 +607,7 @@ func step_braid(delta: float) -> bool:
 	# 0.0.8.8 (demande de l'utilisateur) : tresser des fibres d'ortie pique un peu (Survie), chaque seconde.
 	if picks.fibres.fibres == "fibre_ortie" and floori(hold_time) > floori(hold_time - delta) and world.has_method("hurt"):
 		world.hurt(Fibers.NETTLE_BRAID)
-	if hold_time < Rules.BRAID_SECONDS:
+	if hold_time < seconds:
 		return false
 	hold_time = 0.0
 	holding = false
@@ -652,8 +666,10 @@ func strike() -> bool:
 			picks.pierre.value = Inventory.flat(smaller.objet, smaller.pile[0])
 	else:
 		var made: Array = Rules.knap_results(stone, head)
-		for value in made:
-			world.give_crafted(value)
+		# 0.0.8.21 (signalé par l'utilisateur : on voyait « Éclat de silex » au lieu de la tête) : l'éclat d'abord, la tête
+		# en dernier : elle arrive dans la première main (ce qu'on vient de faire), l'éclat passe dans l'autre.
+		world.give_crafted(made[1])
+		world.give_crafted(made[0])
 		message = "%s taillée, et un éclat tranchant." % Inventory.item_name(Inventory.flat(made[0].objet, made[0].pile[0]))
 		picks.erase("pierre")
 	# Ce qui est fabriqué va dans la première main : le percuteur et la pierre ont pu changer de place.
@@ -771,8 +787,21 @@ func assemble() -> bool:
 		motion.tween_property(hands[1], "position", hands[1].rest, 0.2)
 	picks.erase("fendu")
 	picks.erase("tete")
+	# 0.0.8.21 (demande de l'utilisateur) : l'outil assemblé reste dans la main gauche, et on passe à Ficeler (l'étape
+	# suivante), lui déjà choisi.
+	var made_flat := Inventory.flat(made.objet, made.pile[0])
+	action = "ficeler"
+	for each in action_buttons:
+		action_buttons[each].set_pressed_no_signal(each == action)
+	if is_instance_valid(action_name):
+		action_name.text = Rules.ACTION_NAMES.get(action, "")
+	var found: Array = _list("a_ficeler").filter(func(other): return other.value == made_flat)
+	if not found.is_empty():
+		picks["a_ficeler"] = found[0]
+	elif stick.get("creative", false):
+		picks["a_ficeler"] = {"label": Inventory.item_name(made_flat), "value": made_flat, "area": "", "index": -1, "unit": -1, "creative": true}
 	refresh()
-	status.text = "%s : il reste à la ficeler." % Inventory.item_name(Inventory.flat(made.objet, made.pile[0]))
+	status.text = "%s : assemblée, dans la main gauche. Il reste à la ficeler (choisissez le lien)." % Inventory.item_name(made_flat)
 	return true
 
 # Ficeler : clic maintenu ; la main droite tourne autour du haut du manche, un tour toutes les TURN_SECONDS.
@@ -846,12 +875,71 @@ func finish_bind(turns: int) -> bool:
 	status.text = "%s ficelée (%d tours) !" % [Inventory.item_name(Inventory.flat(made.objet, made.pile[0])), turns]
 	return true
 
+# --- 0.0.8.21 (#207) : Nouer un sac en filet ---
+# Clic maintenu : les deux mains font des nœuds (pincent, tirent), une rangée de mailles toutes les ROW_SECONDS ;
+# relâcher (ou BAG_ROWS.y rangées) : le sac.
+func step_knot(delta: float) -> bool:
+	if not ready_to_work():
+		return false
+	hold_time += delta
+	var rows := mini(floori(hold_time / Rules.ROW_SECONDS), Inventory.BAG_ROWS.y)
+	ring.progress = clampf(hold_time / (Rules.ROW_SECONDS * Inventory.BAG_ROWS.y), 0.0, 1.0)
+	var pull := absf(sin(hold_time / Rules.ROW_SECONDS * PI))
+	hands[0].position = hands[0].rest + Vector3(-0.02 * pull, 0.01 * pull, 0.0)
+	hands[1].position = hands[1].rest + Vector3(0.02 * pull, 0.01 * pull, 0.0)
+	for hand in hands:
+		hand._go_pose("pince", 0.7 + 0.3 * pull)
+		hand._gesture_left = 0.2
+	status.text = "Rangées de mailles : %d (relâchez pour finir, %d au moins, %d au plus)." % [rows, Inventory.BAG_ROWS.x, Inventory.BAG_ROWS.y]
+	if rows < Inventory.BAG_ROWS.y:
+		return false
+	holding = false
+	var done := finish_knot(rows)
+	hold_time = 0.0
+	ring.progress = 0.0
+	_rest_hands()
+	return done
+
+func finish_knot(rows: int) -> bool:
+	if rows < Inventory.BAG_ROWS.x:
+		status.text = "Pas assez de rangées : %d au moins. Maintenez plus longtemps." % Inventory.BAG_ROWS.x
+		return false
+	var net: Dictionary = picks.get("filet", {})
+	var strap: Dictionary = picks.get("bretelle", {})
+	if net.is_empty() or strap.is_empty() or not Rules.net_ready(inventory, net, strap):
+		status.text = "Il faut 4 cordelettes du même type, et une cordelette ou une liane pour la bretelle."
+		picks = {}
+		refresh()
+		return false
+	var strap_id: String = strap.bretelle
+	var tied := false
+	if strap_id == "liane":
+		tied = Rules.take_choice(inventory, _relocate("bretelle", strap))
+	else:
+		tied = Rules.take_count(inventory, strap_id, 1, strap.get("creative", false))
+	if not tied or not Rules.take_count(inventory, net.cordes, Rules.NET_CORDS, net.get("creative", false)):
+		status.text = "Les cordelettes ou la liane ne sont plus là."
+		picks = {}
+		refresh()
+		return false
+	var made := Rules.bag_result(net.cordes, strap_id, rows)
+	var worn: int = world.wear_crafted_bag(made) if world.has_method("wear_crafted_bag") else -1
+	if worn < 0:
+		world.give_crafted(made)
+	picks = {}
+	refresh()
+	var flat := Inventory.flat(made.objet, made.pile[0])
+	var where: String = ["sur l'épaule : cases 7 à 10", "sur l'autre épaule : ses cases sont dans l'inventaire (O + I)"][worn] if worn >= 0 else "en main"
+	status.text = "Sac en filet noué (%d rangées) : il porte %s. Il est %s." % [rows, Inventory.format_weight(Inventory.bag_capacity(flat)), where]
+	return true
+
 # --- Cases d'inventaire (demande de l'utilisateur) ---
 
 func refresh_slots() -> void:
 	if not is_instance_valid(slot_row):
 		return
-	var shown: Array = Inventory.HANDS + Inventory.POCKETS if inventory.mode == Inventory.SURVIVAL else inventory.bar_slots()
+	# 0.0.8.21 (#207) : en Survie, aussi les cases du sac porté (7 à 10).
+	var shown: Array = Inventory.HANDS + Inventory.POCKETS + (Inventory.BAG if inventory.bag_worn(0) else []) if inventory.mode == Inventory.SURVIVAL else inventory.bar_slots()
 	while slots.size() < shown.size():
 		var slot = InventoryUI.Slot.new(_slot_side(), true, roundi(10 * text_scale))
 		slot.show_title = false

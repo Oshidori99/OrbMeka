@@ -1,6 +1,24 @@
-# OrbMeka™ — prototype 0.0.8.20
+# OrbMeka™ — prototype 0.0.8.21
 
 Godot 4.7 / GDScript. Formes et couleurs simples ; assets externes seulement sous licence vérifiée (sons CC0, assets/sounds/CREDITS.txt).
+
+## 0.0.8.21 — Sac en filet : cordelette, Nouer, 4 cases de plus sur l'épaule, deuxième sac dans l'inventaire ; tresser plus vite avec un éclat ; corrections (troncs en double, mains blanches sur le Web, noms)
+Version locale (1 sur 4 depuis la publication de 0.0.8.20). Génération inchangée (version 33). Issue #207 et demandes de l'utilisateur.
+- **Cordelette** (O + F → Tresser) : 3 ficelles du même type tressées ensemble (plus épaisse qu'une ficelle, trop fine seule pour un sac).
+- **Nouer** (O + F, nouvelle action) : 4 cordelettes du même type pour les mailles (main gauche), 1 cordelette ou 1 liane pour la bretelle (main droite) ; clic gauche maintenu, une rangée de mailles toutes les 0,8 s, de 6 à 10 rangées (relâcher pour finir). Il faut donc 15 ficelles (45 fibres).
+- **Sac porté** : il va tout de suite sur l'épaule ; ses 4 cases sont les **cases 7 à 10** de la barre. On se sert d'un objet du sac comme d'une poche (case choisie), **même la main pleine** (l'animation de la main qui va au sac viendra plus tard, #250). Charge : 2,5 à 3,5 kg selon la fabrication (lin, 10 rangées, bretelle en cordelette : 3,5 kg), 10 L. Les poignées de terre, de sable… et les fibres passent entre les mailles.
+- **Deuxième sac** : ses 4 cases sont dans l'inventaire (O + I), sur une ligne au-dessus des mains (dessin du sac à gauche). Les deux places de sac de l'**Équipement** marchent : poser un sac (tenu à la souris) pour le porter, cliquer un sac vide pour l'enlever.
+- Le sac se voit sur le personnage (hanche, vue F4) et au sol ; à la mort, il tombe avec ce qu'il contient (sauf si le monde garde les objets). Barre de charge du sac en bas à droite. Sauvegarde : format 4 (les anciens mondes : sans sac).
+- **Fiche de fabrication** du sac (cordelettes, rangées, bretelle, conseils) et de la **branche fendue** (essence, bois vivant ou mort, souplesse, mesures : quel manche elle fera).
+- **Carnet de route** : Éclat (récolte des fibres deux fois plus rapide, bien expliqué) → Cordelette → Sac en filet ; à mains nues, un conseil pendant la récolte (une fois par minute au plus).
+- **Tresser deux fois plus vite** (1,5 s) avec un éclat tranchant sur soi (main, poche ou sac).
+- **Après Assembler**, l'outil assemblé reste dans la main gauche et on passe à Ficeler.
+- Corrections : un **tronc posé** (porté à deux mains, l'autre main choisie) restait aussi en main (en double) ; **mains trop blanches sur le Web** (rendu Compatibility : peau et objets tenus assombris, mesuré sur captures : avant #ffffff, PC #dcc1a0) ; **noms dans les cases** complets (« Branche fendue de noisetier », « Tête de pioche en silex ») ; **éclats** plus grands en main et au sol.
+
+- **Tailler** : la tête taillée arrive dans la première main, l'éclat dans l'autre (avant : l'éclat était dans la main choisie, son nom s'affichait en bas).
+
+Tests réussis : sac (35, nouveau), crafting, inventory, inventory_more, carnet, fiche_outil, tools, bras, plantes_inventaire, death, hands_eat, sticks, menu_style, prototype, history_resume (+ tests juridiques). Mains sur le Web : captures en rendu Compatibility sur PC (peau #c7b096 au lieu de #ffffff).
+À tester : récolter des fibres, tresser ficelles puis cordelettes, Nouer un sac, l'utiliser (cases 7 à 10), en faire un deuxième, l'enlever dans l'Équipement ; vue F4 ; les mains sur le Web.
 
 ## 0.0.8.20 — Paramètres du monde : la date de création et sa version, la dernière ouverture, le temps de jeu, le mode de jeu et la version de la génération
 Version locale (la publication de 0.0.8.14 à 0.0.8.20 attend l'utilisateur). Génération inchangée (version 33). Demande de l'utilisateur.

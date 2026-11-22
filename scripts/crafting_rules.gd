@@ -16,13 +16,23 @@ extends RefCounted
 #   garde sa fabrication (pierre et taille de la tête, bois du manche, lien, tours).
 const Inventory = preload("res://scripts/inventory.gd")
 
-const ACTIONS := ["tresser", "tailler", "fendre", "assembler", "ficeler"]
-const ACTION_NAMES := {"tresser": "Tresser", "tailler": "Tailler", "fendre": "Fendre", "assembler": "Assembler", "ficeler": "Ficeler"}
-const READY := ["tresser", "tailler", "fendre", "assembler", "ficeler"]
+# 0.0.8.21 (#207, demandes de l'utilisateur) :
+# - Tresser aussi 3 ficelles du même type : une cordelette (plus épaisse ; une ficelle seule est trop fine pour un sac).
+# - Nouer : 4 cordelettes du même type pour les mailles (main gauche) et 1 cordelette ou 1 liane pour la bretelle (main
+#   droite) ; clic gauche maintenu, une rangée de mailles toutes les ROW_SECONDS, de BAG_ROWS.x à BAG_ROWS.y (relâcher
+#   pour finir) : un sac en filet (sa charge dépend des cordelettes, des rangées et de la bretelle : Inventory.bag_capacity).
+const ACTIONS := ["tresser", "tailler", "fendre", "assembler", "ficeler", "nouer"]
+const ACTION_NAMES := {"tresser": "Tresser", "tailler": "Tailler", "fendre": "Fendre", "assembler": "Assembler", "ficeler": "Ficeler", "nouer": "Nouer"}
+const READY := ["tresser", "tailler", "fendre", "assembler", "ficeler", "nouer"]
 const BRAID_FIBERS := 3
 const BRAID_SECONDS := 3.0
 const CORD_LENGTH := 0.33
-const CORDS := {"fibre_ortie": "ficelle_ortie", "fibre_lin": "ficelle_lin", "fibre_herbe": "ficelle_herbe"}
+const CORDS := {"fibre_ortie": "ficelle_ortie", "fibre_lin": "ficelle_lin", "fibre_herbe": "ficelle_herbe",
+	"ficelle_ortie": "cordelette_ortie", "ficelle_lin": "cordelette_lin", "ficelle_herbe": "cordelette_herbe"}
+# Cordelettes : identifiant → fil (Inventory.BAG_CORD_FACTORS : 0 ortie, 1 lin, 2 herbe).
+const BAG_CORDS := {"cordelette_ortie": 0, "cordelette_lin": 1, "cordelette_herbe": 2}
+const NET_CORDS := 4
+const ROW_SECONDS := 0.8
 const HAMMERS := ["caillou", "caillou_calcaire", "caillou_silex"]
 # Pierre à tailler : identifiant → pierre de la tête (0 calcaire, 1 silex).
 const KNAP_STONES := {"caillou_calcaire": 0, "caillou_silex": 1}
@@ -40,13 +50,27 @@ const FLAKE_WEIGHT := 40.0
 # Poids de la tête : une part de la pierre de départ (le reste part en éclats).
 const HEAD_SHARE := 0.6
 
+# 0.0.8.21 (demande de l'utilisateur) : avec un éclat tranchant sur soi (mains, poches, sac), on tresse deux fois plus vite
+# (il coupe et égalise les brins) : 1,5 s au lieu de 3 s, pour les ficelles comme pour les cordelettes.
+const BRAID_FLAKE_FACTOR := 0.5
+
+static func has_flake(inventory: Inventory) -> bool:
+	for place in places(inventory):
+		var there := inventory.item(place[0], place[1])
+		if not there.is_empty() and Inventory.ITEMS.get(there.objet, {}).get("forme", "") == "eclat" and there.objet != "charbon":
+			return true
+	return false
+
+static func braid_seconds(inventory: Inventory) -> float:
+	return BRAID_SECONDS * (BRAID_FLAKE_FACTOR if has_flake(inventory) else 1.0)
+
 static func is_ready(action: String) -> bool:
 	return action in READY
 
-# Toutes les cases où l'on prend des objets : en Survie, les mains et les poches ; en Créatif, la barre et la grille.
+# Toutes les cases où l'on prend des objets : en Survie, les mains, les poches et les sacs ; en Créatif, la barre et la grille.
 static func places(inventory: Inventory) -> Array:
 	if inventory.mode == Inventory.SURVIVAL:
-		return (Inventory.HANDS + Inventory.POCKETS).map(func(index): return ["bar", index])
+		return inventory.carried_places()
 	var list: Array = inventory.bar_slots().map(func(index): return ["bar", index])
 	for index in range(Inventory.GRID_SIZE):
 		list.append(["grid", index])
@@ -140,11 +164,16 @@ static func result_id(action: String, picks: Dictionary, head: String) -> String
 			return UNBOUND.get(picks.get("tete", {}).get("value", {}).get("objet", ""), "")
 		"ficeler":
 			return BOUND.get(picks.get("a_ficeler", {}).get("value", {}).get("objet", ""), "")
+		"nouer":
+			return Inventory.BAG_ID
 	return ""
 
 # Combien d'objets « id » dans les cases (« branche_fendue » : les branches fendues).
 static func owned(inventory: Inventory, id: String) -> int:
 	var total := 0
+	# 0.0.8.21 : les sacs portés comptent aussi.
+	if id == Inventory.BAG_ID:
+		total += [0, 1].filter(func(which): return inventory.bag_worn(which)).size()
 	for place in places(inventory):
 		var there := inventory.item(place[0], place[1])
 		if there.is_empty():
@@ -261,6 +290,8 @@ static func bind_choices(inventory: Inventory) -> Array:
 static func more_choices(inventory: Inventory, role: String) -> Array:
 	if role == "lien":
 		return bind_choices(inventory)
+	if role in ["filet", "bretelle"]:
+		return net_choices(inventory, role)
 	var result := []
 	for place in places(inventory):
 		var there := inventory.item(place[0], place[1])
@@ -351,3 +382,51 @@ static func bind_result(tool: Dictionary, bind: String, turns: int) -> Dictionar
 	# 0.0.8.10 : un outil neuf a tous ses coups.
 	made.usure = Inventory.tool_durability(made)
 	return _pile(made)
+
+# --- 0.0.8.21 (#207) : Nouer un sac en filet ---
+# Mailles (« filet ») : 4 cordelettes d'un même type (toutes cases) ; bretelle : 1 cordelette (n'importe quel type) ou
+# 1 liane. Une même sorte pour les deux : il en faut 5.
+static func net_choices(inventory: Inventory, role: String) -> Array:
+	var result := []
+	var totals := {}
+	for place in places(inventory):
+		var there := inventory.item(place[0], place[1])
+		if there.is_empty() or Inventory.unlimited(there):
+			continue
+		if BAG_CORDS.has(there.objet):
+			totals[there.objet] = int(totals.get(there.objet, 0)) + Inventory.count(there)
+		elif there.objet == "liane" and role == "bretelle":
+			var units := Inventory.units(there)
+			for unit in range(units.size()):
+				result.append({"label": "Liane (bretelle plus grossière)", "value": units[unit], "area": place[0], "index": place[1], "unit": unit, "bretelle": "liane"})
+	for id in BAG_CORDS:
+		var have := int(totals.get(id, 0))
+		if role == "filet" and have >= NET_CORDS:
+			result.append({"label": "%s × %d (4 pour les mailles)" % [Inventory.ITEMS[id].nom, have], "value": {"objet": id}, "area": "", "index": -1, "unit": -1, "cordes": id})
+		elif role == "bretelle" and have >= 1:
+			result.append({"label": "%s × %d (1 pour la bretelle)" % [Inventory.ITEMS[id].nom, have], "value": {"objet": id}, "area": "", "index": -1, "unit": -1, "bretelle": id})
+	if inventory.mode == Inventory.CREATIVE:
+		for id in BAG_CORDS:
+			var entry := {"label": "%s (Créatif)" % Inventory.ITEMS[id].nom, "value": {"objet": id}, "area": "", "index": -1, "unit": -1, "creative": true}
+			entry["cordes" if role == "filet" else "bretelle"] = id
+			result.append(entry)
+		if role == "bretelle":
+			result.append({"label": "Liane (Créatif)", "value": {"objet": "liane"}, "area": "", "index": -1, "unit": -1, "bretelle": "liane", "creative": true})
+	return result
+
+# Assez de cordelettes pour les deux choix (5 d'un même type si les deux sont pareils) ?
+static func net_ready(inventory: Inventory, net: Dictionary, strap: Dictionary) -> bool:
+	if net.get("creative", false):
+		return true
+	var id: String = net.get("cordes", "")
+	var need := NET_CORDS + (1 if strap.get("bretelle", "") == id and not strap.get("creative", false) else 0)
+	var have := 0
+	for place in places(inventory):
+		if inventory.item(place[0], place[1]).get("objet", "") == id:
+			have += Inventory.count(inventory.item(place[0], place[1]))
+	return have >= need
+
+static func bag_result(net_id: String, strap_id: String, rows: int) -> Dictionary:
+	var vine := strap_id == "liane"
+	var weight := Inventory.instance_weight(net_id, {}) * NET_CORDS + Inventory.instance_weight(strap_id, {})
+	return {"objet": Inventory.BAG_ID, "pile": [{"lien": int(BAG_CORDS.get(net_id, 0)), "rangees": clampi(rows, Inventory.BAG_ROWS.x, Inventory.BAG_ROWS.y), "bretelle": 1 if vine else 0, "poids": snappedf(weight, 1.0)}]}
