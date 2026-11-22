@@ -1265,7 +1265,8 @@ func _show_aim(on: bool) -> void:
 
 # Message quand une pioche manque (Survie seulement depuis 0.0.7.27 : en Créatif, les mains cassent tout).
 func _needs_pickaxe(subject: String) -> String:
-	return subject + (" avec la pioche (inventaire : O + I, onglet Outils)." if game_mode == Inventory.CREATIVE else " avec une pioche : pas encore en Survie.")
+	# 0.0.8.10 : en Survie, la pioche en pierre (fabriquée : O + F).
+	return subject + (" avec la pioche (inventaire : O + I, onglet Outils)." if game_mode == Inventory.CREATIVE else " plus vite avec une pioche en pierre (fabrication : O + F).")
 
 
 # --- 0.0.7.8 : anneau de chargement, abattre et couper les arbres (demande de l'utilisateur) ---
@@ -1341,16 +1342,17 @@ func step_chop(delta: float, holding: bool) -> bool:
 		local.y = maxf(local.y, 0.3)
 		chop_thickness = Trees.wood_thickness(int(tree.get_meta("kind", 0)), int(tree.get_meta("size", 3)), int(tree.get_meta("form", 0)), local) * tree.scale.x
 		chop_seconds = maxf(CHOP_SECONDS * chop_thickness / 0.1, 0.5)
-	if game_mode == Inventory.SURVIVAL and chop_thickness > MAX_HAND_THICKNESS + 0.001:
-		_notify("Trop épais à mains nues : %d cm (%d cm au plus)." % [roundi(chop_thickness * 100.0), roundi(MAX_HAND_THICKNESS * 100.0)])
+	if game_mode == Inventory.SURVIVAL and chop_thickness > max_chop_thickness() + 0.001:
+		_notify(_too_thick_message())
 		return false
-	var seconds := CHOP_SECONDS_CREATIVE if game_mode == Inventory.CREATIVE else chop_seconds
+	var seconds := CHOP_SECONDS_CREATIVE if game_mode == Inventory.CREATIVE else chop_seconds / tool_speed("bois")
 	chop_time += delta
 	show_ring(chop_time / seconds)
 	if chop_time < seconds:
 		return false
 	chop_target = null
 	chop_time = 0.0
+	use_tool("bois", seconds)
 	if lying:
 		cut_tree(tree, hit.position)
 	else:
@@ -1651,10 +1653,10 @@ func _step_chop_parts(delta: float, hit: Dictionary) -> bool:
 		chop_time = 0.0
 		chop_thickness = _aim_thickness(aim)
 		chop_seconds = maxf(CHOP_SECONDS * chop_thickness / 0.1, 0.5)
-	if game_mode == Inventory.SURVIVAL and chop_thickness > MAX_HAND_THICKNESS + 0.001:
-		_notify("Trop épais à mains nues : %d cm (%d cm au plus)." % [roundi(chop_thickness * 100.0), roundi(MAX_HAND_THICKNESS * 100.0)])
+	if game_mode == Inventory.SURVIVAL and chop_thickness > max_chop_thickness() + 0.001:
+		_notify(_too_thick_message())
 		return false
-	var seconds := CHOP_SECONDS_CREATIVE if game_mode == Inventory.CREATIVE else chop_seconds
+	var seconds := CHOP_SECONDS_CREATIVE if game_mode == Inventory.CREATIVE else chop_seconds / tool_speed("bois")
 	chop_time += delta
 	show_ring(chop_time / seconds)
 	if chop_time < seconds:
@@ -1662,6 +1664,7 @@ func _step_chop_parts(delta: float, hit: Dictionary) -> bool:
 	chop_target = null
 	chop_time = 0.0
 	chop_aim = {}
+	use_tool("bois", seconds)
 	cut_wood(aim.tree, aim.piece, aim.t, aim.point)
 	return true
 
@@ -1698,16 +1701,17 @@ func _step_chop_ground(delta: float, index: int, point: Vector3) -> bool:
 		chop_time = 0.0
 		chop_thickness = thickness
 		chop_seconds = ground_wood_seconds(item, thickness)
-	if game_mode == Inventory.SURVIVAL and chop_thickness > MAX_HAND_THICKNESS + 0.001:
-		_notify("Trop épais à mains nues : %d cm (%d cm au plus)." % [roundi(chop_thickness * 100.0), roundi(MAX_HAND_THICKNESS * 100.0)])
+	if game_mode == Inventory.SURVIVAL and chop_thickness > max_chop_thickness() + 0.001:
+		_notify(_too_thick_message())
 		return false
-	var seconds := CHOP_SECONDS_CREATIVE if game_mode == Inventory.CREATIVE else chop_seconds
+	var seconds := CHOP_SECONDS_CREATIVE if game_mode == Inventory.CREATIVE else chop_seconds / tool_speed("bois")
 	chop_time += delta
 	show_ring(chop_time / seconds)
 	if chop_time < seconds:
 		return false
 	chop_time = 0.0
 	chop_aim = {}
+	use_tool("bois", seconds)
 	return split_wood(index, point)
 
 # 0.0.7.26 (#212) : durée pour recasser un bois au sol (Survie) : comme une branche (CHOP_SECONDS par 10 cm d'épaisseur),
@@ -2923,6 +2927,59 @@ func _held_index() -> int:
 	var heavy: int = inventory.two_handed()
 	return heavy if heavy >= 0 and index in Inventory.HANDS else index
 
+
+# --- 0.0.8.10 (#202, demandes de l'utilisateur) : outils utiles et usure (règles : inventory.gd, TOOL_SPEEDS) ---
+# L'outil en main (Survie) accélère son travail ; chaque travail fini l'use (Inventory.TOOL_WEAR_PER_SECOND coups par
+# seconde de travail) ; à 0 coup, il casse : la tête et le manche tombent au sol.
+func held_tool() -> Dictionary:
+	if game_mode != Inventory.SURVIVAL:
+		return {}
+	var there := inventory.item("bar", _held_index())
+	if there.is_empty() or not Inventory.is_stone_tool(there):
+		return {}
+	var units := Inventory.units(there)
+	return units[-1] if not units.is_empty() else {}
+
+func tool_speed(work: String) -> float:
+	var tool := held_tool()
+	return Inventory.tool_speed(tool, work) if not tool.is_empty() else 1.0
+
+# Le plus gros bois qu'on coupe : 40 cm à mains nues ; une hache : jusqu'à 1 m.
+func max_chop_thickness() -> float:
+	return 1.0 if tool_speed("bois") > 1.0 else MAX_HAND_THICKNESS
+
+func _too_thick_message() -> String:
+	return "Trop épais %s : %d cm (%d cm au plus)." % ["pour cette hache" if tool_speed("bois") > 1.0 else "à mains nues", roundi(chop_thickness * 100.0), roundi(max_chop_thickness() * 100.0)]
+
+# Use l'outil en main après un travail de « seconds » s (seulement s'il l'a accéléré) ; rend vrai s'il casse.
+func use_tool(work: String, seconds: float) -> bool:
+	var tool := held_tool()
+	if tool.is_empty() or Inventory.tool_speed(tool, work) <= 1.0:
+		return false
+	var index := _held_index()
+	var there := inventory.item("bar", index).duplicate(true)
+	var left := Inventory.tool_left(tool) - maxi(1, roundi(seconds * Inventory.TOOL_WEAR_PER_SECOND))
+	if left > 0:
+		there.pile[-1].usure = left
+		inventory._store().bar[index] = there
+		inventory.changed.emit()
+		inventory_unsaved = true
+		return false
+	# Cassé : la tête et le manche (une branche fendue) tombent à ses pieds.
+	inventory.take_unit("bar", index)
+	var head := {"objet": "tete_hache" if tool.objet == "hache_pierre" else "tete_pioche", "pierre": int(tool.get("pierre", 1)), "taille": int(tool.get("taille", 4))}
+	var handle := {"objet": "branche", "fendue": 1}
+	for key in ["essence", "age", "souplesse", "epaisseur", "fin", "longueur", "morte"]:
+		if tool.has(key):
+			handle[key] = tool[key]
+	var feet := player.global_position + player.global_transform.basis.x * 0.4 - player.global_transform.basis.z * 0.4
+	ground.drop(head, player.camera.global_position, feet, _rest_height, 0.1)
+	ground.drop(handle, player.camera.global_position, feet + player.global_transform.basis.x * 0.3, _rest_height, 0.1)
+	_impact_sound(player.global_position)
+	_notify("%s s'est cassée : la tête et le manche sont au sol." % Inventory.ITEMS[tool.objet].nom)
+	notice_time = 4.0
+	inventory_unsaved = true
+	return true
 # « Caillou » ou « Caillou × 3 » (tout un tas).
 static func _thrown_name(value: Dictionary) -> String:
 	var amount := Inventory.count(value)
@@ -3563,25 +3620,36 @@ func step_dig(delta: float, holding: bool, aimed: Dictionary = {}) -> bool:
 	if plan.is_empty() or plan.seconds <= 0.0 or is_inf(float(plan.seconds)):
 		dig_time = 0.0
 		return false
+	# 0.0.8.10 (#202) : pioche en pierre en main : la pierre 4 fois plus vite (avec des éclats), la terre 2 fois.
+	var work := "pierre" if plan.stone else "terre"
+	var speed := tool_speed(work)
+	var seconds: float = plan.seconds / speed
 	if typeof(plan.center) != typeof(dig_point) or plan.center != dig_point:
 		dig_point = plan.center
 		dig_time = 0.0
 	dig_time += delta
-	if plan.seconds > RING_FROM_SECONDS:
-		show_ring(dig_time / plan.seconds)
-	if dig_time < plan.seconds:
+	if seconds > RING_FROM_SECONDS:
+		show_ring(dig_time / seconds)
+	if dig_time < seconds:
 		return false
 	dig_point = null
 	dig_time = 0.0
+	var pick: bool = speed > 1.0 and plan.stone
 	if hit.collider.is_in_group("rocks"):
-		return mine_rock(hit.collider, hit, false)
+		use_tool(work, seconds)
+		return mine_rock(hit.collider, hit, pick)
 	if hit.collider.is_in_group("pebbles"):
-		return strike_pebble(hit.collider, true, false)
+		use_tool(work, seconds)
+		return strike_pebble(hit.collider, true, pick)
+	var stone_kind: int = _kind_at(plan.center) if plan.stone and plan.center is Vector3i else -1
 	var done := sculpt(hit, false, -1, plan.cells, plan.stone)
 	if done:
 		_debris(hit.position, Color("#6f6b66") if plan.stone else Color("#6b4a2e"))
 		if plan.stone:
 			_impact_sound(hit.position)
+		if pick and STONE_PIECES.has(stone_kind):
+			drop_pieces(STONE_PIECES[stone_kind], 2, STONE_PIECE_WEIGHT, hit.position)
+		use_tool(work, seconds)
 	return done
 
 # Creuser (add false) ou poser (add true, matière kind). limit (Survie) : sous-cellules posées au plus (ce qu'on tient).

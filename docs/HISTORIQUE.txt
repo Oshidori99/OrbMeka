@@ -3,6 +3,10 @@ Du plus récent au plus ancien. Ce fichier est mis à jour à chaque version.
 
 === Thème « Fabrication et survie » (0.0.8) ===
 
+0.0.8.10 — Les outils servent : la hache coupe le bois 3 fois plus vite (troncs jusqu'à 1 m), la pioche casse la pierre 4 fois plus vite avec des éclats et creuse la terre 2 fois plus vite ; ils s'usent (50 à 300 coups selon leur fabrication), barre verte à rouge, puis cassent
+Génération du terrain : version 33 · Menus : version 10.
+Demandes de l'utilisateur (#202).
+
 0.0.8.9 — On prend exactement ce qu'on vise ; objets couchés sur les pentes ; arracher l'herbe avec R ou le clic gauche (nouveau mode « Casser / Arracher ») ; ficelage en croix sur la tête et outils bien tenus ; effet de dégât selon sa force ; inventaire, fabrication et menu B + T en bleu-violet
 Génération du terrain : version 33 · Menus : version 10.
 Corrections et demandes de l'utilisateur (#242).

@@ -1,6 +1,17 @@
-# OrbMeka™ — prototype 0.0.8.9
+# OrbMeka™ — prototype 0.0.8.10
 
 Godot 4.7 / GDScript. Formes et couleurs simples ; assets externes seulement sous licence vérifiée (sons CC0, assets/sounds/CREDITS.txt).
+
+## 0.0.8.10 — Les outils servent : la hache coupe le bois 3 fois plus vite (troncs jusqu'à 1 m), la pioche casse la pierre 4 fois plus vite avec des éclats et creuse la terre 2 fois plus vite ; ils s'usent (50 à 300 coups selon leur fabrication), barre verte à rouge, puis cassent
+Version locale (1 sur 4). Génération inchangée (version 33). Demandes de l'utilisateur (#202).
+- **Hache en pierre** en main (Survie) : couper, abattre et recasser le bois **3 fois plus vite** ; troncs et branches jusqu'à **1 m** d'épaisseur (40 cm à mains nues).
+- **Pioche en pierre** : la **pierre 4 fois plus vite**, avec **2 éclats** de sa pierre par sous-cellule (et les rochers, les cailloux) ; la **terre, le sable, le gravier 2 fois plus vite**.
+- **Qualité** (0,8 à 1,25) : grande tête, silex, bois sain, beaucoup de tours : un peu plus rapide.
+- **Usure** : 2 coups par seconde de travail accéléré par l'outil ; un outil neuf a de **50** (petite tête de calcaire, bois mort, liane, 4 tours) à **300 coups** (grande tête de silex, bon manche, ficelle de lin, 8 tours). **Barre en haut de la case** : verte (neuf) → jaune → orange → rouge. À 0, l'outil **casse** : sa tête et son manche (branche fendue) tombent à ses pieds, réutilisables.
+- **Détails** (D + T, survol) : « Usure : 120 coups restants sur 300 ».
+
+Tests réussis : tools (14, nouveau), crafting, fixes_089, breaking, sticks, tree_fall, trees, rock_place, smooth_terrain, cliff_fall, hands_eat, fibers, health, world_save, inventory, inventory_more (+ tests juridiques). Capture hors écran : barres d'usure.
+À tester : abattre un gros arbre à la hache, casser de la pierre à la pioche (éclats), user un outil jusqu'à la casse, les durées (trop lentes ou trop rapides ?).
 
 ## 0.0.8.9 — On prend exactement ce qu'on vise ; objets couchés sur les pentes ; arracher l'herbe avec R ou le clic gauche (nouveau mode « Casser / Arracher ») ; ficelage en croix sur la tête et outils bien tenus ; effet de dégât selon sa force ; inventaire, fabrication et menu B + T en bleu-violet
 Version publiée (4 sur 4, avec 0.0.8.6 à 0.0.8.8). Génération inchangée (version 33). Corrections et demandes de l'utilisateur (#242).

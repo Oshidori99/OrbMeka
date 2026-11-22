@@ -109,6 +109,15 @@ class Slot extends Control:
 			var icon: Texture2D = ItemIcons.for_value(item)
 			if icon != null:
 				draw_texture_rect(icon, square.grow(-side * 0.08), false)
+			# 0.0.8.10 (demande de l'utilisateur) : usure d'un outil : une barre en haut de la case, verte quand il est neuf
+			# (pleine), puis jaune, orange, rouge ; il casse à la fin.
+			if Inventory.is_stone_tool(item):
+				var units := Inventory.units(item)
+				var shown: Dictionary = units[-1] if not units.is_empty() else item
+				var share := clampf(float(Inventory.tool_left(shown)) / maxf(Inventory.tool_durability(shown), 1.0), 0.0, 1.0)
+				var bar := Rect2(Vector2(3.0, 3.0), Vector2(width - 6.0 - (more_rect().size.x + 3.0 if more else 0.0), maxf(3.0, side * 0.07)))
+				draw_rect(bar, Color(0, 0, 0, 0.55))
+				draw_rect(Rect2(bar.position, Vector2(bar.size.x * share, bar.size.y)), wear_color(share))
 			var amount := Inventory.count(item)
 			if amount > 1:
 				var font := ThemeDB.fallback_font
@@ -151,6 +160,18 @@ class Slot extends Control:
 				_text_line(title_lines[line], side + font_px + 2.0 + line * (font_px + 3.0), Color(0.97, 0.97, 0.93))
 			_text_line(note, side + font_px + 2.0 + _wrap(title).size() * (font_px + 3.0) if show_title and not title.is_empty() else side + font_px + 2.0, Color(0.85, 0.88, 0.8))
 
+
+	# Vert (neuf) → jaune (à moitié) → orange → rouge (presque cassé).
+	static func wear_color(share: float) -> Color:
+		var green := Color(0.3, 0.85, 0.35)
+		var yellow := Color(0.95, 0.85, 0.25)
+		var orange := Color(0.98, 0.55, 0.15)
+		var red := Color(0.9, 0.18, 0.15)
+		if share > 0.5:
+			return yellow.lerp(green, (share - 0.5) / 0.5)
+		if share > 0.25:
+			return orange.lerp(yellow, (share - 0.25) / 0.25)
+		return red.lerp(orange, share / 0.25)
 	# 0.0.8.7 (#244, demande de l'utilisateur : noms coupés) : le nom sur deux lignes au plus, coupé entre les mots ; la
 	# seconde ligne raccourcie (…) seulement s'il le faut encore.
 	func _wrap(text: String) -> Array:
