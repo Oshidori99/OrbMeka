@@ -49,7 +49,8 @@ func _run() -> void:
 		if w._ring(column) <= w.NEAR_REVEAL_ZONES and not w.built_columns.has(column):
 			near_built = false
 	check(near_built and w.opening_progress(true) >= 1.0, "PC: the 9 × 9 columns around are built when the world is shown (%d of %d columns built)" % [w.built_columns.size(), w.shown_columns.size()])
-	check(w.LOADING_WORK_PC_USEC == 2 * w.LOADING_WORK_USEC and app.LOADING_STEP_PC_USEC > app.LOADING_STEP_USEC, "PC: twice the work per image behind the loading screen (the Web keeps 40 ms)")
+	# 0.0.8.11 : le Web aussi à 80 ms par image (la caméra n'y dessine plus le monde derrière l'écran), graine 100 ms.
+	check(w.LOADING_WORK_PC_USEC == 2 * 40000 and w.LOADING_WORK_USEC == 80000 and app.LOADING_STEP_PC_USEC == app.LOADING_STEP_USEC, "0.0.8.11: 80 ms of work per image behind the loading screen, PC and Web; seed in 100 ms steps")
 	# 0.0.7.34 (signalé : sur le Web, une personne ne pouvait appuyer sur aucune touche) : message « Cliquez dans le jeu »
 	# quand la souris n'est pas capturée (jamais sans fenêtre), et le clic donne le clavier au jeu sur itch.io.
 	check(app.click_hint != null and not app.click_hint.visible and app.click_hint.text.begins_with("Cliquez dans le jeu"), "a « Cliquez dans le jeu » message exists (hidden without a window)")

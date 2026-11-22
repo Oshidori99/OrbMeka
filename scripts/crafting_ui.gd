@@ -17,6 +17,7 @@ const Fibers = preload("res://scripts/fibers.gd")
 const CraftingIcons = preload("res://scripts/crafting_icons.gd")
 const SLOT := 46.0
 const PANEL_WIDTH := 380.0
+const PANEL_MARGIN := 14.0
 const HAND_LEFT := Vector3(-0.14, -0.2, -0.42)
 const HAND_RIGHT := Vector3(0.14, -0.2, -0.42)
 
@@ -61,6 +62,8 @@ func setup(world_node: Node, inventory_ref: Inventory, skin: String, stone_look:
 	background.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	background.stretch_mode = TextureRect.STRETCH_SCALE
 	background.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	# 0.0.8.11 (rapport Web : flou en gros pixels) : image lissée en l'agrandissant.
+	background.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR
 	root.add_child(background)
 	var veil := ColorRect.new()
 	veil.color = Color(0.04, 0.05, 0.08, 0.45)
@@ -106,7 +109,12 @@ func _build_panel(row: HBoxContainer) -> void:
 	panel.custom_minimum_size = Vector2(PANEL_WIDTH * text_scale, 0)
 	# 0.0.8.9 (demande de l'utilisateur) : bleu-violet, comme l'inventaire.
 	panel.add_theme_stylebox_override("panel", _style(Color(0.13, 0.1, 0.25, 0.9)))
-	row.add_child(panel)
+	# 0.0.8.11 (rapport Web : panneau collé au bord de l'écran, titre sans marge) : un peu d'air autour.
+	var margin := MarginContainer.new()
+	for side in ["margin_left", "margin_top", "margin_bottom"]:
+		margin.add_theme_constant_override(side, roundi(PANEL_MARGIN * text_scale))
+	row.add_child(margin)
+	margin.add_child(panel)
 	var scroll := ScrollContainer.new()
 	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
 	panel.add_child(scroll)
@@ -191,22 +199,43 @@ func _build_scene(row: HBoxContainer, skin: String, stone_look: Callable) -> voi
 
 func open() -> void:
 	visible = true
-	# L'image du fond : celle d'après l'interface du jeu cachée (world.open_crafting), sans cet écran (une image plus tard).
+	root.modulate = Color.WHITE
+	# L'image du fond : celle d'après l'interface du jeu cachée (world.open_crafting), sans cet écran.
+	# 0.0.8.11 (rapport Web : barre d'objets en double, l'ancienne floutée dans le fond) : deux images plus tard (sur le Web,
+	# l'image lue est celle d'avant la dernière).
 	root.visible = false
-	await get_tree().process_frame
-	if not visible:
-		return
+	for wait in range(BACKGROUND_WAIT_FRAMES):
+		await get_tree().process_frame
+		if not visible:
+			return
 	var shot: Image = get_viewport().get_texture().get_image() if get_viewport().get_texture() != null else null
 	if shot != null and not shot.is_empty():
-		var width := maxi(shot.get_width() / 8, 8)
-		var height := maxi(shot.get_height() / 8, 8)
-		shot.resize(width * 2, height * 2, Image.INTERPOLATE_BILINEAR)
-		shot.resize(width, height, Image.INTERPOLATE_BILINEAR)
-		background.texture = ImageTexture.create_from_image(shot)
+		background.texture = ImageTexture.create_from_image(soft_blur(shot))
 	get_viewport().disable_3d = true
 	root.visible = true
 	choose_action(action if not action.is_empty() else "tresser")
 	refresh_slots()
+
+const BACKGROUND_WAIT_FRAMES := 2
+# 0.0.8.11 (rapport Web : flou en gros pixels) : réduite peu à peu (moitié par moitié, chaque point mêlé à ses voisins) au
+# huitième, puis agrandie en douceur au quart (courbes) ; affichée lissée (filtre linéaire).
+static func soft_blur(shot: Image) -> Image:
+	var target := Vector2i(maxi(shot.get_width() / 8, 8), maxi(shot.get_height() / 8, 8))
+	while shot.get_width() / 2 >= target.x and shot.get_height() / 2 >= target.y:
+		shot.resize(shot.get_width() / 2, shot.get_height() / 2, Image.INTERPOLATE_BILINEAR)
+	shot.resize(target.x, target.y, Image.INTERPOLATE_BILINEAR)
+	shot.resize(target.x * 2, target.y * 2, Image.INTERPOLATE_CUBIC)
+	return shot
+
+# 0.0.8.11 (rapport Web : 196 ms à la première ouverture) : dessiné une fois derrière l'écran de chargement, presque
+# transparent (world._step_ui_prewarm) : les mains, les images et les textes sont prêts à la première ouverture.
+func prewarm(on: bool) -> void:
+	if on:
+		choose_action(action if not action.is_empty() else "tresser")
+		refresh_slots()
+	root.modulate = Color(1.0, 1.0, 1.0, 0.004) if on else Color.WHITE
+	root.visible = true
+	visible = on
 
 func close() -> void:
 	visible = false

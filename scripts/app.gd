@@ -1088,7 +1088,8 @@ func open_world(id: String, prepared: RefCounted = null, behind_loading := false
 # grottes : 1 à 2 s sur PC, bien plus sur le Web, d'un coup avant) se prépare par étapes, la barre avance ; puis le monde
 # s'ouvre (environ 0,2 s sur PC). open_world reste d'un coup (tests).
 # 0.0.7.24 : 60 ms par image (avant 30) : rien d'autre à dessiner, le fond 3D de l'accueil est retiré pendant le chargement.
-const LOADING_STEP_USEC := 60000
+# 0.0.8.11 : 100 ms par image sur le Web aussi (avant 60) : graine préparée en moins d'images.
+const LOADING_STEP_USEC := 100000
 # 0.0.7.34 : sur PC, 100 ms par image (graine préparée en moins d'images).
 const LOADING_STEP_PC_USEC := 100000
 var loading_id := ""

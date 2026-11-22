@@ -429,6 +429,9 @@ func _redraw() -> void:
 			drawn.multimesh.use_custom_data = group.stone
 			drawn.multimesh.mesh = leaf_tuft() if group.get("leaves", false) else _mesh(group.item)
 			drawn.material_override = Trees.material(clampi(int(group.item.get("essence", 0)), 0, 3), "leaves") if group.get("leaves", false) else _plain_material(group.item)
+			# 0.0.8.11 (rapport Web : les ombres coûtaient 17 ms de GPU) : les petits objets au sol ne projettent plus d'ombre
+			# (seuls arbres, rochers et personnages).
+			drawn.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 			add_child(drawn)
 			_drawn[key] = drawn
 		var multi := drawn.multimesh

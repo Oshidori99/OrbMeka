@@ -1,6 +1,20 @@
-# OrbMeka™ — prototype 0.0.8.10
+# OrbMeka™ — prototype 0.0.8.11
 
 Godot 4.7 / GDScript. Formes et couleurs simples ; assets externes seulement sous licence vérifiée (sons CC0, assets/sounds/CREDITS.txt).
+
+## 0.0.8.11 — Web plus rapide : monde ouvert sans gel (shaders préparés derrière l'écran de chargement, avec et sans ombres), terrain sans ombre projetée, inventaire et fabrication prêts d'avance, retour au départ immédiat, noisetiers solides, plantes nettes au loin, fabrication sans barre en double ni flou en gros pixels
+Version locale (2 sur 4). Génération inchangée (version 33). Rapport de mesures Web 0.0.8.9 (Chrome, Radeon 610M) ; demande de l'utilisateur : les PC bon marché (~320 CHF) aussi.
+- **Mesuré d'abord** (PC, rendu du Web, nouvel outil tools/mesure_ouverture.gd) : l'ouverture n'a presque pas grossi depuis 0.0.7.25 (4,1 → 4,5 s) ; le temps perdu sur le Web venait du monde dessiné pour rien derrière l'écran de chargement et des shaders préparés tous d'un coup la première fois.
+- **Chargement (Web)** : derrière l'écran, la caméra ne dessine que les petites copies du préchauffage ; chaque sorte de modèle est préparée à son tour (4 par image, 1 seule après une image lente), puis un second passage pour tout ce qui a été construit, puis tout encore une fois **ombres du soleil dans l'autre état** ; aussi les mains, outils, orbe, fibres, liane, ficelle, têtes, la lueur des orbes (Survie). 80 ms de travail par image (avant 40), graine 100 ms (avant 60).
+- **Inventaire et fabrication** préparés derrière l'écran de chargement (dessinés une fois, invisibles) : plus de saccade à la première ouverture.
+- **Ombres** : le terrain, le sol, les cailloux et les petits objets au sol ne projettent plus d'ombre (ils les reçoivent toujours), **sur le Web et sur PC** ; arbres, rochers et personnages en projettent. L'herbe et les plantes n'en projetaient déjà pas.
+- **Lueur des orbes** estompée au-delà de 20 à 28 m ; **orties** : plantes de chaque colonne gardées (avant : recalculées pour 9 colonnes toutes les 0,5 s).
+- **Résolution 3D** : sur le Web, toujours 100 % (en dessous, c'était plus lent).
+- **Bugs** : fabrication (O + F) sans barre d'objets en double (fond pris deux images plus tard), flou doux et lissé, panneau avec une marge ; noisetiers : toutes les tiges solides (12 collisions au plus, tiges d'abord : la caméra n'y entre plus) ; plantes nettes au loin (images avec mipmaps) ; « Revenir au point de départ » : les 3 × 3 colonnes autour construites aussitôt, avec arbres, herbe et plantes.
+- **Pas changé** : le plafond de 60 images/s du Web. Le code de Godot ne fait pas d'attente active sur le Web (il saute les appels du navigateur) ; l'enlever ferait dessiner jusqu'à 240 images/s sur un écran 240 Hz.
+
+Tests réussis : web_speed (12, nouveau), loading_screen, trees, fibers, plants, inventory, inventory_more, crafting, death, return_orb, display_settings, quality, web_fixes, perf_guard, sticks, hands_eat, tools (+ tests juridiques). Mesures hors écran en rendu Compatibility : ouverture 4,2 à 5,2 s sur PC, aucune image lente après l'arrivée.
+À tester : sur le Web (Chrome, petite carte graphique) : durée d'ouverture d'un monde (1re fois après la mise à jour et ensuite), images par seconde en Équilibré et Beauté (ombres), 1re ouverture de l'inventaire et de O + F ; l'aspect des collines sans ombre projetée et des plantes au loin.
 
 ## 0.0.8.10 — Les outils servent : la hache coupe le bois 3 fois plus vite (troncs jusqu'à 1 m), la pioche casse la pierre 4 fois plus vite avec des éclats et creuse la terre 2 fois plus vite ; ils s'usent (50 à 300 coups selon leur fabrication), barre verte à rouge, puis cassent
 Version locale (1 sur 4). Génération inchangée (version 33). Demandes de l'utilisateur (#202).

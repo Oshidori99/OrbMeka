@@ -754,6 +754,14 @@ func open() -> void:
 	screen.visible = true
 	hud_bar.visible = false
 
+# 0.0.8.11 (rapport Web : 104 ms à la première ouverture) : dessiné une fois derrière l'écran de chargement, presque
+# transparent (world._step_ui_prewarm) : images des objets et textes prêts à la première ouverture.
+func prewarm(on: bool) -> void:
+	if on:
+		refresh()
+	screen.modulate = Color(1.0, 1.0, 1.0, 0.004) if on else Color.WHITE
+	screen.visible = on
+
 func close() -> void:
 	_close_more()
 	drag_button = 0

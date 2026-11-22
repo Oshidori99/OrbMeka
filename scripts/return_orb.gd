@@ -75,4 +75,13 @@ static func light() -> OmniLight3D:
 	made.light_energy = LIGHT_ENERGY
 	made.omni_range = LIGHT_RANGE
 	made.shadow_enabled = false
+	# 0.0.8.11 (rapport Web : chaque lumière redessine tout ce qu'elle touche en rendu Compatibility) : éteinte au-delà de
+	# LIGHT_FADE_BEGIN + LIGHT_FADE_LENGTH m de la caméra, en s'estompant (à cette distance, sa lueur de 2,5 m ne se voit
+	# presque plus ; l'orbe elle-même reste brillante).
+	made.distance_fade_enabled = true
+	made.distance_fade_begin = LIGHT_FADE_BEGIN
+	made.distance_fade_length = LIGHT_FADE_LENGTH
 	return made
+
+const LIGHT_FADE_BEGIN := 20.0
+const LIGHT_FADE_LENGTH := 8.0

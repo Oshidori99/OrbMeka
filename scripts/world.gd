@@ -19,6 +19,8 @@ const Inventory = preload("res://scripts/inventory.gd")
 const InventoryUI = preload("res://scripts/inventory_ui.gd")
 const ReturnOrb = preload("res://scripts/return_orb.gd")
 const Fibers = preload("res://scripts/fibers.gd")
+const ToolModels = preload("res://scripts/tool_models.gd")
+const StoneHeads = preload("res://scripts/stone_heads.gd")
 const DIRT := 2
 const BLOCK_COLORS := [Color("#d8c291"), Color("#888b90"), Color("#855332")]
 const BLOCK_NAMES := ["Sable", "Pierre", "Terre"]
@@ -173,12 +175,81 @@ func _warm_shaders() -> void:
 	warm_node.position = Vector3(0.0, 0.0, -0.5)
 	warm_node.scale = Vector3.ONE * 0.0005
 	player.camera.add_child(warm_node)
-	var seen := {}
+	_warm_collect()
+	# Ce qui n'est pas encore autour : arbres de chaque espèce (de près et de loin), faces coupées, eau, rivière.
+	if relief and int(generation_options.get("version", 0)) >= 21:
+		for kind in range(Trees.FILES.size()):
+			for far in [false, true]:
+				var tree := MeshInstance3D.new()
+				tree.mesh = Trees.mesh(kind, 1, far)
+				warm_pending.append(tree)
+	var plane := QuadMesh.new()
+	for material: Material in [Trees.cut_material(), _water_or_new(), _river_or_new(), FarTerrain.material()]:
+		var flat := MeshInstance3D.new()
+		flat.mesh = plane
+		flat.material_override = material
+		warm_pending.append(flat)
+	# 0.0.8.11 (rapport Web : gels de 4,5 à 5 s à la première ouverture) : les objets de la série 0.0.8, en main (modèle
+	# seul) et au sol (en série) : orbe, fibres, liane, ficelle, têtes, outils ficelés, et une matière simple (mains).
+	var simple := StandardMaterial3D.new()
+	simple.roughness = 0.7
+	var ball := SphereMesh.new()
+	ball.material = simple
+	for mesh: Mesh in [ball, ReturnOrb.mesh(), Fibers.bundle_mesh(), Fibers.coil_mesh(), Fibers.cord_mesh(), StoneHeads.mesh("hache", 1.0), ToolModels.mesh({"objet": "hache_pierre", "lien": 3, "tours": 4}), ToolModels.mesh({"objet": "pioche_pierre", "lien": 0, "tours": 4})]:
+		var held := MeshInstance3D.new()
+		held.mesh = mesh
+		warm_pending.append(held)
+		var series := MultiMesh.new()
+		series.transform_format = MultiMesh.TRANSFORM_3D
+		series.use_colors = true
+		series.mesh = mesh
+		series.instance_count = 1
+		var lying := MultiMeshInstance3D.new()
+		lying.multimesh = series
+		warm_pending.append(lying)
+	# Lueur des orbes posées (Survie : une près du départ) : chaque matière éclairée par une petite lumière se dessine une
+	# fois de plus, avec son propre shader (rendu Compatibility).
+	if survival() or not ground_orb_lights().is_empty():
+		var glow := OmniLight3D.new()
+		glow.name = "LumierePrechauffage"
+		glow.omni_range = 0.3
+		glow.layers = WARM_LAYER
+		glow.position = Vector3(0.0, 0.0, -0.4)
+		player.camera.add_child(glow)
+		warm_light = glow
+	warm_left = WARM_FRAMES
+	# 0.0.8.11 (rapport Web : 10 à 15 s pour ouvrir un monde) : derrière l'écran de chargement, la caméra ne dessine que les
+	# copies (WARM_LAYER) : plus de monde dessiné pour rien à chaque image (le rendu prenait une bonne part de l'image sur
+	# une petite carte graphique), et chaque shader se prépare à son tour au lieu de tous d'un coup à la première image.
+	# Le reste (terrain, herbe, plantes, rochers, objets construits entre-temps) : second passage quand la vue est construite.
+	if behind_loading:
+		warm_waiting_late = true
+		loading_cull = true
+		player.camera.cull_mask = WARM_LAYER
+		if sun_light != null:
+			sun_light.layers |= WARM_LAYER
+
+# Couche des copies du préchauffage (seule dessinée derrière l'écran de chargement, rendu Compatibility).
+const WARM_LAYER := 1 << 19
+const ALL_LAYERS := (1 << 20) - 1
+var warm_seen := {}
+var warm_waiting_late := false
+var loading_cull := false
+var warm_light: OmniLight3D
+
+func ground_orb_lights() -> Array:
+	return ground._orb_lights if is_instance_valid(ground) else []
+
+# Une copie de chaque sorte de modèle du monde pas encore vue (le joueur et ses mains : même cachés).
+func _warm_collect() -> void:
+	var own: Array = player.find_children("*", "GeometryInstance3D", true, false) if is_instance_valid(player) else []
 	for node in find_children("*", "GeometryInstance3D", true, false):
-		var key := _warm_key(node)
-		if key.is_empty() or seen.has(key):
+		if is_instance_valid(warm_node) and warm_node.is_ancestor_of(node):
 			continue
-		seen[key] = true
+		var key := _warm_key(node, own.has(node))
+		if key.is_empty() or warm_seen.has(key):
+			continue
+		warm_seen[key] = true
 		var copy: GeometryInstance3D = null
 		if node is MultiMeshInstance3D and node.multimesh != null and node.multimesh.mesh != null:
 			var series := MultiMesh.new()
@@ -199,29 +270,15 @@ func _warm_shaders() -> void:
 		copy.material_override = node.material_override
 		copy.cast_shadow = node.cast_shadow
 		warm_pending.append(copy)
-	# Ce qui n'est pas encore autour : arbres de chaque espèce (de près et de loin), faces coupées, eau, rivière.
-	if relief and int(generation_options.get("version", 0)) >= 21:
-		for kind in range(Trees.FILES.size()):
-			for far in [false, true]:
-				var tree := MeshInstance3D.new()
-				tree.mesh = Trees.mesh(kind, 1, far)
-				warm_pending.append(tree)
-	var plane := QuadMesh.new()
-	for material: Material in [Trees.cut_material(), _water_or_new(), _river_or_new(), FarTerrain.material()]:
-		var flat := MeshInstance3D.new()
-		flat.mesh = plane
-		flat.material_override = material
-		warm_pending.append(flat)
-	warm_left = WARM_FRAMES
 
 # Sorte de modèle : format de ses sommets et matières (une copie suffit pour chaque sorte).
-func _warm_key(node: GeometryInstance3D) -> String:
+func _warm_key(node: GeometryInstance3D, even_hidden := false) -> String:
 	var mesh: Mesh = null
 	if node is MultiMeshInstance3D and node.multimesh != null:
 		mesh = node.multimesh.mesh
 	elif node is MeshInstance3D:
 		mesh = node.mesh
-	if mesh == null or not node.is_visible_in_tree():
+	if mesh == null or not (even_hidden or node.is_visible_in_tree()):
 		return ""
 	var parts := [node.get_class(), node.material_override.get_instance_id() if node.material_override != null else 0]
 	for surface in range(mesh.get_surface_count()):
@@ -247,23 +304,76 @@ func _river_or_new() -> ShaderMaterial:
 	return _river_material
 
 func _end_warm() -> void:
+	# Monde montré : la caméra dessine de nouveau tout.
+	if loading_cull and not behind_loading:
+		loading_cull = false
+		if is_instance_valid(player) and player.camera != null:
+			player.camera.cull_mask = ALL_LAYERS
+		if sun_light != null:
+			sun_light.layers &= ~WARM_LAYER
+		_restore_warm_shadows()
 	# 0.0.7.24 : quelques copies par image (WARM_PER_FRAME) : la compilation des shaders étalée (mesures Web : 11 et 8 s
 	# figées d'un coup à la première ouverture).
 	if not warm_pending.is_empty():
 		if not is_instance_valid(warm_node):
 			warm_pending.clear()
 			return
-		for index in range(mini(WARM_PER_FRAME, warm_pending.size())):
-			warm_node.add_child(warm_pending.pop_front())
+		var count := 1 if get_process_delta_time() > WARM_SLOW_FRAME else WARM_PER_FRAME
+		for index in range(mini(count, warm_pending.size())):
+			var copy: GeometryInstance3D = warm_pending.pop_front()
+			copy.layers = WARM_LAYER
+			warm_node.add_child(copy)
+		return
+	# 0.0.8.11 : second passage, quand les colonnes, leurs arbres et leurs détails sont construits (ou le monde déjà montré).
+	if warm_waiting_late:
+		if behind_loading and not (terrain_queue.is_empty() and tree_queue.is_empty() and detail_queue.is_empty()):
+			return
+		warm_waiting_late = false
+		if is_instance_valid(warm_node):
+			_warm_collect()
+			warm_left = WARM_FRAMES
 		return
 	if warm_left <= 0:
 		return
 	warm_left -= 1
-	if warm_left == 0 and is_instance_valid(warm_node):
-		warm_node.queue_free()
+	if warm_left == 0:
+		# 0.0.8.11 (rapport Web : gels de 4 à 20 s) : toutes les copies encore une fois, ombres du soleil dans l'autre état
+		# (activées si elles sont coupées, coupées sinon) : changer les ombres en jeu ne prépare plus rien d'un coup. Seulement
+		# derrière l'écran de chargement (rien ne se voit).
+		if not warm_flipped and loading_cull and sun_light != null and is_instance_valid(warm_node):
+			warm_flipped = true
+			warm_shadows_changed = true
+			if shadow_quality == "off":
+				sun_light.shadow_enabled = true
+				sun_light.directional_shadow_mode = DirectionalLight3D.SHADOW_ORTHOGONAL
+				sun_light.directional_shadow_max_distance = SHADOW_DISTANCES.near
+			else:
+				sun_light.shadow_enabled = false
+			for child in warm_node.get_children():
+				warm_node.remove_child(child)
+				warm_pending.append(child)
+			warm_left = WARM_FRAMES
+			return
+		_restore_warm_shadows()
+		if is_instance_valid(warm_node):
+			warm_node.queue_free()
 		warm_node = null
+		if is_instance_valid(warm_light):
+			warm_light.queue_free()
+		warm_light = null
 
-const WARM_PER_FRAME := 3
+var warm_flipped := false
+var warm_shadows_changed := false
+
+func _restore_warm_shadows() -> void:
+	if warm_shadows_changed:
+		warm_shadows_changed = false
+		set_shadows(shadow_quality)
+
+const WARM_PER_FRAME := 4
+# 0.0.8.11 : après une image lente (un shader préparé pour la première fois : jusqu'à plusieurs secondes sur le Web), une
+# seule copie à la fois.
+const WARM_SLOW_FRAME := 0.2
 var warm_pending: Array = []
 
 # Ouverture prête (écran de chargement, app.gd) : shaders préparés, colonnes autour construites, arbres créés.
@@ -281,7 +391,7 @@ func opening_progress(near_only: bool = false) -> float:
 		if built_columns.has(column):
 			built += 1
 	var columns := built / float(maxi(wanted, 1))
-	var warm := 1.0 if warm_pending.is_empty() and warm_left <= 0 else (0.5 if warm_pending.is_empty() else 0.0)
+	var warm := 1.0 if warm_pending.is_empty() and warm_left <= 0 and not warm_waiting_late else (0.5 if warm_pending.is_empty() else 0.0)
 	var details_left := tree_queue.size() + detail_queue.size()
 	if near_only:
 		details_left = tree_queue.filter(func(entry): return _ring(entry[0]) <= NEAR_REVEAL_ZONES).size() + detail_queue.filter(func(column): return _ring(column) <= NEAR_REVEAL_ZONES).size()
@@ -377,9 +487,12 @@ var tree_detail_end := Trees.DETAIL_END
 var simple_ground := false
 # 0.0.7.24 : ouvert derrière l'écran de chargement (app.gd) : colonnes autour par la file, grand budget de fond.
 var behind_loading := false
-const LOADING_WORK_USEC := 40000
+# 0.0.8.11 (rapport Web : 10 à 15 s pour ouvrir un monde) : 80 ms par image sur le Web aussi (avant 40) : la caméra n'y
+# dessine plus le monde derrière l'écran (préchauffage), chaque image en moins est du temps gagné ; la barre avance
+# encore une dizaine de fois par seconde.
+const LOADING_WORK_USEC := 80000
 # 0.0.7.34 (demande de l'utilisateur) : sur PC, deux fois plus de travail par image derrière l'écran de chargement (moins
-# d'images à dessiner pour rien) ; le Web garde 40 ms (barre et page qui répondent).
+# d'images à dessiner pour rien).
 const LOADING_WORK_PC_USEC := 80000
 var sun_light: DirectionalLight3D
 
@@ -409,6 +522,7 @@ func _create_ground() -> void:
 	box.size = base_size
 	mesh.mesh = box
 	ground_material = TerrainMaterials.surface(true)
+	mesh.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	# 0.0.6.17 : le sol lit les minerais et la litière (CUSTOM0) ; pas les rochers ni les cailloux (rendu Web).
 	ground_material.set_shader_parameter("terrain_layers", true)
 	ground_material.set_shader_parameter("compat_look", is_compat())
@@ -954,6 +1068,9 @@ func rebuild_terrain_piece(zone: Vector3i, flat_for_now: bool = false, ready_sur
 	body.set_meta("zone", zone)
 	var instance := MeshInstance3D.new()
 	instance.material_override = ground_material
+	# 0.0.8.11 (rapport Web : les ombres coûtaient 17 ms de GPU ; demande de l'utilisateur : aussi pour les PC bon marché) :
+	# le terrain reçoit les ombres mais n'en projette plus (seuls arbres, rochers et personnages), sur le Web comme sur PC.
+	instance.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	var collision: CollisionShape3D = null
 	var faces: Array = []
 	if flat_for_now or terrain.is_flat(zone):
@@ -1198,17 +1315,44 @@ func toggle_crafting() -> void:
 func open_crafting() -> void:
 	if crafting_open or inventory_open or death_open or not is_instance_valid(player):
 		return
-	if not is_instance_valid(crafting_ui):
-		crafting_ui = CraftingUI.new()
-		crafting_ui.setup(self, inventory, player.skin, Callable(self, "_kind_material"), text_scale)
-		crafting_ui.closed.connect(close_crafting)
-		add_child(crafting_ui)
+	_prepare_crafting()
 	crafting_open = true
 	# L'interface du jeu (barre, vie, messages) cachée : l'écran de fabrication montre ses propres cases.
 	_set_hud_visible(false)
 	player.release_controls()
 	_show_aim(false)
 	crafting_ui.open()
+
+func _prepare_crafting() -> void:
+	if not is_instance_valid(crafting_ui):
+		crafting_ui = CraftingUI.new()
+		crafting_ui.setup(self, inventory, player.skin, Callable(self, "_kind_material"), text_scale)
+		crafting_ui.closed.connect(close_crafting)
+		add_child(crafting_ui)
+
+# 0.0.8.11 (rapport Web : 104 ms à la première ouverture de l'inventaire, 196 ms pour la fabrication) : derrière l'écran de
+# chargement, une fois la vue construite, l'inventaire et la fabrication (créée d'avance) sont dessinés UI_PREWARM_FRAMES
+# images, presque transparents, puis cachés. -1 : pas encore ; 0 : fait.
+const UI_PREWARM_FRAMES := 3
+var ui_prewarm_left := -1
+
+func _step_ui_prewarm() -> void:
+	if ui_prewarm_left == 0:
+		return
+	if ui_prewarm_left < 0:
+		if not behind_loading or not terrain_queue.is_empty() or not is_instance_valid(inventory_ui):
+			return
+		_prepare_crafting()
+		inventory_ui.prewarm(true)
+		crafting_ui.prewarm(true)
+		ui_prewarm_left = UI_PREWARM_FRAMES
+		return
+	ui_prewarm_left -= 1
+	if ui_prewarm_left == 0:
+		if not inventory_open:
+			inventory_ui.prewarm(false)
+		if is_instance_valid(crafting_ui) and not crafting_open:
+			crafting_ui.prewarm(false)
 
 func close_crafting(recapture: bool = true) -> void:
 	if not crafting_open:
@@ -3155,7 +3299,7 @@ func aimed_plant(hit: Dictionary) -> Dictionary:
 	for dx in [-1, 0, 1]:
 		for dz in [-1, 0, 1]:
 			var column: Vector2i = here + Vector2i(dx, dz)
-			for plant: Dictionary in terrain.plants_in_zone(column):
+			for plant: Dictionary in plants_near(column):
 				var id := Fibers.plant_id(plant)
 				if cut_plants.has(id):
 					continue
@@ -4129,6 +4273,38 @@ func _go_to_start() -> void:
 	player.position = spawn_position()
 	player.velocity = Vector3.ZERO
 	player.airborne = false
+	_build_around_now()
+
+# 0.0.8.11 (rapport Web : après « Revenir au point de départ », quelques secondes de relief simplifié seul, sans arbres ni
+# rochers) : la vue suit tout de suite, et les 3 × 3 colonnes autour du joueur sont construites aussitôt, avec leurs
+# arbres, leur herbe et leurs plantes ; le reste par la file, comme en marchant.
+func _build_around_now() -> void:
+	if not is_inside_tree() or not is_instance_valid(player):
+		return
+	var center := Vector2i(floori(player.position.x / SmoothTerrain.ZONE_SIZE), floori(player.position.z / SmoothTerrain.ZONE_SIZE))
+	update_terrain_view(false, center)
+	var near := {}
+	for dx in [-1, 0, 1]:
+		for dz in [-1, 0, 1]:
+			var column := center + Vector2i(dx, dz)
+			near[column] = true
+			if shown_columns.has(column) and not built_columns.has(column):
+				terrain_queue.erase(column)
+				column_height_rows.erase(column)
+				_show_column(column)
+	var others: Array = []
+	for entry: Array in tree_queue:
+		if near.has(entry[0]) and built_columns.has(entry[0]):
+			_make_column_tree(entry[0], entry[1])
+		else:
+			others.append(entry)
+	tree_queue = others
+	_rebuild_dirty_series()
+	for column: Vector2i in near:
+		if detail_queue.has(column):
+			detail_queue.erase(column)
+			_rebuild_lawn_tile(column)
+			_show_column_plants(column)
 
 # 0.0.8.1 (#188) : Créatif : revenir au point de départ (touche H par défaut, ou bouton de la pause).
 func go_home() -> bool:
@@ -4153,6 +4329,18 @@ func _step_nettles(delta: float) -> void:
 		if hurt(Fibers.NETTLE_WALK) > 0 and notice_time <= 0.0:
 			_notify("Les orties piquent !")
 
+# 0.0.8.11 (rapport Web) : plantes de la graine d'une colonne, gardées (avant : refaites pour 9 colonnes toutes les 0,5 s
+# dans les orties, et à chaque image en visant une plante). En lecture seule ; au plus PLANT_CACHE_MAX colonnes gardées.
+const PLANT_CACHE_MAX := 64
+var _plant_cache := {}
+
+func plants_near(column: Vector2i) -> Array:
+	if not _plant_cache.has(column):
+		if _plant_cache.size() >= PLANT_CACHE_MAX:
+			_plant_cache.clear()
+		_plant_cache[column] = terrain.plants_in_zone(column)
+	return _plant_cache[column]
+
 func in_nettles() -> bool:
 	if not is_instance_valid(player) or player.flying or player.swimming:
 		return false
@@ -4160,7 +4348,7 @@ func in_nettles() -> bool:
 	var here := _player_column()
 	for dx in [-1, 0, 1]:
 		for dz in [-1, 0, 1]:
-			for plant: Dictionary in terrain.plants_in_zone(here + Vector2i(dx, dz)):
+			for plant: Dictionary in plants_near(here + Vector2i(dx, dz)):
 				if int(plant.plante) != Plants.NETTLE or cut_plants.has(Fibers.plant_id(plant)):
 					continue
 				var size: float = Plants.SIZES[Plants.NETTLE] * float(plant.taille)
@@ -4926,6 +5114,7 @@ func _process(delta: float) -> void:
 	# 90 à 110 ms par image mesurées sur le Web).
 	frame_usec = lerpf(frame_usec, maxf(delta * 1_000_000.0 - last_work_usec, 1000.0), 0.1)
 	_end_warm()
+	_step_ui_prewarm()
 	if perf_on:
 		_process_measured(delta)
 		return
@@ -5603,7 +5792,9 @@ func _make_column_tree(column: Vector2i, tree: Dictionary) -> void:
 # 0.0.7.25 (mesures Web : la caméra entrait dans les troncs d'un arbre à plusieurs tiges) : une collision par tige
 # principale et par grosse branche basse (sous BRANCH_COLLISION_TOP m, au moins BRANCH_COLLISION_RADIUS de rayon), le long
 # de leur axe (squelette de tree_parts.gd), STEM_COLLISIONS_MAX au plus ; en plus du tronc au pied (Trees.tree_body).
-const STEM_COLLISIONS_MAX := 8
+# 0.0.8.11 (rapport Web : la caméra entrait encore dans les noisetiers, 9 à 11 tiges) : d'abord toutes les tiges, puis les
+# branches basses (avant : dans l'ordre du squelette, 8 au plus : des tiges restaient sans collision).
+const STEM_COLLISIONS_MAX := 12
 const BRANCH_COLLISION_TOP := 2.2
 const BRANCH_COLLISION_RADIUS := 0.05
 const STEM_COLLISION_LENGTH := 2.5
@@ -5612,7 +5803,8 @@ func _add_stem_collisions(tree: Node3D) -> void:
 	var model: Node3D = tree.get_node_or_null("Modele")
 	if model == null:
 		return
-	var pieces: Array = TreeParts.skeleton(int(tree.get_meta("kind")), int(tree.get_meta("size")), int(tree.get_meta("form"))).pieces
+	var pieces: Array = TreeParts.skeleton(int(tree.get_meta("kind")), int(tree.get_meta("size")), int(tree.get_meta("form"))).pieces.duplicate()
+	pieces.sort_custom(func(a: Dictionary, b: Dictionary) -> bool: return (a.root and a.tip.y > 0.5) and not (b.root and b.tip.y > 0.5))
 	var added := 0
 	for piece: Dictionary in pieces:
 		if added >= STEM_COLLISIONS_MAX:
@@ -5874,6 +6066,8 @@ func _rebuild_pebble_block(block: Vector2i) -> void:
 		drawn.name = "Cailloux"
 		drawn.multimesh = multi
 		drawn.material_override = _pebble_material()
+		# 0.0.8.11 : les petits cailloux ne projettent plus d'ombre (les rochers, si).
+		drawn.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 		_rocks_parent().add_child(drawn)
 		nodes.append(drawn)
 	if not nodes.is_empty():

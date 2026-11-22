@@ -87,6 +87,7 @@ scripts/surface_job.gd (0.0.7.20) : le même calcul de surface d'une zone, déco
 (3 ms au plus par image en jeu) ; smooth_terrain.prepare_step prépare de même la graine (montagnes,
 lacs, rivières, crevasses, grottes) pour la vitrine de l'accueil. Résultats identiques (tests/surface_job_test.gd).
 tools/mesure_perf.gd (0.0.7.20) : mesures sur PC (accueil, ouverture, marche en forêt), fenêtre hors écran.
+tools/mesure_ouverture.gd (0.0.8.11) : ouverture d'un monde comme sur le Web (écran de chargement, rendu Compatibility), durées, images lentes, tâches.
 tools/squelettes.gd (0.0.7.21) : calcule d'avance les branches de chaque modèle d'arbre (assets/trees/squelettes/,
 à relancer si un modèle change). Paramètres → Vidéo → Qualité d'affichage : préréglages dans user_settings.gd (PRESETS).
 tests/inventory_more_test.gd (0.0.7.29) : mode choisi à la création, Jeter (zone, hors de la fenêtre, J), bouton « + » (variantes, détails), D et Échap.
