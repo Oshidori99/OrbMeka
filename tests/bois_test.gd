@@ -4,8 +4,8 @@ extends SceneTree
 # - la tige ou le tronc coupé : son bois au sol a l'épaisseur de la tige (avant : mesurée dans une tranche de tout
 #   l'arbre, parfois sur une tige ou une branche voisine : un bout ultra fin) ; le temps de coupe vise la même mesure ;
 # - le bois d'un morceau : toutes ses pièces, chacune à sa longueur (rien ne disparaît) ;
-# - une branche coupée sur un arbre debout tombe telle qu'elle est (morceau 3D), puis se pose : couchée telle quelle, ou
-#   son bois au sol, pièce par pièce.
+# - une branche coupée sur un arbre debout tombe telle qu'elle est (morceau 3D), puis reste couchée avec ses feuilles ;
+#   recoupée, elle devient son bois au sol, pièce par pièce.
 const Trees = preload("res://scripts/trees.gd")
 const TreeParts = preload("res://scripts/tree_parts.gd")
 const Inventory = preload("res://scripts/inventory.gd")
@@ -157,13 +157,26 @@ func _run() -> void:
 	var attach: Vector3 = world._model_of(apple) * (piece_branch.start as Vector3)
 	check(attach.y - world.terrain.height_at(attach.x, attach.z) > 1.0, "it falls from up in the tree (%.1f m above the ground)" % (attach.y - world.terrain.height_at(attach.x, attach.z)))
 	await frames(120)
+	# Demande de l'utilisateur : même petite, elle reste couchée avec ses feuilles jusqu'à ce qu'on la recoupe.
 	var still := nodes_of(world, "bois-pommier").filter(func(node): return int(node.get_meta("part", 0)) == 1)
-	woods = wood_since(world, before)
-	if still.is_empty():
+	check(still.size() == 1 and not still[0].has_meta("falling") and world.tree_cuts["bois-pommier"].morceaux["1"].etat == "couche" and wood_since(world, before).is_empty(), "landed: it lies as it is, with its leaves, until cut again")
+	if not still.is_empty():
+		var detail: MeshInstance3D = still[0].get_node("Modele/Detail")
+		var leaf_material := Trees.material(Trees.APPLE, "leaves")
+		var has_leaves := false
+		for surface in range(detail.mesh.get_surface_count()):
+			has_leaves = has_leaves or detail.mesh.surface_get_material(surface) == leaf_material
+		check(has_leaves and world._tree_is_lying(still[0]), "its leaves are still on it, on the ground")
+		# Recoupée au milieu de sa pièce principale : tout devient du bois, chaque pièce à sa taille, rien ne manque.
+		var span: Array = TreeParts.main_span(Trees.APPLE, 3, 0, world._cuts_of(still[0]), 1)
+		var middle: float = (float(span[1]) + float(span[2])) * 0.5
+		world.cut_wood(still[0], int(span[0]), middle, still[0].global_position)
+		await frames(10)
+		woods = wood_since(world, before)
 		var total := 0.0
 		for item in woods:
 			total += float(item.longueur)
-		check(woods.size() == cut_spans.size() and absf(total - expected) < 0.05, "landed, almost without leaves: every piece is its own wood (%d of %d, %.2f m of %.2f m)" % [woods.size(), cut_spans.size(), total, expected])
+		check(nodes_of(world, "bois-pommier").filter(func(node): return int(node.get_meta("part", 0)) != 0).is_empty() and woods.size() == cut_spans.size() + 1 and absf(total - expected) < 0.06, "cut again: every piece is its own wood (%d woods for %d pieces cut in two, %.2f m of %.2f m)" % [woods.size(), cut_spans.size(), total, expected])
 		var thickest := 0.0
 		for item in woods:
 			thickest = maxf(thickest, float(item.epaisseur))
@@ -171,9 +184,7 @@ func _run() -> void:
 		check(absf(thickest - root_thick) < root_thick * 0.25, "the branch keeps its thickness (%.1f cm, on the tree %.1f cm)" % [thickest, root_thick])
 		world.ground._redraw()
 		var series: int = world.ground._drawn.keys().filter(func(key): return str(key).begins_with("bois/")).size()
-		check(series <= woods.size() and series <= 8, "drawn in few series (%d for %d woods: same tree, same tip, one series)" % [series, woods.size()])
-	else:
-		check(not still[0].has_meta("falling") and world.tree_cuts["bois-pommier"].morceaux["1"].etat == "couche", "landed with its leaves: it lies as it is, to cut again")
+		check(series <= woods.size() and series <= 9, "drawn in few series (%d for %d woods: same tree, same tip, one series)" % [series, woods.size()])
 	clear(world, "bois-pommier")
 	world.queue_free()
 	await frames(2)

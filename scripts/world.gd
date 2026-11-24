@@ -2252,10 +2252,10 @@ func cut_wood(tree: Node3D, number: int, t: float, point: Vector3) -> void:
 	var cut := cuts.size()
 	_show_part(tree, not lying)
 	if not piece.root and not lying:
-		# 0.0.8.22 (demande de l'utilisateur) : la branche coupée tombe telle qu'elle est (ses branches, ses feuilles), puis
-		# devient son bois au sol, pièce par pièce (presque sans feuilles), ou reste couchée telle quelle, à recouper.
+		# 0.0.8.22 (demandes de l'utilisateur) : la branche coupée tombe telle qu'elle est (ses branches, ses feuilles) et
+		# reste couchée ainsi jusqu'à ce qu'on la recoupe (_drop_branch).
 		_drop_branch(tree, cut, number, t)
-		show_choice("Branche coupée")
+		show_choice("Branche coupée : recoupez-la au sol pour en faire du bois")
 	elif not piece.root:
 		# Arbre couché : la branche coupée se sépare et se pose (même règle que les tiges et le tronc).
 		var cut_branch := _part_node(tree, cut)
@@ -2393,10 +2393,11 @@ func _save_part(made: Node3D) -> void:
 	tree_cuts[id].morceaux[str(int(made.get_meta("part", 0)))] = {"etat": "couche", "position": [spot.x, spot.y, spot.z], "base": [basis.x.x, basis.x.y, basis.x.z, basis.y.x, basis.y.y, basis.y.z, basis.z.x, basis.z.y, basis.z.z]}
 	objects_dirty = true
 
-# 0.0.8.22 (demande de l'utilisateur) : une branche coupée sur un arbre debout tombe telle qu'elle est : elle part d'où
+# 0.0.8.22 (demandes de l'utilisateur) : une branche coupée sur un arbre debout tombe telle qu'elle est : elle part d'où
 # elle était, descend en accélérant (comme un objet qui tombe) et se couche en tournant (sa pièce principale à plat,
-# dans le sens où elle pointait), puis se pose (_settle). Presque sans feuilles (_bare_to_wood) : son bois au sol, pièce
-# par pièce, chacune à sa taille ; sinon elle reste couchée telle quelle, à recouper.
+# dans le sens où elle pointait), puis se pose (_settle). Elle reste couchée telle quelle, avec ses feuilles, même petite,
+# jusqu'à ce qu'on la recoupe : alors (cut_wood, arbre couché) ses morceaux deviennent leur bois au sol, pièce par pièce
+# (_bare_to_wood, presque sans feuilles).
 const BRANCH_FALL_MIN := 0.25
 const BRANCH_FALL_MAX := 1.4
 
@@ -2445,9 +2446,6 @@ func _drop_branch(tree: Node3D, part: int, number: int, t: float) -> void:
 		_bend_into_ground(made, flat)
 		_impact_sound(made.global_position)
 		_save_part(made)
-		if _bare_to_wood(made):
-			show_choice("Branche coupée : bois au sol, à ramasser avec R")
-		_all_wood(id)
 	var motion := create_tween()
 	motion.tween_method(fall, 0.0, 1.0, seconds)
 	motion.tween_callback(landed)
