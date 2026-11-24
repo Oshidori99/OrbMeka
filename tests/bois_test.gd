@@ -182,10 +182,52 @@ func _run() -> void:
 			thickest = maxf(thickest, float(item.epaisseur))
 		var root_thick := TreeParts.true_thickness(piece_branch, 0.3) * apple.scale.x * 100.0
 		check(absf(thickest - root_thick) < root_thick * 0.25, "the branch keeps its thickness (%.1f cm, on the tree %.1f cm)" % [thickest, root_thick])
+		await frames(40)
 		world.ground._redraw()
 		var series: int = world.ground._drawn.keys().filter(func(key): return str(key).begins_with("bois/")).size()
 		check(series <= woods.size() and series <= 9, "drawn in few series (%d for %d woods: same tree, same tip, one series)" % [series, woods.size()])
 	clear(world, "bois-pommier")
+	# --- R sur une branche couchée : ses bois au sol, celui qu'on vise en main ---
+	apple = make(world, "bois-ramasser", Trees.APPLE, 3, spot)
+	await frames(3)
+	world.cut_wood(apple, branch, 0.05, world._model_of(apple) * (piece_branch.start + piece_branch.direction * 0.05))
+	await frames(120)
+	var lying_branch: Array = nodes_of(world, "bois-ramasser").filter(func(node): return int(node.get_meta("part", 0)) == 1)
+	check(lying_branch.size() == 1, "another branch cut: it lies")
+	if not lying_branch.is_empty():
+		var node: Node3D = lying_branch[0]
+		# Viser sa pièce la plus fine (un rameau ou un bâton léger).
+		var spans_now: Dictionary = TreeParts.assignment(Trees.APPLE, 3, 0, world._cuts_of(node)).ranges[1]
+		var thinnest := -1
+		for number in spans_now:
+			if thinnest < 0 or TreeParts.true_thickness(crown.pieces[number], spans_now[number].x) < TreeParts.true_thickness(crown.pieces[thinnest], spans_now[thinnest].x):
+				thinnest = number
+		var aim_point: Vector3 = world._model_of(node) * (crown.pieces[thinnest].start + crown.pieces[thinnest].direction * ((spans_now[thinnest].x + spans_now[thinnest].y) * 0.5))
+		player.global_position = aim_point + Vector3(0.0, -0.5, 1.0)
+		player.camera.global_position = aim_point + Vector3(0.0, 0.3, 1.0)
+		for index in Inventory.HANDS + Inventory.POCKETS:
+			world.inventory.put("bar", index, {})
+		world.inventory.select(Inventory.HANDS[1])
+		before = world.ground.entries.size()
+		var took: bool = world.pick_up({"collider": node, "position": aim_point})
+		await frames(5)
+		var held: Dictionary = world.inventory.held()
+		check(took and nodes_of(world, "bois-ramasser").filter(func(other): return int(other.get_meta("part", 0)) == 1).is_empty(), "R on the lying branch: it comes apart into its woods")
+		check(Inventory.ITEMS.get(held.get("objet", ""), {}).get("forme", "") == "bois" and wood_since(world, before).size() == spans_now.size() - 1, "the aimed piece is in hand (%s), the others on the ground (%d)" % [Inventory.item_name(held), wood_since(world, before).size()])
+	clear(world, "bois-ramasser")
+	# --- Survie : une branche qui tombe sur le joueur le blesse ---
+	world.set_game_mode(Inventory.SURVIVAL)
+	world.health.value = world.health.MAX
+	apple = make(world, "bois-blesse", Trees.APPLE, 3, spot)
+	await frames(3)
+	var center: Vector3 = world._model_of(apple) * (piece_branch.start + piece_branch.direction * piece_branch.length * 0.5)
+	player.global_position = Vector3(center.x, world.terrain.height_at(center.x, center.z), center.z)
+	world.cut_wood(apple, branch, 0.05, world._model_of(apple) * (piece_branch.start + piece_branch.direction * 0.05))
+	await frames(120)
+	var lost: int = world.health.MAX - world.health.value
+	check(lost > 0 and lost <= 80, "a branch falling on the player hurts (−%d)" % lost)
+	world.health.value = world.health.MAX
+	clear(world, "bois-blesse")
 	world.queue_free()
 	await frames(2)
 	print("RESULT: %d wood checks, %d failures" % [checks, failures])

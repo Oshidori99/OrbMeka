@@ -2446,10 +2446,46 @@ func _drop_branch(tree: Node3D, part: int, number: int, t: float) -> void:
 		_bend_into_ground(made, flat)
 		_impact_sound(made.global_position)
 		_save_part(made)
+		_branch_hurts(made, part)
 	var motion := create_tween()
 	motion.tween_method(fall, 0.0, 1.0, seconds)
 	motion.tween_callback(landed)
 	# (le bruit de la coupe : cut_wood ; celui de la chute : à l'arrivée)
+
+# 0.0.8.22 (demande de l'utilisateur) : une branche qui tombe blesse en Survie celui qui est dessous à son arrivée, comme
+# un arbre (Health.tree_damage : sa grosseur et l'endroit touché ; ses feuilles et ses branches : un peu), mais une
+# branche fine bien moins (en proportion de son épaisseur sous Health.TREE_SMALL, 10 cm). Rend les points perdus.
+func _branch_hurts(made: Node3D, part: int) -> int:
+	if not survival() or not is_instance_valid(player) or death_open or not is_instance_valid(made):
+		return 0
+	var kind := int(made.get_meta("kind", 0))
+	var size := int(made.get_meta("size", 3))
+	var form := int(made.get_meta("form", 0))
+	var main := TreeParts.main_span(kind, size, form, _cuts_of(made), part)
+	if main.is_empty():
+		return 0
+	var piece: Dictionary = TreeParts.skeleton(kind, size, form).pieces[main[0]]
+	var place := _model_of(made)
+	var base: Vector3 = place * (piece.start + piece.direction * float(main[1]))
+	var tip: Vector3 = place * (piece.start + piece.direction * float(main[2]))
+	var direction := tip - base
+	direction.y = 0.0
+	if direction.length() < 0.05:
+		return 0
+	var diameter := TreeParts.true_thickness(piece, (float(main[1]) + float(main[2])) * 0.5) * made.scale.x
+	var detail: MeshInstance3D = made.get_node_or_null("Modele/Detail")
+	var spread := 0.0
+	if detail != null and detail.mesh != null:
+		var box: AABB = detail.mesh.get_aabb()
+		spread = minf(maxf(maxf(box.size.x, box.size.y), box.size.z) * 0.5 * made.scale.x, 2.5)
+	var points := Health.tree_damage(base, direction.normalized(), direction.length(), diameter, 0.0, spread, player.global_position)
+	if points <= 0:
+		return 0
+	points = maxi(1, roundi(points * clampf(diameter / Health.TREE_SMALL, 0.05, 1.0)))
+	var lost := hurt(points)
+	if lost > 0 and not death_open:
+		_notify("Une branche vous est tombée dessus : −%d." % lost)
+	return lost
 
 # Le haut d'un arbre (ou une tige) coupé debout tombe vers le joueur depuis la coupe, puis se couche à côté de la souche.
 func _fall_part(tree: Node3D, part: int, number: int, t: float) -> void:
@@ -2511,14 +2547,27 @@ func _bare_to_wood(tree: Node3D) -> bool:
 	var part := int(tree.get_meta("part", 0))
 	if TreeParts.leaf_share(kind, size, form, cuts, part) >= Trees.BARE_LEAF_SHARE:
 		return false
-	_drop_part_wood(tree, part)
-	tree_cuts[str(tree.get_meta("id", ""))].morceaux[str(part)] = {"etat": "bois"}
+	_part_to_wood(tree, part)
+	return true
+
+# 0.0.8.22 : un morceau couché devient son bois au sol (toutes ses pièces) et disparaît. keep : numéro d'une pièce dont le
+# bois n'est pas posé mais rendu ([objet, milieu], pour la prendre en main) ; [] sinon.
+func _part_to_wood(tree: Node3D, part: int, keep := -1) -> Array:
+	var kept := []
+	for each in _part_wood_items(tree, part):
+		if int(each[2]) == keep and kept.is_empty():
+			kept = [each[0], each[1]]
+			continue
+		ground.drop(each[0], each[1], each[1], _ground_at.bind(tree), 0.0)
+	var id := str(tree.get_meta("id", ""))
+	if tree_cuts.has(id):
+		tree_cuts[id].morceaux[str(part)] = {"etat": "bois"}
 	objects_dirty = true
 	var column: Vector2i = tree.get_meta("column", Vector2i(999999, 0))
 	if column_objects.has(column):
 		column_objects[column].erase(tree)
 	tree.queue_free()
-	return true
+	return kept
 
 # Plus aucun morceau (tout est du bois au sol, et pas de souche) : l'arbre est entièrement coupé.
 func _all_wood(id: String) -> void:
@@ -2537,18 +2586,14 @@ func _all_wood(id: String) -> void:
 # chacune un bois à sa vraie longueur et à ses vraies épaisseurs, posé là où elle était, dans son sens (gros bout vers
 # le pied). Avant : seulement sa pièce principale (une branche de pommier de 8 pièces devenait un seul bâton) ; et les
 # tiges et troncs droits étaient mesurés dans une tranche horizontale de TOUT l'arbre, qui prenait parfois l'anneau
-# d'une tige ou d'une branche voisine (un bout ultra fin, ou trop gros). Rend les bois posés (le principal d'abord).
-func _drop_part_wood(tree: Node3D, part: int) -> Array:
-	var made := _part_wood_items(tree, part)
-	for each in made:
-		ground.drop(each[0], each[1], each[1], _ground_at.bind(tree), 0.0)
-	return made.map(func(each): return each[0])
+# d'une tige ou d'une branche voisine (un bout ultra fin, ou trop gros). Posé par _part_to_wood.
 
 # Rameau : une pièce fine (moins de 4 cm) qui porte des feuilles (au moins RAMEAU_LEAVES triangles de feuilles).
 const RAMEAU_LEAVES := 4
 const RAMEAU_THICKNESS := 0.04
 
-# Bois de chaque pièce d'un morceau : [objet, milieu (monde)], la pièce principale (la plus proche du pied) d'abord.
+# Bois de chaque pièce d'un morceau : [objet, milieu (monde), numéro de la pièce], la pièce principale (la plus proche
+# du pied) d'abord.
 func _part_wood_items(tree: Node3D, part: int) -> Array:
 	var kind := int(tree.get_meta("kind", 0))
 	var size := int(tree.get_meta("size", 3))
@@ -2604,7 +2649,7 @@ func _part_wood_items(tree: Node3D, part: int) -> Array:
 			along = -along
 		wood.rotation = atan2(along.x, along.z)
 		var middle: Vector3 = place * (piece.start + piece.direction * ((span.x + span.y) * 0.5))
-		result.append([wood, middle])
+		result.append([wood, middle, number])
 	return result
 
 # Bout le plus fin d'un bois (cm) : la pointe d'une tige est presque nulle, le bois dessiné garde au moins ceci.
@@ -3707,6 +3752,45 @@ func aimed_copy(hit: Dictionary) -> Dictionary:
 	var id: String = {SmoothTerrain.SAND: "sable", SmoothTerrain.DIRT: "terre", SmoothTerrain.CLAY: "argile", SmoothTerrain.MUD: "boue", SmoothTerrain.GRAVEL: "gravier", SmoothTerrain.NEEDLES: "terre", SmoothTerrain.STONE: "pierre", SmoothTerrain.LIMESTONE: "calcaire", SmoothTerrain.DARK_STONE: "pierre_sombre", SmoothTerrain.FLINT: "silex"}.get(kind if kind >= 0 else SmoothTerrain.DIRT, "")
 	return Inventory.catalog_item(id) if not id.is_empty() else {}
 
+# 0.0.8.22 (demande de l'utilisateur) : R sur une branche couchée (un morceau d'arbre coupé, presque sans feuilles au
+# regard de l'arbre : comme pour la recouper) : elle se défait en ses bois au sol, pièce par pièce, et celui qu'on vise
+# vient en main (main choisie, sinon l'autre main ou une poche), s'il n'est pas trop lourd ; sinon il reste au sol. Un
+# gros morceau feuillu (tige, tronc avec sa couronne) : il faut d'abord le couper. Faux si ce n'est pas un morceau couché.
+func _pick_lying_wood(hit: Dictionary) -> bool:
+	var node: Node3D = hit.collider.get_meta("arbre", hit.collider)
+	if not is_instance_valid(node) or not node.has_meta("kind") or int(node.get_meta("part", 0)) == 0 or node.has_meta("falling") or _legacy_cut(node):
+		return false
+	if player.camera.global_position.distance_to(hit.position) > player.break_reach + 0.01:
+		_notify("Trop loin : %s m au plus." % str(snappedf(player.break_reach, 0.1)).replace(".", ","))
+		return true
+	var kind := int(node.get_meta("kind", 0))
+	var size := int(node.get_meta("size", 3))
+	var form := int(node.get_meta("form", 0))
+	var part := int(node.get_meta("part", 0))
+	var cuts := _cuts_of(node)
+	if TreeParts.leaf_share(kind, size, form, cuts, part) >= Trees.BARE_LEAF_SHARE:
+		_notify("Trop gros pour être ramassé : coupez-le d'abord (clic gauche maintenu).")
+		return true
+	var local: Vector3 = _model_of(node).affine_inverse() * (hit.position as Vector3)
+	var aimed := TreeParts.nearest_in_part(kind, size, form, cuts, part, local, 0.8)
+	var id := str(node.get_meta("id", ""))
+	var kept := _part_to_wood(node, part, int(aimed.get("piece", -1)))
+	_all_wood(id)
+	if kept.is_empty():
+		show_choice("Bois au sol : à ramasser avec R")
+		return true
+	var value := Inventory.single(kept[0])
+	var result := inventory.add_to_selected(value)
+	if result.added == 0:
+		ground.drop(kept[0], kept[1], kept[1], _ground_at, 0.0)
+		_notify(_refused_message(result.reason, value))
+		return true
+	show_choice("%s (%s)" % [Inventory.item_name(value), Inventory.format_weight(Inventory.unit_weight(value))])
+	notebook_mark("ramasser")
+	if is_instance_valid(player.hand_view):
+		player.hand_view.grab()
+	return true
+
 func pick_up(hit: Dictionary) -> bool:
 	var fruit := aimed_fruit(hit)
 	if not fruit.is_empty():
@@ -3714,6 +3798,9 @@ func pick_up(hit: Dictionary) -> bool:
 	if hit.is_empty() or not is_instance_valid(hit.get("collider")):
 		return false
 	var collider: Node = hit.collider
+	# 0.0.8.22 (demande de l'utilisateur) : une branche couchée (tombée d'un arbre) se ramasse aussi.
+	if collider.is_in_group("trees"):
+		return _pick_lying_wood(hit)
 	if not (collider.is_in_group("ground_items") or collider.is_in_group("pebbles")):
 		return false
 	if player.camera.global_position.distance_to(hit.position) > player.break_reach + 0.01:
