@@ -69,7 +69,9 @@ utiliser -Jobs 2 si le PC est en mode économie d'énergie ou si d'autres gros p
 Godot console : C:\Users\Dev\Desktop\Godot_v4.7.2-stable_win64.exe\Godot_v4.7.2-stable_win64_console.exe
 Un seul test : `& '<Godot console>' --headless --path . --script res://tests/<nom>_test.gd`.
 Ce qui ne peut être vérifié qu'en jouant (aspect, souris) est signalé comme « à tester manuellement ».
-Fenêtre du jeu ouverte par Claude (captures, mesures) : hors écran et **sans jamais capturer la souris** de l'utilisateur.
+Fenêtre du jeu ouverte par Claude (captures, mesures) : **la plus discrète possible** : petite (480 × 270), sans bord,
+tout dans le coin en bas à droite de l'écran (ou hors écran), sans prendre le clavier (WINDOW_FLAG_NO_FOCUS) et
+**sans jamais capturer la souris** de l'utilisateur ; fermée dès la capture faite. Sinon, tester sans fenêtre (--headless).
 Web : ne pas mesurer dans le navigateur intégré de Claude (environ 1 FPS) ni y ouvrir itch.io (vérification anti-robot impossible) ; mesurer l'export Web autrement ou demander à l'utilisateur.
 
 ## Rythme de publication

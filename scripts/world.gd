@@ -2057,11 +2057,12 @@ func _aim_thickness(aim: Dictionary) -> float:
 	var size := int(tree.get_meta("size", 3))
 	var form := int(tree.get_meta("form", 0))
 	var piece: Dictionary = TreeParts.skeleton(kind, size, form).pieces[aim.piece]
-	if piece.root and piece.direction.y > 0.7:
-		var local: Vector3 = _model_of(tree).affine_inverse() * (aim.point as Vector3)
-		local.y = maxf(local.y, 0.3)
-		return Trees.wood_thickness(kind, size, form, local) * tree.scale.x
-	return TreeParts.true_thickness(piece, aim.t) * tree.scale.x
+	# 0.0.8.22 : toujours la tranche de la pièce visée elle-même (avant, tige ou tronc droit : une tranche horizontale de
+	# tout l'arbre, qui pouvait prendre une tige voisine) ; pied : au-dessus de l'évasement des racines.
+	var t: float = aim.t
+	if piece.root and absf(piece.direction.y) > 0.01 and (piece.start + piece.direction * t).y < ROOT_FLARE:
+		t = clampf((ROOT_FLARE - piece.start.y) / piece.direction.y, t, piece.length)
+	return TreeParts.true_thickness(piece, t) * tree.scale.x
 
 func _step_chop_parts(delta: float, hit: Dictionary) -> bool:
 	var aim := aimed_wood(hit)
@@ -2250,12 +2251,17 @@ func cut_wood(tree: Node3D, number: int, t: float, point: Vector3) -> void:
 	objects_dirty = true
 	var cut := cuts.size()
 	_show_part(tree, not lying)
-	if not piece.root:
-		# Avec ses feuilles : un rameau (« Tige de noisetier »…) ; sans : un bâton.
-		var leafy := TreeParts.leaf_share(kind, size, form, cuts, cut) > 0.0
-		var dropped := _drop_part_wood(tree, cut, leafy)
-		entry.morceaux[str(cut)] = {"etat": "bois"}
-		show_choice("%s au sol : à ramasser avec R" % (Inventory.item_name(dropped) if not dropped.is_empty() else "Bois"))
+	if not piece.root and not lying:
+		# 0.0.8.22 (demande de l'utilisateur) : la branche coupée tombe telle qu'elle est (ses branches, ses feuilles), puis
+		# devient son bois au sol, pièce par pièce (presque sans feuilles), ou reste couchée telle quelle, à recouper.
+		_drop_branch(tree, cut, number, t)
+		show_choice("Branche coupée")
+	elif not piece.root:
+		# Arbre couché : la branche coupée se sépare et se pose (même règle que les tiges et le tronc).
+		var cut_branch := _part_node(tree, cut)
+		_place_split(tree, cut_branch, number, t)
+		var bare := _bare_to_wood(cut_branch)
+		show_choice("Branche coupée" + (" : bois au sol, à ramasser avec R" if bare else ""))
 	elif not lying:
 		_fall_part(tree, cut, number, t)
 	else:
@@ -2387,6 +2393,66 @@ func _save_part(made: Node3D) -> void:
 	tree_cuts[id].morceaux[str(int(made.get_meta("part", 0)))] = {"etat": "couche", "position": [spot.x, spot.y, spot.z], "base": [basis.x.x, basis.x.y, basis.x.z, basis.y.x, basis.y.y, basis.y.z, basis.z.x, basis.z.y, basis.z.z]}
 	objects_dirty = true
 
+# 0.0.8.22 (demande de l'utilisateur) : une branche coupée sur un arbre debout tombe telle qu'elle est : elle part d'où
+# elle était, descend en accélérant (comme un objet qui tombe) et se couche en tournant (sa pièce principale à plat,
+# dans le sens où elle pointait), puis se pose (_settle). Presque sans feuilles (_bare_to_wood) : son bois au sol, pièce
+# par pièce, chacune à sa taille ; sinon elle reste couchée telle quelle, à recouper.
+const BRANCH_FALL_MIN := 0.25
+const BRANCH_FALL_MAX := 1.4
+
+func _drop_branch(tree: Node3D, part: int, number: int, t: float) -> void:
+	_leave_series(tree)
+	var id := str(tree.get_meta("id", ""))
+	var kind := int(tree.get_meta("kind", 0))
+	var size := int(tree.get_meta("size", 3))
+	var form := int(tree.get_meta("form", 0))
+	var made := _part_node(tree, part)
+	made.set_meta("falling", true)
+	if tree_cuts.has(id):
+		tree_cuts[id].morceaux[str(part)] = {"etat": "chute"}
+	var pieces: Array = TreeParts.skeleton(kind, size, form).pieces
+	var main := TreeParts.main_span(kind, size, form, _cuts_of(made), part)
+	var piece: Dictionary = pieces[int(main[0]) if not main.is_empty() else number]
+	var middle_t: float = (float(main[1]) + float(main[2])) * 0.5 if not main.is_empty() else t
+	var place := _model_of(made)
+	var center: Vector3 = place * (piece.start + piece.direction * middle_t)
+	var along: Vector3 = (place.basis * piece.direction).normalized()
+	var flat := Vector3(along.x, 0.0, along.z)
+	if flat.length() < 0.15:
+		# Branche presque verticale : elle se couche en s'écartant du tronc.
+		flat = center - tree.global_position
+		flat.y = 0.0
+	flat = flat.normalized() if flat.length() > 0.01 else Vector3.FORWARD
+	var turn := Quaternion(along, flat) if along.dot(flat) > -0.999 else Quaternion(Vector3.UP, PI)
+	var radius := TreeParts.true_thickness(piece, middle_t) * tree.scale.x * 0.5
+	var end_center := Vector3(center.x, _ground_at(center, made) + radius, center.z)
+	var drop_height := maxf(center.y - end_center.y, 0.05)
+	var seconds := clampf(sqrt(2.0 * drop_height / 9.8), BRANCH_FALL_MIN, BRANCH_FALL_MAX)
+	var start_basis := made.global_basis
+	var start_offset := made.global_position - center
+	var fall := func(s: float) -> void:
+		if not is_instance_valid(made):
+			return
+		var turned := Basis(Quaternion.IDENTITY.slerp(turn, s))
+		made.global_basis = turned * start_basis
+		made.global_position = center.lerp(end_center, s * s) + turned * start_offset
+	var landed := func() -> void:
+		if not is_instance_valid(made):
+			return
+		made.remove_meta("falling")
+		_settle(made)
+		_part_collision(made, false)
+		_bend_into_ground(made, flat)
+		_impact_sound(made.global_position)
+		_save_part(made)
+		if _bare_to_wood(made):
+			show_choice("Branche coupée : bois au sol, à ramasser avec R")
+		_all_wood(id)
+	var motion := create_tween()
+	motion.tween_method(fall, 0.0, 1.0, seconds)
+	motion.tween_callback(landed)
+	# (le bruit de la coupe : cut_wood ; celui de la chute : à l'arrivée)
+
 # Le haut d'un arbre (ou une tige) coupé debout tombe vers le joueur depuis la coupe, puis se couche à côté de la souche.
 func _fall_part(tree: Node3D, part: int, number: int, t: float) -> void:
 	_leave_series(tree)
@@ -2468,48 +2534,128 @@ func _all_wood(id: String) -> void:
 	fallen_trees.erase(id)
 	tree_cuts.erase(id)
 
-# Bois au sol d'un morceau : sa pièce principale (la plus proche du pied), à sa longueur et à ses épaisseurs.
-func _drop_part_wood(tree: Node3D, part: int, leafy := false) -> Dictionary:
-	var wood := _part_wood_item(tree, part, leafy)
-	if wood.is_empty():
-		return {}
-	var main := TreeParts.main_span(int(tree.get_meta("kind", 0)), int(tree.get_meta("size", 3)), int(tree.get_meta("form", 0)), _cuts_of(tree), part)
-	var piece: Dictionary = TreeParts.skeleton(int(tree.get_meta("kind", 0)), int(tree.get_meta("size", 3)), int(tree.get_meta("form", 0))).pieces[main[0]]
-	var middle: Vector3 = _model_of(tree) * (piece.start + piece.direction * ((float(main[1]) + float(main[2])) * 0.5))
-	ground.drop(wood, middle, middle, _ground_at.bind(tree), 0.0)
-	return wood
+# 0.0.8.22 (demandes de l'utilisateur : « le bâton ou la bûche qui tombe est ultra fin, par moments » ; garder la taille
+# qu'il avait sur l'arbre) : le bois au sol d'un morceau, c'est TOUTES ses pièces (tronc ou tige, branches, rameaux),
+# chacune un bois à sa vraie longueur et à ses vraies épaisseurs, posé là où elle était, dans son sens (gros bout vers
+# le pied). Avant : seulement sa pièce principale (une branche de pommier de 8 pièces devenait un seul bâton) ; et les
+# tiges et troncs droits étaient mesurés dans une tranche horizontale de TOUT l'arbre, qui prenait parfois l'anneau
+# d'une tige ou d'une branche voisine (un bout ultra fin, ou trop gros). Rend les bois posés (le principal d'abord).
+func _drop_part_wood(tree: Node3D, part: int) -> Array:
+	var made := _part_wood_items(tree, part)
+	for each in made:
+		ground.drop(each[0], each[1], each[1], _ground_at.bind(tree), 0.0)
+	return made.map(func(each): return each[0])
 
-# Objet bois d'un morceau (tronc, branche ou rameau), à sa longueur et à ses vraies épaisseurs.
-func _part_wood_item(tree: Node3D, part: int, leafy := false) -> Dictionary:
+# Rameau : une pièce fine (moins de 4 cm) qui porte des feuilles (au moins RAMEAU_LEAVES triangles de feuilles).
+const RAMEAU_LEAVES := 4
+const RAMEAU_THICKNESS := 0.04
+
+# Bois de chaque pièce d'un morceau : [objet, milieu (monde)], la pièce principale (la plus proche du pied) d'abord.
+func _part_wood_items(tree: Node3D, part: int) -> Array:
 	var kind := int(tree.get_meta("kind", 0))
 	var size := int(tree.get_meta("size", 3))
 	var form := int(tree.get_meta("form", 0))
-	var main := TreeParts.main_span(kind, size, form, _cuts_of(tree), part)
-	if main.is_empty():
-		return {}
-	var piece: Dictionary = TreeParts.skeleton(kind, size, form).pieces[main[0]]
-	var low := float(main[1])
-	var high := float(main[2])
+	var cuts := _cuts_of(tree)
+	var made_skeleton: Dictionary = TreeParts.skeleton(kind, size, form)
+	var pieces: Array = made_skeleton.pieces
+	var assigned: Dictionary = TreeParts.assignment(kind, size, form, cuts)
+	var spans: Dictionary = assigned.ranges[part]
+	if spans.is_empty():
+		return []
+	# Feuilles de chaque pièce dans ce morceau.
+	var leaves := {}
+	for surface in range(made_skeleton.surfaces.size()):
+		var info: Dictionary = made_skeleton.surfaces[surface]
+		if not info.leaves:
+			continue
+		var of: PackedInt32Array = assigned.parts[surface]
+		for triangle in range(of.size()):
+			if of[triangle] == part:
+				var owner: int = info.owner[triangle]
+				leaves[owner] = int(leaves.get(owner, 0)) + 1
+	var main := TreeParts.main_span(kind, size, form, cuts, part)
+	var order: Array = spans.keys()
+	order.sort_custom(func(a, b): return (a == main[0]) if (a == main[0]) != (b == main[0]) else a < b)
 	var scale := tree.scale.x
-	var near_end := (high - low) * 0.2
-	var thick_low := TreeParts.true_thickness(piece, low + near_end) * scale
-	var thick_high := TreeParts.true_thickness(piece, high - near_end) * scale
-	if piece.root and piece.direction.y > 0.7:
-		# Tronc droit : les vraies tranches, hors évasement des racines.
-		var spot_low: Vector3 = piece.start + piece.direction * (low + near_end)
-		var spot_high: Vector3 = piece.start + piece.direction * (high - near_end)
-		spot_low.y = clampf(maxf(spot_low.y, 0.3), spot_low.y, maxf(spot_high.y, spot_low.y))
-		thick_low = Trees.wood_thickness(kind, size, form, spot_low) * scale
-		thick_high = Trees.wood_thickness(kind, size, form, spot_high) * scale
-	var thickness := maxf(thick_low, thick_high)
-	var rng := RandomNumberGenerator.new()
-	rng.seed = hash(str(tree.get_meta("id", "")) + "_" + str(part))
-	var wood := Inventory.wood_piece("rameau" if leafy else ("tronc" if thickness >= 0.04 else "branche"), kind, (thick_low + thick_high) * 50.0, (high - low) * scale, rng, Inventory.tree_wood(str(tree.get_meta("id", "")), kind))
-	wood.epaisseur = snappedf(thickness * 100.0, 0.1)
-	wood.fin = snappedf(minf(thick_low, thick_high) * 100.0, 0.1)
-	var along: Vector3 = (_model_of(tree).basis * piece.direction).normalized()
-	wood.rotation = atan2(along.x, along.z)
-	return wood
+	var place := _model_of(tree)
+	var tree_id := str(tree.get_meta("id", ""))
+	var result := []
+	for number in order:
+		var piece: Dictionary = pieces[number]
+		var span: Vector2 = spans[number]
+		var length: float = (span.y - span.x) * scale
+		if length < MIN_WOOD_PIECE:
+			continue
+		# Les racines (pièces du pied qui ne montent pas) ne font pas de bois : seulement la pièce principale.
+		if piece.root and float(piece.tip.y) <= 0.5 and number != main[0]:
+			continue
+		var ends := wood_ends(piece, span.x, span.y)
+		var big := ends.x * scale
+		var small := ends.y * scale
+		var thickness := maxf(big, small)
+		var leafy: bool = int(leaves.get(number, 0)) >= RAMEAU_LEAVES and thickness < RAMEAU_THICKNESS
+		var rng := RandomNumberGenerator.new()
+		rng.seed = hash(tree_id + "_" + str(part) + "_" + str(number))
+		var id: String = "rameau" if leafy else ("tronc" if thickness >= 0.04 else "branche")
+		var wood := Inventory.wood_piece(id, kind, (big + small) * 50.0, length, rng, Inventory.tree_wood(tree_id, kind))
+		wood.epaisseur = snappedf(thickness * 100.0, 0.1)
+		wood.fin = snappedf(maxf(minf(big, small) * 100.0, WOOD_TIP_CM), 0.1)
+		# Le gros bout du côté du pied de la pièce (le dessin met le bout fin dans le sens de « rotation »).
+		var along: Vector3 = (place.basis * piece.direction).normalized()
+		if small > big:
+			along = -along
+		wood.rotation = atan2(along.x, along.z)
+		var middle: Vector3 = place * (piece.start + piece.direction * ((span.x + span.y) * 0.5))
+		result.append([wood, middle])
+	return result
+
+# Bout le plus fin d'un bois (cm) : la pointe d'une tige est presque nulle, le bois dessiné garde au moins ceci.
+const WOOD_TIP_CM := 0.5
+# Évasement des racines : pas de mesure sous cette hauteur (repère du modèle), comme pour abattre.
+const ROOT_FLARE := 0.3
+
+# 0.0.8.22 : épaisseurs (m, repère du modèle) aux deux bouts d'une pièce de « low » à « high » (mètres le long de la
+# pièce) : la vraie tranche de SES triangles (TreeParts.true_thickness, jamais celle d'une voisine), mesurée tous les
+# 10 % (hors évasement des racines), puis la droite la plus proche de ces mesures, prise à chaque bout : le bois au sol
+# (un cône) suit au mieux la pièce. Vector2(bout de départ, bout de fin).
+static func wood_ends(piece: Dictionary, low: float, high: float) -> Vector2:
+	var xs := []
+	var ys := []
+	var flared := false
+	for step in range(1, 10):
+		var share := step / 10.0
+		var t := lerpf(low, high, share)
+		if piece.root and (piece.start + piece.direction * t).y < ROOT_FLARE:
+			flared = true
+			continue
+		xs.append(share)
+		ys.append(TreeParts.true_thickness(piece, t))
+	if xs.size() < 2:
+		# Morceau court tout près du sol : une seule mesure, juste au-dessus de l'évasement.
+		var above := low
+		if piece.root and absf(piece.direction.y) > 0.01:
+			above = clampf((ROOT_FLARE - piece.start.y) / piece.direction.y, low, high)
+		var one := TreeParts.true_thickness(piece, lerpf(above, high, 0.5) if above < high else high)
+		return Vector2(one, one)
+	var mean_x := 0.0
+	var mean_y := 0.0
+	for index in range(xs.size()):
+		mean_x += xs[index]
+		mean_y += ys[index]
+	mean_x /= xs.size()
+	mean_y /= ys.size()
+	var top := 0.0
+	var bottom := 0.0
+	for index in range(xs.size()):
+		top += (xs[index] - mean_x) * (ys[index] - mean_y)
+		bottom += (xs[index] - mean_x) * (xs[index] - mean_x)
+	var slope := top / maxf(bottom, 0.000001)
+	# Bout dans l'évasement des racines : l'épaisseur juste au-dessus (pas la droite prolongée dans l'évasement).
+	var start_share: float = xs[0] if flared else 0.0
+	var at_start := mean_y + slope * (start_share - mean_x)
+	var at_end := mean_y + slope * (1.0 - mean_x)
+	var floor_m := WOOD_TIP_CM / 100.0
+	return Vector2(maxf(at_start, floor_m), maxf(at_end, floor_m))
 
 # Monde rouvert : morceaux d'un arbre coupé par branches (0.0.7.12).
 func _restore_parts(tree: Node3D) -> void:

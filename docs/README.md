@@ -1,6 +1,19 @@
-# OrbMeka™ — prototype 0.0.8.21
+# OrbMeka™ — prototype 0.0.8.22
 
 Godot 4.7 / GDScript. Formes et couleurs simples ; assets externes seulement sous licence vérifiée (sons CC0, assets/sounds/CREDITS.txt).
+
+## 0.0.8.22 — Bûches et bâtons à la taille qu'ils avaient sur l'arbre ; une branche coupée tombe telle qu'elle est ; le bois d'un morceau, c'est toutes ses pièces
+Version locale (1 sur 4 depuis la publication de 0.0.8.21). Génération inchangée (version 33). Demandes de l'utilisateur.
+- **Bout « ultra fin » par moments** (signalé sur les tiges de noisetier) : une tige ou un tronc droit était mesuré dans une tranche horizontale de **tout** l'arbre ; selon l'endroit, elle prenait l'anneau d'une tige ou d'une petite branche voisine. Mesuré : une tige de 21 cm donnait une bûche finissant à 3,3 cm (au lieu d'environ 8). Maintenant chaque pièce est mesurée sur ses propres triangles, tous les 10 %, et le bois au sol suit la droite la plus proche de ces mesures (écart de 5 % au plus sur tous les arbres). Le temps de coupe vise la même mesure.
+- **Branche coupée** sur un arbre debout : elle tombe telle qu'elle est (ses petites branches, ses feuilles), en tournant pour se coucher, puis se pose. Avec beaucoup de feuilles, elle reste couchée telle quelle, à recouper ; sinon, elle devient son bois au sol.
+- **Le bois d'un morceau, c'est toutes ses pièces** : chaque pièce (tronc ou tige, branches, rameaux) devient son propre bois, à sa vraie longueur et à ses vraies épaisseurs, là où elle était, gros bout vers le pied. Avant : seulement la pièce principale (une branche de pommier de 8 pièces, 8 m de bois, devenait un seul bâton de 2,8 m). Les racines restent avec la souche. Les pièces fines (moins de 4 cm) avec des feuilles : des rameaux.
+- **Pointes fines** au sol (jusqu'à 5 % du gros bout, avant 20 %).
+- Dessin : les bois au sol sont groupés par objet, essence et pointe (plus par « forme », qui ne change rien à un cylindre) : bien moins de séries à dessiner.
+- CLAUDE.md : fenêtre ouverte par Claude plus discrète (petite, sans bord, dans le coin en bas à droite, sans clavier ni souris).
+- Pas changé : en main, le bois reste montré raccourci (10 cm, 50 cm) ; il serait de toute façon trop lourd au-delà.
+
+Tests réussis : bois (10, nouveau), tree_fall, tree_stress, sticks, trees, fibers, inventory, optimisation, menu_style, prototype, history_resume (+ tests juridiques). Captures (fenêtre discrète) : branche de pommier pendant la chute et ses 8 bois au sol ; tige de noisetier couchée puis recoupée.
+À tester : couper des tiges de noisetier et des branches (pommier, tilleul), comparer la taille avant / après ; recouper une grosse branche couchée.
 
 ## 0.0.8.21 — Sac en filet : cordelette, Nouer, 4 cases de plus sur l'épaule, deuxième sac dans l'inventaire ; tresser plus vite avec un éclat ; corrections (troncs en double, mains blanches sur le Web, noms)
 Version locale (1 sur 4 depuis la publication de 0.0.8.20). Génération inchangée (version 33). Issue #207 et demandes de l'utilisateur.
