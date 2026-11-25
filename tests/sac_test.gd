@@ -1,7 +1,7 @@
 extends SceneTree
 # 0.0.8.21 (#207, demandes de l'utilisateur) : sac en filet. Cordelette (3 ficelles tressées), Nouer (4 cordelettes pour
 # les mailles, 1 cordelette ou 1 liane pour la bretelle, 6 à 10 rangées) ; le sac va sur l'épaule : cases 7 à 10 de la
-# barre ; un deuxième sac : 4 cases dans l'inventaire ; charge de 2,5 à 3,5 kg et 10 L ; terre, sable et fibres passent
+# barre ; un deuxième sac : 4 cases dans l'inventaire ; charge de 3,45 à 5 kg (0.0.8.24 ; avant 2,5 à 3,5 kg) et 10 L ; terre, sable et fibres passent
 # entre les mailles ; un sac s'enlève vide ; sauvegarde ; à la mort, tout tombe ; fiche de fabrication ; Carnet de route.
 const Settings = preload("res://scripts/user_settings.gd")
 const Catalog = preload("res://scripts/world_catalog.gd")
@@ -28,9 +28,9 @@ static func pile(id: String, units: Array) -> Dictionary:
 func _run() -> void:
 	# --- Règles seules ---
 	var bag := {"objet": "sac_filet", "lien": 1, "rangees": 10, "bretelle": 0, "poids": 90.0}
-	check(is_equal_approx(Inventory.bag_capacity(bag), 3500.0), "linen, 10 rows, cord strap: the best bag carries 3.5 kg")
-	check(is_equal_approx(Inventory.bag_capacity({"lien": 2, "rangees": 6, "bretelle": 1}), 2500.0), "grass, 6 rows, vine strap: 2.5 kg (the least)")
-	check(Inventory.bag_capacity({"lien": 0, "rangees": 8}) > 2900.0 and Inventory.bag_capacity({"lien": 0, "rangees": 8}) < 3000.0, "nettle, 8 rows: about 3 kg")
+	check(is_equal_approx(Inventory.bag_capacity(bag), 5000.0), "linen, 10 rows, cord strap: the best bag carries 5 kg")
+	check(is_equal_approx(Inventory.bag_capacity({"lien": 2, "rangees": 6, "bretelle": 1}), 3450.0), "grass, 6 rows, vine strap: 3.45 kg (the least)")
+	check(Inventory.bag_capacity({"lien": 0, "rangees": 8}) > 4200.0 and Inventory.bag_capacity({"lien": 0, "rangees": 8}) < 4300.0, "nettle, 8 rows: about 4.3 kg")
 	var inv := Inventory.new()
 	inv.set_mode(Inventory.SURVIVAL)
 	check(not inv.usable("bar", 6) and not inv.usable("sac", 0) and inv.bar_slots().size() == 6, "no bag: hands and pockets only (6 slots)")
@@ -38,8 +38,8 @@ func _run() -> void:
 	check(inv.usable("bar", 6) and inv.usable("bar", 9) and not inv.usable("sac", 0) and inv.bar_slots().size() == 10, "the bag's 4 slots are slots 7 to 10 of the bar")
 	inv.put("bar", 6, pile("caillou", [{"taille": 4}, {"taille": 4}]))
 	check(Inventory.count(inv.item("bar", 6)) == 2 and is_equal_approx(inv.bag_weight(0), 2000.0), "two 1 kg pebbles in the bag")
-	var left := inv.put("bar", 7, pile("caillou", [{"taille": 4}, {"taille": 4}]))
-	check(Inventory.count(inv.item("bar", 7)) == 1 and Inventory.count(left) == 1 and inv.last_refusal == "lourd", "3.5 kg at most: the fourth pebble does not fit")
+	var left := inv.put("bar", 7, pile("caillou", [{"taille": 4}, {"taille": 4}, {"taille": 4}, {"taille": 4}]))
+	check(Inventory.count(inv.item("bar", 7)) == 3 and Inventory.count(left) == 1 and inv.last_refusal == "lourd", "5 kg at most: the sixth pebble does not fit")
 	var earth := inv.put("bar", 8, {"objet": "terre", "nombre": 1})
 	check(inv.item("bar", 8).is_empty() and earth.get("objet") == "terre", "a handful of earth falls through the mesh")
 	inv.put("bar", 8, pile("fibre_lin", [{}]))
@@ -63,7 +63,7 @@ func _run() -> void:
 	var taken := inv.take_off_bag(1)
 	check(Inventory.is_bag(taken) and not inv.bag_worn(1) and not inv.usable("sac", 0), "an empty bag comes off")
 	var report := Inventory.tool_report(bag)
-	check(report.etapes.size() == 3 and report.etapes.all(func(step): return step[2] == "bien") and report.resume.contains("3,500 kg"), "the bag's card: three steps, all « bien », 3.5 kg")
+	check(report.etapes.size() == 3 and report.etapes.all(func(step): return step[2] == "bien") and report.resume.contains("5,000 kg"), "the bag's card: three steps, all « bien », 5 kg")
 	check(Inventory.has_tool_report(bag) and Inventory.detail_lines(bag).any(func(line): return line.begins_with("Porte :")), "details: what it carries")
 	# Bug signalé par l'utilisateur : un tronc posé (porté à deux mains, l'autre main choisie) restait aussi en main.
 	var trunk := Inventory.new()
@@ -76,9 +76,9 @@ func _run() -> void:
 	# Demande de l'utilisateur : tresser deux fois plus vite avec un éclat tranchant sur soi.
 	var braid := Inventory.new()
 	braid.set_mode(Inventory.SURVIVAL)
-	check(is_equal_approx(Rules.braid_seconds(braid), 3.0), "braiding: 3 s without a flake")
+	check(is_equal_approx(Rules.braid_seconds(false), 3.0), "braiding: 3 s without a flake")
 	braid.put("bar", Inventory.POCKETS[0], pile("eclat_silex", [{"poids": 40.0}]))
-	check(is_equal_approx(Rules.braid_seconds(braid), 1.5), "with a sharp flake in a pocket: 1.5 s")
+	check(is_equal_approx(Rules.braid_seconds(true), 1.5) and Rules.has_flake(braid), "with a sharp flake chosen (offered, 0.0.8.24): 1.5 s")
 	check(not Carnet.node("cordelette").is_empty() and Carnet.node("sac").parent == "cordelette" and Carnet.node("cordelette").parent == "eclat", "Carnet de route: Éclat → Cordelette → Sac en filet")
 	# --- En partie (Survie) : cordelettes, Nouer, porter ---
 	root.size = Vector2i(1280, 720)

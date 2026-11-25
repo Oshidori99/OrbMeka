@@ -30,8 +30,9 @@ const POCKETS := [2, 3, 4, 5]
 const BAG := [6, 7, 8, 9]
 const BAG_SLOTS := 4
 const BAG_ID := "sac_filet"
-# Charge d'un sac en filet : environ 3 kg (2,5 à 3,5 kg selon sa fabrication, bag_capacity) et BAG_VOLUME litres.
-const BAG_LOAD := 3000.0
+# Charge d'un sac en filet : environ 4,3 kg (3,45 à 5 kg selon sa fabrication, bag_capacity) et BAG_VOLUME litres.
+# 0.0.8.24 (demande de l'utilisateur : « jusqu'à 5 kilos ») : avant 2,5 à 3,5 kg.
+const BAG_LOAD := 4300.0
 const BAG_VOLUME := 10.0
 # Fil des cordelettes (lien) : 0 ortie, 1 lin, 2 herbe ; bretelle : 0 cordelette, 1 liane.
 const BAG_CORD_FACTORS := [1.0, 1.1, 0.9]
@@ -186,7 +187,7 @@ const CATEGORIES := [
 	{"id": "pebbles", "nom": "Cailloux", "objets": ["caillou", "caillou_calcaire", "caillou_silex"]},
 	{"id": "fruits", "nom": "Fruits", "objets": ["pomme", "noisette"]},
 	# 0.0.8.5 : têtes de hache et de pioche taillées (silex, grandes).
-	{"id": "tools", "nom": "Outils", "objets": ["pioche", "tete_hache", "tete_pioche", "hache_pierre", "pioche_pierre"]},
+	{"id": "tools", "nom": "Outils", "objets": ["tete_hache", "tete_pioche", "hache_pierre", "pioche_pierre"]},
 	# 0.0.7.18 (demande de l'utilisateur) : pour chaque espèce, un tronc (20 cm × 1 m) et une branche (4 cm × 1 m),
 	# séparés ; « objet:essence » (catalog_item).
 	{"id": "wood", "nom": "Bois", "objets": ["tronc:0", "branche:0", "tronc:1", "branche:1", "tronc:2", "branche:2", "tronc:3", "branche:3"]},
@@ -219,6 +220,7 @@ func _store() -> Dictionary:
 
 func set_mode(new_mode: String) -> void:
 	mode = new_mode if new_mode in [SURVIVAL, CREATIVE] else CREATIVE
+	current_mode = mode
 	var store := _store()
 	if not usable("bar", store.selected):
 		store.selected = 0
@@ -321,6 +323,23 @@ static func count(value: Dictionary) -> int:
 
 static func unlimited(value: Dictionary) -> bool:
 	return not value.is_empty() and not value.has("nombre") and not value.has("pile")
+
+# 0.0.8.24 (demandes de l'utilisateur) : en Créatif, un objet pris dans le catalogue (illimité) compte pour CREATIVE_STACK
+# (99, et il reste 99 : il ne diminue pas) ; un outil, toujours un seul à la fois.
+const CREATIVE_STACK := 99
+static var current_mode := CREATIVE
+
+static func is_tool(id: String) -> bool:
+	var spec: Dictionary = ITEMS.get(id, {})
+	return spec.has("outil") or spec.get("forme", "") in ["outil_brut", "outil_pierre"]
+
+# Nombre montré dans une case : celui de la pile ; illimité (Créatif) : 99, un outil 1.
+static func shown_count(value: Dictionary) -> int:
+	if value.is_empty():
+		return 0
+	if unlimited(value):
+		return 1 if is_tool(value.get("objet", "")) else CREATIVE_STACK
+	return count(value)
 
 static func stack_weight(value: Dictionary) -> float:
 	if unlimited(value):
@@ -578,12 +597,12 @@ func bag_limit(which: int) -> float:
 	return bag_capacity(bag(which)) if bag_worn(which) else 0.0
 
 # Charge d'un sac selon sa fabrication : lin plus solide, mailles serrées (plus de rangées), bretelle en liane un peu
-# moins bonne ; de 2,5 à 3,5 kg.
+# moins bonne ; de 3,45 à 5 kg (0.0.8.24 ; avant 2,5 à 3,5 kg).
 static func bag_capacity(value: Dictionary) -> float:
 	var cord: float = BAG_CORD_FACTORS[clampi(int(value.get("lien", 0)), 0, BAG_CORD_FACTORS.size() - 1)]
 	var rows := 0.92 + 0.035 * (clampi(int(value.get("rangees", 8)), BAG_ROWS.x, BAG_ROWS.y) - BAG_ROWS.x)
 	var strap := 0.97 if int(value.get("bretelle", 0)) == 1 else 1.0
-	return clampf(snappedf(BAG_LOAD * cord * rows * strap, 10.0), 2500.0, 3500.0)
+	return clampf(snappedf(BAG_LOAD * cord * rows * strap, 10.0), 3450.0, 5000.0)
 
 # Ce qui passe entre les mailles : une poignée de matière (terre, sable…), une fibre ; un sac dans un sac : non plus.
 static func bag_accepts(id: String) -> bool:

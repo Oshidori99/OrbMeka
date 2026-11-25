@@ -111,14 +111,16 @@ class Slot extends Control:
 				draw_texture_rect(icon, square.grow(-side * 0.08), false)
 			# 0.0.8.10 (demande de l'utilisateur) : usure d'un outil : une barre en haut de la case, verte quand il est neuf
 			# (pleine), puis jaune, orange, rouge ; il casse à la fin.
-			if Inventory.is_stone_tool(item):
+			# 0.0.8.24 : pas d'usure en Créatif (ni barre).
+			if Inventory.is_stone_tool(item) and Inventory.current_mode != Inventory.CREATIVE:
 				var units := Inventory.units(item)
 				var shown: Dictionary = units[-1] if not units.is_empty() else item
 				var share := clampf(float(Inventory.tool_left(shown)) / maxf(Inventory.tool_durability(shown), 1.0), 0.0, 1.0)
 				var bar := Rect2(Vector2(3.0, 3.0), Vector2(width - 6.0 - (more_rect().size.x + 3.0 if more else 0.0), maxf(3.0, side * 0.07)))
 				draw_rect(bar, Color(0, 0, 0, 0.55))
 				draw_rect(Rect2(bar.position, Vector2(bar.size.x * share, bar.size.y)), wear_color(share))
-			var amount := Inventory.count(item)
+			# 0.0.8.24 : objet du catalogue (Créatif) : 99.
+			var amount := Inventory.shown_count(item)
 			if amount > 1:
 				var font := ThemeDB.fallback_font
 				var text := str(amount)

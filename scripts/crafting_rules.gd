@@ -52,6 +52,7 @@ const HEAD_SHARE := 0.6
 
 # 0.0.8.21 (demande de l'utilisateur) : avec un éclat tranchant sur soi (mains, poches, sac), on tresse deux fois plus vite
 # (il coupe et égalise les brins) : 1,5 s au lieu de 3 s, pour les ficelles comme pour les cordelettes.
+# 0.0.8.24 (demande de l'utilisateur) : seulement s'il est choisi (proposé dans le menu, crafting_ui « eclat_aide »).
 const BRAID_FLAKE_FACTOR := 0.5
 
 static func has_flake(inventory: Inventory) -> bool:
@@ -61,8 +62,8 @@ static func has_flake(inventory: Inventory) -> bool:
 			return true
 	return false
 
-static func braid_seconds(inventory: Inventory) -> float:
-	return BRAID_SECONDS * (BRAID_FLAKE_FACTOR if has_flake(inventory) else 1.0)
+static func braid_seconds(with_flake: bool) -> float:
+	return BRAID_SECONDS * (BRAID_FLAKE_FACTOR if with_flake else 1.0)
 
 static func is_ready(action: String) -> bool:
 	return action in READY

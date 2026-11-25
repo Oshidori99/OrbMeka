@@ -3890,6 +3890,12 @@ func drop_pieces(id: String, pieces: int, weight: float, from: Vector3) -> void:
 	if not is_instance_valid(ground) or not is_instance_valid(player):
 		return
 	for index in range(pieces):
+		# 0.0.8.24 (l'utilisateur : « quand je casse de la pierre avec une pioche, ça ne me fait pas récupérer la pierre ») :
+		# en Survie, les éclats vont dans la main choisie (sinon l'autre main, une poche…), comme une récolte ; seulement
+		# ce qui ne tient pas tombe à côté du joueur (avant : tout tombait au sol, souvent caché dans l'herbe).
+		var piece := {"objet": id, "pile": [{"poids": weight}]}
+		if survival() and inventory.add_to_selected(piece).added > 0:
+			continue
 		ground.drop({"objet": id, "poids": weight}, from, _beside_player(), _rest_height)
 
 # 0.0.7.4 : poser au sol l'objet en main (clic droit), un à la fois, là où l'on vise (à portée de pose).
@@ -3986,7 +3992,8 @@ func _too_thick_message() -> String:
 # Use l'outil en main après un travail de « seconds » s (seulement s'il l'a accéléré) ; rend vrai s'il casse.
 func use_tool(work: String, seconds: float) -> bool:
 	var tool := held_tool()
-	if tool.is_empty() or Inventory.tool_speed(tool, work) <= 1.0:
+	# 0.0.8.24 (demande de l'utilisateur) : en Créatif, les outils ne s'usent pas.
+	if tool.is_empty() or Inventory.tool_speed(tool, work) <= 1.0 or not survival():
 		return false
 	var index := _held_index()
 	var there := inventory.item("bar", index).duplicate(true)
