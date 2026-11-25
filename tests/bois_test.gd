@@ -5,7 +5,10 @@ extends SceneTree
 #   l'arbre, parfois sur une tige ou une branche voisine : un bout ultra fin) ; le temps de coupe vise la même mesure ;
 # - le bois d'un morceau : toutes ses pièces, chacune à sa longueur (rien ne disparaît) ;
 # - une branche coupée sur un arbre debout tombe telle qu'elle est (morceau 3D), puis reste couchée avec ses feuilles ;
-#   recoupée, elle devient son bois au sol, pièce par pièce.
+#   R la défait en son bois au sol, pièce par pièce ;
+# - l'utilisateur, sur un noisetier : « j'ai recassé un petit bout de la branche et le reste, toutes les feuilles ont
+#   disparu, et il s'est rapetissé » : une tige ou une branche couchée recoupée garde ses feuilles et sa taille (seul le
+#   bout coupé change) ; coupée au milieu, ses deux moitiés aussi ; une tige maigre reste couchée avec ses feuilles.
 const Trees = preload("res://scripts/trees.gd")
 const TreeParts = preload("res://scripts/tree_parts.gd")
 const Inventory = preload("res://scripts/inventory.gd")
@@ -57,6 +60,24 @@ func clear(world: Node3D, id: String) -> void:
 
 func wood_since(world: Node3D, before: int) -> Array:
 	return world.ground.entries.slice(before).map(func(entry): return entry.item).filter(func(item): return Inventory.ITEMS.get(item.get("objet", ""), {}).get("forme", "") == "bois")
+
+# Triangles de feuilles dessinés par un morceau.
+func leaf_triangles(node: Node3D) -> int:
+	var detail: MeshInstance3D = node.get_node("Modele/Detail")
+	var leaves := Trees.material(int(node.get_meta("kind", 0)), "leaves")
+	var count := 0
+	for surface in range(detail.mesh.get_surface_count()):
+		if detail.mesh.surface_get_material(surface) == leaves:
+			count += detail.mesh.surface_get_arrays(surface)[Mesh.ARRAY_VERTEX].size() / 3
+	return count
+
+# Longueur du morceau dessiné (le plus grand côté de sa boîte, en mètres).
+func drawn_length(node: Node3D) -> float:
+	var box: AABB = node.get_node("Modele/Detail").mesh.get_aabb()
+	return maxf(box.size.x, maxf(box.size.y, box.size.z)) * node.scale.x
+
+func lying_parts(world: Node3D, id: String) -> Array:
+	return nodes_of(world, id).filter(func(node): return int(node.get_meta("part", 0)) != 0)
 
 func _run() -> void:
 	var World = load("res://scripts/world.gd")
@@ -155,11 +176,8 @@ func _run() -> void:
 		if int(node.get_meta("part", 0)) == 1:
 			lying = node
 	var woods := wood_since(world, before)
-	if lying == null:
-		var logs := woods.filter(func(item): return float(item.longueur) > stem_piece.length * hazel.scale.x * 0.8)
-		check(logs.size() == 1 and absf(float(logs[0].epaisseur) / 100.0 - real) < real * 0.2, "the cut stem became wood: a log as thick as the stem (%s cm, the stem: %.1f cm)" % [str(logs.map(func(i): return i.epaisseur)), real * 100.0])
-		check(woods.size() > 1, "and its branches too, each its own wood (%d)" % woods.size())
-	else:
+	check(lying != null and woods.is_empty() and world.tree_cuts["bois-noisetier"].morceaux["1"].etat == "couche", "the cut stem lies as it is, with its leaves")
+	if lying != null:
 		# Demande de l'utilisateur : la tige couchée est sur le sol, jamais dedans (son axe à son rayon du sol, au moins).
 		var lying_span: Array = TreeParts.main_span(Trees.HAZEL, 5, 0, world._cuts_of(lying), 1)
 		var sunk := -INF
@@ -168,16 +186,51 @@ func _run() -> void:
 			var p: Vector3 = world._model_of(lying) * (stem_piece.start + stem_piece.direction * t)
 			sunk = maxf(sunk, TreeParts.true_thickness(stem_piece, t) * hazel.scale.x * 0.5 - (p.y - world._ground_at(p, lying)))
 		check(sunk < 0.06, "the fallen stem lies on the ground, not in it (axis at most %.2f m too low)" % sunk)
+		# L'utilisateur : un petit bout recoupé (40 cm au bout de la tige) : le reste garde ses feuilles et sa taille.
 		var main: Array = TreeParts.main_span(Trees.HAZEL, 5, 0, world._cuts_of(lying), 1)
-		var middle: float = (float(main[1]) + float(main[2])) * 0.5
-		var there := TreeParts.true_thickness(bush.pieces[main[0]], middle) * hazel.scale.x
+		var leaves_before := leaf_triangles(lying)
+		var length_before := drawn_length(lying)
+		var tip: float = float(main[2]) - 0.4
 		before = world.ground.entries.size()
-		world.cut_wood(lying, int(main[0]), middle, lying.global_position)
+		world.cut_wood(lying, int(main[0]), tip, world._model_of(lying) * (stem_piece.start + stem_piece.direction * tip))
 		await frames(10)
 		woods = wood_since(world, before)
-		var logs := woods.filter(func(item): return absf(float(item.longueur) - (float(main[2]) - middle) * hazel.scale.x) < 0.05 or absf(float(item.longueur) - (middle - float(main[1])) * hazel.scale.x) < 0.05)
-		var close := logs.any(func(item): return absf(float(item.epaisseur) / 100.0 - there) < there * 0.25 or absf(float(item.fin) / 100.0 - there) < there * 0.25)
-		check(close, "the lying stem cut in its middle (%.1f cm there): its logs meet at that thickness (%s)" % [there * 100.0, str(logs.map(func(i): return "%s→%s" % [i.epaisseur, i.fin]))])
+		var rest_ok: bool = is_instance_valid(lying) and not lying.is_queued_for_deletion() and world.tree_cuts["bois-noisetier"].morceaux["1"].etat == "couche"
+		var leaves_after := leaf_triangles(lying) if rest_ok else 0
+		var length_after := drawn_length(lying) if rest_ok else 0.0
+		check(rest_ok and leaves_after > leaves_before * 0.6 and length_after > length_before - 0.8, "a small bit cut off the lying stem: the rest keeps its leaves (%d of %d) and its size (%.2f m, before %.2f m)" % [leaves_after, leaves_before, length_after, length_before])
+		check(woods.size() == 1 and absf(float(woods[0].longueur) - 0.4 * hazel.scale.x) < 0.03, "only the bit becomes wood (%s)" % str(woods.map(func(i): return "%s %.2f m" % [i.objet, i.longueur])))
+		# Coupée au milieu : deux moitiés couchées, chacune avec ses feuilles ; défaites (R), leurs bûches se rejoignent à
+		# l'épaisseur de la coupe.
+		if rest_ok:
+			main = TreeParts.main_span(Trees.HAZEL, 5, 0, world._cuts_of(lying), 1)
+			var middle: float = (float(main[1]) + float(main[2])) * 0.5
+			var there := TreeParts.true_thickness(bush.pieces[main[0]], middle) * hazel.scale.x
+			before = world.ground.entries.size()
+			world.cut_wood(lying, int(main[0]), middle, lying.global_position)
+			await frames(10)
+			var halves := lying_parts(world, "bois-noisetier")
+			check(halves.size() == 2 and halves.all(func(node): return leaf_triangles(node) > 20) and wood_since(world, before).is_empty(), "cut in its middle: two lying halves, each with its leaves (%s)" % str(halves.map(func(node): return leaf_triangles(node))))
+			for node in halves:
+				world._part_to_wood(node, int(node.get_meta("part", 0)))
+			woods = wood_since(world, before)
+			var logs := woods.filter(func(item): return absf(float(item.longueur) - (float(main[2]) - middle) * hazel.scale.x) < 0.05 or absf(float(item.longueur) - (middle - float(main[1])) * hazel.scale.x) < 0.05)
+			var close := logs.any(func(item): return absf(float(item.epaisseur) / 100.0 - there) < there * 0.25 or absf(float(item.fin) / 100.0 - there) < there * 0.25)
+			check(close, "picked up, the halves' logs meet at the cut's thickness (%.1f cm there : %s)" % [there * 100.0, str(logs.map(func(i): return "%s→%s" % [i.epaisseur, i.fin]))])
+	# Une tige maigre (le moins de feuilles du buisson, bien moins de 10 %) reste couchée avec ses feuilles elle aussi.
+	var thin_stem := -1
+	for number in range(bush.pieces.size()):
+		if number == stem or not bush.pieces[number].root or bush.pieces[number].tip.y <= 0.5:
+			continue
+		if thin_stem < 0 or TreeParts.leaf_share(Trees.HAZEL, 5, 0, [[number, 0.35]], 1) < TreeParts.leaf_share(Trees.HAZEL, 5, 0, [[thin_stem, 0.35]], 1):
+			thin_stem = number
+	var thin_share := TreeParts.leaf_share(Trees.HAZEL, 5, 0, [[thin_stem, 0.35]], 1)
+	var thin_piece: Dictionary = bush.pieces[thin_stem]
+	world.cut_wood(hazel, thin_stem, 0.35, world._model_of(hazel) * (thin_piece.start + thin_piece.direction * 0.35))
+	var thin_part: int = world.tree_cuts["bois-noisetier"].coupes.size()
+	await frames(150)
+	var thin_nodes := lying_parts(world, "bois-noisetier").filter(func(node): return int(node.get_meta("part", 0)) == thin_part)
+	check(thin_share < 0.06 and thin_nodes.size() == 1 and leaf_triangles(thin_nodes[0]) > 0 and world.tree_cuts["bois-noisetier"].morceaux[str(thin_part)].etat == "couche", "a stem with few leaves (%.1f %% of the bush) lies with its leaves too" % (thin_share * 100.0))
 	clear(world, "bois-noisetier")
 	# Branche de pommier coupée sur l'arbre debout : elle tombe telle qu'elle est, puis toutes ses pièces sont là.
 	var apple := make(world, "bois-pommier", Trees.APPLE, 3, spot)
@@ -216,16 +269,22 @@ func _run() -> void:
 		for surface in range(detail.mesh.get_surface_count()):
 			has_leaves = has_leaves or detail.mesh.surface_get_material(surface) == leaf_material
 		check(has_leaves and world._tree_is_lying(still[0]), "its leaves are still on it, on the ground")
-		# Recoupée au milieu de sa pièce principale : tout devient du bois, chaque pièce à sa taille, rien ne manque.
+		# Recoupée au milieu de sa pièce principale : le reste garde ses feuilles (seul le bout coupé change) ; puis défaite
+		# (R) : chaque pièce est son bois, à sa taille, rien ne manque.
 		var span: Array = TreeParts.main_span(Trees.APPLE, 3, 0, world._cuts_of(still[0]), 1)
 		var middle: float = (float(span[1]) + float(span[2])) * 0.5
+		var leaves_before := leaf_triangles(still[0])
 		world.cut_wood(still[0], int(span[0]), middle, still[0].global_position)
 		await frames(10)
+		var rest_kept: bool = is_instance_valid(still[0]) and not still[0].is_queued_for_deletion() and world.tree_cuts["bois-pommier"].morceaux["1"].etat == "couche"
+		check(rest_kept and leaf_triangles(still[0]) > 0, "cut again in its middle: the rest stays as it is, with its leaves (%d of %d)" % [leaf_triangles(still[0]) if rest_kept else 0, leaves_before])
+		for node in lying_parts(world, "bois-pommier"):
+			world._part_to_wood(node, int(node.get_meta("part", 0)))
 		woods = wood_since(world, before)
 		var total := 0.0
 		for item in woods:
 			total += float(item.longueur)
-		check(nodes_of(world, "bois-pommier").filter(func(node): return int(node.get_meta("part", 0)) != 0).is_empty() and woods.size() == cut_spans.size() + 1 and absf(total - expected) < 0.06, "cut again: every piece is its own wood (%d woods for %d pieces cut in two, %.2f m of %.2f m)" % [woods.size(), cut_spans.size(), total, expected])
+		check(lying_parts(world, "bois-pommier").is_empty() and woods.size() == cut_spans.size() + 1 and absf(total - expected) < 0.06, "then picked up: every piece is its own wood (%d woods for %d pieces cut in two, %.2f m of %.2f m)" % [woods.size(), cut_spans.size(), total, expected])
 		var thickest := 0.0
 		for item in woods:
 			thickest = maxf(thickest, float(item.epaisseur))

@@ -799,6 +799,13 @@ static func leaf_share(kind: int, size: int, form: int, cuts: Array, part: int) 
 		return 0.0
 	return float(assignment(kind, size, form, cuts).leaves[part]) / total
 
+# 0.0.8.22 : feuilles d'un morceau quand il s'est détaché (avec sa coupe, sans les suivantes, qui ont pu lui en prendre) ;
+# morceau 0 : tout l'arbre.
+static func first_leaves(kind: int, size: int, form: int, cuts: Array, part: int) -> int:
+	if part <= 0:
+		return int(skeleton(kind, size, form).leaves)
+	return int(assignment(kind, size, form, cuts.slice(0, part)).leaves[part])
+
 # Pièce principale d'un morceau (la plus proche du pied) et son étendue [début, fin] (mètres le long de la pièce).
 static func main_span(kind: int, size: int, form: int, cuts: Array, part: int) -> Array:
 	var pieces: Array = skeleton(kind, size, form).pieces

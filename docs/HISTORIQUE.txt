@@ -3,7 +3,7 @@ Du plus récent au plus ancien. Ce fichier est mis à jour à chaque version.
 
 === Thème « Fabrication et survie » (0.0.8) ===
 
-0.0.8.22 — Bûches et bâtons à la taille qu'ils avaient sur l'arbre : plus de bout « ultra fin » par moments (tiges de noisetier, troncs) ; une branche coupée tombe telle qu'elle est (ses branches, ses feuilles) et reste couchée jusqu'à ce qu'on la recoupe ou la ramasse (R), elle blesse si elle tombe sur soi ; le bois d'un morceau, c'est toutes ses pièces, chacune à sa taille et à sa place ; plus de gels à chaque coupe (0,56 s → 15 ms) ; tige couchée sur le sol, portée par ses feuilles, jamais dedans ; pointes fines au sol ; fenêtre de Claude plus discrète
+0.0.8.22 — Bûches et bâtons à la taille qu'ils avaient sur l'arbre : plus de bout « ultra fin » par moments (tiges de noisetier, troncs) ; une branche coupée tombe telle qu'elle est (ses branches, ses feuilles) et reste couchée, même recoupée d'un bout (seul le bout change), jusqu'à ce qu'on la ramasse (R) ; elle blesse si elle tombe sur soi ; le bois d'un morceau, c'est toutes ses pièces, chacune à sa taille et à sa place ; plus de gels à chaque coupe (0,56 s → 15 ms) ; tige couchée sur le sol, portée par ses feuilles, jamais dedans ; pointes fines au sol ; fenêtre de Claude plus discrète
 Génération du terrain : version 33 · Menus : version 17.
 Demandes de l'utilisateur ; mesures avant / après la coupe (tige de 21 cm : bout de 3,3 cm au lieu de 8 avant).
 

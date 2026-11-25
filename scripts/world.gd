@@ -1975,7 +1975,7 @@ static func shoot_item(shoot: Dictionary) -> Dictionary:
 # - le tronc d'un arbre debout : visé à moins de ROOT_CUT_HEIGHT du pied, tout l'arbre tombe depuis la racine ; plus
 #   haut, une souche reste debout et le haut tombe depuis la coupe ; noisetier : seule la tige visée tombe ;
 # - le tronc d'un arbre couché : coupé en deux, le bout détaché écarté de CUT_GAP et tourné de CUT_TURN.
-# Un morceau couché qui porte moins de Trees.BARE_LEAF_SHARE des feuilles devient du bois au sol (la souche reste).
+# Un morceau couché presque sans feuilles devient du bois au sol (la souche reste) : voir _lying_bare (0.0.8.22).
 # Sauvegarde : tree_cuts[id] = {"coupes": [[pièce, t], …], "morceaux": {"k": {"etat": "couche" ou "bois", place}}}.
 const TreeParts = preload("res://scripts/tree_parts.gd")
 const ROOT_CUT_HEIGHT := 0.5
@@ -2255,16 +2255,16 @@ func cut_wood(tree: Node3D, number: int, t: float, point: Vector3) -> void:
 		# 0.0.8.22 (demandes de l'utilisateur) : la branche coupée tombe telle qu'elle est (ses branches, ses feuilles) et
 		# reste couchée ainsi jusqu'à ce qu'on la recoupe (_drop_branch).
 		_drop_branch(tree, cut, number, t)
-		show_choice("Branche coupée : recoupez-la au sol pour en faire du bois")
+		show_choice("Branche coupée : au sol, R la défait en bois")
 	elif not lying:
 		_fall_part(tree, cut, number, t)
-	elif TreeParts.leaf_share(kind, size, form, cuts, cut) < Trees.BARE_LEAF_SHARE:
-		# 0.0.8.22 (gels en recoupant) : arbre ou branche couchés, le bout coupé presque sans feuilles : son bois tout de
-		# suite, à sa place (sans construire d'abord son morceau 3D, aussitôt défait).
+	elif _cut_to_wood(tree, cut, number):
+		# 0.0.8.22 (gels en recoupant) : le bout coupé devient son bois tout de suite, à sa place (sans construire d'abord
+		# son morceau 3D, aussitôt défait).
 		_part_to_wood(tree, cut, -1, false)
 		show_choice(("Coupé en deux" if piece.root else "Branche coupée") + " : bois au sol, à ramasser avec R")
 	else:
-		# Le bout coupé, feuillu, se sépare et se pose (tige, tronc, grosse branche).
+		# Le bout coupé, feuillu, se sépare et se pose dans le prolongement (tige, tronc, grosse branche).
 		var made := _part_node(tree, cut)
 		_place_split(tree, made, number, t)
 		show_choice("Coupé en deux")
@@ -2414,9 +2414,8 @@ func _save_part(made: Node3D) -> void:
 
 # 0.0.8.22 (demandes de l'utilisateur) : une branche coupée sur un arbre debout tombe telle qu'elle est : elle part d'où
 # elle était, descend en accélérant (comme un objet qui tombe) et se couche en tournant (sa pièce principale à plat,
-# dans le sens où elle pointait), puis se pose (_settle). Elle reste couchée telle quelle, avec ses feuilles, même petite,
-# jusqu'à ce qu'on la recoupe : alors (cut_wood, arbre couché) ses morceaux deviennent leur bois au sol, pièce par pièce
-# (_bare_to_wood, presque sans feuilles).
+# dans le sens où elle pointait), puis se pose (_rest_rigid). Elle reste couchée telle quelle, avec ses feuilles, même
+# petite ; recoupée, seul le bout coupé change (_cut_to_wood, _lying_bare) ; R la défait en son bois.
 const BRANCH_FALL_MIN := 0.25
 const BRANCH_FALL_MAX := 1.4
 
@@ -2553,22 +2552,67 @@ func _fall_part(tree: Node3D, part: int, number: int, t: float) -> void:
 # 0.0.7.12 à 0.0.7.14 : un morceau tombé était ensuite soulevé d'un bloc (« posé sur ses branches ») : un bout pouvait
 # rester en l'air. 0.0.7.15 : remplacé par de vrais appuis dans _rest_pose (léger : branches ; lourd : tronc).
 
-# Morceau couché presque sans feuilles : il devient du bois au sol (jamais une souche debout), dessiné en série avec
-# tous les bâtons (léger), à sa vraie taille et à sa place. Vrai s'il l'est devenu.
+# Morceau couché presque sans feuilles (_lying_bare) : il devient du bois au sol (jamais une souche debout), dessiné en
+# série avec tous les bâtons (léger), à sa vraie taille et à sa place. Vrai s'il l'est devenu.
 func _bare_to_wood(tree: Node3D) -> bool:
 	if not is_instance_valid(tree) or not _tree_is_lying(tree):
 		return false
-	var cuts := _cuts_of(tree)
-	if cuts.is_empty():
+	if _cuts_of(tree).is_empty() or not _lying_bare(tree):
 		return false
+	_part_to_wood(tree, int(tree.get_meta("part", 0)))
+	return true
+
+# 0.0.8.22 (l'utilisateur, sur un noisetier : « j'ai recassé un petit bout de la branche et le reste de la branche, toutes
+# les feuilles ont disparu, et il s'est rapetissé beaucoup ») : avant, tout morceau couché qui portait moins de
+# Trees.BARE_LEAF_SHARE (10 %) des feuilles de TOUT l'arbre devenait son bois au sol. Une tige de noisetier en porte à
+# peine 10 % du buisson, une branche moins encore : recoupée d'un bout, elle devenait des bâtons posés à plat (plus de
+# feuilles, plus de volume) ; une tige qui en portait moins devenait même du bois en tombant. Maintenant :
+# - arbre abattu, ou son haut (_felled_trunk) : comme avant ;
+# - branche ou tige de noisetier : elle reste telle qu'elle est, avec ses feuilles, tant qu'il lui reste au moins
+#   BARE_LEAF_SHARE des feuilles qu'elle portait en se détachant (TreeParts.first_leaves). Ce qu'on en coupe
+#   (_cut_to_wood) : une branche de côté devient son bois tout de suite, comme avant (un rameau garde ses feuilles) ;
+#   coupée dans sa longueur, le bout garde sa forme et ses feuilles, sauf s'il n'est qu'une seule pièce (un bâton, un
+#   rameau) ou sans feuilles. R la défait en son bois (_pick_lying_wood).
+
+# Arbre abattu, ou son haut : la pièce principale du morceau est le tronc d'un arbre à un seul tronc (pas une tige de
+# noisetier, qui est comme une branche).
+func _felled_trunk(tree: Node3D) -> bool:
 	var kind := int(tree.get_meta("kind", 0))
 	var size := int(tree.get_meta("size", 3))
 	var form := int(tree.get_meta("form", 0))
-	var part := int(tree.get_meta("part", 0))
-	if TreeParts.leaf_share(kind, size, form, cuts, part) >= Trees.BARE_LEAF_SHARE:
+	var main := TreeParts.main_span(kind, size, form, _cuts_of(tree), int(tree.get_meta("part", 0)))
+	if main.is_empty():
 		return false
-	_part_to_wood(tree, part)
-	return true
+	var pieces: Array = TreeParts.skeleton(kind, size, form).pieces
+	if int(pieces[main[0]].depth) != 0:
+		return false
+	return pieces.filter(func(other): return other.root and other.tip.y > 0.5).size() <= 1
+
+# Morceau couché devenu du bois nu (voir plus haut).
+func _lying_bare(tree: Node3D) -> bool:
+	var kind := int(tree.get_meta("kind", 0))
+	var size := int(tree.get_meta("size", 3))
+	var form := int(tree.get_meta("form", 0))
+	var cuts := _cuts_of(tree)
+	var part := int(tree.get_meta("part", 0))
+	if _felled_trunk(tree):
+		return TreeParts.leaf_share(kind, size, form, cuts, part) < Trees.BARE_LEAF_SHARE
+	var first := TreeParts.first_leaves(kind, size, form, cuts, part)
+	return first == 0 or TreeParts.assignment(kind, size, form, cuts).leaves[part] < first * Trees.BARE_LEAF_SHARE
+
+# Le bout « cut » qu'on vient de couper (sur la pièce « number ») du morceau couché « tree » devient-il tout de suite son
+# bois (voir plus haut) ?
+func _cut_to_wood(tree: Node3D, cut: int, number: int) -> bool:
+	var kind := int(tree.get_meta("kind", 0))
+	var size := int(tree.get_meta("size", 3))
+	var form := int(tree.get_meta("form", 0))
+	var cuts := _cuts_of(tree)
+	if _felled_trunk(tree):
+		return TreeParts.leaf_share(kind, size, form, cuts, cut) < Trees.BARE_LEAF_SHARE
+	var main := TreeParts.main_span(kind, size, form, cuts, int(tree.get_meta("part", 0)))
+	if main.is_empty() or number != int(main[0]):
+		return true
+	return TreeParts.assignment(kind, size, form, cuts).leaves[cut] == 0 or _part_wood_items(tree, cut).size() <= 1
 
 # 0.0.8.22 : un morceau couché devient son bois au sol (toutes ses pièces) et disparaît. keep : numéro d'une pièce dont le
 # bois n'est pas posé mais rendu ([objet, milieu], pour la prendre en main) ; [] sinon. own_node faux : « tree » est le
@@ -3991,10 +4035,10 @@ func aimed_copy(hit: Dictionary) -> Dictionary:
 	var id: String = {SmoothTerrain.SAND: "sable", SmoothTerrain.DIRT: "terre", SmoothTerrain.CLAY: "argile", SmoothTerrain.MUD: "boue", SmoothTerrain.GRAVEL: "gravier", SmoothTerrain.NEEDLES: "terre", SmoothTerrain.STONE: "pierre", SmoothTerrain.LIMESTONE: "calcaire", SmoothTerrain.DARK_STONE: "pierre_sombre", SmoothTerrain.FLINT: "silex"}.get(kind if kind >= 0 else SmoothTerrain.DIRT, "")
 	return Inventory.catalog_item(id) if not id.is_empty() else {}
 
-# 0.0.8.22 (demande de l'utilisateur) : R sur une branche couchée (un morceau d'arbre coupé, presque sans feuilles au
-# regard de l'arbre : comme pour la recouper) : elle se défait en ses bois au sol, pièce par pièce, et celui qu'on vise
-# vient en main (main choisie, sinon l'autre main ou une poche), s'il n'est pas trop lourd ; sinon il reste au sol. Un
-# gros morceau feuillu (tige, tronc avec sa couronne) : il faut d'abord le couper. Faux si ce n'est pas un morceau couché.
+# 0.0.8.22 (demande de l'utilisateur) : R sur une branche ou une tige de noisetier couchée : elle se défait en ses bois au
+# sol, pièce par pièce, et celui qu'on vise vient en main (main choisie, sinon l'autre main ou une poche), s'il n'est pas
+# trop lourd ; sinon il reste au sol. Un arbre abattu (ou son haut) avec sa couronne : il faut d'abord le couper ; il
+# devient son bois quand il n'a presque plus de feuilles (_lying_bare). Faux si ce n'est pas un morceau couché.
 func _pick_lying_wood(hit: Dictionary) -> bool:
 	var node: Node3D = hit.collider.get_meta("arbre", hit.collider)
 	if not is_instance_valid(node) or not node.has_meta("kind") or int(node.get_meta("part", 0)) == 0 or node.has_meta("falling") or _legacy_cut(node):
@@ -4007,7 +4051,7 @@ func _pick_lying_wood(hit: Dictionary) -> bool:
 	var form := int(node.get_meta("form", 0))
 	var part := int(node.get_meta("part", 0))
 	var cuts := _cuts_of(node)
-	if TreeParts.leaf_share(kind, size, form, cuts, part) >= Trees.BARE_LEAF_SHARE:
+	if _felled_trunk(node) and not _lying_bare(node):
 		_notify("Trop gros pour être ramassé : coupez-le d'abord (clic gauche maintenu).")
 		return true
 	var local: Vector3 = _model_of(node).affine_inverse() * (hit.position as Vector3)
