@@ -58,8 +58,8 @@ Le contenu de chaque série est dans sa milestone GitHub. Dans une même 0.x, ch
 ## Tests
 Depuis PowerShell, à la racine du projet, en parallèle (6 à la fois, moins si le PC est chargé) :
 
-    .\tests\run_all.ps1 -Only fly,controls   # versions non publiées : seulement les tests de ce qui a changé
-    .\tests\run_all.ps1                      # tous : seulement sur demande (à la publication, l'Action Dev les lance sur GitHub)
+    .\tests\run_all.ps1 -Only fly,controls   # chaque version : seulement les tests de ce qui a changé
+    .\tests\run_all.ps1                      # tous : seulement sur demande (une version sur 5, l'Action Dev les lance sur GitHub)
 
 Les tests juridiques (licences, aucun autre jeu cité) passent **toujours**, même avec -Only.
 **Sécurité du PC** (planté le 24.10.2026, mémoire à 99 %) : run_all.ps1 ne lance plus de test au-delà de 85 % de mémoire,
@@ -75,12 +75,12 @@ tout dans le coin en bas à droite de l'écran (ou hors écran), sans prendre le
 Web : ne pas mesurer dans le navigateur intégré de Claude (environ 1 FPS) ni y ouvrir itch.io (vérification anti-robot impossible) ; mesurer l'export Web autrement ou demander à l'utilisateur.
 
 ## Rythme de publication
-Publier une version sur 4, ou dès que l'utilisateur dit « publie », puis remettre le compteur à zéro.
-Chaque version locale est une vraie version (X.Y.Z.1, X.Y.Z.2…) : « Nouvelle version » étapes 1 à 3, puis commit local
-sur `dev` titré « X.Y.Z — Titre ». Seul ce qui est lourd attend la publication : push, fusion dans main, tag,
-Action, Project (étapes 4 et 5). La version publiée est donc la dernière version locale.
-Pas de tous les tests en local avant de publier : l'Action Dev les lance après l'envoi ; s'ils échouent, corriger aussitôt.
-Entre-temps : sans push (chaque push lance l'Action et met à jour la page d'essais) ; tests de ce qui a changé seulement.
+Depuis le 25.11.2026 (choix de l'utilisateur) : **publier chaque version** (« Nouvelle version » étapes 1 à 5 : push sur
+`dev`, fusion dans `main`, tag, Release, Project), titrée « X.Y.Z — Titre ».
+**Tous les tests sur GitHub une version sur 5** seulement : ajouter `[tests]` à la fin du titre du commit de cette version
+(l'Action Dev ne lance les tests que pour un commit marqué ainsi, ou lancée à la main) ; attendre son résultat et corriger
+aussitôt s'ils échouent. Les autres versions : tests de ce qui a changé, en local, avant le commit. Compteur dans la
+mémoire (publish-every-third.md).
 Toujours fermer les issues terminées (avec la version qui les a faites) et les passer en Done dans le Project.
 
 ## Branches et builds
@@ -92,10 +92,10 @@ Toujours fermer les issues terminées (avec la version qui les a faites) et les 
 
 ## Travail depuis le cloud (téléphone)
 L'utilisateur peut lancer Claude Code dans le cloud depuis son téléphone, sur le dépôt GitHub Oshidori99/OrbMeka.
-- Travailler **sur `dev`** (commit + push). Chaque push sur dev lance .github/workflows/dev.yml :
-  tous les tests Godot sans fenêtre, puis, s'ils passent, la version Web sur la page d'essais privée (secret ITCH_TARGET_DEV).
-  La page principale (ITCH_TARGET) ne reçoit que les versions avec un tag.
-- Après chaque push : attendre le résultat de l'Action « Dev ». Si les tests échouent, corriger avant toute autre chose.
+- Travailler **sur `dev`** (commit + push). Chaque push sur dev lance .github/workflows/dev.yml : la version Web sur la
+  page d'essais privée (secret ITCH_TARGET_DEV), et tous les tests Godot sans fenêtre si le commit porte `[tests]`
+  (dans le cloud, sans Godot local : toujours `[tests]`). La page principale (ITCH_TARGET) ne reçoit que les versions avec un tag.
+- Après chaque push avec tests : attendre le résultat de l'Action « Dev ». Si les tests échouent, corriger avant toute autre chose.
 - Sur téléphone, l'utilisateur ne peut tester que menus et affichage (pas de commandes tactiles) : le rappeler pour le gameplay.
 - **« Envoie dans main »** (dit explicitement par l'utilisateur, Action Dev verte) : suivre « Nouvelle version » étapes 1 à 5.
   Le Project (étape 4) et l'archive d'une nouvelle série (étape 6) se font si possible, sinon les noter dans docs/README.md « À faire sur PC ».

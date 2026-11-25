@@ -3,6 +3,9 @@
 # - « web » : publie aussitôt la version Web sur la page itch.io privée (ITCH_TARGET_DEV s'il existe, sinon ITCH_TARGET),
 #   sans attendre les tests (environ 1 min 30 au lieu de 4 min). Si un test échoue, l'Action est rouge : la page privée peut
 #   alors montrer une version avec un bug jusqu'à la correction. Aucune Release, aucun tag.
+# 0.0.8.23 (choix de l'utilisateur : publier chaque version, tous les tests une fois sur 5) : « tests » seulement si le
+# dernier commit envoyé contient [tests] dans son message, ou lancé à la main (Actions > Dev > Run workflow) ; sinon
+# seulement la page d'essais (les tests de ce qui change sont lancés sur le PC avant chaque version).
 name: Dev
 
 on:
@@ -27,6 +30,7 @@ env:
 
 jobs:
   tests:
+    if: github.event_name == 'workflow_dispatch' || contains(github.event.head_commit.message, '[tests]')
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v7
