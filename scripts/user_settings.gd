@@ -162,6 +162,12 @@ const CHOICES := {
 	"menu_depth": {"label": "Profondeur des menus", "options": {"on": "Oui", "off": "Non"}, "default": "on"},
 	# 0.0.3.14 : coordonnées du joueur affichées en jeu, en haut à droite.
 	"show_coords": {"label": "Afficher les coordonnées", "options": {"on": "Oui", "off": "Non"}, "default": "off"},
+	# 0.0.8.28 (#154, demande de l'utilisateur) : la mini-carte (en haut à droite) : la montrer, sa taille, son zoom, nord
+	# en haut ou carte qui tourne avec le regard.
+	"map_show": {"label": "Mini-carte", "options": {"on": "Oui", "off": "Non"}, "default": "on"},
+	"map_size": {"label": "Taille de la mini-carte", "options": {"small": "Petite", "medium": "Moyenne", "large": "Grande"}, "default": "medium"},
+	"map_zoom": {"label": "Zoom de la mini-carte", "options": {"1": "Loin", "2": "Moyen", "4": "Près"}, "default": "2"},
+	"map_north": {"label": "Orientation", "options": {"fixed": "Nord en haut", "turning": "Tourne avec le regard"}, "default": "fixed"},
 	# 0.0.5.4 : brins par carré de 50 cm (terrain_materials.gd) ; moins = plus rapide, surtout sur le Web.
 	# 0.0.7.21 : « Réduite » (140 brins), celle du réglage Équilibré, devenue le défaut.
 	"grass_density": {"label": "Densité de l'herbe", "options": {"minimal": "Très basse", "low": "Basse", "reduced": "Réduite", "medium": "Moyenne", "high": "Haute"}, "default": "reduced"},

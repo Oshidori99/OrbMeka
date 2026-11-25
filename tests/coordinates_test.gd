@@ -46,7 +46,8 @@ func _run() -> void:
 	app.choice_switches.show_coords.button_pressed = true
 	check(settings.values.show_coords == "on" and world.coordinates_label.visible and world.coordinates_label.text == "X 0 · Y 0 · Z 0", "switch shows coordinates at once")
 	var label_rect: Rect2 = world.coordinates_label.get_global_rect()
-	check(label_rect.position.x > 640 and label_rect.position.y < 200, "coordinates shown top right")
+	# 0.0.8.28 (#154) : sous la mini-carte (et l'heure).
+	check(label_rect.position.x > 640 and label_rect.position.y > world.minimap.get_global_rect().end.y and label_rect.position.y < 340, "coordinates shown top right, under the minimap")
 	app.settings_back_button.pressed.emit()
 	app.resume_game()
 	# Déplacement : X largeur, Y hauteur, Z longueur.
