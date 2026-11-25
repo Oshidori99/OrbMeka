@@ -2251,9 +2251,10 @@ func cut_wood(tree: Node3D, number: int, t: float, point: Vector3) -> void:
 	objects_dirty = true
 	var cut := cuts.size()
 	_show_part(tree, not lying)
-	if not piece.root and not lying:
+	if not piece.root and (not lying or _felled_trunk(tree)):
 		# 0.0.8.22 (demandes de l'utilisateur) : la branche coupée tombe telle qu'elle est (ses branches, ses feuilles) et
-		# reste couchée ainsi jusqu'à ce qu'on la recoupe (_drop_branch).
+		# reste couchée ainsi (_drop_branch) ; sur un arbre abattu aussi (l'utilisateur : « tombe entière » ; avant, elle
+		# devenait tout de suite des bâtons à plat, ses feuilles disparues).
 		_drop_branch(tree, cut, number, t)
 		show_choice("Branche coupée : au sol, R la défait en bois")
 	elif not lying:
@@ -2464,7 +2465,7 @@ func _drop_branch(tree: Node3D, part: int, number: int, t: float) -> void:
 		_bend_into_ground(made, flat)
 		_impact_sound(made.global_position)
 		_save_part(made)
-		_branch_hurts(made, part)
+		_branch_hurts(made, part, drop_height)
 	var motion := create_tween()
 	motion.tween_method(fall, 0.0, 1.0, seconds)
 	motion.tween_callback(landed)
@@ -2473,7 +2474,15 @@ func _drop_branch(tree: Node3D, part: int, number: int, t: float) -> void:
 # 0.0.8.22 (demande de l'utilisateur) : une branche qui tombe blesse en Survie celui qui est dessous à son arrivée, comme
 # un arbre (Health.tree_damage : sa grosseur et l'endroit touché ; ses feuilles et ses branches : un peu), mais une
 # branche fine bien moins (en proportion de son épaisseur sous Health.TREE_SMALL, 10 cm). Rend les points perdus.
-func _branch_hurts(made: Node3D, part: int) -> int:
+# Et selon la hauteur de sa chute (« drop », mètres) : rien sous BRANCH_SAFE_DROP (une branche d'un arbre abattu, déjà
+# presque au sol), tout dès BRANCH_FULL_DROP.
+const BRANCH_SAFE_DROP := 0.3
+const BRANCH_FULL_DROP := 1.5
+
+func _branch_hurts(made: Node3D, part: int, drop := BRANCH_FULL_DROP) -> int:
+	var height_share := clampf((drop - BRANCH_SAFE_DROP) / (BRANCH_FULL_DROP - BRANCH_SAFE_DROP), 0.0, 1.0)
+	if height_share <= 0.0:
+		return 0
 	if not survival() or not is_instance_valid(player) or death_open or not is_instance_valid(made):
 		return 0
 	var kind := int(made.get_meta("kind", 0))
@@ -2499,7 +2508,7 @@ func _branch_hurts(made: Node3D, part: int) -> int:
 	var points := Health.tree_damage(base, direction.normalized(), direction.length(), diameter, 0.0, spread, player.global_position)
 	if points <= 0:
 		return 0
-	points = maxi(1, roundi(points * clampf(diameter / Health.TREE_SMALL, 0.05, 1.0)))
+	points = maxi(1, roundi(points * clampf(diameter / Health.TREE_SMALL, 0.05, 1.0) * height_share))
 	var lost := hurt(points)
 	if lost > 0 and not death_open:
 		_notify("Une branche vous est tombée dessus : −%d." % lost)
