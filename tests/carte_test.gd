@@ -48,7 +48,7 @@ func _run() -> void:
 			break
 	check(map.explored.has(WorldMap.tile_of(world.player.global_position)) and map.explored.size() >= 9, "the loaded zones around the player are explored (%d squares of 32 m)" % map.explored.size())
 	check(not map.busy() and map.drawn.size() >= map.explored.size(), "and drawn (%d squares, %.0f ms in all)" % [map.drawn.size(), spent / 1000.0])
-	check(longest < 9000, "a little at a time: at most %.1f ms in a frame (the time is judged on the PC only)" % (longest / 1000.0))
+	check(longest < 9000 or OS.get_environment("GITHUB_ACTIONS") == "true", "a little at a time: at most %.1f ms in a frame (the time is judged on the PC only)" % (longest / 1000.0))
 	var here: Vector2 = map.pixel_of(world.player.global_position)
 	var color: Color = map.seen.get_pixelv(Vector2i(here))
 	check(not near(color, WorldMap.UNKNOWN) and color.a == 1.0, "the map shows the ground where the player is (%s)" % color.to_html(false))
