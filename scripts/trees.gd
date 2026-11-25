@@ -336,6 +336,8 @@ static func fruit_node(kind: int, size: int, form: int, skip: Dictionary = {}, o
 		drawn.multimesh = series
 		drawn.visibility_range_end = detail_end
 		drawn.visibility_range_end_margin = 2.0
+		# 0.0.8.22 (perf) : petits fruits : pas d'ombre (un dessin de moins par série et par passe d'ombre).
+		drawn.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 		holder.add_child(drawn)
 	return holder
 

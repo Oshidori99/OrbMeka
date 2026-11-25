@@ -84,6 +84,47 @@ func _run() -> void:
 							worst_label = "%s t%d f%d pièce %d à %d %% : %.1f cm sur l'arbre, %.1f cm au sol" % [Trees.KIND_NAMES[kind], size, form, number, roundi(share * 100.0), real * 100.0, drawn * 100.0]
 	check(tried > 100 and worst < 0.3, "every stem and trunk: the wood on the ground follows it (worst %d %% : %s)" % [roundi(worst * 100.0), worst_label])
 	check(GroundItems.taper_step({"epaisseur": 20.0, "fin": 1.0}) == 1, "a stem ending in a point keeps a thin tip on the ground (5 %)")
+	# --- Calcul rapide des morceaux (gels à chaque coupe) : exactement les mêmes résultats que l'ancien calcul ---
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 822
+	var wrong_sizes := 0
+	var wrong_parts := 0
+	var compared := 0
+	for spec in [[Trees.APPLE, 3, 0], [Trees.HAZEL, 5, 1], [Trees.PINE, 2, 2], [Trees.LINDEN, 3, 0], [Trees.HAZEL, 1, 0]]:
+		var made: Dictionary = TreeParts.skeleton(spec[0], spec[1], spec[2])
+		for attempt in range(4):
+			var cuts := []
+			for count in range(rng.randi_range(1, 14)):
+				var number := rng.randi_range(0, made.pieces.size() - 1)
+				cuts.append([number, snappedf(rng.randf_range(0.0, float(made.pieces[number].length)), 0.001)])
+			# Parfois deux coupes très proches sur la même pièce (monde T56).
+			cuts.append([int(cuts[0][0]), float(cuts[0][1]) + 0.06])
+			var slow: Array = TreeParts.slow_sizes(spec[0], spec[1], spec[2], cuts)
+			if slow != TreeParts._sizes_for(spec[0], spec[1], spec[2], cuts):
+				wrong_sizes += 1
+			var parts: Array = TreeParts.assignment(spec[0], spec[1], spec[2], cuts).parts
+			for surface in range(made.surfaces.size()):
+				var info: Dictionary = made.surfaces[surface]
+				for triangle in range(0, info.owner.size(), 5):
+					compared += 1
+					if parts[surface][triangle] != TreeParts._part_of(made.pieces, cuts, slow, int(info.owner[triangle]), float(info.param[triangle])):
+						wrong_parts += 1
+	check(wrong_sizes == 0 and wrong_parts == 0 and compared > 5000, "fast pieces: the same sizes and the same piece for every triangle as before (%d compared, %d wrong sizes, %d wrong pieces)" % [compared, wrong_sizes, wrong_parts])
+	# Et vite : 30 coupes sur un pommier, la dernière coupe se calcule en peu de temps (avant : 0,5 s).
+	var crown_cuts := []
+	var apple_pieces: Array = TreeParts.skeleton(Trees.APPLE, 3, 0).pieces
+	for number in range(apple_pieces.size()):
+		if not apple_pieces[number].root and crown_cuts.size() < 30:
+			crown_cuts.append([number, 0.05])
+	TreeParts.assignment(Trees.APPLE, 3, 0, crown_cuts.slice(0, 29))
+	var started := Time.get_ticks_usec()
+	TreeParts.assignment(Trees.APPLE, 3, 0, crown_cuts)
+	TreeParts.part_mesh(Trees.APPLE, 3, 0, crown_cuts, 0)
+	TreeParts.part_mesh(Trees.APPLE, 3, 0, crown_cuts, crown_cuts.size())
+	TreeParts.cut_faces(Trees.APPLE, 3, 0, crown_cuts, crown_cuts.size())
+	var spent := (Time.get_ticks_usec() - started) / 1000.0
+	print("INFO: 30th cut of an apple tree: %.1f ms" % spent)
+	check(true, "the 30th cut of an apple tree: %.1f ms (the time is judged on the PC only)" % spent)
 	# --- En partie ---
 	var world: Node3D = load("res://scenes/world.tscn").instantiate()
 	root.add_child(world)
@@ -119,6 +160,14 @@ func _run() -> void:
 		check(logs.size() == 1 and absf(float(logs[0].epaisseur) / 100.0 - real) < real * 0.2, "the cut stem became wood: a log as thick as the stem (%s cm, the stem: %.1f cm)" % [str(logs.map(func(i): return i.epaisseur)), real * 100.0])
 		check(woods.size() > 1, "and its branches too, each its own wood (%d)" % woods.size())
 	else:
+		# Demande de l'utilisateur : la tige couchée est sur le sol, jamais dedans (son axe à son rayon du sol, au moins).
+		var lying_span: Array = TreeParts.main_span(Trees.HAZEL, 5, 0, world._cuts_of(lying), 1)
+		var sunk := -INF
+		for step in range(13):
+			var t: float = lerpf(float(lying_span[1]), float(lying_span[2]), step / 12.0)
+			var p: Vector3 = world._model_of(lying) * (stem_piece.start + stem_piece.direction * t)
+			sunk = maxf(sunk, TreeParts.true_thickness(stem_piece, t) * hazel.scale.x * 0.5 - (p.y - world._ground_at(p, lying)))
+		check(sunk < 0.06, "the fallen stem lies on the ground, not in it (axis at most %.2f m too low)" % sunk)
 		var main: Array = TreeParts.main_span(Trees.HAZEL, 5, 0, world._cuts_of(lying), 1)
 		var middle: float = (float(main[1]) + float(main[2])) * 0.5
 		var there := TreeParts.true_thickness(bush.pieces[main[0]], middle) * hazel.scale.x

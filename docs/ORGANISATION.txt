@@ -131,6 +131,8 @@ sources_blender/main/generer_main.py dans Blender), qui tient l'objet choisi dan
 Bois des arbres coupés (0.0.8.22) : world.gd wood_ends (épaisseurs d'une pièce, sur ses propres triangles, tous les 10 %),
 _part_wood_items (un bois par pièce du morceau, racines exceptées), _drop_branch (branche coupée qui tombe telle qu'elle
 est) ; test : tests/bois_test.gd.
+Coupes rapides (0.0.8.22) : tree_parts.gd _index, cut_size, _plan, _fast_part (mêmes morceaux qu'avant : _part_of, slow_sizes
+pour les tests) ; repos d'un morceau couché : world.gd _rest_rigid ; mesure : tools/mesure_coupe.gd (fenêtre discrète).
 scripts/net_bag.gd (0.0.8.21, #207) : modèle du sac en filet (assets/items/sac_filet.glb posé, sac_filet_porte.glb porté),
 fait par sources_blender/sac/generer_sac.py dans Blender. Règles des sacs : inventory.gd (BAG, wear_bag, bag_capacity) ;
 Nouer et cordelette : crafting_rules.gd.
