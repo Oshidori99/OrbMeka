@@ -613,8 +613,8 @@ static func old_empty_cuts(kind: int, size: int, form: int, cuts: Array) -> Arra
 				break
 	return empty
 
-# Modèle d'un morceau (seulement ses triangles).
-static func part_mesh(kind: int, size: int, form: int, cuts: Array, part: int) -> ArrayMesh:
+# Modèle d'un morceau (seulement ses triangles). 0.0.8.23 : with_leaves faux : sans ses feuilles (tombées, R).
+static func part_mesh(kind: int, size: int, form: int, cuts: Array, part: int, with_leaves := true) -> ArrayMesh:
 	var full := Trees.mesh(kind, size, false, form)
 	var made_skeleton := skeleton(kind, size, form)
 	var pieces: Array = made_skeleton.pieces
@@ -643,6 +643,8 @@ static func part_mesh(kind: int, size: int, form: int, cuts: Array, part: int) -
 		limits[number] = mine
 	var made := ArrayMesh.new()
 	for surface in range(full.get_surface_count()):
+		if not with_leaves and surface < made_skeleton.surfaces.size() and made_skeleton.surfaces[surface].leaves:
+			continue
 		var arrays := full.surface_get_arrays(surface)
 		var points: PackedVector3Array = arrays[Mesh.ARRAY_VERTEX]
 		var indices: PackedInt32Array = arrays[Mesh.ARRAY_INDEX]
@@ -798,13 +800,6 @@ static func leaf_share(kind: int, size: int, form: int, cuts: Array, part: int) 
 	if total == 0:
 		return 0.0
 	return float(assignment(kind, size, form, cuts).leaves[part]) / total
-
-# 0.0.8.22 : feuilles d'un morceau quand il s'est détaché (avec sa coupe, sans les suivantes, qui ont pu lui en prendre) ;
-# morceau 0 : tout l'arbre.
-static func first_leaves(kind: int, size: int, form: int, cuts: Array, part: int) -> int:
-	if part <= 0:
-		return int(skeleton(kind, size, form).leaves)
-	return int(assignment(kind, size, form, cuts.slice(0, part)).leaves[part])
 
 # Pièce principale d'un morceau (la plus proche du pied) et son étendue [début, fin] (mètres le long de la pièce).
 static func main_span(kind: int, size: int, form: int, cuts: Array, part: int) -> Array:

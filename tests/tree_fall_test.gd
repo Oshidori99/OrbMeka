@@ -246,6 +246,12 @@ func _run() -> void:
 	check(absf(stump_height - (stem.start + stem.direction * high_t).y) < 0.1, "the stump is as high as the cut (%.2f m)" % stump_height)
 	await frames(150)
 	# --- F. Ramasser le bâton (R). ---
+	# Les morceaux tombés retirés de l'essai : leurs branches passeraient au-dessus du bâton (0.0.8.23 : R vise aussi les
+	# branches couchées, comme pour couper ; la plus proche passerait avant le bâton).
+	for id in ["pommier-haut", "noisetier-essai", "pommier-essai"]:
+		for node in parts_of(world, id):
+			world.column_objects[world._player_column()].erase(node)
+			node.free()
 	world.inventory.select(5)
 	var index: int = world.ground.entries.size() - 1
 	for at in range(world.ground.entries.size()):
@@ -255,11 +261,6 @@ func _run() -> void:
 	world.pick_up({"collider": world.ground.bodies[index], "position": world.ground.entries[index].position})
 	check(world.inventory.item("bar", 5).get("objet") in ["tronc", "branche"], "R picks up the piece of wood")
 	# --- F2. 0.0.7.14 : recasser le bois au sol là où on vise ; jamais de trou en le visant. ---
-	# Les morceaux tombés (leurs branches passeraient au-dessus du bâton) retirés de l'essai.
-	for id in ["pommier-haut", "noisetier-essai", "pommier-essai"]:
-		for node in parts_of(world, id):
-			world.column_objects[world._player_column()].erase(node)
-			node.free()
 	var rng := RandomNumberGenerator.new()
 	rng.seed = 14
 	var rod := Inventory.wood_piece("rameau", Trees.HAZEL, 3.0, 1.0, rng)

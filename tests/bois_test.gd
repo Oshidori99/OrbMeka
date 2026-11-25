@@ -313,14 +313,21 @@ func _run() -> void:
 		var aim_point: Vector3 = world._model_of(node) * (crown.pieces[thinnest].start + crown.pieces[thinnest].direction * ((spans_now[thinnest].x + spans_now[thinnest].y) * 0.5))
 		player.global_position = aim_point + Vector3(0.0, -0.5, 1.0)
 		player.camera.global_position = aim_point + Vector3(0.0, 0.3, 1.0)
+		player.camera.look_at(aim_point)
 		for index in Inventory.HANDS + Inventory.POCKETS:
 			world.inventory.put("bar", index, {})
 		world.inventory.select(Inventory.HANDS[1])
 		before = world.ground.entries.size()
+		# 0.0.8.23 (« il faut qu'on enlève nous-mêmes les feuilles ») : le premier R fait tomber ses feuilles en tas ; elle
+		# reste, nue ; le suivant la défait.
+		var stripped: bool = world.pick_up({"collider": node, "position": aim_point})
+		await frames(5)
+		var leaf_piles: Array = world.ground.entries.slice(before).filter(func(entry): return entry.item.get("objet", "") == "feuilles")
+		check(stripped and is_instance_valid(node) and not node.is_queued_for_deletion() and world._stripped(node) and not leaf_piles.is_empty() and wood_since(world, before).is_empty(), "R on the lying branch: first its leaves fall, in piles (%d), it stays" % leaf_piles.size())
 		var took: bool = world.pick_up({"collider": node, "position": aim_point})
 		await frames(5)
 		var held: Dictionary = world.inventory.held()
-		check(took and nodes_of(world, "bois-ramasser").filter(func(other): return int(other.get_meta("part", 0)) == 1).is_empty(), "R on the lying branch: it comes apart into its woods")
+		check(took and nodes_of(world, "bois-ramasser").filter(func(other): return int(other.get_meta("part", 0)) == 1).is_empty(), "R again on the bare branch: it comes apart into its woods")
 		check(Inventory.ITEMS.get(held.get("objet", ""), {}).get("forme", "") == "bois" and wood_since(world, before).size() == spans_now.size() - 1, "the aimed piece is in hand (%s), the others on the ground (%d)" % [Inventory.item_name(held), wood_since(world, before).size()])
 	clear(world, "bois-ramasser")
 	# --- Survie : une branche qui tombe sur le joueur le blesse ---

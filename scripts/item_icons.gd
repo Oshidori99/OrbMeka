@@ -54,6 +54,8 @@ static func texture(id: String) -> Texture2D:
 				image = _plant_picture(int(spec.get("plante", 0)))
 			"gazon":
 				image = _turf()
+			"feuilles":
+				image = _leaf_heap(0)
 			"bois":
 				image = _stick(spec.couleur, id == "tronc", id.hash())
 				if spec.get("feuilles", false):
@@ -79,6 +81,12 @@ static func for_value(value: Dictionary) -> Texture2D:
 		var tool_stone := clampi(int(shown_tool.get("pierre", 1)), 0, 1)
 		var tool_key := "%s/%d" % [id, tool_stone]
 		return _cache[tool_key] if _cache.has(tool_key) else _keep(tool_key, _tool(id.begins_with("hache"), Inventory.ITEMS[id].forme == "outil_pierre", tool_stone))
+	# 0.0.8.23 : feuilles : la couleur de leur arbre (aiguilles de pin fines et sombres).
+	if id == "feuilles":
+		var shown_leaf: Dictionary = value.pile[-1] if value.has("pile") and not value.pile.is_empty() else value
+		var essence := clampi(int(shown_leaf.get("essence", 0)), 0, 3)
+		var leaf_key := "feuilles/%d" % essence
+		return _cache[leaf_key] if _cache.has(leaf_key) else _keep(leaf_key, _leaf_heap(essence))
 	if id in ["tete_hache", "tete_pioche"]:
 		var shown_head: Dictionary = value.pile[-1] if value.has("pile") and not value.pile.is_empty() else value
 		var stone := clampi(int(shown_head.get("pierre", 1)), 0, 1)
@@ -465,6 +473,39 @@ static func _leaves(image: Image) -> void:
 				var shade := 0.75 + 0.25 * (1.0 - absf(v)) - (0.12 if absf(v) < 0.12 else 0.0)
 				var leaf := Color(0.33 * shade, 0.58 * shade, 0.22 * shade, clampf(inside * 6.0, 0.0, 1.0))
 				image.set_pixel(x, y, image.get_pixel(x, y).blend(leaf))
+
+# 0.0.8.23 : petit tas de feuilles de la couleur de son arbre, du fond vers le devant ; pin : aiguilles fines et sombres.
+const LEAF_HEAP_COLORS := [Color("#5f8f38"), Color("#7aa244"), Color("#3e5f2e"), Color("#6c9a3c")]
+
+static func _leaf_heap(essence: int) -> Image:
+	var image := _blank()
+	var base: Color = LEAF_HEAP_COLORS[clampi(essence, 0, 3)]
+	var needles := essence == 2
+	_shadow(image, Vector2(SIZE * 0.5, SIZE * 0.8), Vector2(SIZE * 0.4, SIZE * 0.07))
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 4411 + essence
+	for leaf in range(28):
+		var u := rng.randf_range(-1.0, 1.0)
+		var center := Vector2(SIZE * (0.5 + u * 0.37), SIZE * (0.78 - rng.randf() * 0.4 * (1.0 - u * u)))
+		var along := Vector2.from_angle(rng.randf() * TAU)
+		var across := Vector2(-along.y, along.x)
+		var length := SIZE * (0.15 if needles else 0.1)
+		var width := SIZE * (0.014 if needles else 0.05)
+		var shade := rng.randf_range(0.72, 1.12)
+		var reach := ceili(length) + 1
+		for y in range(maxi(floori(center.y) - reach, 0), mini(ceili(center.y) + reach, SIZE)):
+			for x in range(maxi(floori(center.x) - reach, 0), mini(ceili(center.x) + reach, SIZE)):
+				var offset := Vector2(x + 0.5, y + 0.5) - center
+				var a := offset.dot(along) / length
+				var b := offset.dot(across) / width
+				var inside := 1.0 - (a * a + b * b)
+				if inside <= 0.0:
+					continue
+				# Nervure au milieu un peu plus claire.
+				var light := shade * (1.08 if absf(b) < 0.18 and not needles else 1.0)
+				var color := Color(base.r * light, base.g * light, base.b * light, clampf(inside * 5.0, 0.0, 1.0))
+				image.set_pixel(x, y, image.get_pixel(x, y).blend(color.clamp()))
+	return image
 
 # --- Fruits (0.0.7.5) ---
 

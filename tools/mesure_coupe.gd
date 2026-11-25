@@ -180,4 +180,18 @@ func _run() -> void:
 	report("recoupe_ms", str(cut_costs.map(func(v): return snappedf(v, 0.1))))
 	await frames(120)
 	await measure("3_recoupes", world)
+	# 0.0.8.23 : R sur chaque morceau couché : ses feuilles tombent en tas (le morceau reste, nu).
+	cut_costs.clear()
+	for id in ["mesure-pommier", "mesure-noisetier"]:
+		for node in nodes_of(world, id):
+			if not is_instance_valid(node) or int(node.get_meta("part", 0)) == 0 or node.has_meta("falling") or world._stripped(node):
+				continue
+			var at := Time.get_ticks_usec()
+			world._strip_leaves(node)
+			cut_costs.append((Time.get_ticks_usec() - at) / 1000.0)
+			await frames(2)
+	report("feuilles_tombees_ms", str(cut_costs.map(func(v): return snappedf(v, 0.1))))
+	report("tas_de_feuilles", world.ground.entries.filter(func(entry): return entry.item.get("objet", "") == "feuilles").size())
+	await frames(60)
+	await measure("4_feuilles", world)
 	quit(0)

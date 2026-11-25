@@ -91,6 +91,8 @@ const INSTANCE_FIELDS := {"taille": TYPE_INT, "poids": TYPE_FLOAT, "forme": TYPE
 	"fendue": TYPE_INT, "lien": TYPE_INT, "tours": TYPE_INT,
 	# 0.0.8.21 (#207) : sac en filet : rangées de mailles (6 lâches à 10 serrées) et bretelle (0 cordelette, 1 liane).
 	"rangees": TYPE_INT, "bretelle": TYPE_INT,
+	# 0.0.8.23 : tas de feuilles au sol : son nombre de feuilles (1 à LEAF_PILE).
+	"tas": TYPE_INT,
 	# 0.0.8.10 : coups restants d'un outil (absent : neuf).
 	"usure": TYPE_INT}
 # Matières : valeurs de smooth_terrain.gd (SAND 0, STONE 1, DIRT 2, CLAY 4, MUD 5, DARK_STONE 6, GRAVEL 8, LIMESTONE 9,
@@ -164,8 +166,16 @@ const ITEMS := {
 	# 0.0.7.12 (demande de l'utilisateur) : branche cassée avec ses feuilles (« Tige de noisetier », « Rameau de
 	# pommier »…) ; seule la taille compte : un même petit feuillage pour tous (icône, au sol).
 	"rameau": {"nom": "Rameau", "forme": "bois", "feuilles": true, "couleur": Color("#7a5634")},
+	# 0.0.8.23 (demandes de l'utilisateur : « il faut qu'on enlève nous-mêmes les feuilles », « elles restent de la même
+	# taille », tas de 20 feuilles) : feuilles tombées d'une branche ou d'un arbre couché (R), au sol en tas de LEAF_PILE
+	# feuilles au plus, ramassées tas par tas ; nommées selon leur arbre. Une feuille : une plaque du feuillage des arbres
+	# (environ 190 pour une tige de noisetier). Légères mais encombrantes : 1,5 g, 25 ml. Pas encore d'usage.
+	"feuilles": {"nom": "Feuilles", "forme": "feuilles", "poids": 1.5, "couleur": Color("#5b8a36")},
 }
 const LEAFY_NAMES := ["Rameau de pommier", "Tige de noisetier", "Rameau de pin", "Rameau de tilleul"]
+const LEAF_NAMES := ["Feuilles de pommier", "Feuilles de noisetier", "Aiguilles de pin", "Feuilles de tilleul"]
+const LEAF_PILE := 20
+const LEAF_VOLUME := 0.025
 # 0.0.7.18 : bois du Créatif : tronc (gros bout, petit bout) puis branche (cm), 1 m de long.
 const CATALOG_WOOD := [20.0, 18.0, 4.0, 3.4]
 const ESSENCE_NAMES := ["pommier", "noisetier", "pin", "tilleul"]
@@ -339,6 +349,9 @@ static func instance_volume(id: String, instance: Dictionary) -> float:
 			return LIANE_VOLUME
 		"fibre":
 			return FIBER_VOLUME
+		# 0.0.8.23 : une feuille (un tas de 20 : 0,5 L).
+		"feuilles":
+			return LEAF_VOLUME
 		"fruit":
 			# 0.0.8.3 (demande de l'utilisateur) : une noisette compte comme une vraie (2 cm, environ 4 ml), quelle que soit sa
 			# taille dessinée dans l'arbre (plus grosse pour qu'on la voie) : 15 tiennent en poche.
@@ -1261,6 +1274,8 @@ static func item_name(value: Dictionary) -> String:
 		value = flat(id, value.pile[-1])
 	if id == "rameau" and value.has("essence"):
 		return LEAFY_NAMES[clampi(int(value.essence), 0, LEAFY_NAMES.size() - 1)]
+	if id == "feuilles" and value.has("essence"):
+		return LEAF_NAMES[clampi(int(value.essence), 0, LEAF_NAMES.size() - 1)]
 	# 0.0.7.26 (#212) : branche morte ramassée au sol, rejet de noisetier.
 	if id == "branche" and int(value.get("rejet", 0)) == 1:
 		return "Rejet de noisetier"

@@ -133,6 +133,9 @@ _part_wood_items (un bois par pièce du morceau, racines exceptées), _drop_bran
 est) ; test : tests/bois_test.gd.
 Coupes rapides (0.0.8.22) : tree_parts.gd _index, cut_size, _plan, _fast_part (mêmes morceaux qu'avant : _part_of, slow_sizes
 pour les tests) ; repos d'un morceau couché : world.gd _rest_rigid ; mesure : tools/mesure_coupe.gd (fenêtre discrète).
+Feuilles (0.0.8.23) : world.gd _strip_leaves (R : les feuilles d'un morceau couché tombent, il reste nu, tree_cuts[id].nus),
+_drop_leaves (en tas de Inventory.LEAF_PILE, là où elles étaient), _pick_leaf_pile ; ground_items.gd leaf_pile_mesh (plaques
+du feuillage à la taille de l'arbre, Trees.leaf_plate), _top_up_pile, MAX_LEAF_PILES ; test : tests/feuilles_test.gd.
 scripts/net_bag.gd (0.0.8.21, #207) : modèle du sac en filet (assets/items/sac_filet.glb posé, sac_filet_porte.glb porté),
 fait par sources_blender/sac/generer_sac.py dans Blender. Règles des sacs : inventory.gd (BAG, wear_bag, bag_capacity) ;
 Nouer et cordelette : crafting_rules.gd.

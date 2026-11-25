@@ -1,6 +1,19 @@
-# OrbMeka™ — prototype 0.0.8.22
+# OrbMeka™ — prototype 0.0.8.23
 
 Godot 4.7 / GDScript. Formes et couleurs simples ; assets externes seulement sous licence vérifiée (sons CC0, assets/sounds/CREDITS.txt).
+
+## 0.0.8.23 — Enlever soi-même les feuilles : R les fait tomber en tas (20 au plus, à la taille de l'arbre), à ramasser avec R ; plus aucune feuille ne disparaît toute seule
+Version locale (2 sur 4 depuis la publication de 0.0.8.21). Génération inchangée (version 33). Demandes de l'utilisateur (« il faut qu'on enlève nous-mêmes les feuilles », « d'abord les feuilles tombent et on peut les récupérer avec R », « elles restent de la même taille », « quand le tas a 20 feuilles, un nouveau tas apparaît », code léger).
+- **R sur une branche, une tige ou un arbre couchés qui ont leurs feuilles** : elles tombent au sol, en tas, là où elles étaient ; le morceau reste couché, sans feuilles (elles ne le portent plus). **R encore** : il se défait en bois, comme avant (le bois visé en main). Un arbre abattu aussi (avant : « trop gros »).
+- **Tas de feuilles** : 20 feuilles au plus ; des feuilles qui tombent près d'un tas pas plein le complètent d'abord, puis un nouveau tas. Un tas est fait des plaques du feuillage de son arbre, même image et même taille (58 cm pour le noisetier, 70 cm pour le pommier, 62 cm pour le pin, 1,1 m pour le tilleul). Une tige de noisetier : environ 250 feuilles, 13 tas.
+- **Objet « Feuilles »** (Feuilles de pommier, de noisetier, de tilleul ; Aiguilles de pin) : R sur un tas les prend toutes (celles qui tiennent). Légères mais encombrantes : 1,5 g et 25 ml la feuille (un tas : 30 g, 0,5 L ; 60 par main, 20 par poche). Icône par arbre ; dans la main, un petit tas. Pas encore d'usage.
+- **Plus aucune feuille ne disparaît toute seule** : un morceau couché garde ses feuilles jusqu'à ce qu'on les fasse tomber (avant : peu de feuilles, et il devenait du bois, feuilles disparues). Seul un morceau sans aucune feuille devient tout seul son bois (le pied nu d'un arbre abattu). Un bout feuillu d'une seule pièce qui devient du bois laisse tomber ses feuilles en tas ; un rameau garde les siennes.
+- **R vise une branche couchée comme pour la couper**, brindilles comprises (avant : seulement sa pièce principale, et rien sous 6 cm d'épaisseur). La plus proche passe en premier : un bâton sous une branche se ramasse en visant à côté.
+- **Léger** : tous les tas d'une même essence et d'une même grandeur sont dessinés ensemble ; ils sont comptés à part (au plus 600 : le plus ancien tas part, jamais un autre objet). Mesuré (petite fenêtre) : 61 morceaux couchés effeuillés, 215 tas : 443 dessins par image au lieu de 497 avec leurs feuilles, aucune image au-delà de 17 ms ; faire tomber les feuilles d'une branche : 6 à 11 ms.
+- Sauvegarde : les morceaux sans feuilles (« nus » des coupes) et les tas (objets au sol, avec leur nombre de feuilles) ; les anciens mondes s'ouvrent comme avant.
+
+Tests réussis : feuilles (25, nouveau), bois (25), tree_fall, tree_stress, inventory, inventory_more, trees, sticks, fibers, plantes_inventaire, death, sac, return_orb, prototype, hands_eat, bras, history_resume (+ tests juridiques). Mesure : tools/mesure_coupe.gd (étape 4, feuilles).
+À tester : couper une branche, R (les feuilles tombent en tas), R sur un tas (dans la main), R sur la branche nue (bois) ; un arbre abattu ; l'icône et le tas en main ; sur le Web.
 
 ## 0.0.8.22 — Bûches et bâtons à la taille qu'ils avaient sur l'arbre ; une branche coupée tombe telle qu'elle est ; le bois d'un morceau, c'est toutes ses pièces
 Version locale (1 sur 4 depuis la publication de 0.0.8.21). Génération inchangée (version 33). Demandes de l'utilisateur.
