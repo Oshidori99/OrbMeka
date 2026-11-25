@@ -1,6 +1,17 @@
-# OrbMeka™ — prototype 0.0.8.27
+# OrbMeka™ — prototype 0.0.8.28
 
 Godot 4.7 / GDScript. Formes et couleurs simples ; assets externes seulement sous licence vérifiée (sons CC0, assets/sounds/CREDITS.txt).
+
+## 0.0.8.28 — Les cartes : mini-carte et grande carte (#154)
+Publiée. Génération inchangée (version 33). Issue #154 et demandes de l'utilisateur.
+- **Mini-carte** en haut à droite (à la place des rappels F1 à F3) : en 2D, comme une carte normale : la couleur du sol (herbe, sable, neige…), **l'eau en bleu**, un peu de **relief** (ombré), **les arbres en points verts**, ta **flèche** au centre et le nord marqué. Elle montre les **zones chargées** autour de toi ; elles restent sur la carte une fois vues (sauvegardées avec le monde). **L'heure et les coordonnées** sont juste dessous.
+- **Grande carte : O + M** (ou Échap pour fermer) : tout ce que tu as exploré, ta flèche. **« Tout voir »** montre une fois tout le monde (dessiné en arrière-plan, sa part affichée) ; recliquer (« Seulement l'exploré ») revient à ce que tu as vu.
+- **Menu « Carte »** dans les Paramètres → Vidéo : mini-carte oui ou non, taille (petite, moyenne, grande), zoom (loin, moyen, près), orientation (nord en haut, ou la carte qui tourne avec le regard).
+- **Léger** : la carte est calculée d'après la graine (sans charger le monde), par carrés de 32 m, quelques rangées par image (1,5 ms au plus en jeu, 6 ms la grande carte ouverte) ; chaque carré une seule fois ; l'image envoyée à la carte graphique au plus 2,5 fois par seconde. Mesuré : 25 carrés autour du joueur dessinés en 73 ms au total, 1,7 ms au plus par image.
+- Plus tard : les points de repère (issue #252). Les trous et constructions du joueur ne sont pas encore sur la carte (elle montre le terrain de départ).
+
+Tests réussis : carte (19, nouveau), jour_nuit, controls, controls_groups, display_settings, pause_settings, settings_files, settings_walk, menu_style, inventory, carnet, prototype, history_resume (+ tests juridiques). Captures (fenêtre discrète) : mini-carte en jeu ; grande carte, tout le monde.
+À tester : la mini-carte en marchant ; O + M, « Tout voir » ; le menu Carte (taille, zoom, orientation) ; sur le Web.
 
 ## 0.0.8.27 — Le jour et la nuit (#160)
 Publiée. Génération inchangée (version 33). Issue #160 et demandes de l'utilisateur.

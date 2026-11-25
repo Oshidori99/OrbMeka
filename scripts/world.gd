@@ -156,6 +156,11 @@ func _ready() -> void:
 	day_time = DayNight.day_wrap(float(saved_time)) if saved_time is float or saved_time is int else DayNight.START
 	apply_day_light()
 	apply_day_sky()
+	# 0.0.8.28 (#154) : la carte (world_map.gd) ; les carrés déjà explorés, relus (redessinés peu à peu).
+	world_map = WorldMap.new()
+	world_map.setup(terrain, _half_zones() * 8.0)
+	world_map.cut_trees = cut_trees
+	world_map.from_array(saved_player.get("carte", []))
 	inventory.changed.connect(_on_notebook_inventory)
 	inventory.changed.connect(apply_held)
 	inventory.changed.connect(func(): inventory_unsaved = true)
@@ -461,6 +466,97 @@ var sun_base_energy := 1.0
 var ambient_base_energy := 0.7
 var _sky_wait := 0.0
 var clock_label: Label
+
+# --- 0.0.8.28 (#154, demandes de l'utilisateur) : la carte ---
+# world_map.gd (la carte, dessinée peu à peu), map_ui.gd (mini-carte en haut à droite), big_map_ui.gd (grande carte,
+# O + M). Réglages : Paramètres → Vidéo → Carte (map_show, map_size, map_zoom, map_north).
+const WorldMap = preload("res://scripts/world_map.gd")
+const MapUI = preload("res://scripts/map_ui.gd")
+const BigMapUI = preload("res://scripts/big_map_ui.gd")
+# Temps de dessin de la carte par image (µs) : petit en jeu, plus grand la grande carte ouverte (le jeu est derrière).
+const MAP_BUDGET := 1500
+const MAP_OPEN_BUDGET := 6000
+var world_map
+var minimap: Control
+var big_map_ui: Control
+var map_open := false
+var map_shown := true
+var _map_tile := Vector2i(999999, 0)
+
+func _update_map(delta: float) -> void:
+	if world_map == null or not is_instance_valid(player):
+		return
+	# Les zones chargées autour du joueur deviennent explorées (seulement quand il change de carré).
+	var tile: Vector2i = WorldMap.tile_of(player.global_position)
+	if tile != _map_tile:
+		_map_tile = tile
+		world_map.explore(player.global_position, load_distance * 8.0)
+		inventory_unsaved = true
+	world_map.step(delta, MAP_OPEN_BUDGET if map_open else MAP_BUDGET)
+
+# Réglages de la carte (Paramètres → Vidéo → Carte).
+func set_map_options(values: Dictionary) -> void:
+	map_shown = str(values.get("map_show", "on")) != "off"
+	if is_instance_valid(minimap):
+		minimap.set_options(str(values.get("map_size", "medium")), str(values.get("map_zoom", "2")), str(values.get("map_north", "fixed")))
+		minimap.visible = map_shown and not map_open
+	_place_under_map()
+
+# L'heure et les coordonnées : juste sous la mini-carte (ou en haut, sans elle).
+func _place_under_map() -> void:
+	var top := 18.0
+	if is_instance_valid(minimap) and map_shown:
+		top = minimap.offset_bottom + 6.0
+	if is_instance_valid(clock_label):
+		clock_label.offset_top = top
+		clock_label.offset_bottom = top + 24.0 * text_scale
+	if is_instance_valid(coordinates_label):
+		coordinates_label.offset_top = top + 24.0 * text_scale
+		coordinates_label.offset_bottom = top + 48.0 * text_scale
+
+func toggle_map() -> void:
+	if map_open:
+		close_map()
+	else:
+		open_map()
+
+func open_map() -> void:
+	if map_open or death_open or not is_instance_valid(player) or world_map == null:
+		return
+	if inventory_open:
+		close_inventory(false)
+	if crafting_open:
+		close_crafting(false)
+	if notebook_open:
+		close_notebook(false)
+	if not is_instance_valid(big_map_ui):
+		big_map_ui = BigMapUI.new()
+		var layer := CanvasLayer.new()
+		layer.layer = 5
+		layer.name = "GrandeCarte"
+		add_child(layer)
+		layer.add_child(big_map_ui)
+		big_map_ui.setup(world_map, player, text_scale)
+		big_map_ui.closed.connect(close_map)
+	map_open = true
+	big_map_ui.visible = true
+	if is_instance_valid(minimap):
+		minimap.visible = false
+	_set_hud_visible(false)
+	player.release_controls()
+	_show_aim(false)
+
+func close_map(recapture: bool = true) -> void:
+	if not map_open:
+		return
+	map_open = false
+	big_map_ui.visible = false
+	if is_instance_valid(minimap):
+		minimap.visible = map_shown
+	_set_hud_visible(true)
+	_show_aim(true)
+	if recapture and DisplayServer.get_name() != "headless":
+		Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
 
 func _update_day(delta: float) -> void:
 	if sun_light == null or not is_instance_valid(environment):
@@ -5382,7 +5478,9 @@ func player_data() -> Dictionary:
 		# 0.0.8.16 (#208) : Carnet de route : cases et étapes cochées, message du début déjà montré.
 		"carnet": notebook.to_array(), "carnet_vu": notebook_seen,
 		# 0.0.8.27 (#160) : l'heure du jour (minutes).
-		"heure": snappedf(day_time, 0.1)}
+		"heure": snappedf(day_time, 0.1),
+		# 0.0.8.28 (#154) : les carrés de la carte explorés.
+		"carte": world_map.to_array() if world_map != null else []}
 
 func _read_saved_player() -> Dictionary:
 	if save_folder.is_empty():
@@ -6372,6 +6470,13 @@ func _create_hud() -> void:
 	coordinates_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	coordinates_label.visible = false
 	layer.add_child(coordinates_label)
+	# 0.0.8.28 (#154) : la mini-carte, en haut à droite ; l'heure et les coordonnées dessous (_place_under_map).
+	minimap = MapUI.new()
+	minimap.name = "MiniCarte"
+	minimap.set_anchors_preset(Control.PRESET_TOP_RIGHT)
+	minimap.setup(world_map, player)
+	minimap.set_options("medium", "2", "fixed")
+	layer.add_child(minimap)
 	# 0.0.8.27 (#160) : l'heure, en haut à droite sous les coordonnées (0.0.8.28 : sous la mini-carte).
 	clock_label = Label.new()
 	clock_label.name = "Heure"
@@ -6386,6 +6491,7 @@ func _create_hud() -> void:
 	clock_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	clock_label.text = DayNight.clock_text(day_time)
 	layer.add_child(clock_label)
+	_place_under_map()
 	# 0.0.8.25 (#140) : ce qu'on regarde (à portée), en haut au centre.
 	looked_label = Label.new()
 	looked_label.name = "Regard"
@@ -6465,6 +6571,7 @@ func _process(delta: float) -> void:
 	_update_fps(delta)
 	_update_ring()
 	_update_day(delta)
+	_update_map(delta)
 	_update_looked(delta)
 	_update_health(delta)
 	if not sliding_trees.is_empty():
@@ -6610,6 +6717,7 @@ func _process_measured(delta: float) -> void:
 	_update_fps(delta)
 	_update_ring()
 	_update_day(delta)
+	_update_map(delta)
 	_update_health(delta)
 	if not sliding_trees.is_empty():
 		_update_slides(delta)

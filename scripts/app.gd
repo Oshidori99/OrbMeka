@@ -1104,6 +1104,7 @@ func open_world(id: String, prepared: RefCounted = null, behind_loading := false
 	# Monde par défaut : réglages ignorés ; monde développeur : réglages globaux.
 	active_world.player.apply_settings(settings.world_values(developer))
 	active_world.set_coordinates_visible(settings.values.show_coords == "on")
+	active_world.set_map_options(settings.values)
 	active_world.player.crouch_toggle = settings.control_options.crouch_mode == "toggle"
 	active_world.player.run_mode = settings.control_options.run_mode
 	active_world.player.fly_stop_on_ground = settings.control_options.get("fly_mode", "ground") == "ground"
@@ -1388,6 +1389,10 @@ func _menu_shortcut(event: InputEvent) -> void:
 		get_viewport().set_input_as_handled()
 	elif page == "playing" and is_instance_valid(active_world) and event.is_action_pressed("crafting"):
 		active_world.toggle_crafting()
+		get_viewport().set_input_as_handled()
+	# 0.0.8.28 (#154) : grande carte (O + M par défaut).
+	elif page == "playing" and is_instance_valid(active_world) and event.is_action_pressed("map"):
+		active_world.toggle_map()
 		get_viewport().set_input_as_handled()
 	# 0.0.8.16 (#208) : Carnet de route (O + C par défaut).
 	elif page == "playing" and is_instance_valid(active_world) and event.is_action_pressed("notebook"):

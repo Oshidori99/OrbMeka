@@ -3,6 +3,10 @@ Du plus récent au plus ancien. Ce fichier est mis à jour à chaque version.
 
 === Thème « Fabrication et survie » (0.0.8) ===
 
+0.0.8.28 — Les cartes : mini-carte en haut à droite (zones chargées, relief, eau en bleu, arbres en points verts, flèche ; l'heure et les coordonnées dessous), grande carte O + M avec « Tout voir », menu Carte dans les Paramètres (Vidéo)
+Génération du terrain : version 33 · Menus : version 17.
+Issue #154 et demandes de l'utilisateur ; points de repère pour plus tard (#252).
+
 0.0.8.27 — Le jour et la nuit : une journée de 24 minutes (1 s = 1 min), lever à 6 h 30, coucher à 22 h, un nouveau monde à 8 h ; soleil et lune d'est en ouest, aube et crépuscule colorés, nuit sombre mais pas noire ; l'heure en haut à droite, sauvegardée
 Génération du terrain : version 33 · Menus : version 17.
 Issue #160 et demandes de l'utilisateur.

@@ -371,6 +371,7 @@ func _apply_to_game() -> void:
 	active_world.player.apply_settings(settings.world_values(active_world.developer_mode))
 	active_world.apply_text_scale(_text_scale())
 	active_world.set_coordinates_visible(settings.values.show_coords == "on")
+	active_world.set_map_options(settings.values)
 	# Distance d'affichage changée en pause : zones (et terrain, 0.0.5.17) mises à jour peu à peu.
 	active_world.set_grass_distance(float(settings.values.grass_zones) * 8.0)
 	active_world.load_distance = int(settings.values.view_distance)

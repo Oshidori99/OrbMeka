@@ -30,7 +30,7 @@ Suivi du travail : GitHub Project https://github.com/users/Oshidori99/projects/1
 - Données joueur dans user://, jamais dans les sources :
   - réglages dans user://parametres/ : parametres-generaux.json, video.json, controles.json, personnage.json, attributs.json, menus.json ;
   - mondes : worlds.json (index) et un dossier par monde mondes/<nom du monde>/ : monde.json (nom, **graine**, mode, génération),
-    objets.json (rochers, cailloux cassés, objets au sol, fruits cueillis, arbres tombés et coupés, branches et tiges coupées), joueur.json (position, regard, inventaire), statistiques.json (version de création, ouvertures, temps de jeu), zones/zone_X_Y_Z.bin (seulement les changements, format versionné),
+    objets.json (rochers, cailloux cassés, objets au sol, fruits cueillis, arbres tombés et coupés, branches et tiges coupées), joueur.json (position, regard, inventaire, heure du jour, carrés de la carte explorés), statistiques.json (version de création, ouvertures, temps de jeu), zones/zone_X_Y_Z.bin (seulement les changements, format versionné),
     eau/ (lacs.json et cases.json, seulement si l'eau a bougé) ;
   - mondes en sécurité (scripts/world_shelves.gd) : mondes-securises.json + mondes-securises/, mondes-versions.json
     + mondes-versions/ (jamais lus par les anciennes versions) ; sous-dossiers et exceptions dans mondes-dossiers.json ;
