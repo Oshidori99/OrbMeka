@@ -382,6 +382,152 @@ static func detaches(pieces: Array, cut: Array, owner: int, param: float) -> boo
 			return float(link[1]) > float(cut[1])
 	return false
 
+# --- 0.0.8.22 (l'utilisateur : « les perf sont horribles » ; mesuré : chaque coupe gelait le jeu, de plus en plus : 42 ms
+# à la première, 0,56 s à la 27e, 1,2 s pour recouper un morceau couché) ---
+# Avant, la taille de chaque coupe (nombre de triangles détachés) était recomptée sur tous les triangles, pour chaque
+# coupe, 4 à 5 fois par coupe ; et le morceau de chaque triangle cherché en passant toutes les coupes. Maintenant :
+# - un index par modèle (_index) : les paramètres des triangles de chaque pièce, triés, et pour chaque pièce les pièces
+#   qu'elle porte (et où) ; la taille d'une coupe s'en déduit d'un coup (cut_size), gardée ;
+# - pour une liste de coupes (_plan) : par pièce, la meilleure coupe qui la détache en entier, puis ses propres coupes
+#   triées le long d'elle ; le morceau d'un triangle se lit d'une recherche (_fast_part). Mêmes règles et mêmes
+#   résultats qu'avant (_part_of, gardé pour les tests) : le plus petit ensemble détaché, à égalité la pièce la plus
+#   profonde, puis la coupe la plus loin, puis la première coupe.
+static var _indexes: Dictionary = {}
+static var _cut_sizes: Dictionary = {}
+
+static func _index(kind: int, size: int, form: int) -> Dictionary:
+	var key := _key(kind, size, form)
+	if _indexes.has(key):
+		return _indexes[key]
+	var made := skeleton(kind, size, form)
+	var pieces: Array = made.pieces
+	var params := []
+	for number in range(pieces.size()):
+		params.append([])
+	for info in made.surfaces:
+		var owners = info.owner
+		var values = info.param
+		for triangle in range(owners.size()):
+			var owner := int(owners[triangle])
+			if owner >= 0:
+				params[owner].append(float(values[triangle]))
+	var counts := PackedInt32Array()
+	for number in range(pieces.size()):
+		params[number].sort()
+		counts.append(params[number].size())
+	# Pièces portées par chacune : [pièce, point d'attache sur elle] (le premier lien de la chaîne, comme detaches).
+	var below := []
+	for number in range(pieces.size()):
+		below.append([])
+	for number in range(pieces.size()):
+		var seen := {}
+		for link in pieces[number].chain:
+			var ancestor := int(link[0])
+			if seen.has(ancestor):
+				continue
+			seen[ancestor] = true
+			below[ancestor].append([number, float(link[1])])
+	var index := {"params": params, "counts": counts, "below": below}
+	_indexes[key] = index
+	return index
+
+# Nombre de valeurs d'une liste triée strictement plus grandes que t.
+static func _count_above(sorted: Array, t: float) -> int:
+	var low := 0
+	var high := sorted.size()
+	while low < high:
+		var middle := (low + high) >> 1
+		if float(sorted[middle]) > t:
+			high = middle
+		else:
+			low = middle + 1
+	return sorted.size() - low
+
+# Nombre de valeurs d'une liste triée strictement plus petites que value.
+static func _count_below(sorted: Array, value: float) -> int:
+	var low := 0
+	var high := sorted.size()
+	while low < high:
+		var middle := (low + high) >> 1
+		if float(sorted[middle]) < value:
+			low = middle + 1
+		else:
+			high = middle
+	return low
+
+# Triangles détachés par une coupe [pièce, t] (tous les triangles du modèle, comme detaches) ; gardé.
+static func cut_size(kind: int, size: int, form: int, cut: Array) -> int:
+	var key := "%s|%d|%s" % [_key(kind, size, form), int(cut[0]), str(float(cut[1]))]
+	if _cut_sizes.has(key):
+		return _cut_sizes[key]
+	var index := _index(kind, size, form)
+	var number := int(cut[0])
+	var t := float(cut[1])
+	var count := _count_above(index.params[number], t)
+	for entry in index.below[number]:
+		if float(entry[1]) > t:
+			count += index.counts[int(entry[0])]
+	if _cut_sizes.size() > 8192:
+		_cut_sizes.clear()
+	_cut_sizes[key] = count
+	return count
+
+# a passe avant b : plus petit (_smaller), à égalité la première coupe.
+static func _before(pieces: Array, cuts: Array, sizes: Array, a: int, b: int) -> bool:
+	if _smaller(pieces, cuts, sizes, a, b):
+		return true
+	if _smaller(pieces, cuts, sizes, b, a):
+		return false
+	return a < b
+
+static func _plan(kind: int, size: int, form: int, cuts: Array, sizes: Array) -> Dictionary:
+	var index := _index(kind, size, form)
+	var pieces: Array = skeleton(kind, size, form).pieces
+	var whole := PackedInt32Array()
+	whole.resize(pieces.size())
+	whole.fill(-1)
+	var own := []
+	for number in range(pieces.size()):
+		own.append([])
+	for at in range(cuts.size()):
+		var number := int(cuts[at][0])
+		var t := float(cuts[at][1])
+		own[number].append([t, at])
+		for entry in index.below[number]:
+			if float(entry[1]) > t:
+				var other := int(entry[0])
+				if whole[other] < 0 or _before(pieces, cuts, sizes, at, whole[other]):
+					whole[other] = at
+	var steps := []
+	for number in range(pieces.size()):
+		var list: Array = own[number]
+		if list.is_empty():
+			steps.append(null)
+			continue
+		list.sort_custom(func(a, b): return a[0] < b[0])
+		var ts := []
+		var bests := []
+		var best: int = whole[number]
+		for entry in list:
+			if best < 0 or _before(pieces, cuts, sizes, int(entry[1]), best):
+				best = int(entry[1])
+			ts.append(float(entry[0]))
+			bests.append(best)
+		steps.append({"ts": ts, "best": bests})
+	return {"whole": whole, "steps": steps}
+
+# Morceau (0 : ce qui reste en place ; k : détaché par la coupe k) d'un point de la pièce owner à param.
+static func _fast_part(plan: Dictionary, owner: int, param: float) -> int:
+	if owner < 0:
+		return 0
+	var best: int = plan.whole[owner]
+	var step = plan.steps[owner]
+	if step != null:
+		var passed := _count_below(step.ts, param)
+		if passed > 0:
+			best = int(step.best[passed - 1])
+	return best + 1
+
 # Morceau de chaque triangle (par surface) pour une liste de coupes : le plus petit ensemble détaché qui le contient.
 static func assignment(kind: int, size: int, form: int, cuts: Array) -> Dictionary:
 	var key := _key(kind, size, form) + str(cuts)
@@ -389,14 +535,8 @@ static func assignment(kind: int, size: int, form: int, cuts: Array) -> Dictiona
 		return _assignments[key]
 	var made := skeleton(kind, size, form)
 	var pieces: Array = made.pieces
-	var sizes := []
-	for cut in cuts:
-		var count := 0
-		for info in made.surfaces:
-			for triangle in range(info.owner.size()):
-				if detaches(pieces, cut, info.owner[triangle], info.param[triangle]):
-					count += 1
-		sizes.append(count)
+	var sizes := _sizes_for(kind, size, form, cuts)
+	var plan := _plan(kind, size, form, cuts, sizes)
 	var parts := []
 	var leaves := PackedInt32Array()
 	leaves.resize(cuts.size() + 1)
@@ -406,10 +546,14 @@ static func assignment(kind: int, size: int, form: int, cuts: Array) -> Dictiona
 	for info in made.surfaces:
 		var of := PackedInt32Array()
 		of.resize(info.owner.size())
-		for triangle in range(info.owner.size()):
-			of[triangle] = _part_of(pieces, cuts, sizes, info.owner[triangle], info.param[triangle])
-			if info.leaves:
-				leaves[of[triangle]] += 1
+		var owners = info.owner
+		var values = info.param
+		var leafy: bool = info.leaves
+		for triangle in range(owners.size()):
+			var part := _fast_part(plan, int(owners[triangle]), float(values[triangle]))
+			of[triangle] = part
+			if leafy:
+				leaves[part] += 1
 		parts.append(of)
 	# 0.0.7.15 : étendue exacte de chaque pièce dans chaque morceau, d'une coupe à l'autre (tronçons entre les coupes de
 	# la pièce, chacun au morceau de son milieu). Avant : d'après les centres des triangles, qui confondait deux coupes
@@ -425,12 +569,12 @@ static func assignment(kind: int, size: int, form: int, cuts: Array) -> Dictiona
 			var high: float = bounds[index + 1]
 			if high - low < 0.0005:
 				continue
-			var spans: Dictionary = ranges[_part_of(pieces, cuts, sizes, number, (low + high) * 0.5)]
+			var spans: Dictionary = ranges[_fast_part(plan, number, (low + high) * 0.5)]
 			spans[number] = Vector2(minf(spans[number].x, low), maxf(spans[number].y, high)) if spans.has(number) else Vector2(low, high)
 	var fruits := PackedInt32Array()
 	for fruit in made.fruits:
-		fruits.append(_part_of(pieces, cuts, sizes, fruit[0], fruit[1]))
-	var result := {"parts": parts, "leaves": leaves, "ranges": ranges, "fruits": fruits}
+		fruits.append(_fast_part(plan, int(fruit[0]), float(fruit[1])))
+	var result := {"parts": parts, "leaves": leaves, "ranges": ranges, "fruits": fruits, "plan": plan, "sizes": sizes}
 	if _assignments.size() > 64:
 		_assignments.clear()
 	_assignments[key] = result
@@ -469,16 +613,17 @@ static func old_empty_cuts(kind: int, size: int, form: int, cuts: Array) -> Arra
 				break
 	return empty
 
-# Modèle d'un morceau (seulement ses triangles).
-static func part_mesh(kind: int, size: int, form: int, cuts: Array, part: int) -> ArrayMesh:
+# Modèle d'un morceau (seulement ses triangles). 0.0.8.23 : with_leaves faux : sans ses feuilles (tombées, R).
+static func part_mesh(kind: int, size: int, form: int, cuts: Array, part: int, with_leaves := true) -> ArrayMesh:
 	var full := Trees.mesh(kind, size, false, form)
 	var made_skeleton := skeleton(kind, size, form)
 	var pieces: Array = made_skeleton.pieces
-	var parts: Array = assignment(kind, size, form, cuts).parts
+	var assigned := assignment(kind, size, form, cuts)
+	var parts: Array = assigned.parts
+	var plan: Dictionary = assigned.plan
 	# Pièces coupées : leurs tronçons entre les coupes, et le morceau de chacun. Un triangle d'écorce qui traverse une
 	# coupe (les troncs sont faits de longues bandes) est gardé des deux côtés, ses sommets ramenés au plan de coupe :
 	# coupe nette, sans dents de scie.
-	var sizes := _sizes_for(kind, size, form, cuts)
 	var limits := {}
 	for cut in cuts:
 		var number := int(cut[0])
@@ -493,11 +638,13 @@ static func part_mesh(kind: int, size: int, form: int, cuts: Array, part: int) -
 		for index in range(bounds.size() - 1):
 			var low: float = bounds[index]
 			var high: float = bounds[index + 1]
-			if high - low > 0.0005 and _part_of(pieces, cuts, sizes, number, (low + high) * 0.5) == part:
+			if high - low > 0.0005 and _fast_part(plan, number, (low + high) * 0.5) == part:
 				mine.append(Vector2(low, high))
 		limits[number] = mine
 	var made := ArrayMesh.new()
 	for surface in range(full.get_surface_count()):
+		if not with_leaves and surface < made_skeleton.surfaces.size() and made_skeleton.surfaces[surface].leaves:
+			continue
 		var arrays := full.surface_get_arrays(surface)
 		var points: PackedVector3Array = arrays[Mesh.ARRAY_VERTEX]
 		var indices: PackedInt32Array = arrays[Mesh.ARRAY_INDEX]
@@ -594,13 +741,13 @@ static func cut_faces(kind: int, size: int, form: int, cuts: Array, part: int) -
 	var points := PackedVector3Array()
 	var normals := PackedVector3Array()
 	var uvs := PackedVector2Array()
-	var sizes := _sizes_for(kind, size, form, cuts)
+	var plan: Dictionary = assignment(kind, size, form, cuts).plan
 	for index in range(cuts.size()):
 		var piece: Dictionary = pieces[int(cuts[index][0])]
 		var t := float(cuts[index][1])
 		# Les deux morceaux de part et d'autre de cette coupe.
-		var before := _part_of(pieces, cuts, sizes, int(cuts[index][0]), maxf(t - 0.002, 0.0))
-		var after := _part_of(pieces, cuts, sizes, int(cuts[index][0]), minf(t + 0.002, piece.length))
+		var before := _fast_part(plan, int(cuts[index][0]), maxf(t - 0.002, 0.0))
+		var after := _fast_part(plan, int(cuts[index][0]), minf(t + 0.002, piece.length))
 		if part != before and part != after:
 			continue
 		var center: Vector3 = piece.start + piece.direction * t
@@ -627,7 +774,15 @@ static func cut_faces(kind: int, size: int, form: int, cuts: Array, part: int) -
 		made.surface_set_material(0, Trees.cut_material())
 	return made
 
+# 0.0.8.22 : taille de chaque coupe par l'index (cut_size, gardée) ; avant : tous les triangles recomptés par coupe.
 static func _sizes_for(kind: int, size: int, form: int, cuts: Array) -> Array:
+	var sizes := []
+	for cut in cuts:
+		sizes.append(cut_size(kind, size, form, cut))
+	return sizes
+
+# Ancienne façon de compter (tous les triangles, pour chaque coupe), gardée pour vérifier cut_size (tests).
+static func slow_sizes(kind: int, size: int, form: int, cuts: Array) -> Array:
 	var made := skeleton(kind, size, form)
 	var sizes := []
 	for cut in cuts:

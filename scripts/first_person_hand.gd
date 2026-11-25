@@ -185,6 +185,12 @@ func show_item(value: Dictionary) -> void:
 				made.mesh = GroundItems.turf_mesh()
 				made.scale = Vector3.ONE * 0.55
 				made.position.y = 0.012
+			# 0.0.8.23 : feuilles : le petit tas du sol (son arbre), réduit pour tenir dans la paume.
+			"feuilles":
+				var essence := clampi(int(shown.get("essence", 0)), 0, 3)
+				made.mesh = GroundItems.leaf_pile_mesh(essence, 1)
+				made.material_override = Trees.material(essence, "leaves")
+				made.scale = Vector3.ONE * (0.16 / maxf(Trees.leaf_plate(essence), 0.1))
 	# 0.0.8.17 (#224) : la main serre ce qu'elle tient (selon l'objet).
 	hold_pose = _hold_pose_for(spec)
 	_go_pose(hold_pose[0], hold_pose[1])
@@ -336,7 +342,7 @@ static func _hold_pose_for(spec: Dictionary) -> Array:
 			return ["prise", 0.55]
 		"fibre", "ficelle", "plante":
 			return ["pince", 0.7]
-		"liane", "gazon":
+		"liane", "gazon", "feuilles":
 			return ["prise", 0.35]
 		"outil_brut", "outil_pierre", "bois":
 			return ["prise", 0.9]

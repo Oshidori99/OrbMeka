@@ -12,9 +12,9 @@ extends Node3D
 # 2 ou 3, choisis parmi les nouveautés : liste NEWS_RUNNERS ([id, peau], peau vide pour un animal).
 # Chacun prend son modèle Blender, sinon une forme simple (character_model.gd, partagé avec le jeu).
 # Le reste du fichier (sol, gazon, plage, ciel, caméra) ne change pas d'une version à l'autre.
-const NEWS_VERSION := "0.0.8.21"
-const NEWS_TEXT := "Nouveau : le sac en filet (O + F → Nouer),
-4 cases de plus sur l'épaule !"
+const NEWS_VERSION := "0.0.8.23"
+const NEWS_TEXT := "Nouveau : R fait tomber les feuilles en tas,
+à ramasser une fois tombées !"
 
 # 0.0.3.25 : les nouveautés en aller-retour sur l'herbe libre, devant la place de sable et pierre (sous le panneau des
 # menus, vers la droite), chacune sur sa rangée.

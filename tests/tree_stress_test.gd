@@ -159,7 +159,8 @@ func _run() -> void:
 				invariants(world, id, kind, size, tree.scale.x, label + " after two close cuts")
 			# Trois branches cassées au hasard, sur les morceaux encore là.
 			for attempt in range(3):
-				var pieces_now: Array = nodes_of(world, id).filter(func(node): return world._tree_is_lying(node))
+				# (Une branche qui tombe encore ne se vise pas : aimed_wood.)
+				var pieces_now: Array = nodes_of(world, id).filter(func(node): return world._tree_is_lying(node) and not node.has_meta("falling"))
 				if pieces_now.is_empty():
 					break
 				var node: Node3D = pieces_now[rng.randi_range(0, pieces_now.size() - 1)]
@@ -171,7 +172,7 @@ func _run() -> void:
 				var before: int = world.ground.entries.size()
 				world.cut_wood(node, branch, lerpf(spans[branch].x, spans[branch].y, rng.randf_range(0.2, 0.6)), node.global_position)
 				await frames(5)
-				check(world.ground.entries.size() >= before, "%s: a broken branch drops wood" % label)
+				check(world.ground.entries.size() >= before, "%s: a broken branch falls whole or drops its wood" % label)
 				invariants(world, id, kind, size, tree.scale.x, label + " after a broken branch")
 			# Recasser un bois au sol, au milieu : deux moitiés dont les longueurs s'additionnent.
 			if not world.ground.entries.is_empty():

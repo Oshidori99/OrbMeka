@@ -336,6 +336,8 @@ static func fruit_node(kind: int, size: int, form: int, skip: Dictionary = {}, o
 		drawn.multimesh = series
 		drawn.visibility_range_end = detail_end
 		drawn.visibility_range_end_margin = 2.0
+		# 0.0.8.22 (perf) : petits fruits : pas d'ombre (un dessin de moins par série et par passe d'ombre).
+		drawn.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 		holder.add_child(drawn)
 	return holder
 
@@ -470,6 +472,32 @@ static func leaf_share(kind: int, size: int, form: int, lo: float, hi: float) ->
 
 static func is_bare_wood(kind: int, size: int, form: int, lo: float, hi: float) -> bool:
 	return leaf_share(kind, size, form, lo, hi) < BARE_LEAF_SHARE
+
+# 0.0.8.23 (« elles restent de la même taille ») : côté d'une plaque du feuillage (m ; une grappe de feuilles en image,
+# 58 cm pour le noisetier, 70 pour le pommier, 62 pour le pin, 1,1 m pour le tilleul) : les tas de feuilles au sol
+# (ground_items.gd) en sont faits, à la même taille. Mesuré une fois par espèce (le plus court côté de ses triangles).
+static var _leaf_plates: Dictionary = {}
+
+static func leaf_plate(kind: int) -> float:
+	if _leaf_plates.has(kind):
+		return _leaf_plates[kind]
+	var full := mesh(kind, 3, false, 0)
+	var sides := []
+	for surface in range(full.get_surface_count()):
+		if full.surface_get_material(surface) != material(kind, "leaves"):
+			continue
+		var arrays := full.surface_get_arrays(surface)
+		var points: PackedVector3Array = arrays[Mesh.ARRAY_VERTEX]
+		var indices: PackedInt32Array = arrays[Mesh.ARRAY_INDEX]
+		for at in range(0, mini(indices.size(), 600) - 2, 3):
+			var a: Vector3 = points[indices[at]]
+			var b: Vector3 = points[indices[at + 1]]
+			var c: Vector3 = points[indices[at + 2]]
+			sides.append(minf(a.distance_to(b), minf(b.distance_to(c), c.distance_to(a))))
+	sides.sort()
+	var side: float = sides[sides.size() / 2] if not sides.is_empty() else 0.6
+	_leaf_plates[kind] = side
+	return side
 
 static func top(kind: int, size: int, form: int) -> float:
 	return mesh(kind, size, false, form).get_aabb().end.y

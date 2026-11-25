@@ -1,6 +1,7 @@
 extends Node3D
 # 0.0.7.3 : objets posés au sol (morceaux de pierre cassée, cailloux, fruits, poignées qui ne tiennent plus en main).
-# Décision du 15.11.2026 (issue #40) : chaque objet reste visible tel quel, à sa place (pas de tas fusionnés) ;
+# Décision du 15.11.2026 (issue #40) : chaque objet reste visible tel quel, à sa place (pas de tas fusionnés ; 0.0.8.23 :
+# sauf les feuilles, en tas de 20 au plus, demande de l'utilisateur) ;
 # les objets du même type sont dessinés ensemble (un MultiMesh par type et par forme), léger même avec beaucoup d'objets.
 # 0.0.7.5 : chaque objet garde toutes ses caractéristiques (inventory.gd : taille, poids, forme, orientation, couleur,
 # coups reçus) ; cailloux et éclats ont le même rendu que les cailloux du monde (matière des pierres, aspect pierre,
@@ -18,6 +19,11 @@ const ToolModels = preload("res://scripts/tool_models.gd")
 const NetBag = preload("res://scripts/net_bag.gd")
 # Au-delà, les plus anciens disparaissent (seulement s'ils sont très nombreux).
 const MAX_ITEMS := 3000
+# 0.0.8.23 : tas de feuilles : comptés à part (ils ne font jamais disparaître les autres objets) ; au-delà, le plus
+# ancien tas disparaît. Des feuilles qui tombent à moins de LEAF_MERGE d'un tas pas plein le complètent d'abord.
+const MAX_LEAF_PILES := 600
+const LEAF_MERGE := 0.6
+var _pile_count := 0
 const FALL_SECONDS := 0.35
 # Taille d'un éclat et d'une poignée, en mètres (les cailloux et les fruits gardent leur taille).
 # 0.0.8.21 (demande de l'utilisateur : on le voyait mal) : éclats un peu plus grands au sol (avant 7 cm).
@@ -100,17 +106,34 @@ func drop(value: Dictionary, from: Vector3, near: Vector3, rest_height: Callable
 		if not item.has("rotation"):
 			item.rotation = rng.randf_range(0.0, TAU)
 	var spot := near + Vector3(rng.randf_range(-spread, spread), 0.0, rng.randf_range(-spread, spread))
+	var pile := _kind(item) == "feuilles"
+	if pile:
+		# 0.0.8.23 (l'utilisateur : « quand le tas a 20 feuilles, un nouveau tas apparaît ») : d'abord le tas pas plein le
+		# plus proche ; seulement le reste fait un nouveau tas.
+		item.tas = clampi(int(item.get("tas", 1)), 1, Inventory.LEAF_PILE)
+		var filled := _top_up_pile(item, spot)
+		if filled >= 0:
+			return filled
 	var ground: float = rest_height.call(spot)
 	var entry := {"item": item, "position": Vector3(spot.x, ground + lift(item), spot.z)}
 	entries.append(entry)
-	# Trop d'objets posés : le plus ancien part (jamais ceux de la graine, qui ne comptent pas).
-	var placed := entries.filter(func(other): return not other.item.has("graine")).size()
-	while placed > MAX_ITEMS:
-		for at in range(entries.size()):
-			if not entries[at].item.has("graine"):
-				remove(at)
-				break
-		placed -= 1
+	if pile:
+		_pile_count += 1
+		while _pile_count > MAX_LEAF_PILES:
+			for at in range(entries.size()):
+				if _kind(entries[at].item) == "feuilles":
+					remove(at)
+					break
+	# Trop d'objets posés : le plus ancien part (jamais ceux de la graine, qui ne comptent pas ; 0.0.8.23 : ni les tas de
+	# feuilles, comptés à part). Compté seulement s'il peut y en avoir trop (avant : à chaque objet posé, tous recomptés).
+	elif entries.size() > MAX_ITEMS:
+		var placed := entries.filter(func(other): return not other.item.has("graine") and _kind(other.item) != "feuilles").size()
+		while placed > MAX_ITEMS:
+			for at in range(entries.size()):
+				if not entries[at].item.has("graine") and _kind(entries[at].item) != "feuilles":
+					remove(at)
+					break
+			placed -= 1
 	var index := entries.size() - 1
 	_add_body(index)
 	_dirty = true
@@ -153,6 +176,8 @@ func remove(index: int, taken := true) -> Dictionary:
 		return {}
 	var entry: Dictionary = entries[index]
 	entries.remove_at(index)
+	if _kind(entry.item) == "feuilles":
+		_pile_count -= 1
 	var body: Node = bodies[index]
 	bodies.remove_at(index)
 	if is_instance_valid(body):
@@ -174,6 +199,43 @@ func remove(index: int, taken := true) -> Dictionary:
 func index_of(body: Node) -> int:
 	return int(body.get_meta("ground_index", -1)) if is_instance_valid(body) else -1
 
+# 0.0.8.23 : complète le tas de feuilles de la même essence pas plein le plus proche de « spot » (à moins de LEAF_MERGE)
+# avec les feuilles de « item » (item.tas diminue d'autant). Rend son numéro si tout y est entré, -1 sinon.
+func _top_up_pile(item: Dictionary, spot: Vector3) -> int:
+	if int(item.tas) >= Inventory.LEAF_PILE:
+		return -1
+	var best := -1
+	var closest := LEAF_MERGE
+	var essence := int(item.get("essence", 0))
+	for at in range(entries.size()):
+		var other: Dictionary = entries[at].item
+		if _kind(other) != "feuilles" or int(other.get("essence", 0)) != essence or int(other.get("tas", 1)) >= Inventory.LEAF_PILE:
+			continue
+		var gap := Vector2(entries[at].position.x - spot.x, entries[at].position.z - spot.z).length()
+		if gap < closest:
+			closest = gap
+			best = at
+	if best < 0:
+		return -1
+	var pile: Dictionary = entries[best].item
+	var moved := mini(Inventory.LEAF_PILE - int(pile.get("tas", 1)), int(item.tas))
+	pile.tas = int(pile.get("tas", 1)) + moved
+	item.tas = int(item.tas) - moved
+	_dirty = true
+	changed.emit()
+	return best if int(item.tas) <= 0 else -1
+
+# 0.0.8.23 : feuilles restées dans un tas après en avoir ramassé (0 : le tas disparaît).
+func set_pile(index: int, count: int) -> void:
+	if index < 0 or index >= entries.size():
+		return
+	if count <= 0:
+		remove(index)
+		return
+	entries[index].item.tas = mini(count, Inventory.LEAF_PILE)
+	_dirty = true
+	changed.emit()
+
 static func _kind(value: Dictionary) -> String:
 	return Inventory.ITEMS.get(value.get("objet", ""), {}).get("forme", "")
 
@@ -191,8 +253,8 @@ static func size_of(value: Dictionary) -> float:
 			return HAZELNUT_SIZE
 		"eclat":
 			return PIECE_SIZE
-		# 0.0.8.4 (#213) : fibres et liane : modèles déjà à leur taille (fibers.gd).
-		"fibre", "liane", "ficelle", "outil_brut", "outil_pierre", "sac":
+		# 0.0.8.4 (#213) : fibres et liane : modèles déjà à leur taille (fibers.gd). 0.0.8.23 : tas de feuilles aussi.
+		"fibre", "liane", "ficelle", "outil_brut", "outil_pierre", "sac", "feuilles":
 			return 1.0
 		# 0.0.8.5 (#211) : tête taillée : selon sa taille (3 petite, 4 moyenne, 5 grande).
 		"tete":
@@ -218,7 +280,7 @@ static func lift(value: Dictionary) -> float:
 		return float(value.get("epaisseur", 3.5)) / 200.0
 	if _kind(value) in ["fibre", "liane", "ficelle"]:
 		return 0.012
-	if _kind(value) in ["plante", "sac"]:
+	if _kind(value) in ["plante", "sac", "feuilles"]:
 		return 0.0
 	if _kind(value) == "gazon":
 		return TURF_HEIGHT * 0.5
@@ -237,11 +299,12 @@ static func _basis(value: Dictionary) -> Basis:
 	return turn.scaled(Vector3.ONE * scale)
 
 # 0.0.7.9 : bois conique : gros bout (« epaisseur ») et petit bout (« fin »), par pas de 5 %.
+# 0.0.8.22 : jusqu'à 5 % (avant 20 % au moins) : une tige qui finit en pointe garde sa pointe fine.
 static var _sticks: Dictionary = {}
 
 static func taper_step(value: Dictionary) -> int:
 	var thick := float(value.get("epaisseur", 3.0))
-	return clampi(roundi(float(value.get("fin", thick * 0.84)) / maxf(thick, 0.01) * 20.0), 4, 20)
+	return clampi(roundi(float(value.get("fin", thick * 0.84)) / maxf(thick, 0.01) * 20.0), 1, 20)
 
 static func _two_tone(value: Dictionary) -> bool:
 	return value.get("objet") == "pomme" and int(value.get("couleur", 1)) == 4
@@ -268,6 +331,8 @@ func _mesh(value: Dictionary) -> Mesh:
 		return Plants.mesh(int(Inventory.ITEMS.get(value.get("objet", ""), {}).get("plante", 0)))
 	if _kind(value) == "gazon":
 		return turf_mesh()
+	if _kind(value) == "feuilles":
+		return leaf_pile_mesh(clampi(int(value.get("essence", 0)), 0, 3), leaf_pile_step(value))
 	if _kind(value) == "fruit":
 		return Trees._fruit_mesh(Trees.APPLE if value.get("objet") == "pomme" else Trees.HAZEL, _two_tone(value))
 	if _kind(value) == "bois":
@@ -319,6 +384,62 @@ static func leaf_tuft() -> ArrayMesh:
 	_tuft.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arrays)
 	return _tuft
 
+# 0.0.8.23 (demandes de l'utilisateur : « elles restent de la même taille », tas de 20 feuilles) : tas de feuilles : les
+# plaques du feuillage de son arbre (la même image, à la même taille que sur l'arbre : Trees.leaf_plate), une par
+# feuille, couchées en petit dôme, un peu penchées et tournées au hasard. LEAF_PILE_STEPS grandeurs (5, 10, 15 et 20
+# plaques) : un modèle par essence et grandeur, fait une fois ; tous les tas semblables dessinés ensemble.
+const LEAF_PILE_STEPS := 4
+static var _leaf_piles: Dictionary = {}
+
+static func leaf_pile_step(value: Dictionary) -> int:
+	var count := clampi(int(value.get("tas", 1)), 1, Inventory.LEAF_PILE)
+	return clampi(ceili(float(count) * LEAF_PILE_STEPS / Inventory.LEAF_PILE), 1, LEAF_PILE_STEPS)
+
+# Rayon où sont posés les centres des plaques d'un tas (m).
+static func leaf_pile_radius(value: Dictionary) -> float:
+	return _pile_radius(clampi(int(value.get("essence", 0)), 0, 3), leaf_pile_step(value))
+
+static func _pile_radius(essence: int, step: int) -> float:
+	return Trees.leaf_plate(essence) * (0.2 + 0.25 * float(step) / LEAF_PILE_STEPS)
+
+static func leaf_pile_mesh(essence: int, step: int) -> ArrayMesh:
+	var key := "%d/%d" % [essence, step]
+	if _leaf_piles.has(key):
+		return _leaf_piles[key]
+	var plate := Trees.leaf_plate(essence)
+	var half := plate * 0.5
+	var radius := _pile_radius(essence, step)
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 7351 + essence * 31 + step
+	var points := PackedVector3Array()
+	var normals := PackedVector3Array()
+	var uvs := PackedVector2Array()
+	var corner_uvs := [Vector2(0, 1), Vector2(1, 1), Vector2(1, 0), Vector2(0, 0)]
+	for leaf in range(step * Inventory.LEAF_PILE / LEAF_PILE_STEPS):
+		var angle := rng.randf() * TAU
+		var distance := sqrt(rng.randf()) * radius
+		var turn := Basis(Vector3.UP, rng.randf() * TAU) * Basis(Vector3.RIGHT, rng.randf_range(-0.22, 0.22)) * Basis(Vector3.BACK, rng.randf_range(-0.22, 0.22))
+		var corners := [turn * Vector3(-half, 0.0, -half), turn * Vector3(half, 0.0, -half), turn * Vector3(half, 0.0, half), turn * Vector3(-half, 0.0, half)]
+		var lowest := INF
+		for corner: Vector3 in corners:
+			lowest = minf(lowest, corner.y)
+		# Le coin le plus bas juste sur le sol ; plus haut au centre (dôme), chaque plaque un peu au-dessus de la précédente.
+		var center := Vector3(cos(angle) * distance, -lowest + 0.004 + (1.0 - distance / maxf(radius, 0.001)) * plate * 0.1 + leaf * 0.0015, sin(angle) * distance)
+		var normal: Vector3 = (turn * Vector3.UP).normalized()
+		for corner in [0, 1, 2, 0, 2, 3]:
+			points.append(center + corners[corner])
+			normals.append(normal)
+			uvs.append(corner_uvs[corner])
+	var arrays := []
+	arrays.resize(Mesh.ARRAY_MAX)
+	arrays[Mesh.ARRAY_VERTEX] = points
+	arrays[Mesh.ARRAY_NORMAL] = normals
+	arrays[Mesh.ARRAY_TEX_UV] = uvs
+	var made := ArrayMesh.new()
+	made.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arrays)
+	_leaf_piles[key] = made
+	return made
+
 # Couché comme son bâton (le bout fin vers +y du modèle), à sa longueur ; feuilles à la taille d'un vrai rameau.
 static func leaf_basis(value: Dictionary) -> Basis:
 	var length := float(value.get("longueur", 0.5))
@@ -366,6 +487,9 @@ func _plain_material(value: Dictionary) -> Material:
 	# Bois : l'écorce de son essence (comme les arbres).
 	if _kind(value) == "bois":
 		return Trees.material(clampi(int(value.get("essence", 0)), 0, 3), "bark")
+	# 0.0.8.23 : tas de feuilles : le feuillage de son arbre (même image).
+	if _kind(value) == "feuilles":
+		return Trees.material(clampi(int(value.get("essence", 0)), 0, 3), "leaves")
 	var key := "%s/%d" % [value.get("objet", ""), int(value.get("couleur", -1))]
 	if not _materials.has(key):
 		var made := StandardMaterial3D.new()
@@ -430,6 +554,13 @@ func _add_body(index: int) -> void:
 		box.size = Vector3(0.22, PLANT_SIZE, 0.22) if _kind(entry.item) == "plante" else Vector3(TURF_RADIUS * 2.0, TURF_HEIGHT + 0.02, TURF_RADIUS * 2.0)
 		shape.shape = box
 		shape.position = Vector3(0.0, PLANT_SIZE * 0.5, 0.0) if _kind(entry.item) == "plante" else Vector3.ZERO
+	elif _kind(entry.item) == "feuilles":
+		# 0.0.8.23 : tas de feuilles : une boîte basse de sa largeur.
+		var heap := BoxShape3D.new()
+		var wide := leaf_pile_radius(entry.item) * 2.0 + Trees.leaf_plate(clampi(int(entry.item.get("essence", 0)), 0, 3)) * 0.3
+		heap.size = Vector3(wide, 0.1, wide)
+		shape.shape = heap
+		shape.position = Vector3(0.0, 0.05, 0.0)
 	elif _kind(entry.item) == "sac":
 		# 0.0.8.21 : sac à plat, environ 35 × 30 cm.
 		var lying := BoxShape3D.new()
@@ -479,7 +610,12 @@ func _redraw() -> void:
 		if _kind(item) == "tete":
 			key += "/p%d" % int(item.get("pierre", 1))
 		if _kind(item) == "bois":
-			key += "/%d" % taper_step(item)
+			# 0.0.8.22 : un bois est toujours un cylindre (sa « forme » ne change rien au dessin) : groupé par objet, essence
+			# et pointe seulement (bien moins de séries : un arbre coupé donne maintenant un bois par pièce).
+			key = "bois/%s/%d/%d" % [item.objet, int(item.get("essence", -1)), taper_step(item)]
+		# 0.0.8.23 : tas de feuilles : par essence et grandeur (tous les tas semblables en un seul dessin).
+		if _kind(item) == "feuilles":
+			key = "tas/%d/%d" % [int(item.get("essence", 0)), leaf_pile_step(item)]
 		if not groups.has(key):
 			groups[key] = {"item": item, "stone": stone, "list": []}
 		groups[key].list.append(entry)
@@ -554,6 +690,7 @@ func to_array() -> Array:
 # Format de 0.0.7.3 et 0.0.7.4 compris (forme et orientation à part : elles rejoignent l'objet).
 func from_array(data: Variant) -> void:
 	entries.clear()
+	_pile_count = 0
 	for body in bodies:
 		if is_instance_valid(body):
 			body.queue_free()
@@ -577,6 +714,8 @@ func from_array(data: Variant) -> void:
 			continue
 		entries.append({"item": value, "position": Vector3(float(at[0]), float(at[1]), float(at[2]))})
 		_add_body(entries.size() - 1)
-		if entries.size() >= MAX_ITEMS:
+		if _kind(value) == "feuilles":
+			_pile_count += 1
+		if entries.size() >= MAX_ITEMS + MAX_LEAF_PILES:
 			break
 	_dirty = true

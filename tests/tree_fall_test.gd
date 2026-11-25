@@ -135,7 +135,8 @@ func _run() -> void:
 	check(top.get_node("Modele").get_children().any(func(child): return child.name.begins_with("Coupe") and child.mesh.get_surface_count() > 0), "light wood face on the cut end")
 	var span: Array = TreeParts.main_span(Trees.APPLE, 1, 0, cuts, 1)
 	check(span.size() == 3 and int(span[0]) == trunk and absf(float(span[1]) - cut_t) < 0.002 and absf(float(span[2]) - stem.length) < 0.01, "the top goes from the cut to the treetop: log + top = the whole trunk")
-	# --- C. Une branche du haut cassée : seulement elle, un bâton à sa taille ; les autres restent. ---
+	# --- C. Une branche du haut cassée : seulement elle, qui tombe entière ; défaite, un bâton à sa taille ; les autres
+	# restent. ---
 	var branch := -1
 	var sibling := -1
 	for number in range(skeleton.pieces.size()):
@@ -156,15 +157,27 @@ func _run() -> void:
 		bough = skeleton.pieces[branch]
 	before = world.ground.entries.size()
 	check(world.step_chop(1.1, true), "the branch is broken")
-	await frames(30)
 	cuts = world.tree_cuts["pommier-essai"].coupes
-	var stick: Array = new_wood(world, before)
+	var broken_part: int = cuts.size()
+	# 0.0.8.22 (l'utilisateur : « tombe entière ») : comme sur un arbre debout, la branche tombe telle qu'elle est, avec
+	# ses feuilles, et reste couchée à part (avant : tout de suite des bâtons à plat) ; R la défait en bois.
+	var dropped := parts_of(world, "pommier-essai").filter(func(node): return int(node.get_meta("part", 0)) == broken_part)
+	check(dropped.size() == 1 and dropped[0].has_meta("falling") and new_wood(world, before).is_empty(), "the branch falls whole, with its leaves (not sticks)")
+	await frames(120)
 	var broken_t: float = float(cuts[-1][1])
-	check(cuts.size() == 2 and int(cuts[-1][0]) == branch and stick.size() == 1 and absf(stick[0].longueur - (bough.length - broken_t) * scale) < 0.03, "it is one stick at its real length (%.2f m)" % (stick[0].longueur if not stick.is_empty() else 0.0))
 	var share_after := TreeParts.leaf_share(Trees.APPLE, 1, 0, cuts, 1)
-	check(share_after < share_before and share_after > share_before * 0.5, "only this branch's leaves are gone (%.0f%% then %.0f%%)" % [share_before * 100.0, share_after * 100.0])
+	check(share_after < share_before and share_after > share_before * 0.5, "only this branch's leaves left the top (%.0f%% then %.0f%%)" % [share_before * 100.0, share_after * 100.0])
 	check(sibling < 0 or TreeParts.assignment(Trees.APPLE, 1, 0, cuts).ranges[1].has(sibling), "the other branches stay")
-	check(parts_of(world, "pommier-essai").size() == 1, "no new lying piece for a branch")
+	check(parts_of(world, "pommier-essai").size() == 2 and world.tree_cuts["pommier-essai"].morceaux.get(str(broken_part), {}).get("etat", "") == "couche", "it lies apart, beside the top")
+	# Défaite (ce que fait R) : un bâton à sa taille.
+	for node in parts_of(world, "pommier-essai"):
+		if int(node.get_meta("part", 0)) == broken_part:
+			world._part_to_wood(node, broken_part)
+	# (le bois glisse jusqu'au sol avant d'être dessiné en série)
+	await frames(30)
+	var stick: Array = new_wood(world, before)
+	check(cuts.size() == 2 and int(cuts[-1][0]) == branch and stick.size() == 1 and absf(stick[0].longueur - (bough.length - broken_t) * scale) < 0.03, "picked up: one stick at its real length (%.2f m)" % (stick[0].longueur if not stick.is_empty() else 0.0))
+	check(parts_of(world, "pommier-essai").size() == 1, "no lying piece left for it")
 	# 0.0.7.12 : avec ses feuilles : un rameau, nommé selon son arbre (un seul petit feuillage pour tous).
 	check(not stick.is_empty() and stick[0].objet == "rameau" and Inventory.item_name(stick[0]) == "Rameau de pommier" and Inventory.item_name({"objet": "rameau", "essence": Trees.HAZEL}) == "Tige de noisetier", "a leafy branch is a twig named after its tree")
 	check(world.ground.get_children().any(func(child): return child is MultiMeshInstance3D and child.multimesh.mesh == world.ground.leaf_tuft()), "its leaves are drawn on the ground")
@@ -233,6 +246,12 @@ func _run() -> void:
 	check(absf(stump_height - (stem.start + stem.direction * high_t).y) < 0.1, "the stump is as high as the cut (%.2f m)" % stump_height)
 	await frames(150)
 	# --- F. Ramasser le bâton (R). ---
+	# Les morceaux tombés retirés de l'essai : leurs branches passeraient au-dessus du bâton (0.0.8.23 : R vise aussi les
+	# branches couchées, comme pour couper ; la plus proche passerait avant le bâton).
+	for id in ["pommier-haut", "noisetier-essai", "pommier-essai"]:
+		for node in parts_of(world, id):
+			world.column_objects[world._player_column()].erase(node)
+			node.free()
 	world.inventory.select(5)
 	var index: int = world.ground.entries.size() - 1
 	for at in range(world.ground.entries.size()):
@@ -242,11 +261,6 @@ func _run() -> void:
 	world.pick_up({"collider": world.ground.bodies[index], "position": world.ground.entries[index].position})
 	check(world.inventory.item("bar", 5).get("objet") in ["tronc", "branche"], "R picks up the piece of wood")
 	# --- F2. 0.0.7.14 : recasser le bois au sol là où on vise ; jamais de trou en le visant. ---
-	# Les morceaux tombés (leurs branches passeraient au-dessus du bâton) retirés de l'essai.
-	for id in ["pommier-haut", "noisetier-essai", "pommier-essai"]:
-		for node in parts_of(world, id):
-			world.column_objects[world._player_column()].erase(node)
-			node.free()
 	var rng := RandomNumberGenerator.new()
 	rng.seed = 14
 	var rod := Inventory.wood_piece("rameau", Trees.HAZEL, 3.0, 1.0, rng)
