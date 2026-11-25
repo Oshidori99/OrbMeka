@@ -38,6 +38,12 @@ static func survival() -> Inventory:
 func _run() -> void:
 	check(Controls.ACTIONS.crafting.default.key == KEY_O and Controls.ACTIONS.crafting.default.second.key == KEY_F and Controls.GROUPS.Inventaire.has("crafting"), "O + F: Fabrication, in Contrôles → Inventaire")
 	check(Rules.READY == Rules.ACTIONS and Rules.ACTIONS.size() == 6, "0.0.8.6: the actions are ready (0.0.8.21 : six, with Nouer)")
+	# 0.0.8.25 : une branche fine et courte fendue devient une navette ; avec elle, on ficelle deux fois plus vite.
+	var thin := {"objet": "branche", "essence": 1, "epaisseur": 1.8, "fin": 1.5, "longueur": 0.3}
+	var handle := {"objet": "branche", "essence": 1, "epaisseur": 3.5, "fin": 3.0, "longueur": 0.6}
+	var shuttle: Dictionary = Rules.split_result(thin)
+	check(Rules.fits_more("manche", thin) and shuttle.objet == "navette" and Inventory.item_name(shuttle) == "Navette de noisetier" and Rules.split_result(handle).objet == "branche", "a thin short branch split: a navette (Navette de noisetier); a handle stays a split branch")
+	check(is_equal_approx(Rules.turn_seconds(true), Rules.TURN_SECONDS * 0.5) and is_equal_approx(Rules.turn_seconds(false), Rules.TURN_SECONDS), "tying with a navette: twice as fast")
 	check(Rules.KNAP_HITS == {3: 13, 4: 15, 5: 20} and Rules.FLAKE_HITS == 8 and Rules.BRAID_FIBERS == 3 and Rules.BRAID_SECONDS == 3.0, "0.0.8.8: 13, 15 or 20 hits (8 for a sharp flake); 3 fibres in 3 s")
 	check(is_equal_approx(Inventory.instance_volume("fibre_lin", {}), 0.01), "a fibre: 10 ml")
 	# Tresser : fibres prises dans les mains et les poches.

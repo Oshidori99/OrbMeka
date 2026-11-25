@@ -80,6 +80,28 @@ func _run() -> void:
 	braid.put("bar", Inventory.POCKETS[0], pile("eclat_silex", [{"poids": 40.0}]))
 	check(is_equal_approx(Rules.braid_seconds(true), 1.5) and Rules.has_flake(braid), "with a sharp flake chosen (offered, 0.0.8.24): 1.5 s")
 	check(not Carnet.node("cordelette").is_empty() and Carnet.node("sac").parent == "cordelette" and Carnet.node("cordelette").parent == "eclat", "Carnet de route: Éclat → Cordelette → Sac en filet")
+	# --- 0.0.8.25 (choix de l'utilisateur) : changer de mode garde le même inventaire, rangé selon les règles ---
+	var both := Inventory.new()
+	both.set_mode(Inventory.CREATIVE)
+	both.put("bar", 0, {"objet": "terre"})
+	both.put("bar", 1, {"objet": "pioche_pierre"})
+	both.put("grid", 0, pile("caillou", [{"taille": 4}]))
+	var fell: Array = both.carry_to(Inventory.SURVIVAL)
+	var kept := 0
+	for place in both.carried_places():
+		kept += Inventory.count(both.item(place[0], place[1]))
+	var fallen_units := 0
+	for each in fell:
+		fallen_units += Inventory.count(each[0]) - int(each[1])
+	check(both.mode == Inventory.SURVIVAL and kept + fallen_units == 99 + 1 + 1 and fallen_units > 0, "creative to survival: the same items (99 earth, a pickaxe, a pebble), what does not fit falls (%d kept, %d fall)" % [kept, fallen_units])
+	check(both.carried_places().any(func(place): return both.item(place[0], place[1]).get("objet", "") == "pioche_pierre"), "the pickaxe is carried (one)")
+	var back: Array = both.carry_to(Inventory.CREATIVE)
+	var in_creative := 0
+	for index in range(Inventory.BAR_SIZE):
+		in_creative += Inventory.count(both.item("bar", index))
+	for index in range(Inventory.GRID_SIZE):
+		in_creative += Inventory.count(both.item("grid", index))
+	check(back.is_empty() and in_creative == kept, "and back to creative: everything carried comes along")
 	# --- En partie (Survie) : cordelettes, Nouer, porter ---
 	root.size = Vector2i(1280, 720)
 	var fixture := "res://.godot/sac-%d.json" % Time.get_ticks_usec()

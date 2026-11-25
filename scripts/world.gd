@@ -51,6 +51,9 @@ var player: CharacterBody3D
 var selection: MeshInstance3D
 var hint: Label
 var coordinates_label: Label
+# 0.0.8.25 (#140) : ce qu'on regarde, en haut au centre.
+var looked_label: Label
+var _looked_wait := 0.0
 var fps_label: Label
 var fps_elapsed := 0.0
 const FPS_INTERVAL := 0.5
@@ -1453,14 +1456,24 @@ func apply_held() -> void:
 		player.carry_slow = inventory.carry_factor()
 
 
-func set_game_mode(new_mode: String) -> void:
+# carry : 0.0.8.25 (choix de l'utilisateur) : changement de mode en jouant (Paramètres) : le même inventaire passe dans
+# l'autre mode (Inventory.carry_to) ; ce qui ne tient pas en Survie tombe aux pieds du joueur.
+func set_game_mode(new_mode: String, carry := false) -> void:
 	# 0.0.7.9 : en Survie, on ne vole pas (on retombe si on volait).
 	if new_mode == Inventory.SURVIVAL and is_instance_valid(player):
 		player.flying = false
 		# 0.0.8 : la chute qui suit le passage en Survie (on volait peut-être très haut) ne blesse pas.
 		fall_ignored = game_mode != Inventory.SURVIVAL
+	var left: Array = inventory.carry_to(new_mode) if carry and new_mode != game_mode else []
 	game_mode = new_mode
 	inventory.set_mode(new_mode)
+	if carry:
+		inventory_unsaved = true
+	for each in left:
+		_drop_units(each[0], int(each[1]))
+	if not left.is_empty():
+		_notify("Survie : ce qui ne tient pas dans vos mains, vos poches et votre sac est tombé à vos pieds.")
+		notice_time = 5.0
 
 # Touches 1 à 9 et 0 : cases 1 à 10 de la barre. En Survie (0.0.7.3) : 1 et 2 les mains, 3 à 6 les poches.
 func select_slot(index: int) -> void:
@@ -4152,6 +4165,55 @@ func pick_aimed(hit: Dictionary) -> bool:
 	return true
 
 # 0.0.8.19 : en Créatif, ce que vise la molette dans le monde (objet du catalogue, illimité) ; {} si rien.
+# --- 0.0.8.25 (#140) : affichage de ce qu'on regarde ---
+# En haut au centre, le nom de ce qu'on vise à portée : arbre (et sa pièce, couché, sans feuilles), objet au sol (tas de
+# feuilles : combien), caillou, rocher, plante, matière du sol. Recalculé LOOKED_EVERY s (léger : une visée par fois).
+const LOOKED_EVERY := 0.15
+
+func _update_looked(delta: float) -> void:
+	if not is_instance_valid(looked_label):
+		return
+	_looked_wait -= delta
+	if _looked_wait > 0.0:
+		return
+	_looked_wait = LOOKED_EVERY
+	var busy: bool = inventory_open or crafting_open or notebook_open or death_open or Input.mouse_mode != Input.MOUSE_MODE_CAPTURED
+	looked_label.text = "" if busy else looked_text(player.get_target())
+
+func looked_text(hit: Dictionary) -> String:
+	if not is_instance_valid(player):
+		return ""
+	var wood := aimed_wood(hit)
+	if not wood.is_empty():
+		var tree: Node3D = wood.tree
+		var kind := int(tree.get_meta("kind", 0))
+		var piece: Dictionary = TreeParts.skeleton(kind, int(tree.get_meta("size", 3)), int(tree.get_meta("form", 0))).pieces[int(wood.piece)]
+		var name: String = Trees.KIND_NAMES[clampi(kind, 0, 3)].capitalize()
+		var what := ("tige" if kind == Trees.HAZEL else "tronc") if piece.root else "branche"
+		var state := ""
+		if _tree_is_lying(tree):
+			state = ", couché" + (", sans feuilles" if _stripped(tree) else "")
+		return "%s (%s%s)" % [name, what, state]
+	if hit.is_empty() or not is_instance_valid(hit.get("collider")):
+		return ""
+	if player.camera.global_position.distance_to(hit.position) > player.break_reach + 0.01:
+		return ""
+	var collider: Node = hit.collider
+	if collider.is_in_group("ground_items"):
+		var index: int = ground.index_of(collider)
+		if index < 0:
+			return ""
+		var item: Dictionary = ground.entries[index].item
+		if item.get("objet", "") == "feuilles":
+			return "%s (%d)" % [Inventory.item_name(item), int(item.get("tas", 1))]
+		return Inventory.item_name(item)
+	if collider.is_in_group("pebbles"):
+		return "Caillou"
+	if collider.is_in_group("rocks"):
+		return "Rocher"
+	var copy := aimed_copy(hit)
+	return Inventory.item_name(copy) if not copy.is_empty() else ""
+
 func aimed_copy(hit: Dictionary) -> Dictionary:
 	if hit.is_empty() or not is_instance_valid(hit.get("collider")) or not is_instance_valid(player):
 		return {}
@@ -6251,6 +6313,19 @@ func _create_hud() -> void:
 	coordinates_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	coordinates_label.visible = false
 	layer.add_child(coordinates_label)
+	# 0.0.8.25 (#140) : ce qu'on regarde (à portée), en haut au centre.
+	looked_label = Label.new()
+	looked_label.name = "Regard"
+	looked_label.set_anchors_and_offsets_preset(Control.PRESET_CENTER_TOP)
+	looked_label.offset_left = -300
+	looked_label.offset_right = 300
+	looked_label.offset_top = 14
+	looked_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	looked_label.add_theme_font_size_override("font_size", roundi(17 * text_scale))
+	looked_label.add_theme_color_override("font_shadow_color", Color.BLACK)
+	looked_label.add_theme_constant_override("shadow_outline_size", 3)
+	looked_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	layer.add_child(looked_label)
 	_create_health_hud(layer)
 
 func set_coordinates_visible(on: bool) -> void:
@@ -6316,6 +6391,7 @@ func _process(delta: float) -> void:
 		return
 	_update_fps(delta)
 	_update_ring()
+	_update_looked(delta)
 	_update_health(delta)
 	if not sliding_trees.is_empty():
 		_update_slides(delta)

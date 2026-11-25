@@ -167,6 +167,9 @@ const ITEMS := {
 	# 0.0.7.12 (demande de l'utilisateur) : branche cassée avec ses feuilles (« Tige de noisetier », « Rameau de
 	# pommier »…) ; seule la taille compte : un même petit feuillage pour tous (icône, au sol).
 	"rameau": {"nom": "Rameau", "forme": "bois", "feuilles": true, "couleur": Color("#7a5634")},
+	# 0.0.8.25 (idée validée par l'utilisateur) : navette : une branche fine (1 à 2,5 cm, 15 à 40 cm) fendue au bout, sur
+	# laquelle la ficelle est enroulée d'avance : choisie pour Ficeler, deux fois plus vite (crafting_ui).
+	"navette": {"nom": "Navette", "forme": "bois", "couleur": Color("#8a6440")},
 	# 0.0.8.23 (demandes de l'utilisateur : « il faut qu'on enlève nous-mêmes les feuilles », « elles restent de la même
 	# taille », tas de 20 feuilles) : feuilles tombées d'une branche ou d'un arbre couché (R), au sol en tas de LEAF_PILE
 	# feuilles au plus, ramassées tas par tas ; nommées selon leur arbre. Une feuille : une plaque du feuillage des arbres
@@ -332,6 +335,46 @@ static var current_mode := CREATIVE
 static func is_tool(id: String) -> bool:
 	var spec: Dictionary = ITEMS.get(id, {})
 	return spec.has("outil") or spec.get("forme", "") in ["outil_brut", "outil_pierre"]
+
+# 0.0.8.25 : une case du Créatif devenue une vraie pile : 99 (un outil : 1), avec les caractéristiques du modèle.
+static func real_stack(value: Dictionary) -> Dictionary:
+	if not unlimited(value):
+		return value.duplicate(true)
+	var amount := 1 if is_tool(value.get("objet", "")) else CREATIVE_STACK
+	if is_object(value):
+		var pile := []
+		for unit in range(amount):
+			pile.append(traits(value))
+		return {"objet": value.objet, "pile": pile}
+	return {"objet": value.objet, "nombre": amount}
+
+# 0.0.8.25 (choix de l'utilisateur) : changer de mode en jouant garde le même inventaire : tout ce qu'on a (cases, sacs
+# portés) passe dans l'autre mode, rangé selon ses règles (Survie : mains, poches, sacs ; poids, volume, nombre). Une case
+# du Créatif devient une vraie pile (real_stack : 99). Rend ce qui ne tient pas : [[objet, nombre déjà rangé], …] (à
+# poser au sol).
+func carry_to(new_mode: String) -> Array:
+	if not new_mode in [SURVIVAL, CREATIVE] or new_mode == mode:
+		return []
+	var old: Dictionary = _store()
+	var values := []
+	for area in ["bar", "grid", "sac"]:
+		for value in old.get(area, []):
+			if not value.is_empty():
+				values.append(real_stack(value))
+	for worn in old.get("sacs", []):
+		if not worn.is_empty():
+			values.append(single(worn))
+	_stores[mode] = _empty_store()
+	set_mode(new_mode)
+	var left := []
+	for value in values:
+		if wear_bag(value) >= 0:
+			continue
+		var added := add(value)
+		if added < count(value):
+			left.append([value, added])
+	changed.emit()
+	return left
 
 # Nombre montré dans une case : celui de la pile ; illimité (Créatif) : 99, un outil 1.
 static func shown_count(value: Dictionary) -> int:
@@ -1293,6 +1336,8 @@ static func item_name(value: Dictionary) -> String:
 		value = flat(id, value.pile[-1])
 	if id == "rameau" and value.has("essence"):
 		return LEAFY_NAMES[clampi(int(value.essence), 0, LEAFY_NAMES.size() - 1)]
+	if id == "navette" and value.has("essence"):
+		return "Navette de %s" % ESSENCE_NAMES[clampi(int(value.essence), 0, ESSENCE_NAMES.size() - 1)]
 	if id == "feuilles" and value.has("essence"):
 		return LEAF_NAMES[clampi(int(value.essence), 0, LEAF_NAMES.size() - 1)]
 	# 0.0.7.26 (#212) : branche morte ramassée au sol, rejet de noisetier.

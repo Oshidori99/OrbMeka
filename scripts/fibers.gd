@@ -44,11 +44,18 @@ static func plant_id(plant: Dictionary) -> String:
 		return str(plant.id)
 	return "%d:%d" % [roundi(float(plant.x) * 100.0), roundi(float(plant.z) * 100.0)]
 
-# Nombre de fibres d'une plante (même graine : même nombre).
+# Nombre de fibres d'une plante (même graine : même nombre). 0.0.8.25 (demande de l'utilisateur) : 1 fibre 10 % du
+# temps, 2 fibres 60 %, 3 fibres 30 % (FIBER_ODDS ; avant 1, 2 ou 3 autant chacun).
+const FIBER_ODDS := [0.1, 0.6, 0.3]
 static func fiber_count(plant: Dictionary) -> int:
 	var rng := RandomNumberGenerator.new()
 	rng.seed = hash(plant_id(plant) + "/fibres")
-	return rng.randi_range(FIBERS_MIN, FIBERS_MAX)
+	var roll := rng.randf()
+	for count in range(FIBER_ODDS.size()):
+		roll -= FIBER_ODDS[count]
+		if roll < 0.0:
+			return FIBERS_MIN + count
+	return FIBERS_MAX
 
 # Botte de brins couchée (25 cm de long, en mètres), le long de x.
 static func bundle_mesh() -> ArrayMesh:

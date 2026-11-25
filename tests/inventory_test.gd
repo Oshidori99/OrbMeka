@@ -176,13 +176,23 @@ func _run() -> void:
 	world.inventory.take("bar", 3)
 	world.inventory.select(0)
 	# Survie (0.0.7.3) : deux mains (cases 1 et 2) et quatre poches (cases 3 à 6), rien de grisé, pas de grille.
+	# 0.0.8.25 : changer de mode garde le même inventaire (sac_test) : vidé d'abord, pour la suite de l'essai ; un seul
+	# caillou, qui doit suivre en Survie.
+	for index in range(Inventory.BAR_SIZE):
+		world.inventory.put("bar", index, {})
+	for index in range(Inventory.GRID_SIZE):
+		world.inventory.put("grid", index, {})
+	world.inventory.put("grid", 0, {"objet": "caillou", "pile": [{"taille": 2}]})
 	app.pause_game()
 	app.pause_settings_button.pressed.emit()
 	app.game_mode_buttons[Catalog.GAME_SURVIVAL].pressed.emit()
 	app.settings_back_button.pressed.emit()
 	app.resume_game()
 	await process_frame
-	check(world.inventory.mode == Inventory.SURVIVAL and world.inventory.selected() == 0 and world.player.selected_type == -1, "survival: own empty inventory, left hand chosen")
+	check(world.inventory.mode == Inventory.SURVIVAL and world.inventory.item("bar", 0).get("objet", "") == "caillou", "survival: the same inventory, the pebble came along (in the left hand)")
+	world.inventory.take("bar", 0)
+	await process_frame
+	check(world.inventory.mode == Inventory.SURVIVAL and world.inventory.selected() == 0 and world.player.selected_type == -1, "survival: left hand chosen, empty")
 	var shown: Array = range(10).filter(func(index): return ui.hud_slots[index].visible)
 	check(world.inventory.bar_slots() == [0, 1, 2, 3, 4, 5] and shown == [0, 1, 2, 3, 4, 5] and ui.hud_gap.visible, "survival bar: 2 hands, a gap, 4 pockets")
 	check(ui.weights_label.visible and ui.hud_carried.mains[1].text == "0,000 g / 8,000 kg · 0,00 L / 3,0 L" and ui.hud_carried.poches[1].text == "0,000 g / 1,000 kg · 0,00 L / 0,50 L" and ui.hud_carried.mains[0].share == 0.0, "hands and pockets at the bottom right: a picture, a bar, weight and volume (0.0.7.19)")
@@ -267,7 +277,16 @@ func _run() -> void:
 	check(thrown.all(func(point): return Vector2(point.x * 0.5 - dig_hit.position.x, point.z * 0.5 - dig_hit.position.z).length() > 0.5), "never back into the hole")
 	world.player.camera.rotation.x = 0.0
 	app.set_world_game_mode(Catalog.GAME_CREATIVE)
-	check(world.inventory.item("bar", 0).objet == "terre" and world.player.selected_type == 2, "back to creative: its inventory is back")
+	# 0.0.8.25 : le même inventaire revient en Créatif (ce qu'on portait en Survie) ; puis, pour la suite de l'essai, la
+	# barre d'avant (terre, pioche en pierre).
+	check(world.inventory.mode == Inventory.CREATIVE and range(Inventory.BAR_SIZE).all(func(index): return Inventory.count(world.inventory.item("bar", index)) == 0 or not Inventory.unlimited(world.inventory.item("bar", index))), "back to creative: the same inventory (what was carried in survival)")
+	for index in range(Inventory.BAR_SIZE):
+		world.inventory.put("bar", index, {})
+	world.inventory.put("bar", 0, {"objet": "terre"})
+	world.inventory.put("bar", 2, {"objet": "pioche_pierre"})
+	world.inventory.select(0)
+	await process_frame
+	check(world.player.selected_type == 2, "earth in hand again")
 	# Pause avec l'inventaire ouvert : fermé.
 	action(app, "inventory")
 	app.pause_game()

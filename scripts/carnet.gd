@@ -55,8 +55,9 @@ const NODES := [
 			"details": "Nouer un sac en filet (O + F → Nouer) : 4 cordelettes du même type pour les mailles, 1 cordelette ou 1 liane pour la bretelle ; clic gauche maintenu, une rangée de mailles à la fois (6 à 10 : plus il y en a, plus les mailles sont serrées).\nIl va sur l'épaule : ses 4 cases sont les cases 7 à 10 de la barre ; il porte environ 4,3 kg (lin et 10 rangées : 5 kg) et 10 L. On se sert d'un objet du sac directement, même la main pleine.\nUn deuxième sac : ses 4 cases sont dans l'inventaire (O + I), au-dessus des mains. Les poignées de terre, de sable… et les fibres passent entre les mailles. Un sac s'enlève vide, dans l'inventaire (Équipement)."},
 	{"id": "tete", "nom": "Tête taillée", "branche": "droite", "rang": 3, "parent": "eclat", "image": "objet:tete_hache", "touches": "O + F → Tailler", "objets": ["tete_hache", "tete_pioche"],
 		"details": "Tailler une tête de hache ou de pioche (O + F → Tailler) : plus la pierre est grande (taille 5), meilleure est la tête ; le silex est le plus dur."},
-	{"id": "fendre", "nom": "Fendre", "branche": "droite", "rang": 4, "parent": "tete", "image": "menu:fendre", "touches": "O + F → Fendre", "objets": ["branche_fendue"],
-		"details": "Fendre le bout de la branche avec l'éclat (O + F → Fendre, clic gauche maintenu) : la fente recevra la tête."},
+	{"id": "fendre", "nom": "Fendre", "branche": "droite", "rang": 4, "parent": "tete", "image": "menu:fendre", "touches": "O + F → Fendre", "objets": ["branche_fendue", "navette"],
+		"details": "Fendre le bout de la branche avec l'éclat (O + F → Fendre, clic gauche maintenu) : la fente recevra la tête.
+Une branche fine (1 à 2,5 cm, 15 à 40 cm) fendue devient une navette : choisie pour Ficeler, on ficelle deux fois plus vite."},
 	{"id": "assembler", "nom": "Assembler", "branche": "droite", "rang": 5, "parent": "fendre", "image": "menu:assembler", "touches": "O + F → Assembler", "objets": ["hache_a_ficeler", "pioche_a_ficeler"],
 		"details": "Assembler : la tête dans la fente de la branche (O + F → Assembler, un clic). L'outil est à ficeler."},
 	{"id": "hache", "nom": "Hache", "branche": "droite", "rang": 6, "decalage": -0.7, "parent": "assembler", "image": "menu:ficeler", "touches": "O + F → Ficeler", "objets": ["hache_pierre"],
