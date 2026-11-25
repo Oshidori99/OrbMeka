@@ -341,6 +341,13 @@ func _relocate(role: String, choice: Dictionary) -> Dictionary:
 			return other
 	return {}
 
+func _toggle_optional(role: String, choice: Dictionary) -> void:
+	if _same(choice, picks.get(role, {})):
+		picks.erase(role)
+	else:
+		picks[role] = choice
+	refresh()
+
 func choose_head(next: String) -> void:
 	head = next
 	hits = 0
@@ -354,6 +361,13 @@ const ROLE_TITLES := {"fibres": "3 fibres (une ficelle) ou 3 ficelles (une corde
 	"fendu": "Main gauche : branche fendue", "tete": "Main droite : tête de hache ou de pioche",
 	"a_ficeler": "Main gauche : hache ou pioche à ficeler", "lien": "Main droite : 3 ficelles du même type, ou 1 liane"}
 const HOLD_ACTIONS := ["tresser", "fendre", "ficeler", "nouer"]
+# 0.0.8.24 (demande de l'utilisateur : l'éclat était pris tout seul) : objets facultatifs, proposés ; sans eux, l'action se
+# fait quand même, plus lentement (tresser : un éclat tranchant, deux fois plus vite).
+const OPTIONAL_ROLES := {"tresser": ["eclat_aide"]}
+const OPTIONAL_TITLES := {"eclat_aide": "Facultatif : un éclat tranchant (tresser deux fois plus vite)"}
+
+func _flake_chosen() -> bool:
+	return picks.has("eclat_aide")
 
 func _list(role: String) -> Array:
 	# 0.0.8.8 : un éclat tranchant se taille dans une pierre de taille 2 à 5.
@@ -379,6 +393,16 @@ func refresh() -> void:
 			choice_box.add_child(_label("Rien qui convienne en main ou en poche." if inventory.mode == Inventory.SURVIVAL else "Rien qui convienne.", 14, Color(0.8, 0.8, 0.8)))
 		for choice in list:
 			var button := _button(choice.label, choice_box, func(): pick(role, choice))
+			button.toggle_mode = true
+			button.set_pressed_no_signal(_same(choice, picks.get(role, {})))
+	for role in OPTIONAL_ROLES.get(action, []):
+		choice_box.add_child(_label(OPTIONAL_TITLES[role], 15, Color(0.6, 0.85, 0.82)))
+		var offered := Rules.more_choices(inventory, "eclat")
+		if offered.is_empty():
+			choice_box.add_child(_label("Aucun éclat tranchant en main ou en poche." if inventory.mode == Inventory.SURVIVAL else "Aucun éclat tranchant.", 14, Color(0.8, 0.8, 0.8)))
+		for choice in offered:
+			# Cliquer encore sur l'éclat choisi le laisse de côté.
+			var button := _button(choice.label, choice_box, func(): _toggle_optional(role, choice))
 			button.toggle_mode = true
 			button.set_pressed_no_signal(_same(choice, picks.get(role, {})))
 	if action == "tailler":
@@ -410,9 +434,9 @@ func _hint() -> String:
 	match action:
 		"tresser":
 			var cordelette: bool = str(picks.fibres.get("fibres", "")).begins_with("ficelle_")
-			var fast := Rules.has_flake(inventory)
-			text = "Clic gauche maintenu dans la scène (%s s) : tresser %s de 33 cm." % [str(Rules.braid_seconds(inventory)).replace(".", ","), "une cordelette (plus épaisse)" if cordelette else "une ficelle"]
-			text += " Avec votre éclat tranchant : deux fois plus vite." if fast else " Avec un éclat tranchant sur vous : deux fois plus vite."
+			var fast := _flake_chosen()
+			text = "Clic gauche maintenu dans la scène (%s s) : tresser %s de 33 cm." % [str(Rules.braid_seconds(_flake_chosen())).replace(".", ","), "une cordelette (plus épaisse)" if cordelette else "une ficelle"]
+			text += " Avec l'éclat choisi : deux fois plus vite." if fast else " Choisissez un éclat tranchant (facultatif) : deux fois plus vite."
 		"nouer":
 			text = "Clic gauche maintenu dans la scène : une rangée de mailles toutes les %s s ; relâchez pour finir (%d à %d rangées : plus il y en a, plus les mailles sont serrées)." % [str(Rules.ROW_SECONDS).replace(".", ","), Inventory.BAG_ROWS.x, Inventory.BAG_ROWS.y]
 		"tailler":
@@ -594,7 +618,7 @@ func step_braid(delta: float) -> bool:
 		return false
 	hold_time += delta
 	# 0.0.8.21 (demande de l'utilisateur) : deux fois plus vite avec un éclat tranchant sur soi.
-	var seconds := Rules.braid_seconds(inventory)
+	var seconds := Rules.braid_seconds(_flake_chosen())
 	var share := clampf(hold_time / seconds, 0.0, 1.0)
 	ring.progress = share
 	# Les mains tendent les brins (un peu plus écartées) ; la main droite roule d'avant en arrière.

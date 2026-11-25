@@ -1,6 +1,16 @@
-# OrbMeka™ — prototype 0.0.8.23
+# OrbMeka™ — prototype 0.0.8.24
 
 Godot 4.7 / GDScript. Formes et couleurs simples ; assets externes seulement sous licence vérifiée (sons CC0, assets/sounds/CREDITS.txt).
+
+## 0.0.8.24 — La pierre cassée va en main ; sac de 5 kg ; Créatif par 99 ; l'éclat proposé pour tresser
+Publiée (depuis le 25.11.2026, chaque version est publiée ; tous les tests sur GitHub une version sur 5). Génération inchangée (version 33). Demandes de l'utilisateur.
+- **Pierre cassée à la pioche** (signalé : « ça ne me fait pas récupérer la pierre ») : en Survie, ses éclats vont directement dans la main choisie (sinon l'autre main, une poche…), comme une récolte ; seulement ce qui ne tient pas tombe à côté (avant : tout tombait au sol, souvent caché dans l'herbe).
+- **Sac en filet** : jusqu'à **5 kg** (lin, 10 rangées, bretelle en cordelette ; le moins bon : 3,45 kg ; avant 2,5 à 3,5 kg).
+- **Créatif** : un objet pris dans le catalogue compte **99** et le reste (il ne diminue pas) ; un **outil, un seul** à la fois ; plus de **pioche de base** dans l'onglet Outils (la pioche en pierre la remplace) ; les outils **ne s'usent pas** (ni barre d'usure).
+- **Tresser** : l'éclat tranchant n'est plus pris tout seul : il est **proposé** (« Facultatif : un éclat tranchant ») ; choisi, on tresse deux fois plus vite ; sans lui, à la vitesse normale. Recliquer dessus le laisse de côté.
+
+Tests réussis : inventory, inventory_more, sac, crafting, carnet, prototype, shortcuts_selection, tools, fiche_outil, history_resume (+ tests juridiques).
+À tester : casser de la pierre (sol, rocher) avec la pioche en pierre en Survie ; Créatif : le 99 dans les cases, un outil ; tresser avec et sans éclat.
 
 ## 0.0.8.23 — Enlever soi-même les feuilles : R les fait tomber en tas (20 au plus, à la taille de l'arbre), à ramasser avec R ; plus aucune feuille ne disparaît toute seule
 Version locale (2 sur 4 depuis la publication de 0.0.8.21). Génération inchangée (version 33). Demandes de l'utilisateur (« il faut qu'on enlève nous-mêmes les feuilles », « d'abord les feuilles tombent et on peut les récupérer avec R », « elles restent de la même taille », « quand le tas a 20 feuilles, un nouveau tas apparaît », code léger).

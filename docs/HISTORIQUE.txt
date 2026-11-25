@@ -3,6 +3,10 @@ Du plus récent au plus ancien. Ce fichier est mis à jour à chaque version.
 
 === Thème « Fabrication et survie » (0.0.8) ===
 
+0.0.8.24 — La pierre cassée à la pioche va en main ; sac en filet jusqu'à 5 kg ; Créatif : objets par 99 (qui restent 99), un outil à la fois, plus de pioche de base, outils sans usure ; tresser : l'éclat est proposé (sans lui, pas plus vite)
+Génération du terrain : version 33 · Menus : version 17.
+Demandes de l'utilisateur. Publié dès cette version (chaque version est maintenant publiée).
+
 0.0.8.23 — Enlever soi-même les feuilles : R les fait tomber en tas de 20 au plus (à la taille de l'arbre), à ramasser avec R ; la branche reste nue, R encore la défait en bois ; plus aucune feuille ne disparaît toute seule ; R vise les branches couchées comme pour couper
 Génération du terrain : version 33 · Menus : version 17.
 Demandes de l'utilisateur ; mesuré : 215 tas de feuilles, moins de dessins qu'avec les feuilles sur les branches.

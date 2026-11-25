@@ -95,15 +95,17 @@ func _run() -> void:
 	ui._on_slot(MOUSE_BUTTON_LEFT, "grid", 12)
 	check(world.inventory.item("grid", 12).objet == "pierre", "and in the grid")
 	ui.show_category(3)
-	ui._on_catalog(MOUSE_BUTTON_RIGHT, 0)
-	check(world.inventory.item("bar", 1).objet == "pioche", "right click on Outils: pickaxe in the first free slot")
+	ui._on_catalog(MOUSE_BUTTON_RIGHT, 3)
+	check(world.inventory.item("bar", 1).objet == "pioche_pierre", "right click on Outils: the stone pickaxe in the first free slot (0.0.8.24: no more basic pickaxe)")
+	# 0.0.8.24 (demandes de l'utilisateur) : en Créatif, un objet du catalogue compte 99 (et le reste) ; un outil, un seul.
+	check(Inventory.shown_count(world.inventory.item("bar", 0)) == 99 and Inventory.shown_count(world.inventory.item("bar", 1)) == 1 and not Inventory.CATEGORIES[3].objets.has("pioche"), "creative: 99 of a catalog item, one tool, no basic pickaxe in Outils")
 	# Déplacer d'une case à l'autre, échanger, vider.
 	ui._on_slot(MOUSE_BUTTON_LEFT, "grid", 12)
 	ui._on_slot(MOUSE_BUTTON_LEFT, "bar", 1)
-	check(world.inventory.item("bar", 1).objet == "pierre" and ui.cursor_item.objet == "pioche", "swap: stone in the bar, pickaxe held")
+	check(world.inventory.item("bar", 1).objet == "pierre" and ui.cursor_item.objet == "pioche_pierre", "swap: stone in the bar, pickaxe held")
 	ui._on_slot(MOUSE_BUTTON_LEFT, "bar", 2)
 	ui._on_slot(MOUSE_BUTTON_RIGHT, "grid", 12)
-	check(world.inventory.item("bar", 2).objet == "pioche" and world.inventory.item("grid", 12).is_empty(), "pickaxe placed, right click empties")
+	check(world.inventory.item("bar", 2).objet == "pioche_pierre" and world.inventory.item("grid", 12).is_empty(), "pickaxe placed, right click empties")
 	# Échap ferme (sans pause).
 	app._cancel_page()
 	check(not ui.is_open() and not world.inventory_open and app.page == "playing" and ui.hud_bar.visible, "Escape closes the inventory, still playing")
@@ -112,7 +114,7 @@ func _run() -> void:
 	key(world, KEY_2)
 	check(world.inventory.selected() == 1 and world.player.selected_type == 1 and world.notice == "Pierre", "key 2: stone in hand")
 	key(world, KEY_3)
-	check(world.player.selected_type == world.PICKAXE, "key 3: pickaxe in hand")
+	check(world.inventory.held().get("objet") == "pioche_pierre", "key 3: pickaxe in hand")
 	key(world, KEY_0)
 	check(world.inventory.selected() == 9 and world.player.selected_type == -1, "key 0: tenth slot, empty hand")
 	world.player.cycle_block(1)
@@ -196,15 +198,11 @@ func _run() -> void:
 	check(world.inventory.selected() == 5, "key 6: last pocket")
 	world.player.cycle_block(1)
 	check(world.inventory.selected() == 0, "wheel goes round hands and pockets")
-	# Morceaux de pierre au sol, ramassés avec R : la main choisie (gauche), puis l'autre main libre (droite), puis poches.
+	# Morceaux de pierre cassée : 0.0.8.24 (l'utilisateur : la pioche ne faisait pas récupérer la pierre) : en Survie, ils
+	# vont en main tout de suite : la main choisie (gauche), puis l'autre main libre (droite), puis les poches.
 	world.drop_pieces("eclat_pierre", 2, 125.0, world.player.global_position + Vector3.UP)
+	check(world.ground.entries.is_empty() and world.inventory.item("bar", 0).objet == "eclat_pierre" and Inventory.count(world.inventory.item("bar", 0)) == 2 and Inventory.stack_weight(world.inventory.item("bar", 0)) == 250.0, "broken stone: its pieces go straight into the chosen slot (left hand), together")
 	world.drop_pieces("charbon", 1, 125.0, world.player.global_position + Vector3.UP)
-	check(world.ground.entries.size() == 3 and world.ground.entries.all(func(entry): return world.player.global_position.distance_to(entry.position) < 2.0), "pieces fall beside the player")
-	for index in range(2):
-		world.pick_up({"collider": world.ground.bodies[0], "position": world.ground.entries[0].position})
-	check(world.inventory.item("bar", 0).objet == "eclat_pierre" and Inventory.count(world.inventory.item("bar", 0)) == 2 and Inventory.stack_weight(world.inventory.item("bar", 0)) == 250.0, "pieces of the same kind go together in the chosen slot (left hand)")
-	var coal: Dictionary = world.ground.entries[0].item.duplicate()
-	world.pick_up({"collider": world.ground.bodies[0], "position": world.ground.entries[0].position})
 	check(world.inventory.item("bar", 1).get("objet") == "charbon" and world.ground.entries.is_empty(), "chosen hand busy: the coal goes to the other (right) hand (0.0.7.10)")
 	check(ui.hud_slots[0].title == "" and ui.hud_slots[0].note == "250,0 g" and ui.hud_slots[1].note == "125,0 g" and ui.hud_slots[2].title == "" and ui.hud_slots[2].note == "", "0.0.8.3: only the weight under each slot (name shown above when taken in hand), nothing under an empty one")
 	check(world.inventory.add({"objet": "terre", "nombre": 6}) == 2 and ui.hud_carried.poches[1].text.begins_with("650,0 g / 1,000 kg") and is_equal_approx(ui.panel_bars.Poches[0].share, 0.65) and is_equal_approx(ui.panel_bars.Poches[1].share, 1.0), "pockets: 1 kg in all since 0.0.8.7 (two handfuls of earth of 325 g fill the 0,5 L)")
@@ -213,7 +211,7 @@ func _run() -> void:
 	world.player.brush = 0
 	var spot: Vector3 = world.player.global_position - world.player.global_transform.basis.z * 1.5
 	check(world.place_target({"collider": world.ground, "position": spot}, world.player.selected_type) and world.inventory.item("bar", 1).is_empty() and world.ground.entries.size() == 1 and Vector2(world.ground.entries[0].position.x - spot.x, world.ground.entries[0].position.z - spot.z).length() < 0.01, "right click puts the held piece down where aimed")
-	check(world.ground.entries[0].item == coal, "put back exactly as it was (shape, turn, weight)")
+	check(world.ground.entries[0].item.get("objet") == "charbon" and is_equal_approx(float(world.ground.entries[0].item.get("poids", 0.0)), 125.0) and world.ground.entries[0].item.has("forme"), "put back as it was (its weight), with a shape of its own")
 	world.pick_up({"collider": world.ground.bodies[0], "position": world.ground.entries[0].position})
 	world.inventory.select(0)
 	world.drop_items({"objet": "terre", "nombre": 1})
@@ -287,7 +285,7 @@ func _run() -> void:
 	app.open_world(item.id)
 	await process_frame
 	world = app.active_world
-	check(world.inventory.item("bar", 2).objet == "pioche" and world.inventory.selected() == 0 and world.player.selected_type == 2, "inventory read again with the world")
+	check(world.inventory.item("bar", 2).objet == "pioche_pierre" and world.inventory.selected() == 0 and world.player.selected_type == 2, "inventory read again with the world")
 	app.return_to_worlds()
 	root.remove_child(app)
 	app.queue_free()
