@@ -3,6 +3,10 @@ Du plus récent au plus ancien. Ce fichier est mis à jour à chaque version.
 
 === Thème « Fabrication et survie » (0.0.8) ===
 
+0.0.8.27 — Le jour et la nuit : une journée de 24 minutes (1 s = 1 min), lever à 6 h 30, coucher à 22 h, un nouveau monde à 8 h ; soleil et lune d'est en ouest, aube et crépuscule colorés, nuit sombre mais pas noire ; l'heure en haut à droite, sauvegardée
+Génération du terrain : version 33 · Menus : version 17.
+Issue #160 et demandes de l'utilisateur.
+
 0.0.8.26 — Créatif : vraies piles de 99 (se partagent, se posent une à une, restent à 99 quand on s'en sert), onglet Équipement (sac, navette), éclats dans Outils, ficelles et cordelettes dans Plantes ; une bûche fine se fend (bâtons de noisetier) ; aides (navette, éclat) prises dans toute la barre ; usure d'un outil en tête de ses détails
 Génération du terrain : version 33 · Menus : version 17.
 Demandes et corrections de l'utilisateur.

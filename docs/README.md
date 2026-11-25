@@ -1,6 +1,17 @@
-# OrbMeka™ — prototype 0.0.8.26
+# OrbMeka™ — prototype 0.0.8.27
 
 Godot 4.7 / GDScript. Formes et couleurs simples ; assets externes seulement sous licence vérifiée (sons CC0, assets/sounds/CREDITS.txt).
+
+## 0.0.8.27 — Le jour et la nuit (#160)
+Publiée. Génération inchangée (version 33). Issue #160 et demandes de l'utilisateur.
+- **Une journée de 24 minutes** : 1 seconde = 1 minute du jeu. Un nouveau monde commence à **8 h** ; le soleil se lève à **6 h 30** et se couche à **22 h** (choix de l'utilisateur). L'heure est sauvegardée avec le monde (les anciens mondes reprennent à 8 h).
+- **Le soleil** va de l'est à l'ouest et monte jusqu'à 62° ; la lumière baisse quand il est bas. **L'aube et le crépuscule** : horizon orangé, lumière plus chaude. **La nuit** : la lune, d'une lumière faible et bleutée, sans ombres (plus léger) ; sombre mais pas noire.
+- Le ciel et la brume lointaine prennent les couleurs de l'heure (recalculés toutes les 2 s, par petits morceaux, pour rester léger).
+- **L'heure** s'affiche en haut à droite (sous la mini-carte dès 0.0.8.28).
+- Correction : à l'ouverture d'un monde, le mode de jeu est aussi donné aux cases de l'inventaire (barre d'usure, détails).
+
+Tests réussis : jour_nuit (14, nouveau), quality, prototype, swim, optimisation, inventory, history_resume (+ tests juridiques). Captures (fenêtre discrète) : 8 h, 14 h, 22 h, minuit.
+À tester : attendre un coucher de soleil (de 21 h 15 à 22 h 45) et une nuit ; sur le Web, la nuit doit rester lisible.
 
 ## 0.0.8.26 — Créatif : vraies piles de 99 et onglet Équipement ; bûches fines à fendre ; aides dans toute la barre ; usure visible
 Publiée. Génération inchangée (version 33). Demandes et corrections de l'utilisateur.
