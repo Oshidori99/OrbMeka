@@ -887,7 +887,17 @@ func _say(text: String) -> void:
 # en pose un seul ; bouton droit maintenu en glissant : un dans chaque case. Bouton gauche maintenu en glissant avec un
 # objet tenu : à la fin, le tas est réparti à parts égales entre les cases choisies (le reste reste en main). Le glisser
 # ne commence qu'avec un vrai bouton tenu (real) ; sinon (tests, clic simple), un clic gauche pose tout de suite.
+# 0.0.8.26 : une pile prise dans le catalogue (Créatif, vraie pile de 99) : ce qui en reste en main disparaît quand on la
+# lâche hors des cases (comme avant) ; un objet pris dans une case, lui, retourne à sa place.
+var cursor_catalog := false
+
 func _on_slot(button: int, area: String, index: int) -> void:
+	var before: String = cursor_item.get("objet", "")
+	_slot_click(button, area, index)
+	if cursor_item.is_empty() or cursor_item.get("objet", "") != before:
+		cursor_catalog = false
+
+func _slot_click(button: int, area: String, index: int) -> void:
 	if not inventory.usable(area, index):
 		return
 	var real: bool = Input.is_mouse_button_pressed(button)
@@ -1070,7 +1080,10 @@ func _on_catalog(button: int, index: int) -> void:
 	var objects: Array = Inventory.CATEGORIES[category].objets
 	if index >= objects.size():
 		return
-	var value := Inventory.catalog_item(objects[index])
+	# 0.0.8.26 (demande de l'utilisateur) : une vraie pile de 99 (un outil : 1), qui se partage en glissant et se pose une à
+	# une au clic droit.
+	var value := Inventory.real_stack(Inventory.catalog_item(objects[index]))
+	cursor_catalog = button != MOUSE_BUTTON_RIGHT
 	if button == MOUSE_BUTTON_RIGHT:
 		var free: Array = inventory.first_free()
 		if free.is_empty():
@@ -1095,6 +1108,12 @@ signal overflow(value: Dictionary)
 
 func _drop_cursor() -> void:
 	if cursor_item.is_empty():
+		return
+	if cursor_catalog:
+		cursor_catalog = false
+		cursor_item = {}
+		cursor_from = []
+		_show_cursor()
 		return
 	if not Inventory.unlimited(cursor_item):
 		if not cursor_from.is_empty():
@@ -1213,14 +1232,16 @@ func throw_key(all: bool = false, delete: bool = false) -> bool:
 		_say("En Survie, on ne supprime rien : J pour jeter au sol.")
 		return false
 	if not cursor_item.is_empty():
-		if Inventory.unlimited(cursor_item):
+		# 0.0.8.26 : une pile du catalogue (Créatif) : comme un objet illimité (J : un tombe, elle reste ; D + E : lâchée).
+		if Inventory.unlimited(cursor_item) or cursor_catalog:
 			if delete:
 				_discard(cursor_item, true)
 				cursor_item = {}
+				cursor_catalog = false
 				cursor_from = []
 				_show_cursor()
 			else:
-				_discard(cursor_item.duplicate(true))
+				_discard(Inventory._split(cursor_item, Inventory.count(cursor_item) - 1)[1] if cursor_catalog else cursor_item.duplicate(true))
 			return true
 		var thrown: Dictionary
 		if all or Inventory.count(cursor_item) <= 1:
@@ -1470,7 +1491,10 @@ func _detail_cards(value: Dictionary, only: bool = false) -> Array:
 				stacks.append(there)
 	var hidden := 0
 	for there in stacks:
-		if there.has("pile"):
+		# 0.0.8.26 : une pile d'objets tous pareils (Créatif : 99) : une seule fiche, avec leur nombre.
+		if there.has("pile") and there.pile.size() > 1 and there.pile.all(func(instance): return instance == there.pile[0]):
+			result.append(_detail_card(Inventory.flat(there.objet, there.pile[0]), there.pile.size(), side))
+		elif there.has("pile"):
 			for instance in there.pile:
 				if inventory.mode == Inventory.CREATIVE and result.size() >= CARDS_SHOWN:
 					hidden += 1

@@ -43,6 +43,27 @@ func _run() -> void:
 	var handle := {"objet": "branche", "essence": 1, "epaisseur": 3.5, "fin": 3.0, "longueur": 0.6}
 	var shuttle: Dictionary = Rules.split_result(thin)
 	check(Rules.fits_more("manche", thin) and shuttle.objet == "navette" and Inventory.item_name(shuttle) == "Navette de noisetier" and Rules.split_result(handle).objet == "branche", "a thin short branch split: a navette (Navette de noisetier); a handle stays a split branch")
+	# 0.0.8.26 : une bûche fine (bâton de noisetier de 4,5 cm, 60 cm) se fend aussi : une branche fendue.
+	var thin_log := {"objet": "tronc", "essence": 1, "epaisseur": 4.5, "fin": 4.0, "longueur": 0.6}
+	check(Rules.fits_more("manche", thin_log) and Rules.split_result(thin_log).objet == "branche" and int(Rules.split_result(thin_log).pile[0].fendue) == 1, "0.0.8.26: a thin log (4.5 cm) is a handle too: split, a split branch")
+	# 0.0.8.26 : les aides se choisissent dans toute la barre (une poche), même les mains prises ; pas la grille.
+	var aids := Inventory.new()
+	aids.set_mode(Inventory.SURVIVAL)
+	aids.put("bar", Inventory.HANDS[0], {"objet": "hache_a_ficeler", "pile": [{"pierre": 1, "taille": 5, "poids": 600.0}]})
+	aids.put("bar", Inventory.POCKETS[1], {"objet": "navette", "pile": [{"essence": 1, "epaisseur": 1.8, "longueur": 0.3}]})
+	check(Rules.aid_choices(aids, "navette").size() == 1 and Rules.aid_choices(aids, "navette")[0].index == Inventory.POCKETS[1], "a navette in a pocket is offered for tying")
+	var creative_aids := Inventory.new()
+	creative_aids.set_mode(Inventory.CREATIVE)
+	creative_aids.put("grid", 0, {"objet": "navette", "pile": [{"essence": 1}]})
+	check(Rules.aid_choices(creative_aids, "navette").all(func(choice): return choice.area != "grid"), "never from the inventory grid")
+	# 0.0.8.26 : onglets du Créatif ; une pile du catalogue reste à 99 quand on s'en sert.
+	var tabs := {}
+	for category in Inventory.CATEGORIES:
+		tabs[category.id] = category.objets
+	check(tabs.equipment == ["sac_filet", "navette"] and tabs.tools.has("eclat_silex") and tabs.plants.has("ficelle_lin") and tabs.plants.has("cordelette_lin"), "creative tabs: Équipement (bag, navette), flakes in Outils, strings in Plantes")
+	creative_aids.put("bar", 0, Inventory.real_stack(Inventory.catalog_item("terre")))
+	creative_aids.select(0)
+	check(creative_aids.use_held(1) and Inventory.count(creative_aids.item("bar", 0)) == 99, "creative: a real pile of 99, still 99 after use")
 	check(is_equal_approx(Rules.turn_seconds(true), Rules.TURN_SECONDS * 0.5) and is_equal_approx(Rules.turn_seconds(false), Rules.TURN_SECONDS), "tying with a navette: twice as fast")
 	check(Rules.KNAP_HITS == {3: 13, 4: 15, 5: 20} and Rules.FLAKE_HITS == 8 and Rules.BRAID_FIBERS == 3 and Rules.BRAID_SECONDS == 3.0, "0.0.8.8: 13, 15 or 20 hits (8 for a sharp flake); 3 fibres in 3 s")
 	check(is_equal_approx(Inventory.instance_volume("fibre_lin", {}), 0.01), "a fibre: 10 ml")

@@ -190,16 +190,20 @@ const CATEGORIES := [
 	{"id": "pebbles", "nom": "Cailloux", "objets": ["caillou", "caillou_calcaire", "caillou_silex"]},
 	{"id": "fruits", "nom": "Fruits", "objets": ["pomme", "noisette"]},
 	# 0.0.8.5 : têtes de hache et de pioche taillées (silex, grandes).
-	{"id": "tools", "nom": "Outils", "objets": ["tete_hache", "tete_pioche", "hache_pierre", "pioche_pierre"]},
+	# 0.0.8.26 (demande de l'utilisateur) : les éclats tranchants aussi.
+	{"id": "tools", "nom": "Outils", "objets": ["tete_hache", "tete_pioche", "hache_pierre", "pioche_pierre", "eclat_silex", "eclat_pierre"]},
 	# 0.0.7.18 (demande de l'utilisateur) : pour chaque espèce, un tronc (20 cm × 1 m) et une branche (4 cm × 1 m),
 	# séparés ; « objet:essence » (catalog_item).
 	{"id": "wood", "nom": "Bois", "objets": ["tronc:0", "branche:0", "tronc:1", "branche:1", "tronc:2", "branche:2", "tronc:3", "branche:3"]},
 	# 0.0.8.4 : fibres et liane (onglet Plantes, après Bois).
 	# 0.0.8.15 (#239) : plantes entières et motte de gazon, à planter ou poser.
-	{"id": "plants", "nom": "Plantes", "objets": ["plante_ortie", "plante_lin", "plante_herbe", "gazon", "fibre_ortie", "fibre_lin", "fibre_herbe", "liane"]},
+	# 0.0.8.26 (demande de l'utilisateur) : ficelles et cordelettes aussi.
+	{"id": "plants", "nom": "Plantes", "objets": ["plante_ortie", "plante_lin", "plante_herbe", "gazon", "fibre_ortie", "fibre_lin", "fibre_herbe", "liane", "ficelle_ortie", "ficelle_lin", "ficelle_herbe", "cordelette_ortie", "cordelette_lin", "cordelette_herbe"]},
+	# 0.0.8.26 (demande de l'utilisateur) : équipement : le sac en filet, la navette.
+	{"id": "equipment", "nom": "Équipement", "objets": ["sac_filet", "navette"]},
 ]
 # Pour l'instant une seule version par objet : cailloux de taille 4, pomme rouge de taille 2.
-const CATALOG_MODELS := {"caillou": {"taille": 4}, "caillou_calcaire": {"taille": 4}, "caillou_silex": {"taille": 4}, "pomme": {"taille": 2, "couleur": 1}, "tete_hache": {"pierre": 1, "taille": 5, "poids": 420.0}, "tete_pioche": {"pierre": 1, "taille": 5, "poids": 420.0}, "hache_pierre": {"pierre": 1, "taille": 5, "essence": 1, "age": 3, "souplesse": 3, "epaisseur": 3.5, "longueur": 0.6, "lien": 1, "tours": 8, "poids": 700.0}, "pioche_pierre": {"pierre": 1, "taille": 5, "essence": 1, "age": 3, "souplesse": 3, "epaisseur": 3.5, "longueur": 0.6, "lien": 1, "tours": 8, "poids": 700.0}}
+const CATALOG_MODELS := {"eclat_silex": {"poids": 40.0}, "eclat_pierre": {"poids": 40.0}, "sac_filet": {"lien": 1, "rangees": 10, "bretelle": 0, "poids": 90.0}, "navette": {"essence": 1, "age": 3, "souplesse": 3, "epaisseur": 1.8, "fin": 1.5, "longueur": 0.3, "poids": 60.0}, "caillou": {"taille": 4}, "caillou_calcaire": {"taille": 4}, "caillou_silex": {"taille": 4}, "pomme": {"taille": 2, "couleur": 1}, "tete_hache": {"pierre": 1, "taille": 5, "poids": 420.0}, "tete_pioche": {"pierre": 1, "taille": 5, "poids": 420.0}, "hache_pierre": {"pierre": 1, "taille": 5, "essence": 1, "age": 3, "souplesse": 3, "epaisseur": 3.5, "longueur": 0.6, "lien": 1, "tours": 8, "poids": 700.0}, "pioche_pierre": {"pierre": 1, "taille": 5, "essence": 1, "age": 3, "souplesse": 3, "epaisseur": 3.5, "longueur": 0.6, "lien": 1, "tours": 8, "poids": 700.0}}
 
 signal changed
 
@@ -912,7 +916,8 @@ func use_held(amount: int = 1) -> bool:
 	var there := held()
 	if there.is_empty():
 		return false
-	if unlimited(there):
+	# 0.0.8.26 : en Créatif, une pile ne diminue pas quand on s'en sert dans le monde (elle reste à 99).
+	if unlimited(there) or mode == CREATIVE:
 		return true
 	if count(there) < amount:
 		return false
@@ -936,6 +941,9 @@ func pop_held() -> Dictionary:
 		return {}
 	if unlimited(there):
 		return there.duplicate(true)
+	# 0.0.8.26 : en Créatif, la pile reste (un objet comme elle, posé ou jeté).
+	if mode == CREATIVE:
+		return flat(there.objet, there.pile[-1]) if there.has("pile") else {"objet": there.objet}
 	if there.has("pile"):
 		var kept := there.duplicate(true)
 		var last: Dictionary = kept.pile.pop_back()
@@ -1290,7 +1298,11 @@ static func detail_lines(value: Dictionary) -> Array:
 	var lines := [item_name(value)]
 	# 0.0.8.6 (#211, #145) : outil (à ficeler ou ficelé) : sa fabrication.
 	if ITEMS.get(id, {}).get("forme", "") in ["outil_brut", "outil_pierre"]:
-		return lines + tool_lines(value) + (["Poids : %s" % format_weight(instance_weight(id, value))] if instance_weight(id, value) > 0.0 else [])
+		# 0.0.8.26 (signalé : avec le « + », on ne voyait pas l'usure) : l'usure en premier, sous le nom (elle était tout en
+		# bas, coupée).
+		var tool := tool_lines(value)
+		var wear: Array = tool.filter(func(line): return str(line).begins_with("Usure"))
+		return lines + wear + tool.filter(func(line): return not str(line).begins_with("Usure")) + (["Poids : %s" % format_weight(instance_weight(id, value))] if instance_weight(id, value) > 0.0 else [])
 	# 0.0.8.21 (#207) : sac en filet : sa fabrication et ce qu'il porte.
 	if is_bag(value):
 		return lines + bag_lines(value) + ["Poids : %s" % format_weight(instance_weight(id, value))]
