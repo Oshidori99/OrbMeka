@@ -1,6 +1,18 @@
-# OrbMeka™ — prototype 0.0.8.25
+# OrbMeka™ — prototype 0.0.8.26
 
 Godot 4.7 / GDScript. Formes et couleurs simples ; assets externes seulement sous licence vérifiée (sons CC0, assets/sounds/CREDITS.txt).
+
+## 0.0.8.26 — Créatif : vraies piles de 99 et onglet Équipement ; bûches fines à fendre ; aides dans toute la barre ; usure visible
+Publiée. Génération inchangée (version 33). Demandes et corrections de l'utilisateur.
+- **Créatif, vraies piles de 99** : un objet pris dans le catalogue est une vraie pile de 99 (un outil : 1) : glisser au clic gauche la partage entre les cases, le clic droit sur une case vide en pose un à la fois. Quand on s'en sert dans le monde, elle **reste à 99**. Lâchée hors des cases, elle disparaît (comme avant) ; J en fait tomber un, D + E la lâche.
+- **Créatif, onglets** : nouvel onglet **Équipement** (sac en filet, navette) ; **éclats** de silex et de pierre dans Outils ; **ficelles et cordelettes** dans Plantes.
+- **Fendre** (signalé : les bâtons de noisetier ramassés sont des bûches) : une bûche de 2 à 5 cm est acceptée comme manche (elle devient une branche fendue) ; sans manche possible, le menu dit de recouper au sol un bâton trop long (40 cm à 1 m).
+- **Aides de fabrication** (navette pour Ficeler, éclat pour Tresser) : proposées depuis toute la barre (mains, poches, cases du sac), même les deux mains prises par l'outil ; jamais depuis la grille de l'inventaire.
+- **Usure d'un outil** : en tête de ses détails (« + » ou D + T), juste sous son nom (elle était tout en bas, coupée). Une pile d'objets tous pareils montre une seule fiche avec leur nombre.
+- Pas fait (repoussé à l'effort élevé) : le bout de rocher qui reste en l'air après un coup de pioche.
+
+Tests réussis : crafting, inventory, inventory_more, sac, fiche_outil, tools, carnet, prototype, death, feuilles, fibers, shortcuts_selection, history_resume (+ tests juridiques).
+À tester : Créatif : prendre 99, glisser sur 3 cases, clic droit ; l'onglet Équipement ; fendre un bâton de noisetier recoupé ; ficeler avec la navette en poche ; le « + » d'une pioche.
 
 ## 0.0.8.25 — Le même inventaire en Survie et en Créatif ; la navette ; ce qu'on regarde (#140) ; fibres 1, 2 ou 3
 Publiée. Génération inchangée (version 33). Demandes de l'utilisateur et issue #140.

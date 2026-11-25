@@ -104,8 +104,11 @@ static func tab(id: String, height: int) -> Texture2D:
 		"inventory":
 			var key := "#sac%d" % height
 			return _cache[key] if _cache.has(key) else _keep(key, _svg(BAG_SVG, maxi(height, 12)))
-	var source: Texture2D = texture("caillou" if id == "pebbles" else ("tronc" if id == "wood" else ("fibre_lin" if id == "plants" else "pomme")))
+	var source: Texture2D = texture("caillou" if id == "pebbles" else ("tronc" if id == "wood" else ("fibre_lin" if id == "plants" else ("sac_filet" if id == "equipment" else "pomme"))))
 	var image := source.get_image()
+	# 0.0.8.26 : une image faite dans Blender (le sac) peut être compressée.
+	if image.is_compressed():
+		image.decompress()
 	image.resize(maxi(height, 12), maxi(height, 12), Image.INTERPOLATE_LANCZOS)
 	var key := "#%s%d" % [id, height]
 	return _cache[key] if _cache.has(key) else _keep(key, image)

@@ -248,7 +248,8 @@ static func fits_more(role: String, value: Dictionary) -> bool:
 	var id: String = value.get("objet", "")
 	match role:
 		"manche":
-			return id == "branche" and int(value.get("fendue", 0)) == 0 and (good_handle(value) or good_shuttle(value))
+			# 0.0.8.26 (signalé : les bâtons de noisetier ramassés sont des bûches, dès 4 cm) : une bûche fine aussi.
+			return id in ["branche", "tronc"] and int(value.get("fendue", 0)) == 0 and (good_handle(value) or good_shuttle(value))
 		# 0.0.8.25 : navette, facultative pour Ficeler.
 		"navette":
 			return id == "navette"
@@ -302,6 +303,25 @@ static func bind_choices(inventory: Inventory) -> Array:
 	if inventory.mode == Inventory.CREATIVE:
 		for id in BINDS:
 			result.append({"label": "%s (Créatif)" % Inventory.ITEMS[id].nom, "value": {"objet": id}, "area": "", "index": -1, "unit": -1, "bind": id, "creative": true})
+	return result
+
+# 0.0.8.26 (demande de l'utilisateur : l'outil à ficeler dans les deux mains, la navette n'était pas proposée) : aides
+# facultatives (éclat, navette) : n'importe où dans la barre (mains, poches, cases du sac), même les mains prises ; jamais
+# la grille de l'inventaire ni le deuxième sac ; Créatif : toute la barre (et le modèle du catalogue).
+static func aid_choices(inventory: Inventory, kind: String) -> Array:
+	var result := []
+	for index in range(Inventory.BAR_SIZE):
+		if not inventory.usable("bar", index):
+			continue
+		var there := inventory.item("bar", index)
+		if there.is_empty() or Inventory.unlimited(there):
+			continue
+		var units := Inventory.units(there)
+		for unit in range(units.size()):
+			if fits_more(kind, units[unit]):
+				result.append({"label": _label(units[unit]), "value": units[unit], "area": "bar", "index": index, "unit": unit})
+	if inventory.mode == Inventory.CREATIVE:
+		result.append_array(more_choices(inventory, kind).filter(func(choice): return choice.get("creative", false)))
 	return result
 
 # Objets possibles pour un rôle des nouvelles actions (comme choices).
@@ -385,6 +405,8 @@ static func split_result(stick: Dictionary) -> Dictionary:
 	if good_shuttle(stick) and not good_handle(stick):
 		made.objet = "navette"
 		return _pile(made)
+	# Une bûche fine fendue devient une branche fendue (le manche d'un outil).
+	made.objet = "branche"
 	made.fendue = 1
 	return _pile(made)
 

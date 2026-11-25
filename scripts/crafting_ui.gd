@@ -396,13 +396,16 @@ func refresh() -> void:
 				list = list.filter(func(choice): return not _same(choice, picks.get(other, {})))
 		if list.is_empty():
 			choice_box.add_child(_label("Rien qui convienne en main ou en poche." if inventory.mode == Inventory.SURVIVAL else "Rien qui convienne.", 14, Color(0.8, 0.8, 0.8)))
+			# 0.0.8.26 : un bâton trop long (une tige de noisetier fait 5 à 6 m) : le recouper au sol.
+			if role == "manche":
+				choice_box.add_child(_label("Un bâton trop long ? Posez-le et recoupez-le au sol (clic gauche maintenu dessus) : 40 cm à 1 m pour un manche.", 13, Color(0.85, 0.8, 0.6)))
 		for choice in list:
 			var button := _button(choice.label, choice_box, func(): pick(role, choice))
 			button.toggle_mode = true
 			button.set_pressed_no_signal(_same(choice, picks.get(role, {})))
 	for role in OPTIONAL_ROLES.get(action, []):
 		choice_box.add_child(_label(OPTIONAL_TITLES[role], 15, Color(0.6, 0.85, 0.82)))
-		var offered := Rules.more_choices(inventory, OPTIONAL_KINDS[role])
+		var offered := Rules.aid_choices(inventory, OPTIONAL_KINDS[role])
 		if offered.is_empty():
 			choice_box.add_child(_label(("Aucun%s en main ou en poche." if inventory.mode == Inventory.SURVIVAL else "Aucun%s.") % (" éclat tranchant" if role == "eclat_aide" else "e navette"), 14, Color(0.8, 0.8, 0.8)))
 		for choice in offered:
