@@ -2259,7 +2259,7 @@ func cut_wood(tree: Node3D, number: int, t: float, point: Vector3) -> void:
 		# reste couchée ainsi (_drop_branch) ; sur un arbre abattu aussi (l'utilisateur : « tombe entière » ; avant, elle
 		# devenait tout de suite des bâtons à plat, ses feuilles disparues).
 		_drop_branch(tree, cut, number, t)
-		show_choice("Branche coupée : au sol, R la défait en bois")
+		show_choice("Branche coupée : au sol, R fait tomber ses feuilles, puis son bois")
 	elif not lying:
 		_fall_part(tree, cut, number, t)
 	elif _cut_to_wood(tree, cut, number):
