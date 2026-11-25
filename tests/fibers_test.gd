@@ -24,6 +24,11 @@ func check(ok: bool, label: String) -> void:
 		push_error("FAIL: " + label)
 
 func _run() -> void:
+	# 0.0.8.25 (demande de l'utilisateur) : 1 fibre 10 % du temps, 2 fibres 60 %, 3 fibres 30 %.
+	var seen := [0, 0, 0, 0]
+	for index in range(4000):
+		seen[Fibers.fiber_count({"x": index * 0.37, "z": index * 1.91})] += 1
+	check(absf(seen[1] / 4000.0 - 0.1) < 0.02 and absf(seen[2] / 4000.0 - 0.6) < 0.03 and absf(seen[3] / 4000.0 - 0.3) < 0.03 and seen[0] == 0, "fibres: 1 (10 %), 2 (60 %), 3 (30 %) : %s on 4000 plants" % str(seen.slice(1)))
 	# Objets.
 	check(Fibers.PLANT_ITEMS.all(func(id): return Inventory.ITEMS.has(id) and Inventory.ITEMS[id].forme == "fibre") and Inventory.ITEMS.liane.forme == "liane", "items: three fibres and a liane")
 	check(Inventory.ITEMS.fibre_ortie.nom == "Fibre d'ortie" and Inventory.ITEMS.fibre_lin.nom == "Fibre de lin" and Inventory.ITEMS.fibre_herbe.nom == "Fibre d'herbe", "names")

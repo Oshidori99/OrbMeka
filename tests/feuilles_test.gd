@@ -183,6 +183,9 @@ func _run() -> void:
 	var pile_at: Vector3 = world.ground.entries[full_index].position
 	player.camera.global_position = pile_at + Vector3(0.05, 1.4, 0.6)
 	player.camera.look_at(pile_at)
+	# 0.0.8.25 (#140) : ce qu'on regarde, en haut de l'écran.
+	var looked: String = world.looked_text({"collider": world.ground.bodies[full_index], "position": pile_at})
+	check(looked == "Feuilles de noisetier (20)", "looking at a pile: « %s »" % looked)
 	var picked: bool = world.pick_up({"collider": world.ground.bodies[full_index], "position": pile_at})
 	var held: Dictionary = world.inventory.held()
 	check(picked and held.get("objet", "") == "feuilles" and Inventory.count(held) == Inventory.LEAF_PILE and Inventory.item_name(held) == "Feuilles de noisetier", "R on a pile: its 20 leaves in hand (%s ×%d)" % [Inventory.item_name(held), Inventory.count(held)])

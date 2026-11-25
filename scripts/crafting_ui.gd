@@ -357,14 +357,19 @@ const ROLES := {"tresser": ["fibres"], "tailler": ["percuteur", "pierre"], "fend
 # 0.0.8.21 (#207) : tresser 3 ficelles donne une cordelette ; Nouer : le sac en filet.
 const ROLE_TITLES := {"fibres": "3 fibres (une ficelle) ou 3 ficelles (une cordelette), du même type", "percuteur": "Main gauche : percuteur (un caillou)", "pierre": "Main droite : pierre à tailler (silex ou calcaire, taille 3 à 5)",
 	"filet": "Main gauche : 4 cordelettes du même type (les mailles)", "bretelle": "Main droite : 1 cordelette ou 1 liane (la bretelle)",
-	"manche": "Main gauche : branche (2 à 5 cm, 40 cm à 1 m, pas pourrie)", "eclat": "Main droite : éclat tranchant",
+	"manche": "Main gauche : branche (2 à 5 cm, 40 cm à 1 m : un manche ; 1 à 2,5 cm, 15 à 40 cm : une navette)", "eclat": "Main droite : éclat tranchant",
 	"fendu": "Main gauche : branche fendue", "tete": "Main droite : tête de hache ou de pioche",
 	"a_ficeler": "Main gauche : hache ou pioche à ficeler", "lien": "Main droite : 3 ficelles du même type, ou 1 liane"}
 const HOLD_ACTIONS := ["tresser", "fendre", "ficeler", "nouer"]
 # 0.0.8.24 (demande de l'utilisateur : l'éclat était pris tout seul) : objets facultatifs, proposés ; sans eux, l'action se
 # fait quand même, plus lentement (tresser : un éclat tranchant, deux fois plus vite).
-const OPTIONAL_ROLES := {"tresser": ["eclat_aide"]}
-const OPTIONAL_TITLES := {"eclat_aide": "Facultatif : un éclat tranchant (tresser deux fois plus vite)"}
+const OPTIONAL_ROLES := {"tresser": ["eclat_aide"], "ficeler": ["navette_aide"]}
+# Rôle (Rules.more_choices) des objets proposés ; 0.0.8.25 : la navette, pour ficeler deux fois plus vite.
+const OPTIONAL_KINDS := {"eclat_aide": "eclat", "navette_aide": "navette"}
+const OPTIONAL_TITLES := {"eclat_aide": "Facultatif : un éclat tranchant (tresser deux fois plus vite)", "navette_aide": "Facultatif : une navette (ficeler deux fois plus vite)"}
+
+func _turn_seconds() -> float:
+	return Rules.turn_seconds(picks.has("navette_aide"))
 
 func _flake_chosen() -> bool:
 	return picks.has("eclat_aide")
@@ -397,9 +402,9 @@ func refresh() -> void:
 			button.set_pressed_no_signal(_same(choice, picks.get(role, {})))
 	for role in OPTIONAL_ROLES.get(action, []):
 		choice_box.add_child(_label(OPTIONAL_TITLES[role], 15, Color(0.6, 0.85, 0.82)))
-		var offered := Rules.more_choices(inventory, "eclat")
+		var offered := Rules.more_choices(inventory, OPTIONAL_KINDS[role])
 		if offered.is_empty():
-			choice_box.add_child(_label("Aucun éclat tranchant en main ou en poche." if inventory.mode == Inventory.SURVIVAL else "Aucun éclat tranchant.", 14, Color(0.8, 0.8, 0.8)))
+			choice_box.add_child(_label(("Aucun%s en main ou en poche." if inventory.mode == Inventory.SURVIVAL else "Aucun%s.") % (" éclat tranchant" if role == "eclat_aide" else "e navette"), 14, Color(0.8, 0.8, 0.8)))
 		for choice in offered:
 			# Cliquer encore sur l'éclat choisi le laisse de côté.
 			var button := _button(choice.label, choice_box, func(): _toggle_optional(role, choice))
@@ -447,7 +452,8 @@ func _hint() -> String:
 		"assembler":
 			text = "Cliquez dans la scène : la tête glisse dans la fente."
 		"ficeler":
-			text = "Clic gauche maintenu dans la scène : un tour toutes les %s s ; relâchez pour finir (%d à %d tours)." % [str(Rules.TURN_SECONDS).replace(".", ","), Rules.TURNS_MIN, Rules.TURNS_MAX]
+			text = "Clic gauche maintenu dans la scène : un tour toutes les %s s ; relâchez pour finir (%d à %d tours)." % [str(_turn_seconds()).replace(".", ","), Rules.TURNS_MIN, Rules.TURNS_MAX]
+			text += " Avec la navette choisie : deux fois plus vite." if picks.has("navette_aide") else " Avec une navette (facultatif) : deux fois plus vite."
 	return text + _owned_text()
 
 # 0.0.8.8 (demande de l'utilisateur) : combien on a déjà de ce qu'on fabrique (« Vous avez 2 têtes de pioche. »).
@@ -597,7 +603,7 @@ func release_hold() -> bool:
 	shown_turns = -1
 	var done := false
 	if action == "ficeler":
-		done = finish_bind(floori(hold_time / Rules.TURN_SECONDS))
+		done = finish_bind(floori(hold_time / _turn_seconds()))
 	elif action == "nouer":
 		done = finish_knot(floori(hold_time / Rules.ROW_SECONDS))
 	hold_time = 0.0
@@ -837,9 +843,9 @@ func step_bind(delta: float) -> bool:
 	if not ready_to_work():
 		return false
 	hold_time += delta
-	var turns := mini(floori(hold_time / Rules.TURN_SECONDS), Rules.TURNS_MAX)
-	ring.progress = float(turns) / Rules.TURNS_MAX + fmod(hold_time, Rules.TURN_SECONDS) / Rules.TURN_SECONDS / Rules.TURNS_MAX
-	var angle := hold_time / Rules.TURN_SECONDS * TAU
+	var turns := mini(floori(hold_time / _turn_seconds()), Rules.TURNS_MAX)
+	ring.progress = float(turns) / Rules.TURNS_MAX + fmod(hold_time, _turn_seconds()) / _turn_seconds() / Rules.TURNS_MAX
+	var angle := hold_time / _turn_seconds() * TAU
 	hands[1].position = hands[0].rest + Vector3(0.2 + cos(angle) * 0.03, 0.0 + sin(angle) * 0.02, sin(angle) * 0.03)
 	# 0.0.8.17 (#224) : la main droite pince la ficelle en tournant, la gauche serre le manche.
 	hands[1]._go_pose("pince", 1.0)

@@ -248,7 +248,10 @@ static func fits_more(role: String, value: Dictionary) -> bool:
 	var id: String = value.get("objet", "")
 	match role:
 		"manche":
-			return id == "branche" and int(value.get("fendue", 0)) == 0 and good_handle(value)
+			return id == "branche" and int(value.get("fendue", 0)) == 0 and (good_handle(value) or good_shuttle(value))
+		# 0.0.8.25 : navette, facultative pour Ficeler.
+		"navette":
+			return id == "navette"
 		"eclat":
 			return Inventory.ITEMS.get(id, {}).get("forme", "") == "eclat" and id != "charbon"
 		"fendu":
@@ -263,6 +266,20 @@ static func good_handle(value: Dictionary) -> bool:
 	var thick := float(value.get("epaisseur", 0.0))
 	var length := float(value.get("longueur", 0.0))
 	return int(value.get("pourrie", 0)) == 0 and thick >= HANDLE_THICKNESS.x - 0.001 and thick <= HANDLE_THICKNESS.y + 0.001 and length >= HANDLE_LENGTH.x - 0.001 and length <= HANDLE_LENGTH.y + 0.001
+
+# 0.0.8.25 : branche pour une navette (fendue au bout, la ficelle enroulée dessus) : fine et courte, pas pourrie.
+const SHUTTLE_THICKNESS := Vector2(1.0, 2.5)
+const SHUTTLE_LENGTH := Vector2(0.15, 0.4)
+# Ficeler avec une navette : deux fois plus vite.
+const SHUTTLE_FACTOR := 0.5
+
+static func good_shuttle(value: Dictionary) -> bool:
+	var thick := float(value.get("epaisseur", 0.0))
+	var length := float(value.get("longueur", 0.0))
+	return int(value.get("pourrie", 0)) == 0 and thick >= SHUTTLE_THICKNESS.x - 0.001 and thick <= SHUTTLE_THICKNESS.y + 0.001 and length >= SHUTTLE_LENGTH.x - 0.001 and length < SHUTTLE_LENGTH.y - 0.001
+
+static func turn_seconds(with_shuttle: bool) -> float:
+	return TURN_SECONDS * (SHUTTLE_FACTOR if with_shuttle else 1.0)
 
 # Liens possibles : ficelles d'un même type (3 au moins, toutes cases), ou chaque liane.
 static func bind_choices(inventory: Inventory) -> Array:
@@ -313,6 +330,8 @@ static func more_choices(inventory: Inventory, role: String) -> Array:
 				model.fendue = 1
 			"eclat":
 				model = {"objet": "eclat_silex", "poids": FLAKE_WEIGHT}
+			"navette":
+				model = {"objet": "navette", "essence": 1, "age": 3, "souplesse": 3, "epaisseur": 1.8, "longueur": 0.3, "poids": 60.0}
 			"tete":
 				for id in UNBOUND:
 					result.append({"label": "%s (Créatif)" % Inventory.ITEMS[id].nom, "value": {"objet": id, "pierre": 1, "taille": 5, "poids": 420.0}, "area": "", "index": -1, "unit": -1, "creative": true})
@@ -362,6 +381,10 @@ static func _pile(value: Dictionary) -> Dictionary:
 
 static func split_result(stick: Dictionary) -> Dictionary:
 	var made := stick.duplicate(true)
+	# 0.0.8.25 : une branche fine et courte fendue devient une navette.
+	if good_shuttle(stick) and not good_handle(stick):
+		made.objet = "navette"
+		return _pile(made)
 	made.fendue = 1
 	return _pile(made)
 

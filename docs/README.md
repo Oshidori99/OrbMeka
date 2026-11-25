@@ -1,6 +1,16 @@
-# OrbMeka™ — prototype 0.0.8.24
+# OrbMeka™ — prototype 0.0.8.25
 
 Godot 4.7 / GDScript. Formes et couleurs simples ; assets externes seulement sous licence vérifiée (sons CC0, assets/sounds/CREDITS.txt).
+
+## 0.0.8.25 — Le même inventaire en Survie et en Créatif ; la navette ; ce qu'on regarde (#140) ; fibres 1, 2 ou 3
+Publiée. Génération inchangée (version 33). Demandes de l'utilisateur et issue #140.
+- **Changer de mode en jouant** (Paramètres → Mode de jeu) garde **le même inventaire** (choix A de l'utilisateur) : tout ce qu'on a passe dans l'autre mode, rangé selon ses règles. Du Créatif vers la Survie, une case du catalogue devient une vraie pile de 99 (un outil : 1) ; ce qui ne tient pas dans les mains, les poches et le sac tombe aux pieds du joueur (un message le dit). De la Survie vers le Créatif, tout suit.
+- **Navette** : une branche fine et courte (1 à 2,5 cm, 15 à 40 cm) fendue (O + F → Fendre) devient une « Navette de noisetier » (de pommier…) ; proposée dans Ficeler (« Facultatif : une navette »), elle fait ficeler **deux fois plus vite**. Expliquée dans la case Fendre du carnet de route.
+- **Ce qu'on regarde** (#140) : en haut au centre, le nom de ce qu'on vise à portée : arbre (tronc, tige ou branche ; couché, sans feuilles), objet au sol (un tas : « Feuilles de noisetier (20) »), caillou, rocher, plante, matière du sol. Recalculé 7 fois par seconde (léger).
+- **Fibres** : 1 fibre 10 % du temps, 2 fibres 60 %, 3 fibres 30 % (avant 1, 2 ou 3 autant chacun) ; même graine, même nombre.
+
+Tests réussis : inventory, inventory_more, sac (38), crafting, carnet, fibers, feuilles, death, prototype, history_resume (+ tests juridiques).
+À tester : passer du Créatif à la Survie avec des piles de 99 ; fendre une petite branche (navette) puis ficeler avec ; le nom en haut de l'écran.
 
 ## 0.0.8.24 — La pierre cassée va en main ; sac de 5 kg ; Créatif par 99 ; l'éclat proposé pour tresser
 Publiée (depuis le 25.11.2026, chaque version est publiée ; tous les tests sur GitHub une version sur 5). Génération inchangée (version 33). Demandes de l'utilisateur.
