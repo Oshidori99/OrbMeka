@@ -146,10 +146,16 @@ func _ready() -> void:
 	saved_at = player.position
 	# 0.0.7.2 : inventaire relu (ancien monde : vide, sans erreur), dans le mode de jeu du monde.
 	inventory.mode = game_mode
+	Inventory.current_mode = game_mode
 	inventory.from_dict(saved_player.get("inventaire"))
 	# 0.0.8.16 (#208) : Carnet de route relu (ancien monde : rien de coché, message du début à montrer).
 	notebook.from_array(saved_player.get("carnet", []))
 	notebook_seen = bool(saved_player.get("carnet_vu", false))
+	# 0.0.8.27 (#160) : l'heure relue (ancien monde ou nouveau : 8 h).
+	var saved_time: Variant = saved_player.get("heure", DayNight.START)
+	day_time = DayNight.day_wrap(float(saved_time)) if saved_time is float or saved_time is int else DayNight.START
+	apply_day_light()
+	apply_day_sky()
 	inventory.changed.connect(_on_notebook_inventory)
 	inventory.changed.connect(apply_held)
 	inventory.changed.connect(func(): inventory_unsaved = true)
@@ -444,18 +450,65 @@ static func is_compat() -> bool:
 	return RenderingServer.get_current_rendering_method() == "gl_compatibility"
 
 var environment: Environment
+# 0.0.8.27 (#160) : jour et nuit (day_night.gd) : l'heure (minutes, 0 à 1440 ; 8 h dans un nouveau monde), sauvegardée
+# avec le joueur ; lumière et ciel suivent l'heure.
+const DayNight = preload("res://scripts/day_night.gd")
+# Le ciel et la brume ne changent que toutes les SKY_EVERY s (recalculer le ciel coûte ; le changement est lent).
+const SKY_EVERY := 2.0
+var day_time := DayNight.START
+var sky_material: ProceduralSkyMaterial
+var sun_base_energy := 1.0
+var ambient_base_energy := 0.7
+var _sky_wait := 0.0
+var clock_label: Label
+
+func _update_day(delta: float) -> void:
+	if sun_light == null or not is_instance_valid(environment):
+		return
+	day_time = DayNight.day_wrap(day_time + delta * DayNight.MINUTES_PER_SECOND)
+	apply_day_light()
+	_sky_wait -= delta
+	if _sky_wait <= 0.0:
+		_sky_wait = SKY_EVERY
+		apply_day_sky()
+	if is_instance_valid(clock_label):
+		clock_label.text = DayNight.clock_text(day_time)
+
+# Lumière directe (soleil ou lune) et lumière ambiante selon l'heure ; la nuit, pas d'ombres (la lune est faible : plus
+# léger) ; pas pendant la préparation des ombres derrière l'écran de chargement.
+func apply_day_light() -> void:
+	sun_light.rotation_degrees = DayNight.light_rotation(day_time)
+	sun_light.light_energy = sun_base_energy * DayNight.light_share(day_time)
+	sun_light.light_color = DayNight.light_color(day_time)
+	environment.ambient_light_energy = ambient_base_energy * DayNight.ambient_share(day_time)
+	environment.ambient_light_color = DayNight.ambient_color(day_time)
+	var shadows := shadow_quality != "off" and DayNight.daylight(day_time) > 0.05
+	if warm_left <= 0 and sun_light.shadow_enabled != shadows:
+		sun_light.shadow_enabled = shadows
+
+func apply_day_sky() -> void:
+	if sky_material == null:
+		return
+	var horizon := DayNight.sky_horizon(day_time)
+	sky_material.sky_top_color = DayNight.sky_top(day_time)
+	sky_material.sky_horizon_color = horizon
+	sky_material.ground_horizon_color = horizon
+	sky_material.ground_bottom_color = horizon
+	_update_fog()
 
 func _setup_environment() -> void:
 	environment = Environment.new()
 	environment.background_mode = Environment.BG_SKY
 	var sky := Sky.new()
-	var sky_material := ProceduralSkyMaterial.new()
+	sky_material = ProceduralSkyMaterial.new()
 	sky_material.sky_top_color = Color("#428de0")
 	sky_material.sky_horizon_color = Color("#b9e2fa")
 	sky_material.ground_horizon_color = Color("#b9e2fa")
 	# 0.0.5.17 : sous l'horizon, au-delà du terrain affiché : même teinte que la brume (plus de bande noire).
 	sky_material.ground_bottom_color = Color("#b9e2fa")
 	sky.sky_material = sky_material
+	# 0.0.8.27 : le ciel change avec l'heure (toutes les SKY_EVERY s) : recalculé par petits morceaux, sur plusieurs images.
+	sky.process_mode = Sky.PROCESS_MODE_INCREMENTAL
 	environment.sky = sky
 	environment.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
 	environment.ambient_light_color = Color("#dbe7ed")
@@ -480,6 +533,9 @@ func _setup_environment() -> void:
 	sun_light = sun
 	set_shadows(shadow_quality)
 	apply_compat_light(environment, sun)
+	# 0.0.8.27 : la lumière du jour (midi) ; l'heure la fait varier (apply_day_light).
+	sun_base_energy = sun.light_energy
+	ambient_base_energy = environment.ambient_light_energy
 	add_child(sun)
 
 
@@ -1201,7 +1257,8 @@ func _update_fog() -> void:
 	var reach := float(maxi(load_distance, far_distance if relief else 0) * SmoothTerrain.ZONE_SIZE)
 	environment.fog_enabled = true
 	environment.fog_mode = Environment.FOG_MODE_DEPTH
-	environment.fog_light_color = Color("#b9e2fa")
+	# 0.0.8.27 : la couleur de l'horizon selon l'heure (bleu le jour, orangée au crépuscule, sombre la nuit).
+	environment.fog_light_color = DayNight.sky_horizon(day_time)
 	environment.fog_density = 1.0
 	# Brume seulement tout au bout : les montagnes lointaines gardent leurs couleurs.
 	environment.fog_depth_begin = reach * 0.82
@@ -5323,7 +5380,9 @@ func player_data() -> Dictionary:
 		# 0.0.8.2 (#231) : orbes de retour du début déjà données (ou monde ouvert en Créatif : jamais).
 		"orbes_depart": start_orbs_given,
 		# 0.0.8.16 (#208) : Carnet de route : cases et étapes cochées, message du début déjà montré.
-		"carnet": notebook.to_array(), "carnet_vu": notebook_seen}
+		"carnet": notebook.to_array(), "carnet_vu": notebook_seen,
+		# 0.0.8.27 (#160) : l'heure du jour (minutes).
+		"heure": snappedf(day_time, 0.1)}
 
 func _read_saved_player() -> Dictionary:
 	if save_folder.is_empty():
@@ -6313,6 +6372,20 @@ func _create_hud() -> void:
 	coordinates_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	coordinates_label.visible = false
 	layer.add_child(coordinates_label)
+	# 0.0.8.27 (#160) : l'heure, en haut à droite sous les coordonnées (0.0.8.28 : sous la mini-carte).
+	clock_label = Label.new()
+	clock_label.name = "Heure"
+	clock_label.set_anchors_and_offsets_preset(Control.PRESET_TOP_RIGHT)
+	clock_label.offset_left = -280
+	clock_label.offset_right = -18
+	clock_label.offset_top = 18 + roundi(104 * text_scale)
+	clock_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	clock_label.add_theme_font_size_override("font_size", roundi(18 * text_scale))
+	clock_label.add_theme_color_override("font_shadow_color", Color.BLACK)
+	clock_label.add_theme_constant_override("shadow_outline_size", 3)
+	clock_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	clock_label.text = DayNight.clock_text(day_time)
+	layer.add_child(clock_label)
 	# 0.0.8.25 (#140) : ce qu'on regarde (à portée), en haut au centre.
 	looked_label = Label.new()
 	looked_label.name = "Regard"
@@ -6391,6 +6464,7 @@ func _process(delta: float) -> void:
 		return
 	_update_fps(delta)
 	_update_ring()
+	_update_day(delta)
 	_update_looked(delta)
 	_update_health(delta)
 	if not sliding_trees.is_empty():
@@ -6535,6 +6609,7 @@ func _process_measured(delta: float) -> void:
 	var at := Time.get_ticks_usec()
 	_update_fps(delta)
 	_update_ring()
+	_update_day(delta)
 	_update_health(delta)
 	if not sliding_trees.is_empty():
 		_update_slides(delta)
