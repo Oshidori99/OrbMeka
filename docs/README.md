@@ -1,6 +1,14 @@
-# OrbMeka™ — prototype 0.0.8.45
+# OrbMeka™ — prototype 0.0.8.46
 
 Godot 4.7 / GDScript. Formes et couleurs simples ; assets externes seulement sous licence vérifiée (sons CC0, assets/sounds/CREDITS.txt).
+
+## 0.0.8.46 — Correction : bois au sol et hache
+Publiée. Génération inchangée (version 34).
+- **Bois au sol visé**, une hache en main : l'indication « Casser ici » tient compte de la hache (jusqu'à 1 m d'épaisseur au lieu de « trop épais à mains nues » au-delà de 40 cm, et la durée 3 fois plus courte).
+- **Hache** : choix de l'utilisateur, elle garde sa limite de 1 m (les arbres vont de 7 cm à 1,01 m : seul le plus gros tilleul reste trop gros).
+
+Tests réussis : tools, sticks, tree_fall, prototype, history_resume, menu (+ tests juridiques).
+À tester : viser un gros bois au sol avec une hache.
 
 ## 0.0.8.45 — Petites corrections
 Publiée. Génération inchangée (version 34). Demandes de l'utilisateur.
