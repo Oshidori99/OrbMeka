@@ -49,15 +49,19 @@ const NODES := [
 	{"id": "eclat", "nom": "Éclat", "branche": "droite", "rang": 2, "parent": "tresser", "image": "menu:tailler", "touches": "O + F → Tailler", "objets": ["eclat_silex", "eclat_calcaire"],
 		"details": "Tailler un éclat tranchant : un caillou pour frapper dans une main, un silex ou un calcaire dans l'autre (O + F → Tailler, un clic par coup).\nAvec l'éclat en main, on récolte les fibres DEUX FOIS PLUS VITE (1,5 s au lieu de 3 s) et l'ortie pique moins : à faire avant les cordelettes du sac. Il sert aussi à fendre une branche."},
 		# 0.0.8.21 (#207, demandes de l'utilisateur) : l'éclat (récolte plus rapide), puis la cordelette, puis le sac en filet.
-		{"id": "cordelette", "nom": "Cordelette", "branche": "droite", "rang": 3, "decalage": 1.1, "parent": "eclat", "image": "objet:cordelette_lin", "touches": "O + F → Tresser", "objets": ["cordelette_ortie", "cordelette_lin", "cordelette_herbe"],
+		{"id": "cordelette", "nom": "Cordelette", "branche": "droite", "dessous": true, "parent": "eclat", "image": "objet:cordelette_lin", "touches": "O + F → Tresser", "objets": ["cordelette_ortie", "cordelette_lin", "cordelette_herbe"],
 			"details": "Une cordelette : 3 ficelles du même type tressées ensemble (O + F → Tresser, clic gauche maintenu) ; plus épaisse et solide qu'une ficelle. Il en faut 5 pour un sac en filet, soit 15 ficelles (45 fibres) : récoltez avec un éclat tranchant en main, c'est deux fois plus rapide."},
-		{"id": "sac", "nom": "Sac en filet", "branche": "droite", "rang": 4, "decalage": 1.1, "parent": "cordelette", "image": "objet:sac_filet", "touches": "O + F → Nouer", "objets": ["sac_filet"],
+		{"id": "sac", "nom": "Sac en filet", "branche": "droite", "dessous": true, "parent": "cordelette", "image": "objet:sac_filet", "touches": "O + F → Nouer", "objets": ["sac_filet"],
 			"details": "Nouer un sac en filet (O + F → Nouer) : 4 cordelettes du même type pour les mailles, 1 cordelette ou 1 liane pour la bretelle ; clic gauche maintenu, une rangée de mailles à la fois (6 à 10 : plus il y en a, plus les mailles sont serrées).\nIl va sur l'épaule : ses 4 cases sont les cases 7 à 10 de la barre ; il porte environ 4,3 kg (lin et 10 rangées : 5 kg) et 10 L. On se sert d'un objet du sac directement, même la main pleine.\nUn deuxième sac : ses 4 cases sont dans l'inventaire (O + I), au-dessus des mains. Les poignées de terre, de sable… et les fibres passent entre les mailles. Un sac s'enlève vide, dans l'inventaire (Équipement)."},
 	{"id": "tete", "nom": "Tête taillée", "branche": "droite", "rang": 3, "parent": "eclat", "image": "objet:tete_hache", "touches": "O + F → Tailler", "objets": ["tete_hache", "tete_pioche"],
 		"details": "Tailler une tête de hache ou de pioche (O + F → Tailler) : plus la pierre est grande (taille 5), meilleure est la tête ; le silex est le plus dur."},
-	{"id": "fendre", "nom": "Fendre", "branche": "droite", "rang": 4, "parent": "tete", "image": "menu:fendre", "touches": "O + F → Fendre", "objets": ["branche_fendue", "navette"],
+	{"id": "fendre", "nom": "Fendre", "branche": "droite", "rang": 4, "parent": "tete", "image": "menu:fendre", "touches": "O + F → Fendre", "objets": ["branche_fendue"],
 		"details": "Fendre le bout de la branche avec l'éclat (O + F → Fendre, clic gauche maintenu) : la fente recevra la tête.
-Une branche fine (1 à 2,5 cm, 15 à 40 cm) fendue devient une navette : choisie pour Ficeler, on ficelle deux fois plus vite."},
+Une branche fine (1 à 2,5 cm, 15 à 40 cm) fendue devient une navette (sa case, juste en dessous)."},
+		# 0.0.8.36 (demande de l'utilisateur) : la navette, sa propre case, sous Fendre.
+		{"id": "navette", "nom": "Navette", "branche": "droite", "dessous": true, "parent": "fendre", "image": "objet:navette", "touches": "O + F → Fendre", "objets": ["navette"],
+			"details": "Une navette : une branche fine (1 à 2,5 cm d'épaisseur, 15 à 40 cm de long) fendue au bout (O + F → Fendre, avec un éclat). La ficelle s'enroule dessus.
+Choisie pour Ficeler (dans la barre : mains, poches ou sac), on ficelle deux fois plus vite. Elle s'use un peu à chaque outil ficelé."},
 	{"id": "assembler", "nom": "Assembler", "branche": "droite", "rang": 5, "parent": "fendre", "image": "menu:assembler", "touches": "O + F → Assembler", "objets": ["hache_a_ficeler", "pioche_a_ficeler"],
 		"details": "Assembler : la tête dans la fente de la branche (O + F → Assembler, un clic). L'outil est à ficeler."},
 	{"id": "hache", "nom": "Hache", "branche": "droite", "rang": 6, "decalage": -0.7, "parent": "assembler", "image": "menu:ficeler", "touches": "O + F → Ficeler", "objets": ["hache_pierre"],
@@ -79,7 +83,14 @@ static func name_of(id: String) -> String:
 	return entry.nom if not entry.is_empty() else id
 
 # Place d'une case, en cases depuis le centre : x vers la droite, y vers le bas (la branche du haut monte).
+# 0.0.8.36 (demande de l'utilisateur) : « dessous » : une suite d'une case, pile en dessous d'elle, dans la même colonne
+# (Éclat → Cordelette → Sac en filet, Fendre → Navette).
 static func place_of(entry: Dictionary) -> Vector2:
+	if entry.get("dessous", false):
+		return place_of(node(str(entry.get("parent", "")))) + Vector2(0.0, 1.0)
+	return _own_place(entry)
+
+static func _own_place(entry: Dictionary) -> Vector2:
 	var rank := float(entry.get("rang", 0))
 	var side := float(entry.get("decalage", 0.0))
 	match entry.get("branche", ""):

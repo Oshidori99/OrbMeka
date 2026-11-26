@@ -3,6 +3,10 @@ Du plus récent au plus ancien. Ce fichier est mis à jour à chaque version.
 
 === Thème « Fabrication et survie » (0.0.8) ===
 
+0.0.8.36 — Carnet de route : les suites pile en dessous (Éclat → Cordelette → Sac en filet), une case Navette sous Fendre, un bouton « Revenir au centre »
+Génération du terrain : version 34 · Menus : version 17.
+Demandes de l'utilisateur.
+
 0.0.8.35 — Écran de jeu et points de repère : plus de rappels F1 / F3 / F4 ni d'aide à gauche, rappel « O + C : carnet de route » en bas dans chaque nouveau monde jusqu'à la 1re ouverture du carnet, nom de ce qu'on vise à gauche de la mini-carte avec son image, points de repère (M + R ou « Ajouter un repère » sur la grande carte, nommés, sur les deux cartes)
 Génération du terrain : version 34 · Menus : version 17.
 Demandes de l'utilisateur ; issue #252.

@@ -39,9 +39,12 @@ func _run() -> void:
 	check(branch_ids("gauche").slice(0, 4) == ["deplacer", "inventaire", "actions", "fabrication"], "left: the commands, easiest first")
 	check(branch_ids("haut").slice(0, 3) == ["cailloux", "fibres", "branche"], "up: what we gather, easiest first")
 	# 0.0.8.21 (#207) : après l'éclat, une branche vers le bas : cordelette puis sac en filet.
-	check(branch_ids("droite") == ["tresser", "eclat", "cordelette", "sac", "tete", "fendre", "assembler", "hache", "pioche"], "right: what we make, up to the axe and the pickaxe (and the net bag)")
+	check(branch_ids("droite") == ["tresser", "eclat", "cordelette", "sac", "tete", "fendre", "navette", "assembler", "hache", "pioche"], "right: what we make, up to the axe and the pickaxe (and the net bag)")
 	check(Carnet.place_of(Carnet.node("jeter")).x < Carnet.place_of(Carnet.node("deplacer")).x and Carnet.place_of(Carnet.node("planter")).y < Carnet.place_of(Carnet.node("cailloux")).y and Carnet.place_of(Carnet.node("assembler")).x > Carnet.place_of(Carnet.node("tresser")).x, "further = more advanced: left goes left, up goes up, right goes right")
 	check(Carnet.place_of(Carnet.node("hache")).y < 0.0 and Carnet.place_of(Carnet.node("pioche")).y > 0.0, "after Assembler, a fork: the axe a bit up, the pickaxe a bit down")
+	# 0.0.8.36 (demande de l'utilisateur) : les suites pile en dessous, même colonne ; la navette sous Fendre.
+	check(Carnet.place_of(Carnet.node("cordelette")) == Carnet.place_of(Carnet.node("eclat")) + Vector2(0, 1) and Carnet.place_of(Carnet.node("sac")) == Carnet.place_of(Carnet.node("eclat")) + Vector2(0, 2), "Éclat → Cordelette → Sac en filet: straight below, same column")
+	check(Carnet.place_of(Carnet.node("navette")) == Carnet.place_of(Carnet.node("fendre")) + Vector2(0, 1) and Carnet.node("navette").objets == ["navette"], "Navette: its own case, right under Fendre")
 	check(branch_ids("bas").is_empty(), "nothing below for now")
 	var book := Carnet.new()
 	check(book.is_done("depart") and not book.is_open("inventaire") and book.is_open("deplacer"), "Départ always done; a case is possible once the one before is done")
@@ -118,6 +121,18 @@ func _run() -> void:
 	for path in [fixture, fixture + ".worlds"]:
 		if FileAccess.file_exists(path):
 			DirAccess.remove_absolute(ProjectSettings.globalize_path(path))
+	# 0.0.8.36 : « Revenir au centre ».
+	var book_ui = load("res://scripts/carnet_ui.gd").new()
+	book_ui.setup(Carnet.new(), 1.0)
+	root.add_child(book_ui)
+	book_ui.open()
+	await process_frame
+	await process_frame
+	book_ui.plan.position += Vector2(900, -700)
+	book_ui.center_on_start()
+	var start: Vector2 = book_ui.plan.position + book_ui.center_of("depart") * book_ui.zoom
+	check(is_instance_valid(book_ui.center_button) and book_ui.center_button.text == "Revenir au centre" and start.distance_to(book_ui.view.size * 0.5) < 1.0, "« Revenir au centre » brings Départ back to the middle")
+	book_ui.queue_free()
 	print("RESULT: %d notebook checks, %d failures" % [checks, failures])
 	quit(0 if failures == 0 else 1)
 

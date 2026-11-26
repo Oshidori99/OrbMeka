@@ -35,6 +35,7 @@ var detail_state: Label
 var detail_text: Label
 var detail_image: TextureRect
 var reset_button: Button
+var center_button: Button
 var chosen := "depart"
 var zoom := 1.0
 var _confirming := false
@@ -79,6 +80,9 @@ func setup(book: Carnet, scale: float) -> void:
 	page.add_child(footer)
 	reset_button = _button("Réinitialiser", footer, _on_reset)
 	reset_button.tooltip_text = "Tout décocher pour recommencer"
+	# 0.0.8.36 (demande de l'utilisateur) : « Revenir au centre » : le Départ au milieu de la vue, au même zoom.
+	center_button = _button("Revenir au centre", footer, center_on_start)
+	center_button.tooltip_text = "Remettre la case Départ au milieu"
 	var space := Control.new()
 	space.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	footer.add_child(space)
@@ -279,6 +283,12 @@ func fit() -> void:
 	plan.scale = Vector2.ONE * zoom
 	# Le Départ au milieu de la largeur ; en hauteur, tout le plan (la branche du haut est longue).
 	plan.position = Vector2(view.size.x * 0.5, view.size.y * 0.5 - (low.y + high.y) * 0.5 * zoom)
+
+func center_on_start() -> void:
+	if view == null:
+		return
+	plan.position = view.size * 0.5 - center_of("depart") * zoom
+	choose("depart")
 
 func _on_view_input(event: InputEvent) -> void:
 	if event is InputEventMouseButton:
