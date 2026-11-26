@@ -466,7 +466,8 @@ func _build_screen() -> void:
 	screen.add_child(panel)
 	var side := roundf(PANEL_SLOT * minf(text_scale, 1.2))
 	var column := VBoxContainer.new()
-	column.add_theme_constant_override("separation", GAP + 2)
+	# 0.0.8.42 (demande de l'utilisateur) : lignes un peu plus serrées en hauteur (avant GAP + 2).
+	column.add_theme_constant_override("separation", GAP - 3)
 	panel.add_child(column)
 	var header := HBoxContainer.new()
 	column.add_child(header)
@@ -582,12 +583,24 @@ func _build_screen() -> void:
 	ground_bag_label = _label("Sac au sol", 14)
 	ground_bag_row.add_child(ground_bag_label)
 	ground_bag_row.visible = false
+	# 0.0.8.42 (demande de l'utilisateur) : sous le sac au sol, plus d'espace et une ligne blanche avant le reste.
+	ground_bag_line = VBoxContainer.new()
+	ground_bag_line.name = "SacAuSolLigne"
+	ground_bag_line.add_theme_constant_override("separation", 0)
+	column.add_child(ground_bag_line)
+	for part in ["haut", "ligne", "bas"]:
+		var piece := ColorRect.new()
+		piece.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		piece.color = Color(1, 1, 1, 0.85) if part == "ligne" else Color(0, 0, 0, 0)
+		piece.custom_minimum_size = Vector2(0, 2 if part == "ligne" else 10)
+		ground_bag_line.add_child(piece)
+	ground_bag_line.visible = false
 	# Survie : ligne des mains, puis ligne des poches ; à droite (0.0.7.7), l'équipement à venir.
 	survival_area = HBoxContainer.new()
 	survival_area.add_theme_constant_override("separation", 24)
 	column.add_child(survival_area)
 	survival_box = VBoxContainer.new()
-	survival_box.add_theme_constant_override("separation", GAP + 4)
+	survival_box.add_theme_constant_override("separation", GAP - 1)
 	survival_box.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	survival_area.add_child(survival_box)
 	_build_equipment(survival_area, side)
@@ -620,6 +633,7 @@ func _build_screen() -> void:
 const EQUIPMENT := [["sac", "Sac (bientôt)"], ["panier", "Panier (bientôt)"], ["travois", "Travois : deux bâtons qu'on traîne (plus tard)"], ["chariot", "Chariot à roues (bien plus tard)"]]
 var survival_area: HBoxContainer
 var ground_bag_row: HBoxContainer
+var ground_bag_line: VBoxContainer
 var ground_bag_slots := {}
 var ground_bag_label: Label
 var equipment_slots: Array = []
@@ -829,6 +843,7 @@ func refresh() -> void:
 	# 0.0.8.41 : le sac ouvert au sol.
 	var ground_open: bool = not inventory.ground_bag.is_empty()
 	ground_bag_row.visible = ground_open
+	ground_bag_line.visible = ground_open
 	if ground_open:
 		var load := 0.0
 		for index in range(Inventory.BAG_SLOTS):
