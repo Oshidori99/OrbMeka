@@ -62,6 +62,9 @@ func _run() -> void:
 		check(crosshair != null and crosshair.get_global_rect().get_center().distance_to(view.get_center()) < 4, "crosshair centred" + tag)
 		check(_inside(world.hint.get_global_rect(), view) and world.hint.get_global_rect().end.y > view.end.y - 160, "hint stays at bottom, above the hot bar" + tag)
 		check(_inside(world.inventory_ui.hud_bar.get_global_rect(), view) and world.hint.get_global_rect().end.y <= world.inventory_ui.hud_bar.get_global_rect().position.y + 1, "hot bar visible at the bottom, under the hint (0.0.7.2)" + tag)
-		check(app.shortcut_hints.visible and _inside(app.shortcut_hints.get_global_rect(), view) and app.shortcut_hints.get_global_rect().end.x > view.end.x - 40, "shortcut hints stay top right" + tag)
+		# 0.0.8.35 : plus de rappels F1 / F3 / F4 en jeu (Paramètres > Contrôles).
+		check(not app.shortcut_hints.visible, "no F1 / F3 / F4 reminders in the game" + tag)
+		var looked: Control = world.looked_box
+		check(_inside(looked.get_global_rect(), view) and looked.get_global_rect().end.x <= world.minimap.get_global_rect().position.x - 8 and looked.get_global_rect().end.x >= world.minimap.get_global_rect().position.x - 40, "what is aimed at: just left of the minimap, neither stuck nor far" + tag)
 	print("%d checks, %d failures" % [checks, failures])
 	quit(1 if failures else 0)

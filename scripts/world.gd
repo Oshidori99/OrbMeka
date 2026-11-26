@@ -53,6 +53,10 @@ var hint: Label
 var coordinates_label: Label
 # 0.0.8.25 (#140) : ce qu'on regarde, en haut au centre.
 var looked_label: Label
+var looked_box: HBoxContainer
+var looked_icon: TextureRect
+# Écart entre le texte de ce qu'on vise et la mini-carte (ni collé ni loin).
+const LOOKED_GAP := 16.0
 var _looked_wait := 0.0
 var fps_label: Label
 var fps_elapsed := 0.0
@@ -151,6 +155,10 @@ func _ready() -> void:
 	# 0.0.8.16 (#208) : Carnet de route relu (ancien monde : rien de coché, message du début à montrer).
 	notebook.from_array(saved_player.get("carnet", []))
 	notebook_seen = bool(saved_player.get("carnet_vu", false))
+	# 0.0.8.35 : un monde déjà commencé compte comme ouvert (le rappel n'est que pour les nouveaux mondes).
+	notebook_opened = bool(saved_player.get("carnet_ouvert", not saved_player.is_empty()))
+	if is_instance_valid(notebook_reminder):
+		notebook_reminder.visible = not notebook_opened
 	# 0.0.8.27 (#160) : l'heure relue (ancien monde ou nouveau : 8 h).
 	var saved_time: Variant = saved_player.get("heure", DayNight.START)
 	day_time = DayNight.day_wrap(float(saved_time)) if saved_time is float or saved_time is int else DayNight.START
@@ -161,6 +169,8 @@ func _ready() -> void:
 	world_map.setup(terrain, _half_zones() * 8.0)
 	world_map.cut_trees = cut_trees
 	world_map.from_array(saved_player.get("carte", []))
+	# 0.0.8.35 (#252) : les points de repère.
+	world_map.waypoints_from_array(saved_player.get("reperes", []))
 	inventory.changed.connect(_on_notebook_inventory)
 	inventory.changed.connect(apply_held)
 	inventory.changed.connect(func(): inventory_unsaved = true)
@@ -472,6 +482,7 @@ var clock_label: Label
 # O + M). Réglages : Paramètres → Vidéo → Carte (map_show, map_size, map_zoom, map_north).
 const WorldMap = preload("res://scripts/world_map.gd")
 const MapUI = preload("res://scripts/map_ui.gd")
+const ItemIcons = preload("res://scripts/item_icons.gd")
 const BigMapUI = preload("res://scripts/big_map_ui.gd")
 # Temps de dessin de la carte par image (µs) : petit en jeu, plus grand la grande carte ouverte (le jeu est derrière).
 const MAP_BUDGET := 1500
@@ -510,9 +521,30 @@ func _place_under_map() -> void:
 	if is_instance_valid(clock_label):
 		clock_label.offset_top = top
 		clock_label.offset_bottom = top + 24.0 * text_scale
+	if is_instance_valid(looked_box):
+		var right := -18.0
+		if is_instance_valid(minimap) and map_shown:
+			right = minimap.offset_left - LOOKED_GAP * text_scale
+		var high := roundf(34.0 * text_scale)
+		looked_box.offset_right = right
+		looked_box.offset_left = right - 420.0 * text_scale
+		looked_box.offset_top = 18.0
+		looked_box.offset_bottom = 18.0 + high
 	if is_instance_valid(coordinates_label):
 		coordinates_label.offset_top = top + 24.0 * text_scale
 		coordinates_label.offset_bottom = top + 48.0 * text_scale
+
+# 0.0.8.35 (#252, demande de l'utilisateur) : M + R en jeu : un point de repère là où l'on est (nommé ensuite sur la
+# grande carte).
+func add_waypoint_here() -> void:
+	if world_map == null or not is_instance_valid(player) or death_open:
+		return
+	var point: Dictionary = world_map.add_waypoint(player.global_position)
+	if point.is_empty():
+		_notify("Trop de points de repère (%d au plus)." % world_map.MAX_WAYPOINTS)
+		return
+	inventory_unsaved = true
+	_notify("%s posé ici : à renommer sur la grande carte (O + M)." % point.nom)
 
 func toggle_map() -> void:
 	if map_open:
@@ -538,6 +570,7 @@ func open_map() -> void:
 		layer.add_child(big_map_ui)
 		big_map_ui.setup(world_map, player, text_scale)
 		big_map_ui.closed.connect(close_map)
+		big_map_ui.waypoints_changed.connect(func(): inventory_unsaved = true)
 	map_open = true
 	big_map_ui.visible = true
 	if is_instance_valid(minimap):
@@ -1675,6 +1708,9 @@ var notebook := Carnet.new()
 var notebook_ui: CanvasLayer
 var notebook_open := false
 var notebook_seen := false
+var notebook_opened := false
+var notebook_reminder: Label
+const NOTEBOOK_REMINDER := "O + C : carnet de route"
 var _walk_from := Vector3.INF
 
 func toggle_notebook() -> void:
@@ -1696,6 +1732,11 @@ func open_notebook() -> void:
 		notebook_ui.closed.connect(close_notebook)
 		add_child(notebook_ui)
 	notebook_open = true
+	if not notebook_opened:
+		notebook_opened = true
+		inventory_unsaved = true
+		if is_instance_valid(notebook_reminder):
+			notebook_reminder.visible = false
 	_set_hud_visible(false)
 	player.release_controls()
 	_show_aim(false)
@@ -1731,8 +1772,6 @@ func _step_notebook() -> void:
 	if not notebook_seen:
 		notebook_seen = true
 		inventory_unsaved = true
-		_notify(NOTEBOOK_HINT)
-		notice_time = 9.0
 	if not notebook.is_done("deplacer"):
 		if _walk_from == Vector3.INF:
 			_walk_from = player.global_position
@@ -4373,7 +4412,12 @@ func _update_looked(delta: float) -> void:
 		return
 	_looked_wait = LOOKED_EVERY
 	var busy: bool = inventory_open or crafting_open or notebook_open or death_open or Input.mouse_mode != Input.MOUSE_MODE_CAPTURED
-	looked_label.text = "" if busy else looked_text(player.get_target())
+	var target: Dictionary = {} if busy else player.get_target()
+	looked_label.text = "" if busy else looked_text(target)
+	if is_instance_valid(looked_icon):
+		var id := "" if looked_label.text.is_empty() else looked_item(target)
+		looked_icon.texture = ItemIcons.texture(id) if not id.is_empty() else null
+		looked_icon.visible = looked_icon.texture != null
 
 func looked_text(hit: Dictionary) -> String:
 	if not is_instance_valid(player):
@@ -4408,6 +4452,23 @@ func looked_text(hit: Dictionary) -> String:
 		return "Rocher"
 	var copy := aimed_copy(hit)
 	return Inventory.item_name(copy) if not copy.is_empty() else ""
+
+# 0.0.8.35 : l'objet dont on montre l'image à côté du nom de ce qu'on vise (ItemIcons) ; "" sans image.
+func looked_item(hit: Dictionary) -> String:
+	var wood := aimed_wood(hit)
+	if not wood.is_empty():
+		var tree: Node3D = wood.tree
+		var piece: Dictionary = TreeParts.skeleton(int(tree.get_meta("kind", 0)), int(tree.get_meta("size", 3)), int(tree.get_meta("form", 0))).pieces[int(wood.piece)]
+		return "tronc" if piece.root else "branche"
+	if hit.is_empty() or not is_instance_valid(hit.get("collider")):
+		return ""
+	var collider: Node = hit.collider
+	if collider.is_in_group("ground_items"):
+		var index: int = ground.index_of(collider)
+		return str(ground.entries[index].item.get("objet", "")) if index >= 0 else ""
+	if collider.is_in_group("pebbles"):
+		return PEBBLE_ITEMS[clampi(int(collider.get_meta("look", 0)), 0, 2)]
+	return str(aimed_copy(hit).get("objet", ""))
 
 func aimed_copy(hit: Dictionary) -> Dictionary:
 	if hit.is_empty() or not is_instance_valid(hit.get("collider")) or not is_instance_valid(player):
@@ -5557,11 +5618,13 @@ func player_data() -> Dictionary:
 		# 0.0.8.2 (#231) : orbes de retour du début déjà données (ou monde ouvert en Créatif : jamais).
 		"orbes_depart": start_orbs_given,
 		# 0.0.8.16 (#208) : Carnet de route : cases et étapes cochées, message du début déjà montré.
-		"carnet": notebook.to_array(), "carnet_vu": notebook_seen,
+		"carnet": notebook.to_array(), "carnet_vu": notebook_seen, "carnet_ouvert": notebook_opened,
 		# 0.0.8.27 (#160) : l'heure du jour (minutes).
 		"heure": snappedf(day_time, 0.1),
 		# 0.0.8.28 (#154) : les carrés de la carte explorés.
-		"carte": world_map.to_array() if world_map != null else []}
+		"carte": world_map.to_array() if world_map != null else [],
+		# 0.0.8.35 (#252) : les points de repère.
+		"reperes": world_map.waypoints_to_array() if world_map != null else []}
 
 func _read_saved_player() -> Dictionary:
 	if save_folder.is_empty():
@@ -6489,6 +6552,9 @@ func _create_hud() -> void:
 	exploration.add_theme_color_override("font_shadow_color",Color.BLACK)
 	exploration.add_theme_constant_override("shadow_outline_size",3)
 	exploration.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	# 0.0.8.35 (demande de l'utilisateur) : l'aide (clic gauche, clic droit, B + T…) n'est plus affichée : elle est dans le
+	# carnet de route (O + C). Gardée cachée (le texte suit encore le choix du menu d'actions).
+	exploration.visible = false
 	left.add_child(exploration)
 	fps_label = Label.new()
 	fps_label.name = "FPS"
@@ -6573,19 +6639,50 @@ func _create_hud() -> void:
 	clock_label.text = DayNight.clock_text(day_time)
 	layer.add_child(clock_label)
 	_place_under_map()
-	# 0.0.8.25 (#140) : ce qu'on regarde (à portée), en haut au centre.
+	# 0.0.8.25 (#140) : ce qu'on regarde (à portée). 0.0.8.35 (demande de l'utilisateur) : en haut à droite, un peu à
+	# gauche de la mini-carte, avec à droite du texte une petite image de ce que c'est (_place_under_map).
+	looked_box = HBoxContainer.new()
+	looked_box.name = "RegardCadre"
+	looked_box.set_anchors_preset(Control.PRESET_TOP_RIGHT)
+	looked_box.grow_horizontal = Control.GROW_DIRECTION_BEGIN
+	looked_box.alignment = BoxContainer.ALIGNMENT_END
+	looked_box.add_theme_constant_override("separation", roundi(8 * text_scale))
+	looked_box.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	layer.add_child(looked_box)
 	looked_label = Label.new()
 	looked_label.name = "Regard"
-	looked_label.set_anchors_and_offsets_preset(Control.PRESET_CENTER_TOP)
-	looked_label.offset_left = -300
-	looked_label.offset_right = 300
-	looked_label.offset_top = 14
-	looked_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	looked_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	looked_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	looked_label.add_theme_font_size_override("font_size", roundi(17 * text_scale))
 	looked_label.add_theme_color_override("font_shadow_color", Color.BLACK)
 	looked_label.add_theme_constant_override("shadow_outline_size", 3)
 	looked_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	layer.add_child(looked_label)
+	looked_box.add_child(looked_label)
+	looked_icon = TextureRect.new()
+	looked_icon.name = "RegardImage"
+	looked_icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	looked_icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	looked_icon.custom_minimum_size = Vector2.ONE * roundi(30 * text_scale)
+	looked_icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	looked_box.add_child(looked_icon)
+	# 0.0.8.35 (demande de l'utilisateur) : dans un nouveau monde, « O + C : carnet de route » en bas, bien visible,
+	# jusqu'à la première ouverture du carnet dans ce monde (notebook_opened, joueur.json « carnet_ouvert »).
+	notebook_reminder = Label.new()
+	notebook_reminder.name = "RappelCarnet"
+	notebook_reminder.text = NOTEBOOK_REMINDER
+	notebook_reminder.set_anchors_and_offsets_preset(Control.PRESET_CENTER_BOTTOM)
+	notebook_reminder.grow_horizontal = Control.GROW_DIRECTION_BOTH
+	notebook_reminder.grow_vertical = Control.GROW_DIRECTION_BEGIN
+	notebook_reminder.offset_bottom = -roundi(118 * text_scale)
+	notebook_reminder.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	notebook_reminder.add_theme_font_size_override("font_size", roundi(24 * text_scale))
+	notebook_reminder.add_theme_color_override("font_color", Color("#ffe08a"))
+	notebook_reminder.add_theme_color_override("font_outline_color", Color(0.0, 0.0, 0.0, 0.85))
+	notebook_reminder.add_theme_constant_override("outline_size", roundi(6 * text_scale))
+	notebook_reminder.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	notebook_reminder.visible = not notebook_opened
+	layer.add_child(notebook_reminder)
+	_place_under_map()
 	_create_health_hud(layer)
 
 func set_coordinates_visible(on: bool) -> void:

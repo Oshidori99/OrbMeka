@@ -60,6 +60,8 @@ const ACTIONS := {
 	"notebook": {"label": "Carnet de route", "default": {"key": KEY_O, "second": {"key": KEY_C}}, "by_letter": true, "fixed": []},
 	# 0.0.8.28 (#154, demande de l'utilisateur) : O + M (« Map ») : ouvrir ou fermer la grande carte.
 	"map": {"label": "Carte", "default": {"key": KEY_O, "second": {"key": KEY_M}}, "by_letter": true, "fixed": []},
+	# 0.0.8.35 (#252, demande de l'utilisateur) : M + R (« Map », « Repère ») : un point de repère là où l'on est.
+	"waypoint": {"label": "Point de repère", "default": {"key": KEY_M, "second": {"key": KEY_R}}, "by_letter": true, "fixed": []},
 	# 0.0.7.3 : ramasser l'objet visé (R, comme Courir : R ramasse seulement si un objet est visé) et récupérer une
 	# poignée de matière en vrac (R et I maintenus en même temps) ; choix de l'utilisateur.
 	"pick_up": {"label": "Ramasser", "default": {"key": KEY_R}, "by_letter": true, "fixed": []},
@@ -518,7 +520,7 @@ const GROUPS := {
 	"Mouvements": ["move_forward", "move_back", "move_left", "move_right", "jump", "crouch", "sprint", "fly"],
 	"Blocs": ["break_block", "place_block", "brush_next", "size_up", "size_down"],
 	# 0.0.7.2 : nouvelle partie : l'inventaire et le choix de la case de la barre d'objets.
-	"Inventaire": ["inventory", "crafting", "notebook", "map", "block_previous", "block_next", "pick_up", "pick_aimed", "gather", "throw", "delete_item", "show_details"],
+	"Inventaire": ["inventory", "crafting", "notebook", "map", "waypoint", "block_previous", "block_next", "pick_up", "pick_aimed", "gather", "throw", "delete_item", "show_details"],
 	"Vitesses": ["speed_up", "speed_down", "walk_up", "walk_down", "run_up", "run_down", "break_up", "break_down", "place_up", "place_down"],
 	"Vitesses — réinitialiser": ["move_reset", "walk_reset", "run_reset", "break_reset", "place_reset", "speed_reset_all"],
 	"Raccourcis": ["worlds_menu", "world_info_page", "change_view", "go_home"],

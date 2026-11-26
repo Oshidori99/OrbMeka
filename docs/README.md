@@ -1,6 +1,18 @@
-# OrbMeka™ — prototype 0.0.8.34
+# OrbMeka™ — prototype 0.0.8.35
 
 Godot 4.7 / GDScript. Formes et couleurs simples ; assets externes seulement sous licence vérifiée (sons CC0, assets/sounds/CREDITS.txt).
+
+## 0.0.8.35 — Écran de jeu et points de repère (#252)
+Publiée. Génération inchangée (version 34). Demandes de l'utilisateur.
+- **Plus de rappels F1 / F3 / F4** en haut à droite pendant le jeu (ils restent dans Paramètres > Contrôles).
+- **Plus d'aide à gauche** (clic gauche, clic droit, B + T…) : elle est dans le carnet de route.
+- **« O + C : carnet de route »** en bas, bien visible, dans **chaque nouveau monde**, jusqu'à la première ouverture du carnet dans ce monde ; puis plus jamais (enregistré dans le monde). Les mondes déjà commencés ne l'affichent pas.
+- **Ce qu'on vise** (« Motte de gazon »…) : en haut à droite, un peu à gauche de la mini-carte, avec à droite du texte une **petite image** de ce que c'est (l'objet qu'on récupérerait : motte, terre, pierre, bâton…).
+- **Points de repère** : **M + R** en jeu en pose un là où tu es ; sur la grande carte (O + M), **« Ajouter un repère »**, puis son **nom** à écrire ; un clic sur un repère le choisit (renommer, « Supprimer »). Visibles sur la grande carte (nom et distance) et sur la mini-carte (au bord quand ils sont loin). Enregistrés avec le monde ; 64 au plus.
+- Pendant qu'on écrit un nom, les raccourcis du jeu ne réagissent pas.
+
+Tests réussis : carte (28, dont 10 nouveaux), carnet, window_resize, fps_creation, views, menu_style, display_settings, action_menu, terrain_visuals, controls, controls_groups, settings_files, shortcuts_selection, key_combos, world_save, web_save, pause, interface_info, prototype, history_resume (+ tests juridiques).
+À tester : un nouveau monde (le rappel en bas, puis O + C) ; viser de la terre, de l'herbe, un caillou (l'image) ; M + R puis renommer sur la grande carte.
 
 ## 0.0.8.34 — Gravité du terrain : plus d'effondrement en chaîne
 Publiée. Génération inchangée (version 34). Demandes de l'utilisateur : « il ne faut pas que d'un coup toute la crevasse tombe au fond » ; choix « près du geste » ; chute montrée « seulement si c'est causé par le terrain de base et que c'est gros ». Dernière étape de la série sur la physique.

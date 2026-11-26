@@ -1,10 +1,12 @@
 extends Control
 # 0.0.8.28 (#154, demandes de l'utilisateur) : la grande carte (O + M) : tout ce qu'on a exploré (les zones chargées au
 # fil de la partie), la flèche du joueur ; « Tout voir » montre une fois tout le monde (dessiné en arrière-plan, sa part
-# affichée) ; recliquer revient à ce qui est exploré. O + M ou Échap pour fermer. Les points de repère viendront plus
-# tard (issue #252).
+# affichée) ; recliquer revient à ce qui est exploré. O + M ou Échap pour fermer.
+# 0.0.8.35 (#252) : points de repère : « Ajouter un repère » (là où l'on est), son nom à écrire dans la case à côté ;
+# un clic sur un repère le choisit (pour le renommer), « Supprimer » l'enlève. Nom et distance écrits sur la carte.
 const MapUI = preload("res://scripts/map_ui.gd")
 signal closed
+signal waypoints_changed
 
 var map
 var player: Node3D
@@ -12,10 +14,16 @@ var show_all := false
 var all_button: Button
 var status: Label
 var _wait := 0.0
+var add_button: Button
+var name_edit: LineEdit
+var remove_button: Button
+var chosen := -1
+var text_scale := 1.0
 
-func setup(world_map, who: Node3D, text_scale: float) -> void:
+func setup(world_map, who: Node3D, scale_of_text: float) -> void:
 	map = world_map
 	player = who
+	text_scale = scale_of_text
 	set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	mouse_filter = Control.MOUSE_FILTER_STOP
 	var bar := HBoxContainer.new()
@@ -37,12 +45,67 @@ func setup(world_map, who: Node3D, text_scale: float) -> void:
 	status.add_theme_font_size_override("font_size", roundi(15 * text_scale))
 	status.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	bar.add_child(status)
+	add_button = Button.new()
+	add_button.text = "Ajouter un repère"
+	add_button.focus_mode = Control.FOCUS_NONE
+	add_button.pressed.connect(add_here)
+	bar.add_child(add_button)
+	name_edit = LineEdit.new()
+	name_edit.placeholder_text = "Nom du repère"
+	name_edit.max_length = map.MAX_NAME
+	name_edit.custom_minimum_size = Vector2(180.0 * text_scale, 0.0)
+	name_edit.text_changed.connect(func(text: String) -> void:
+		if chosen >= 0:
+			map.rename_waypoint(chosen, text)
+			waypoints_changed.emit()
+			queue_redraw())
+	name_edit.text_submitted.connect(func(_text: String) -> void: name_edit.release_focus())
+	bar.add_child(name_edit)
+	remove_button = Button.new()
+	remove_button.text = "Supprimer"
+	remove_button.focus_mode = Control.FOCUS_NONE
+	remove_button.pressed.connect(remove_chosen)
+	bar.add_child(remove_button)
+	_choose(-1)
 	var close := Button.new()
 	close.text = "Fermer (O + M)"
 	close.focus_mode = Control.FOCUS_NONE
 	close.pressed.connect(func(): closed.emit())
 	bar.add_child(close)
 	_refresh_texts()
+
+# Un repère là où est le joueur, choisi tout de suite (son nom à écrire).
+func add_here() -> void:
+	if not is_instance_valid(player):
+		return
+	var point: Dictionary = map.add_waypoint(player.global_position)
+	if point.is_empty():
+		return
+	waypoints_changed.emit()
+	_choose(map.waypoints.size() - 1)
+	name_edit.grab_focus()
+	name_edit.select_all()
+
+func remove_chosen() -> void:
+	if chosen < 0:
+		return
+	map.remove_waypoint(chosen)
+	waypoints_changed.emit()
+	_choose(-1)
+
+func _choose(index: int) -> void:
+	chosen = index if index >= 0 and index < map.waypoints.size() else -1
+	name_edit.editable = chosen >= 0
+	name_edit.text = map.waypoints[chosen].nom if chosen >= 0 else ""
+	remove_button.disabled = chosen < 0
+	queue_redraw()
+
+# Place de la carte dans la fenêtre : coin et côté (pixels).
+func _frame() -> Array:
+	var top := 64.0
+	var room := Vector2(size.x - 36.0, size.y - top - 18.0)
+	var side := minf(room.x, room.y)
+	return [Vector2((size.x - side) * 0.5, top), side]
 
 func toggle_all() -> void:
 	show_all = not show_all
@@ -70,6 +133,20 @@ func _process(delta: float) -> void:
 		queue_redraw()
 
 func _gui_input(event: InputEvent) -> void:
+	# Un clic sur un repère le choisit.
+	if event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT and map != null:
+		var frame := _frame()
+		var scale: float = frame[1] / float(map.pixels)
+		var best := -1
+		for index in range(map.waypoints.size()):
+			var point: Dictionary = map.waypoints[index]
+			var at: Vector2 = frame[0] + map.pixel_of(Vector3(point.x, 0.0, point.z)) * scale
+			if at.distance_to(event.position) < 14.0:
+				best = index
+		_choose(best)
+		if best < 0:
+			name_edit.release_focus()
+		accept_event()
 	if event is InputEventKey and event.pressed and event.keycode == KEY_ESCAPE:
 		closed.emit()
 		accept_event()
@@ -85,6 +162,15 @@ func _draw() -> void:
 	var texture: Texture2D = map.full_texture if show_all else map.seen_texture
 	draw_texture_rect(texture, Rect2(origin, Vector2(side, side)), false)
 	draw_rect(Rect2(origin, Vector2(side, side)), Color(0.6, 0.6, 0.6, 0.6), false, 1.5)
+	var map_scale := side / float(map.pixels)
+	for index in range(map.waypoints.size()):
+		var point: Dictionary = map.waypoints[index]
+		var spot: Vector2 = origin + map.pixel_of(Vector3(point.x, 0.0, point.z)) * map_scale
+		map.draw_waypoint(self, spot, point, 9.0 if index == chosen else 6.0)
+		var label: String = point.nom
+		if is_instance_valid(player):
+			label += " · %d m" % roundi(Vector2(point.x - player.global_position.x, point.z - player.global_position.z).length())
+		draw_string(ThemeDB.fallback_font, spot + Vector2(11.0, 5.0), label, HORIZONTAL_ALIGNMENT_LEFT, -1, roundi(14 * text_scale), Color.WHITE)
 	if is_instance_valid(player):
 		var scale := side / float(map.pixels)
 		var at: Vector2 = origin + map.pixel_of(player.global_position) * scale

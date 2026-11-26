@@ -1100,7 +1100,7 @@ func open_world(id: String, prepared: RefCounted = null, behind_loading := false
 	active_world.behind_loading = behind_loading
 	add_child(active_world)
 	if not behind_loading:
-		shortcut_hints.show()
+		pass # 0.0.8.35 : rappels F1 / F3 / F4 plus affichés en jeu (Paramètres > Contrôles)
 	# Monde par défaut : réglages ignorés ; monde développeur : réglages globaux.
 	active_world.player.apply_settings(settings.world_values(developer))
 	active_world.set_coordinates_visible(settings.values.show_coords == "on")
@@ -1209,7 +1209,7 @@ func reveal_world() -> void:
 	menu_root.hide()
 	page = "playing"
 	_update_backdrop()
-	shortcut_hints.show()
+	pass # 0.0.8.35 : rappels F1 / F3 / F4 plus affichés en jeu (Paramètres > Contrôles)
 	active_world.player.resume_controls()
 
 # Tout de suite (tests).
@@ -1352,7 +1352,7 @@ func resume_game() -> void:
 	menu_root.hide()
 	page = "playing"
 	get_tree().paused = false
-	shortcut_hints.show()
+	pass # 0.0.8.35 : rappels F1 / F3 / F4 plus affichés en jeu (Paramètres > Contrôles)
 	active_world.player.resume_controls()
 
 var notebook_button: Button
@@ -1420,7 +1420,8 @@ func _input(event: InputEvent) -> void:
 	if not capturing_action.is_empty():
 		_capture_control(event)
 		return
-	if event is InputEventKey or event is InputEventMouseButton:
+	# 0.0.8.35 : pas de raccourci pendant qu'on écrit (nom d'un repère…).
+	if (event is InputEventKey or event is InputEventMouseButton) and not (event is InputEventKey and get_viewport().gui_get_focus_owner() is LineEdit):
 		_send_combos(key_combos.feed(event, Time.get_ticks_msec()))
 	if event is InputEventMouseButton and event.pressed and event.button_index in [MOUSE_BUTTON_WHEEL_UP, MOUSE_BUTTON_WHEEL_DOWN] and wheel_scroll(event):
 		get_viewport().set_input_as_handled()

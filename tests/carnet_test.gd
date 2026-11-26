@@ -66,7 +66,8 @@ func _run() -> void:
 	for i in range(5):
 		await process_frame
 	var world: Node3D = app.active_world
-	check(world.notebook_seen and world.notice.contains("O + C"), "first time in the world: how to open it")
+	# 0.0.8.35 : un rappel en bas, jusqu'à la première ouverture (avant : un message de 9 s).
+	check(world.notebook_seen and world.notebook_reminder.visible and world.notebook_reminder.text.contains("O + C"), "a new world: how to open it, at the bottom")
 	check(is_instance_valid(app.notebook_button) and app.notebook_button.text.begins_with("Carnet de route"), "a button in the Échap menu")
 	check(world.held_text() == "Main vide", "empty hand: « Main vide »")
 	# (Une poche vide : la première tient l'orbe de retour du début.)

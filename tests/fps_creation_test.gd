@@ -49,7 +49,8 @@ func _run() -> void:
 		world.apply_text_scale(scale)
 		await process_frame
 		var note: Label = world.find_child("ExplorationNotice",true,false)
-		check(note.get_rect().end.y <= fps.position.y, "HUD rows do not overlap at scale %.1f" % scale)
+		# 0.0.8.35 : l'aide de gauche est cachée (elle est dans le carnet).
+		check(not note.visible or note.get_rect().end.y <= fps.position.y, "HUD rows do not overlap at scale %.1f" % scale)
 	world.process_mode = Node.PROCESS_MODE_PAUSABLE
 	paused = true
 	check(not fps.visible, "pause hides FPS under menus")

@@ -63,6 +63,16 @@ func _draw() -> void:
 		draw_texture_rect_region(map.seen_texture, Rect2(-Vector2(reach, reach) * zoom * 0.5, Vector2(reach, reach) * zoom), Rect2(at - Vector2(reach, reach) * 0.5, Vector2(reach, reach)))
 		draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
 		draw_arrow(self, center, Vector2(0, -1), side * 0.07)
+	# 0.0.8.35 (#252) : les points de repère ; trop loin, au bord, dans leur direction.
+	for point: Dictionary in map.waypoints:
+		var offset: Vector2 = (map.pixel_of(Vector3(point.x, 0.0, point.z)) - at) * zoom
+		if not north_fixed:
+			offset = offset.rotated(yaw)
+		var edge := side * 0.5 - 7.0
+		var far := maxf(absf(offset.x), absf(offset.y)) > edge
+		if far:
+			offset *= edge / maxf(absf(offset.x), absf(offset.y))
+		map.draw_waypoint(self, center + offset, point, 3.5 if far else 5.0)
 	draw_rect(Rect2(Vector2.ZERO, size), Color(0, 0, 0, 0.9), false, 2.0)
 	# Le nord.
 	var north := Vector2(center.x, 12.0) if north_fixed else center + Vector2(0, -1).rotated(yaw) * (side * 0.5 - 12.0)
