@@ -956,7 +956,10 @@ func part_terrain() -> void:
 		for d in range(profile.size()):
 			if profile[d] > 0:
 				radius = d + 1
-		out("tas de %s (48 points posés en colonne de 6 m) : profil des hauteurs en points de 50 cm depuis le centre %s ; pente moyenne %.0f° ; %d pas de chute, %d ms" % [spec[0], str(profile), rad_to_deg(atan(float(profile[0]) / maxf(radius, 1))), steps, took])
+		var steepest := 0.0
+		for d in range(profile.size() - 3):
+			steepest = maxf(steepest, (profile[d] - profile[d + 3]) / 3.0)
+		out("tas de %s (48 points posés en colonne de 6 m) : hauteurs en points de 50 cm depuis le centre %s ; plus forte pente sur 1,5 m : %.0f° ; plus haute marche : %d points ; %d pas de chute, %d ms" % [spec[0], str(profile), rad_to_deg(atan(steepest)), _highest_step(profile), steps, took])
 	# Surplombs de la graine : matière meuble ou terre qui tomberait dès qu'on la réveille (on creuse ou pose à côté).
 	for place in [Vector3(0, 0, 0), Vector3(128, 0, 0), Vector3(0, 0, 128), Vector3(-128, 0, -128), Vector3(128, 0, 128)]:
 		var start := Time.get_ticks_msec()
@@ -979,7 +982,7 @@ func part_terrain() -> void:
 						overhangs += 1
 						if t.is_stone(over):
 							stone += 1
-						elif t.fall_target(over) != over:
+						elif would_fall(t, over):
 							latent.append(over)
 							var kind: int = t.materials.get(over, t.natural_kind(over))
 							by_kind[kind] = int(by_kind.get(kind, 0)) + 1
@@ -987,13 +990,17 @@ func part_terrain() -> void:
 							held += 1
 					above_solid = is_solid
 		out("surplombs autour de %s (64 × 64 m, 30 m de profondeur) : %d ; en pierre : %d ; terre tenue par les côtés : %d ; prêts à tomber si on les réveille : %d (par matière %s) ; %d ms" % [str(place), overhangs, stone, held, latent.size(), str(by_kind), Time.get_ticks_msec() - start])
-		# Chaîne : on réveille un seul point prêt à tomber, combien de points bougent ?
-		var chains := []
+		# Chaîne : (a) un point prêt à tomber seulement réveillé (un arbre coupé, de la terre posée à côté) ; (b) le joueur
+		# creuse juste sous lui : combien de sous-cellules changent, et jusqu'où du geste.
+		var woken := []
+		var dug_sizes := []
+		var farthest := 0.0
+		var outside := 0
 		var rng := RandomNumberGenerator.new()
 		rng.seed = 5
-		for trial in range(mini(6, latent.size())):
+		for trial in range(mini(8, latent.size())):
 			var point: Vector3i = latent[rng.randi_range(0, latent.size() - 1)]
-			if t.fall_target(point) == point:
+			if not would_fall(t, point):
 				continue
 			t.wake(point)
 			var moved := {}
@@ -1002,9 +1009,43 @@ func part_terrain() -> void:
 				for changed in t.settle_step():
 					moved[changed] = true
 				steps += 1
-			chains.append(moved.size() / 2)
-		if not chains.is_empty():
-			out("  un seul point réveillé → points qui tombent en chaîne : %s" % str(chains))
+			woken.append(moved.size())
+			var gesture := point + Vector3i.DOWN
+			var before_dig: Dictionary = t.changes.duplicate()
+			t.dug(gesture)
+			moved = {}
+			steps = 0
+			var sources := {}
+			while not t.unstable.is_empty() and steps < 4000:
+				var step_moved: Array = t.settle_step()
+				for index in range(0, step_moved.size(), 2):
+					sources[step_moved[index]] = true
+				for changed in step_moved:
+					moved[changed] = true
+				steps += 1
+			var natural_fallen := 0
+			for changed: Vector3i in t.changes:
+				if not before_dig.has(changed) and float(t.changes[changed]) <= 0.0 and t.base_density(changed) > 0.0:
+					natural_fallen += 1
+					if maxi(maxi(absi(changed.x - gesture.x), absi(changed.y - gesture.y)), absi(changed.z - gesture.z)) > 2:
+						outside += 1
+			dug_sizes.append(natural_fallen)
+			for source: Vector3i in sources:
+				# Seulement le sol d'origine : ce qui est déjà tombé peut rouler plus loin.
+				if absi(source.x - gesture.x) <= 2 and absi(source.z - gesture.z) <= 2:
+					continue
+				farthest = maxf(farthest, Vector2(source.x - gesture.x, source.z - gesture.z).length() * SmoothTerrain.STEP)
+		if not woken.is_empty():
+			out("  un point seulement réveillé → sous-cellules changées : %s ; le joueur creuse dessous → points du sol d'origine tombés : %s, dont hors du rayon de 1 m autour du geste : %d" % [str(woken), str(dug_sizes), outside])
+
+# Ce point du sol d'origine tomberait-il si le joueur creusait tout près ?
+func would_fall(t, over: Vector3i) -> bool:
+	var had: bool = t.loosened.has(over)
+	t.loosened[over] = true
+	var falls: bool = t.fall_target(over) != over
+	if not had:
+		t.loosened.erase(over)
+	return falls
 
 # Diamètre (m, repère du modèle) de la boucle de bois qui entoure l'axe dans le plan perpendiculaire en « center » :
 # les triangles sont tranchés par le plan, les segments reliés en boucles ; on garde celle qui entoure l'axe (pas les
@@ -1172,3 +1213,9 @@ func part_hazel() -> void:
 		if load("res://scripts/crafting_rules.gd").good_handle(item):
 			handles += 1
 	out("noisetiers (tailles 3 et 5), tiges coupées, recoupées et défaites : objets au sol %s ; bons manches possibles : %d" % [str(counts), handles])
+
+func _highest_step(profile: Array) -> int:
+	var highest := 0
+	for d in range(profile.size() - 1):
+		highest = maxi(highest, absi(int(profile[d]) - int(profile[d + 1])))
+	return highest

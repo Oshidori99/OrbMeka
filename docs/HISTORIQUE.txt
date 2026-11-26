@@ -3,6 +3,10 @@ Du plus récent au plus ancien. Ce fichier est mis à jour à chaque version.
 
 === Thème « Fabrication et survie » (0.0.8) ===
 
+0.0.8.34 — Gravité du terrain : le sol d'origine ne tombe que si on creuse tout près (1 m), jamais en chaîne (plus de grotte ni de crevasse qui s'effondre), une chute se fait d'un coup (montrée peu à peu seulement si elle est grosse), sable en tas à 34° au plus, terre en pente raide sans mur de plus de 1 m
+Génération du terrain : version 34 · Menus : version 17.
+Demandes de l'utilisateur (physique et gravité fiables ; choix « près du geste ») ; mesuré avec tools/mesure_physique.gd.
+
 0.0.8.33 — Arbres abattus bien posés : le tronc repose sur ses appuis sur toute sa longueur (cime plus jamais sous le relief), branches jamais poussées dans la pente ni dans un bord de talus, arbre ou branche tombés sur un gros rocher posés dessus (plus dedans), pose exacte gardée à la réouverture
 Génération du terrain : version 34 · Menus : version 17.
 Demandes de l'utilisateur (physique et gravité fiables) ; mesuré avec tools/mesure_physique.gd.

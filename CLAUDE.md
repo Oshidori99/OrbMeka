@@ -47,8 +47,10 @@ Suivi du travail : GitHub Project https://github.com/users/Oshidori99/projects/1
 - Lointain simplifié (scripts/far_terrain.gd), eau qui coule (scripts/water.gd), arbres (scripts/trees.gd), plantes (scripts/plants.gd),
   rochers et cailloux (scripts/rocks.gd).
 - Règles : même graine = même monde ; mondes légers (seulement les changements, compressés) ; mesurer les performances sur PC et sur le Web.
-- Pour plus tard (gravité réaliste) : sable qui glisse au-delà d'environ 34° et ne tient jamais en plafond ; terre aux pentes raides et
-  petit plafond d'environ 1 m au plus ; pierre qui ne tombe pas ; poutres pour soutenir la terre.
+- Gravité (0.0.8.29 à 0.0.8.34, tests/gravite_test.gd et cliff_fall_test.gd) : rien ne reste en l'air sans appui (rochers taillés,
+  cailloux, objets, bois, arbres couchés : posés sur le sol réel, rochers compris) ; le sol d'origine ne tombe que si le joueur
+  creuse à 1 m, jamais en chaîne ; sable à 34° au plus, jamais en plafond ; terre en pente raide, petit plafond de 1 m ; la
+  pierre ne tombe pas. Pour plus tard : poutres pour soutenir la terre ; un arbre couché qui suit le sol creusé dessous.
 
 ## Ordre des séries
 0.0.7 — Inventaire (porter, ramasser, modes Créatif et Survie), 0.0.8 — Fabrication et survie (bâtons, fibres,
