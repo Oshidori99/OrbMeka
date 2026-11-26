@@ -2794,6 +2794,8 @@ func _cut_to_wood(tree: Node3D, cut: int, number: int) -> bool:
 # d'un morceau nu l'est aussi). R sur un tas : on le ramasse (_pick_leaf_pile) ; R sur le morceau nu : il se défait en
 # bois. Une feuille : une plaque du feuillage du modèle (LEAF_TRIANGLES triangles, une image de grappe de feuilles).
 const LEAF_TRIANGLES := 2
+# Feuilles d'un rameau feuillu d'avant 0.0.8.30, laissées en tas quand on le ramasse.
+const OLD_TWIG_LEAVES := 4
 # Cases (m) pour ranger les feuilles avant de les mettre en tas : un tas reprend des feuilles voisines.
 const LEAF_CELL := 0.4
 
@@ -2899,13 +2901,9 @@ func _part_to_wood(tree: Node3D, part: int, keep := -1, own_node := true) -> Arr
 	var kept := []
 	var id := str(tree.get_meta("id", ""))
 	var items := _part_wood_items(tree, part)
-	# 0.0.8.23 : ses feuilles ne disparaissent pas : elles tombent en tas (un rameau garde les siennes).
+	# 0.0.8.23 : ses feuilles ne disparaissent pas : elles tombent en tas. 0.0.8.30 : toutes (plus de rameau feuillu).
 	if not _part_stripped(id, part):
-		var twigs := {}
-		for each in items:
-			if each[0].objet == "rameau":
-				twigs[int(each[2])] = true
-		_drop_leaves(tree, part, twigs)
+		_drop_leaves(tree, part)
 	for each in items:
 		if int(each[2]) == keep and kept.is_empty():
 			kept = [each[0], each[1]]
@@ -2941,10 +2939,6 @@ func _all_wood(id: String) -> void:
 # tiges et troncs droits étaient mesurés dans une tranche horizontale de TOUT l'arbre, qui prenait parfois l'anneau
 # d'une tige ou d'une branche voisine (un bout ultra fin, ou trop gros). Posé par _part_to_wood.
 
-# Rameau : une pièce fine (moins de 4 cm) qui porte des feuilles (au moins RAMEAU_LEAVES triangles de feuilles).
-const RAMEAU_LEAVES := 4
-const RAMEAU_THICKNESS := 0.04
-
 # Bois de chaque pièce d'un morceau : [objet, milieu (monde), numéro de la pièce], la pièce principale (la plus proche
 # du pied) d'abord.
 func _part_wood_items(tree: Node3D, part: int) -> Array:
@@ -2958,18 +2952,10 @@ func _part_wood_items(tree: Node3D, part: int) -> Array:
 	var spans: Dictionary = assigned.ranges[part]
 	if spans.is_empty():
 		return []
-	# Feuilles de chaque pièce dans ce morceau (0.0.8.23 : aucune si elles sont tombées : plus de rameaux).
-	var leaves := {}
-	var stripped := _part_stripped(str(tree.get_meta("id", "")), part)
-	for surface in range(made_skeleton.surfaces.size()):
-		var info: Dictionary = made_skeleton.surfaces[surface]
-		if not info.leaves or stripped:
-			continue
-		var of: PackedInt32Array = assigned.parts[surface]
-		for triangle in range(of.size()):
-			if of[triangle] == part:
-				var owner: int = info.owner[triangle]
-				leaves[owner] = int(leaves.get(owner, 0)) + 1
+	# 0.0.8.30 (demande de l'utilisateur, sur le noisetier : « c'est plus possible d'avoir des bâtons : dès qu'on essaie
+	# de casser des feuilles, ça nous fait des branches feuillées » ; mesuré : 55 bois sur 83 étaient des rameaux feuillus,
+	# refusés pour fendre, faire un manche ou une navette) : une pièce fine qui porte des feuilles devient un bâton comme
+	# les autres ; ses feuilles tombent à part, en tas (_part_to_wood). Plus aucun rameau feuillu ne sort d'un arbre.
 	var main := TreeParts.main_span(kind, size, form, cuts, part)
 	var order: Array = spans.keys()
 	order.sort_custom(func(a, b): return (a == main[0]) if (a == main[0]) != (b == main[0]) else a < b)
@@ -2990,10 +2976,9 @@ func _part_wood_items(tree: Node3D, part: int) -> Array:
 		var big := ends.x * scale
 		var small := ends.y * scale
 		var thickness := maxf(big, small)
-		var leafy: bool = int(leaves.get(number, 0)) >= RAMEAU_LEAVES and thickness < RAMEAU_THICKNESS
 		var rng := RandomNumberGenerator.new()
 		rng.seed = hash(tree_id + "_" + str(part) + "_" + str(number))
-		var id: String = "rameau" if leafy else ("tronc" if thickness >= 0.04 else "branche")
+		var id: String = "tronc" if thickness >= 0.04 else "branche"
 		var wood := Inventory.wood_piece(id, kind, (big + small) * 50.0, length, rng, Inventory.tree_wood(tree_id, kind))
 		wood.epaisseur = snappedf(thickness * 100.0, 0.1)
 		wood.fin = snappedf(maxf(minf(big, small) * 100.0, WOOD_TIP_CM), 0.1)
@@ -4464,13 +4449,22 @@ func pick_up(hit: Dictionary) -> bool:
 		# 0.0.8.23 : un tas de feuilles : toutes celles qui tiennent.
 		if ground.entries[index].item.get("objet", "") == "feuilles":
 			return _pick_leaf_pile(index)
-		value = Inventory.single(ground.entries[index].item)
+		# 0.0.8.30 : un rameau feuillu d'avant (monde déjà commencé) : on prend son bâton, ses feuilles restent en un
+		# petit tas là où il était.
+		var twig: Dictionary = ground.entries[index].item
+		var twig_spot: Vector3 = ground.entries[index].position if twig.get("objet", "") == "rameau" else Vector3.INF
+		if twig_spot != Vector3.INF:
+			twig = twig.duplicate(true)
+			twig.objet = "tronc" if float(twig.get("epaisseur", 0.0)) >= 4.0 else "branche"
+		value = Inventory.single(twig)
 		value.erase("graine")
 		var result := inventory.add_to_selected(value)
 		if result.added == 0:
 			_notify(_refused_message(result.reason, value))
 			return true
 		ground.remove(index)
+		if twig_spot != Vector3.INF:
+			ground.drop({"objet": "feuilles", "essence": clampi(int(twig.get("essence", 0)), 0, 3), "tas": OLD_TWIG_LEAVES}, twig_spot, twig_spot, _rest_height, 0.0)
 	else:
 		var size: int = collider.get_meta("pebble").x
 		if size > Inventory.PICKABLE_SIZE:

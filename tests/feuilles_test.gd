@@ -245,7 +245,10 @@ func _run() -> void:
 		await frames(30)
 		var twigs: Array = wood_items(world).filter(func(entry): return entry.item.objet == "rameau")
 		var dropped := leaves_in(piles(world.ground))
-		check(dropped > 0 and dropped < all_leaves and not twigs.is_empty(), "turned into wood with its leaves: they fall in piles (%d of %d), its twigs keep theirs (%d twigs)" % [dropped, all_leaves, twigs.size()])
+		# 0.0.8.30 : plus de rameau feuillu : toutes ses feuilles tombent, ses pièces fines sont des bâtons.
+		check(dropped >= all_leaves - 2 and dropped > 0 and twigs.is_empty(), "turned into wood with its leaves: they all fall in piles (%d of %d), no leafy twig (%d)" % [dropped, all_leaves, twigs.size()])
+	# 0.0.8.30 : un rameau d'avant, relu d'un monde enregistré, devient un bâton.
+	check(Inventory._read({"objet": "rameau", "pile": [{"essence": 1, "epaisseur": 2.5, "fin": 2.0, "longueur": 0.5, "poids": 100.0}]}).get("objet", "") == "branche", "an old leafy twig read from a saved world is a plain stick")
 	clear(world, "feuilles-noisetier-2")
 	world.queue_free()
 	await frames(2)

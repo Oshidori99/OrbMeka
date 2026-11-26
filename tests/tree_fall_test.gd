@@ -44,7 +44,8 @@ func look(player: Node3D, point: Vector3) -> void:
 	await frames(2)
 
 func new_wood(world: Node3D, before: int) -> Array:
-	return world.ground.entries.slice(before).map(func(entry): return entry.item)
+	# 0.0.8.30 : les feuilles tombent maintenant à part (tas) : seulement le bois.
+	return world.ground.entries.slice(before).map(func(entry): return entry.item).filter(func(item): return item.get("objet", "") != "feuilles")
 
 func _run() -> void:
 	var world: Node3D = load("res://scenes/world.tscn").instantiate()
@@ -179,8 +180,9 @@ func _run() -> void:
 	check(cuts.size() == 2 and int(cuts[-1][0]) == branch and stick.size() == 1 and absf(stick[0].longueur - (bough.length - broken_t) * scale) < 0.03, "picked up: one stick at its real length (%.2f m)" % (stick[0].longueur if not stick.is_empty() else 0.0))
 	check(parts_of(world, "pommier-essai").size() == 1, "no lying piece left for it")
 	# 0.0.7.12 : avec ses feuilles : un rameau, nommé selon son arbre (un seul petit feuillage pour tous).
-	check(not stick.is_empty() and stick[0].objet == "rameau" and Inventory.item_name(stick[0]) == "Rameau de pommier" and Inventory.item_name({"objet": "rameau", "essence": Trees.HAZEL}) == "Tige de noisetier", "a leafy branch is a twig named after its tree")
-	check(world.ground.get_children().any(func(child): return child is MultiMeshInstance3D and child.multimesh.mesh == world.ground.leaf_tuft()), "its leaves are drawn on the ground")
+	# 0.0.8.30 : plus de rameau feuillu : un bâton (ou une bûche), ses feuilles en tas à côté.
+	check(not stick.is_empty() and stick[0].objet in ["branche", "tronc"] and Inventory.item_name({"objet": "rameau", "essence": Trees.HAZEL}) == "Tige de noisetier", "a leafy branch gives a plain stick (%s)" % (stick[0].objet if not stick.is_empty() else "-"))
+	check(world.ground.entries.any(func(entry): return entry.item.get("objet", "") == "feuilles"), "its leaves lie in a pile on the ground")
 	# --- D. Noisetier : une tige coupée à 1 m : seulement elle tombe, les autres restent debout. ---
 	var hazel := make_tree(world, "noisetier-essai", Trees.HAZEL, 1, feet + Vector3(0.0, 0.0, 1.9))
 	world.picked_fruits["noisetier-essai"] = range(300)
