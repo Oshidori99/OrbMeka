@@ -61,7 +61,9 @@ static func base_data(item: Dictionary) -> Dictionary:
 		"mode_developpeur_utilise": item.get("developer_used", false), "creation": item.get("created", ""), "terrain": "blocs", "generation": item.get("generation", {}).duplicate(true),
 		"mode_de_jeu": item.get("game_mode", "creative"),
 		# 0.0.8.1 (#205) : objets à la mort : « drop » (tombent sur place) ou « keep » (gardés).
-		"objets_a_la_mort": item.get("death_items", "drop")}
+		"objets_a_la_mort": item.get("death_items", "drop"),
+		# 0.0.8.43 : le jour et la nuit.
+		"jour_et_nuit": item.get("day_cycle", "cycle"), "duree_jour": item.get("day_length", "24"), "cycle_lune": item.get("moon_cycle", "28")}
 
 static func valid_base(data: Dictionary) -> bool:
 	return preload("res://scripts/world_generation.gd").valid(data.get("generation", {})) and data.get("id") is String and data.get("nom") is String and (data.get("graine") is float or data.get("graine") is int)

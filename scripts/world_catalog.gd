@@ -22,6 +22,11 @@ const GAME_MODES := {GAME_SURVIVAL: "Survie", GAME_CREATIVE: "Créatif"}
 const DEATH_DROP := "drop"
 const DEATH_KEEP := "keep"
 const DEATH_ITEMS := {DEATH_DROP: "Tombent sur place", DEATH_KEEP: "Gardés"}
+# 0.0.8.43 (demandes de l'utilisateur) : le jour et la nuit, propres à chaque monde (Paramètres → Monde) : jour et nuit
+# ou toujours le jour, durée d'une journée (minutes réelles), cycle de la lune (jours de jeu ; en vrai environ 29,5).
+const TIME_OPTIONS := {"day_cycle": {"label": "Jour et nuit", "options": {"cycle": "Jour et nuit", "day": "Toujours le jour"}, "default": "cycle"},
+	"day_length": {"label": "Durée d'une journée", "options": {"12": "12 min", "24": "24 min", "48": "48 min"}, "default": "24"},
+	"moon_cycle": {"label": "Pleine lune", "options": {"28": "Tous les 28 jours", "8": "Tous les 8 jours"}, "default": "28"}}
 var worlds: Array[Dictionary] = []
 var last_error := ""
 var load_error := ""
@@ -193,6 +198,8 @@ func _load_worlds() -> void:
 		var entry := {"id": item.id, "name": clean_name, "seed": int(seed_value), "mode": mode, "developer_used": used, "created": str(item.get("created", "")), "generation": Generation.normalized(item.get("generation", {}))}
 		entry.game_mode = item.get("game_mode") if GAME_MODES.has(item.get("game_mode")) else GAME_CREATIVE
 		entry.death_items = item.get("death_items") if DEATH_ITEMS.has(item.get("death_items")) else DEATH_DROP
+		for key in TIME_OPTIONS:
+			entry[key] = item.get(key) if TIME_OPTIONS[key].options.has(item.get(key)) else TIME_OPTIONS[key].default
 		# 0.0.5.20 : dossier au nom du monde, refusé s'il n'est pas propre (jamais de chemin dangereux).
 		if item.has("folder"):
 			if not item.folder is String or not Store.valid_folder_name(item.folder):
@@ -441,3 +448,25 @@ func duplicate_world(id: String) -> Dictionary:
 			return copy
 		number += 1
 	return {}
+# 0.0.8.43 : un réglage du jour et de la nuit d'un monde (TIME_OPTIONS), enregistré dans worlds.json et monde.json.
+func set_time_option(id: String, key: String, value: String) -> bool:
+	last_error = ""
+	if not load_error.is_empty():
+		last_error = load_error
+		return false
+	if not TIME_OPTIONS.has(key) or not TIME_OPTIONS[key].options.has(value):
+		last_error = "Choix inconnu."
+		return false
+	for index in range(worlds.size()):
+		if worlds[index].id == id:
+			var before: String = worlds[index].get(key, TIME_OPTIONS[key].default)
+			if before == value:
+				return true
+			worlds[index][key] = value
+			if not _save_worlds():
+				worlds[index][key] = before
+				return false
+			_write_base_for(id)
+			return true
+	last_error = "Ce monde n'existe plus."
+	return false

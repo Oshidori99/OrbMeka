@@ -1090,6 +1090,8 @@ func open_world(id: String, prepared: RefCounted = null, behind_loading := false
 	active_world.game_mode = item.get("game_mode", Catalog.GAME_CREATIVE)
 	# 0.0.8.1 (#205) : objets à la mort de ce monde.
 	active_world.death_items = item.get("death_items", Catalog.DEATH_DROP)
+	# 0.0.8.43 : le jour et la nuit de ce monde.
+	active_world.set_world_time_options(item.get("day_cycle", "cycle"), int(item.get("day_length", "24")), int(item.get("moon_cycle", "28")))
 	active_world.prepared_terrain = prepared
 	# 0.0.8.13 : fils de calcul lancés par l'écran de chargement (seulement avec la graine préparée par lui).
 	if prepared != null and loading_workers != null:
@@ -1105,6 +1107,7 @@ func open_world(id: String, prepared: RefCounted = null, behind_loading := false
 	active_world.player.apply_settings(settings.world_values(developer))
 	active_world.set_coordinates_visible(settings.values.show_coords == "on")
 	active_world.set_map_options(settings.values)
+	active_world.set_light_options(settings.values)
 	active_world.player.crouch_toggle = settings.control_options.crouch_mode == "toggle"
 	active_world.player.run_mode = settings.control_options.run_mode
 	active_world.player.fly_stop_on_ground = settings.control_options.get("fly_mode", "ground") == "ground"

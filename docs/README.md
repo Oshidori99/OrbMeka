@@ -1,6 +1,18 @@
-# OrbMeka™ — prototype 0.0.8.42
+# OrbMeka™ — prototype 0.0.8.43
 
 Godot 4.7 / GDScript. Formes et couleurs simples ; assets externes seulement sous licence vérifiée (sons CC0, assets/sounds/CREDITS.txt).
+
+## 0.0.8.43 — La nuit et la lune (#214, première partie)
+Publiée (avec tous les tests sur GitHub). Génération inchangée (version 34). Demandes de l'utilisateur.
+- **Nuit vraiment noire** : par nouvelle lune on ne voit presque rien ; par pleine lune, un peu de lumière bleutée. Le ciel de la nuit est plus sombre.
+- **La lune et ses phases**, comme en vrai : un disque dans le ciel la nuit (nouvelle lune, croissants, quartiers, pleine lune) ; pleine lune tous les **28 jours de jeu** (en vrai environ 29,5), ou tous les 8 jours (réglage du monde). Les jours passés sont comptés et enregistrés ; un nouveau monde commence au premier croissant.
+- **Sombre sous terre** : plus le ciel est caché autour de soi (13 regards vers le haut, 4 fois par seconde, 0,5 ms : léger), moins il y a de lumière ; au fond d'une grotte, presque noir, même à midi, sans torche (la torche viendra dans la version suivante).
+- **Paramètres → Vidéo → Lumière** : « Luminosité la nuit et sous terre », de 0 % (réaliste, par défaut) à 100 % (on voit toujours bien, même la nuit et dans les grottes).
+- **Paramètres → Monde** (propre à chaque monde) : **jour et nuit** ou **toujours le jour** ; **durée d'une journée** (12, 24 ou 48 minutes) ; **pleine lune** tous les 28 ou 8 jours.
+- Performances inchangées sur PC (ouverture 112 images/s, marche en forêt 212, vol 290) ; la nuit, un peu plus rapide. Captures de la nuit (pleine lune, croissant, nouvelle lune) faites dans la petite fenêtre discrète (tools/capture_nuit.gd).
+
+Tests réussis : jour_nuit (28, dont 15 nouveaux), settings_files, settings_walk, display_settings, menu_style, world_management, world_info, world_options, custom_world_menu, world_save, web_save, world_stats, carte, catalog_restart, pause_settings, quality, web_fixes, perf_guard, optimisation, swim, water, prototype, history_resume ; tous les tests sur GitHub.
+À tester : une nuit entière (la lune) ; descendre dans une grotte ou creuser un puits profond (la lumière baisse) ; Paramètres → Vidéo → Lumière ; Paramètres → Monde ; sur le Web.
 
 ## 0.0.8.42 — Inventaire plus net
 Publiée. Génération inchangée (version 34). Demandes de l'utilisateur.

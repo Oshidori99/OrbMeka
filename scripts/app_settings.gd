@@ -372,6 +372,7 @@ func _apply_to_game() -> void:
 	active_world.apply_text_scale(_text_scale())
 	active_world.set_coordinates_visible(settings.values.show_coords == "on")
 	active_world.set_map_options(settings.values)
+	active_world.set_light_options(settings.values)
 	# Distance d'affichage changée en pause : zones (et terrain, 0.0.5.17) mises à jour peu à peu.
 	active_world.set_grass_distance(float(settings.values.grass_zones) * 8.0)
 	active_world.load_distance = int(settings.values.view_distance)
@@ -428,10 +429,31 @@ func _build_world_section(parent: Node) -> void:
 		button.button_group = death_group
 		_min_size(button, Vector2(52, 0))
 		death_items_buttons[choice] = button
-	_explanation(box, ["", "Propre à ce monde.", "Propre à ce monde, enregistré avec lui. Objets à la mort (Survie) : ils tombent sur place, à récupérer (ils restent au sol), ou on les garde."])
+	# 0.0.8.43 (demandes de l'utilisateur) : le jour et la nuit de ce monde (Catalog.TIME_OPTIONS).
+	for key in Catalog.TIME_OPTIONS:
+		var spec: Dictionary = Catalog.TIME_OPTIONS[key]
+		var time_row := HBoxContainer.new()
+		_sep(time_row, 10)
+		box.add_child(time_row)
+		var time_label := _text_label()
+		time_label.text = spec.label
+		time_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		time_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		time_row.add_child(time_label)
+		var time_group := ButtonGroup.new()
+		time_buttons[key] = {}
+		for choice in spec.options:
+			var button := _button(spec.options[choice], time_row, func(): set_world_time_option(key, choice))
+			button.theme_type_variation = "OrbTab"
+			button.toggle_mode = true
+			button.button_group = time_group
+			_min_size(button, Vector2(52, 0))
+			time_buttons[key][choice] = button
+	_explanation(box, ["", "Propre à ce monde.", "Propre à ce monde, enregistré avec lui. Jour et nuit : la durée d'une journée et la pleine lune (0.0.8.43). Objets à la mort (Survie) : ils tombent sur place, à récupérer (ils restent au sol), ou on les garde."])
 	box.get_child(-1).theme_type_variation = "OrbNote"
 
 var death_items_buttons: Dictionary = {}
+var time_buttons: Dictionary = {}
 
 func _refresh_world_section() -> void:
 	var item: Dictionary = catalog.find_world(current_world_id)
@@ -439,8 +461,24 @@ func _refresh_world_section() -> void:
 	for game_mode in game_mode_buttons:
 		game_mode_buttons[game_mode].set_pressed_no_signal(game_mode == current)
 	var death: String = item.get("death_items", Catalog.DEATH_DROP)
+	for key in time_buttons:
+		var chosen: String = item.get(key, Catalog.TIME_OPTIONS[key].default)
+		for choice in time_buttons[key]:
+			time_buttons[key][choice].set_pressed_no_signal(choice == chosen)
 	for choice in death_items_buttons:
 		death_items_buttons[choice].set_pressed_no_signal(choice == death)
+
+func set_world_time_option(key: String, choice: String) -> void:
+	if current_world_id.is_empty():
+		return
+	if catalog.set_time_option(current_world_id, key, choice):
+		settings_message.text = "%s : %s." % [Catalog.TIME_OPTIONS[key].label, Catalog.TIME_OPTIONS[key].options[choice].to_lower()]
+		if is_instance_valid(active_world):
+			var item: Dictionary = catalog.find_world(current_world_id)
+			active_world.set_world_time_options(item.get("day_cycle", "cycle"), int(item.get("day_length", "24")), int(item.get("moon_cycle", "28")))
+	else:
+		settings_message.text = catalog.last_error
+	_refresh_world_section()
 
 func set_world_death_items(choice: String) -> void:
 	if current_world_id.is_empty():
