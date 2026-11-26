@@ -1,12 +1,23 @@
-# OrbMeka™ — prototype 0.0.8.30
+# OrbMeka™ — prototype 0.0.8.31
 
 Godot 4.7 / GDScript. Formes et couleurs simples ; assets externes seulement sous licence vérifiée (sons CC0, assets/sounds/CREDITS.txt).
+
+## 0.0.8.31 — Bois au sol bien posé, recoupe qui ne bouge plus
+Publiée. Génération inchangée (version 34). Demandes de l'utilisateur : le bois posé jamais dans le sol ni en l'air, et « recouper une branche couchée ne change que le bout coupé ».
+- **Bûches et bâtons reposent sur leurs appuis** : le sol est mesuré sous eux tout du long (3 points sous 1 m, 5 sous 3 m, 9 au-delà), à leur vrai rayon (gros bout, petit bout) ; ils se posent comme un objet rigide sur leurs deux appuis les plus hauts. Avant : posés par leur centre seulement. Mesuré sur 500 bois : un bout dans le sol de plus de 5 cm : 68 → **0** (jusqu'à 66 cm avant) ; un bout en l'air de plus de 20 cm : 41 → 1 (un bâton rigide posé sur une bosse peut dépasser un peu).
+- **Le bois suit le sol** : si on creuse sous un bout, il se repose (sans entrer dans le sol).
+- **Recouper une branche ou une tige couchée** : le reste garde **exactement** sa pose tant qu'il tient encore (il devrait bouger de moins de 5 cm) ; il ne se repose que s'il a vraiment perdu un appui. Mesuré sur 84 recoupes : 95 % ne bougent plus du tout (avant : une sur vingt bougeait de 12 cm ou plus).
+- Léger : la pose d'un bois est calculée une fois (gardée pendant la partie, pas enregistrée). Images par seconde inchangées (ouverture 115, marche en forêt 219, vol 304).
+- Correction de la note de 0.0.8.30 : les rameaux d'avant, au sol comme dans l'inventaire, deviennent des bâtons à l'ouverture du monde.
+
+Tests réussis : gravite (31), bois, feuilles, tree_fall, tree_stress, sticks, inventory, tools, crafting, fixes_089, world_save, web_save, plantes_inventaire, perf_guard, optimisation, prototype, history_resume (+ tests juridiques).
+À tester : poser une longue bûche sur une pente ou une bosse ; recouper le bout d'une tige de noisetier couchée (le reste ne doit pas bouger).
 
 ## 0.0.8.30 — Des bâtons au lieu de rameaux feuillus
 Publiée. Génération inchangée (version 34). Demande de l'utilisateur, sur le noisetier : « c'est plus possible d'avoir des bâtons : dès qu'on essaie de casser des feuilles, ça nous fait des branches feuillées ».
 - **Une petite branche feuillue coupée donne un bâton** comme les autres (avant : un « rameau » feuillu, refusé pour fendre, faire un manche ou une navette). Mesuré sur des noisetiers (tailles 3 et 5, tiges coupées, recoupées et défaites) : avant, 55 bois sur 83 étaient des rameaux ; maintenant 0, et 83 bâtons et bûches.
 - **Ses feuilles tombent à part**, en tas (20 feuilles au plus par tas, comme avec R) : aucune ne disparaît (79 tas au lieu de 22 dans la même mesure).
-- **Les rameaux d'avant** (mondes déjà commencés) : au sol, R donne leur bâton et laisse un petit tas de feuilles ; dans l'inventaire, ils deviennent des bâtons à l'ouverture du monde.
+- **Les rameaux d'avant** (mondes déjà commencés), au sol comme dans l'inventaire, deviennent des bâtons à l'ouverture du monde.
 - Léger : moins de calcul qu'avant (on ne compte plus les feuilles de chaque pièce).
 
 Tests réussis : feuilles, bois, tree_fall, tree_stress, trees, sticks, inventory, inventory_more, crafting, tools, sac, carnet, web_save, world_save, gravite, prototype, history_resume (+ tests juridiques).
