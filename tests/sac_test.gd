@@ -206,6 +206,10 @@ func _run() -> void:
 		check(items.item("sol", 1).get("objet") == "pomme", "and put it back in")
 		world.close_inventory(false)
 		check(items.ground_bag.is_empty() and not world.inventory_ui.ground_bag_row.visible and Inventory.stored_bags.has(int(world.ground.entries[bag_index].item.sac_id)), "closed: its things stay in it")
+		# 0.0.8.45 : un clic droit sur le sac lui-même l'ouvre aussi.
+		await frames(2)
+		check(world.aimed_ground_bag() and world.eat_press() and world.inventory_open and not items.ground_bag.is_empty(), "a right click on the bag itself opens it too")
+		world.close_inventory(false)
 		# Enregistré avec les objets du monde, relu.
 		world.objects_dirty = true
 		world._save_objects()

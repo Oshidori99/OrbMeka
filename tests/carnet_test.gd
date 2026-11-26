@@ -47,6 +47,8 @@ func _run() -> void:
 	# 0.0.8.36 (demande de l'utilisateur) : les suites pile en dessous, même colonne ; la navette sous Fendre.
 	check(Carnet.place_of(Carnet.node("cordelette")) == Carnet.place_of(Carnet.node("eclat")) + Vector2(0, 1) and Carnet.place_of(Carnet.node("sac")) == Carnet.place_of(Carnet.node("eclat")) + Vector2(0, 2), "Éclat → Cordelette → Sac en filet: straight below, same column")
 	check(Carnet.place_of(Carnet.node("navette")) == Carnet.place_of(Carnet.node("fendre")) + Vector2(0, 1) and Carnet.node("navette").objets == ["navette"], "Navette: its own case, right under Fendre")
+	# 0.0.8.45 (demande de l'utilisateur) : la suite du feu empilée vers le haut, même colonne.
+	check(Carnet.place_of(Carnet.node("archet")) == Carnet.place_of(Carnet.node("feu_monte")) + Vector2(0, -1) and Carnet.place_of(Carnet.node("torche")) == Carnet.place_of(Carnet.node("feu_monte")) + Vector2(0, -3) and Carnet.node("feu_monte").details.contains("NOURRIR LE FEU"), "fire chain stacked upward ; how to feed the fire explained")
 	check(branch_ids("bas").is_empty(), "nothing below for now")
 	var book := Carnet.new()
 	check(book.is_done("depart") and not book.is_open("inventaire") and book.is_open("deplacer"), "Départ always done; a case is possible once the one before is done")

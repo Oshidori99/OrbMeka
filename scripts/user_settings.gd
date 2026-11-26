@@ -161,7 +161,7 @@ const CHOICES := {
 	"theme_mode": {"label": "Thème", "options": {"dark": "Sombre", "default": "Par défaut", "light": "Clair"}, "default": "default"},
 	"menu_depth": {"label": "Profondeur des menus", "options": {"on": "Oui", "off": "Non"}, "default": "on"},
 	# 0.0.3.14 : coordonnées du joueur affichées en jeu, en haut à droite.
-	"show_coords": {"label": "Afficher les coordonnées", "options": {"on": "Oui", "off": "Non"}, "default": "off"},
+	"show_coords": {"label": "Afficher les coordonnées", "options": {"on": "Oui", "off": "Non"}, "default": "on"},
 	# 0.0.8.28 (#154, demande de l'utilisateur) : la mini-carte (en haut à droite) : la montrer, sa taille, son zoom, nord
 	# en haut ou carte qui tourne avec le regard.
 	"map_show": {"label": "Mini-carte", "options": {"on": "Oui", "off": "Non"}, "default": "on"},
@@ -191,7 +191,7 @@ const CHOICES := {
 	"skin": {"label": "Couleur de peau", "options": {"light": "Peau claire", "brown": "Peau brune", "dark": "Peau foncée"}, "default": "light"},
 	# 0.0.6 : liste des mondes : cacher les anciennes générations, listes sécurisées (world_shelves.gd), rangement automatique.
 	"hide_old_worlds": {"label": "Cacher les mondes d'anciennes générations", "options": {"on": "Oui", "off": "Non"}, "default": "off"},
-	"world_shelves": {"label": "Dossiers sécurisés", "options": {"on": "Oui", "off": "Non"}, "default": "off"},
+	"world_shelves": {"label": "Dossiers sécurisés", "options": {"on": "Oui", "off": "Non"}, "default": "on"},
 	"auto_secure_old": {"label": "Ranger les anciens mondes dans « Versions sécurisées »", "options": {"on": "Oui", "off": "Non"}, "default": "off"},
 	# 0.0.8.1 (#205, demande de l'utilisateur) : objets à la mort, choix proposé pour les nouveaux mondes (chaque monde garde
 	# ensuite le sien : création, Paramètres → Monde).
