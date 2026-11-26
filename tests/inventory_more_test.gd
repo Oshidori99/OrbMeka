@@ -162,9 +162,12 @@ func _run() -> void:
 	check(held_card.size() == 1 and held_card[0].tooltip_text.begins_with("Tronc"), "D + T with an object held by the mouse: its details")
 	ui._close_more()
 	ui._drop_cursor()
-	# Clic droit sur une case sans rien tenir : rien (ne vide plus la case) ; avec un tas tenu : en pose un seul.
+	# Clic droit sur une case sans rien tenir : 0.0.8.37 (demande de l'utilisateur) : la moitié de la pile (2 : 1 pris, 1 reste) ;
+	# avec un tas tenu : en pose un seul.
 	ui._on_slot(MOUSE_BUTTON_RIGHT, "bar", 1)
-	check(Inventory.count(inv.item("bar", 1)) == 2, "right click with nothing held: the slot is kept")
+	check(Inventory.count(inv.item("bar", 1)) == 1 and Inventory.count(ui.cursor_item) == 1, "right click with nothing held: half the stack taken")
+	ui._on_slot(MOUSE_BUTTON_LEFT, "bar", 1)
+	check(Inventory.count(inv.item("bar", 1)) == 2 and ui.cursor_item.is_empty(), "put back: the stack is whole again")
 	ui._on_slot(MOUSE_BUTTON_LEFT, "bar", 1)
 	ui._on_slot(MOUSE_BUTTON_RIGHT, "bar", 2)
 	check(Inventory.count(inv.item("bar", 2)) == 1 and Inventory.count(ui.cursor_item) == 1, "right click with a stack held: one object placed")
@@ -251,6 +254,55 @@ func _run() -> void:
 	inv.select(0)
 	check(world.throw_held(true) and inv.item("bar", 0).is_empty() and world.ground.entries.size() == before + 2, "survival Ctrl + J: the whole stack on the ground")
 	check(Controls.ACTIONS.throw.label.contains("Ctrl") and not Controls.ACTIONS.throw.label.contains("Ctrl droit"), "Contrôles: the Jeter label tells about Ctrl")
+	# --- 0.0.8.37 (demandes de l'utilisateur) ---
+	app.set_world_game_mode(Catalog.GAME_CREATIVE)
+	var cinv: RefCounted = world.inventory
+	var cui: CanvasLayer = world.inventory_ui
+	for index in range(Inventory.GRID_SIZE):
+		cinv.put("grid", index, {})
+	# Clic droit, la main vide, sur une pile de 90 : on prend 45, 45 restent ; 91 : on prend 46.
+	cinv.put("grid", 0, {"objet": "terre", "nombre": 90})
+	cui.cursor_item = {}
+	cui._slot_click(MOUSE_BUTTON_RIGHT, "grid", 0)
+	check(Inventory.count(cui.cursor_item) == 45 and Inventory.count(cinv.item("grid", 0)) == 45, "right click, empty hand, on 90: 45 taken, 45 stay")
+	cui._put_cursor("grid", 0)
+	cinv.put("grid", 0, {"objet": "terre", "nombre": 1})
+	cui.cursor_item = {}
+	cui._slot_click(MOUSE_BUTTON_RIGHT, "grid", 0)
+	check(Inventory.count(cui.cursor_item) == 46 and Inventory.count(cinv.item("grid", 0)) == 45, "on 91: the bigger half (46) taken")
+	cui.cursor_item = {}
+	# Double clic : les objets pareils se rassemblent dans la case, jusqu'à 99.
+	cinv.put("grid", 0, {"objet": "sable", "nombre": 30})
+	cinv.put("grid", 5, {"objet": "sable", "nombre": 40})
+	cinv.put("grid", 9, {"objet": "sable", "nombre": 50})
+	cinv.put("grid", 12, {"objet": "terre", "nombre": 10})
+	cui._on_double("grid", 0)
+	check(Inventory.count(cinv.item("grid", 0)) == 99 and Inventory.count(cinv.item("grid", 5)) + Inventory.count(cinv.item("grid", 9)) == 21 and Inventory.count(cinv.item("grid", 12)) == 10, "double click: the same things gathered here, up to 99 (others untouched)")
+	# Survie : rassembler dans la main (ce qu'elle tient).
+	app.set_world_game_mode(Catalog.GAME_SURVIVAL)
+	var sinv: RefCounted = world.inventory
+	for index in Inventory.HANDS + Inventory.POCKETS:
+		sinv.put("bar", index, {})
+	sinv.put("bar", Inventory.HANDS[0], Inventory.single({"objet": "caillou", "taille": 1}))
+	sinv.put("bar", Inventory.POCKETS[0], Inventory.single({"objet": "caillou", "taille": 1}))
+	sinv.put("bar", Inventory.POCKETS[1], Inventory.single({"objet": "caillou", "taille": 1}))
+	check(sinv.gather("bar", Inventory.HANDS[0]) == 2 and Inventory.count(sinv.item("bar", Inventory.HANDS[0])) == 3, "survival: double click gathers the pebbles into the hand")
+	app.set_world_game_mode(Catalog.GAME_CREATIVE)
+	# Catalogue : l'orbe de retour ; ficelles et cordelettes dans « Objets transformés » ; navette dans Outils ; sac un par un.
+	var ids := {}
+	for category: Dictionary in Inventory.CATEGORIES:
+		for id in category.objets:
+			ids[id] = category.id
+	check(ids.get("orbe_retour") == "equipment" and ids.get("ficelle_lin") == "made" and ids.get("cordelette_herbe") == "made" and ids.get("navette") == "tools" and not ids.has("") , "catalog: return orb, « Objets transformés » (strings, cords), shuttle in Outils")
+	check(Inventory.count(Inventory.real_stack(Inventory.catalog_item("sac_filet"))) == 1 and Inventory.count(Inventory.real_stack(Inventory.catalog_item("terre"))) == 99, "a bag is taken one at a time (earth: 99)")
+	check(cui.catalog_slots.all(func(slot): return slot.in_catalog), "the catalog shows no « 99 » on its things")
+	# « Supprimer » sous « Jeter » (Créatif) : l'objet tenu disparaît, rien ne tombe.
+	var delete_zone: Control = cui.find_child("Delete", true, false)
+	check(delete_zone != null and delete_zone.word == "Supprimer", "a « Supprimer » zone under « Jeter » (Créatif)")
+	var on_ground: int = world.ground.entries.size()
+	cui.cursor_item = {"objet": "terre", "nombre": 12}
+	cui.delete_cursor()
+	check(cui.cursor_item.is_empty() and world.ground.entries.size() == on_ground, "Supprimer: gone, nothing falls")
 	print("RESULT: %d inventory more checks, %d failures" % [checks, failures])
 	quit(0 if failures == 0 else 1)
 

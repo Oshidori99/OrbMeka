@@ -1,6 +1,18 @@
-# OrbMeka™ — prototype 0.0.8.36
+# OrbMeka™ — prototype 0.0.8.37
 
 Godot 4.7 / GDScript. Formes et couleurs simples ; assets externes seulement sous licence vérifiée (sons CC0, assets/sounds/CREDITS.txt).
+
+## 0.0.8.37 — Inventaire et Créatif
+Publiée. Génération inchangée (version 34). Demandes de l'utilisateur.
+- **Clic droit, la main vide, sur une pile** : tu en prends la moitié (90 → 45 pris, 45 restent ; 91 → 46 pris). En Créatif comme en Survie.
+- **Double clic sur une case** : les objets pareils de l'inventaire viennent s'y rassembler, jusqu'à 99 (en Survie : ce que la case peut porter).
+- **« Supprimer »** sous « Jeter » (Créatif seulement) : l'objet tenu disparaît ; « Jeter » le pose au sol.
+- **Catalogue du Créatif** : l'**orbe de retour** (Équipement) ; un nouvel onglet **« Objets transformés »** (ficelles et cordelettes, plus dans Plantes) ; la **navette** dans Outils ; les **sacs** se prennent un par un ; plus de « 99 » affiché sur les objets du catalogue (seulement une fois pris).
+- Le carnet de route (case Inventaire) explique ces nouveaux gestes.
+- Correction : un test des contrôles n'avait pas été mis à jour en 0.0.8.35 (M + R) ; c'est fait.
+
+Tests réussis : inventory, inventory_more (63, dont 9 nouveaux), crafting, carnet, sac, tools, hands_eat, plantes_inventaire, return_orb, game_mode, world_mode, fiche_outil, sticks, fibers, prototype, history_resume (+ tests juridiques).
+À tester : clic droit main vide sur une pile ; double clic sur une case ; « Supprimer » en Créatif ; les onglets du catalogue.
 
 ## 0.0.8.36 — Carnet de route
 Publiée. Génération inchangée (version 34). Demandes de l'utilisateur.

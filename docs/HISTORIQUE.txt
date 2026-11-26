@@ -3,6 +3,10 @@ Du plus récent au plus ancien. Ce fichier est mis à jour à chaque version.
 
 === Thème « Fabrication et survie » (0.0.8) ===
 
+0.0.8.37 — Inventaire et Créatif : clic droit main vide = la moitié de la pile, double clic qui rassemble les objets pareils (jusqu'à 99), zone « Supprimer » sous « Jeter » (Créatif), orbe de retour dans le catalogue, onglet « Objets transformés » (ficelles, cordelettes), navette dans Outils, sacs pris un par un, plus de « 99 » affiché dans le catalogue
+Génération du terrain : version 34 · Menus : version 17.
+Demandes de l'utilisateur.
+
 0.0.8.36 — Carnet de route : les suites pile en dessous (Éclat → Cordelette → Sac en filet), une case Navette sous Fendre, un bouton « Revenir au centre »
 Génération du terrain : version 34 · Menus : version 17.
 Demandes de l'utilisateur.

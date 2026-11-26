@@ -47,7 +47,7 @@ func _run() -> void:
 	current_scene = app
 	await process_frame
 	# Contrôles : O + I, nouvelle partie Inventaire avec la molette.
-	check(Controls.GROUPS.has("Inventaire") and Controls.GROUPS.Inventaire == ["inventory", "crafting", "notebook", "map", "block_previous", "block_next", "pick_up", "pick_aimed", "gather", "throw", "delete_item", "show_details"] and not "block_next" in Controls.GROUPS.Blocs, "Contrôles: Inventaire part with O + I, O + F (0.0.8.5), the wheel and its click (0.0.8.15), O + M (0.0.8.28)")
+	check(Controls.GROUPS.has("Inventaire") and Controls.GROUPS.Inventaire == ["inventory", "crafting", "notebook", "map", "waypoint", "block_previous", "block_next", "pick_up", "pick_aimed", "gather", "throw", "delete_item", "show_details"] and not "block_next" in Controls.GROUPS.Blocs, "Contrôles: Inventaire part with O + I, O + F (0.0.8.5), the wheel and its click (0.0.8.15), O + M (0.0.8.28), M + R (0.0.8.35)")
 	check(Controls.combo_kind(Controls.options(Controls.default_for("inventory"))[0]) == "chord" and Controls.ACTIONS.inventory.label == "Inventaire", "Inventaire: O and I at the same time")
 	app.open_world(item.id)
 	await process_frame
@@ -64,8 +64,8 @@ func _run() -> void:
 	var panel_style: StyleBoxFlat = ui.panel.get_theme_stylebox("panel")
 	check(panel_style.bg_color.a < 1.0 and panel_style.bg_color.a > 0.5, "panel slightly transparent")
 	var tab_names: Array = ui.tab_buttons.map(func(tab): return tab.tooltip_text)
-	check(ui.creative_box.visible and tab_names == ["Matériaux naturels", "Cailloux", "Fruits", "Outils", "Bois", "Plantes", "Équipement", "Inventaire"] and ui.tab_buttons.all(func(tab): return tab.text == "" and tab.icon != null), "creative: picture tabs (0.0.8.4 : Plantes ; 0.0.8.26 : Équipement), Inventaire at the right (0.0.7.5)")
-	check(ui.tab_buttons[7].get_index() == ui.tab_buttons[6].get_index() + 2, "Inventaire tab pushed to the right")
+	check(ui.creative_box.visible and tab_names == ["Matériaux naturels", "Cailloux", "Fruits", "Outils", "Bois", "Plantes", "Objets transformés", "Équipement", "Inventaire"] and ui.tab_buttons.all(func(tab): return tab.text == "" and tab.icon != null), "creative: picture tabs (0.0.8.4 : Plantes ; 0.0.8.26 : Équipement ; 0.0.8.37 : Objets transformés), Inventaire at the right (0.0.7.5)")
+	check(ui.tab_buttons[8].get_index() == ui.tab_buttons[7].get_index() + 2, "Inventaire tab pushed to the right")
 	var natural: Array = ui.catalog_slots.filter(func(slot): return slot.visible).map(func(slot): return slot.item.objet)
 	check(natural == ["sable", "terre", "argile", "boue", "gravier", "pierre", "calcaire", "pierre_sombre", "silex"], "natural materials listed (gravier 0.0.7.3)")
 	check(ui.catalog.visible and not ui.grid_box.visible and ui.creative_bar.visible, "creative: the items of the tab and only the bar")
