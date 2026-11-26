@@ -3,6 +3,10 @@ Du plus récent au plus ancien. Ce fichier est mis à jour à chaque version.
 
 === Thème « Fabrication et survie » (0.0.8) ===
 
+0.0.8.41 — Le sac en filet posé au sol avec ses objets : il s'enlève plein, se pose au sol (J), O + V l'ouvre (ses 4 cases), R le reprend (il pèse aussi son contenu), remis sur l'épaule il retrouve ses objets ; enregistré avec le monde
+Génération du terrain : version 34 · Menus : version 17.
+Issue #210 (première partie) ; demandes de l'utilisateur.
+
 0.0.8.40 — Les actions qui manquaient : Détresser (ficelle → 3 fibres, cordelette → 3 ficelles), Défaire un outil (tête, manche, ficelle usée), Refaire le lien d'un outil usé, Écorcer (bois plus léger) dans O + F ; leurs cases dans le carnet, avec Défeuiller
 Génération du terrain : version 34 · Menus : version 17.
 Issues #255 à #259 ; demandes de l'utilisateur.

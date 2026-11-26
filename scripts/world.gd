@@ -172,6 +172,8 @@ func _ready() -> void:
 	# 0.0.8.35 (#252) : les points de repère.
 	world_map.waypoints_from_array(saved_player.get("reperes", []))
 	inventory.changed.connect(_on_notebook_inventory)
+	# 0.0.8.41 : le contenu des sacs posés pleins est enregistré avec les objets du monde.
+	inventory.changed.connect(func(): if not Inventory.stored_bags.is_empty(): objects_dirty = true)
 	inventory.changed.connect(apply_held)
 	inventory.changed.connect(func(): inventory_unsaved = true)
 	_create_selection()
@@ -1692,6 +1694,7 @@ func close_inventory(recapture: bool = true) -> void:
 	if not inventory_open:
 		return
 	inventory_open = false
+	close_ground_bag()
 	inventory_ui.close()
 	_show_aim(true)
 	if recapture and DisplayServer.get_name() != "headless":
@@ -4100,6 +4103,9 @@ func _create_ground_items() -> void:
 	# 0.0.8.31 : sol sous un bois couché, tout du long (terrain creusé ou posé, rochers ; pas les arbres).
 	ground.ground_at = func(spot: Vector3) -> float: return _ground_at(spot)
 	add_child(ground)
+	# 0.0.8.41 : ce que contiennent les sacs posés pleins (par numéro).
+	Inventory.stored_bags = Inventory.valid_stored(objects_data.get("sacs_contenus"))
+	Inventory.next_bag_id = (Inventory.stored_bags.keys().max() + 1) if not Inventory.stored_bags.is_empty() else 1
 	ground.from_array(objects_data.get("objets_au_sol"))
 	ground.changed.connect(func(): objects_dirty = true)
 	ground.seed_taken.connect(func(id: String): picked_branches[id] = true)
@@ -8091,6 +8097,10 @@ func _save_objects() -> bool:
 	# 0.0.7.3 : objets posés au sol (ground_items.gd).
 	if is_instance_valid(ground):
 		data.objets_au_sol = ground.to_array()
+	# 0.0.8.41 : contenu des sacs posés pleins.
+	data.sacs_contenus = {}
+	for id in Inventory.stored_bags:
+		data.sacs_contenus[str(id)] = Inventory.stored_bags[id].map(func(value): return Inventory._saved(value) if not value.is_empty() else {})
 	var ok := Store.write_json(save_folder.path_join(Store.OBJECTS_FILE), data)
 	if ok:
 		objects_dirty = false
@@ -8420,3 +8430,34 @@ func _rest_items_again(column: Vector2i) -> void:
 		if entry.has("hidden") or floori(at.x / SmoothTerrain.ZONE_SIZE) != column.x or floori(at.z / SmoothTerrain.ZONE_SIZE) != column.y:
 			continue
 		ground.rest_again(index, _rest_height(at))
+
+# --- 0.0.8.41 (#210, demandes de l'utilisateur) : un sac en filet posé au sol avec ses objets ; O + V (en le visant)
+# l'ouvre : ses 4 cases apparaissent dans l'inventaire (« Sac au sol ») ; R le reprend (avec son contenu et son poids).
+var open_bag_index := -1
+
+func open_aimed_bag(hit: Dictionary) -> bool:
+	if not is_instance_valid(ground) or hit.is_empty() or not is_instance_valid(hit.get("collider")) or not hit.collider.is_in_group("ground_items"):
+		return false
+	var index: int = ground.index_of(hit.collider)
+	if index < 0 or not Inventory.is_bag(ground.entries[index].item):
+		return false
+	if player.camera.global_position.distance_to(hit.position) > player.break_reach + 0.01:
+		_notify("Trop loin : %s m au plus." % str(snappedf(player.break_reach, 0.1)).replace(".", ","))
+		return true
+	var opened: Dictionary = inventory.open_ground_bag(ground.entries[index].item)
+	ground.entries[index].item = opened
+	open_bag_index = index
+	objects_dirty = true
+	open_inventory()
+	notebook_mark("sac_sol")
+	return true
+
+# L'inventaire se ferme : le sac au sol aussi (son contenu rangé).
+func close_ground_bag() -> void:
+	if inventory.ground_bag.is_empty():
+		return
+	inventory.close_ground_bag()
+	open_bag_index = -1
+	objects_dirty = true
+	if is_instance_valid(ground):
+		ground.changed.emit()

@@ -39,7 +39,7 @@ func _run() -> void:
 	check(branch_ids("gauche").slice(0, 4) == ["deplacer", "inventaire", "actions", "fabrication"], "left: the commands, easiest first")
 	check(branch_ids("haut").slice(0, 3) == ["cailloux", "fibres", "branche"], "up: what we gather, easiest first")
 	# 0.0.8.21 (#207) : après l'éclat, une branche vers le bas : cordelette puis sac en filet.
-	check(branch_ids("droite") == ["tresser", "eclat", "cordelette", "sac", "tete", "fendre", "navette", "assembler", "hache", "pioche", "detresser", "ecorcer", "relier", "defaire"], "right: what we make, up to the axe and the pickaxe (and the net bag)")
+	check(branch_ids("droite") == ["tresser", "eclat", "cordelette", "sac", "sac_sol", "tete", "fendre", "navette", "assembler", "hache", "pioche", "detresser", "ecorcer", "relier", "defaire"], "right: what we make, up to the axe and the pickaxe (and the net bag)")
 	# 0.0.8.40 : toutes les actions dans le carnet (Défeuiller, Détresser, Écorcer, Refaire le lien, Défaire un outil).
 	check(not Carnet.node("defeuiller").is_empty() and Carnet.place_of(Carnet.node("detresser")) == Carnet.place_of(Carnet.node("tresser")) + Vector2(0, 1) and Carnet.place_of(Carnet.node("ecorcer")) == Carnet.place_of(Carnet.node("navette")) + Vector2(0, 1), "the new actions have their cases (Défeuiller, Détresser under Ficelle, Écorcer under Navette…)")
 	check(Carnet.place_of(Carnet.node("jeter")).x < Carnet.place_of(Carnet.node("deplacer")).x and Carnet.place_of(Carnet.node("planter")).y < Carnet.place_of(Carnet.node("cailloux")).y and Carnet.place_of(Carnet.node("assembler")).x > Carnet.place_of(Carnet.node("tresser")).x, "further = more advanced: left goes left, up goes up, right goes right")

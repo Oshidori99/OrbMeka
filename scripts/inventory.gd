@@ -79,7 +79,7 @@ const APPLE_SIZES := [0.075, 0.105, 0.13]
 const APPLE_COLORS := [Color("#6aa531"), Color("#b5281c"), Color("#dcbb2c"), Color("#7a4a26"), Color("#c9452a")]
 const APPLE_COLOR_NAMES := ["verte", "rouge", "jaune", "brune", "rouge et jaune"]
 # Caractéristiques gardées pour chaque objet unique (et leur type).
-const INSTANCE_FIELDS := {"taille": TYPE_INT, "poids": TYPE_FLOAT, "forme": TYPE_INT, "rotation": TYPE_FLOAT, "couleur": TYPE_INT, "coups": TYPE_INT, "diametre": TYPE_FLOAT,
+const INSTANCE_FIELDS := {"taille": TYPE_INT, "poids": TYPE_FLOAT, "forme": TYPE_INT, "rotation": TYPE_FLOAT, "couleur": TYPE_INT, "coups": TYPE_INT, "sac_id": TYPE_INT, "diametre": TYPE_FLOAT,
 	# 0.0.7.8 : bâtons et troncs : longueur (m), épaisseur (cm), essence (espèce d'arbre), âge et souplesse (1 à 5,
 	# enregistrés dès maintenant ; leurs effets viendront avec la fabrication, #228).
 	"longueur": TYPE_FLOAT, "epaisseur": TYPE_FLOAT, "fin": TYPE_FLOAT, "essence": TYPE_INT, "age": TYPE_INT, "souplesse": TYPE_INT,
@@ -239,9 +239,13 @@ func set_mode(new_mode: String) -> void:
 
 # area : « grid » (grille de 5 × 10), « bar » (barre d'objets) ou « sac » (deuxième sac, 0.0.8.21).
 func size_of(area: String) -> int:
+	if area == "sol":
+		return BAG_SLOTS
 	return BAR_SIZE if area == "bar" else (BAG_SLOTS if area == "sac" else GRID_SIZE)
 
 func item(area: String, index: int) -> Dictionary:
+	if area == "sol" and not _store().has("sol"):
+		return {}
 	if index < 0 or index >= size_of(area):
 		return {}
 	return _store()[area][index]
@@ -250,6 +254,8 @@ func item(area: String, index: int) -> Dictionary:
 func usable(area: String, index: int) -> bool:
 	if index < 0 or index >= size_of(area):
 		return false
+	if area == "sol":
+		return not ground_bag.is_empty() and _store().has("sol")
 	if area == "sac":
 		return mode == SURVIVAL and bag_worn(1)
 	if mode == CREATIVE:
@@ -307,6 +313,9 @@ static func single(flat_value: Dictionary) -> Dictionary:
 # --- Poids et piles ---
 
 static func instance_weight(id: String, instance: Dictionary) -> float:
+	# 0.0.8.41 : un sac posé plein pèse aussi son contenu.
+	if id == BAG_ID and instance.has("sac_id"):
+		return float(instance.get("poids", ITEMS.get(id, {}).get("poids", 0.0))) + bag_contents_weight(instance)
 	if instance.has("poids"):
 		return float(instance.poids)
 	var spec: Dictionary = ITEMS.get(id, {})
@@ -564,6 +573,8 @@ func _hand_holds(index: int, id: String, weight: float, volume: float, amount: i
 func room(area: String, index: int) -> float:
 	if mode == CREATIVE:
 		return INF
+	if area == "sol":
+		return bag_capacity(ground_bag) - _ground_load(index)
 	if area == "sac":
 		return bag_limit(1) - bag_weight(1, index)
 	if area != "bar":
@@ -683,16 +694,30 @@ func wear_bag(value: Dictionary, place: int = -1) -> int:
 	var flat_value: Dictionary = flat(value.objet, value.pile[0]) if value.has("pile") else value.duplicate(true)
 	for which in ([place] if place in [0, 1] else [0, 1]):
 		if not bag_worn(which):
+			# 0.0.8.41 : un sac posé plein retrouve ses objets.
+			var kept: Array = stored_bags.get(int(flat_value.get("sac_id", -1)), [])
+			stored_bags.erase(int(flat_value.get("sac_id", -1)))
+			flat_value.erase("sac_id")
 			_store().sacs[which] = flat_value
+			var places := bag_places(which)
+			for index in range(mini(kept.size(), places.size())):
+				_store()[places[index][0]][places[index][1]] = kept[index]
 			changed.emit()
 			return which
 	return -1
 
-# Enlève un sac vide ; rend le sac (à plat) ou {} s'il n'est pas vide.
+# Enlève un sac ; 0.0.8.41 : avec ses objets (rangés à part, son « sac_id »). Rend le sac (à plat) ou {} s'il n'y en a pas.
 func take_off_bag(which: int) -> Dictionary:
-	if not bag_worn(which) or not bag_empty(which):
+	if not bag_worn(which):
 		return {}
 	var taken := bag(which).duplicate(true)
+	if not bag_empty(which):
+		var slots := []
+		for place in bag_places(which):
+			slots.append(_store()[place[0]][place[1]].duplicate(true))
+			_store()[place[0]][place[1]] = {}
+		taken.sac_id = new_bag_id()
+		stored_bags[int(taken.sac_id)] = slots
 	_store().sacs[which] = {}
 	if which == 0 and selected() in BAG:
 		_store().selected = HANDS[0]
@@ -769,6 +794,8 @@ func fit_count(area: String, index: int, value: Dictionary) -> int:
 				why = "encombrant"
 			elif pocket_count(value.objet) > 0 and amount > pocket_count(value.objet):
 				why = "nombre"
+		elif area == "sol":
+			why = _ground_holds(index, value.objet, weight, volume)
 		elif (area == "bar" and index in BAG) or area == "sac":
 			why = _bag_holds(0 if area == "bar" else 1, index, value.objet, weight, volume)
 		else:
@@ -1554,3 +1581,86 @@ func from_dict(data: Variant) -> void:
 			if (main is int or main is float) and int(main) >= 0 and int(main) < BAR_SIZE:
 				store.selected = int(main)
 	set_mode(mode)
+
+# --- 0.0.8.41 (#210, demandes de l'utilisateur) : un sac en filet s'enlève avec ses objets et se pose au sol plein ; au
+# sol, O + V l'ouvre (zone « sol », ses 4 cases), R le reprend. Ce qu'il contient est rangé à part (stored_bags, par
+# numéro « sac_id » du sac) et enregistré avec le monde (objets.json) ; le sac pèse son poids plus son contenu.
+static var stored_bags: Dictionary = {}
+static var next_bag_id := 1
+# Le sac ouvert au sol (à plat) ; vide : aucun.
+var ground_bag: Dictionary = {}
+
+static func bag_contents_weight(instance: Dictionary) -> float:
+	var total := 0.0
+	for value: Dictionary in stored_bags.get(int(instance.get("sac_id", -1)), []):
+		total += stack_weight(value)
+	return total
+
+static func new_bag_id() -> int:
+	while stored_bags.has(next_bag_id):
+		next_bag_id += 1
+	next_bag_id += 1
+	return next_bag_id - 1
+
+# Ouvre un sac posé au sol (à plat) : ses cases deviennent la zone « sol ». Rend le sac (avec son sac_id).
+func open_ground_bag(value: Dictionary) -> Dictionary:
+	var opened := value.duplicate(true)
+	if not opened.has("sac_id"):
+		opened.sac_id = new_bag_id()
+	var slots: Array = stored_bags.get(int(opened.sac_id), [])
+	var shown := []
+	for index in range(BAG_SLOTS):
+		shown.append(slots[index].duplicate(true) if index < slots.size() else {})
+	ground_bag = opened
+	_store().sol = shown
+	changed.emit()
+	return opened
+
+# Referme le sac au sol : son contenu est rangé (rien s'il est vide).
+func close_ground_bag() -> void:
+	if ground_bag.is_empty():
+		return
+	var id := int(ground_bag.sac_id)
+	var slots: Array = _store().get("sol", [])
+	if slots.all(func(value): return value.is_empty()):
+		stored_bags.erase(id)
+	else:
+		stored_bags[id] = slots.duplicate(true)
+	_store().erase("sol")
+	ground_bag = {}
+	changed.emit()
+
+func _ground_holds(index: int, id: String, weight: float, volume: float) -> String:
+	if not bag_accepts(id):
+		return "mailles"
+	var load := 0.0
+	var space := 0.0
+	for at in range(BAG_SLOTS):
+		if at != index:
+			load += stack_weight(_store().sol[at])
+			space += stack_volume(_store().sol[at])
+	if load + weight > bag_capacity(ground_bag) + 0.001:
+		return "lourd"
+	if space + volume > BAG_VOLUME + 0.0001:
+		return "encombrant"
+	return ""
+
+static func valid_stored(data: Variant) -> Dictionary:
+	var result := {}
+	if not data is Dictionary:
+		return result
+	for key in data:
+		if not str(key).is_valid_int() or not data[key] is Array:
+			continue
+		var slots := []
+		for value in data[key]:
+			slots.append(_read(value) if value is Dictionary and not value.is_empty() else {})
+		result[int(str(key))] = slots
+	return result
+
+func _ground_load(except: int) -> float:
+	var total := 0.0
+	for at in range(BAG_SLOTS):
+		if at != except:
+			total += stack_weight(_store().get("sol", [])[at] if _store().has("sol") else {})
+	return total

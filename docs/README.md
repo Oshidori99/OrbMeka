@@ -1,6 +1,19 @@
-# OrbMeka™ — prototype 0.0.8.40
+# OrbMeka™ — prototype 0.0.8.41
 
 Godot 4.7 / GDScript. Formes et couleurs simples ; assets externes seulement sous licence vérifiée (sons CC0, assets/sounds/CREDITS.txt).
+
+## 0.0.8.41 — Le sac posé au sol avec ses objets (#210, première partie)
+Publiée. Génération inchangée (version 34). Demandes de l'utilisateur.
+- **Un sac en filet s'enlève même plein** (clic sur sa place dans l'inventaire) : ses objets restent dedans, et il pèse son poids plus celui de son contenu.
+- **Posé au sol** (J, ou lâché hors de la fenêtre) avec ses objets.
+- **O + V** en le visant : l'inventaire s'ouvre sur ses 4 cases (« Sac au sol », en haut), pour prendre ou ranger des objets.
+- **R** le reprend : remis sur l'épaule s'il y a une place libre (il retrouve ses objets), sinon en main.
+- Enregistré avec le monde (objets.json).
+- Une case « Sac au sol » dans le carnet de route, sous « Sac en filet ».
+- Plus tard : le panier tressé (même mécanique, 4 cases, modèle fait dans Blender), puis le coffre en bois avec les planches.
+
+Tests réussis : sac (49, dont 11 nouveaux), carnet, inventory, inventory_more, crafting, death, world_save, web_save, controls, controls_groups, settings_files, key_combos, shortcuts_selection, game_mode, world_mode, return_orb, prototype, history_resume (+ tests juridiques).
+À tester : remplir le sac, l'enlever (clic sur sa place), J pour le poser, O + V pour l'ouvrir, R pour le reprendre.
 
 ## 0.0.8.40 — Les actions qui manquaient
 Publiée. Génération inchangée (version 34). Issues #255 à #259 (actions qui manquaient) ; demandes de l'utilisateur.
