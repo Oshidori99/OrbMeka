@@ -1,6 +1,19 @@
-# OrbMeka™ — prototype 0.0.8.33
+# OrbMeka™ — prototype 0.0.8.34
 
 Godot 4.7 / GDScript. Formes et couleurs simples ; assets externes seulement sous licence vérifiée (sons CC0, assets/sounds/CREDITS.txt).
+
+## 0.0.8.34 — Gravité du terrain : plus d'effondrement en chaîne
+Publiée. Génération inchangée (version 34). Demandes de l'utilisateur : « il ne faut pas que d'un coup toute la crevasse tombe au fond » ; choix « près du geste » ; chute montrée « seulement si c'est causé par le terrain de base et que c'est gros ». Dernière étape de la série sur la physique.
+- **Le sol d'origine ne tombe que si tu creuses tout près** (1 m autour de ton geste), et **jamais en chaîne** : une chute ne fait pas tomber ses voisins. Mesuré avant : par carré de 64 m, 6 à 122 points du sol d'origine étaient prêts à tomber, et un seul réveillé (un arbre coupé, de la terre posée à côté) en faisait bouger jusqu'à 2 842. Maintenant : sans creuser, **0** ; en creusant juste dessous, 1 à 24, aucun au-delà de 1 m.
+- Ce que tu as posé, et ce qui est déjà tombé, obéit toujours à la gravité.
+- **Une chute se fait d'un coup** (avant : un cran de 50 cm toutes les 0,15 s, « lent et lourd ») ; elle n'est montrée peu à peu que si 6 points du sol d'origine ou plus tombent d'abord (environ 1 m³).
+- **Sable** (et boue, neige, gravier) : un tas tient à **34°** au plus (2 marches pour 3 pas ; avant 45°).
+- **Terre** : pente raide, plus de mur de plus de 1 m (avant : une colonne de terre retombait en bloc aux parois verticales de 3 m, ses morceaux collés à mi-hauteur) ; elle tient toujours en petit plafond de 1 m, la pierre ne tombe jamais.
+- Léger : moins de calcul qu'avant (une chute refait les zones une seule fois). Images par seconde inchangées (ouverture 103 → 106, marche en forêt 205 → 201, vol 278 → 268, dans les mêmes conditions).
+- Reste, pour plus tard : poutres pour soutenir la terre ; un arbre couché ne suit pas encore le sol creusé dessous.
+
+Tests réussis : cliff_fall (14, dont 9 nouveaux), gravite (40), smooth_terrain, rock_place, workers, water, swim, breaking, tools, web_save, world_save, world_consistency, optimisation, zones, surface_job, loaded_edge, terrain_visuals, lawn_ring, plants, prototype, history_resume (+ tests juridiques) ; perf_guard réussi seul (un échec de temps quand 22 tests tournaient ensemble).
+À tester : creuser sous de la terre ou du sable en surplomb (bord de crevasse, plafond de grotte) ; verser du sable en tas ; empiler de la terre.
 
 ## 0.0.8.33 — Arbres abattus bien posés
 Publiée (avec tous les tests sur GitHub). Génération inchangée (version 34). Demande de l'utilisateur : un arbre abattu, une branche ou une tige coupée se pose de façon réaliste, jamais dans le sol, jamais en l'air sans appui.

@@ -321,12 +321,12 @@ func _run() -> void:
 	check(world.terrain.density(dirt_base + Vector3i(0, 1, 0)) > 0.0, "a small dirt pile (1 m) holds")
 	# Creuser sous de la terre posée la fait tomber ; un vide plus loin ne fait rien tomber.
 	world.terrain.set_density(dirt_base + Vector3i(0, -1, 0), SmoothTerrain.DUG)
-	world.terrain.wake(dirt_base + Vector3i(0, -1, 0))
+	world.terrain.dug(dirt_base + Vector3i(0, -1, 0))
 	world.settle_all()
 	check(world.terrain.density(dirt_base + Vector3i(0, -1, 0)) > 0.0 and world.terrain.density(dirt_base + Vector3i(0, 1, 0)) <= 0.0, "digging under the pile makes it fall into the hole")
 	var far_hole: Vector3i = dirt_base + Vector3i(4, -2, 0)
 	world.terrain.set_density(far_hole, SmoothTerrain.DUG)
-	world.terrain.wake(far_hole)
+	world.terrain.dug(far_hole)
 	world.settle_all()
 	check(world.terrain.density(dirt_base) > 0.0 and world.terrain.density(dirt_base + Vector3i(0, -1, 0)) > 0.0, "a hole 2 m away (not right below) does not make the pile fall")
 	# 0.0.7.16 : petit plafond de terre. Une galerie de 1 m de large sous la terre : son plafond tient.
@@ -335,7 +335,7 @@ func _run() -> void:
 		for dz in range(0, 2):
 			world.terrain.set_density(tunnel + Vector3i(x, 0, dz), SmoothTerrain.DUG)
 			world.terrain_dirty[SmoothTerrain.point_zone(tunnel + Vector3i(x, 0, dz))] = true
-			world.terrain.wake(tunnel + Vector3i(x, 0, dz))
+			world.terrain.dug(tunnel + Vector3i(x, 0, dz))
 	world.settle_all()
 	var roof_kept := 0
 	for x in range(0, 8):
@@ -349,7 +349,7 @@ func _run() -> void:
 		for dz in range(0, 8):
 			world.terrain.set_density(room + Vector3i(x, 0, dz), SmoothTerrain.DUG)
 			world.terrain_dirty[SmoothTerrain.point_zone(room + Vector3i(x, 0, dz))] = true
-			world.terrain.wake(room + Vector3i(x, 0, dz))
+			world.terrain.dug(room + Vector3i(x, 0, dz))
 	world.settle_all()
 	check(world.terrain.density(room + Vector3i(0, 1, 0)) > 0.0 and world.terrain.density(room + Vector3i(4, 1, 4)) <= 0.0, "a 4 m wide room: the edges of the ceiling hold, the middle falls")
 	# Du sable en plafond tombe toujours.

@@ -525,6 +525,25 @@ func _run() -> void:
 			var fit := tree_fit(linden)
 			check(fit.wood >= -0.08 and fit.on_rock, "a linden felled onto the big rock rests on it: %.1f cm in at most" % (-fit.wood * 100.0))
 		unplant_all("gravite-tilleul-rocher")
+	# --- J. 0.0.8.34 : une chute se fait d'un coup (avant : un cran de 50 cm toutes les 0,15 s) ; creuser dans le sol
+	# d'origine ne fait tomber que ce qui est à 1 m du geste. ---
+	await go_to(Vector3(0, 0, 0))
+	var column_foot: Vector3i = SmoothTerrain.point_of(Vector3(6.0, 0.0, 6.0))
+	column_foot.y = int(floor(w.terrain.height_at(6.0, 6.0) / SmoothTerrain.STEP)) + 1
+	for step in range(10):
+		w.terrain.set_density(column_foot + Vector3i(0, step, 0), SmoothTerrain.ADDED, SmoothTerrain.SAND)
+		w.terrain.wake(column_foot + Vector3i(0, step, 0))
+	await frames(4)
+	check(w.terrain.unstable.is_empty() and w.fall_moved.is_empty() and not w.fall_shown and w.terrain.density(column_foot + Vector3i(0, 9, 0)) <= 0.0, "a 5 m column of placed sand has fallen within 4 frames, not shown step by step (before: 0.15 s per step)")
+	var dig_at := SmoothTerrain.point_of(Vector3(-6.0, w.terrain.height_at(-6.0, 6.0) - 0.3, 6.0))
+	var changes_before: Dictionary = w.terrain.changes.duplicate()
+	w._apply_terrain({dig_at: [SmoothTerrain.DUG, -1]})
+	await frames(6)
+	var far_changes := 0
+	for changed: Vector3i in w.terrain.changes:
+		if not changes_before.has(changed) and maxi(maxi(absi(changed.x - dig_at.x), absi(changed.y - dig_at.y)), absi(changed.z - dig_at.z)) > SmoothTerrain.GESTURE_REACH and w.terrain.base_density(changed) > 0.0:
+			far_changes += 1
+	check(w.terrain.density(dig_at) <= 0.0 and far_changes == 0 and w.terrain.unstable.is_empty(), "one dig in the original ground: nothing of it moves further than 1 m away (%d)" % far_changes)
 	root.remove_child(w)
 	w.free()
 	Store.delete_folder(FOLDER)

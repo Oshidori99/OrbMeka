@@ -836,7 +836,7 @@ static func flat_mesh() -> ArrayMesh:
 
 # 0.0.5.11 : gravité de la terre et du sable. Un point plein sans rien dessous tombe d'un cran ; posé
 # mais trop en hauteur par rapport au côté, il glisse en bas sur le côté (talus). Le sable glisse dès
-# 1 m de dénivelé sur 50 cm (talus de 45° au plus) : on peut en faire une petite pile qui s'étale ;
+# 1 m de dénivelé sur 50 cm (talus de 45° au plus ; 0.0.8.34 : 34°, voir fall_target) : on peut en faire une petite pile qui s'étale ;
 # la terre tient mieux (1,5 m : talus plus raide). Le sol de la graine se comporte comme la terre.
 # Un vide plus loin (pas juste dessous ni à côté) ne fait rien tomber. Points à vérifier : unstable.
 var unstable: Dictionary = {}
@@ -866,6 +866,36 @@ func wake(point: Vector3i) -> void:
 
 const CEILING_REACH := 2
 
+# 0.0.8.34 (demandes de l'utilisateur : « il ne faut pas que d'un coup toute la crevasse tombe au fond » ; choix « près
+# du geste ») : le sol d'origine (jamais changé) ne tombe que si le joueur a lui-même creusé tout près, à GESTURE_REACH
+# points au plus (1 m), et jamais en chaîne : une chute ne donne pas à ses voisins le droit de tomber. Mesuré avant : par
+# carré de 64 m, 6 à 122 points du sol d'origine prêts à tomber ; un seul réveillé (un arbre coupé, de la terre posée à
+# côté) en faisait bouger jusqu'à 2 842 en chaîne. loosened : points du sol d'origine qui ont le droit de tomber, jusqu'à
+# ce que tout soit retombé. Ce que le joueur a posé, et ce qui est déjà tombé, obéit toujours à la gravité.
+const GESTURE_REACH := 2
+var loosened: Dictionary = {}
+# Points arrivés là en tombant ou en glissant, jusqu'à ce que tout soit retombé : ils ne s'accrochent pas en plafond
+# (mesuré : une colonne de terre retombait en bloc aux parois verticales de 3 m, ses morceaux collés à mi-hauteur).
+var _moving: Dictionary = {}
+
+# Le joueur vient de creuser ce point : le sol d'origine tout près peut tomber, et tout est vérifié autour.
+func dug(point: Vector3i) -> void:
+	for dx in range(-GESTURE_REACH, GESTURE_REACH + 1):
+		for dy in range(-GESTURE_REACH, GESTURE_REACH + 1):
+			for dz in range(-GESTURE_REACH, GESTURE_REACH + 1):
+				var near := point + Vector3i(dx, dy, dz)
+				loosened[near] = true
+				unstable[near] = true
+
+# Combien de points du sol d'origine vont tomber tout de suite (le premier rang, sans compter ceux qui suivront) : une
+# grosse chute est montrée peu à peu, une petite se fait d'un coup (world.gd).
+func natural_fall_size() -> int:
+	var count := 0
+	for point: Vector3i in loosened:
+		if not changes.has(point) and fall_target(point) != point:
+			count += 1
+	return count
+
 # Un mur porté (plein, avec du plein dessous, ou pierre) sur un des 4 côtés, à CEILING_REACH points au plus, en ne
 # passant que par du plein.
 func _held_by_sides(point: Vector3i) -> bool:
@@ -882,9 +912,15 @@ func _held_by_sides(point: Vector3i) -> bool:
 func fall_target(point: Vector3i) -> Vector3i:
 	if point.y <= mother_rock_top or not solid(point) or is_stone(point):
 		return point
+	# 0.0.8.34 : le sol d'origine ne bouge que tout près d'un geste du joueur (loosened), jamais en chaîne.
+	if not changes.has(point) and not loosened.has(point):
+		return point
 	var below := point + Vector3i.DOWN
 	var loose: bool = materials.get(point, natural_kind(point)) in [SAND, MUD, SNOW, GRAVEL]
 	if not solid(below):
+		# 0.0.8.34 : ce qui est en train de tomber ne s'accroche pas au passage (_moving).
+		if _moving.has(point):
+			return below
 		# 0.0.7.16 (l'utilisateur : en cassant un tronc, le plafond de terre d'une grotte s'est effondré en chaîne) : la
 		# terre et l'argile tiennent en petit plafond, accrochées sur le côté à moins de CEILING_REACH points (1 m) d'un
 		# mur porté. Une galerie de 2 m de large tient ; au milieu d'une grande salle, la terre tombe. Le sable, la boue,
@@ -899,7 +935,7 @@ func fall_target(point: Vector3i) -> Vector3i:
 		return point
 	# Talus : un côté libre, et assez de vide en dessous de ce côté.
 	# Sable et boue (0.0.5.20) glissent ; terre et argile tiennent mieux.
-	var drop := 2 if materials.get(point, natural_kind(point)) in [SAND, MUD, SNOW, GRAVEL] else 3
+	var drop := 2 if loose else 3
 	var first := absi(hash(point)) % 4
 	for turn in range(4):
 		var side: Vector3i = point + SIDES[(first + turn) % 4]
@@ -910,12 +946,23 @@ func fall_target(point: Vector3i) -> Vector3i:
 			free = free and not solid(side + Vector3i.DOWN * depth)
 		if free:
 			return side + Vector3i.DOWN
+	# 0.0.8.34 (règle prévue de longue date : le sable glisse au-delà d'environ 34°) : avec la seule règle du dessus, un
+	# tas tenait jusqu'à 45° (une marche de 50 cm par 50 cm). Trois marches de suite du même côté (1,5 m de dénivelé sur
+	# 1,5 m) : le point glisse sur la marche voisine, et de là plus bas. Il reste au plus deux marches pour trois pas :
+	# 2 pour 3, soit 34°.
+	if loose:
+		for turn in range(4):
+			var step: Vector3i = SIDES[(first + turn) % 4]
+			if not solid(point + step) and solid(point + step + Vector3i.DOWN) and not solid(point + step * 2 + Vector3i.DOWN) and solid(point + step * 2 + Vector3i.DOWN * 2) and not solid(point + step * 3 + Vector3i.DOWN * 2):
+				return point + step
 	return point
 
 # Un pas de chute : au plus « limit » points vérifiés, du plus bas au plus haut ; renvoie les points changés.
 func settle_step(limit: int = 96) -> Array[Vector3i]:
 	var moved: Array[Vector3i] = []
 	if unstable.is_empty():
+		loosened.clear()
+		_moving.clear()
 		return moved
 	var points: Array = unstable.keys()
 	points.sort_custom(func(a: Vector3i, b: Vector3i): return a.y < b.y)
@@ -930,9 +977,15 @@ func settle_step(limit: int = 96) -> Array[Vector3i]:
 			kind = DIRT
 		set_density(target, maxf(value, ADDED), kind)
 		set_density(point, DUG)
+		_moving.erase(point)
+		_moving[target] = true
 		moved.append_array([point, target])
 		wake(point)
 		wake(target)
+	# Tout est retombé : plus aucun droit de tomber en attente.
+	if unstable.is_empty():
+		loosened.clear()
+		_moving.clear()
 	return moved
 
 # Mondes avec paramètres (0.0.5.16) ; les mondes sans paramètres gardent la génération de 0.0.5.15 (plus haut).

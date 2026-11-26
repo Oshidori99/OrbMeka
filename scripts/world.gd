@@ -5380,7 +5380,11 @@ func _apply_terrain(updates: Dictionary) -> bool:
 	var tiles := {}
 	for point: Vector3i in updates:
 		terrain.set_density(point, updates[point][0], updates[point][1])
-		terrain.wake(point)
+		# 0.0.8.34 : creusé par le joueur : le sol d'origine tout près (1 m) peut tomber ; posé : rien que la matière posée.
+		if float(updates[point][0]) <= 0.0:
+			terrain.dug(point)
+		else:
+			terrain.wake(point)
 	_refresh_terrain(updates.keys())
 	return true
 
@@ -5420,14 +5424,38 @@ const FALL_REFRESH_SECONDS := 0.45
 var fall_refresh_time := 0.0
 var fall_moved: Dictionary = {}
 
+# 0.0.8.34 (demande de l'utilisateur : la chute montrée peu à peu « seulement si c'est causé par le terrain de base et
+# que c'est gros ») : une chute se fait d'un coup (quelques millièmes de seconde par image au plus, les zones refaites
+# une seule fois à la fin) ; elle n'est montrée cran par cran que si BIG_FALL points du sol d'origine ou plus tombent
+# au premier rang (environ 1 m³).
+const BIG_FALL := 6
+const FALL_BUDGET_USEC := 2500
+var fall_judged := false
+var fall_shown := false
+
 func _settle_terrain(delta: float) -> void:
 	_settle_objects()
 	if terrain.unstable.is_empty():
 		fall_time = 0.0
+		fall_judged = false
+		fall_shown = false
 		if not fall_moved.is_empty():
 			var waiting: Array = fall_moved.keys()
 			fall_moved.clear()
 			_refresh_terrain(waiting)
+		return
+	if not fall_judged:
+		fall_judged = true
+		fall_shown = terrain.natural_fall_size() >= BIG_FALL
+	if not fall_shown:
+		var started := Time.get_ticks_usec()
+		while not terrain.unstable.is_empty() and Time.get_ticks_usec() - started < FALL_BUDGET_USEC:
+			for point in terrain.settle_step():
+				fall_moved[point] = true
+		if terrain.unstable.is_empty() and not fall_moved.is_empty():
+			var done: Array = fall_moved.keys()
+			fall_moved.clear()
+			_refresh_terrain(done)
 		return
 	fall_time += delta
 	if fall_time < FALL_SECONDS:
