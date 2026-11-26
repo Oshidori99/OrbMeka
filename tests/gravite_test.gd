@@ -4,6 +4,7 @@ extends SceneTree
 #   21 rochers sur 21 finissaient avec un bout en l'air, jusqu'à 4 359 litres) ; un coup donne un caillou et un éclat.
 # - Cailloux de la graine près du joueur : jamais à plus de 2 cm en l'air (avant : jusqu'à 23 cm), aucun sous un rocher
 #   (génération 34 ; la génération 33 ne change pas).
+# - 0.0.8.31 : bois posé sur une pente : jamais dans le sol, toujours un appui ; tige couchée recoupée : le reste garde sa pose.
 # - Creuser sous un caillou, sous un rocher, sous un objet posé : ils redescendent sur le nouveau sol (avant : 1,4 à
 #   2,8 m en l'air) ; un trou plus petit que le rocher ne le fait pas descendre ; un rocher descendu se taille encore.
 const Store = preload("res://scripts/world_store.gd")
@@ -12,6 +13,8 @@ const WorldScene = preload("res://scenes/world.tscn")
 const Inventory = preload("res://scripts/inventory.gd")
 const Rocks = preload("res://scripts/rocks.gd")
 const GroundItems = preload("res://scripts/ground_items.gd")
+const Trees = preload("res://scripts/trees.gd")
+const TreeParts = preload("res://scripts/tree_parts.gd")
 const FOLDER := "res://.godot/gravite-test-monde"
 var checks := 0
 var failures := 0
@@ -352,8 +355,124 @@ func _run() -> void:
 	var item_ground := ground_y(item_now.x, item_now.z, item_start.y + 2.0)
 	check(item_start.y - item_now.y > 0.8 and absf(item_now.y - GroundItems.lift(w.ground.entries[index].item) - item_ground) <= 0.03, "ground dug under an object: it came down %.2f m and rests %.1f cm from the new ground" % [item_start.y - item_now.y, absf(item_now.y - GroundItems.lift(w.ground.entries[index].item) - item_ground) * 100.0])
 	check(w.ground.bodies[index].get_meta("ground_index") == index and absf(w.ground.bodies[index].global_position.y - item_now.y) < 0.05, "the object can still be aimed at where it now lies")
+	# --- F. 0.0.8.31 : bois posé sur un sol en pente : jamais dans le sol, toujours un appui ; il suit le sol creusé. ---
+	var slope_site := Vector3(24.0, 0.0, 52.0)
+	await go_to(slope_site + Vector3(3.0, 0.0, 3.0))
+	var site_slope: float = absf(w.terrain.height_at(slope_site.x + 2.0, slope_site.z) - w.terrain.height_at(slope_site.x - 2.0, slope_site.z)) + absf(w.terrain.height_at(slope_site.x, slope_site.z + 2.0) - w.terrain.height_at(slope_site.x, slope_site.z - 2.0))
+	check(site_slope > 0.5, "a sloping place for the wood (%.2f m over 4 m)" % site_slope)
+	var wood_rng := RandomNumberGenerator.new()
+	wood_rng.seed = 31
+	var first_wood: int = w.ground.entries.size()
+	for log_number in range(36):
+		var length: float = [0.6, 1.2, 2.5, 4.5][log_number % 4]
+		var thick: float = [3.0, 6.0, 14.0, 30.0][log_number % 4]
+		var log_item: Dictionary = Inventory.wood_piece("tronc" if thick >= 4.0 else "branche", 0, thick, length, wood_rng)
+		log_item.epaisseur = thick
+		log_item.fin = thick * 0.6
+		log_item.longueur = length
+		log_item.rotation = wood_rng.randf_range(0.0, TAU)
+		var at := slope_site + Vector3(wood_rng.randf_range(-5.0, 5.0), 0.0, wood_rng.randf_range(-5.0, 5.0))
+		at.y = ground_y(at.x, at.z, 30.0, true)
+		w.ground.drop(log_item, at, at, w._rest_height, 0.0)
+	await frames(30)
+	var wood := wood_fit(first_wood)
+	check(wood.count >= 30, "logs and sticks laid on the slope (%d)" % wood.count)
+	check(wood.sunk <= 0.03, "no wood in the ground: %.1f cm at most (before 0.0.8.31: up to 66 cm)" % (wood.sunk * 100.0))
+	check(wood.gap <= 0.03, "every piece of wood touches the ground somewhere: %.1f cm at most under the nearest point" % (wood.gap * 100.0))
+	check(wood.one_point == 0, "each one rests on two supports or lies flat (%d on a single point)" % wood.one_point)
+	# Le sol creusé sous le bout fin du plus long : il se repose, sans entrer dans le sol.
+	var longest := first_wood
+	for wood_index in range(first_wood, w.ground.entries.size()):
+		if float(w.ground.entries[wood_index].item.get("longueur", 0.0)) > float(w.ground.entries[longest].item.get("longueur", 0.0)):
+			longest = wood_index
+	var long_place: Transform3D = w.ground.place_of(w.ground.entries[longest], GroundItems._basis(w.ground.entries[longest].item))
+	var thin_end: Vector3 = long_place.origin + long_place.basis.y.normalized() * float(w.ground.entries[longest].item.longueur) * 0.5
+	dig(SmoothTerrain.point_of(Vector3(thin_end.x, ground_y(thin_end.x, thin_end.z, 30.0), thin_end.z)), 1, 3)
+	await frames(10)
+	var after_dig := wood_fit(first_wood)
+	check(after_dig.sunk <= 0.03 and after_dig.gap <= 0.03, "ground dug under one end of a long log: still on the ground, not in it (%.1f cm in, %.1f cm above)" % [after_dig.sunk * 100.0, after_dig.gap * 100.0])
+	# --- G. 0.0.8.31 : recouper une tige couchée : le reste garde sa pose (il ne bouge que s'il a perdu un appui). ---
+	var flat_site := Vector3(28.0, 0.0, 60.0)
+	await go_to(flat_site + Vector3(4.0, 0.0, 0.0))
+	var hazel: Node3D = Trees.tree_body(Trees.HAZEL, 5)
+	hazel.set_meta("id", "gravite-noisetier")
+	var hazel_column: Vector2i = w._player_column()
+	hazel.set_meta("column", hazel_column)
+	w._rocks_parent().add_child(hazel)
+	hazel.global_position = Vector3(flat_site.x, w.terrain.height_at(flat_site.x, flat_site.z) - 0.05, flat_site.z)
+	w.column_objects[hazel_column] = w.column_objects.get(hazel_column, []) + [hazel]
+	await frames(3)
+	var bush: Dictionary = TreeParts.skeleton(Trees.HAZEL, 5, 0)
+	var stems := 0
+	for number in range(bush.pieces.size()):
+		var piece: Dictionary = bush.pieces[number]
+		if stems >= 5 or not piece.root or piece.tip.y <= 0.5 or not is_instance_valid(hazel):
+			continue
+		w.cut_wood(hazel, number, 0.35, w._model_of(hazel) * (piece.start + piece.direction * 0.35))
+		stems += 1
+		await frames(3)
+	await frames(200)
+	var lying_parts: Array = w.column_objects[hazel_column].filter(func(node): return is_instance_valid(node) and not node.is_queued_for_deletion() and node.get_meta("id", "") == "gravite-noisetier" and int(node.get_meta("part", 0)) != 0 and not node.has_meta("falling"))
+	var recut := 0
+	var unmoved := 0
+	var largest_small_move := 0.0
+	for node in lying_parts:
+		var span: Array = TreeParts.main_span(Trees.HAZEL, 5, 0, w._cuts_of(node), int(node.get_meta("part", 0)))
+		if span.is_empty():
+			continue
+		var pose: Transform3D = node.global_transform
+		var cuts_before: int = w._cuts_of(node).size()
+		w.cut_wood(node, int(span[0]), lerpf(float(span[1]), float(span[2]), 0.7), node.global_position)
+		if w._cuts_of(node).size() == cuts_before:
+			continue
+		await frames(60)
+		if not is_instance_valid(node) or node.is_queued_for_deletion():
+			continue
+		recut += 1
+		var moved: float = node.global_position.distance_to(pose.origin)
+		if moved < 0.001 and pose.basis.is_equal_approx(node.global_basis):
+			unmoved += 1
+		elif moved < w.REST_KEEP_HEIGHT:
+			largest_small_move = maxf(largest_small_move, moved)
+	check(recut >= 3 and unmoved >= recut - 1 and largest_small_move == 0.0, "lying stems cut again at their tip: the rest keeps its exact place (%d of %d ; before: one in twenty moved 12 cm or more)" % [unmoved, recut])
 	root.remove_child(w)
 	w.free()
 	Store.delete_folder(FOLDER)
 	print("RESULT: %d gravity checks, %d failures" % [checks, failures])
 	quit(0 if failures == 0 else 1)
+
+# Bois au sol depuis « from » : de combien le plus enfoncé est dans le sol (sunk), de combien le plus haut est au-dessus
+# de son point le plus proche du sol (gap), et combien ne touchent qu'en un point sans être à plat (one_point).
+func wood_fit(from: int) -> Dictionary:
+	var result := {"count": 0, "sunk": 0.0, "gap": 0.0, "one_point": 0}
+	for index in range(from, w.ground.entries.size()):
+		var entry: Dictionary = w.ground.entries[index]
+		if GroundItems._kind(entry.item) != "bois":
+			continue
+		var place: Transform3D = w.ground.place_of(entry, GroundItems._basis(entry.item))
+		var length := float(entry.item.get("longueur", 1.0))
+		var axis: Vector3 = place.basis.y.normalized()
+		var big := float(entry.item.get("epaisseur", 3.0)) / 200.0
+		var small := float(entry.item.get("fin", entry.item.get("epaisseur", 3.0))) / 200.0
+		var nearest := INF
+		var deepest := -INF
+		var touches := []
+		for step in range(17):
+			var share := step / 16.0
+			var p: Vector3 = place.origin + axis * ((share - 0.5) * length)
+			var g := ground_y(p.x, p.z, p.y + 6.0, true)
+			if is_nan(g):
+				continue
+			var under := p.y - lerpf(big, small, share) - g
+			nearest = minf(nearest, under)
+			deepest = maxf(deepest, -under)
+			if under < 0.04:
+				touches.append(share)
+		if nearest == INF:
+			continue
+		result.count += 1
+		result.sunk = maxf(result.sunk, deepest)
+		result.gap = maxf(result.gap, nearest)
+		if touches.is_empty() or (touches.max() - touches.min() < 0.2 and length > 1.0 and (touches.min() > 0.3 and touches.max() < 0.7) == false):
+			result.one_point += 1
+	return result

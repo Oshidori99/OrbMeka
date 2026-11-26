@@ -173,17 +173,26 @@ func rest_again(index: int, ground_y: float) -> bool:
 		return false
 	var entry: Dictionary = entries[index]
 	var height := ground_y + lift(entry.item)
-	if absf(float(entry.position.y) - height) < 0.02:
+	var lowered := absf(float(entry.position.y) - height) >= 0.02
+	if lowered:
+		entry.position = Vector3(entry.position.x, height, entry.position.z)
+		entry.erase("normal")
+	var moved := lowered
+	# 0.0.8.31 : un bois repose sur ses appuis tout du long : le sol a pu changer sous un bout seulement.
+	if _kind(entry.item) == "bois" and ground_at.is_valid():
+		var before: Variant = entry.get("pose")
+		entry.erase("pose")
+		var now := _wood_pose(entry)
+		moved = moved or not (before is Vector2 and (before as Vector2).distance_to(now) < 0.02)
+	if not moved:
 		return false
-	entry.position = Vector3(entry.position.x, height, entry.position.z)
-	entry.erase("normal")
 	var old: Node = bodies[index]
 	_add_body(index)
 	bodies[index] = bodies.pop_back()
 	if is_instance_valid(old):
 		old.free()
 	_dirty = true
-	if not entry.item.has("graine"):
+	if lowered and not entry.item.has("graine"):
 		changed.emit()
 	return true
 
@@ -533,8 +542,53 @@ func _slope(entry: Dictionary) -> Vector3:
 			entry.normal = normal if normal.y > 0.3 else Vector3.UP
 	return entry.normal
 
+# 0.0.8.31 (demande de l'utilisateur : le bois posé jamais dans le sol ni en l'air ; mesuré sur 500 bois : un bout en
+# l'air de plus de 5 cm pour 87, jusqu'à 69 cm, un bout dans le sol pour 68, jusqu'à 66 cm : un bâton droit était posé
+# par son centre seulement, penché selon la pente à cet endroit) : un bois est rigide et repose sur ses appuis. Le sol est
+# mesuré sous lui tout du long (3 points sous 1 m, 5 sous 3 m, 9 au-delà), à son rayon (gros bout, petit bout) ; il se
+# pose sur la ligne la plus basse qui reste au-dessus partout (elle passe par deux appuis), penché le long de son axe
+# seulement. Calculé une fois par bois (gardé pendant la partie, pas enregistré) ; refait si le sol change dessous.
+var ground_at := Callable()
+const WOOD_MAX_SLOPE := 1.5
+
+# Vector2(hauteur de l'axe au milieu, pente le long de l'axe vers le bout fin).
+func _wood_pose(entry: Dictionary) -> Vector2:
+	if entry.has("pose"):
+		return entry.pose
+	var item: Dictionary = entry.item
+	var length := float(item.get("longueur", 1.0))
+	var big := float(item.get("epaisseur", 3.0)) / 200.0
+	var small := float(item.get("fin", item.get("epaisseur", 3.0))) / 200.0
+	var turn := float(item.get("rotation", 0.0))
+	var axis := Vector3(sin(turn), 0.0, cos(turn))
+	var center: Vector3 = entry.position
+	var count := 3 if length < 1.0 else (5 if length < 3.0 else 9)
+	var points := PackedVector2Array()
+	for index in range(count):
+		var share := float(index) / (count - 1)
+		var spot := center + axis * ((share - 0.5) * length)
+		var ground: float = ground_at.call(Vector3(spot.x, center.y, spot.z))
+		points.append(Vector2((share - 0.5) * length, ground + lerpf(big, small, share)))
+	var best := Vector2(INF, 0.0)
+	for first in range(count):
+		for second in range(first, count):
+			var slope := 0.0 if second == first else clampf((points[second].y - points[first].y) / (points[second].x - points[first].x), -WOOD_MAX_SLOPE, WOOD_MAX_SLOPE)
+			# La ligne de cette pente posée sur le point le plus haut : sa hauteur au milieu.
+			var height := -INF
+			for point in points:
+				height = maxf(height, point.y - slope * point.x)
+			if height < best.x - 0.0005:
+				best = Vector2(height, slope)
+	entry.pose = best
+	return best
+
 # Place d'un objet : couché sur la pente, son centre à « lift » au-dessus du sol, le long de la pente.
 func place_of(entry: Dictionary, basis: Basis) -> Transform3D:
+	if _kind(entry.item) == "bois" and ground_at.is_valid():
+		var pose := _wood_pose(entry)
+		var turn := float(entry.item.get("rotation", 0.0))
+		var along := Vector3(sin(turn), 0.0, cos(turn))
+		return Transform3D(Basis(along.cross(Vector3.UP).normalized(), atan(pose.y)) * basis, Vector3(entry.position.x, pose.x, entry.position.z))
 	var normal := _slope(entry)
 	var lifted := lift(entry.item)
 	var ground := Vector3(entry.position.x, entry.position.y - lifted, entry.position.z)

@@ -2441,7 +2441,7 @@ func cut_wood(tree: Node3D, number: int, t: float, point: Vector3) -> void:
 		show_choice("Coupé en deux")
 	# 0.0.7.15 : le morceau couché qui reste se repose (il a pu perdre les branches qui le portaient).
 	if lying:
-		_rest_rigid(tree)
+		_rest_rigid(tree, true)
 		_bend_into_ground(tree, _lying_direction(tree))
 		_save_part(tree)
 	if lying and _bare_to_wood(tree):
@@ -3380,7 +3380,14 @@ static func _leaf_centers(kind: int, size: int, form: int) -> Dictionary:
 	_leaf_points[key] = centers
 	return centers
 
-func _rest_rigid(node: Node3D) -> void:
+# 0.0.8.31 (demande de l'utilisateur : « recouper une branche couchée ne change que le bout coupé » ; mesuré sur 84
+# recoupes : le reste bougeait de 12 cm ou plus une fois sur 20, sans toujours avoir perdu un appui) : keep_if_held : le
+# morceau garde exactement sa pose s'il tient encore (il devrait bouger de moins de REST_KEEP_HEIGHT et tourner de moins
+# de REST_KEEP_SLOPE) ; il ne se repose que s'il a vraiment perdu un appui (il ne reste jamais en l'air).
+const REST_KEEP_HEIGHT := 0.05
+const REST_KEEP_SLOPE := 0.05
+
+func _rest_rigid(node: Node3D, keep_if_held := false) -> void:
 	if not is_instance_valid(node) or node.get_node_or_null("Modele") == null:
 		return
 	_leave_series(node)
@@ -3477,6 +3484,8 @@ func _rest_rigid(node: Node3D) -> void:
 			for point in main_points:
 				lowest = maxf(lowest, point.y - clamped * point.x)
 			best = Vector2(lowest, clamped)
+		if keep_if_held and attempt == 0 and absf(best.x) < REST_KEEP_HEIGHT and absf(best.y) < REST_KEEP_SLOPE:
+			return
 		if absf(best.x) < 0.003 and absf(best.y) < 0.002:
 			break
 		# Bascule autour d'un axe horizontal en travers du morceau, par son point d'ancrage ; puis la hauteur.
@@ -4002,6 +4011,8 @@ func _create_ground_items() -> void:
 	ground.stone_material = _pebble_material()
 	# 0.0.8.9 : pente du sol sous chaque objet (posé à plat sur elle).
 	ground.normal_at = _rest_normal
+	# 0.0.8.31 : sol sous un bois couché, tout du long (terrain creusé ou posé, rochers ; pas les arbres).
+	ground.ground_at = func(spot: Vector3) -> float: return _ground_at(spot)
 	add_child(ground)
 	ground.from_array(objects_data.get("objets_au_sol"))
 	ground.changed.connect(func(): objects_dirty = true)
