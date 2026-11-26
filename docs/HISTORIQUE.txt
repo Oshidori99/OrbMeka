@@ -3,6 +3,10 @@ Du plus récent au plus ancien. Ce fichier est mis à jour à chaque version.
 
 === Thème « Fabrication et survie » (0.0.8) ===
 
+0.0.8.29 — Gravité, rochers et cailloux : un bout de rocher qui ne tient plus tombe en cailloux, chaque coup de pioche sur un rocher donne un caillou et un éclat, cailloux posés pile sur le sol, cailloux, rochers et objets qui descendent quand on creuse dessous, plus aucun caillou caché sous un rocher (nouveaux mondes)
+Génération du terrain : version 34 · Menus : version 17.
+Demandes de l'utilisateur (physique et gravité fiables) ; état des lieux mesuré avec tools/mesure_physique.gd.
+
 0.0.8.28 — Les cartes : mini-carte en haut à droite (zones chargées, relief, eau en bleu, arbres en points verts, flèche ; l'heure et les coordonnées dessous), grande carte O + M avec « Tout voir », menu Carte dans les Paramètres (Vidéo)
 Génération du terrain : version 33 · Menus : version 17.
 Issue #154 et demandes de l'utilisateur ; points de repère pour plus tard (#252).

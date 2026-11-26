@@ -22,7 +22,7 @@ func _run() -> void:
 	const SEED := 1864659616
 	var terrain := SmoothTerrain.new()
 	terrain.setup(SEED, [], Generation.defaults())
-	check(Generation.VERSION == 33, "generation 33")
+	check(Generation.VERSION >= 33, "generation 33 or later")
 	var old_options := Generation.defaults()
 	old_options.version = 32
 	var old_terrain := SmoothTerrain.new()
