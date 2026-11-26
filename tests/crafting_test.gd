@@ -219,6 +219,10 @@ func _run() -> void:
 	check(ui.status.text.contains("Vous avez 1 éclat de silex"), "how many we have now: " + ui.status.text)
 	app._cancel_page()
 	check(not world.crafting_open and not ui.visible and not root.disable_3d and app.page == "playing" and world.hud_layer.visible, "Échap closes the crafting screen, back to the game (HUD shown again)")
+	# 0.0.8.39 (demande de l'utilisateur) : Échap ferme aussi la grande carte (retour au jeu, sans pause).
+	world.open_map()
+	app._cancel_page()
+	check(not world.map_open and app.page == "playing", "Échap closes the big map, back to the game (no pause)")
 	# Créatif : le catalogue, rien n'est pris.
 	world.set_game_mode(Inventory.CREATIVE)
 	world.toggle_crafting()

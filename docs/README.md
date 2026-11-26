@@ -1,6 +1,16 @@
-# OrbMeka™ — prototype 0.0.8.38
+# OrbMeka™ — prototype 0.0.8.39
 
 Godot 4.7 / GDScript. Formes et couleurs simples ; assets externes seulement sous licence vérifiée (sons CC0, assets/sounds/CREDITS.txt).
+
+## 0.0.8.39 — Petites corrections
+Publiée. Génération inchangée (version 34). Demandes de l'utilisateur.
+- **Échap ferme la grande carte** (retour au jeu, sans pause).
+- **Repères** : leur nom est écrit aussi sur la mini-carte, en petit, sous le point ; points un peu plus petits (sur les deux cartes) ; **couleur au choix** (6 couleurs, sur la grande carte, pour le repère choisi).
+- **Grande carte** : en bas à droite, un **« + »** pour ajouter un repère, puis à sa droite son **nom**, ses couleurs et « Supprimer ».
+- **Inventaire** : la zone **« Jeter » en bleu**, avec une image simple (un caillou qui tombe vers le sol), dessinée dans le jeu (rien d'extérieur) ; « Supprimer » (Créatif) garde le rouge et la croix.
+
+Tests réussis : carte (30), crafting, inventory, inventory_more, window_resize, pause, carnet, prototype, history_resume (+ tests juridiques).
+À tester : O + M puis Échap ; poser un repère, changer sa couleur, le voir sur la mini-carte ; la zone « Jeter ».
 
 ## 0.0.8.38 — Liste de toutes les actions (#254)
 Publiée (avec tous les tests sur GitHub). Génération inchangée (version 34). Issue #254.
