@@ -37,7 +37,7 @@ static func survival() -> Inventory:
 
 func _run() -> void:
 	check(Controls.ACTIONS.crafting.default.key == KEY_O and Controls.ACTIONS.crafting.default.second.key == KEY_F and Controls.GROUPS.Inventaire.has("crafting"), "O + F: Fabrication, in Contrôles → Inventaire")
-	check(Rules.READY == Rules.ACTIONS and Rules.ACTIONS.size() == 10, "0.0.8.6: the actions are ready (0.0.8.21 : six, with Nouer ; 0.0.8.40 : ten)")
+	check(Rules.READY == Rules.ACTIONS and Rules.ACTIONS.size() == 13, "0.0.8.6: the actions are ready (0.0.8.21 : six, with Nouer ; 0.0.8.40 : ten ; 0.0.8.44 : thirteen)")
 	# 0.0.8.25 : une branche fine et courte fendue devient une navette ; avec elle, on ficelle deux fois plus vite.
 	var thin := {"objet": "branche", "essence": 1, "epaisseur": 1.8, "fin": 1.5, "longueur": 0.3}
 	var handle := {"objet": "branche", "essence": 1, "epaisseur": 3.5, "fin": 3.0, "longueur": 0.6}
@@ -61,7 +61,7 @@ func _run() -> void:
 	for category in Inventory.CATEGORIES:
 		tabs[category.id] = category.objets
 	# 0.0.8.37 : la navette dans Outils, l'orbe dans Équipement, ficelles et cordelettes dans « Objets transformés ».
-	check(tabs.equipment == ["sac_filet", "orbe_retour"] and tabs.tools.has("eclat_silex") and tabs.tools.has("navette") and tabs.made.has("ficelle_lin") and tabs.made.has("cordelette_lin") and not tabs.plants.has("ficelle_lin"), "creative tabs: Équipement (bag, orb), flakes and shuttle in Outils, strings in Objets transformés")
+	check(tabs.equipment.slice(0, 2) == ["sac_filet", "orbe_retour"] and tabs.equipment.has("torche") and tabs.tools.has("eclat_silex") and tabs.tools.has("navette") and tabs.made.has("ficelle_lin") and tabs.made.has("cordelette_lin") and not tabs.plants.has("ficelle_lin"), "creative tabs: Équipement (bag, orb), flakes and shuttle in Outils, strings in Objets transformés")
 	creative_aids.put("bar", 0, Inventory.real_stack(Inventory.catalog_item("terre")))
 	creative_aids.select(0)
 	check(creative_aids.use_held(1) and Inventory.count(creative_aids.item("bar", 0)) == 99, "creative: a real pile of 99, still 99 after use")
@@ -241,7 +241,7 @@ func _run() -> void:
 	if not world.crafting_open:
 		world.toggle_crafting()
 	await process_frame
-	check(Rules.ACTIONS.size() == 10 and ui.action_buttons.has("detresser") and ui.action_buttons.has("ecorcer"), "10 actions in O + F, among them Détresser and Écorcer")
+	check(Rules.ACTIONS.size() == 13 and ui.action_buttons.has("detresser") and ui.action_buttons.has("ecorcer"), "10 actions in O + F, among them Détresser and Écorcer")
 	# Détresser une cordelette de lin : 3 ficelles de lin.
 	ui.choose_action("detresser")
 	var to_untwist: Array = Rules.more_choices(world.inventory, "tresse").filter(func(c): return c.value.objet == "cordelette_lin")

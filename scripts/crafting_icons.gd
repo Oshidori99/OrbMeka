@@ -8,7 +8,7 @@ extends Button
 const MenuImages = preload("res://scripts/menu_images.gd")
 
 var action := ""
-const STAND_IN := {"detresser": "tresser", "defaire": "assembler", "relier": "ficeler", "ecorcer": "fendre"}
+const STAND_IN := {"detresser": "tresser", "defaire": "assembler", "relier": "ficeler", "ecorcer": "fendre", "torche": "ficeler", "archet": "nouer", "feu": "tailler"}
 
 func _init(kind: String, side: float) -> void:
 	action = kind

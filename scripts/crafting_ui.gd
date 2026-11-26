@@ -355,7 +355,7 @@ func choose_head(next: String) -> void:
 	hits = 0
 	refresh()
 
-const ROLES := {"tresser": ["fibres"], "tailler": ["percuteur", "pierre"], "fendre": ["manche", "eclat"], "assembler": ["fendu", "tete"], "ficeler": ["a_ficeler", "lien"], "nouer": ["filet", "bretelle"], "detresser": ["tresse"], "defaire": ["outil_fait"], "relier": ["outil_use", "lien"], "ecorcer": ["bois", "eclat"]}
+const ROLES := {"tresser": ["fibres"], "tailler": ["percuteur", "pierre"], "fendre": ["manche", "eclat"], "assembler": ["fendu", "tete"], "ficeler": ["a_ficeler", "lien"], "nouer": ["filet", "bretelle"], "detresser": ["tresse"], "defaire": ["outil_fait"], "relier": ["outil_use", "lien"], "ecorcer": ["bois", "eclat"], "torche": ["baton_torche", "meche"], "archet": ["arc", "corde_arc"], "feu": ["pierres", "bois_feu", "amadou"]}
 # 0.0.8.21 (#207) : tresser 3 ficelles donne une cordelette ; Nouer : le sac en filet.
 const ROLE_TITLES := {"fibres": "3 fibres (une ficelle) ou 3 ficelles (une cordelette), du même type", "percuteur": "Main gauche : percuteur (un caillou)", "pierre": "Main droite : pierre à tailler (silex ou calcaire, taille 3 à 5)",
 	"filet": "Main gauche : 4 cordelettes du même type (les mailles)", "bretelle": "Main droite : 1 cordelette ou 1 liane (la bretelle)",
@@ -363,14 +363,17 @@ const ROLE_TITLES := {"fibres": "3 fibres (une ficelle) ou 3 ficelles (une corde
 	"fendu": "Main gauche : branche fendue", "tete": "Main droite : tête de hache ou de pioche",
 	"a_ficeler": "Main gauche : hache ou pioche à ficeler", "lien": "Main droite : 3 ficelles du même type, ou 1 liane",
 	"tresse": "Une ficelle (3 fibres) ou une cordelette (3 ficelles)", "outil_fait": "Une hache ou une pioche (finie ou à ficeler)",
-	"outil_use": "Main gauche : hache ou pioche en pierre (usée)", "bois": "Main gauche : bâton ou bûche (pas encore écorcé)"}
+	"outil_use": "Main gauche : hache ou pioche en pierre (usée)", "bois": "Main gauche : bâton ou bûche (pas encore écorcé)",
+	"baton_torche": "Main gauche : un bâton (2 à 5 cm, 30 cm à 1,2 m)", "meche": "Main droite : 3 fibres du même type (la mèche)",
+	"arc": "Main gauche : une branche souple (1 à 3 cm, 40 cm à 1,2 m)", "corde_arc": "Main droite : une cordelette",
+	"pierres": "4 cailloux (le cercle du feu)", "bois_feu": "Un bâton ou une bûche", "amadou": "De l'amadou : 3 fibres ou un morceau d'écorce"}
 const HOLD_ACTIONS := ["tresser", "fendre", "ficeler", "nouer", "detresser", "relier", "ecorcer"]
 # 0.0.8.24 (demande de l'utilisateur : l'éclat était pris tout seul) : objets facultatifs, proposés ; sans eux, l'action se
 # fait quand même, plus lentement (tresser : un éclat tranchant, deux fois plus vite).
-const OPTIONAL_ROLES := {"tresser": ["eclat_aide"], "ficeler": ["navette_aide"]}
+const OPTIONAL_ROLES := {"tresser": ["eclat_aide"], "ficeler": ["navette_aide"], "torche": ["resine_aide"]}
 # Rôle (Rules.more_choices) des objets proposés ; 0.0.8.25 : la navette, pour ficeler deux fois plus vite.
-const OPTIONAL_KINDS := {"eclat_aide": "eclat", "navette_aide": "navette"}
-const OPTIONAL_TITLES := {"eclat_aide": "Facultatif : un éclat tranchant (tresser deux fois plus vite)", "navette_aide": "Facultatif : une navette (ficeler deux fois plus vite)"}
+const OPTIONAL_KINDS := {"eclat_aide": "eclat", "navette_aide": "navette", "resine_aide": "resine"}
+const OPTIONAL_TITLES := {"eclat_aide": "Facultatif : un éclat tranchant (tresser deux fois plus vite)", "navette_aide": "Facultatif : une navette (ficeler deux fois plus vite)", "resine_aide": "Facultatif : de l'écorce de pin (une torche forte : 2 fois plus de lumière, 2 fois moins longtemps)"}
 
 func _turn_seconds() -> float:
 	return Rules.turn_seconds(picks.has("navette_aide"))
@@ -382,6 +385,11 @@ func _list(role: String) -> Array:
 	# 0.0.8.8 : un éclat tranchant se taille dans une pierre de taille 2 à 5.
 	if role == "pierre" and head == "eclat":
 		return Rules.choices(inventory, "pierre_eclat")
+	# 0.0.8.44 : la mèche (3 fibres) ; les cailloux et l'amadou du feu.
+	if role == "meche":
+		return Rules.wick_choices(inventory)
+	if role in ["pierres", "amadou"]:
+		return Rules.fire_choices(inventory, role)
 	if role in ["fibres", "percuteur", "pierre"]:
 		return Rules.choices(inventory, role)
 	return Rules.more_choices(inventory, role)
@@ -411,7 +419,7 @@ func refresh() -> void:
 		choice_box.add_child(_label(OPTIONAL_TITLES[role], 15, Color(0.6, 0.85, 0.82)))
 		var offered := Rules.aid_choices(inventory, OPTIONAL_KINDS[role])
 		if offered.is_empty():
-			choice_box.add_child(_label(("Aucun%s en main ou en poche." if inventory.mode == Inventory.SURVIVAL else "Aucun%s.") % (" éclat tranchant" if role == "eclat_aide" else "e navette"), 14, Color(0.8, 0.8, 0.8)))
+			choice_box.add_child(_label(("Aucun%s en main ou en poche." if inventory.mode == Inventory.SURVIVAL else "Aucun%s.") % (" éclat tranchant" if role == "eclat_aide" else ("e écorce de pin" if role == "resine_aide" else "e navette")), 14, Color(0.8, 0.8, 0.8)))
 		for choice in offered:
 			# Cliquer encore sur l'éclat choisi le laisse de côté.
 			var button := _button(choice.label, choice_box, func(): _toggle_optional(role, choice))
@@ -460,6 +468,12 @@ func _hint() -> String:
 			text = "Cliquez dans la scène : la tête glisse dans la fente."
 		"detresser":
 			text = "Clic gauche maintenu dans la scène (%s s) : la ficelle redonne ses 3 fibres, la cordelette ses 3 ficelles." % str(Rules.UNTWIST_SECONDS).replace(".", ",")
+		"torche":
+			text = "Cliquez dans la scène : une torche (10 h de lumière), ou une torche forte avec l'écorce de pin (2 fois plus de lumière, 5 h). Elle s'allume à un feu de camp."
+		"archet":
+			text = "Cliquez dans la scène : l'archet à feu (pour allumer un feu de camp)."
+		"feu":
+			text = "Cliquez dans la scène : un feu de camp (2 h de bois), à poser au sol et à allumer à l'archet à feu."
 		"defaire":
 			text = "Cliquez dans la scène : la tête, le manche (branche fendue) et ce qui reste du lien."
 		"relier":
@@ -583,6 +597,12 @@ func _scene_input(event: InputEvent) -> void:
 			strike()
 		elif action == "assembler":
 			assemble()
+		elif action == "torche":
+			make_torch()
+		elif action == "archet":
+			make_bow()
+		elif action == "feu":
+			make_fire()
 		elif action == "defaire":
 			undo()
 
@@ -682,6 +702,90 @@ func braid() -> bool:
 		picks.fibres = keep[0]
 	refresh()
 	status.text = "%s tressée (33 cm). %s" % [Inventory.item_name(cord), _hint()]
+	return true
+
+# --- 0.0.8.44 (#214, #209) : Faire une torche, Faire un archet à feu, Monter un feu (un clic chacun) ---
+func make_torch() -> bool:
+	var stick: Dictionary = picks.get("baton_torche", {})
+	var wick: Dictionary = picks.get("meche", {})
+	if stick.is_empty() or wick.is_empty() or not Rules.still_there(inventory, stick):
+		status.text = "Le bâton ou la mèche n'est plus là."
+		picks = {}
+		refresh()
+		return false
+	var strong := picks.has("resine_aide") and Rules.still_there(inventory, picks.resine_aide)
+	if not Rules.take_fibres(inventory, wick):
+		status.text = "Il faut 3 fibres du même type pour la mèche."
+		picks.erase("meche")
+		refresh()
+		return false
+	if strong:
+		Rules.take_choice(inventory, picks.resine_aide)
+	var found := Rules.more_choices(inventory, "baton_torche").filter(func(other): return other.value == stick.value)
+	if not stick.get("creative", false) and (found.is_empty() or not Rules.take_choice(inventory, found[0])):
+		status.text = "Le bâton n'est plus là."
+		picks = {}
+		refresh()
+		return false
+	var made := Rules.torch_result(stick.value, strong)
+	world.give_crafted(made)
+	if world.has_method("notebook_mark"):
+		world.notebook_mark("torche_faite")
+	picks = {}
+	refresh()
+	status.text = "%s prête : allumez-la à un feu de camp (clic droit maintenu en le visant)." % Inventory.ITEMS[made.objet].nom
+	return true
+
+func make_bow() -> bool:
+	var stick: Dictionary = picks.get("arc", {})
+	var cord: Dictionary = picks.get("corde_arc", {})
+	if stick.is_empty() or cord.is_empty() or not Rules.still_there(inventory, stick) or not Rules.still_there(inventory, cord):
+		status.text = "La branche ou la cordelette n'est plus là."
+		picks = {}
+		refresh()
+		return false
+	Rules.take_choice(inventory, cord)
+	var found := Rules.more_choices(inventory, "arc").filter(func(other): return other.value == stick.value)
+	if not stick.get("creative", false) and (found.is_empty() or not Rules.take_choice(inventory, found[0])):
+		status.text = "La branche n'est plus là."
+		picks = {}
+		refresh()
+		return false
+	world.give_crafted(Rules.bow_result(stick.value, cord.value))
+	if world.has_method("notebook_mark"):
+		world.notebook_mark("archet")
+	picks = {}
+	refresh()
+	status.text = "Archet à feu prêt : posez un feu de camp, puis visez-le, clic droit maintenu (10 s) pour l'allumer."
+	return true
+
+func make_fire() -> bool:
+	var stones: Dictionary = picks.get("pierres", {})
+	var wood: Dictionary = picks.get("bois_feu", {})
+	var tinder: Dictionary = picks.get("amadou", {})
+	if stones.is_empty() or wood.is_empty() or tinder.is_empty() or not Rules.still_there(inventory, wood):
+		status.text = "Il manque les cailloux, le bois ou l'amadou."
+		picks = {}
+		refresh()
+		return false
+	var took_tinder: bool = Rules.take_fibres(inventory, tinder) if tinder.has("fibres") else Rules.take_choice(inventory, tinder)
+	if not took_tinder or not Rules.take_stones(inventory, stones.get("creative", false)):
+		status.text = "Il faut 4 cailloux et de l'amadou (3 fibres ou un morceau d'écorce)."
+		picks = {}
+		refresh()
+		return false
+	var found := Rules.more_choices(inventory, "bois_feu").filter(func(other): return other.value == wood.value)
+	if not wood.get("creative", false) and (found.is_empty() or not Rules.take_choice(inventory, found[0])):
+		status.text = "Le bois n'est plus là."
+		picks = {}
+		refresh()
+		return false
+	world.give_crafted(Rules.fire_result())
+	if world.has_method("notebook_mark"):
+		world.notebook_mark("feu_monte")
+	picks = {}
+	refresh()
+	status.text = "Feu de camp monté : posez-le au sol (clic droit), puis allumez-le à l'archet à feu."
 	return true
 
 # --- 0.0.8.40 (#255 à #258) : Détresser, Défaire un outil, Refaire le lien, Écorcer ---
@@ -795,6 +899,8 @@ func bark() -> bool:
 		refresh()
 		return false
 	var made := Rules.bark_result(wood.value)
+	# 0.0.8.44 : l'écorce qui se détache (de pin : pour la torche forte).
+	world.give_crafted(Rules.bark_piece(wood.value))
 	world.give_crafted(made)
 	if world.has_method("notebook_mark"):
 		world.notebook_mark("ecorcer")

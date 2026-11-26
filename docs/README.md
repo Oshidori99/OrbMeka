@@ -1,6 +1,20 @@
-# OrbMeka™ — prototype 0.0.8.43
+# OrbMeka™ — prototype 0.0.8.44
 
 Godot 4.7 / GDScript. Formes et couleurs simples ; assets externes seulement sous licence vérifiée (sons CC0, assets/sounds/CREDITS.txt).
+
+## 0.0.8.44 — Le feu et les torches (#214, #209)
+Publiée. Génération inchangée (version 34). Demandes de l'utilisateur. Modèles simples faits dans le jeu ; les beaux modèles (Blender) et les animations viendront plus tard.
+- **Écorce** : Écorcer (O + F) un bâton ou une bûche donne aussi de l'écorce (de pin : **écorce de pin**, résineuse) ; sur un **pin debout**, menu des actions (B + T) → « Récupérer des matériaux », clic gauche maintenu sur le tronc avec une hache (4 s) ou un éclat (8 s) : de l'écorce de pin, l'arbre reste.
+- **Monter un feu** (O + F) : 4 cailloux, un bâton ou une bûche, et de l'amadou (3 fibres ou un morceau d'écorce) : un feu de camp, à poser au sol (clic droit). Il a 2 heures de bois.
+- **Archet à feu** (O + F → Faire un archet) : une branche souple (1 à 3 cm, 40 cm à 1,2 m) et une cordelette. Archet en main, en visant le feu : **clic droit maintenu 10 s**, le feu prend. Il éclaire autour de lui (14 m : plus qu'une torche simple, moins loin que la torche forte).
+- **Nourrir le feu** : en le visant, clic droit maintenu avec un bâton (+1 h), une bûche (+2 h) ou du **charbon** (+3 h), 12 h au plus ; sans rien à brûler, il s'éteint (on le nourrit et on le rallume).
+- **Torche** (O + F → Faire une torche) : un bâton (2 à 5 cm, 30 cm à 1,2 m) et 3 fibres du même type ; avec de l'écorce de pin en plus : **torche forte**. Allumée à un feu allumé (en le visant, torche en main, clic droit maintenu 1 s). Torche : **10 heures** de lumière (8 m) ; torche forte : **2 fois plus de lumière et 2 fois plus loin** (16 m), **5 heures**. Elle brûle en main ou posée (flamme au bout, lumière), puis devient un **bâton brûlé**. Son nom dit le temps qui reste (« Torche allumée (8 h 20) »).
+- **Catalogue du Créatif** : archet, feu de camp, torches (Équipement), écorces (Objets transformés). **Carnet de route** : Écorce, Feu de camp, Archet à feu, Allumer le feu, Torche.
+- Léger : au plus 8 lumières de feux et de torches posés à la fois (les plus proches), éteintes au loin ; une seule pour la torche en main. Images par seconde inchangées sur PC (ouverture 112, marche en forêt 208, vol 287) ; de nuit avec un feu et une torche : plus de 900 images par seconde dans la petite fenêtre.
+- Capture de nuit (nouvelle lune) avec un feu allumé et une torche forte en main : tools/capture_feu.gd.
+
+Tests réussis : feu (24, nouveau), crafting, carnet, inventory, inventory_more, sac, tools, trees, tree_fall, bois, web_save, world_save, jour_nuit, hands_eat, return_orb, health, death, fiche_outil, plantes_inventaire, perf_guard, optimisation, prototype, history_resume (+ tests juridiques).
+À tester : monter un feu, le poser, l'allumer à l'archet (10 s), le nourrir au charbon ; faire une torche, l'allumer au feu, descendre dans une grotte ; une torche forte (écorce de pin) ; sur le Web (lumières).
 
 ## 0.0.8.43 — La nuit et la lune (#214, première partie)
 Publiée (avec tous les tests sur GitHub). Génération inchangée (version 34). Demandes de l'utilisateur.

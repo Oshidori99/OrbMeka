@@ -40,6 +40,8 @@ static func texture(id: String) -> Texture2D:
 				image = _fiber(spec.couleur)
 			"liane":
 				image = _coil(spec.couleur)
+			"feu":
+				image = _campfire()
 			"orbe":
 				image = _orb(spec.couleur)
 			# 0.0.8.21 (#207) : sac en filet : image faite dans Blender (menu_images.gd), sinon la silhouette de sac.
@@ -831,3 +833,26 @@ const PICKAXE_SVG := "<svg xmlns='http://www.w3.org/2000/svg' width='64' height=
 <path d='M14 25 Q31 7 52 19' fill='none' stroke='#e9eef2' stroke-width='2' stroke-linecap='round'/>
 <rect x='33' y='12' width='11' height='10' rx='2' transform='rotate(32 38.5 17)' fill='#6d747b' stroke='#22272c' stroke-width='2.4'/>
 </svg>"
+
+# 0.0.8.44 (#209) : feu de camp : un cercle de pierres grises, des bûches croisées et une flamme orangée (dessiné ici).
+static func _campfire() -> Image:
+	var image := _blank()
+	var center := Vector2(SIZE * 0.5, SIZE * 0.68)
+	for y in range(SIZE):
+		for x in range(SIZE):
+			var at := Vector2(x + 0.5, y + 0.5)
+			var d := at - center
+			# Pierres : une ellipse de petits ronds.
+			for index in range(8):
+				var angle := TAU * index / 8.0
+				var stone := center + Vector2(cos(angle) * SIZE * 0.34, sin(angle) * SIZE * 0.13)
+				if at.distance_to(stone) < SIZE * 0.075:
+					image.set_pixel(x, y, Color("#8a8680").darkened(0.2 * float(index % 2)))
+			# Bûches : deux traits croisés.
+			if absf(d.y + d.x * 0.35) < SIZE * 0.035 and absf(d.x) < SIZE * 0.26 or absf(d.y - d.x * 0.35) < SIZE * 0.035 and absf(d.x) < SIZE * 0.26:
+				image.set_pixel(x, y, Color("#6b4a2e"))
+			# Flamme : une goutte vers le haut.
+			var f := Vector2(d.x / (SIZE * 0.17), (d.y + SIZE * 0.2) / (SIZE * 0.36))
+			if f.y < 0.6 and f.y > -1.0 and absf(f.x) < (1.0 - absf(f.y) * 0.9) * (0.75 if f.y < 0.0 else 1.0):
+				image.set_pixel(x, y, Color("#ffb062").lerp(Color("#fff2a8"), clampf(1.0 - absf(f.x) * 1.6, 0.0, 1.0)))
+	return image
