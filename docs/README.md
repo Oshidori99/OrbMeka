@@ -1,6 +1,14 @@
-# OrbMeka™ — prototype 0.0.8.41
+# OrbMeka™ — prototype 0.0.8.42
 
 Godot 4.7 / GDScript. Formes et couleurs simples ; assets externes seulement sous licence vérifiée (sons CC0, assets/sounds/CREDITS.txt).
+
+## 0.0.8.42 — Inventaire plus net
+Publiée. Génération inchangée (version 34). Demandes de l'utilisateur.
+- **Sac au sol** (O + V) : sa ligne est séparée du reste de l'inventaire par plus d'espace et une ligne blanche.
+- **Lignes de l'inventaire un peu plus serrées** en hauteur (Survie et Créatif).
+
+Tests réussis : sac, inventory, inventory_more, window_resize, carnet, crafting, prototype, history_resume (+ tests juridiques).
+À tester : ouvrir l'inventaire (O + I) et un sac au sol (O + V) : l'espacement et la ligne blanche.
 
 ## 0.0.8.41 — Le sac posé au sol avec ses objets (#210, première partie)
 Publiée. Génération inchangée (version 34). Demandes de l'utilisateur.

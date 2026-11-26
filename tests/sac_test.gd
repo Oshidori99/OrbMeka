@@ -198,7 +198,7 @@ func _run() -> void:
 		var body: Node3D = world.ground.bodies[bag_index]
 		world.player.camera.look_at(body.global_position)
 		var hit := {"collider": body, "position": body.global_position, "normal": Vector3.UP}
-		check(world.open_aimed_bag(hit) and world.inventory_open and world.inventory_ui.ground_bag_row.visible and items.item("sol", 0).get("objet") == "pomme", "O + V: the inventory opens on the bag's 4 slots, its things inside")
+		check(world.open_aimed_bag(hit) and world.inventory_open and world.inventory_ui.ground_bag_row.visible and world.inventory_ui.ground_bag_line.visible and world.inventory_ui.ground_bag_line.get_child(1).color.r > 0.9 and items.item("sol", 0).get("objet") == "pomme", "O + V: the inventory opens on the bag's 4 slots, its things inside")
 		var apple: Dictionary = items.take("sol", 0)
 		var pocket: int = (Inventory.HANDS + Inventory.POCKETS).filter(func(index): return items.item("bar", index).is_empty() and items.fit_count("bar", index, apple) > 0)[0]
 		check(items.put("bar", pocket, apple).is_empty() and items.item("sol", 0).is_empty(), "take an apple out of the bag on the ground")
