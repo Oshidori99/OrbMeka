@@ -345,5 +345,28 @@ func _run() -> void:
 	clear(world, "bois-blesse")
 	world.queue_free()
 	await frames(2)
+	# --- 0.0.8.32 : épaisseur d'une pièce = le tour de sa tranche / pi (le diamètre rond qui lui ressemble), pas sa largeur
+	# la plus petite ; les rameaux de côté ne comptent pas ; une tranche oblique ne grossit pas la pièce de plus de 30 %. ---
+	var square := _prism(4, 0.05, Vector3.ZERO, 1.0)
+	var square_side := 0.05 * sqrt(2.0)
+	check(absf(TreeParts.true_thickness(square, 0.5) - 4.0 * square_side / PI) < 0.001, "a four-sided branch: its girth over pi (%.1f cm ; its smallest width, used before, is %.1f cm)" % [TreeParts.true_thickness(square, 0.5) * 100.0, square_side * 100.0])
+	var round := _prism(12, 0.05, Vector3.ZERO, 1.0)
+	check(absf(TreeParts.true_thickness(round, 0.5) - 0.1) < 0.004, "a round branch keeps its diameter (%.1f cm for 10 cm)" % (TreeParts.true_thickness(round, 0.5) * 100.0))
+	var with_twig := _prism(4, 0.05, Vector3.ZERO, 1.0)
+	with_twig.corners.append_array(_prism(4, 0.01, Vector3(0.3, 0.0, 0.0), 1.0).corners)
+	check(absf(TreeParts.true_thickness(with_twig, 0.5) - TreeParts.true_thickness(square, 0.5)) < 0.0005, "a twig beside the branch does not make it thicker")
+	var leaning := _prism(12, 0.05, Vector3.ZERO, 2.0)
+	check(absf(TreeParts.true_thickness(leaning, 0.5) - 0.1 * 1.3) < 0.004, "a slanted slice of a curved branch: at most 30 %% more (%.1f cm for 10 cm)" % (TreeParts.true_thickness(leaning, 0.5) * 100.0))
 	print("RESULT: %d wood checks, %d failures" % [checks, failures])
 	quit(0 if failures == 0 else 1)
+
+# Pièce d'essai : un prisme droit à « sides » côtés (rayon donné), le long de l'axe de la pièce (vers le haut, 1 m),
+# décalé de « offset » ; « stretch » : étiré d'autant dans un sens (la tranche oblique d'une branche courbée).
+func _prism(sides: int, radius: float, offset: Vector3, stretch: float) -> Dictionary:
+	var corners := PackedVector3Array()
+	for index in range(sides):
+		var a := Vector3(cos(index * TAU / sides) * stretch, 0.0, sin(index * TAU / sides)) * radius + offset
+		var b := Vector3(cos((index + 1) * TAU / sides) * stretch, 0.0, sin((index + 1) * TAU / sides)) * radius + offset
+		var up := Vector3.UP
+		corners.append_array([a - up * 0.5, b - up * 0.5, a + up * 1.5, b - up * 0.5, b + up * 1.5, a + up * 1.5])
+	return {"corners": corners, "start": Vector3.ZERO, "direction": Vector3.UP, "length": 1.0, "profile": PackedFloat32Array([radius]), "root": false}
