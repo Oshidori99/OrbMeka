@@ -5990,6 +5990,17 @@ func aiming_surface() -> bool:
 # Clic droit appuyé : rend vrai s'il commence à manger ou à utiliser l'orbe (la pose attend le relâchement).
 # Clic droit « Manger » : toujours vrai (il ne pose jamais rien).
 func eat_press() -> bool:
+	# 0.0.8.45 (signalé par l'utilisateur : du bois posé sur le feu ne le nourrissait pas, il fallait maintenir le clic) :
+	# un clic droit sur le feu avec du bois ou du charbon le nourrit tout de suite ; sur un sac posé au sol (lui-même) :
+	# il s'ouvre, comme O + V.
+	if fire_use() == "nourrir":
+		do_fire_use("nourrir")
+		eat_time = -1.0
+		return true
+	if is_instance_valid(player) and aimed_ground_bag():
+		open_aimed_bag(player.get_target())
+		eat_time = -1.0
+		return true
 	eat_chain = false
 	if hold_use().is_empty():
 		if is_instance_valid(player) and player.brush == EAT_BRUSH:
@@ -8724,7 +8735,9 @@ func _update_fire(delta: float) -> void:
 	_burn_wait -= delta
 	if _burn_wait <= 0.0:
 		_burn_wait = BURN_EVERY
-		var minutes := BURN_EVERY * (minutes_per_second() if day_cycle != "day" else DayNight.DAY / (24.0 * 60.0))
+		# 0.0.8.45 (demande de l'utilisateur) : torches et feux comptent en temps réel (une torche : 10 minutes, forte : 5),
+		# quelle que soit la durée de la journée (Paramètres → Monde).
+		var minutes := BURN_EVERY * DayNight.MINUTES_PER_SECOND
 		var changed := false
 		for area in ["bar", "grid", "sac"]:
 			for index in range(inventory.size_of(area)):
@@ -8792,3 +8805,15 @@ func _step_pine_bark(delta: float, aimed: Dictionary) -> bool:
 	notebook_mark("ecorce")
 	show_choice("Écorce de pin")
 	return true
+
+# 0.0.8.45 : vise-t-on un sac en filet posé au sol (lui-même, à portée) ?
+func aimed_ground_bag() -> bool:
+	if not is_instance_valid(ground) or not is_instance_valid(player):
+		return false
+	var hit: Dictionary = player.get_target()
+	if hit.is_empty() or not is_instance_valid(hit.get("collider")) or not hit.collider.is_in_group("ground_items"):
+		return false
+	if player.camera.global_position.distance_to(hit.position) > player.place_reach + 0.5:
+		return false
+	var index: int = ground.index_of(hit.collider)
+	return index >= 0 and Inventory.is_bag(ground.entries[index].item)

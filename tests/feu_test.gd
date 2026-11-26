@@ -112,6 +112,11 @@ func _run() -> void:
 	check(Fire.is_lit(fire) and float(fire.brule) > 100.0, "after 10 s: the fire burns (%s left)" % Inventory.burn_text(float(fire.get("brule", 0.0))))
 	await frames(3)
 	check(world.ground._glows.size() >= 1 and world.ground._glows[0][0].omni_range == Fire.FIRE_RANGE, "the fire lights around it")
+	# 0.0.8.45 : un clic droit court nourrit (avant : il fallait maintenir).
+	inv._store().bar[Inventory.HANDS[0]] = {"objet": "branche", "pile": [{"essence": 1, "epaisseur": 3.0, "longueur": 0.5, "poids": 250.0}]}
+	var quick_before: float = float(world.ground.entries[fire_index].item.brule)
+	world.eat_press()
+	check(float(world.ground.entries[fire_index].item.brule) > quick_before + 50.0 and inv.item("bar", Inventory.HANDS[0]).is_empty(), "a quick right click with a stick feeds the fire (+1 h)")
 	# Nourrir au charbon.
 	inv._store().bar[Inventory.HANDS[0]] = {"objet": "charbon", "pile": [{}]}
 	var before: float = float(world.ground.entries[fire_index].item.brule)

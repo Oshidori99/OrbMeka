@@ -55,6 +55,8 @@ func _run() -> void:
 	# Menus.
 	var app: Control = load("res://scenes/main.tscn").instantiate()
 	app.settings = load("res://scripts/user_settings.gd").new("res://.godot/world-shelves-settings.json")
+	# 0.0.8.45 : « Dossiers sécurisés » est activé par défaut ; ici, d'abord sans.
+	app.settings.values.world_shelves = "off"
 	app.catalog = Catalog.new(PATH)
 	root.add_child(app)
 	current_scene = app

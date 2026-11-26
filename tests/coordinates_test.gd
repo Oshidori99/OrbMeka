@@ -20,7 +20,9 @@ func _run() -> void:
 	root.size = Vector2i(1280, 720)
 	var fixture := "res://.godot/coordinates-test-%d.json" % Time.get_ticks_usec()
 	var settings := Settings.new(fixture)
-	check(settings.values.show_coords == "off", "coordinates hidden by default")
+	check(settings.values.show_coords == "on", "coordinates shown by default (0.0.8.45)")
+	# La suite du test part de l'option coupée.
+	settings.values.show_coords = "off"
 	var app: Control = load("res://scenes/main.tscn").instantiate()
 	app.settings = settings
 	app.catalog = load("res://scripts/world_catalog.gd").new(fixture + ".worlds")

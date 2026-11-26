@@ -3,6 +3,10 @@ Du plus récent au plus ancien. Ce fichier est mis à jour à chaque version.
 
 === Thème « Fabrication et survie » (0.0.8) ===
 
+0.0.8.45 — Petites corrections : un clic droit avec du bois ou du charbon nourrit le feu, un clic droit sur un sac posé l'ouvre, torches en minutes réelles (10 et 5 min), carnet : nourrir le feu expliqué et la suite du feu empilée vers le haut, coordonnées et dossiers sécurisés activés par défaut
+Génération du terrain : version 34 · Menus : version 17.
+Demandes de l'utilisateur.
+
 0.0.8.44 — Le feu et les torches : écorce (Écorcer, ou un pin debout à la hache), archet à feu, feu de camp (cailloux, bois, amadou) allumé à l'archet et nourri au bois ou au charbon, torche (10 h de lumière) et torche forte à l'écorce de pin (2 fois plus de lumière et de portée, 5 h), allumées au feu, lumière en main ; modèles simples
 Génération du terrain : version 34 · Menus : version 17.
 Issues #214 et #209 ; demandes de l'utilisateur.

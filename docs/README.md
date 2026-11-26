@@ -1,6 +1,17 @@
-# OrbMeka™ — prototype 0.0.8.44
+# OrbMeka™ — prototype 0.0.8.45
 
 Godot 4.7 / GDScript. Formes et couleurs simples ; assets externes seulement sous licence vérifiée (sons CC0, assets/sounds/CREDITS.txt).
+
+## 0.0.8.45 — Petites corrections
+Publiée. Génération inchangée (version 34). Demandes de l'utilisateur.
+- **Nourrir le feu** (signalé : poser du bois sur le feu ne le nourrissait pas) : un bâton, une bûche ou du charbon en main, un **clic droit** en visant le feu suffit (avant : il fallait maintenir le clic ; un clic court posait le bois à côté).
+- **Sac posé au sol** : un **clic droit** sur le sac lui-même l'ouvre aussi (comme O + V) ; ailleurs, le clic droit pose comme avant.
+- **Torches en temps réel** : 10 minutes (torche) et 5 minutes (torche forte), quelle que soit la durée de la journée ; les feux aussi (une heure de feu = une minute).
+- **Carnet de route** : la case « Feu de camp » explique comment le nourrir ; la suite du feu (Archet à feu, Allumer le feu, Torche) est empilée vers le haut, dans la même colonne.
+- **Paramètres par défaut** : « Afficher les coordonnées » et « Dossiers sécurisés » sont activés (seulement si on ne les a jamais changés).
+
+Tests réussis : feu (25), sac, carnet, settings_files, settings_walk, world_shelves, display_settings, coordinates, hands_eat, return_orb, plantes_inventaire, inventory_more, prototype, history_resume (+ tests juridiques).
+À tester : nourrir un feu d'un clic droit ; ouvrir un sac au sol d'un clic droit ; le carnet (case Feu de camp).
 
 ## 0.0.8.44 — Le feu et les torches (#214, #209)
 Publiée. Génération inchangée (version 34). Demandes de l'utilisateur. Modèles simples faits dans le jeu ; les beaux modèles (Blender) et les animations viendront plus tard.
