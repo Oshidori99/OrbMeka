@@ -1,6 +1,16 @@
-# OrbMeka™ — prototype 0.0.8.29
+# OrbMeka™ — prototype 0.0.8.30
 
 Godot 4.7 / GDScript. Formes et couleurs simples ; assets externes seulement sous licence vérifiée (sons CC0, assets/sounds/CREDITS.txt).
+
+## 0.0.8.30 — Des bâtons au lieu de rameaux feuillus
+Publiée. Génération inchangée (version 34). Demande de l'utilisateur, sur le noisetier : « c'est plus possible d'avoir des bâtons : dès qu'on essaie de casser des feuilles, ça nous fait des branches feuillées ».
+- **Une petite branche feuillue coupée donne un bâton** comme les autres (avant : un « rameau » feuillu, refusé pour fendre, faire un manche ou une navette). Mesuré sur des noisetiers (tailles 3 et 5, tiges coupées, recoupées et défaites) : avant, 55 bois sur 83 étaient des rameaux ; maintenant 0, et 83 bâtons et bûches.
+- **Ses feuilles tombent à part**, en tas (20 feuilles au plus par tas, comme avec R) : aucune ne disparaît (79 tas au lieu de 22 dans la même mesure).
+- **Les rameaux d'avant** (mondes déjà commencés) : au sol, R donne leur bâton et laisse un petit tas de feuilles ; dans l'inventaire, ils deviennent des bâtons à l'ouverture du monde.
+- Léger : moins de calcul qu'avant (on ne compte plus les feuilles de chaque pièce).
+
+Tests réussis : feuilles, bois, tree_fall, tree_stress, trees, sticks, inventory, inventory_more, crafting, tools, sac, carnet, web_save, world_save, gravite, prototype, history_resume (+ tests juridiques).
+À tester : sur un noisetier, couper une tige puis casser ses petites branches : des bâtons, et des tas de feuilles ; fendre un de ces bâtons.
 
 ## 0.0.8.29 — Gravité : rochers et cailloux
 Publiée. **Génération 34** (nouveaux mondes seulement ; les mondes existants ne changent pas). Demandes de l'utilisateur : une physique fiable, rien en l'air sans appui. Première étape d'une série (suite : feuilles et bâtons, bois au sol, tailles du bois, arbres abattus, terrain).

@@ -140,6 +140,8 @@ func _run() -> void:
 			await part_sizes()
 		"debug":
 			await part_debug()
+		"noisetier":
+			await part_hazel()
 		"terrain":
 			await part_terrain()
 	root.remove_child(w)
@@ -1088,3 +1090,66 @@ func rock_near(at: Vector2, reach := 16.0) -> bool:
 				if Vector2(float(rock.x), float(rock.z)).distance_to(at) < reach + Rocks.SIZES[int(rock.taille) - 1] * 0.5:
 					return true
 	return false
+
+# ---------------------------------------------------------------- Noisetier : rameaux feuillus ou bâtons ?
+# 0.0.8.30 (demande de l'utilisateur : « c'est plus possible d'avoir des bâtons ») : sur des noisetiers, des tiges coupées
+# puis leurs petites branches recoupées, et des tiges défaites sans enlever les feuilles : ce qu'on obtient.
+func part_hazel() -> void:
+	var sites := find_sites()
+	var site: Vector3 = sites.get("plat", Vector3.ZERO)
+	var counts := {}
+	var handles := 0
+	var before: int = w.ground.entries.size()
+	for size in [3, 5]:
+		var id := "noisetier_%d" % size
+		w.player.global_position = site + Vector3(4.0, 0.0, 0.0)
+		await frames(2)
+		var tree := make(id, Trees.HAZEL, size, site)
+		await frames(2)
+		var made: Dictionary = TreeParts.skeleton(Trees.HAZEL, size, 0)
+		var done := 0
+		for number in range(made.pieces.size()):
+			var piece: Dictionary = made.pieces[number]
+			if done >= 4 or not piece.root or piece.tip.y <= 0.5:
+				continue
+			var holder: Array = nodes_of(id).filter(func(node): return not node.has_meta("falling") and int(node.get_meta("part", 0)) == 0)
+			if holder.is_empty():
+				break
+			w.cut_wood(holder[0], number, 0.35, w._model_of(holder[0]) * (piece.start + piece.direction * 0.35))
+			done += 1
+			await frames(3)
+		await wait_still(id)
+		var parts := nodes_of(id).filter(func(node): return int(node.get_meta("part", 0)) != 0)
+		var turn := 0
+		for node in parts:
+			if not is_instance_valid(node) or node.is_queued_for_deletion():
+				continue
+			var part := int(node.get_meta("part", 0))
+			turn += 1
+			if turn % 2 == 0:
+				# Comme le joueur qui casse une petite branche de côté, là où sont les feuilles.
+				var spans: Dictionary = TreeParts.assignment(Trees.HAZEL, size, 0, w._cuts_of(node)).ranges[part]
+				var main: Array = TreeParts.main_span(Trees.HAZEL, size, 0, w._cuts_of(node), part)
+				var cut_done := 0
+				for number in spans:
+					if cut_done >= 3 or main.is_empty() or number == int(main[0]):
+						continue
+					var span: Vector2 = spans[number]
+					if span.y - span.x < 0.25 or not is_instance_valid(node) or node.is_queued_for_deletion():
+						continue
+					w.cut_wood(node, number, span.x + 0.06, node.global_position)
+					cut_done += 1
+					await frames(3)
+			# Puis tout le morceau défait en bois, sans avoir fait tomber ses feuilles.
+			if is_instance_valid(node) and not node.is_queued_for_deletion():
+				w._part_to_wood(node, part)
+			await frames(3)
+		await frames(30)
+		clear_tree(id)
+	for index in range(before, w.ground.entries.size()):
+		var item: Dictionary = w.ground.entries[index].item
+		var key := str(item.get("objet", "?"))
+		counts[key] = int(counts.get(key, 0)) + 1
+		if load("res://scripts/crafting_rules.gd").good_handle(item):
+			handles += 1
+	out("noisetiers (tailles 3 et 5), tiges coupées, recoupées et défaites : objets au sol %s ; bons manches possibles : %d" % [str(counts), handles])

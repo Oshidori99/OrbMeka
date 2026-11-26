@@ -1428,6 +1428,10 @@ static func _saved(value: Dictionary) -> Variant:
 	if not valid_item(value):
 		return null
 	var kept := {"objet": value.objet}
+	# 0.0.8.30 : un rameau feuillu d'avant devient un bâton (les rameaux étaient refusés pour fabriquer ; plus aucun ne sort d'un arbre).
+	if kept.objet == "rameau":
+		var first: Variant = value.pile[0] if value.has("pile") and value.pile is Array and not value.pile.is_empty() else value
+		kept.objet = "tronc" if first is Dictionary and float(first.get("epaisseur", 0.0)) >= 4.0 else "branche"
 	if value.has("pile"):
 		kept.pile = value.pile.map(func(instance): return traits(instance))
 	elif value.has("nombre"):
@@ -1447,6 +1451,10 @@ static func _read(value: Variant) -> Dictionary:
 	if not valid_item(value):
 		return {}
 	var kept := {"objet": value.objet}
+	# 0.0.8.30 : un rameau feuillu d'avant devient un bâton (les rameaux étaient refusés pour fabriquer ; plus aucun ne sort d'un arbre).
+	if kept.objet == "rameau":
+		var first: Variant = value.pile[0] if value.has("pile") and value.pile is Array and not value.pile.is_empty() else value
+		kept.objet = "tronc" if first is Dictionary and float(first.get("epaisseur", 0.0)) >= 4.0 else "branche"
 	if value.has("pile"):
 		kept.pile = value.pile.map(func(instance): return _clean_traits(instance))
 	elif value.has("nombre") and is_object(value):
