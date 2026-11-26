@@ -21,9 +21,11 @@ const Inventory = preload("res://scripts/inventory.gd")
 # - Nouer : 4 cordelettes du même type pour les mailles (main gauche) et 1 cordelette ou 1 liane pour la bretelle (main
 #   droite) ; clic gauche maintenu, une rangée de mailles toutes les ROW_SECONDS, de BAG_ROWS.x à BAG_ROWS.y (relâcher
 #   pour finir) : un sac en filet (sa charge dépend des cordelettes, des rangées et de la bretelle : Inventory.bag_capacity).
-const ACTIONS := ["tresser", "tailler", "fendre", "assembler", "ficeler", "nouer"]
-const ACTION_NAMES := {"tresser": "Tresser", "tailler": "Tailler", "fendre": "Fendre", "assembler": "Assembler", "ficeler": "Ficeler", "nouer": "Nouer"}
-const READY := ["tresser", "tailler", "fendre", "assembler", "ficeler", "nouer"]
+# 0.0.8.40 (#255 à #258, demandes de l'utilisateur : les actions qu'on devrait déjà pouvoir faire) : Détresser,
+# Défaire un outil, Refaire le lien, Écorcer.
+const ACTIONS := ["tresser", "tailler", "fendre", "assembler", "ficeler", "nouer", "detresser", "defaire", "relier", "ecorcer"]
+const ACTION_NAMES := {"tresser": "Tresser", "tailler": "Tailler", "fendre": "Fendre", "assembler": "Assembler", "ficeler": "Ficeler", "nouer": "Nouer", "detresser": "Détresser", "defaire": "Défaire un outil", "relier": "Refaire le lien", "ecorcer": "Écorcer"}
+const READY := ["tresser", "tailler", "fendre", "assembler", "ficeler", "nouer", "detresser", "defaire", "relier", "ecorcer"]
 const BRAID_FIBERS := 3
 const BRAID_SECONDS := 3.0
 const CORD_LENGTH := 0.33
@@ -165,6 +167,10 @@ static func result_id(action: String, picks: Dictionary, head: String) -> String
 			return UNBOUND.get(picks.get("tete", {}).get("value", {}).get("objet", ""), "")
 		"ficeler":
 			return BOUND.get(picks.get("a_ficeler", {}).get("value", {}).get("objet", ""), "")
+		"detresser":
+			return UNTWIST.get(picks.get("tresse", {}).get("value", {}).get("objet", ""), "")
+		"relier":
+			return picks.get("outil_use", {}).get("value", {}).get("objet", "")
 		"nouer":
 			return Inventory.BAG_ID
 	return ""
@@ -259,9 +265,93 @@ static func fits_more(role: String, value: Dictionary) -> bool:
 			return id == "branche" and int(value.get("fendue", 0)) == 1
 		"tete":
 			return UNBOUND.has(id)
+		# 0.0.8.40 : une ficelle ou une cordelette à détresser ; un outil à défaire ; un outil ficelé (refaire le lien) ;
+		# du bois à écorcer (pas déjà écorcé, pas fendu).
+		"tresse":
+			return UNTWIST.has(id)
+		"outil_fait":
+			return BOUND.has(id) or BOUND.values().has(id)
+		"outil_use":
+			return BOUND.values().has(id)
+		"bois":
+			return id in ["branche", "tronc"] and int(value.get("ecorce", 0)) == 0 and int(value.get("fendue", 0)) == 0
 		"a_ficeler":
 			return BOUND.has(id)
 	return false
+
+# --- 0.0.8.40 (#255 à #258) : les actions qui manquaient ---
+# Détresser : une ficelle redonne ses 3 fibres, une cordelette ses 3 ficelles (le contraire de Tresser).
+const UNTWIST := {"ficelle_ortie": "fibre_ortie", "ficelle_lin": "fibre_lin", "ficelle_herbe": "fibre_herbe", "cordelette_ortie": "ficelle_ortie", "cordelette_lin": "ficelle_lin", "cordelette_herbe": "ficelle_herbe"}
+const UNTWIST_SECONDS := 2.0
+const BARK_SECONDS := 3.0
+const RELINK_SECONDS := 4.0
+# Écorcé : plus léger (l'écorce est partie).
+const BARK_SHARE := 0.92
+# Refaire le lien : l'outil retrouve cette part de ses coups (la tête et le manche s'usent quand même).
+const RELINK_SHARE := 0.6
+const BIND_IDS := ["ficelle_ortie", "ficelle_lin", "ficelle_herbe", "liane"]
+
+static func untwist_result(value: Dictionary) -> Dictionary:
+	var id: String = UNTWIST.get(value.get("objet", ""), "")
+	if id.is_empty():
+		return {}
+	var pile := []
+	for index in range(BRAID_FIBERS):
+		pile.append({"longueur": CORD_LENGTH} if id.begins_with("ficelle_") else {})
+	return {"objet": id, "pile": pile}
+
+# Poids du manche d'un outil (comme Inventory.wood_piece : son volume).
+static func _stick_weight(tool: Dictionary) -> float:
+	var radius := float(tool.get("epaisseur", 3.5)) / 200.0
+	return PI * radius * radius * float(tool.get("longueur", 0.6)) * 750000.0 * (0.7 if int(tool.get("age", 3)) == 5 else 1.0)
+
+static func _tie_weight(tool: Dictionary) -> float:
+	if not tool.has("lien"):
+		return 0.0
+	var bind: String = BIND_IDS[clampi(int(tool.lien), 0, BIND_IDS.size() - 1)]
+	return Inventory.instance_weight(bind, {}) * (1 if bind == "liane" else CORDS_PER_TOOL)
+
+# Défaire un outil : [tête, branche fendue, reste du lien (une ficelle usée ; rien pour une liane)].
+static func undo_results(tool: Dictionary) -> Array:
+	var unbound: String = tool.get("objet", "")
+	for id in BOUND:
+		if BOUND[id] == unbound:
+			unbound = id
+	var head_id := ""
+	for id in UNBOUND:
+		if UNBOUND[id] == unbound:
+			head_id = id
+	if head_id.is_empty():
+		return []
+	var stick := {"fendue": 1}
+	for key in WOOD_KEYS:
+		if tool.has(key):
+			stick[key] = tool[key]
+	var stick_weight := _stick_weight(tool)
+	stick.poids = snappedf(stick_weight, 1.0)
+	var head_weight := maxf(float(tool.get("poids", 0.0)) - stick_weight - _tie_weight(tool), 60.0)
+	var result := [{"objet": head_id, "pile": [{"pierre": int(tool.get("pierre", 1)), "taille": int(tool.get("taille", 4)), "poids": snappedf(head_weight, 1.0)}]}, {"objet": "branche", "pile": [stick]}]
+	if tool.has("lien") and int(tool.lien) < 3:
+		result.append({"objet": BIND_IDS[int(tool.lien)], "pile": [{"longueur": CORD_LENGTH}]})
+	return result
+
+# Refaire le lien : le nouveau lien, ses tours, et l'outil retrouve RELINK_SHARE de ses coups.
+static func relink_result(tool: Dictionary, bind: String) -> Dictionary:
+	var made := tool.duplicate(true)
+	made.poids = snappedf(float(tool.get("poids", 0.0)) - _tie_weight(tool), 1.0)
+	made.lien = int(BINDS[bind])
+	made.tours = TURNS_MAX
+	made.poids = snappedf(float(made.poids) + _tie_weight(made), 1.0)
+	var full := Inventory.tool_durability(made)
+	made.usure = mini(full, Inventory.tool_left(tool) + roundi(full * RELINK_SHARE))
+	return _pile(made)
+
+# Écorcer : le même bois, écorcé, plus léger.
+static func bark_result(wood: Dictionary) -> Dictionary:
+	var made := wood.duplicate(true)
+	made.ecorce = 1
+	made.poids = snappedf(float(wood.get("poids", Inventory.instance_weight(wood.get("objet", "branche"), wood))) * BARK_SHARE, 1.0)
+	return _pile(made)
 
 static func good_handle(value: Dictionary) -> bool:
 	var thick := float(value.get("epaisseur", 0.0))
@@ -355,6 +445,18 @@ static func more_choices(inventory: Inventory, role: String) -> Array:
 			"tete":
 				for id in UNBOUND:
 					result.append({"label": "%s (Créatif)" % Inventory.ITEMS[id].nom, "value": {"objet": id, "pierre": 1, "taille": 5, "poids": 420.0}, "area": "", "index": -1, "unit": -1, "creative": true})
+			"tresse":
+				for id in UNTWIST:
+					result.append({"label": "%s (Créatif)" % Inventory.ITEMS[id].nom, "value": {"objet": id, "longueur": CORD_LENGTH}, "area": "", "index": -1, "unit": -1, "creative": true})
+			"bois":
+				model = CREATIVE_HANDLE.duplicate()
+			"outil_fait", "outil_use":
+				for id in BOUND:
+					var made := CREATIVE_HANDLE.duplicate()
+					made.objet = BOUND[id]
+					made.merge({"pierre": 1, "taille": 5, "lien": 1, "tours": TURNS_MAX, "poids": 870.0}, true)
+					made.usure = Inventory.tool_durability(made) / 3
+					result.append({"label": "%s usée (Créatif)" % Inventory.ITEMS[BOUND[id]].nom, "value": made, "area": "", "index": -1, "unit": -1, "creative": true})
 			"a_ficeler":
 				for id in BOUND:
 					var tool := CREATIVE_HANDLE.duplicate()

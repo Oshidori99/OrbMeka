@@ -37,7 +37,7 @@ static func survival() -> Inventory:
 
 func _run() -> void:
 	check(Controls.ACTIONS.crafting.default.key == KEY_O and Controls.ACTIONS.crafting.default.second.key == KEY_F and Controls.GROUPS.Inventaire.has("crafting"), "O + F: Fabrication, in Contrôles → Inventaire")
-	check(Rules.READY == Rules.ACTIONS and Rules.ACTIONS.size() == 6, "0.0.8.6: the actions are ready (0.0.8.21 : six, with Nouer)")
+	check(Rules.READY == Rules.ACTIONS and Rules.ACTIONS.size() == 10, "0.0.8.6: the actions are ready (0.0.8.21 : six, with Nouer ; 0.0.8.40 : ten)")
 	# 0.0.8.25 : une branche fine et courte fendue devient une navette ; avec elle, on ficelle deux fois plus vite.
 	var thin := {"objet": "branche", "essence": 1, "epaisseur": 1.8, "fin": 1.5, "longueur": 0.3}
 	var handle := {"objet": "branche", "essence": 1, "epaisseur": 3.5, "fin": 3.0, "longueur": 0.6}
@@ -236,6 +236,42 @@ func _run() -> void:
 	for i in range(31):
 		ui.step_braid(0.1)
 	check(Rules.places(world.inventory).any(func(p): return world.inventory.item(p[0], p[1]).get("objet") == "ficelle_lin"), "Créatif: a flax string made")
+	# --- 0.0.8.40 (#255 à #258) : Détresser, Défaire un outil, Refaire le lien, Écorcer (Créatif : le catalogue). ---
+	world.set_game_mode(Inventory.CREATIVE)
+	if not world.crafting_open:
+		world.toggle_crafting()
+	await process_frame
+	check(Rules.ACTIONS.size() == 10 and ui.action_buttons.has("detresser") and ui.action_buttons.has("ecorcer"), "10 actions in O + F, among them Détresser and Écorcer")
+	# Détresser une cordelette de lin : 3 ficelles de lin.
+	ui.choose_action("detresser")
+	var to_untwist: Array = Rules.more_choices(world.inventory, "tresse").filter(func(c): return c.value.objet == "cordelette_lin")
+	ui.pick("tresse", to_untwist[0])
+	var before_untwist: int = Rules.owned(world.inventory, "ficelle_lin")
+	ui.holding = true
+	for i in range(25):
+		ui.step_hold(0.1)
+	check(Rules.owned(world.inventory, "ficelle_lin") == before_untwist + 3, "Détresser a cord: its 3 strings back")
+	check(Rules.untwist_result({"objet": "ficelle_ortie"}).objet == "fibre_ortie" and Inventory.count(Rules.untwist_result({"objet": "ficelle_ortie"})) == 3, "a string gives its 3 fibres")
+	# Défaire une hache : tête, manche fendu, une ficelle usée ; les poids se tiennent.
+	var stone_axe := {"objet": "hache_pierre", "pierre": 1, "taille": 5, "essence": 1, "age": 3, "souplesse": 3, "epaisseur": 3.5, "longueur": 0.6, "lien": 1, "tours": 6, "poids": 900.0}
+	var undone := Rules.undo_results(stone_axe)
+	check(undone.size() == 3 and undone[0].objet == "tete_hache" and undone[0].pile[0].taille == 5 and undone[1].objet == "branche" and undone[1].pile[0].fendue == 1 and undone[2].objet == "ficelle_lin", "Défaire an axe: head, split handle, a worn string")
+	check(absf(float(undone[0].pile[0].poids) + float(undone[1].pile[0].poids) + Rules._tie_weight(stone_axe) - 900.0) <= 1.0, "the parts weigh as much as the tool")
+	check(Rules.undo_results({"objet": "pioche_a_ficeler", "pierre": 0, "taille": 3, "epaisseur": 3.0, "longueur": 0.5, "poids": 500.0}).size() == 2, "an unbound tool: head and handle only")
+	ui.choose_action("defaire")
+	ui.pick("outil_fait", Rules.more_choices(world.inventory, "outil_fait")[0])
+	var heads_before: int = Rules.owned(world.inventory, "tete_hache") + Rules.owned(world.inventory, "tete_pioche")
+	ui._scene_input(_click())
+	check(Rules.owned(world.inventory, "tete_hache") + Rules.owned(world.inventory, "tete_pioche") == heads_before + 1, "Défaire in O + F: one click, the head comes back")
+	# Refaire le lien : l'outil usé retrouve des coups.
+	var worn := stone_axe.duplicate()
+	worn.usure = 10
+	var relinked: Dictionary = Inventory.flat("hache_pierre", Rules.relink_result(worn, "ficelle_herbe").pile[0])
+	check(relinked.lien == 2 and Inventory.tool_left(relinked) == mini(Inventory.tool_durability(relinked), 10 + roundi(Inventory.tool_durability(relinked) * Rules.RELINK_SHARE)), "Refaire le lien: a new string, the tool gets many hits back (%d of %d)" % [Inventory.tool_left(relinked), Inventory.tool_durability(relinked)])
+	# Écorcer : écorcé, plus léger, dans ses détails ; enregistré.
+	var barked: Dictionary = Inventory.flat("branche", Rules.bark_result({"objet": "branche", "epaisseur": 3.0, "longueur": 0.6, "poids": 300.0}).pile[0])
+	check(barked.ecorce == 1 and barked.poids == 276.0 and Inventory.wood_details(barked).contains("écorcé") and Inventory._read(Inventory.single(barked)).get("pile", [{}])[0].get("ecorce", 0) == 1, "Écorcer: barked, lighter, shown, saved")
+	check(not Rules.fits_more("bois", barked), "barked wood is not offered again")
 	world.toggle_crafting()
 	await process_frame
 	await process_frame
@@ -248,3 +284,9 @@ func _run() -> void:
 		DirAccess.remove_absolute(ProjectSettings.globalize_path(settings.file_path(menu)))
 	print("RESULT: %d crafting checks, %d failures" % [checks, failures])
 	quit(0 if failures == 0 else 1)
+
+func _click() -> InputEventMouseButton:
+	var event := InputEventMouseButton.new()
+	event.button_index = MOUSE_BUTTON_LEFT
+	event.pressed = true
+	return event

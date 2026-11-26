@@ -2909,6 +2909,8 @@ func _strip_leaves(tree: Node3D) -> int:
 	var count := _drop_leaves(tree, part)
 	_mark_stripped(str(tree.get_meta("id", "")), part)
 	_show_part(tree, false)
+	# 0.0.8.40 : la case « Défeuiller » du carnet.
+	notebook_mark("defeuiller")
 	_rest_rigid(tree)
 	_bend_into_ground(tree, _lying_direction(tree))
 	_save_part(tree)
