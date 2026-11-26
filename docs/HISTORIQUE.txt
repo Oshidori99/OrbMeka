@@ -3,6 +3,10 @@ Du plus récent au plus ancien. Ce fichier est mis à jour à chaque version.
 
 === Thème « Fabrication et survie » (0.0.8) ===
 
+0.0.8.38 — Liste de toutes les actions : tableau objet → actions → résultat (docs/ACTIONS.md), « Défeuiller » déjà couvert, une issue pour chaque action qui manque (écorcer, détresser, défaire un outil, refaire un lien, tailler un éclat seul)
+Génération du terrain : version 34 · Menus : version 17.
+Issue #254 ; demandes de l'utilisateur.
+
 0.0.8.37 — Inventaire et Créatif : clic droit main vide = la moitié de la pile, double clic qui rassemble les objets pareils (jusqu'à 99), zone « Supprimer » sous « Jeter » (Créatif), orbe de retour dans le catalogue, onglet « Objets transformés » (ficelles, cordelettes), navette dans Outils, sacs pris un par un, plus de « 99 » affiché dans le catalogue
 Génération du terrain : version 34 · Menus : version 17.
 Demandes de l'utilisateur.
