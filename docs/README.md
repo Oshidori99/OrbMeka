@@ -1,6 +1,18 @@
-# OrbMeka™ — prototype 0.0.8.32
+# OrbMeka™ — prototype 0.0.8.33
 
 Godot 4.7 / GDScript. Formes et couleurs simples ; assets externes seulement sous licence vérifiée (sons CC0, assets/sounds/CREDITS.txt).
+
+## 0.0.8.33 — Arbres abattus bien posés
+Publiée (avec tous les tests sur GitHub). Génération inchangée (version 34). Demande de l'utilisateur : un arbre abattu, une branche ou une tige coupée se pose de façon réaliste, jamais dans le sol, jamais en l'air sans appui.
+- **Le tronc repose sur ses appuis sur toute sa longueur** : avant, le sol n'était mesuré que sous les 60 premiers pour cent du tronc ; la cime d'un grand arbre pouvait passer sous le relief (axe du tronc jusqu'à 1,4 m sous le sol, le modèle aplati pour ne pas dépasser). L'arbre abattu se pose maintenant comme tout morceau couché.
+- **Branches jamais dans la pente** : les branches du dessous, écartées sur le côté, pouvaient se retrouver sous la pente (arbre tombé en travers : 9 à 27 % de son bois de 14 à 17 cm dans le sol) ; elles sont remises au-dessus du sol là où elles arrivent. Au bord d'un relief vif (talus, rocher), on prend le point le plus haut (avant : jusqu'à 60 cm dedans).
+- **Sur un gros rocher** : une branche ou un arbre tombés dessus se posent sur lui. Avant, le sol était cherché depuis l'origine du morceau (parfois plusieurs mètres sous lui) ou depuis l'intérieur du rocher : une branche de pin finissait jusqu'à 4,2 m dans le rocher.
+- **Mesuré** sur 48 arbres abattus (4 espèces, 3 tailles, plat et pente, vers l'aval, l'amont, en travers) : bois à plus de 3 cm dans le sol : 13 → **0** ; aucun en l'air (4 cm au plus), aucun appuyé d'un seul côté.
+- **Rouvert** : l'arbre couché retrouve exactement sa pose (enregistrée ; les arbres abattus avant gardent la leur).
+- Pas encore : un arbre couché ne suit pas le sol si on creuse dessous après coup.
+
+Tests réussis : gravite (38, dont 7 nouveaux), tree_fall, tree_stress, trees, bois, feuilles, sticks, health, death, world_save, web_save, world_consistency, optimisation, perf_guard, rock_place, breaking, prototype, history_resume (+ tests juridiques) ; tous les tests sur GitHub (Action Dev).
+À tester : abattre un grand pin ou un tilleul sur une pente, en travers et vers le haut ; faire tomber une branche sur un gros rocher.
 
 ## 0.0.8.32 — Vraies épaisseurs du bois
 Publiée. Génération inchangée (version 34). Demande de l'utilisateur : bûches et bâtons à la vraie longueur et aux vraies épaisseurs de leur pièce sur l'arbre.

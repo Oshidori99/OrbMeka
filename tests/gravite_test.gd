@@ -5,6 +5,7 @@ extends SceneTree
 # - Cailloux de la graine près du joueur : jamais à plus de 2 cm en l'air (avant : jusqu'à 23 cm), aucun sous un rocher
 #   (génération 34 ; la génération 33 ne change pas).
 # - 0.0.8.31 : bois posé sur une pente : jamais dans le sol, toujours un appui ; tige couchée recoupée : le reste garde sa pose.
+# - 0.0.8.33 : arbres abattus sur une pente et sur un gros rocher, branche tombée sur un rocher : jamais de bois dedans.
 # - Creuser sous un caillou, sous un rocher, sous un objet posé : ils redescendent sur le nouveau sol (avant : 1,4 à
 #   2,8 m en l'air) ; un trou plus petit que le rocher ne le fait pas descendre ; un rocher descendu se taille encore.
 const Store = preload("res://scripts/world_store.gd")
@@ -435,6 +436,95 @@ func _run() -> void:
 		elif moved < w.REST_KEEP_HEIGHT:
 			largest_small_move = maxf(largest_small_move, moved)
 	check(recut >= 3 and unmoved >= recut - 1 and largest_small_move == 0.0, "lying stems cut again at their tip: the rest keeps its exact place (%d of %d ; before: one in twenty moved 12 cm or more)" % [unmoved, recut])
+	# --- H. 0.0.8.33 : arbres abattus sur une pente (vers l'aval, l'amont, en travers) : aucun bois dans le sol, jamais en
+	# l'air ; rouverts : la même pose. ---
+	var deepest_wood := 0.0
+	var highest_low := 0.0
+	var felled := 0
+	var restored_gap := 0.0
+	var down_x: float = w.terrain.height_at(slope_site.x - 2.0, slope_site.z) - w.terrain.height_at(slope_site.x + 2.0, slope_site.z)
+	var down_z: float = w.terrain.height_at(slope_site.x, slope_site.z - 2.0) - w.terrain.height_at(slope_site.x, slope_site.z + 2.0)
+	var downhill := Vector3(down_x, 0.0, down_z).normalized()
+	var ways := [downhill, -downhill, downhill.cross(Vector3.UP).normalized()]
+	for spec in [[Trees.PINE, 3, 1], [Trees.LINDEN, 5, 2], [Trees.APPLE, 5, 2], [Trees.PINE, 5, 1], [Trees.APPLE, 1, 0], [Trees.HAZEL, 3, 0]]:
+		var tree_id := "gravite-abattu-%d-%d" % [spec[0], spec[1]]
+		var stand: Vector3 = slope_site + (ways[spec[2]] as Vector3) * 4.0
+		w.player.global_position = Vector3(stand.x, w.terrain.height_at(stand.x, stand.z), stand.z)
+		await frames(3)
+		var tree := plant(tree_id, spec[0], spec[1], slope_site)
+		await frames(2)
+		w.fell_tree(tree)
+		await settle(tree_id)
+		if not is_instance_valid(tree):
+			continue
+		felled += 1
+		var fit := tree_fit(tree)
+		deepest_wood = maxf(deepest_wood, -fit.wood)
+		highest_low = maxf(highest_low, fit.lowest)
+		# Rouvert : couché à la même place, dans la même pose.
+		var again := plant(tree_id, spec[0], spec[1], slope_site)
+		w._restore_fallen(again)
+		restored_gap = maxf(restored_gap, again.global_position.distance_to(tree.global_position) + (again.global_basis.y - tree.global_basis.y).length())
+		unplant(again)
+		unplant_all(tree_id)
+	check(felled >= 6, "trees felled on a slope, downhill, uphill and across (%d)" % felled)
+	check(deepest_wood <= 0.05, "no wood of a felled tree in the ground: %.1f cm at most (before 0.0.8.33: 14 to 17 cm across the slope, up to 119 cm uphill)" % (deepest_wood * 100.0))
+	check(highest_low <= 0.08, "no felled tree in the air: its lowest point is %.1f cm above the ground at most" % (highest_low * 100.0))
+	check(restored_gap < 0.01, "reopened: the felled tree lies in the same pose (%.3f)" % restored_gap)
+	# --- I. Sur un gros rocher : une branche qui tombe dessus, un arbre abattu dessus : jamais dans le rocher. ---
+	var big: Node3D = null
+	for place in [Vector3(0, 0, 0), Vector3(48, 0, 0), Vector3(0, 0, 48), Vector3(-48, 0, -48), Vector3(96, 0, 96)]:
+		if big != null:
+			break
+		await go_to(place)
+		for rock in get_nodes_in_group("rocks"):
+			if is_instance_valid(rock) and not rock.is_queued_for_deletion() and rock.get_meta("rock").x >= 5 and not w.carved_rocks.has(rock.get_meta("id")) and float(rock.get_meta("drop", 0.0)) == 0.0 and rock.global_position.distance_to(w.player.global_position) < 30.0:
+				big = rock
+				break
+	check(big != null, "a big rock to drop wood on")
+	if big != null:
+		var rock_at: Vector3 = big.global_position
+		var rock_radius: float = Rocks.SIZES[int(big.get_meta("rock").x) - 1] * 0.5
+		await go_to(rock_at + Vector3(rock_radius + 6.0, 0.0, 0.0))
+		var pine_at := rock_at + Vector3(rock_radius + 1.2, 0.0, 0.0)
+		var pine := plant("gravite-pin-rocher", Trees.PINE, 3, pine_at)
+		await frames(2)
+		var crown: Dictionary = TreeParts.skeleton(Trees.PINE, 3, 0)
+		var dropped := 0
+		for number in range(crown.pieces.size()):
+			var piece: Dictionary = crown.pieces[number]
+			if dropped >= 8 or piece.root or piece.depth != 1 or piece.length < 0.5 or not is_instance_valid(pine):
+				continue
+			w.cut_wood(pine, number, 0.05, w._model_of(pine) * (piece.start + piece.direction * 0.05))
+			dropped += 1
+			await frames(3)
+		await settle("gravite-pin-rocher")
+		var in_rock := 0.0
+		var branches := 0
+		var over_rock := 0
+		for node in nodes_with("gravite-pin-rocher"):
+			if int(node.get_meta("part", 0)) == 0:
+				continue
+			branches += 1
+			var fit := tree_fit(node)
+			in_rock = maxf(in_rock, -fit.wood)
+			if Vector2(node.global_position.x - rock_at.x, node.global_position.z - rock_at.z).length() < rock_radius + 4.0:
+				over_rock += 1
+		check(branches >= 5 and in_rock <= 0.08, "pine branches fallen beside and on a big rock: %.1f cm in the rock or the ground at most (%d branches ; before 0.0.8.33: up to 4.2 m in the rock)" % [in_rock * 100.0, branches])
+		unplant_all("gravite-pin-rocher")
+		# Un tilleul abattu vers le rocher.
+		var linden_at := rock_at + Vector3(rock_radius + 5.0, 0.0, 0.0)
+		w.player.global_position = rock_at + Vector3(-rock_radius - 2.0, 0.0, 0.0)
+		w.player.global_position.y = w.terrain.height_at(w.player.global_position.x, w.player.global_position.z)
+		await frames(3)
+		var linden := plant("gravite-tilleul-rocher", Trees.LINDEN, 3, linden_at)
+		await frames(2)
+		w.fell_tree(linden)
+		await settle("gravite-tilleul-rocher")
+		if is_instance_valid(linden):
+			var fit := tree_fit(linden)
+			check(fit.wood >= -0.08 and fit.on_rock, "a linden felled onto the big rock rests on it: %.1f cm in at most" % (-fit.wood * 100.0))
+		unplant_all("gravite-tilleul-rocher")
 	root.remove_child(w)
 	w.free()
 	Store.delete_folder(FOLDER)
@@ -475,4 +565,91 @@ func wood_fit(from: int) -> Dictionary:
 		result.gap = maxf(result.gap, nearest)
 		if touches.is_empty() or (touches.max() - touches.min() < 0.2 and length > 1.0 and (touches.min() > 0.3 and touches.max() < 0.7) == false):
 			result.one_point += 1
+	return result
+
+func plant(id: String, kind: int, size: int, at: Vector3) -> Node3D:
+	var tree: Node3D = Trees.tree_body(kind, size)
+	tree.set_meta("id", id)
+	var column: Vector2i = w._player_column()
+	tree.set_meta("column", column)
+	w._rocks_parent().add_child(tree)
+	tree.global_position = Vector3(at.x, w.terrain.height_at(at.x, at.z) - 0.05, at.z)
+	w.column_objects[column] = w.column_objects.get(column, []) + [tree]
+	return tree
+
+func nodes_with(id: String) -> Array:
+	var found := []
+	for list in w.column_objects.values():
+		for node in list:
+			if is_instance_valid(node) and not node.is_queued_for_deletion() and node.get_meta("id", "") == id:
+				found.append(node)
+	return found
+
+func unplant(node: Node3D) -> void:
+	var column: Vector2i = node.get_meta("column", Vector2i(999999, 0))
+	if w.column_objects.has(column):
+		w.column_objects[column].erase(node)
+	node.free()
+
+func unplant_all(id: String) -> void:
+	for node in nodes_with(id):
+		unplant(node)
+	w.fallen_trees.erase(id)
+	w.tree_cuts.erase(id)
+	w.cut_trees.erase(id)
+
+# Attend que tout ce qui porte cet identifiant soit tombé et posé.
+func settle(id: String) -> void:
+	var calm := 0
+	var last := {}
+	for index in range(900):
+		await frames(1)
+		var moving := false
+		for node in nodes_with(id):
+			if node.has_meta("falling"):
+				moving = true
+			var key: int = node.get_instance_id()
+			if last.has(key) and not (last[key] as Transform3D).is_equal_approx(node.global_transform):
+				moving = true
+			last[key] = node.global_transform
+		for slide in w.sliding_trees:
+			if is_instance_valid(slide.tree) and slide.tree.get_meta("id", "") == id:
+				moving = true
+		calm = 0 if moving else calm + 1
+		if calm >= 25:
+			return
+
+# Un arbre ou un morceau couché contre le vrai sol (terrain et rochers) : son bois le plus bas (m, négatif : dedans), son
+# point le plus bas (bois ou feuilles), et s'il a du bois au-dessus d'un rocher.
+func tree_fit(node: Node3D) -> Dictionary:
+	var result := {"wood": INF, "lowest": INF, "on_rock": false}
+	var detail: MeshInstance3D = node.get_node_or_null("Modele/Detail")
+	if detail == null or detail.mesh == null:
+		return result
+	var leaf_material := Trees.material(int(node.get_meta("kind", 0)), "leaves")
+	var total := 0
+	for surface in range(detail.mesh.get_surface_count()):
+		total += detail.mesh.surface_get_array_len(surface)
+	var stride := maxi(1, total / 1500)
+	var space: PhysicsDirectSpaceState3D = w.get_world_3d().direct_space_state
+	for surface in range(detail.mesh.get_surface_count()):
+		var is_leaf: bool = detail.mesh.surface_get_material(surface) == leaf_material
+		var points: PackedVector3Array = detail.mesh.surface_get_arrays(surface)[Mesh.ARRAY_VERTEX]
+		for index in range(0, points.size(), stride):
+			var p: Vector3 = detail.global_transform * points[index]
+			var from := Vector3(p.x, node.global_position.y + 25.0, p.z)
+			var query := PhysicsRayQueryParameters3D.create(from, from + Vector3.DOWN * 60.0, 1)
+			var excluded := [w.player.get_rid()]
+			for attempt in range(8):
+				query.exclude = excluded
+				var hit := space.intersect_ray(query)
+				if hit.is_empty():
+					break
+				if is_instance_valid(hit.collider) and (hit.collider.is_in_group("ground") or hit.collider.is_in_group("rocks")):
+					result.lowest = minf(result.lowest, p.y - hit.position.y)
+					if not is_leaf:
+						result.wood = minf(result.wood, p.y - hit.position.y)
+						result.on_rock = result.on_rock or hit.collider.is_in_group("rocks")
+					break
+				excluded.append(hit.rid)
 	return result
