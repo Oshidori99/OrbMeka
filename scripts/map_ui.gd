@@ -72,7 +72,17 @@ func _draw() -> void:
 		var far := maxf(absf(offset.x), absf(offset.y)) > edge
 		if far:
 			offset *= edge / maxf(absf(offset.x), absf(offset.y))
-		map.draw_waypoint(self, center + offset, point, 3.5 if far else 5.0)
+		# 0.0.8.39 (demande de l'utilisateur) : points plus petits ; le nom en petit sous le point.
+		map.draw_waypoint(self, center + offset, point, 2.5 if far else 3.5)
+		var font := ThemeDB.fallback_font
+		var px := maxi(9, roundi(side * 0.055))
+		var label: String = point.nom
+		var width := font.get_string_size(label, HORIZONTAL_ALIGNMENT_LEFT, -1, px).x
+		var spot := center + offset + Vector2(-width * 0.5, 6.0 + px)
+		spot.x = clampf(spot.x, 2.0, side - width - 2.0)
+		spot.y = minf(spot.y, side - 3.0)
+		draw_string_outline(font, spot, label, HORIZONTAL_ALIGNMENT_LEFT, -1, px, 3, Color(0, 0, 0, 0.85))
+		draw_string(font, spot, label, HORIZONTAL_ALIGNMENT_LEFT, -1, px, Color.WHITE)
 	draw_rect(Rect2(Vector2.ZERO, size), Color(0, 0, 0, 0.9), false, 2.0)
 	# Le nord.
 	var north := Vector2(center.x, 12.0) if north_fixed else center + Vector2(0, -1).rotated(yaw) * (side * 0.5 - 12.0)

@@ -239,17 +239,28 @@ class ThrowZone extends Control:
 
 	func _draw() -> void:
 		var box := StyleBoxFlat.new()
-		box.bg_color = Color(0.32, 0.1, 0.09, 0.85) if word == "Jeter" else Color(0.18, 0.05, 0.08, 0.92)
-		box.border_color = Color(0.95, 0.45, 0.4, 0.8)
+		# 0.0.8.39 (demande de l'utilisateur) : « Jeter » en bleu, avec une image simple (un objet qui tombe vers le sol,
+		# dessinée ici : rien d'extérieur) ; « Supprimer » garde le rouge et la croix.
+		var throw := word == "Jeter"
+		box.bg_color = Color(0.09, 0.2, 0.36, 0.88) if throw else Color(0.32, 0.1, 0.09, 0.85)
+		box.border_color = Color(0.45, 0.7, 1.0, 0.85) if throw else Color(0.95, 0.45, 0.4, 0.8)
 		box.set_border_width_all(1)
 		box.set_corner_radius_all(8)
 		draw_style_box(box, Rect2(Vector2.ZERO, size))
 		var mark := size.y * 0.5
 		var center := Vector2(size.y * 0.55, size.y * 0.5)
 		var arm := mark * 0.42
-		var color := Color("#ff8a7a")
-		draw_line(center + Vector2(-arm, -arm), center + Vector2(arm, arm), color, 3.0)
-		draw_line(center + Vector2(-arm, arm), center + Vector2(arm, -arm), color, 3.0)
+		if throw:
+			var sky := Color("#9fd0ff")
+			# Un petit caillou rond, une flèche vers le bas, la ligne du sol.
+			draw_circle(center + Vector2(0.0, -arm * 0.95), arm * 0.38, sky)
+			draw_line(center + Vector2(0.0, -arm * 0.35), center + Vector2(0.0, arm * 0.55), sky, 2.5)
+			draw_colored_polygon(PackedVector2Array([center + Vector2(-arm * 0.45, arm * 0.3), center + Vector2(arm * 0.45, arm * 0.3), center + Vector2(0.0, arm * 0.8)]), sky)
+			draw_line(center + Vector2(-arm * 1.05, arm * 1.05), center + Vector2(arm * 1.05, arm * 1.05), sky, 2.0)
+		else:
+			var color := Color("#ff8a7a")
+			draw_line(center + Vector2(-arm, -arm), center + Vector2(arm, arm), color, 3.0)
+			draw_line(center + Vector2(-arm, arm), center + Vector2(arm, -arm), color, 3.0)
 		var font := ThemeDB.fallback_font
 		var at := Vector2(size.y * 1.05, (size.y + font_px * 0.72) * 0.5)
 		draw_string(font, at, word, HORIZONTAL_ALIGNMENT_LEFT, -1, font_px, Color.WHITE)

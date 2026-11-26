@@ -1250,7 +1250,7 @@ func quit_game() -> void:
 # 0.0.7.34 : en jeu, souris pas capturée (inventaire fermé) : message « Cliquez dans le jeu ». Sur le Web, Échap est pris
 # par le navigateur pour libérer la souris (le jeu ne le reçoit pas) : la souris libérée ouvre la pause, comme Échap.
 func _watch_capture() -> void:
-	var playing: bool = page == "playing" and is_instance_valid(active_world) and not active_world.inventory_open and not active_world.death_open and not active_world.crafting_open and not active_world.notebook_open
+	var playing: bool = page == "playing" and is_instance_valid(active_world) and not active_world.inventory_open and not active_world.death_open and not active_world.crafting_open and not active_world.notebook_open and not active_world.map_open
 	var captured: bool = Input.mouse_mode == Input.MOUSE_MODE_CAPTURED
 	if is_instance_valid(click_hint):
 		click_hint.visible = playing and not captured and DisplayServer.get_name() != "headless"
@@ -1463,6 +1463,10 @@ func _cancel_page() -> void:
 		return
 	# 0.0.8.1 (#205) : écran de mort : Échap ne fait rien (bouton « Revenir au départ »).
 	if page == "playing" and is_instance_valid(active_world) and active_world.death_open:
+		return
+	# 0.0.8.39 (demande de l'utilisateur) : Échap ferme la grande carte (retour au jeu), sans mettre en pause.
+	if page == "playing" and is_instance_valid(active_world) and active_world.map_open:
+		active_world.close_map()
 		return
 	# 0.0.8.16 (#208) : Échap ferme le Carnet de route (retour au jeu), sans mettre en pause.
 	if page == "playing" and is_instance_valid(active_world) and active_world.notebook_open:
