@@ -126,8 +126,10 @@ func _build_panel(row: HBoxContainer) -> void:
 	box.add_child(_label("Fabrication", 24, Color(1.0, 0.86, 0.55)))
 	box.add_child(_label("Action", 15, Color(0.6, 0.85, 0.82)))
 	# 0.0.8.8 (demande de l'utilisateur) : les actions en images (crafting_icons.gd), leur nom au survol et dessous.
-	var actions := HBoxContainer.new()
-	actions.add_theme_constant_override("separation", roundi(6 * text_scale))
+	# 0.0.8.40 : 10 actions : sur plusieurs lignes.
+	var actions := HFlowContainer.new()
+	actions.add_theme_constant_override("h_separation", roundi(6 * text_scale))
+	actions.add_theme_constant_override("v_separation", roundi(6 * text_scale))
 	box.add_child(actions)
 	for each in Rules.ACTIONS:
 		# 0.0.8.21 : 6 actions (Nouer) : images un peu plus petites (avant 78), pour que le panneau garde sa largeur et ne
@@ -353,14 +355,16 @@ func choose_head(next: String) -> void:
 	hits = 0
 	refresh()
 
-const ROLES := {"tresser": ["fibres"], "tailler": ["percuteur", "pierre"], "fendre": ["manche", "eclat"], "assembler": ["fendu", "tete"], "ficeler": ["a_ficeler", "lien"], "nouer": ["filet", "bretelle"]}
+const ROLES := {"tresser": ["fibres"], "tailler": ["percuteur", "pierre"], "fendre": ["manche", "eclat"], "assembler": ["fendu", "tete"], "ficeler": ["a_ficeler", "lien"], "nouer": ["filet", "bretelle"], "detresser": ["tresse"], "defaire": ["outil_fait"], "relier": ["outil_use", "lien"], "ecorcer": ["bois", "eclat"]}
 # 0.0.8.21 (#207) : tresser 3 ficelles donne une cordelette ; Nouer : le sac en filet.
 const ROLE_TITLES := {"fibres": "3 fibres (une ficelle) ou 3 ficelles (une cordelette), du même type", "percuteur": "Main gauche : percuteur (un caillou)", "pierre": "Main droite : pierre à tailler (silex ou calcaire, taille 3 à 5)",
 	"filet": "Main gauche : 4 cordelettes du même type (les mailles)", "bretelle": "Main droite : 1 cordelette ou 1 liane (la bretelle)",
 	"manche": "Main gauche : branche (2 à 5 cm, 40 cm à 1 m : un manche ; 1 à 2,5 cm, 15 à 40 cm : une navette)", "eclat": "Main droite : éclat tranchant",
 	"fendu": "Main gauche : branche fendue", "tete": "Main droite : tête de hache ou de pioche",
-	"a_ficeler": "Main gauche : hache ou pioche à ficeler", "lien": "Main droite : 3 ficelles du même type, ou 1 liane"}
-const HOLD_ACTIONS := ["tresser", "fendre", "ficeler", "nouer"]
+	"a_ficeler": "Main gauche : hache ou pioche à ficeler", "lien": "Main droite : 3 ficelles du même type, ou 1 liane",
+	"tresse": "Une ficelle (3 fibres) ou une cordelette (3 ficelles)", "outil_fait": "Une hache ou une pioche (finie ou à ficeler)",
+	"outil_use": "Main gauche : hache ou pioche en pierre (usée)", "bois": "Main gauche : bâton ou bûche (pas encore écorcé)"}
+const HOLD_ACTIONS := ["tresser", "fendre", "ficeler", "nouer", "detresser", "relier", "ecorcer"]
 # 0.0.8.24 (demande de l'utilisateur : l'éclat était pris tout seul) : objets facultatifs, proposés ; sans eux, l'action se
 # fait quand même, plus lentement (tresser : un éclat tranchant, deux fois plus vite).
 const OPTIONAL_ROLES := {"tresser": ["eclat_aide"], "ficeler": ["navette_aide"]}
@@ -454,6 +458,14 @@ func _hint() -> String:
 			text = "Clic gauche maintenu dans la scène (%d s) : fendre le bout de la branche." % roundi(Rules.SPLIT_SECONDS)
 		"assembler":
 			text = "Cliquez dans la scène : la tête glisse dans la fente."
+		"detresser":
+			text = "Clic gauche maintenu dans la scène (%s s) : la ficelle redonne ses 3 fibres, la cordelette ses 3 ficelles." % str(Rules.UNTWIST_SECONDS).replace(".", ",")
+		"defaire":
+			text = "Cliquez dans la scène : la tête, le manche (branche fendue) et ce qui reste du lien."
+		"relier":
+			text = "Clic gauche maintenu dans la scène (%d s) : un lien neuf, l'outil retrouve des coups." % roundi(Rules.RELINK_SECONDS)
+		"ecorcer":
+			text = "Clic gauche maintenu dans la scène (%d s) : l'écorce part, le bois est plus léger." % roundi(Rules.BARK_SECONDS)
 		"ficeler":
 			text = "Clic gauche maintenu dans la scène : un tour toutes les %s s ; relâchez pour finir (%d à %d tours)." % [str(_turn_seconds()).replace(".", ","), Rules.TURNS_MIN, Rules.TURNS_MAX]
 			text += " Avec la navette choisie : deux fois plus vite." if picks.has("navette_aide") else " Avec une navette (facultatif) : deux fois plus vite."
@@ -571,6 +583,8 @@ func _scene_input(event: InputEvent) -> void:
 			strike()
 		elif action == "assembler":
 			assemble()
+		elif action == "defaire":
+			undo()
 
 func _process(delta: float) -> void:
 	if not visible:
@@ -583,6 +597,8 @@ func _process(delta: float) -> void:
 				step_split(delta)
 			"ficeler":
 				step_bind(delta)
+			"detresser", "relier", "ecorcer":
+				step_hold(delta)
 			"nouer":
 				step_knot(delta)
 	for chip in chips.duplicate():
@@ -666,6 +682,127 @@ func braid() -> bool:
 		picks.fibres = keep[0]
 	refresh()
 	status.text = "%s tressée (33 cm). %s" % [Inventory.item_name(cord), _hint()]
+	return true
+
+# --- 0.0.8.40 (#255 à #258) : Détresser, Défaire un outil, Refaire le lien, Écorcer ---
+# Clic maintenu (Détresser, Refaire le lien, Écorcer) : les mains travaillent, l'anneau se remplit ; Défaire : un clic.
+func _hold_seconds() -> float:
+	match action:
+		"detresser":
+			return Rules.UNTWIST_SECONDS
+		"relier":
+			return Rules.RELINK_SECONDS
+		"ecorcer":
+			return Rules.BARK_SECONDS
+	return 1.0
+
+func step_hold(delta: float) -> bool:
+	if not ready_to_work():
+		return false
+	hold_time += delta
+	var seconds := _hold_seconds()
+	ring.progress = clampf(hold_time / seconds, 0.0, 1.0)
+	var push := absf(sin(hold_time * 8.0)) * 0.03
+	hands[1].position = hands[1].rest + Vector3(-0.04 - push, 0.01, 0.0)
+	for hand in hands:
+		hand._go_pose("pince" if action == "detresser" else "prise", 1.0)
+		hand._gesture_left = 0.2
+	if hold_time < seconds:
+		return false
+	hold_time = 0.0
+	holding = false
+	ring.progress = 0.0
+	_rest_hands()
+	match action:
+		"detresser":
+			return untwist()
+		"relier":
+			return relink()
+		"ecorcer":
+			return bark()
+	return false
+
+func untwist() -> bool:
+	var cord: Dictionary = picks.get("tresse", {})
+	if cord.is_empty() or not Rules.take_choice(inventory, cord):
+		status.text = "La ficelle n'est plus là."
+		picks = {}
+		refresh()
+		return false
+	var made := Rules.untwist_result(cord.value)
+	world.give_crafted(made)
+	if world.has_method("notebook_mark"):
+		world.notebook_mark("detresser")
+	picks.erase("tresse")
+	refresh()
+	status.text = "Détressée : %d %s. %s" % [Inventory.count(made), Inventory.plural_name(made).to_lower(), _hint()]
+	return true
+
+func undo() -> bool:
+	var tool: Dictionary = picks.get("outil_fait", {})
+	if tool.is_empty() or not Rules.take_choice(inventory, tool):
+		status.text = "L'outil n'est plus là."
+		picks = {}
+		refresh()
+		return false
+	var parts := Rules.undo_results(tool.value)
+	if world.has_method("notebook_mark"):
+		world.notebook_mark("defaire")
+	for part in parts:
+		world.give_crafted(part)
+	picks = {}
+	refresh()
+	status.text = "Défait : la tête, le manche%s." % (" et une ficelle usée" if parts.size() > 2 else "")
+	return true
+
+func relink() -> bool:
+	var tool: Dictionary = picks.get("outil_use", {})
+	var bind: Dictionary = picks.get("lien", {})
+	if tool.is_empty() or bind.is_empty() or not Rules.still_there(inventory, tool):
+		status.text = "L'outil ou le lien n'est plus là."
+		picks = {}
+		refresh()
+		return false
+	var creative: bool = bind.get("creative", false)
+	var tied: bool = Rules.take_choice(inventory, bind) if bind.bind == "liane" else Rules.take_count(inventory, bind.bind, Rules.CORDS_PER_TOOL, creative)
+	if not tied:
+		status.text = "Il faut 3 ficelles du même type, ou une liane."
+		picks.erase("lien")
+		refresh()
+		return false
+	if not tool.get("creative", false):
+		var found := Rules.more_choices(inventory, "outil_use").filter(func(other): return other.value == tool.value)
+		if found.is_empty() or not Rules.take_choice(inventory, found[0]):
+			status.text = "L'outil n'est plus là."
+			picks = {}
+			refresh()
+			return false
+	var made := Rules.relink_result(tool.value, bind.bind)
+	world.give_crafted(made)
+	if world.has_method("notebook_mark"):
+		world.notebook_mark("relier")
+	picks = {}
+	refresh()
+	var one := Inventory.flat(made.objet, made.pile[0])
+	status.text = "%s : lien refait (%d coups sur %d)." % [Inventory.item_name(one), Inventory.tool_left(one), Inventory.tool_durability(one)]
+	return true
+
+func bark() -> bool:
+	var wood: Dictionary = picks.get("bois", {})
+	if wood.is_empty() or not Rules.still_there(inventory, picks.get("eclat", {})) or not Rules.take_choice(inventory, wood):
+		status.text = "Le bois ou l'éclat n'est plus là."
+		picks = {}
+		refresh()
+		return false
+	var made := Rules.bark_result(wood.value)
+	world.give_crafted(made)
+	if world.has_method("notebook_mark"):
+		world.notebook_mark("ecorcer")
+	picks.erase("bois")
+	if picks.has("eclat") and not Rules.still_there(inventory, picks.eclat):
+		picks.erase("eclat")
+	refresh()
+	status.text = "%s écorcé (plus léger). %s" % [Inventory.item_name(Inventory.flat(made.objet, made.pile[0])), _hint()]
 	return true
 
 # Tailler : un coup. La main gauche frappe la pierre, des éclats sautent, la pierre prend forme ; au dernier coup, la tête.

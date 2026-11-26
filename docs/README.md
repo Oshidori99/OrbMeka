@@ -1,6 +1,20 @@
-# OrbMeka™ — prototype 0.0.8.39
+# OrbMeka™ — prototype 0.0.8.40
 
 Godot 4.7 / GDScript. Formes et couleurs simples ; assets externes seulement sous licence vérifiée (sons CC0, assets/sounds/CREDITS.txt).
+
+## 0.0.8.40 — Les actions qui manquaient
+Publiée. Génération inchangée (version 34). Issues #255 à #259 (actions qui manquaient) ; demandes de l'utilisateur.
+- **Détresser** (O + F, clic maintenu 2 s) : une ficelle redonne ses 3 fibres, une cordelette ses 3 ficelles (#256).
+- **Défaire un outil** (O + F, un clic) : une hache ou une pioche redonne sa tête, son manche (branche fendue) et une ficelle usée (rien pour une liane) ; les poids se tiennent (#257).
+- **Refaire le lien** (O + F, clic maintenu 4 s) : une hache ou une pioche usée, avec 3 ficelles neuves ou une liane, retrouve 60 % de ses coups (#258).
+- **Écorcer** (O + F, avec un éclat, clic maintenu 3 s) : un bâton ou une bûche écorcé, 8 % plus léger, « écorcé » dans ses détails (#255). L'écorce comme objet (pour des liens) : plus tard.
+- **Tailler un éclat seul** existait déjà (Tailler → « Éclat tranchant », 8 coups) (#259).
+- **Carnet de route** : des cases pour Défeuiller, Détresser, Écorcer, Refaire le lien et Défaire un outil ; elles se cochent quand on les fait.
+- O + F : les 10 actions sur deux lignes. Les nouvelles actions reprennent pour l'instant une image proche ; leurs vraies images seront faites dans Blender plus tard.
+- Tableau des actions à jour : docs/ACTIONS.md.
+
+Tests réussis : crafting (65, dont 10 nouveaux), carnet (35), inventory, inventory_more, tools, fiche_outil, feuilles, bois, sac, web_save, world_save, prototype, history_resume (+ tests juridiques).
+À tester : O + F → Détresser une ficelle ; Défaire puis réassembler une hache ; Refaire le lien d'une hache usée ; Écorcer un bâton.
 
 ## 0.0.8.39 — Petites corrections
 Publiée. Génération inchangée (version 34). Demandes de l'utilisateur.

@@ -8,6 +8,7 @@ extends Button
 const MenuImages = preload("res://scripts/menu_images.gd")
 
 var action := ""
+const STAND_IN := {"detresser": "tresser", "defaire": "assembler", "relier": "ficeler", "ecorcer": "fendre"}
 
 func _init(kind: String, side: float) -> void:
 	action = kind
@@ -18,7 +19,8 @@ func _init(kind: String, side: float) -> void:
 	texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS
 
 func _draw() -> void:
-	var picture := MenuImages.texture(action)
+	# 0.0.8.40 : les nouvelles actions reprennent pour l'instant une image proche (leurs images Blender viendront plus tard).
+	var picture := MenuImages.texture(STAND_IN.get(action, action))
 	if picture == null:
 		return
 	var side := minf(size.x, size.y) * 0.9

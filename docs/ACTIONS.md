@@ -1,4 +1,4 @@
-# OrbMeka — toutes les actions (0.0.8.38)
+# OrbMeka — toutes les actions (0.0.8.40)
 
 Tableau objet → actions → résultat (issue #254). Les touches sont celles par défaut (Paramètres > Contrôles).
 « Survie » : en mode Survie seulement ; sinon : les deux modes.
@@ -57,6 +57,11 @@ Tableau objet → actions → résultat (issue #254). Les touches sont celles pa
 | Une bûche fine | Fendre | Des bâtons |
 | Une branche fendue + une tête | Assembler | Un outil à ficeler |
 | Un outil à ficeler + 3 ficelles (ou 1 liane) ; navette : 2 fois plus vite | Ficeler | Une hache ou une pioche en pierre |
+| Une ficelle ; une cordelette | Détresser (0.0.8.40) | Ses 3 fibres ; ses 3 ficelles |
+| Une hache, une pioche (ou à ficeler) | Défaire un outil (0.0.8.40) | La tête, le manche fendu, une ficelle usée |
+| Une hache ou une pioche usée + 3 ficelles (ou 1 liane) | Refaire le lien (0.0.8.40) | L'outil retrouve 60 % de ses coups |
+| Un bâton ou une bûche + un éclat | Écorcer (0.0.8.40) | Le bois écorcé, plus léger |
+| Un caillou + un silex ou calcaire (taille 2 à 5) | Tailler → « Éclat tranchant » | Un éclat seul, en 8 coups |
 | 4 cordelettes + 1 cordelette ou liane | Nouer | Un sac en filet |
 
 ## Défeuiller (issue #254, partie 1)
@@ -65,14 +70,8 @@ Déjà couvert : depuis 0.0.8.30, une petite branche feuillue coupée donne un *
 tombent à part (plus de « rameau » feuillu) ; depuis 0.0.8.23, **R** sur une branche couchée fait tomber ses feuilles,
 puis R encore donne son bois. Une action « Défeuiller » dans O + F n'est donc pas utile.
 
-## Ce qui manque (chacun dans son issue)
+## Ce qui manquait (fait en 0.0.8.40)
 
-| Action manquante | Objet | Résultat voulu |
-|---|---|---|
-| Écorcer (#255) | Bâton, bûche | Bois écorcé (plus léger, plus sec) et écorce (liens, plus tard) |
-| Détresser (#256) | Ficelle, cordelette | Les fibres ou les ficelles d'origine |
-| Défaire un outil (#257) | Hache, pioche, outil à ficeler | La tête, le manche et ce qui reste du lien |
-| Refaire le lien d'un outil usé (#258) | Hache, pioche | Moins d'usure, avec des ficelles neuves |
-| Tailler un éclat seul (#259) | Caillou + silex ou calcaire | Un éclat tranchant, plus vite qu'une tête |
+Écorcer (#255), détresser (#256), défaire un outil (#257), refaire le lien (#258) : faits en 0.0.8.40. Tailler un éclat seul (#259) : existait déjà (Tailler → « Éclat tranchant »). L'écorce comme objet (liens) : plus tard.
 
-Déjà prévus ailleurs : torche (#214), feu de camp (#209), cultures et planter des graines (#170), coffre (#210).
+Déjà prévus ailleurs : torche (#214) avec feu de camp (#209), cultures et planter des graines (#170), coffre (#210, version future).

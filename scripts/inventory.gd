@@ -95,7 +95,7 @@ const INSTANCE_FIELDS := {"taille": TYPE_INT, "poids": TYPE_FLOAT, "forme": TYPE
 	# 0.0.8.23 : tas de feuilles au sol : son nombre de feuilles (1 à LEAF_PILE).
 	"tas": TYPE_INT,
 	# 0.0.8.10 : coups restants d'un outil (absent : neuf).
-	"usure": TYPE_INT}
+	"usure": TYPE_INT, "ecorce": TYPE_INT}
 # Matières : valeurs de smooth_terrain.gd (SAND 0, STONE 1, DIRT 2, CLAY 4, MUD 5, DARK_STONE 6, GRAVEL 8, LIMESTONE 9,
 # FLINT 11). Poids : une poignée. 0.0.7.6 (plus réaliste, accepté par l'utilisateur) : une grosse poignée d'environ 0,25 L × la
 # densité de la matière ; elle compte toujours pour une sous-cellule de 50 cm (règle de jeu).
@@ -1095,6 +1095,9 @@ static func wood_details(value: Dictionary) -> String:
 	parts.append("%s cm de long" % str(roundi(float(value.get("longueur", 0.0)) * 100.0)))
 	parts.append("%s cm d'épaisseur" % str(snappedf(float(value.get("epaisseur", 0.0)), 0.1)).replace(".", ","))
 	parts.append("tordu" if int(value.get("tordue", 0)) == 1 else "droit")
+	# 0.0.8.40 (#255) : écorcé.
+	if int(value.get("ecorce", 0)) == 1:
+		parts.append("écorcé")
 	parts.append("pourri" if int(value.get("pourrie", 0)) == 1 else ("mort" if int(value.get("morte", 0)) == 1 else "sain"))
 	var quality := handle_quality(value)
 	if quality >= 0:

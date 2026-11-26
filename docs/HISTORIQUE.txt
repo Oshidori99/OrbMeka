@@ -3,6 +3,10 @@ Du plus récent au plus ancien. Ce fichier est mis à jour à chaque version.
 
 === Thème « Fabrication et survie » (0.0.8) ===
 
+0.0.8.40 — Les actions qui manquaient : Détresser (ficelle → 3 fibres, cordelette → 3 ficelles), Défaire un outil (tête, manche, ficelle usée), Refaire le lien d'un outil usé, Écorcer (bois plus léger) dans O + F ; leurs cases dans le carnet, avec Défeuiller
+Génération du terrain : version 34 · Menus : version 17.
+Issues #255 à #259 ; demandes de l'utilisateur.
+
 0.0.8.39 — Petites corrections : Échap ferme la grande carte, nom des repères aussi sur la mini-carte (en petit, sous le point), points plus petits, couleur du repère au choix, « + » et nom en bas à droite de la grande carte, zone « Jeter » en bleu avec une image simple
 Génération du terrain : version 34 · Menus : version 17.
 Demandes de l'utilisateur.

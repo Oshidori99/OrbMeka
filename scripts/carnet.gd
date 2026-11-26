@@ -68,6 +68,18 @@ Choisie pour Ficeler (dans la barre : mains, poches ou sac), on ficelle deux foi
 		"details": "Ficeler une hache : 3 ficelles (ou une liane), clic gauche maintenu, un tour à la fois (8 tours : le plus solide). La hache coupe le bois 3 fois plus vite."},
 	{"id": "pioche", "nom": "Pioche", "branche": "droite", "rang": 6, "decalage": 0.7, "parent": "assembler", "image": "objet:pioche_pierre", "touches": "O + F → Ficeler", "objets": ["pioche_pierre"],
 		"details": "Ficeler une pioche, comme la hache. La pioche casse la pierre 4 fois plus vite (avec des éclats) et creuse la terre 2 fois plus vite."},
+	# 0.0.8.40 (demandes de l'utilisateur : toutes les actions qu'on peut faire, dans le carnet) : Défeuiller, Détresser,
+	# Écorcer, Refaire le lien, Défaire un outil. Images provisoires (celles de Blender viendront plus tard).
+	{"id": "defeuiller", "nom": "Défeuiller", "branche": "haut", "rang": 3, "decalage": 1.0, "parent": "fibres", "image": "objet:feuilles", "touches": "R sur une branche couchée",
+		"details": "Défeuiller : R sur une branche, une tige ou un arbre couché fait tomber ses feuilles en tas (à ramasser avec R) ; R encore : son bois au sol, des bâtons et des bûches à leur vraie taille.\nUne petite branche feuillue coupée donne aussi un bâton, ses feuilles à part."},
+	{"id": "detresser", "nom": "Détresser", "branche": "droite", "dessous": true, "parent": "tresser", "image": "menu:tresser", "touches": "O + F → Détresser",
+		"details": "Détresser (O + F → Détresser, clic gauche maintenu 2 s) : une ficelle redonne ses 3 fibres, une cordelette ses 3 ficelles. Utile si on s'est trompé de type."},
+	{"id": "ecorcer", "nom": "Écorcer", "branche": "droite", "dessous": true, "parent": "navette", "image": "menu:fendre", "touches": "O + F → Écorcer",
+		"details": "Écorcer un bâton ou une bûche (O + F → Écorcer, avec un éclat tranchant, clic gauche maintenu 3 s) : l'écorce part, le bois est plus léger (« écorcé » dans ses détails)."},
+	{"id": "relier", "nom": "Refaire le lien", "branche": "droite", "rang": 7, "decalage": -0.7, "parent": "hache", "image": "menu:ficeler", "touches": "O + F → Refaire le lien",
+		"details": "Refaire le lien d'une hache ou d'une pioche usée (O + F → Refaire le lien) : 3 ficelles du même type ou une liane, clic gauche maintenu 4 s. L'outil retrouve une bonne part de ses coups (la tête et le manche s'usent quand même)."},
+	{"id": "defaire", "nom": "Défaire un outil", "branche": "droite", "rang": 7, "decalage": 0.7, "parent": "pioche", "image": "menu:assembler", "touches": "O + F → Défaire un outil",
+		"details": "Défaire une hache ou une pioche (O + F → Défaire un outil, un clic) : on récupère la tête, le manche (branche fendue) et une ficelle usée (rien pour une liane)."},
 ]
 
 var done: Dictionary = {}
