@@ -3206,18 +3206,25 @@ func _update_slides(delta: float) -> void:
 
 # Arbre couché, arrêté : place gardée, branches et feuilles qui entreraient dans le sol repoussées au-dessus et sur
 # les côtés (une seule fois), fruits déplacés avec elles.
+# 0.0.8.33 (demande de l'utilisateur : un arbre abattu jamais dans le sol ; mesuré : la cime d'un pin jusqu'à 1,2 m sous
+# le relief, l'axe du tronc jusqu'à 1,4 m sous le sol, le modèle aplati pour ne pas dépasser) : la pose ne mesurait le
+# sol que sur les 60 premiers pour cent du tronc (_rest_pose). L'arbre abattu se pose ensuite comme tout morceau couché
+# (_rest_rigid) : son tronc repose sur ses appuis sur toute sa longueur. Sa pose exacte est enregistrée (« base »).
 func _lay_down(tree: Node3D, direction: Vector3) -> void:
 	_rest_pose(tree, direction)
+	_rest_rigid(tree)
 	tree.set_meta("lie_base", tree.global_position)
 	_piece_collision(tree, _tree_range(tree))
 	var id := str(tree.get_meta("id", ""))
 	var place := tree.global_position
-	fallen_trees[id] = {"direction": [direction.x, direction.z], "position": [place.x, place.y, place.z], "angle": float(tree.get_meta("lie_angle", PI * 0.5))}
+	var lying := tree.global_basis
+	fallen_trees[id] = {"direction": [direction.x, direction.z], "position": [place.x, place.y, place.z], "angle": float(tree.get_meta("lie_angle", PI * 0.5)), "base": [lying.x.x, lying.x.y, lying.x.z, lying.y.x, lying.y.y, lying.y.z, lying.z.x, lying.z.y, lying.z.z]}
 	objects_dirty = true
 	_bend_into_ground(tree, direction)
 
 # 0.0.7.9 : hauteur du vrai sol (terrain creusé ou posé, rochers compris) sous un point ; sans collision : le sol d'origine.
-func _ground_at(point: Vector3, tree: Node3D = null) -> float:
+# 0.0.8.33 : ray_up, ray_down : d'où part le rayon au-dessus du point et jusqu'où il descend (m).
+func _ground_at(point: Vector3, tree: Node3D = null, ray_up := 6.0, ray_down := 10.0) -> float:
 	var natural := terrain.height_at(point.x, point.z)
 	if not is_inside_tree():
 		return natural
@@ -3231,7 +3238,7 @@ func _ground_at(point: Vector3, tree: Node3D = null) -> float:
 	# bas que le sol d'origine, on mesure aussi 5 cm à côté et on garde le plus haut.
 	for shift in [Vector3.ZERO, Vector3(0.05, 0.0, 0.05)]:
 		var spot: Vector3 = point + shift
-		var query := PhysicsRayQueryParameters3D.create(spot + Vector3.UP * 6.0, spot + Vector3.DOWN * 10.0, 1)
+		var query := PhysicsRayQueryParameters3D.create(spot + Vector3.UP * ray_up, spot + Vector3.DOWN * ray_down, 1)
 		# Les arbres (debout, couchés, autres morceaux du même arbre) ne sont pas le sol : on passe au travers.
 		for attempt in range(4):
 			query.exclude = skip
@@ -3657,7 +3664,7 @@ func _bend_into_ground(tree: Node3D, direction: Vector3) -> void:
 	var spread_max := 0.1 if _light_tree(tree) else 0.6
 	var push := func(point: Vector3) -> Vector3:
 		var world_point: Vector3 = to_world * point
-		var ground: float = _grid_height(heights, world_point) + 0.04
+		var ground: float = _grid_top(heights, world_point) + 0.04
 		if world_point.y >= ground:
 			return point
 		var sink := ground - world_point.y
@@ -3667,6 +3674,9 @@ func _bend_into_ground(tree: Node3D, direction: Vector3) -> void:
 		world_point.y = ground
 		if side.length() > 0.01:
 			world_point += side.normalized() * minf(sink * spread, spread_max)
+			# 0.0.8.33 (mesuré : arbre lourd tombé en travers d'une pente, 9 à 27 % de son bois de 14 à 17 cm dans le sol) :
+			# écarté sur le côté, le point peut se retrouver sous la pente : remis au-dessus du sol là où il arrive.
+			world_point.y = maxf(world_point.y, _grid_top(heights, world_point) + 0.04)
 		return to_local * world_point
 	for part in ["Detail", "Loin"]:
 		var shown: MeshInstance3D = model.get_node_or_null(part)
@@ -3715,6 +3725,13 @@ func _ground_grid(tree: Node3D, area: AABB = AABB()) -> Dictionary:
 	if box.size == Vector3.ZERO:
 		var reach := _tree_length(tree) + 3.0
 		box = AABB(center - Vector3(reach, 0.0, reach), Vector3(reach * 2.0, 0.0, reach * 2.0))
+	# 0.0.8.33 (mesuré : une branche de pin tombée sur un gros rocher finissait dedans, jusqu'à 4,2 m) : le sol est cherché
+	# depuis le dessus du morceau (sa boîte), plus depuis l'origine de son nœud, qui
+	# peut être plusieurs mètres sous lui (une branche garde l'origine de son arbre) : un rocher sous lui n'était pas vu.
+	var level := box.position.y + box.size.y if box.size.y > 0.0 else center.y
+	# Le rayon part de 9 m au-dessus du morceau (un grand rocher fait jusqu'à 8 m : parti de dedans, le rayon ne le
+	# voyait pas) et descend jusqu'à 10 m sous sa boîte.
+	var reach_down := box.size.y + 10.0
 	var origin := Vector2(box.position.x - GROUND_GRID_MARGIN, box.position.z - GROUND_GRID_MARGIN)
 	var columns := int(ceil((box.size.x + GROUND_GRID_MARGIN * 2.0) / 0.5)) + 2
 	var rows := int(ceil((box.size.z + GROUND_GRID_MARGIN * 2.0) / 0.5)) + 2
@@ -3724,7 +3741,7 @@ func _ground_grid(tree: Node3D, area: AABB = AABB()) -> Dictionary:
 	for row in range(rows):
 		for column in range(columns):
 			var at: Vector2 = origin + Vector2(column, row) * 0.5
-			values[row * columns + column] = _ground_at(Vector3(at.x, center.y, at.y), tree)
+			values[row * columns + column] = _ground_at(Vector3(at.x, level, at.y), tree, 9.0 if box.size.y > 0.0 else 6.0, reach_down)
 	return {"origin": origin, "step": 0.5, "columns": columns, "rows": rows, "values": values}
 
 # Boîte (monde) du modèle détaillé d'un arbre ou d'un morceau ; vide sans modèle.
@@ -3733,6 +3750,29 @@ func _world_box(tree: Node3D) -> AABB:
 	if detail == null or detail.mesh == null:
 		return AABB()
 	return detail.global_transform * detail.mesh.get_aabb()
+
+# 0.0.8.33 (mesuré : 1 à 2 % du bois d'un grand arbre tombé vers l'amont restait jusqu'à 60 cm dans le sol, au bord
+# d'un relief vif) : comme _grid_height, mais dans une case raide (plus de GRID_STEEP m entre ses coins : bord de
+# talus, rocher) c'est son coin le plus haut. Un point remonté au-dessus du sol (_bend_into_ground) n'y reste jamais.
+const GRID_STEEP := 0.25
+
+func _grid_top(grid: Dictionary, point: Vector3) -> float:
+	var columns: int = grid.columns
+	var rows: int = grid.rows
+	var local: Vector2 = (Vector2(point.x, point.z) - grid.origin) / grid.step
+	var column := clampi(floori(local.x), 0, columns - 2)
+	var row := clampi(floori(local.y), 0, rows - 2)
+	var values: PackedFloat32Array = grid.values
+	var a := values[row * columns + column]
+	var b := values[row * columns + column + 1]
+	var c := values[(row + 1) * columns + column]
+	var d := values[(row + 1) * columns + column + 1]
+	var high := maxf(maxf(a, b), maxf(c, d))
+	if high - minf(minf(a, b), minf(c, d)) > GRID_STEEP:
+		return high
+	var fx := clampf(local.x - column, 0.0, 1.0)
+	var fz := clampf(local.y - row, 0.0, 1.0)
+	return lerpf(lerpf(a, b, fx), lerpf(c, d, fx), fz)
 
 func _grid_height(grid: Dictionary, point: Vector3) -> float:
 	var columns: int = grid.columns
@@ -3759,7 +3799,12 @@ func _restore_fallen(tree: Node3D) -> void:
 	tree.set_meta("upright", tree.global_basis)
 	var angle := float(saved.get("angle", PI * 0.5))
 	tree.set_meta("lie_angle", angle)
-	tree.global_basis = Basis(axis, angle) * tree.global_basis
+	var base: Variant = saved.get("base")
+	if base is Array and base.size() == 9:
+		# 0.0.8.33 : sa pose exacte (posé sur ses appuis, _rest_rigid).
+		tree.global_basis = Basis(Vector3(float(base[0]), float(base[1]), float(base[2])), Vector3(float(base[3]), float(base[4]), float(base[5])), Vector3(float(base[6]), float(base[7]), float(base[8])))
+	else:
+		tree.global_basis = Basis(axis, angle) * tree.global_basis
 	if saved.has("position"):
 		tree.global_position = Vector3(float(saved.position[0]), float(saved.position[1]), float(saved.position[2]))
 	else:

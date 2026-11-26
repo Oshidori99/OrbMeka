@@ -536,13 +536,16 @@ func lying(node: Node3D) -> Dictionary:
 			var g := ground_y(p.x, p.z, top, skip)
 			if is_nan(g):
 				continue
-			(leaves if is_leaf else wood).append([p, p.y - g])
+			(leaves if is_leaf else wood).append([p, p.y - g, last_on_rock])
 	if wood.is_empty():
 		return {}
 	var wood_low := INF
 	var leaf_low := INF
 	var deep_count := 0
+	var deep_on_rock := false
 	for each in wood:
+		if each[1] < wood_low:
+			deep_on_rock = each[2]
 		wood_low = minf(wood_low, each[1])
 		if each[1] < -0.05:
 			deep_count += 1
@@ -590,12 +593,12 @@ func lying(node: Node3D) -> Dictionary:
 					left = left or x < middle
 					right = right or x > middle
 			one_sided = not (left and right)
-	return {"wood_low": wood_low, "leaf_low": leaf_low, "lowest": minf(wood_low, leaf_low), "deep_share": float(deep_count) / wood.size(), "ends": ends, "one_sided": one_sided, "length": span_length, "wood_points": wood.size(), "tilt": rad_to_deg(asin(clampf((node.global_basis.y.normalized()).y, -1.0, 1.0)))}
+	return {"wood_low": wood_low, "leaf_low": leaf_low, "lowest": minf(wood_low, leaf_low), "deep_share": float(deep_count) / wood.size(), "on_rock": deep_on_rock, "ends": ends, "one_sided": one_sided, "length": span_length, "wood_points": wood.size(), "tilt": rad_to_deg(asin(clampf((node.global_basis.y.normalized()).y, -1.0, 1.0)))}
 
 func describe(result: Dictionary) -> String:
 	if result.is_empty():
 		return "pas de modèle"
-	return "bois le plus bas %s cm (négatif = dans le sol ; %.0f %% des points à plus de 5 cm dedans) ; feuilles le plus bas %s cm ; dessous des bouts de la pièce principale %s / %s cm ; appui d'un seul côté : %s" % [cm(result.wood_low), result.deep_share * 100.0, cm(result.leaf_low) if result.leaf_low < INF else "-", cm(result.ends[0]), cm(result.ends[1]), str(result.one_sided)]
+	return "bois le plus bas %s cm (négatif = dans le sol ; %.0f %% des points à plus de 5 cm dedans) ; feuilles le plus bas %s cm ; dessous des bouts de la pièce principale %s / %s cm%s ; appui d'un seul côté : %s" % [cm(result.wood_low), result.deep_share * 100.0, cm(result.leaf_low) if result.leaf_low < INF else "-", cm(result.ends[0]), cm(result.ends[1]), " ; son point le plus bas est sur un ROCHER" if result.get("on_rock", false) else "", str(result.one_sided)]
 
 var all_lying := []
 
@@ -626,8 +629,8 @@ func part_fell() -> void:
 		var site: Vector3 = sites[key]
 		var down := downhill_at(site.x, site.z)
 		var directions := {"aval": down, "amont": -down, "travers": down.cross(Vector3.UP).normalized()} if key != "plat" else {"plat": Vector3.RIGHT}
-		for kind in range(4):
-			for size in [1, 3, 5]:
+		for kind in ([2, 3] if OS.get_cmdline_user_args().has("amont") else range(4)):
+			for size in ([3, 5] if OS.get_cmdline_user_args().has("amont") else [1, 3, 5]):
 				for way in directions:
 					var id := "mesure_%s_%d_%d_%s" % [key, kind, size, way]
 					w.player.global_position = site + (directions[way] as Vector3) * 4.0

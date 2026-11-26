@@ -108,7 +108,9 @@ tests/gravite_test.gd (0.0.8.29) : gravité des rochers et des cailloux : bout d
 _floating_rock_cubes), cailloux posés sur le sol dessiné (_snap_pebbles), cailloux, rochers et objets qui suivent le sol creusé
 (smooth_terrain.gd floor_at, world.gd _objects_follow, _rock_drop, ground_items.gd rest_again), génération 34 (aucun caillou
 sous un rocher, smooth_terrain.gd _under_rock). 0.0.8.31 : bois au sol posé sur ses appuis (ground_items.gd _wood_pose), reste
-d'une recoupe qui garde sa pose (world.gd _rest_rigid, keep_if_held). Mesures : tools/mesure_physique.gd (sans fenêtre).
+d'une recoupe qui garde sa pose (world.gd _rest_rigid, keep_if_held). 0.0.8.33 : arbre abattu posé sur toute sa longueur
+(_lay_down, _rest_rigid), sol cherché depuis le dessus du morceau (_ground_grid), bords vifs (_grid_top). Mesures :
+tools/mesure_physique.gd (sans fenêtre).
 tests/perf_guard_test.gd (0.0.7.21) : garde-fou de vitesse (travail de fond dans son budget par image).
 Écran de chargement (0.0.7.23) : app.gd open_world_loading (graine préparée par étapes, world.gd prepare_terrain) ;
 open_world reste d'un coup (tests). Sol simplifié : terrain_surface.gdshader simple_look (qualité Performance).
