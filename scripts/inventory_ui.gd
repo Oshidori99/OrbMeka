@@ -25,6 +25,10 @@ const SLOT_BACK := Color(0.4, 0.44, 0.52, 0.92)
 # Une case dessinée (barre, grille, catégorie ou objet tenu par la souris) ; sous la case : nom puis poids.
 class Slot extends Control:
 	signal clicked(button: int)
+	# 0.0.8.37 : double clic (rassembler les objets pareils).
+	signal double_clicked
+	# 0.0.8.37 : case du catalogue (Créatif) : pas de nombre affiché (« 99 » seulement une fois pris).
+	var in_catalog := false
 	var item := {}
 	var locked := false
 	var chosen := false
@@ -96,6 +100,10 @@ class Slot extends Control:
 				more_clicked.emit()
 				accept_event()
 				return
+			if event.double_click and event.button_index == MOUSE_BUTTON_LEFT:
+				double_clicked.emit()
+				accept_event()
+				return
 			clicked.emit(event.button_index)
 			accept_event()
 
@@ -121,7 +129,7 @@ class Slot extends Control:
 				draw_rect(Rect2(bar.position, Vector2(bar.size.x * share, bar.size.y)), wear_color(share))
 			# 0.0.8.24 : objet du catalogue (Créatif) : 99.
 			var amount := Inventory.shown_count(item)
-			if amount > 1:
+			if amount > 1 and not in_catalog:
 				var font := ThemeDB.fallback_font
 				var text := str(amount)
 				var px := maxi(11, roundi(side * 0.28))
@@ -214,11 +222,14 @@ class Slot extends Control:
 class ThrowZone extends Control:
 	signal clicked
 	var font_px := 13
+	# 0.0.8.37 : « Supprimer » (Créatif) : même zone, autre mot et autres couleurs.
+	var word := "Jeter"
 
-	func _init(height: float, px: int) -> void:
+	func _init(height: float, px: int, text: String = "Jeter") -> void:
+		word = text
 		font_px = px
 		custom_minimum_size = Vector2(roundf(height * 2.6), roundf(height * 0.78))
-		tooltip_text = "Jeter l'objet tenu (ou le lâcher hors de la fenêtre)"
+		tooltip_text = "Jeter l'objet tenu (ou le lâcher hors de la fenêtre)" if word == "Jeter" else "Supprimer l'objet tenu (Créatif : il disparaît)"
 		mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
 
 	func _gui_input(event: InputEvent) -> void:
@@ -228,7 +239,7 @@ class ThrowZone extends Control:
 
 	func _draw() -> void:
 		var box := StyleBoxFlat.new()
-		box.bg_color = Color(0.32, 0.1, 0.09, 0.85)
+		box.bg_color = Color(0.32, 0.1, 0.09, 0.85) if word == "Jeter" else Color(0.18, 0.05, 0.08, 0.92)
 		box.border_color = Color(0.95, 0.45, 0.4, 0.8)
 		box.set_border_width_all(1)
 		box.set_corner_radius_all(8)
@@ -241,7 +252,7 @@ class ThrowZone extends Control:
 		draw_line(center + Vector2(-arm, arm), center + Vector2(arm, -arm), color, 3.0)
 		var font := ThemeDB.fallback_font
 		var at := Vector2(size.y * 1.05, (size.y + font_px * 0.72) * 0.5)
-		draw_string(font, at, "Jeter", HORIZONTAL_ALIGNMENT_LEFT, -1, font_px, Color.WHITE)
+		draw_string(font, at, word, HORIZONTAL_ALIGNMENT_LEFT, -1, font_px, Color.WHITE)
 
 var inventory: RefCounted
 var text_scale := 1.0
@@ -500,6 +511,7 @@ func _build_screen() -> void:
 		# 0.0.7.9 : le nom sous chaque objet (demande de l'utilisateur).
 		var slot := Slot.new(side, true, _text_px())
 		slot.clicked.connect(_on_catalog.bind(index))
+		slot.in_catalog = true
 		slot.more_clicked.connect(_toggle_more.bind(slot))
 		catalog.add_child(slot)
 		catalog_slots.append(slot)
@@ -513,6 +525,7 @@ func _build_screen() -> void:
 		# 0.0.7.9 : le nom sous chaque objet (demande de l'utilisateur).
 		var slot := Slot.new(side, true, _text_px())
 		slot.clicked.connect(_on_slot.bind("grid", index))
+		slot.double_clicked.connect(_on_double.bind("grid", index))
 		slot.more_clicked.connect(_toggle_more.bind(slot))
 		grid_box.add_child(slot)
 		grid_slots.append(slot)
@@ -528,10 +541,18 @@ func _build_screen() -> void:
 	for index in range(Inventory.BAR_SIZE):
 		var slot := Slot.new(side, true, _text_px())
 		slot.clicked.connect(_on_slot.bind("bar", index))
+		slot.double_clicked.connect(_on_double.bind("bar", index))
 		slot.more_clicked.connect(_toggle_more.bind(slot))
 		creative_bar.add_child(slot)
 		creative_slots[index] = slot
-	creative_throw = _throw_row(column)
+	# 0.0.8.37 (demande de l'utilisateur) : sous « Jeter » (au sol), « Supprimer » (il disparaît) : Créatif seulement.
+	var throw_column := VBoxContainer.new()
+	throw_column.add_theme_constant_override("separation", 4)
+	column.add_child(throw_column)
+	creative_throw = throw_column
+	_throw_row(throw_column)
+	var delete_row := _throw_row(throw_column, "Supprimer")
+	delete_row.name = "DeleteRow"
 	# Survie : ligne des mains, puis ligne des poches ; à droite (0.0.7.7), l'équipement à venir.
 	survival_area = HBoxContainer.new()
 	survival_area.add_theme_constant_override("separation", 24)
@@ -648,6 +669,7 @@ func _survival_row(picture: Texture2D, indexes: Array, side: float, slots: Dicti
 	for index in indexes:
 		var slot := Slot.new(side, true, _text_px())
 		slot.clicked.connect(_on_slot.bind(area, index))
+		slot.double_clicked.connect(_on_double.bind(area, index))
 		slot.more_clicked.connect(_toggle_more.bind(slot))
 		row.add_child(slot)
 		slots[index] = slot
@@ -902,7 +924,12 @@ func _slot_click(button: int, area: String, index: int) -> void:
 		return
 	var real: bool = Input.is_mouse_button_pressed(button)
 	if button == MOUSE_BUTTON_RIGHT:
+		# 0.0.8.37 (demande de l'utilisateur) : la main vide, clic droit sur une pile : on en prend la moitié.
 		if cursor_item.is_empty():
+			if not inventory.item(area, index).is_empty():
+				cursor_item = inventory.take_half(area, index)
+				cursor_from = [area, index]
+				_show_cursor()
 			return
 		_put_one([area, index])
 		if real:
@@ -922,6 +949,19 @@ func _slot_click(button: int, area: String, index: int) -> void:
 		_start_drag(MOUSE_BUTTON_LEFT, [[area, index]])
 		return
 	_put_cursor(area, index)
+
+# 0.0.8.37 (demande de l'utilisateur) : double clic : l'objet pris au premier clic revient dans sa case, puis les objets
+# pareils de l'inventaire s'y rassemblent (jusqu'à 99).
+func _on_double(area: String, index: int) -> void:
+	if not inventory.usable(area, index):
+		return
+	if not cursor_item.is_empty() and not cursor_catalog and (inventory.item(area, index).is_empty() or Inventory.same_kind(inventory.item(area, index), cursor_item)):
+		_put_cursor(area, index)
+	if not cursor_item.is_empty():
+		return
+	var came: int = inventory.gather(area, index)
+	if came > 0:
+		_say("%d %s rassemblés ici." % [came, Inventory.item_name(inventory.item(area, index)).to_lower()])
 
 # Pose l'objet tenu dans une case (s'empile, sinon échange), comme avant 0.0.7.31.
 func _put_cursor(area: String, index: int) -> void:
@@ -1189,16 +1229,16 @@ func _fit_scroll() -> void:
 	creative_scroll.custom_minimum_size = Vector2(body.x + 18.0, minf(body.y, limit))
 
 # Ligne « Jeter » : la zone à droite, sous la barre.
-func _throw_row(parent: Node) -> HBoxContainer:
+func _throw_row(parent: Node, text: String = "Jeter") -> HBoxContainer:
 	var row := HBoxContainer.new()
 	row.name = "ThrowRow"
 	parent.add_child(row)
 	var push := Control.new()
 	push.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	row.add_child(push)
-	var zone := ThrowZone.new(roundf(PANEL_SLOT * minf(text_scale, 1.2)), roundi(14 * text_scale))
-	zone.name = "Throw"
-	zone.clicked.connect(throw_cursor)
+	var zone := ThrowZone.new(roundf(PANEL_SLOT * minf(text_scale, 1.2)), roundi(14 * text_scale), text)
+	zone.name = "Throw" if text == "Jeter" else "Delete"
+	zone.clicked.connect(throw_cursor if text == "Jeter" else delete_cursor)
 	row.add_child(zone)
 	return row
 
@@ -1212,6 +1252,20 @@ func throw_cursor() -> void:
 	cursor_item = {}
 	cursor_from = []
 	_discard(thrown)
+	_show_cursor()
+
+# 0.0.8.37 : zone « Supprimer » (Créatif) : l'objet tenu disparaît.
+func delete_cursor() -> void:
+	if inventory.mode != Inventory.CREATIVE:
+		return
+	if cursor_item.is_empty():
+		_say("Prenez d'abord un objet, puis cliquez sur Supprimer.")
+		return
+	var gone := cursor_item
+	cursor_item = {}
+	cursor_from = []
+	cursor_catalog = false
+	_discard(gone, true)
 	_show_cursor()
 
 # Au sol devant soi, ou supprimé (delete : Créatif, D + E).

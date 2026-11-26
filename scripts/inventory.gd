@@ -191,16 +191,20 @@ const CATEGORIES := [
 	{"id": "fruits", "nom": "Fruits", "objets": ["pomme", "noisette"]},
 	# 0.0.8.5 : têtes de hache et de pioche taillées (silex, grandes).
 	# 0.0.8.26 (demande de l'utilisateur) : les éclats tranchants aussi.
-	{"id": "tools", "nom": "Outils", "objets": ["tete_hache", "tete_pioche", "hache_pierre", "pioche_pierre", "eclat_silex", "eclat_pierre"]},
+	# 0.0.8.37 (demande de l'utilisateur) : la navette aussi.
+	{"id": "tools", "nom": "Outils", "objets": ["tete_hache", "tete_pioche", "hache_pierre", "pioche_pierre", "eclat_silex", "eclat_pierre", "navette"]},
 	# 0.0.7.18 (demande de l'utilisateur) : pour chaque espèce, un tronc (20 cm × 1 m) et une branche (4 cm × 1 m),
 	# séparés ; « objet:essence » (catalog_item).
 	{"id": "wood", "nom": "Bois", "objets": ["tronc:0", "branche:0", "tronc:1", "branche:1", "tronc:2", "branche:2", "tronc:3", "branche:3"]},
 	# 0.0.8.4 : fibres et liane (onglet Plantes, après Bois).
 	# 0.0.8.15 (#239) : plantes entières et motte de gazon, à planter ou poser.
 	# 0.0.8.26 (demande de l'utilisateur) : ficelles et cordelettes aussi.
-	{"id": "plants", "nom": "Plantes", "objets": ["plante_ortie", "plante_lin", "plante_herbe", "gazon", "fibre_ortie", "fibre_lin", "fibre_herbe", "liane", "ficelle_ortie", "ficelle_lin", "ficelle_herbe", "cordelette_ortie", "cordelette_lin", "cordelette_herbe"]},
+	# 0.0.8.37 (demande de l'utilisateur) : ficelles et cordelettes dans « Objets transformés ».
+	{"id": "plants", "nom": "Plantes", "objets": ["plante_ortie", "plante_lin", "plante_herbe", "gazon", "fibre_ortie", "fibre_lin", "fibre_herbe", "liane"]},
+	{"id": "made", "nom": "Objets transformés", "objets": ["ficelle_ortie", "ficelle_lin", "ficelle_herbe", "cordelette_ortie", "cordelette_lin", "cordelette_herbe"]},
 	# 0.0.8.26 (demande de l'utilisateur) : équipement : le sac en filet, la navette.
-	{"id": "equipment", "nom": "Équipement", "objets": ["sac_filet", "navette"]},
+	# 0.0.8.37 (demandes de l'utilisateur) : l'orbe de retour ; la navette passe dans Outils.
+	{"id": "equipment", "nom": "Équipement", "objets": ["sac_filet", "orbe_retour"]},
 ]
 # Pour l'instant une seule version par objet : cailloux de taille 4, pomme rouge de taille 2.
 const CATALOG_MODELS := {"eclat_silex": {"poids": 40.0}, "eclat_pierre": {"poids": 40.0}, "sac_filet": {"lien": 1, "rangees": 10, "bretelle": 0, "poids": 90.0}, "navette": {"essence": 1, "age": 3, "souplesse": 3, "epaisseur": 1.8, "fin": 1.5, "longueur": 0.3, "poids": 60.0}, "caillou": {"taille": 4}, "caillou_calcaire": {"taille": 4}, "caillou_silex": {"taille": 4}, "pomme": {"taille": 2, "couleur": 1}, "tete_hache": {"pierre": 1, "taille": 5, "poids": 420.0}, "tete_pioche": {"pierre": 1, "taille": 5, "poids": 420.0}, "hache_pierre": {"pierre": 1, "taille": 5, "essence": 1, "age": 3, "souplesse": 3, "epaisseur": 3.5, "longueur": 0.6, "lien": 1, "tours": 8, "poids": 700.0}, "pioche_pierre": {"pierre": 1, "taille": 5, "essence": 1, "age": 3, "souplesse": 3, "epaisseur": 3.5, "longueur": 0.6, "lien": 1, "tours": 8, "poids": 700.0}}
@@ -336,6 +340,10 @@ static func unlimited(value: Dictionary) -> bool:
 const CREATIVE_STACK := 99
 static var current_mode := CREATIVE
 
+# 0.0.8.37 (demande de l'utilisateur) : en Créatif, un sac se pose un par un, comme un outil (pas de pile de 99).
+static func one_at_a_time(id: String) -> bool:
+	return is_tool(id) or ITEMS.get(id, {}).get("forme", "") == "sac"
+
 static func is_tool(id: String) -> bool:
 	var spec: Dictionary = ITEMS.get(id, {})
 	return spec.has("outil") or spec.get("forme", "") in ["outil_brut", "outil_pierre"]
@@ -344,7 +352,7 @@ static func is_tool(id: String) -> bool:
 static func real_stack(value: Dictionary) -> Dictionary:
 	if not unlimited(value):
 		return value.duplicate(true)
-	var amount := 1 if is_tool(value.get("objet", "")) else CREATIVE_STACK
+	var amount := 1 if one_at_a_time(value.get("objet", "")) else CREATIVE_STACK
 	if is_object(value):
 		var pile := []
 		for unit in range(amount):
@@ -385,7 +393,7 @@ static func shown_count(value: Dictionary) -> int:
 	if value.is_empty():
 		return 0
 	if unlimited(value):
-		return 1 if is_tool(value.get("objet", "")) else CREATIVE_STACK
+		return 1 if one_at_a_time(value.get("objet", "")) else CREATIVE_STACK
 	return count(value)
 
 static func stack_weight(value: Dictionary) -> float:
@@ -810,6 +818,51 @@ func put(area: String, index: int, value: Dictionary) -> Dictionary:
 	_store()[area][index] = value.duplicate(true)
 	changed.emit()
 	return there
+
+# 0.0.8.37 (demande de l'utilisateur) : clic droit sur une case, la main vide : on prend la moitié de la pile (la plus
+# grosse moitié : 91 → 46 pris, 45 restent) ; un seul objet : on le prend. Créatif et Survie.
+func take_half(area: String, index: int) -> Dictionary:
+	if not usable(area, index):
+		return {}
+	var there := item(area, index)
+	if there.is_empty() or unlimited(there) or count(there) <= 1:
+		return take(area, index)
+	var total := count(there)
+	var parts := _split(there, total / 2)
+	_store()[area][index] = parts[0]
+	changed.emit()
+	return parts[1]
+
+# 0.0.8.37 (demande de l'utilisateur) : double clic sur une case : les objets pareils des autres cases (celles qu'on
+# porte en Survie ; barre et grille en Créatif) viennent dans celle-ci, jusqu'à GATHER_MAX (et ce que la case tient en
+# Survie). Rend combien sont venus.
+const GATHER_MAX := 99
+
+func gather(area: String, index: int) -> int:
+	var there := item(area, index)
+	if not usable(area, index) or there.is_empty() or unlimited(there) or one_at_a_time(there.get("objet", "")):
+		return 0
+	var moved := 0
+	for place: Array in _places():
+		if place[0] == area and place[1] == index:
+			continue
+		var other := item(place[0], place[1])
+		if other.is_empty() or unlimited(other) or not same_kind(other, item(area, index)):
+			continue
+		var room_left := GATHER_MAX - count(item(area, index))
+		if room_left <= 0:
+			break
+		var parts: Array = _split(other, mini(room_left, count(other)))
+		var rest: Dictionary = _merge_into(area, index, parts[0])
+		var came := count(parts[0]) - (count(rest) if not rest.is_empty() else 0)
+		if came <= 0:
+			continue
+		moved += came
+		var left: Dictionary = _split(other, came)[1]
+		_store()[place[0]][place[1]] = left if count(left) > 0 else {}
+	if moved > 0:
+		changed.emit()
+	return moved
 
 func take(area: String, index: int) -> Dictionary:
 	return put(area, index, {}) if usable(area, index) else {}

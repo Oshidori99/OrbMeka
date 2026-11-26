@@ -60,7 +60,8 @@ func _run() -> void:
 	var tabs := {}
 	for category in Inventory.CATEGORIES:
 		tabs[category.id] = category.objets
-	check(tabs.equipment == ["sac_filet", "navette"] and tabs.tools.has("eclat_silex") and tabs.plants.has("ficelle_lin") and tabs.plants.has("cordelette_lin"), "creative tabs: Équipement (bag, navette), flakes in Outils, strings in Plantes")
+	# 0.0.8.37 : la navette dans Outils, l'orbe dans Équipement, ficelles et cordelettes dans « Objets transformés ».
+	check(tabs.equipment == ["sac_filet", "orbe_retour"] and tabs.tools.has("eclat_silex") and tabs.tools.has("navette") and tabs.made.has("ficelle_lin") and tabs.made.has("cordelette_lin") and not tabs.plants.has("ficelle_lin"), "creative tabs: Équipement (bag, orb), flakes and shuttle in Outils, strings in Objets transformés")
 	creative_aids.put("bar", 0, Inventory.real_stack(Inventory.catalog_item("terre")))
 	creative_aids.select(0)
 	check(creative_aids.use_held(1) and Inventory.count(creative_aids.item("bar", 0)) == 99, "creative: a real pile of 99, still 99 after use")
