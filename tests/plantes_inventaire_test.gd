@@ -105,10 +105,15 @@ func _run() -> void:
 	world.inventory.put("bar", world.inventory.selected(), {})
 	var front: Vector3 = world.player.global_position + Vector3(0.6, 0.0, 0.0)
 	world.ground.drop({"objet": "caillou", "taille": 2}, front + Vector3.UP * 0.3, front, world._rest_height, 0.0)
-	await process_frame
-	var body: Node3D = world.ground.bodies[-1]
-	world.pick_aimed({"collider": body, "position": body.global_position, "normal": Vector3.UP})
-	check(str(world.inventory.held().get("objet", "")) == "caillou", "middle click (Survie): the pebble in hand")
+	# (le caillou tombe un court instant, puis peut être reposé si le sol vient de changer : sa case retrouvée par son numéro)
+	var pebble_index: int = world.ground.entries.size() - 1
+	for wait in range(20):
+		await process_frame
+		await physics_frame
+	var body: Node3D = world.ground.bodies[pebble_index]
+	world.player.camera.look_at(body.global_position)
+	var picked: bool = world.pick_aimed({"collider": body, "position": body.global_position, "normal": Vector3.UP})
+	check(str(world.inventory.held().get("objet", "")) == "caillou", "middle click (Survie): the pebble in hand (%s, %s)" % [str(picked), world.notice])
 	# Molette, Créatif : dans la case choisie, ce qui y était va dans la grille.
 	app.set_world_game_mode(Catalog.GAME_CREATIVE)
 	await process_frame
