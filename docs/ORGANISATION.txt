@@ -104,6 +104,10 @@ tools/squelettes.gd (0.0.7.21) : calcule d'avance les branches de chaque modèle
 tests/inventory_more_test.gd (0.0.7.29) : mode choisi à la création, Jeter (zone, hors de la fenêtre, J), bouton « + » (variantes, détails), D et Échap.
 tests/lawn_ring_test.gd (0.0.7.28) : herbe et plantes sur toutes les colonnes construites, pas seulement les 9 du milieu.
 tests/sticks_test.gd (0.0.7.26) : branches mortes au sol et rejets de noisetier (génération 33), ramassés, recassés, enregistrés.
+tests/gravite_test.gd (0.0.8.29) : gravité des rochers et des cailloux : bout de rocher en l'air qui tombe (world.gd mine_rock,
+_floating_rock_cubes), cailloux posés sur le sol dessiné (_snap_pebbles), cailloux, rochers et objets qui suivent le sol creusé
+(smooth_terrain.gd floor_at, world.gd _objects_follow, _rock_drop, ground_items.gd rest_again), génération 34 (aucun caillou
+sous un rocher, smooth_terrain.gd _under_rock). Mesures de l'état des lieux : tools/mesure_physique.gd (sans fenêtre).
 tests/perf_guard_test.gd (0.0.7.21) : garde-fou de vitesse (travail de fond dans son budget par image).
 Écran de chargement (0.0.7.23) : app.gd open_world_loading (graine préparée par étapes, world.gd prepare_terrain) ;
 open_world reste d'un coup (tests). Sol simplifié : terrain_surface.gdshader simple_look (qualité Performance).

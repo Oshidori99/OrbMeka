@@ -94,6 +94,8 @@ func setup(terrain_seed: int, flat_spots: Array = [], options: Dictionary = {}, 
 	_plants_on = int(generation_options.get("version", 0)) >= 27
 	# 0.0.7.26 (version 33, #212) : branches mortes au sol et rejets de noisetier.
 	_branches_on = int(generation_options.get("version", 0)) >= 33
+	# 0.0.8.29 (version 34) : aucun caillou placé sous un rocher.
+	_pebbles_clear_of_rocks = int(generation_options.get("version", 0)) >= 34
 	# 0.0.6.21 (version 29, #177) : trois formes d'arbres ; la troisième des arbres à vrai tronc a un trou.
 	_tree_forms_on = int(generation_options.get("version", 0)) >= 29
 	# Version 25 : crêtes moins marquées sur les montagnes (pentes plus régulières, plus faciles à monter).
@@ -258,6 +260,38 @@ func height_at(x: float, z: float) -> float:
 	var fz := z / STEP - cz
 	var low := lerpf(ground_height(Vector2i(cx, cz)), ground_height(Vector2i(cx + 1, cz)), fx)
 	var high := lerpf(ground_height(Vector2i(cx, cz + 1)), ground_height(Vector2i(cx + 1, cz + 1)), fx)
+	return lerpf(low, high, fz)
+
+# 0.0.8.29 (demande de l'utilisateur : rien ne reste en l'air) : hauteur du sol sous ce qui était posé sur le sol de la
+# graine (caillou, rocher, branche morte) : le sol d'origine, ou plus bas si on a creusé dessous (premier point plein en
+# descendant, surface entre lui et le vide comme le terrain dessiné). Jamais plus haut que le sol d'origine : de la
+# matière posée par-dessus l'enterre, elle ne le soulève pas. Sans changement dans la colonne : aucun calcul.
+func column_floor(column: Vector2i) -> float:
+	var natural := ground_height(column)
+	if not columns.has(column):
+		return natural
+	var top := floori(natural / STEP)
+	if density(Vector3i(column.x, top, column.y)) > 0.0:
+		return natural
+	for step in range(1, 80):
+		var cell := Vector3i(column.x, top - step, column.y)
+		var inside := density(cell)
+		if inside > 0.0 or cell.y <= mother_rock_top:
+			var above := density(cell + Vector3i.UP)
+			var share := clampf(inside / (inside - above), 0.0, 1.0) if inside > 0.0 and above < inside else 1.0
+			return minf(natural, (cell.y + share) * STEP)
+	return natural - 40.0
+
+# Comme height_at, sur le sol creusé (column_floor) ; le même nombre tant que rien n'est changé autour.
+func floor_at(x: float, z: float) -> float:
+	var cx := floori(x / STEP)
+	var cz := floori(z / STEP)
+	if not (columns.has(Vector2i(cx, cz)) or columns.has(Vector2i(cx + 1, cz)) or columns.has(Vector2i(cx, cz + 1)) or columns.has(Vector2i(cx + 1, cz + 1))):
+		return height_at(x, z)
+	var fx := x / STEP - cx
+	var fz := z / STEP - cz
+	var low := lerpf(column_floor(Vector2i(cx, cz)), column_floor(Vector2i(cx + 1, cz)), fx)
+	var high := lerpf(column_floor(Vector2i(cx, cz + 1)), column_floor(Vector2i(cx + 1, cz + 1)), fx)
 	return lerpf(low, high, fz)
 
 # Sol de la graine : plein sous la hauteur du sol, air au-dessus (densité en mètres, bornée à ±1).
@@ -1608,7 +1642,39 @@ func pebbles_in_zone(area: Vector2i) -> Array:
 			if near_spot:
 				continue
 			result.append({"id": "k%d_%d_%d" % [area.x, area.y, index], "x": at.x, "z": at.y, "taille": size, "forme": shape, "rotation": turn, "calcaire": true})
+	# 0.0.8.29 (version 34, mesuré : 2 % des cailloux étaient placés là où il y a un rocher, les deux tiers entièrement
+	# dedans) : aucun caillou sous un rocher de la graine.
+	if _pebbles_clear_of_rocks:
+		result = result.filter(func(pebble: Dictionary): return not _under_rock(Vector2(pebble.x, pebble.z), PEBBLE_DIAMETERS[int(pebble.taille) - 1] * 0.5))
 	return result
+
+# Diamètres des rochers et des cailloux (m), comme rocks.gd (SIZES, PEBBLE_SIZES), et demi-axes au sol de chaque forme.
+const ROCK_DIAMETERS := [0.6, 0.9, 1.3, 1.9, 2.7, 3.8, 5.4]
+const PEBBLE_DIAMETERS := [0.08, 0.12, 0.17, 0.24, 0.32, 0.45, 0.6]
+const ROCK_FOOTPRINTS := [Vector2(1.0, 1.0), Vector2(1.35, 1.1), Vector2(0.75, 0.8), Vector2(1.0, 0.95), Vector2(1.7, 0.8), Vector2(1.0, 1.0), Vector2(1.1, 1.0)]
+var _pebbles_clear_of_rocks := false
+var _rock_lists: Dictionary = {}
+
+# Vrai si ce point (avec une marge, m) est sous un rocher de la graine : sa zone et les zones voisines assez proches.
+func _under_rock(at: Vector2, margin: float) -> bool:
+	var area := Vector2i(floori(at.x / ZONE_METERS), floori(at.y / ZONE_METERS))
+	var inside := at - Vector2(area) * ZONE_METERS
+	# Le plus gros rocher (5,4 m, forme allongée) déborde de 4,6 m au plus.
+	var reach := 4.7 + margin
+	for dx in range(-1 if inside.x < reach else 0, (1 if inside.x > ZONE_METERS - reach else 0) + 1):
+		for dz in range(-1 if inside.y < reach else 0, (1 if inside.y > ZONE_METERS - reach else 0) + 1):
+			var zone := area + Vector2i(dx, dz)
+			if not _rock_lists.has(zone):
+				if _rock_lists.size() > 600:
+					_rock_lists.clear()
+				_rock_lists[zone] = rocks_in_zone(zone)
+			for rock: Dictionary in _rock_lists[zone]:
+				var half: float = ROCK_DIAMETERS[int(rock.taille) - 1] * 0.5
+				var axes: Vector2 = ROCK_FOOTPRINTS[int(rock.forme) - 1] * half + Vector2(margin, margin)
+				var offset := (at - Vector2(float(rock.x), float(rock.z))).rotated(deg_to_rad(float(rock.get("rotation", 0.0))))
+				if (offset.x / axes.x) * (offset.x / axes.x) + (offset.y / axes.y) * (offset.y / axes.y) < 1.0:
+					return true
+	return false
 
 func rocks_in_zone(area: Vector2i) -> Array:
 	if _noise == null or generation_options.is_empty():

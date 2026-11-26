@@ -1,6 +1,19 @@
-# OrbMeka™ — prototype 0.0.8.28
+# OrbMeka™ — prototype 0.0.8.29
 
 Godot 4.7 / GDScript. Formes et couleurs simples ; assets externes seulement sous licence vérifiée (sons CC0, assets/sounds/CREDITS.txt).
+
+## 0.0.8.29 — Gravité : rochers et cailloux
+Publiée. **Génération 34** (nouveaux mondes seulement ; les mondes existants ne changent pas). Demandes de l'utilisateur : une physique fiable, rien en l'air sans appui. Première étape d'une série (suite : feuilles et bâtons, bois au sol, tailles du bois, arbres abattus, terrain).
+- **Un bout de rocher ne reste plus en l'air** : après chaque coup de pioche, ce qui ne touche plus le sol (même par d'autres morceaux) tombe en cailloux (1 à 6, selon sa grosseur). Mesuré avant : 21 rochers sur 21 finissaient avec un bout en l'air (jusqu'à 4 359 litres) ; maintenant 0 sur 21, sur 566 coups.
+- **Des cailloux quand on casse un rocher** : chaque coup donne **un petit caillou et un éclat** (avant : deux éclats).
+- **Cailloux posés pile sur le sol** près de toi : mesuré avant, 20 cailloux sur 878 étaient en l'air (jusqu'à 23 cm) et 10 à moitié enterrés ; maintenant 0,1 cm au plus, aucun enterré aux trois quarts (495 mesurés).
+- **Creuser sous un caillou, un rocher ou un objet posé** : il redescend sur le nouveau sol (avant : il restait de 1,4 à 2,8 m en l'air). Un rocher est rigide : il ne descend que si on a creusé sous tout son appui (un trou plus petit que lui : il fait le pont) ; la terre posée sur lui descend avec lui ; descendu, il se taille toujours là où on le frappe.
+- **Plus aucun caillou caché sous un rocher** (génération 34) : 2 % des cailloux y étaient, les deux tiers entièrement dedans.
+- **Léger** : rien n'est calculé à chaque image (seulement là où le terrain vient de changer, ou quand une colonne arrive près de toi) et rien n'est enregistré en plus (la place d'un caillou ou d'un rocher se déduit du terrain creusé). Un coup de pioche sur un rocher : 11,8 ms au lieu de 9,7 (médiane). Images par seconde inchangées sur PC (ouverture 117 contre 110, marche en forêt 220 contre 213, vol 294 contre 291).
+- Pas encore : les arbres couchés et le bois au sol ne suivent pas encore le sol creusé (étapes suivantes).
+
+Tests réussis : gravite (25, nouveau), smooth_terrain, sticks, breaking, rock_place, custom_generation, workers, world_consistency, world_save, web_save, zones, surface_job, fixes_089, tools, inventory, inventory_more, optimisation, perf_guard, plants, trees, tree_fall, bois, feuilles, water, cliff_fall, game_mode, prototype, history_resume (+ tests juridiques).
+À tester : tailler un rocher par-dessous à la pioche (le haut doit tomber en cailloux) ; creuser sous un caillou et sous un petit rocher ; sur le Web (non mesuré : rien n'est ajouté par image).
 
 ## 0.0.8.28 — Les cartes : mini-carte et grande carte (#154)
 Publiée. Génération inchangée (version 33). Issue #154 et demandes de l'utilisateur.

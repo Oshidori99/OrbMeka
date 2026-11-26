@@ -2010,7 +2010,8 @@ func _show_column_sticks(column: Vector2i) -> void:
 			continue
 		var item := dead_branch_item(branch)
 		var spot := Vector3(float(branch.x), 0.0, float(branch.z))
-		ground.add_seeded(item, Vector3(spot.x, _rest_height(spot) + GroundItems.lift(item), spot.z), column)
+		# 0.0.8.29 : sur le sol de la graine, ou plus bas si on a creusé dessous (avant : un rayon lancé de la hauteur 0).
+		ground.add_seeded(item, Vector3(spot.x, terrain.floor_at(spot.x, spot.z) + GroundItems.lift(item), spot.z), column)
 	_build_shoots(column)
 
 func _hide_column_sticks(column: Vector2i) -> void:
@@ -5356,6 +5357,7 @@ func _refresh_terrain(points: Array) -> void:
 			if not zone in shown_columns[column]:
 				shown_columns[column].append(zone)
 			rebuild_terrain_piece(zone)
+	_objects_follow(points)
 	for tile: Vector2i in tiles:
 		if column_shown(tile):
 			_rebuild_lawn_tile(tile)
@@ -5369,6 +5371,7 @@ var fall_refresh_time := 0.0
 var fall_moved: Dictionary = {}
 
 func _settle_terrain(delta: float) -> void:
+	_settle_objects()
 	if terrain.unstable.is_empty():
 		fall_time = 0.0
 		if not fall_moved.is_empty():
@@ -7085,7 +7088,11 @@ func _make_rock(rock: Dictionary, id: String) -> StaticBody3D:
 	var body := Rocks.rock_body(size, shape, _rock_material)
 	var x := float(rock.x)
 	var z := float(rock.z)
-	body.position = Vector3(x, terrain.height_at(x, z) + Rocks.bottom_offset(size, shape), z)
+	# 0.0.8.29 : descendu avec le sol si on a creusé sous tout son appui (_rock_drop).
+	var drop := _rock_drop(x, z, size)
+	body.position = Vector3(x, terrain.height_at(x, z) + Rocks.bottom_offset(size, shape) - drop, z)
+	if drop > 0.0:
+		body.set_meta("drop", drop)
 	body.rotation.y = deg_to_rad(float(rock.get("rotation", 0.0)))
 	body.set_meta("id", id)
 	body.set_meta("hits", 0)
@@ -7437,7 +7444,9 @@ func _show_column_pebbles(column: Vector2i) -> void:
 		# Rapetisse un peu à chaque coup déjà reçu.
 		var shrink: float = 1.0 - 0.2 * pebble_hits.get(pebble.id, 0)
 		var diameter: float = Rocks.PEBBLE_SIZES[size - 1] * shrink
-		var at := Vector3(pebble.x, terrain.height_at(pebble.x, pebble.z) + Rocks.pebble_lift(size, shape) * shrink, pebble.z)
+		# 0.0.8.29 : sur le sol réel si on a creusé dessous (floor_at ; sans changement : le sol de la graine).
+		var lift: float = Rocks.pebble_lift(size, shape) * shrink
+		var at := Vector3(pebble.x, terrain.floor_at(pebble.x, pebble.z) + lift, pebble.z)
 		# Formes 1 à 7 ; aspect de chacun dans la donnée du caillou (0 pierre, 1 calcaire, 2 silex : terrain_surface.gdshader).
 		var group := shape
 		var look := 2.0 if pebble.get("silex", false) else (1.0 if pebble.get("calcaire", false) else 0.0)
@@ -7445,7 +7454,8 @@ func _show_column_pebbles(column: Vector2i) -> void:
 		var placed: PackedFloat32Array = by_shape.get(group, PackedFloat32Array())
 		placed.append_array([basis.x.x, basis.y.x, basis.z.x, at.x, basis.x.y, basis.y.y, basis.z.y, at.y, basis.x.z, basis.y.z, basis.z.z, at.z, 1.0, 1.0, 1.0, 1.0, look, 0.0, 0.0, 0.0])
 		by_shape[group] = placed
-		bodies.append([pebble.id, size, shape, diameter, at, int(look), float(pebble.rotation)])
+		# … puis sa forme, sa place dans le dessin de sa forme (hauteur à corriger, _snap_pebbles) et sa hauteur au-dessus du sol.
+		bodies.append([pebble.id, size, shape, diameter, at, int(look), float(pebble.rotation), group, placed.size() / 20 - 1, lift])
 	pebble_shapes[column] = by_shape
 	pebble_bodies[column] = bodies
 	_pebble_block_changed(column)
@@ -7479,6 +7489,8 @@ func _build_pebble_bodies(column: Vector2i) -> void:
 		_rocks_parent().add_child(body)
 		nodes.append(body)
 	column_pebbles[column] = nodes
+	# 0.0.8.29 : une fois les collisions du terrain prêtes, chaque caillou est posé sur le sol dessiné (_settle_objects).
+	object_settle[column] = Engine.get_physics_frames()
 
 func _hide_column_pebbles(column: Vector2i) -> void:
 	for node in column_pebbles.get(column, []):
@@ -7659,22 +7671,44 @@ func _strike_stone(point: Vector3i, at: Vector3) -> bool:
 var carved_rocks: Dictionary = {}
 
 # pieces_drop : faux en Survie à mains nues (0.0.7.28) : rien à récupérer.
+
+# 0.0.8.29 : repère où le rocher a été taillé : sa place d'origine, avant d'être descendu avec le sol creusé dessous
+# (« drop », m). Les coups de pioche enregistrés (sous-cellules du monde) restent ainsi justes quand il descend.
+func _rock_frame(body: Node3D) -> Transform3D:
+	return body.global_transform.translated(Vector3.UP * float(body.get_meta("drop", 0.0)))
+
+# Petits cailloux (tailles 1 à 7) de l'aspect donné (0 pierre, 1 calcaire, 2 silex). to_hand : en Survie, d'abord dans
+# la main choisie (comme les éclats) ; sinon, et pour ce qui ne tient pas, au sol près de « near ».
+func drop_pebbles(look: int, sizes: Array, from: Vector3, near := Vector3.INF, to_hand := true) -> void:
+	if not is_instance_valid(ground) or not is_instance_valid(player):
+		return
+	var id: String = PEBBLE_ITEMS[clampi(look, 0, 2)]
+	for size in sizes:
+		var instance := {"taille": clampi(int(size), 1, 7), "forme": ground.rng.randi_range(1, 7), "rotation": ground.rng.randf_range(0.0, TAU)}
+		if to_hand and survival() and inventory.add_to_selected({"objet": id, "pile": [instance]}).added > 0:
+			continue
+		var flat := instance.duplicate()
+		flat.objet = id
+		ground.drop(flat, from, _beside_player() if near == Vector3.INF else near, _rest_height, 0.25 if near == Vector3.INF else 0.45)
+
 func mine_rock(body: StaticBody3D, hit: Dictionary = {}, pieces_drop := true) -> bool:
 	var id: String = body.get_meta("id")
+	var frame := _rock_frame(body)
+	var lowered := Vector3.UP * float(body.get_meta("drop", 0.0))
 	if not body.has_meta("grid"):
 		var rock: Vector2i = body.get_meta("rock")
-		body.set_meta("grid", Rocks.shape_grid(rock.x, rock.y, body.global_transform))
+		body.set_meta("grid", Rocks.shape_grid(rock.x, rock.y, frame))
 	var grid: Dictionary = body.get_meta("grid")
 	var aim: Vector3 = hit.get("position", body.global_position)
 	var normal: Vector3 = hit.get("normal", Vector3.UP)
 	var removed: Array = carved_rocks.get(id, [])
 	var rock_size: Vector2i = body.get_meta("rock")
 	var noise := Rocks._noise_for(rock_size.x, rock_size.y)
-	var inverse := body.global_transform.affine_inverse()
+	var inverse := frame.affine_inverse()
 	# La sous-cellule visée, ou la suivante plus au fond si elle est déjà vide ou hors du rocher.
 	var chosen := Vector3i(999999, 0, 0)
 	for depth in [0.15, 0.4, 0.65, 0.9]:
-		var point := SmoothTerrain.point_of(aim - normal * depth)
+		var point := SmoothTerrain.point_of(aim + lowered - normal * depth)
 		if [point.x, point.y, point.z] in removed:
 			continue
 		if Rocks.shape_distance(inverse * (Vector3(point) * SmoothTerrain.STEP), rock_size.x, rock_size.y, noise) < 0.3:
@@ -7685,10 +7719,35 @@ func mine_rock(body: StaticBody3D, hit: Dictionary = {}, pieces_drop := true) ->
 	if chosen.x == 999999:
 		return false
 	removed.append([chosen.x, chosen.y, chosen.z])
+	var look := int(body.get_meta("look", 0))
+	# 0.0.8.29 (signalé par l'utilisateur : un bout de pierre restait en l'air, rien ne le retenait ; mesuré : 21 rochers
+	# sur 21, dès le 1er au 44e coup) : ce qui ne tient plus au sol tombe en cailloux. Retirer ses cubes peut détacher
+	# un autre bout : on recommence jusqu'à ce que tout tienne.
+	var fallen_cells := 0
+	var fallen_from := Vector3.ZERO
+	for turn in range(FLOATING_ROCK_TURNS):
+		var fallen := _floating_rock_cubes(body, removed)
+		if fallen.is_empty():
+			break
+		for cube in fallen:
+			removed.append(cube)
+			fallen_from += Vector3(cube[0], cube[1], cube[2]) * SmoothTerrain.STEP
+		fallen_cells += fallen.size()
 	carved_rocks[id] = removed
 	objects_dirty = true
 	if pieces_drop:
-		drop_pieces("eclat_calcaire" if body.get_meta("look", 0) == 1 else "eclat_pierre", 2, STONE_PIECE_WEIGHT, aim)
+		# 0.0.8.29 (demande de l'utilisateur : « des petits cailloux qui ressortent, pas juste des éclats ») : chaque coup
+		# donne un petit caillou (tailles 1 à 3) et un éclat (avant : deux éclats).
+		drop_pebbles(look, [ground.rng.randi_range(1, 3)] if is_instance_valid(ground) else [], aim)
+		drop_pieces("eclat_calcaire" if look == 1 else "eclat_pierre", 1, STONE_PIECE_WEIGHT, aim)
+		if fallen_cells > 0 and is_instance_valid(ground):
+			# Le bout tombé : 1 à 6 cailloux (tailles 2 à 4) selon sa grosseur, au sol sous lui.
+			var from := fallen_from / fallen_cells - lowered
+			var sizes := []
+			for index in range(clampi(fallen_cells, 1, 6)):
+				sizes.append(ground.rng.randi_range(2, 4))
+			drop_pebbles(look, sizes, from, Vector3(from.x, _rest_height(from), from.z), false)
+			show_choice("Un bout du rocher est tombé")
 	if not _apply_carving(body):
 		carved_rocks.erase(id)
 		mined_rocks[id] = true
@@ -7696,17 +7755,83 @@ func mine_rock(body: StaticBody3D, hit: Dictionary = {}, pieces_drop := true) ->
 		show_choice("Rocher cassé")
 	return true
 
-# Refait la forme et la collision d'un rocher entamé ; faux s'il ne reste rien.
+const FLOATING_ROCK_TURNS := 8
+
+# 0.0.8.29 : morceaux d'un rocher entamé qui ne touchent plus le sol (même par d'autres morceaux) : les cubes de 50 cm
+# (sous-cellules, comme les coups de pioche) où ils sont, à retirer ([x, y, z], pas déjà retirés). Points de la grille du
+# rocher (Rocks.shape_grid) encore dedans, reliés de proche en proche à ceux qui touchent le terrain ; les autres tombent
+# (tous, si plus rien ne touche le sol : le rocher est alors cassé).
+func _floating_rock_cubes(body: StaticBody3D, removed: Array) -> Array:
+	if not body.has_meta("grid"):
+		return []
+	var grid: Dictionary = body.get_meta("grid")
+	var values: PackedFloat32Array = Rocks.carved_values(grid, removed.map(func(entry): return Vector3(entry[0], entry[1], entry[2]) * SmoothTerrain.STEP))
+	var count: int = grid.count
+	var step: float = grid.step
+	var origin: Vector3 = grid.origin
+	var state := PackedByteArray()
+	state.resize(count * count * count)
+	var stack := PackedInt32Array()
+	for x in range(count):
+		for z in range(count):
+			var ground := INF
+			for y in range(count):
+				var index := (x * count + y) * count + z
+				if values[index] >= 0.0:
+					continue
+				state[index] = 1
+				var at := origin + Vector3(x, y, z) * step
+				if is_inf(ground):
+					ground = terrain.height_at(at.x, at.z)
+				if at.y <= ground + step * 1.5:
+					state[index] = 2
+					stack.append(index)
+	while not stack.is_empty():
+		var index: int = stack[stack.size() - 1]
+		stack.resize(stack.size() - 1)
+		var x := index / (count * count)
+		var y := (index / count) % count
+		var z := index % count
+		for offset in [Vector3i(1, 0, 0), Vector3i(-1, 0, 0), Vector3i(0, 1, 0), Vector3i(0, -1, 0), Vector3i(0, 0, 1), Vector3i(0, 0, -1)]:
+			var nx: int = x + offset.x
+			var ny: int = y + offset.y
+			var nz: int = z + offset.z
+			if nx < 0 or ny < 0 or nz < 0 or nx >= count or ny >= count or nz >= count:
+				continue
+			var next := (nx * count + ny) * count + nz
+			if state[next] == 1:
+				state[next] = 2
+				stack.append(next)
+	var taken := {}
+	for entry in removed:
+		taken[Vector3i(int(entry[0]), int(entry[1]), int(entry[2]))] = true
+	var cubes := {}
+	for index in range(state.size()):
+		if state[index] != 1:
+			continue
+		var at := origin + Vector3(index / (count * count), (index / count) % count, index % count) * step
+		var cell := SmoothTerrain.point_of(at)
+		if not taken.has(cell):
+			cubes[cell] = true
+	# Tout tient : ces distances servent telles quelles à refaire la forme (_apply_carving), sans les recalculer.
+	if cubes.is_empty():
+		_carved_ready = {"id": body.get_meta("id"), "cubes": removed.size(), "values": values}
+	return cubes.keys().map(func(cell: Vector3i): return [cell.x, cell.y, cell.z])
+
+var _carved_ready: Dictionary = {}
+
 func _apply_carving(body: StaticBody3D) -> bool:
 	if not body.has_meta("grid"):
 		var rock: Vector2i = body.get_meta("rock")
-		body.set_meta("grid", Rocks.shape_grid(rock.x, rock.y, body.global_transform))
+		body.set_meta("grid", Rocks.shape_grid(rock.x, rock.y, _rock_frame(body)))
 	var centers: Array = carved_rocks.get(body.get_meta("id"), []).map(func(entry): return Vector3(entry[0], entry[1], entry[2]) * SmoothTerrain.STEP)
 	var grid: Dictionary = body.get_meta("grid")
-	var faces := Rocks.carved_faces(grid, Rocks.carved_values(grid, centers))
+	var ready: bool = _carved_ready.get("id", "") == body.get_meta("id") and int(_carved_ready.get("cubes", -1)) == centers.size()
+	var faces := Rocks.carved_faces(grid, _carved_ready.values if ready else Rocks.carved_values(grid, centers))
+	_carved_ready = {}
 	if faces.is_empty():
 		return false
-	var inverse := body.global_transform.affine_inverse()
+	var inverse := _rock_frame(body).affine_inverse()
 	var local := PackedVector3Array()
 	local.resize(faces.size())
 	for index in range(faces.size()):
@@ -7945,3 +8070,176 @@ func _set_hud_visible(on: bool) -> void:
 		hud_layer.visible = on
 	if is_instance_valid(inventory_ui):
 		inventory_ui.visible = on
+
+# --- 0.0.8.29 (demande de l'utilisateur : rien ne reste en l'air sans appui ; mesuré : en creusant dessous, cailloux et
+# rochers restaient de 1,4 à 2,8 m en l'air, rien ne les reposait) : ce qui est posé sur le sol le suit quand il change.
+# Rien n'est calculé à chaque image : seulement là où le terrain vient de changer, ou quand une colonne arrive près du
+# joueur. Rien n'est enregistré en plus pour les cailloux et les rochers : leur hauteur se déduit du terrain creusé.
+
+# Appuis d'un rocher : son centre, puis deux cercles (au quart et à la moitié de son rayon).
+const ROCK_REST_SPOTS := [Vector2(0, 0), Vector2(0.5, 0), Vector2(-0.5, 0), Vector2(0, 0.5), Vector2(0, -0.5), Vector2(1, 0), Vector2(-1, 0), Vector2(0, 1), Vector2(0, -1), Vector2(0.7, 0.7), Vector2(-0.7, 0.7), Vector2(0.7, -0.7), Vector2(-0.7, -0.7)]
+
+# De combien un rocher de la graine descend (m) : rigide, il repose sur l'appui resté le plus haut ; il ne descend que
+# si on a creusé sous tout son appui (un trou plus petit que lui : il fait le pont). 0 tant que rien n'est creusé dessous.
+func _rock_drop(x: float, z: float, size: int) -> float:
+	var reach: float = Rocks.SIZES[clampi(size, 1, Rocks.SIZES.size()) - 1] * 0.25
+	var least := INF
+	for spot: Vector2 in ROCK_REST_SPOTS:
+		var sx := x + spot.x * reach
+		var sz := z + spot.y * reach
+		var sink: float = terrain.height_at(sx, sz) - terrain.floor_at(sx, sz)
+		if sink < 0.02:
+			return 0.0
+		least = minf(least, sink)
+	return least
+
+# Colonnes (8 m) dont les objets posés attendent d'être reposés sur le sol dessiné : numéro de l'image de physique où
+# c'est demandé (les collisions refaites ne se voient qu'une image plus tard).
+var object_settle: Dictionary = {}
+const SETTLE_WAIT_FRAMES := 2
+
+# Le terrain vient de changer en ces points : cailloux replacés (calcul), rochers descendus, objets à reposer.
+func _objects_follow(points: Array) -> void:
+	if points.is_empty():
+		return
+	var low := Vector2(INF, INF)
+	var high := Vector2(-INF, -INF)
+	var columns := {}
+	for point: Vector3i in points:
+		var x := point.x * SmoothTerrain.STEP
+		var z := point.z * SmoothTerrain.STEP
+		low = Vector2(minf(low.x, x), minf(low.y, z))
+		high = Vector2(maxf(high.x, x), maxf(high.y, z))
+		for dx in [-1.0, 1.0]:
+			for dz in [-1.0, 1.0]:
+				columns[Vector2i(floori((x + dx) / SmoothTerrain.ZONE_SIZE), floori((z + dz) / SmoothTerrain.ZONE_SIZE))] = true
+	for column: Vector2i in columns:
+		if not pebble_bodies.get(column, []).is_empty():
+			var near := column_pebbles.has(column)
+			_show_column_pebbles(column)
+			if near:
+				_build_pebble_bodies(column)
+		object_settle[column] = Engine.get_physics_frames()
+	# Rochers dont l'appui touche la zone changée.
+	if is_inside_tree():
+		var area := Rect2(low, high - low).grow(3.5)
+		for rock in get_tree().get_nodes_in_group("rocks"):
+			if is_instance_valid(rock) and not rock.is_queued_for_deletion() and area.has_point(Vector2(rock.global_position.x, rock.global_position.z)):
+				_rock_follows(rock)
+
+func _rock_follows(rock: Node3D) -> void:
+	var size := int(rock.get_meta("rock", Vector2i(1, 1)).x)
+	var old := float(rock.get_meta("drop", 0.0))
+	var drop := _rock_drop(rock.global_position.x, rock.global_position.z, size)
+	# Jamais remonté pendant la partie.
+	if drop < old + 0.02:
+		return
+	rock.set_meta("drop", drop)
+	_shift_rock_supports(rock, drop - old)
+	# Sa place d'arrivée (une chute déjà en cours est reprise de là où elle allait).
+	var target: float = float(rock.get_meta("fall_to", rock.global_position.y)) - (drop - old)
+	var running: Variant = rock.get_meta("fall", null)
+	if running is Tween and running.is_valid():
+		running.kill()
+	rock.set_meta("fall_to", target)
+	var fall := create_tween()
+	fall.tween_property(rock, "global_position:y", target, clampf(sqrt(2.0 * (drop - old) / 9.8), 0.08, 0.6)).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
+	fall.tween_callback(func() -> void:
+		if is_instance_valid(rock):
+			_impact_sound(rock.global_position))
+	rock.set_meta("fall", fall)
+
+# La matière posée sur un rocher (appuis, 0.0.7.9) descend avec lui : ses appuis baissent d'autant de points de 50 cm,
+# et ce qui est au-dessus retombe dessus.
+func _shift_rock_supports(rock: Node3D, lower: float) -> void:
+	var steps := roundi(lower / SmoothTerrain.STEP)
+	if steps <= 0 or terrain.supports.is_empty():
+		return
+	var size := int(rock.get_meta("rock", Vector2i(1, 1)).x)
+	var reach: float = Rocks.SIZES[clampi(size, 1, Rocks.SIZES.size()) - 1] * 0.9 + 0.5
+	var center: Vector3 = rock.global_position
+	var moved := []
+	for point: Vector3i in terrain.supports.keys():
+		var at := Vector3(point) * SmoothTerrain.STEP
+		if Vector2(at.x - center.x, at.z - center.z).length() <= reach and absf(at.y - center.y) <= reach + 1.0:
+			moved.append(point)
+	for point: Vector3i in moved:
+		terrain.supports.erase(point)
+	for point: Vector3i in moved:
+		terrain.supports[point + Vector3i.DOWN * steps] = true
+		terrain.wake(point + Vector3i.UP)
+	if not moved.is_empty():
+		objects_dirty = true
+
+# Chaque image (appelé avec la chute du terrain) : les colonnes en attente dont les collisions sont prêtes.
+func _settle_objects() -> void:
+	if object_settle.is_empty():
+		return
+	var frame := Engine.get_physics_frames()
+	for column: Vector2i in object_settle.keys():
+		if frame < int(object_settle[column]) + SETTLE_WAIT_FRAMES:
+			continue
+		object_settle.erase(column)
+		_snap_pebbles(column)
+		_rest_items_again(column)
+
+# Sol dessiné (collision du terrain seulement) sous un point, entre « above » au-dessus et « below » au-dessous d'une
+# hauteur attendue ; NAN sans mesure.
+func _drawn_ground(x: float, z: float, expected: float, above := 0.6, below := 0.6) -> float:
+	var space := get_world_3d().direct_space_state
+	var query := PhysicsRayQueryParameters3D.create(Vector3(x, expected + above, z), Vector3(x, expected - below, z), 1)
+	var skip := []
+	if is_instance_valid(player):
+		skip.append(player.get_rid())
+	for attempt in range(4):
+		query.exclude = skip
+		var hit := space.intersect_ray(query)
+		if hit.is_empty():
+			return NAN
+		if is_instance_valid(hit.collider) and hit.collider.is_in_group("ground"):
+			return hit.position.y
+		skip.append(hit.rid)
+	return NAN
+
+# Cailloux d'une colonne proche : chacun posé sur le sol dessiné (mesuré : 20 cailloux sur 878 étaient à plus de 1 cm
+# en l'air, jusqu'à 23 cm, et 10 à moitié enterrés : le sol dessiné n'est pas exactement celui du calcul sur les reliefs
+# vifs). Seulement près du joueur (là où il y a des collisions) ; au loin, quelques centimètres ne se voient pas.
+func _snap_pebbles(column: Vector2i) -> void:
+	if not is_inside_tree() or not column_pebbles.has(column) or not pebble_bodies.has(column):
+		return
+	var specs: Array = pebble_bodies[column]
+	var nodes: Array = column_pebbles[column]
+	var shapes: Dictionary = pebble_shapes.get(column, {})
+	var changed := false
+	for index in range(mini(specs.size(), nodes.size())):
+		var spec: Array = specs[index]
+		if spec.size() < 10:
+			continue
+		var at: Vector3 = spec[4]
+		var lift := float(spec[9])
+		var ground_y := _drawn_ground(at.x, at.z, at.y - lift)
+		if is_nan(ground_y) or absf(ground_y + lift - at.y) < 0.004:
+			continue
+		at.y = ground_y + lift
+		spec[4] = at
+		if is_instance_valid(nodes[index]):
+			nodes[index].position = at
+		var placed: PackedFloat32Array = shapes.get(int(spec[7]), PackedFloat32Array())
+		var slot := int(spec[8]) * 20 + 7
+		if slot < placed.size():
+			placed[slot] = at.y
+			shapes[int(spec[7])] = placed
+		changed = true
+	if changed:
+		_pebble_block_changed(column)
+
+# Objets au sol d'une colonne proche : reposés sur le sol (terrain, rochers) s'il a bougé de plus de 2 cm sous eux.
+func _rest_items_again(column: Vector2i) -> void:
+	if not is_instance_valid(ground) or not is_inside_tree() or not _near_collision(Vector3i(column.x, 0, column.y)):
+		return
+	for index in range(ground.entries.size()):
+		var entry: Dictionary = ground.entries[index]
+		var at: Vector3 = entry.position
+		if entry.has("hidden") or floori(at.x / SmoothTerrain.ZONE_SIZE) != column.x or floori(at.z / SmoothTerrain.ZONE_SIZE) != column.y:
+			continue
+		ground.rest_again(index, _rest_height(at))

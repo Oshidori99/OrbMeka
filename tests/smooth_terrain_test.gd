@@ -457,14 +457,15 @@ func _run() -> void:
 	while not rock_done and rock_held < 15.0:
 		rock_done = rock_world.step_dig(0.1, true, rock_hit)
 		rock_held += 0.1
-	check(rock_done and (rock_seconds == 10.0 or rock_seconds == 7.5) and rock_held >= rock_seconds - 0.05 and rock_world.carved_rocks.get(rock_id, []).size() == 1 and rock_world.ground.entries.size() == rock_items, "survival by hand: a rock sub-cell after %.1f s held (its stone), nothing to pick up" % rock_held)
+	check(rock_done and (rock_seconds == 10.0 or rock_seconds == 7.5) and rock_held >= rock_seconds - 0.05 and rock_world.carved_rocks.get(rock_id, []).size() >= 1 and rock_world.ground.entries.size() == rock_items, "survival by hand: a rock sub-cell after %.1f s held (its stone), nothing to pick up" % rock_held)
 	rock_world.carved_rocks.erase(rock_id)
 	rock_world._apply_carving(mined_target)
 	rock_world.game_mode = "creative"
 	rock_world.player.selected_type = rock_world.PICKAXE
 	var faces_before: int = mined_target.get_child(0).mesh.get_faces().size()
 	rock_world.break_target(rock_hit)
-	check(rock_world.carved_rocks.get(rock_id, []).size() == 1 and is_instance_valid(mined_target) and not mined_target.is_queued_for_deletion() and mined_target.get_child(0).mesh.get_faces().size() != faces_before, "one pickaxe hit removes one 50 cm sub-cell of a rock; its shape changes")
+	# 0.0.8.29 : sur ce tout petit rocher, le fragment qui ne tient plus tombe aussi (une sous-cellule de plus).
+	check(rock_world.carved_rocks.get(rock_id, []).size() >= 1 and rock_world.carved_rocks.get(rock_id, [])[0] is Array and is_instance_valid(mined_target) and not mined_target.is_queued_for_deletion() and mined_target.get_child(0).mesh.get_faces().size() != faces_before, "one pickaxe hit removes one 50 cm sub-cell of a rock; its shape changes")
 	# Frapper chaque sous-cellule du rocher : il finit vidé, puis disparaît.
 	var rock_center: Vector3 = mined_target.global_position
 	var low := SmoothTerrain.point_of(rock_center - Vector3.ONE * 2.0)

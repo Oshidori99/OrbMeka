@@ -167,6 +167,26 @@ func add_seeded(value: Dictionary, position: Vector3, column: Vector2i) -> void:
 	_add_body(entries.size() - 1)
 	_dirty = true
 
+# 0.0.8.29 : le sol a changé sous cet objet (creusé, retombé, posé) : il est reposé dessus. Vrai s'il a bougé.
+func rest_again(index: int, ground_y: float) -> bool:
+	if index < 0 or index >= entries.size() or index >= bodies.size():
+		return false
+	var entry: Dictionary = entries[index]
+	var height := ground_y + lift(entry.item)
+	if absf(float(entry.position.y) - height) < 0.02:
+		return false
+	entry.position = Vector3(entry.position.x, height, entry.position.z)
+	entry.erase("normal")
+	var old: Node = bodies[index]
+	_add_body(index)
+	bodies[index] = bodies.pop_back()
+	if is_instance_valid(old):
+		old.free()
+	_dirty = true
+	if not entry.item.has("graine"):
+		changed.emit()
+	return true
+
 func remove_column_seeds(column: Vector2i) -> void:
 	for index in range(entries.size() - 1, -1, -1):
 		if entries[index].get("colonne") == column and entries[index].item.has("graine"):
