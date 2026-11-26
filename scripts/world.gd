@@ -2392,9 +2392,10 @@ func ground_wood_hint(hit: Dictionary) -> String:
 	var thickness := lerpf(thick, float(item.get("fin", thick)), share) / 100.0
 	if share * length < MIN_WOOD_PIECE or (1.0 - share) * length < MIN_WOOD_PIECE:
 		return "%s : trop près du bout pour casser là" % Inventory.item_name(item)
-	if game_mode == Inventory.SURVIVAL and thickness > MAX_HAND_THICKNESS + 0.001:
-		return "%s : trop épais à mains nues (%d cm)" % [Inventory.item_name(item), roundi(thickness * 100.0)]
-	var seconds := CHOP_SECONDS_CREATIVE if game_mode == Inventory.CREATIVE else ground_wood_seconds(item, thickness)
+	# 0.0.8.46 : avec une hache, l'indication suit la hache (avant : toujours « trop épais à mains nues » au-delà de 40 cm, durée sans la hache).
+	if game_mode == Inventory.SURVIVAL and thickness > max_chop_thickness() + 0.001:
+		return "%s : trop épais (%d cm, %d cm au plus)" % [Inventory.item_name(item), roundi(thickness * 100.0), roundi(max_chop_thickness() * 100.0)]
+	var seconds := CHOP_SECONDS_CREATIVE if game_mode == Inventory.CREATIVE else ground_wood_seconds(item, thickness) / tool_speed("bois")
 	return "Casser ici : %d cm et %d cm (%s s)" % [roundi(share * length * 100.0), roundi((1.0 - share) * length * 100.0), String.num(snappedf(seconds, 0.1)).replace(".", ",")]
 
 # Coupe un bois au sol en deux au point visé : chaque moitié garde sa vraie longueur, ses épaisseurs (gros bout, petit

@@ -3,6 +3,10 @@ Du plus récent au plus ancien. Ce fichier est mis à jour à chaque version.
 
 === Thème « Fabrication et survie » (0.0.8) ===
 
+0.0.8.46 — Correction : bois au sol visé avec une hache en main, l'indication tient compte de la hache (épaisseur permise jusqu'à 1 m, durée 3 fois plus courte) ; la hache garde sa limite de 1 m
+Génération du terrain : version 34 · Menus : version 17.
+Choix de l'utilisateur : la hache garde sa limite de 1 m.
+
 0.0.8.45 — Petites corrections : un clic droit avec du bois ou du charbon nourrit le feu, un clic droit sur un sac posé l'ouvre, torches en minutes réelles (10 et 5 min), carnet : nourrir le feu expliqué et la suite du feu empilée vers le haut, coordonnées et dossiers sécurisés activés par défaut
 Génération du terrain : version 34 · Menus : version 17.
 Demandes de l'utilisateur.
