@@ -1,6 +1,17 @@
-# OrbMeka™ — prototype 0.0.8.31
+# OrbMeka™ — prototype 0.0.8.32
 
 Godot 4.7 / GDScript. Formes et couleurs simples ; assets externes seulement sous licence vérifiée (sons CC0, assets/sounds/CREDITS.txt).
+
+## 0.0.8.32 — Vraies épaisseurs du bois
+Publiée. Génération inchangée (version 34). Demande de l'utilisateur : bûches et bâtons à la vraie longueur et aux vraies épaisseurs de leur pièce sur l'arbre.
+- **Mesuré** sur 1 142 pièces (4 espèces × 5 tailles) : les **longueurs** étaient déjà justes (0,0 % d'écart médian ; l'alerte sur les pins venait de leurs rameaux de côté, pas de la tige) ; les **troncs** aussi (1 %) ; mais les **branches étaient 17 % trop fines** en moyenne (11 à 28 %).
+- **Cause** : l'épaisseur d'une pièce était la largeur la plus petite de sa tranche ; pour une branche à 4 ou 5 côtés, c'est d'un côté à l'autre, bien moins que ce qu'on voit. **Maintenant** : le tour de la tranche divisé par pi (le diamètre rond qui lui ressemble, un bâton étant dessiné rond), en ne gardant que la boucle qui entoure l'axe (les rameaux de côté ne comptent pas), sans dépasser 1,3 fois la largeur la plus petite (branche courbée).
+- **Résultat** : écart moyen de −13 % à **+1,5 %** (petites branches : de −17 % à +1 %).
+- Conséquences voulues : un bâton pèse un peu plus et se coupe un peu moins vite (durée selon l'épaisseur) ; quelques « branches » de 3,5 à 4 cm deviennent des « bûches fines ».
+- Léger : la mesure de toutes les épaisseurs d'un arbre, la première fois, prend 63 ms (médiane) au lieu de 66 (les triangles qui ne touchent pas la tranche sont écartés d'emblée).
+
+Tests réussis : bois (30, dont 4 nouveaux), tree_fall, tree_stress, trees, feuilles, sticks, tools, crafting, health, death, gravite, action_timing, breaking, forests, optimisation, perf_guard, prototype, history_resume (+ tests juridiques).
+À tester : couper une branche de pommier ou de noisetier et comparer le bâton au sol à la branche sur l'arbre.
 
 ## 0.0.8.31 — Bois au sol bien posé, recoupe qui ne bouge plus
 Publiée. Génération inchangée (version 34). Demandes de l'utilisateur : le bois posé jamais dans le sol ni en l'air, et « recouper une branche couchée ne change que le bout coupé ».

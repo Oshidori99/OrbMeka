@@ -769,6 +769,8 @@ func part_branches() -> void:
 
 var wood_rows := []
 var hit_ms := []
+var debug_left := 0
+var profile_ms := []
 var flood_ms := []
 
 func _measure_wood(from: int, site: String, name: String) -> void:
@@ -835,7 +837,9 @@ func part_sizes() -> void:
 						if not tris.has(owner):
 							tris[owner] = PackedVector3Array()
 						tris[owner].append(points[indices[triangle * 3 + corner]])
+			var profile_at := Time.get_ticks_usec()
 			var items: Array = w._part_wood_items(tree, 0)
+			profile_ms.append((Time.get_ticks_usec() - profile_at) / 1000.0)
 			for each in items:
 				var wood: Dictionary = each[0]
 				var number: int = each[2]
@@ -876,11 +880,23 @@ func part_sizes() -> void:
 					if absf(error) > absf(worst):
 						worst = error
 						worst_cm = drawn_cm - true_cm
+				if (drawn_length - true_length) / maxf(true_length, 0.001) < -0.05 and debug_left > 0:
+					debug_left -= 1
+					var beyond := []
+					for extra in [0.02, 0.1, 0.2, 0.3, 0.45, 0.6]:
+						beyond.append(snappedf(loop_diameter(corners, (piece.start as Vector3) + direction * (float(piece.length) + extra), direction, side, other) * 100.0, 0.1))
+					var far := Vector3.ZERO
+					for p: Vector3 in by_piece[number].values():
+						if (p - (piece.start as Vector3)).dot(direction) > (far - (piece.start as Vector3)).dot(direction):
+							far = p
+					var off := (far - (piece.start as Vector3)) - direction * (far - (piece.start as Vector3)).dot(direction)
+					out("  pin long : pièce %d taille %d, longueur comptée %.2f m, bois jusqu'à %.2f m ; diamètre de la boucle au-delà du bout (cm, à +2, 10, 20, 30, 45, 60 cm) %s ; le point le plus loin est à %.0f cm de l'axe ; profondeur %d" % [number, size, float(piece.length), t_high, str(beyond), off.length() * 100.0, int(piece.get("depth", 0))])
 				if bands == 0:
 					continue
 				rows.append({"kind": kind, "size": size, "number": number, "objet": wood.objet, "length_error": (drawn_length - true_length) / maxf(true_length, 0.001) * 100.0, "length_cm": (drawn_length - true_length) * 100.0, "true_length": true_length, "worst": worst * 100.0, "worst_cm": worst_cm, "mean": _mean(signed), "thick": float(wood.epaisseur), "root": piece.root, "depth": int(piece.get("depth", 0))})
 			clear_tree(id)
 	out("pièces comparées : %d (4 espèces × 5 tailles, forme 0)" % rows.size())
+	out("mesure de toutes les épaisseurs d'un arbre, la première fois (ms) : " + stats(profile_ms))
 	out("longueur dessinée − vraie (%%) : " + stats(rows.map(func(r): return r.length_error)))
 	out("longueur dessinée − vraie (cm) : " + stats(rows.map(func(r): return r.length_cm)))
 	out("longueur fausse de plus de 5 %% : %d ; de plus de 15 %% : %d" % [rows.filter(func(r): return absf(r.length_error) > 5.0).size(), rows.filter(func(r): return absf(r.length_error) > 15.0).size()])

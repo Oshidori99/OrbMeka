@@ -305,7 +305,7 @@ static func _segment_distance(piece: Dictionary, point: Vector3) -> float:
 	return point.distance_to(piece.start + piece.direction * along(piece, point))
 
 # 0.0.7.13 (l'utilisateur : « des petits arbres cotés comme des gros ») : vrai diamètre d'une pièce à t mètres de son
-# départ (repère du modèle) : tranche de SES triangles par le plan perpendiculaire à son axe, puis la largeur la plus
+# départ (repère du modèle) : tranche de SES triangles par le plan perpendiculaire à son axe, puis (jusqu'à 0.0.8.31) la largeur la plus
 # petite sur 18 directions (une tranche un peu oblique d'une branche courbée reste juste). Le profil (thickness) mesurait
 # la distance moyenne à l'axe : presque le double sur une branche courbée.
 static func true_thickness(piece: Dictionary, t: float) -> float:
@@ -314,18 +314,81 @@ static func true_thickness(piece: Dictionary, t: float) -> float:
 	var center: Vector3 = piece.start + axis * clampf(t, 0.0, piece.length)
 	var side: Vector3 = axis.cross(Vector3.UP if absf(axis.y) < 0.9 else Vector3.RIGHT).normalized()
 	var other: Vector3 = axis.cross(side).normalized()
-	var flat := PackedVector2Array()
+	# 0.0.8.32 (demande de l'utilisateur : bûches et bâtons aux vraies épaisseurs ; mesuré sur 1 142 pièces : le bois
+	# au sol était 17 % plus fin que la branche en moyenne, 11 à 28 %) : la largeur la plus petite d'une branche à 4 ou
+	# 5 côtés est celle d'un côté à l'autre, bien moins que ce qu'on voit en tournant autour. Le diamètre rond qui lui
+	# ressemble (un bâton est dessiné rond) est son tour divisé par pi. La tranche est donc gardée en segments (deux
+	# points par triangle traversé), reliés en boucles ; on garde la boucle qui entoure l'axe (pas les rameaux de côté) ;
+	# son tour / pi, sans dépasser 1,3 fois sa largeur la plus petite (une tranche oblique d'une branche courbée s'allonge
+	# dans un sens seulement).
+	var ends := PackedVector2Array()
 	for at in range(0, corners.size() - 2, 3):
-		for edge in [[0, 1], [1, 2], [2, 0]]:
-			var a: Vector3 = corners[at + edge[0]]
-			var b: Vector3 = corners[at + edge[1]]
-			var da := (a - center).dot(axis)
-			var db := (b - center).dot(axis)
-			if da * db < 0.0:
-				var point := a.lerp(b, da / (da - db)) - center
-				flat.append(Vector2(point.dot(side), point.dot(other)))
-	if flat.size() < 3:
+		var a: Vector3 = corners[at]
+		var b: Vector3 = corners[at + 1]
+		var c: Vector3 = corners[at + 2]
+		var da := (a - center).dot(axis)
+		var db := (b - center).dot(axis)
+		var dc := (c - center).dot(axis)
+		if (da < 0.0) == (db < 0.0) and (db < 0.0) == (dc < 0.0):
+			continue
+		var found := 0
+		if da * db < 0.0:
+			var point := a.lerp(b, da / (da - db)) - center
+			ends.append(Vector2(point.dot(side), point.dot(other)))
+			found += 1
+		if db * dc < 0.0:
+			var point := b.lerp(c, db / (db - dc)) - center
+			ends.append(Vector2(point.dot(side), point.dot(other)))
+			found += 1
+		if dc * da < 0.0:
+			var point := c.lerp(a, dc / (dc - da)) - center
+			ends.append(Vector2(point.dot(side), point.dot(other)))
+			found += 1
+		# Un sommet pile sur le plan : un seul point, pas de segment.
+		if found == 1:
+			ends.remove_at(ends.size() - 1)
+	if ends.size() < 6:
 		return thickness(piece, t)
+	# Boucles : les segments qui partagent un bout (au demi-millimètre).
+	var parent := {}
+	for index in range(0, ends.size(), 2):
+		var first := Vector2i((ends[index] * 2000.0).round())
+		var second := Vector2i((ends[index + 1] * 2000.0).round())
+		if not parent.has(first):
+			parent[first] = first
+		if not parent.has(second):
+			parent[second] = second
+		while parent[first] != first:
+			first = parent[first]
+		while parent[second] != second:
+			second = parent[second]
+		if first != second:
+			parent[first] = second
+	var loops := {}
+	for index in range(0, ends.size(), 2):
+		var root := Vector2i((ends[index] * 2000.0).round())
+		while parent[root] != root:
+			root = parent[root]
+		if not loops.has(root):
+			loops[root] = [0.0, Vector2(INF, INF), Vector2(-INF, -INF), PackedVector2Array()]
+		var loop: Array = loops[root]
+		loop[0] += ends[index].distance_to(ends[index + 1])
+		for point: Vector2 in [ends[index], ends[index + 1]]:
+			loop[1] = Vector2(minf(loop[1].x, point.x), minf(loop[1].y, point.y))
+			loop[2] = Vector2(maxf(loop[2].x, point.x), maxf(loop[2].y, point.y))
+			loop[3].append(point)
+	var chosen: Array = []
+	var nearest: Array = []
+	for loop: Array in loops.values():
+		if loop[3].size() < 6:
+			continue
+		if loop[1].x <= 0.0 and loop[1].y <= 0.0 and loop[2].x >= 0.0 and loop[2].y >= 0.0 and (chosen.is_empty() or loop[0] > chosen[0]):
+			chosen = loop
+		if nearest.is_empty() or ((loop[1] + loop[2]) * 0.5).length() < ((nearest[1] + nearest[2]) * 0.5).length():
+			nearest = loop
+	if chosen.is_empty():
+		chosen = nearest
+	var flat: PackedVector2Array = chosen[3] if not chosen.is_empty() else ends
 	var thinnest := INF
 	for step in range(18):
 		var across := Vector2.from_angle(PI * step / 18.0)
@@ -335,7 +398,8 @@ static func true_thickness(piece: Dictionary, t: float) -> float:
 			low = minf(low, point.dot(across))
 			high = maxf(high, point.dot(across))
 		thinnest = minf(thinnest, high - low)
-	return clampf(thinnest, 0.005, 1.5)
+	var around: float = chosen[0] / PI if not chosen.is_empty() else thinnest
+	return clampf(clampf(around, thinnest, thinnest * 1.3), 0.005, 1.5)
 
 # Épaisseur approchée (diamètre, repère du modèle) d'une pièce à t mètres de son départ : rapide, pour viser.
 static func thickness(piece: Dictionary, t: float) -> float:

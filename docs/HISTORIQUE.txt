@@ -3,6 +3,10 @@ Du plus récent au plus ancien. Ce fichier est mis à jour à chaque version.
 
 === Thème « Fabrication et survie » (0.0.8) ===
 
+0.0.8.32 — Vraies épaisseurs du bois : bûches et bâtons aussi épais que leur pièce sur l'arbre (mesurée par son tour, plus par sa largeur la plus petite : ils étaient 17 % trop fins), rameaux de côté non comptés
+Génération du terrain : version 34 · Menus : version 17.
+Demande de l'utilisateur (tailles du bois) ; mesuré sur 1 142 pièces avec tools/mesure_physique.gd.
+
 0.0.8.31 — Bois au sol bien posé : bûches et bâtons reposent sur leurs appuis tout du long (jamais un bout dans le sol), suivent le sol creusé dessous ; une branche ou une tige couchée recoupée garde exactement sa pose (elle ne se repose que si elle a perdu un appui)
 Génération du terrain : version 34 · Menus : version 17.
 Demandes de l'utilisateur (physique et gravité fiables) ; mesuré avec tools/mesure_physique.gd.
