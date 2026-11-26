@@ -1,6 +1,15 @@
-# OrbMeka™ — prototype 0.0.8.35
+# OrbMeka™ — prototype 0.0.8.36
 
 Godot 4.7 / GDScript. Formes et couleurs simples ; assets externes seulement sous licence vérifiée (sons CC0, assets/sounds/CREDITS.txt).
+
+## 0.0.8.36 — Carnet de route
+Publiée. Génération inchangée (version 34). Demandes de l'utilisateur.
+- **Les suites pile en dessous**, dans la même colonne : Éclat → Cordelette → Sac en filet (avant : un cran plus bas et décalées à droite).
+- **Une case Navette** sous Fendre (comment la faire, à quoi elle sert) ; elle se coche quand on a une navette sur soi.
+- **« Revenir au centre »** en bas du carnet : la case Départ revient au milieu, au même zoom.
+
+Tests réussis : carnet (34, dont 3 nouveaux), prototype, history_resume (+ tests juridiques).
+À tester : ouvrir le carnet (O + C), se déplacer loin, « Revenir au centre ».
 
 ## 0.0.8.35 — Écran de jeu et points de repère (#252)
 Publiée. Génération inchangée (version 34). Demandes de l'utilisateur.
