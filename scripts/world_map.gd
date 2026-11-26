@@ -170,3 +170,52 @@ func from_array(data: Variant) -> void:
 			if _inside(tile) and not explored.has(tile):
 				explored[tile] = true
 				_queue.append(tile)
+
+# --- 0.0.8.35 (#252, demandes de l'utilisateur) : points de repère. Un bouton « Ajouter un repère » sur la grande carte
+# (O + M), ou M + R en jeu : un repère là où l'on est, nommé comme on veut (grande carte). Vus sur les deux cartes (sur
+# la mini-carte, au bord quand ils sont loin) avec leur distance. Enregistrés dans joueur.json (« reperes »).
+const WAYPOINT_COLORS := [Color("#ff6b6b"), Color("#ffd166"), Color("#06d6a0"), Color("#4cc9f0"), Color("#b388ff"), Color("#ff9f1c")]
+const MAX_WAYPOINTS := 64
+const MAX_NAME := 24
+# {"nom": String, "x": float, "z": float, "couleur": int}
+var waypoints: Array = []
+
+func add_waypoint(at: Vector3) -> Dictionary:
+	if waypoints.size() >= MAX_WAYPOINTS:
+		return {}
+	var number := waypoints.size() + 1
+	var names := waypoints.map(func(point): return point.nom)
+	while names.has("Repère %d" % number):
+		number += 1
+	var point := {"nom": "Repère %d" % number, "x": snappedf(at.x, 0.1), "z": snappedf(at.z, 0.1), "couleur": waypoints.size() % WAYPOINT_COLORS.size()}
+	waypoints.append(point)
+	return point
+
+func rename_waypoint(index: int, name: String) -> void:
+	if index >= 0 and index < waypoints.size():
+		var clean := name.strip_edges().left(MAX_NAME)
+		if not clean.is_empty():
+			waypoints[index].nom = clean
+
+func remove_waypoint(index: int) -> void:
+	if index >= 0 and index < waypoints.size():
+		waypoints.remove_at(index)
+
+static func waypoint_color(point: Dictionary) -> Color:
+	return WAYPOINT_COLORS[clampi(int(point.get("couleur", 0)), 0, WAYPOINT_COLORS.size() - 1)]
+
+func waypoints_to_array() -> Array:
+	return waypoints.duplicate(true)
+
+func waypoints_from_array(data: Variant) -> void:
+	waypoints = []
+	if not data is Array:
+		return
+	for entry in data:
+		if entry is Dictionary and entry.get("nom") is String and (entry.get("x") is float or entry.get("x") is int) and (entry.get("z") is float or entry.get("z") is int) and waypoints.size() < MAX_WAYPOINTS:
+			waypoints.append({"nom": str(entry.nom).left(MAX_NAME), "x": float(entry.x), "z": float(entry.z), "couleur": clampi(int(entry.get("couleur", 0)), 0, WAYPOINT_COLORS.size() - 1)})
+
+# Dessine un repère (pastille de sa couleur, bord noir).
+static func draw_waypoint(canvas: CanvasItem, at: Vector2, point: Dictionary, radius: float) -> void:
+	canvas.draw_circle(at, radius + 1.5, Color(0, 0, 0, 0.85))
+	canvas.draw_circle(at, radius, waypoint_color(point))

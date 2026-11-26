@@ -248,6 +248,9 @@ func _unhandled_input(event: InputEvent) -> void:
 	# tout le tas ; Supprimer (D + E, Créatif) : rien ne tombe (0.0.7.31 : tout le tas).
 	if event.is_action_pressed("throw") and is_instance_valid(world) and world.has_method("throw_held"):
 		world.throw_held(Controls.throw_all(event))
+	# 0.0.8.35 (#252) : M + R : un point de repère là où l'on est.
+	if event.is_action_pressed("waypoint") and is_instance_valid(world) and world.has_method("add_waypoint_here"):
+		world.add_waypoint_here()
 	if event.is_action_pressed("delete_item") and is_instance_valid(world) and world.has_method("delete_held"):
 		world.delete_held()
 	# 0.0.7.31 (demande de l'utilisateur) : Détails (D + T) en jeu : l'inventaire s'ouvre sur les détails de l'objet en main.

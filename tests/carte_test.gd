@@ -2,6 +2,7 @@ extends SceneTree
 # 0.0.8.28 (#154, demandes de l'utilisateur) : la carte : mini-carte en haut à droite (l'heure et les coordonnées
 # dessous), les zones chargées (explorées, sauvegardées), en 2D avec relief, l'eau en bleu, les arbres en points verts ;
 # grande carte O + M avec « Tout voir » ; menu Carte dans les Paramètres ; léger (dessinée peu à peu).
+const ItemIcons = preload("res://scripts/item_icons.gd")
 const WorldMap = preload("res://scripts/world_map.gd")
 const Controls = preload("res://scripts/controls.gd")
 const UserSettings = preload("res://scripts/user_settings.gd")
@@ -92,6 +93,33 @@ func _run() -> void:
 	again.setup(world.terrain, map.half_meters)
 	again.from_array(saved)
 	check(saved.size() == map.explored.size() and again.explored.size() == map.explored.size(), "explored squares saved and read again (%d)" % saved.size())
+	# --- 0.0.8.35 (#252) : points de repère. M + R en jeu ; « Ajouter un repère » sur la grande carte, nommé ; enregistrés.
+	check(Controls.ACTIONS.waypoint.default.key == KEY_M and Controls.ACTIONS.waypoint.default.second.key == KEY_R, "M + R places a waypoint")
+	world.add_waypoint_here()
+	check(map.waypoints.size() == 1 and map.waypoints[0].nom == "Repère 1" and absf(float(map.waypoints[0].x) - world.player.global_position.x) < 0.1, "M + R: « Repère 1 » where the player stands")
+	world.toggle_map()
+	world.big_map_ui.add_here()
+	check(map.waypoints.size() == 2 and world.big_map_ui.chosen == 1 and world.big_map_ui.name_edit.has_focus(), "« Ajouter un repère » on the big map: a second one, chosen, its name to type")
+	world.big_map_ui.name_edit.text = "Lac des pins"
+	world.big_map_ui.name_edit.text_changed.emit("Lac des pins")
+	check(map.waypoints[1].nom == "Lac des pins", "named as one likes")
+	world.big_map_ui._choose(0)
+	world.big_map_ui.remove_chosen()
+	check(map.waypoints.size() == 1 and map.waypoints[0].nom == "Lac des pins", "« Supprimer » removes the chosen one")
+	world.toggle_map()
+	var kept: Array = world.player_data().reperes
+	var read_again := WorldMap.new()
+	read_again.waypoints_from_array(kept)
+	check(read_again.waypoints.size() == 1 and read_again.waypoints[0].nom == "Lac des pins", "waypoints saved and read again")
+	world.minimap.queue_redraw()
+	await frames(2)
+	# --- 0.0.8.35 : l'écran de jeu : plus d'aide à gauche ; ce qu'on vise avec son image ; rappel du carnet. ---
+	check(not world.find_child("ExplorationNotice", true, false).visible, "no help on the left (it is in the notebook)")
+	check(world.notebook_reminder.visible and world.notebook_reminder.text == "O + C : carnet de route", "a new world: « O + C : carnet de route » at the bottom")
+	world.open_notebook()
+	world.close_notebook()
+	check(not world.notebook_reminder.visible and world.player_data().carnet_ouvert, "once the notebook was opened: gone for good in this world")
+	check(world.looked_item({}) == "" and ItemIcons.texture("gazon") != null and ItemIcons.texture("terre") != null, "what is aimed at: a picture for each kind (turf, earth…)")
 	world.queue_free()
 	await frames(2)
 	print("RESULT: %d map checks, %d failures" % [checks, failures])
