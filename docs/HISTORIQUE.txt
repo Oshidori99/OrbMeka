@@ -3,6 +3,10 @@ Du plus récent au plus ancien. Ce fichier est mis à jour à chaque version.
 
 === Thème « Fabrication et survie » (0.0.8) ===
 
+0.0.8.43 — La nuit et la lune : nuit vraiment noire (un peu de lumière à la pleine lune), la lune et ses phases dans le ciel (pleine lune tous les 28 jours, ou 8), sombre sous terre loin du ciel, réglage « Luminosité la nuit et sous terre » (Vidéo), réglages du monde : jour et nuit ou toujours le jour, durée d'une journée, pleine lune
+Génération du terrain : version 34 · Menus : version 17.
+Issue #214 (première partie) ; demandes de l'utilisateur.
+
 0.0.8.42 — Inventaire plus net : sac au sol séparé du reste par plus d'espace et une ligne blanche, lignes de l'inventaire un peu plus serrées
 Génération du terrain : version 34 · Menus : version 17.
 Demandes de l'utilisateur.

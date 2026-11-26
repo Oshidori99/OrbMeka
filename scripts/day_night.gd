@@ -14,16 +14,19 @@ const SUN_TOP := 62.0
 const MOON_TOP := 38.0
 # Minutes de part et d'autre du lever et du coucher où la lumière monte ou descend.
 const TWILIGHT := 45.0
-# Lumière de la nuit (part de celle du jour) : sombre, pas noire.
-const NIGHT_SUN := 0.16
-const NIGHT_AMBIENT := 0.28
+# Lumière de la nuit (part de celle du jour). 0.0.8.43 (demande de l'utilisateur : une nuit vraiment complète, avec la
+# lune et ses phases) : nuit noire par nouvelle lune, un peu de lumière bleutée par pleine lune (NIGHT_*_FULL).
+const NIGHT_SUN := 0.02
+const NIGHT_AMBIENT := 0.03
+const NIGHT_SUN_FULL := 0.12
+const NIGHT_AMBIENT_FULL := 0.11
 # Couleurs : jour (celles d'avant 0.0.8.27), crépuscule, nuit.
 const DAY_TOP := Color("#428de0")
 const DAY_HORIZON := Color("#b9e2fa")
 const DUSK_TOP := Color("#5a6fae")
 const DUSK_HORIZON := Color("#f0a46a")
-const NIGHT_TOP := Color("#0b1530")
-const NIGHT_HORIZON := Color("#22314f")
+const NIGHT_TOP := Color("#04081a")
+const NIGHT_HORIZON := Color("#0c1426")
 const SUN_COLOR := Color("#fff1d8")
 const LOW_SUN_COLOR := Color("#ffb878")
 const MOON_COLOR := Color("#a8bcff")
@@ -77,13 +80,14 @@ static func light_rotation(minutes: float) -> Vector3:
 	return Vector3(-height, lerpf(100.0, -100.0, share), 0.0)
 
 # Part de la lumière directe (1 = le soleil de midi d'avant) : soleil le jour, la lune faible la nuit.
-static func light_share(minutes: float) -> float:
+# 0.0.8.43 : moon : part de la lune éclairée (0 nouvelle lune, 1 pleine lune ; moon_light).
+static func light_share(minutes: float, moon: float = 1.0) -> float:
 	var day := daylight(minutes)
 	var low := clampf(sun_height(minutes) / 25.0, 0.35, 1.0) if is_day(minutes) else 0.35
-	return lerpf(NIGHT_SUN, low, day)
+	return lerpf(lerpf(NIGHT_SUN, NIGHT_SUN_FULL, moon), low, day)
 
-static func ambient_share(minutes: float) -> float:
-	return lerpf(NIGHT_AMBIENT, 1.0, daylight(minutes))
+static func ambient_share(minutes: float, moon: float = 1.0) -> float:
+	return lerpf(lerpf(NIGHT_AMBIENT, NIGHT_AMBIENT_FULL, moon), 1.0, daylight(minutes))
 
 static func light_color(minutes: float) -> Color:
 	var day := daylight(minutes)
@@ -102,6 +106,24 @@ static func sky_horizon(minutes: float) -> Color:
 	var twilight := dusk(minutes)
 	# Au crépuscule, l'horizon reste coloré un peu après le coucher.
 	return NIGHT_HORIZON.lerp(DAY_HORIZON.lerp(DUSK_HORIZON, twilight), maxf(day, twilight * 0.9))
+
+# --- 0.0.8.43 (demande de l'utilisateur : la lune et ses phases, comme dans la vraie vie) ---
+# Phase de la lune (0 nouvelle lune, 0,5 pleine lune) : selon les jours passés et la durée du cycle (jours de jeu ; en
+# vrai, environ 29,5 : 28 par défaut, ou 8 pour la voir changer plus vite). Un nouveau monde commence au premier
+# croissant (MOON_START).
+const MOON_DAYS := 28
+const MOON_START := 0.15
+
+static func moon_phase(day_count: int, minutes: float, cycle_days: int = MOON_DAYS) -> float:
+	return fposmod(MOON_START + (float(day_count) + day_wrap(minutes) / DAY) / maxf(float(cycle_days), 1.0), 1.0)
+
+# Part éclairée de la lune (0 à 1).
+static func moon_light(phase: float) -> float:
+	return (1.0 - cos(TAU * phase)) * 0.5
+
+static func moon_name(phase: float) -> String:
+	var names := ["Nouvelle lune", "Premier croissant", "Premier quartier", "Lune gibbeuse croissante", "Pleine lune", "Lune gibbeuse décroissante", "Dernier quartier", "Dernier croissant"]
+	return names[int(round(fposmod(phase, 1.0) * 8.0)) % 8]
 
 static func clock_text(minutes: float) -> String:
 	var t := int(floor(day_wrap(minutes)))

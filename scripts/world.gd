@@ -162,6 +162,9 @@ func _ready() -> void:
 	# 0.0.8.27 (#160) : l'heure relue (ancien monde ou nouveau : 8 h).
 	var saved_time: Variant = saved_player.get("heure", DayNight.START)
 	day_time = DayNight.day_wrap(float(saved_time)) if saved_time is float or saved_time is int else DayNight.START
+	# 0.0.8.43 : jours passés (la lune).
+	var saved_days: Variant = saved_player.get("jour", 0)
+	day_count = maxi(int(saved_days), 0) if saved_days is float or saved_days is int else 0
 	apply_day_light()
 	apply_day_sky()
 	# 0.0.8.28 (#154) : la carte (world_map.gd) ; les carrés déjà explorés, relus (redessinés peu à peu).
@@ -596,7 +599,16 @@ func close_map(recapture: bool = true) -> void:
 func _update_day(delta: float) -> void:
 	if sun_light == null or not is_instance_valid(environment):
 		return
-	day_time = DayNight.day_wrap(day_time + delta * DayNight.MINUTES_PER_SECOND)
+	# 0.0.8.43 : les jours passent (la lune) ; « Toujours le jour » : midi ; durée d'une journée réglable.
+	if day_cycle == "day":
+		day_time = 720.0
+	else:
+		var next := day_time + delta * minutes_per_second()
+		if next >= DayNight.DAY:
+			day_count += 1
+		day_time = DayNight.day_wrap(next)
+	_update_sky_open(delta)
+	_update_moon()
 	apply_day_light()
 	_sky_wait -= delta
 	if _sky_wait <= 0.0:
@@ -609,9 +621,10 @@ func _update_day(delta: float) -> void:
 # léger) ; pas pendant la préparation des ombres derrière l'écran de chargement.
 func apply_day_light() -> void:
 	sun_light.rotation_degrees = DayNight.light_rotation(day_time)
-	sun_light.light_energy = sun_base_energy * DayNight.light_share(day_time)
+	var shares := light_factors()
+	sun_light.light_energy = sun_base_energy * shares.x
 	sun_light.light_color = DayNight.light_color(day_time)
-	environment.ambient_light_energy = ambient_base_energy * DayNight.ambient_share(day_time)
+	environment.ambient_light_energy = ambient_base_energy * shares.y
 	environment.ambient_light_color = DayNight.ambient_color(day_time)
 	var shadows := shadow_quality != "off" and DayNight.daylight(day_time) > 0.05
 	if warm_left <= 0 and sun_light.shadow_enabled != shadows:
@@ -666,6 +679,7 @@ func _setup_environment() -> void:
 	apply_compat_light(environment, sun)
 	# 0.0.8.27 : la lumière du jour (midi) ; l'heure la fait varier (apply_day_light).
 	sun_base_energy = sun.light_energy
+	_make_moon()
 	ambient_base_energy = environment.ambient_light_energy
 	add_child(sun)
 
@@ -5629,6 +5643,8 @@ func player_data() -> Dictionary:
 		"carnet": notebook.to_array(), "carnet_vu": notebook_seen, "carnet_ouvert": notebook_opened,
 		# 0.0.8.27 (#160) : l'heure du jour (minutes).
 		"heure": snappedf(day_time, 0.1),
+		# 0.0.8.43 : jours passés (la lune).
+		"jour": day_count,
 		# 0.0.8.28 (#154) : les carrés de la carte explorés.
 		"carte": world_map.to_array() if world_map != null else [],
 		# 0.0.8.35 (#252) : les points de repère.
@@ -8461,3 +8477,141 @@ func close_ground_bag() -> void:
 	objects_dirty = true
 	if is_instance_valid(ground):
 		ground.changed.emit()
+
+# --- 0.0.8.43 (demandes de l'utilisateur : nuit complète, lune et ses phases, vraiment sombre sous terre loin de
+# l'entrée, un réglage de luminosité, et des réglages du monde pour le jour et la nuit) ---
+# Jours passés depuis la création (pour la lune), enregistrés avec le joueur (« jour »).
+var day_count := 0
+# Réglages du monde (Paramètres → Monde) : « cycle » (jour et nuit) ou « day » (toujours le jour) ; durée d'une journée
+# (minutes réelles) ; cycle de la lune (jours de jeu).
+var day_cycle := "cycle"
+var day_minutes := 24
+var moon_days := DayNight.MOON_DAYS
+# Paramètres → Vidéo : luminosité la nuit et sous terre (0 à 1) : la lumière ne descend jamais sous cette part de celle
+# du jour ; 1 : on voit toujours bien.
+var night_light := 0.0
+# Part du ciel visible autour de la tête (0 : au fond d'une grotte, 1 : dehors), adoucie.
+var sky_open := 1.0
+var _sky_target := 1.0
+var _sky_check := 0.0
+const SKY_CHECK_EVERY := 0.25
+const SKY_REACH := 48.0
+# Lumière du jour qui reste au fond d'une grotte (sans torche) ; la nuit noire en dessous.
+const CAVE_LIGHT := 0.02
+var moon_disc: MeshInstance3D
+
+func set_light_options(values: Dictionary) -> void:
+	night_light = clampf(float(str(values.get("night_light", "0"))) / 100.0, 0.0, 1.0)
+	if sun_light != null and is_instance_valid(environment):
+		apply_day_light()
+
+func set_world_time_options(cycle: String, minutes: int, moon: int) -> void:
+	day_cycle = cycle if cycle in ["cycle", "day"] else "cycle"
+	day_minutes = clampi(minutes, 6, 120)
+	moon_days = clampi(moon, 2, 60)
+
+# Minutes du jeu par seconde réelle : une journée de day_minutes minutes.
+func minutes_per_second() -> float:
+	return DayNight.DAY / (float(day_minutes) * 60.0)
+
+func moon_lit() -> float:
+	return DayNight.moon_light(DayNight.moon_phase(day_count, day_time, moon_days))
+
+# Ciel visible : quelques rayons vers le haut (droit, puis en cône) contre le terrain et les rochers ; ceux qui ne
+# touchent rien jusqu'à SKY_REACH m voient le ciel. Toutes les SKY_CHECK_EVERY s (13 rayons : léger).
+const SKY_DIRECTIONS := [Vector3(0, 1, 0), Vector3(0.5, 0.87, 0), Vector3(-0.5, 0.87, 0), Vector3(0, 0.87, 0.5), Vector3(0, 0.87, -0.5), Vector3(0.87, 0.5, 0), Vector3(-0.87, 0.5, 0), Vector3(0, 0.5, 0.87), Vector3(0, 0.5, -0.87), Vector3(0.62, 0.5, 0.62), Vector3(-0.62, 0.5, 0.62), Vector3(0.62, 0.5, -0.62), Vector3(-0.62, 0.5, -0.62)]
+
+func sky_visible_share(from: Vector3) -> float:
+	if not is_inside_tree():
+		return 1.0
+	var space := get_world_3d().direct_space_state
+	var open := 0
+	for direction: Vector3 in SKY_DIRECTIONS:
+		var query := PhysicsRayQueryParameters3D.create(from, from + direction.normalized() * SKY_REACH, 1)
+		var skip := [player.get_rid()] if is_instance_valid(player) else []
+		var blocked := false
+		for attempt in range(4):
+			query.exclude = skip
+			var hit := space.intersect_ray(query)
+			if hit.is_empty():
+				break
+			if is_instance_valid(hit.collider) and (hit.collider.is_in_group("ground") or hit.collider.is_in_group("rocks")):
+				blocked = true
+				break
+			skip.append(hit.rid)
+		# Rien touché : peut-être une zone sans collision (loin du joueur) ou une fente entre deux zones ; les données du
+		# terrain le confirment (un point tous les 3 m).
+		if not blocked:
+			var along := 1.5
+			while along < SKY_REACH and not blocked:
+				blocked = terrain.solid(SmoothTerrain.point_of(from + direction.normalized() * along))
+				along += 3.0
+		if not blocked:
+			open += 1
+	return float(open) / SKY_DIRECTIONS.size()
+
+func _update_sky_open(delta: float) -> void:
+	_sky_check -= delta
+	if _sky_check <= 0.0 and is_instance_valid(player):
+		_sky_check = SKY_CHECK_EVERY
+		_sky_target = sky_visible_share(player.camera.global_position)
+	sky_open = move_toward(sky_open, _sky_target, delta * 0.8)
+
+# Lumière finale : celle de l'heure (et de la lune), moins dans une grotte, jamais sous le réglage de luminosité.
+func light_factors() -> Vector2:
+	var moon := moon_lit()
+	var direct := DayNight.light_share(day_time, moon) * sky_open
+	var ambient := DayNight.ambient_share(day_time, moon) * lerpf(CAVE_LIGHT, 1.0, sky_open)
+	return Vector2(maxf(direct, night_light * 0.6), maxf(ambient, night_light))
+
+# La lune : un disque loin dans le ciel, sa part éclairée selon la phase ; seulement la nuit, au-dessus de l'horizon.
+const MOON_DISTANCE := 700.0
+const MOON_SIZE := 34.0
+const MOON_SHADER := "shader_type spatial;
+render_mode unshaded, cull_disabled, fog_disabled, shadows_disabled;
+uniform float phase = 0.5;
+uniform float shown = 1.0;
+void fragment() {
+	vec2 p = UV * 2.0 - 1.0;
+	float r = length(p);
+	if (r > 1.0) { discard; }
+	float edge = sqrt(max(1.0 - p.y * p.y, 0.0));
+	float k = cos(6.2831853 * phase);
+	bool lit = phase < 0.5 ? p.x > k * edge : p.x < -k * edge;
+	vec3 day_side = vec3(0.93, 0.95, 1.0) * (0.85 + 0.15 * (1.0 - r));
+	vec3 dark_side = vec3(0.07, 0.08, 0.12);
+	ALBEDO = lit ? day_side : dark_side;
+	ALPHA = shown * (lit ? 1.0 : 0.55) * smoothstep(1.0, 0.94, r);
+}"
+
+func _make_moon() -> void:
+	moon_disc = MeshInstance3D.new()
+	moon_disc.name = "Lune"
+	var quad := QuadMesh.new()
+	quad.size = Vector2(MOON_SIZE, MOON_SIZE)
+	moon_disc.mesh = quad
+	var shader := Shader.new()
+	shader.code = MOON_SHADER
+	var material := ShaderMaterial.new()
+	material.shader = shader
+	moon_disc.material_override = material
+	moon_disc.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	moon_disc.visible = false
+	add_child(moon_disc)
+
+func _update_moon() -> void:
+	if not is_instance_valid(moon_disc) or not is_instance_valid(player) or sun_light == null:
+		return
+	var night := 1.0 - DayNight.daylight(day_time)
+	moon_disc.visible = night > 0.02 and not DayNight.is_day(day_time)
+	# La lumière (lune la nuit) : elle seule, sans le disque du ciel procédural (le disque de la lune la remplace).
+	sun_light.sky_mode = DirectionalLight3D.SKY_MODE_LIGHT_ONLY if not DayNight.is_day(day_time) else DirectionalLight3D.SKY_MODE_LIGHT_AND_SKY
+	if not moon_disc.visible:
+		return
+	var toward: Vector3 = sun_light.global_basis.z.normalized()
+	var eye: Vector3 = player.camera.global_position
+	moon_disc.global_position = eye + toward * MOON_DISTANCE
+	moon_disc.look_at(eye, Vector3.UP if absf(toward.y) < 0.98 else Vector3.FORWARD)
+	var material: ShaderMaterial = moon_disc.material_override
+	material.set_shader_parameter("phase", DayNight.moon_phase(day_count, day_time, moon_days))
+	material.set_shader_parameter("shown", night)

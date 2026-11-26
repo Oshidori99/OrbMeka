@@ -168,6 +168,9 @@ const CHOICES := {
 	"map_size": {"label": "Taille de la mini-carte", "options": {"small": "Petite", "medium": "Moyenne", "large": "Grande"}, "default": "medium"},
 	"map_zoom": {"label": "Zoom de la mini-carte", "options": {"1": "Loin", "2": "Moyen", "4": "Près"}, "default": "2"},
 	"map_north": {"label": "Orientation", "options": {"fixed": "Nord en haut", "turning": "Tourne avec le regard"}, "default": "fixed"},
+	# 0.0.8.43 (demande de l'utilisateur) : luminosité la nuit et sous terre : 0 % (réaliste, nuit noire) à 100 % (on voit
+	# toujours bien, même la nuit et dans les grottes).
+	"night_light": {"label": "Luminosité la nuit et sous terre", "options": {"0": "0 %", "25": "25 %", "50": "50 %", "75": "75 %", "100": "100 %"}, "default": "0"},
 	# 0.0.5.4 : brins par carré de 50 cm (terrain_materials.gd) ; moins = plus rapide, surtout sur le Web.
 	# 0.0.7.21 : « Réduite » (140 brins), celle du réglage Équilibré, devenue le défaut.
 	"grass_density": {"label": "Densité de l'herbe", "options": {"minimal": "Très basse", "low": "Basse", "reduced": "Réduite", "medium": "Moyenne", "high": "Haute"}, "default": "reduced"},
