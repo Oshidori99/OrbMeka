@@ -23,9 +23,9 @@ const Inventory = preload("res://scripts/inventory.gd")
 #   pour finir) : un sac en filet (sa charge dépend des cordelettes, des rangées et de la bretelle : Inventory.bag_capacity).
 # 0.0.8.40 (#255 à #258, demandes de l'utilisateur : les actions qu'on devrait déjà pouvoir faire) : Détresser,
 # Défaire un outil, Refaire le lien, Écorcer.
-const ACTIONS := ["tresser", "tailler", "fendre", "assembler", "ficeler", "nouer", "detresser", "defaire", "relier", "ecorcer"]
-const ACTION_NAMES := {"tresser": "Tresser", "tailler": "Tailler", "fendre": "Fendre", "assembler": "Assembler", "ficeler": "Ficeler", "nouer": "Nouer", "detresser": "Détresser", "defaire": "Défaire un outil", "relier": "Refaire le lien", "ecorcer": "Écorcer"}
-const READY := ["tresser", "tailler", "fendre", "assembler", "ficeler", "nouer", "detresser", "defaire", "relier", "ecorcer"]
+const ACTIONS := ["tresser", "tailler", "fendre", "assembler", "ficeler", "nouer", "detresser", "defaire", "relier", "ecorcer", "torche", "archet", "feu"]
+const ACTION_NAMES := {"tresser": "Tresser", "tailler": "Tailler", "fendre": "Fendre", "assembler": "Assembler", "ficeler": "Ficeler", "nouer": "Nouer", "detresser": "Détresser", "defaire": "Défaire un outil", "relier": "Refaire le lien", "ecorcer": "Écorcer", "torche": "Faire une torche", "archet": "Faire un archet à feu", "feu": "Monter un feu"}
+const READY := ["tresser", "tailler", "fendre", "assembler", "ficeler", "nouer", "detresser", "defaire", "relier", "ecorcer", "torche", "archet", "feu"]
 const BRAID_FIBERS := 3
 const BRAID_SECONDS := 3.0
 const CORD_LENGTH := 0.33
@@ -273,6 +273,17 @@ static func fits_more(role: String, value: Dictionary) -> bool:
 			return BOUND.has(id) or BOUND.values().has(id)
 		"outil_use":
 			return BOUND.values().has(id)
+		# 0.0.8.44 : torche, archet, feu de camp ; écorce de pin (torche forte).
+		"baton_torche":
+			return _wood_size(value, TORCH_THICKNESS, TORCH_LENGTH)
+		"arc":
+			return _wood_size(value, BOW_THICKNESS, BOW_LENGTH)
+		"corde_arc":
+			return id.begins_with("cordelette_")
+		"bois_feu":
+			return id in ["branche", "tronc"] and int(value.get("brulee", 0)) == 0
+		"resine":
+			return id == "ecorce_pin"
 		"bois":
 			return id in ["branche", "tronc"] and int(value.get("ecorce", 0)) == 0 and int(value.get("fendue", 0)) == 0
 		"a_ficeler":
@@ -448,6 +459,14 @@ static func more_choices(inventory: Inventory, role: String) -> Array:
 			"tresse":
 				for id in UNTWIST:
 					result.append({"label": "%s (Créatif)" % Inventory.ITEMS[id].nom, "value": {"objet": id, "longueur": CORD_LENGTH}, "area": "", "index": -1, "unit": -1, "creative": true})
+			"baton_torche", "arc", "bois_feu":
+				model = CREATIVE_HANDLE.duplicate()
+				if role == "arc":
+					model.epaisseur = 2.0
+			"corde_arc":
+				model = {"objet": "cordelette_lin", "longueur": CORD_LENGTH}
+			"resine":
+				model = {"objet": "ecorce_pin"}
 			"bois":
 				model = CREATIVE_HANDLE.duplicate()
 			"outil_fait", "outil_use":
@@ -578,3 +597,91 @@ static func bag_result(net_id: String, strap_id: String, rows: int) -> Dictionar
 	var vine := strap_id == "liane"
 	var weight := Inventory.instance_weight(net_id, {}) * NET_CORDS + Inventory.instance_weight(strap_id, {})
 	return {"objet": Inventory.BAG_ID, "pile": [{"lien": int(BAG_CORDS.get(net_id, 0)), "rangees": clampi(rows, Inventory.BAG_ROWS.x, Inventory.BAG_ROWS.y), "bretelle": 1 if vine else 0, "poids": snappedf(weight, 1.0)}]}
+
+# --- 0.0.8.44 (#214, #209) : torche, archet à feu, feu de camp ---
+# Torche : un bâton (2 à 5 cm, 30 cm à 1,2 m) et 3 fibres du même type (la mèche) ; avec de l'écorce de pin (facultative,
+# la résine brûle mieux) : une torche forte. Archet à feu : une branche souple (1 à 3 cm, 40 cm à 1,2 m) et une
+# cordelette. Feu de camp : 4 cailloux, un bâton ou une bûche, et de l'amadou (3 fibres ou un morceau d'écorce).
+const TORCH_THICKNESS := Vector2(2.0, 5.0)
+const TORCH_LENGTH := Vector2(0.3, 1.2)
+const BOW_THICKNESS := Vector2(1.0, 3.0)
+const BOW_LENGTH := Vector2(0.4, 1.2)
+const FIRE_STONES := 4
+const PEBBLE_IDS := ["caillou", "caillou_calcaire", "caillou_silex"]
+const FIRE_START := 120.0
+
+static func _wood_size(value: Dictionary, thick: Vector2, long: Vector2) -> bool:
+	var t := float(value.get("epaisseur", 0.0))
+	var l := float(value.get("longueur", 0.0))
+	return value.get("objet", "") in ["branche", "tronc"] and int(value.get("fendue", 0)) == 0 and int(value.get("pourrie", 0)) == 0 and int(value.get("brulee", 0)) == 0 and t >= thick.x - 0.001 and t <= thick.y + 0.001 and l >= long.x - 0.001 and l <= long.y + 0.001
+
+# Mèche d'une torche : 3 fibres du même type (pas des ficelles).
+static func wick_choices(inventory: Inventory) -> Array:
+	return choices(inventory, "fibres").filter(func(choice): return str(choice.get("fibres", "")).begins_with("fibre_"))
+
+# Feu de camp : les cailloux (4, de n'importe quelle sorte) ; l'amadou (3 fibres, ou un morceau d'écorce).
+static func fire_choices(inventory: Inventory, role: String) -> Array:
+	var result := []
+	if role == "pierres":
+		var total := 0
+		for place in places(inventory):
+			var there := inventory.item(place[0], place[1])
+			if not there.is_empty() and not Inventory.unlimited(there) and there.objet in PEBBLE_IDS:
+				total += Inventory.count(there)
+		if total >= FIRE_STONES:
+			result.append({"label": "Cailloux × %d (4 pour un feu)" % total, "value": {"objet": "caillou"}, "area": "", "index": -1, "unit": -1, "stones": true})
+		if inventory.mode == Inventory.CREATIVE:
+			result.append({"label": "Cailloux (Créatif)", "value": {"objet": "caillou"}, "area": "", "index": -1, "unit": -1, "stones": true, "creative": true})
+		return result
+	result = wick_choices(inventory)
+	for place in places(inventory):
+		var there := inventory.item(place[0], place[1])
+		if there.is_empty() or Inventory.unlimited(there) or not there.objet in ["ecorce", "ecorce_pin"]:
+			continue
+		var units := Inventory.units(there)
+		for unit in range(units.size()):
+			result.append({"label": _label(units[unit]), "value": units[unit], "area": place[0], "index": place[1], "unit": unit})
+	return result
+
+# Prend 4 cailloux (n'importe lesquels) ; Créatif : rien n'est pris.
+static func take_stones(inventory: Inventory, creative: bool) -> bool:
+	if creative:
+		return true
+	var list := places(inventory)
+	var total := 0
+	for place in list:
+		var there := inventory.item(place[0], place[1])
+		if not there.is_empty() and there.get("objet", "") in PEBBLE_IDS:
+			total += Inventory.count(there)
+	if total < FIRE_STONES:
+		return false
+	var left := FIRE_STONES
+	list.reverse()
+	for place in list:
+		while left > 0 and inventory.item(place[0], place[1]).get("objet", "") in PEBBLE_IDS:
+			inventory.take_unit(place[0], place[1])
+			left -= 1
+	return left == 0
+
+static func torch_result(stick: Dictionary, strong: bool) -> Dictionary:
+	var made := {"objet": "torche_forte" if strong else "torche", "allume": 0}
+	for key in ["essence", "epaisseur", "fin", "longueur"]:
+		if stick.has(key):
+			made[key] = stick[key]
+	made.poids = snappedf(float(stick.get("poids", 200.0)) + 3.0 * Inventory.instance_weight("fibre_lin", {}) + (Inventory.instance_weight("ecorce_pin", {}) if strong else 0.0), 1.0)
+	return _pile(made)
+
+static func bow_result(stick: Dictionary, cord: Dictionary) -> Dictionary:
+	var made := {"objet": "archet"}
+	for key in ["essence", "epaisseur", "fin", "longueur", "souplesse", "age"]:
+		if stick.has(key):
+			made[key] = stick[key]
+	made.poids = snappedf(float(stick.get("poids", 200.0)) + Inventory.instance_weight(cord.get("objet", "cordelette_lin"), cord) + 60.0, 1.0)
+	return _pile(made)
+
+static func fire_result() -> Dictionary:
+	return {"objet": "feu_camp", "pile": [{"brule": FIRE_START, "allume": 0, "poids": 3000.0}]}
+
+# Écorcer : l'écorce qui se détache (de pin : résineuse, pour la torche forte).
+static func bark_piece(wood: Dictionary) -> Dictionary:
+	return {"objet": "ecorce_pin" if int(wood.get("essence", -1)) == 2 else "ecorce", "pile": [{}]}

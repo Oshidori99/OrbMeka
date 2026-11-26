@@ -5052,6 +5052,11 @@ func step_gather(delta: float, holding: bool) -> bool:
 		_notify("En Créatif, les matières sont illimitées (inventaire : O + I).")
 		return false
 	var hit: Dictionary = player.get_target()
+	# 0.0.8.44 (demande de l'utilisateur) : sur un pin debout, avec une hache (ou un éclat, deux fois plus lent) : de
+	# l'écorce de pin (résineuse, pour la torche forte) ; l'arbre reste debout.
+	var bark_tree := aimed_wood(hit)
+	if not bark_tree.is_empty() and int(bark_tree.tree.get_meta("kind", -1)) == Trees.PINE and not _tree_is_lying(bark_tree.tree):
+		return _step_pine_bark(delta, bark_tree)
 	if not _valid_hit(hit, player.break_reach) or not hit.collider.is_in_group("ground"):
 		gather_time = 0.0
 		_notify("Visez la terre ou le sable pour en prendre une poignée.")
@@ -5953,6 +5958,10 @@ func can_eat() -> bool:
 # 0.0.8.2 : ce que fait le clic droit maintenu avec l'objet en main (Survie, pinceau « Poser ») : « manger » un fruit,
 # « orbe » : utiliser l'orbe de retour (#231) ; « » : rien (le clic droit pose comme avant).
 func hold_use() -> String:
+	# 0.0.8.44 : un feu de camp visé (allumer, allumer une torche, nourrir) ; Survie et Créatif.
+	var fire := fire_use()
+	if not fire.is_empty():
+		return fire
 	if not survival():
 		return ""
 	var held := inventory.held()
@@ -6023,6 +6032,13 @@ func step_eat(delta: float, holding: bool) -> bool:
 		_notify("Vie pleine : pas besoin de manger.")
 		return false
 	# 0.0.8.3 : chaque fruit sa durée (noisette plus rapide).
+	if use in ["allumer", "allumer_torche", "nourrir"]:
+		var needed := fire_seconds(use)
+		show_ring(eat_time / needed)
+		if eat_time < needed:
+			return false
+		eat_time = -1.0
+		return do_fire_use(use)
 	var seconds := ReturnOrb.USE_SECONDS if use == "orbe" else Health.eat_seconds(inventory.held())
 	show_ring(eat_time / seconds)
 	# 0.0.8.17 (#224) : le fruit monte vers la bouche.
@@ -6773,6 +6789,7 @@ func _process(delta: float) -> void:
 	_update_fps(delta)
 	_update_ring()
 	_update_day(delta)
+	_update_fire(delta)
 	_update_map(delta)
 	_update_looked(delta)
 	_update_health(delta)
@@ -6919,6 +6936,7 @@ func _process_measured(delta: float) -> void:
 	_update_fps(delta)
 	_update_ring()
 	_update_day(delta)
+	_update_fire(delta)
 	_update_map(delta)
 	_update_health(delta)
 	if not sliding_trees.is_empty():
@@ -8615,3 +8633,162 @@ func _update_moon() -> void:
 	var material: ShaderMaterial = moon_disc.material_override
 	material.set_shader_parameter("phase", DayNight.moon_phase(day_count, day_time, moon_days))
 	material.set_shader_parameter("shown", night)
+
+# --- 0.0.8.44 (#214, #209, demandes de l'utilisateur) : feu de camp, archet à feu, torches (fire.gd) ---
+# Clic droit maintenu en visant un feu posé au sol : avec l'archet à feu, l'allumer (FIRE_LIGHT_SECONDS) ; avec une torche
+# éteinte, l'allumer au feu ; avec du bois ou du charbon, le nourrir. Clic court : l'objet est posé, comme avant.
+const Fire = preload("res://scripts/fire.gd")
+var hand_light: OmniLight3D
+var _burn_wait := 0.0
+const BURN_EVERY := 1.0
+
+# Le feu de camp visé (numéro de l'objet au sol) ; -1 si aucun.
+func aimed_fire() -> int:
+	if not is_instance_valid(player) or not is_instance_valid(ground):
+		return -1
+	var hit: Dictionary = player.get_target()
+	if hit.is_empty() or not is_instance_valid(hit.get("collider")) or not hit.collider.is_in_group("ground_items"):
+		return -1
+	if player.camera.global_position.distance_to(hit.position) > player.place_reach + 0.5:
+		return -1
+	var index: int = ground.index_of(hit.collider)
+	return index if index >= 0 and Fire.is_fire(ground.entries[index].item) else -1
+
+func fire_use() -> String:
+	var index := aimed_fire()
+	if index < 0:
+		return ""
+	var fire: Dictionary = ground.entries[index].item
+	var held := inventory.held()
+	var id: String = held.get("objet", "")
+	if id == "archet":
+		return "allumer" if not Fire.is_lit(fire) else ""
+	if Fire.is_torch(held):
+		var unit: Dictionary = Inventory.units(held)[-1] if not Inventory.units(held).is_empty() else held
+		return "allumer_torche" if Fire.is_lit(fire) and not Fire.is_lit(unit) else ""
+	if Fire.FUEL.has(id):
+		return "nourrir"
+	return ""
+
+func fire_seconds(use: String) -> float:
+	match use:
+		"allumer":
+			return Fire.FIRE_LIGHT_SECONDS
+		"allumer_torche":
+			return Fire.TORCH_LIGHT_SECONDS
+	return Fire.FEED_SECONDS
+
+# Fait l'action du feu (au bout du clic maintenu).
+func do_fire_use(use: String) -> bool:
+	var index := aimed_fire()
+	if index < 0:
+		return false
+	var fire: Dictionary = ground.entries[index].item.duplicate(true)
+	match use:
+		"allumer":
+			if float(fire.get("brule", 0.0)) <= 0.0:
+				_notify("Le feu n'a plus rien à brûler : ajoutez du bois ou du charbon (clic droit maintenu).")
+				return false
+			fire.allume = 1
+			ground.set_item(index, fire)
+			notebook_mark("feu")
+			_notify("Le feu prend ! Il brûle encore %s." % Inventory.burn_text(float(fire.brule)))
+		"allumer_torche":
+			var held := inventory.held()
+			var torch: Dictionary = Inventory.flat(held.objet, held.pile[-1]) if held.has("pile") else held.duplicate(true)
+			torch.allume = 1
+			torch.brule = float(Fire.TORCH_MINUTES.get(torch.objet, 600.0))
+			inventory.pop_held()
+			inventory.add_to_selected(Inventory.single(torch))
+			notebook_mark("torche")
+			_notify("%s allumée : %s de lumière." % [Inventory.ITEMS[torch.objet].nom, Inventory.burn_text(float(torch.brule))])
+		"nourrir":
+			var food := inventory.held()
+			var added: float = Fire.FUEL.get(food.get("objet", ""), 0.0)
+			if added <= 0.0:
+				return false
+			if float(fire.get("brule", 0.0)) >= Fire.FIRE_MAX:
+				_notify("Le feu a déjà de quoi brûler longtemps.")
+				return false
+			inventory.pop_held()
+			fire.brule = minf(float(fire.get("brule", 0.0)) + added, Fire.FIRE_MAX)
+			ground.set_item(index, fire)
+			_notify("Feu nourri : il brûlera encore %s." % Inventory.burn_text(float(fire.brule)))
+	inventory_unsaved = true
+	objects_dirty = true
+	return true
+
+# Chaque seconde : les torches et les feux allumés brûlent (dans l'inventaire et au sol) ; une torche finie devient un
+# bâton brûlé, un feu sans rien à brûler s'éteint. La lumière de la torche tenue en main.
+func _update_fire(delta: float) -> void:
+	_burn_wait -= delta
+	if _burn_wait <= 0.0:
+		_burn_wait = BURN_EVERY
+		var minutes := BURN_EVERY * (minutes_per_second() if day_cycle != "day" else DayNight.DAY / (24.0 * 60.0))
+		var changed := false
+		for area in ["bar", "grid", "sac"]:
+			for index in range(inventory.size_of(area)):
+				var value := inventory.item(area, index)
+				if value.is_empty() or not value.has("pile") or not Fire.is_torch(value):
+					continue
+				var unit: Dictionary = Inventory.flat(value.objet, value.pile[0])
+				if not Fire.is_lit(unit):
+					continue
+				var burnt := Fire.burn(unit, minutes)
+				inventory._store()[area][index] = Inventory.single(burnt)
+				changed = true
+		if changed:
+			inventory.changed.emit()
+			inventory_unsaved = true
+		if is_instance_valid(ground) and ground.burn_all(minutes):
+			objects_dirty = true
+	_update_hand_light()
+
+func _update_hand_light() -> void:
+	if not is_instance_valid(player):
+		return
+	var held := inventory.held()
+	var lit := false
+	if Fire.is_torch(held) and held.has("pile"):
+		lit = Fire.is_lit(Inventory.flat(held.objet, held.pile[-1]))
+	if not lit:
+		if is_instance_valid(hand_light):
+			hand_light.visible = false
+		return
+	if not is_instance_valid(hand_light):
+		hand_light = Fire.make_light(held)
+		hand_light.distance_fade_enabled = false
+		player.camera.add_child(hand_light)
+		# Au-dessus et devant la main : la lumière éclaire le chemin sans éblouir les mains.
+		hand_light.position = Vector3(0.3, 0.35, -0.9)
+	var spec := Fire.light_spec(held)
+	hand_light.omni_range = spec.x
+	# Une flamme vacille un peu.
+	hand_light.light_energy = spec.y * (0.92 + 0.08 * sin(Time.get_ticks_msec() * 0.013))
+	hand_light.visible = true
+
+const PINE_BARK_SECONDS := 4.0
+
+func _step_pine_bark(delta: float, aimed: Dictionary) -> bool:
+	var held := inventory.held()
+	var id: String = held.get("objet", "")
+	var with_axe := id == "hache_pierre"
+	var with_flake: bool = Inventory.ITEMS.get(id, {}).get("forme", "") == "eclat" and id != "charbon" and not id.begins_with("ecorce")
+	if not with_axe and not with_flake and game_mode != Inventory.CREATIVE:
+		gather_time = 0.0
+		_notify("Il faut une hache (ou un éclat tranchant) pour prendre de l'écorce de pin.")
+		return false
+	var seconds := PINE_BARK_SECONDS * (1.0 if with_axe or game_mode == Inventory.CREATIVE else 2.0)
+	gather_time += delta
+	if gather_time < seconds:
+		show_ring(gather_time / seconds)
+		return false
+	gather_time = 0.0
+	var taken := inventory.add_to_selected({"objet": "ecorce_pin", "pile": [{}]}) if game_mode != Inventory.CREATIVE else {"added": 1}
+	if taken.added == 0:
+		var spot: Vector3 = player.global_position + player.global_transform.basis.x * 0.4
+		ground.drop({"objet": "ecorce_pin"}, spot + Vector3.UP, spot, _rest_height)
+	_impact_sound(player.camera.global_position + player.camera.global_transform.basis.z * -1.0)
+	notebook_mark("ecorce")
+	show_choice("Écorce de pin")
+	return true

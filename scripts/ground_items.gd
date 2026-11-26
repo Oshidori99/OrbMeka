@@ -283,7 +283,7 @@ static func size_of(value: Dictionary) -> float:
 		"eclat":
 			return PIECE_SIZE
 		# 0.0.8.4 (#213) : fibres et liane : modèles déjà à leur taille (fibers.gd). 0.0.8.23 : tas de feuilles aussi.
-		"fibre", "liane", "ficelle", "outil_brut", "outil_pierre", "sac", "feuilles":
+		"fibre", "liane", "ficelle", "outil_brut", "outil_pierre", "sac", "feuilles", "feu":
 			return 1.0
 		# 0.0.8.5 (#211) : tête taillée : selon sa taille (3 petite, 4 moyenne, 5 grande).
 		"tete":
@@ -309,7 +309,7 @@ static func lift(value: Dictionary) -> float:
 		return float(value.get("epaisseur", 3.5)) / 200.0
 	if _kind(value) in ["fibre", "liane", "ficelle"]:
 		return 0.012
-	if _kind(value) in ["plante", "sac", "feuilles"]:
+	if _kind(value) in ["plante", "sac", "feuilles", "feu"]:
 		return 0.0
 	if _kind(value) == "gazon":
 		return TURF_HEIGHT * 0.5
@@ -350,6 +350,9 @@ func _mesh(value: Dictionary) -> Mesh:
 		return Fibers.cord_mesh()
 	if _kind(value) == "tete":
 		return StoneHeads.mesh("hache" if value.get("objet") == "tete_hache" else "pioche", 1.0)
+	# 0.0.8.44 : feu de camp (éteint ou allumé).
+	if _kind(value) == "feu":
+		return Fire.campfire_mesh(Fire.is_lit(value))
 	if _kind(value) == "orbe":
 		return ReturnOrb.mesh()
 	# 0.0.8.21 (#207) : sac en filet posé à plat (modèle fait dans Blender).
@@ -508,7 +511,7 @@ func _plain_material(value: Dictionary) -> Material:
 	if _kind(value) == "orbe":
 		return null
 	# 0.0.8.15 : plante (image du monde) et motte (terre, herbe) : les matières de leur modèle ; 0.0.8.21 : sac aussi.
-	if _kind(value) in ["plante", "gazon", "sac"]:
+	if _kind(value) in ["plante", "gazon", "sac", "feu"]:
 		return null
 	# Fruits : le matériau de leur modèle (celui des arbres), couleur de chaque pomme dans ses données.
 	if _kind(value) == "fruit":
@@ -628,6 +631,12 @@ func _add_body(index: int) -> void:
 		box.size = Vector3(0.22, PLANT_SIZE, 0.22) if _kind(entry.item) == "plante" else Vector3(TURF_RADIUS * 2.0, TURF_HEIGHT + 0.02, TURF_RADIUS * 2.0)
 		shape.shape = box
 		shape.position = Vector3(0.0, PLANT_SIZE * 0.5, 0.0) if _kind(entry.item) == "plante" else Vector3.ZERO
+	elif _kind(entry.item) == "feu":
+		# 0.0.8.44 : feu de camp : une boîte basse de sa largeur.
+		var ring := BoxShape3D.new()
+		ring.size = Vector3(0.8, 0.3, 0.8)
+		shape.shape = ring
+		shape.position = Vector3(0.0, 0.15, 0.0)
 	elif _kind(entry.item) == "feuilles":
 		# 0.0.8.23 : tas de feuilles : une boîte basse de sa largeur.
 		var heap := BoxShape3D.new()
@@ -688,6 +697,8 @@ func _redraw() -> void:
 			# et pointe seulement (bien moins de séries : un arbre coupé donne maintenant un bois par pièce).
 			key = "bois/%s/%d/%d" % [item.objet, int(item.get("essence", -1)), taper_step(item)]
 		# 0.0.8.23 : tas de feuilles : par essence et grandeur (tous les tas semblables en un seul dessin).
+		if _kind(item) == "feu":
+			key = "feu/%d" % int(Fire.is_lit(item))
 		if _kind(item) == "feuilles":
 			key = "tas/%d/%d" % [int(item.get("essence", 0)), leaf_pile_step(item)]
 		if not groups.has(key):
@@ -735,6 +746,7 @@ func _redraw() -> void:
 			elif _kind(entry.item) == "fruit":
 				multi.set_instance_color(at, Color.WHITE if _two_tone(entry.item) or entry.item.objet != "pomme" else _color(entry.item))
 	_update_orb_lights()
+	_update_glows()
 
 # 0.0.8.3 (demande de l'utilisateur) : chaque orbe de retour posée luit et éclaire un peu autour d'elle (au plus
 # MAX_ORB_LIGHTS, pour rester léger).
@@ -793,3 +805,72 @@ func from_array(data: Variant) -> void:
 		if entries.size() >= MAX_ITEMS + MAX_LEAF_PILES:
 			break
 	_dirty = true
+
+# --- 0.0.8.44 : feux de camp et torches posés (fire.gd) ---
+const Fire = preload("res://scripts/fire.gd")
+var _glows: Array = []
+
+# Change un objet posé (feu allumé, nourri…) : redessiné, enregistré.
+func set_item(index: int, value: Dictionary) -> void:
+	if index < 0 or index >= entries.size():
+		return
+	entries[index].item = value
+	_dirty = true
+	changed.emit()
+
+# Les feux et les torches allumés posés brûlent « minutes » de jeu de plus. Vrai si l'un a changé d'état.
+func burn_all(minutes: float) -> bool:
+	var changed_state := false
+	for index in range(entries.size()):
+		var item: Dictionary = entries[index].item
+		if not Fire.is_lit(item):
+			continue
+		var burnt := Fire.burn(item, minutes)
+		entries[index].item = burnt
+		if Fire.is_lit(burnt) != true or burnt.get("objet") != item.get("objet"):
+			changed_state = true
+	if changed_state:
+		_dirty = true
+		changed.emit()
+	return changed_state
+
+# Lumière (et flamme d'une torche) des feux et torches allumés posés : les MAX_LIGHTS plus proches de la caméra.
+func _update_glows() -> void:
+	var lit: Array = []
+	for entry: Dictionary in entries:
+		if not entry.get("hidden", false) and Fire.is_lit(entry.item):
+			lit.append(entry)
+	var camera := get_viewport().get_camera_3d() if is_inside_tree() else null
+	if camera != null and lit.size() > Fire.MAX_LIGHTS:
+		var eye := camera.global_position
+		lit.sort_custom(func(a, b): return eye.distance_squared_to(a.position) < eye.distance_squared_to(b.position))
+		lit = lit.slice(0, Fire.MAX_LIGHTS)
+	while _glows.size() > lit.size():
+		var gone: Array = _glows.pop_back()
+		for node in gone:
+			node.queue_free()
+	while _glows.size() < lit.size():
+		var light := Fire.make_light({"objet": "feu_camp"})
+		add_child(light)
+		var flame := MeshInstance3D.new()
+		flame.mesh = Fire.torch_flame_mesh()
+		flame.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		add_child(flame)
+		_glows.append([light, flame])
+	for index in range(lit.size()):
+		var entry: Dictionary = lit[index]
+		var light: OmniLight3D = _glows[index][0]
+		var flame: MeshInstance3D = _glows[index][1]
+		var spec := Fire.light_spec(entry.item)
+		light.omni_range = spec.x
+		light.light_energy = spec.y
+		if Fire.is_fire(entry.item):
+			light.position = entry.position + Vector3.UP * 0.5
+			flame.visible = false
+		else:
+			# Torche posée : la flamme et la lumière au bout du bâton.
+			var place := place_of(entry, _basis(entry.item))
+			var tip: Vector3 = place.origin + place.basis.y * 0.5
+			light.position = tip + Vector3.UP * 0.15
+			flame.position = tip
+			flame.visible = true

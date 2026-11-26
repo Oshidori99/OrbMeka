@@ -176,6 +176,15 @@ func show_item(value: Dictionary) -> void:
 				made.scale = Vector3(thick, minf(float(shown.get("longueur", 1.0)), 0.5), thick)
 				made.rotation.z = PI * 0.5
 				made.position.y = thick * 0.5
+				# 0.0.8.44 : torche allumée : une flamme au bout (le bout du bâton, à droite de la main).
+				if id in ["torche", "torche_forte"] and int(shown.get("allume", 0)) == 1:
+					var flame := MeshInstance3D.new()
+					flame.name = "Flamme"
+					flame.mesh = load("res://scripts/fire.gd").torch_flame_mesh()
+					flame.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+					flame.scale = Vector3.ONE * (0.45 if id == "torche_forte" else 0.35)
+					flame.position = Vector3(minf(float(shown.get("longueur", 1.0)), 0.5) * 0.5, thick * 0.5, 0.0)
+					held.add_child(flame)
 			# 0.0.8.15 (#239) : plante arrachée (debout, petite) et motte de gazon, dans la paume.
 			"plante":
 				made.mesh = Plants.mesh(clampi(int(spec.get("plante", 0)), 0, 2))

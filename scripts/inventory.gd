@@ -95,7 +95,9 @@ const INSTANCE_FIELDS := {"taille": TYPE_INT, "poids": TYPE_FLOAT, "forme": TYPE
 	# 0.0.8.23 : tas de feuilles au sol : son nombre de feuilles (1 à LEAF_PILE).
 	"tas": TYPE_INT,
 	# 0.0.8.10 : coups restants d'un outil (absent : neuf).
-	"usure": TYPE_INT, "ecorce": TYPE_INT}
+	"usure": TYPE_INT, "ecorce": TYPE_INT,
+	# 0.0.8.44 : torche ou feu allumé (1), minutes de jeu qu'il brûle encore ; bâton brûlé (une torche finie).
+	"allume": TYPE_INT, "brule": TYPE_FLOAT, "brulee": TYPE_INT}
 # Matières : valeurs de smooth_terrain.gd (SAND 0, STONE 1, DIRT 2, CLAY 4, MUD 5, DARK_STONE 6, GRAVEL 8, LIMESTONE 9,
 # FLINT 11). Poids : une poignée. 0.0.7.6 (plus réaliste, accepté par l'utilisateur) : une grosse poignée d'environ 0,25 L × la
 # densité de la matière ; elle compte toujours pour une sous-cellule de 50 cm (règle de jeu).
@@ -170,6 +172,14 @@ const ITEMS := {
 	# 0.0.8.25 (idée validée par l'utilisateur) : navette : une branche fine (1 à 2,5 cm, 15 à 40 cm) fendue au bout, sur
 	# laquelle la ficelle est enroulée d'avance : choisie pour Ficeler, deux fois plus vite (crafting_ui).
 	"navette": {"nom": "Navette", "forme": "bois", "couleur": Color("#8a6440")},
+	# 0.0.8.44 (#214, #209, demandes de l'utilisateur) : écorce (Écorcer), écorce de pin (résineuse : la torche forte),
+	# archet à feu (allume le feu), feu de camp (posé au sol), torche et torche forte (allumées au feu).
+	"ecorce": {"nom": "Écorce", "forme": "eclat", "poids": 30.0, "couleur": Color("#6b4f37")},
+	"ecorce_pin": {"nom": "Écorce de pin", "forme": "eclat", "poids": 30.0, "couleur": Color("#8a4b2a")},
+	"archet": {"nom": "Archet à feu", "forme": "bois", "poids": 250.0, "couleur": Color("#8a6440")},
+	"feu_camp": {"nom": "Feu de camp", "forme": "feu", "poids": 3000.0, "couleur": Color("#7d7a75")},
+	"torche": {"nom": "Torche", "forme": "bois", "couleur": Color("#7a5634")},
+	"torche_forte": {"nom": "Torche forte", "forme": "bois", "couleur": Color("#5e3a22")},
 	# 0.0.8.23 (demandes de l'utilisateur : « il faut qu'on enlève nous-mêmes les feuilles », « elles restent de la même
 	# taille », tas de 20 feuilles) : feuilles tombées d'une branche ou d'un arbre couché (R), au sol en tas de LEAF_PILE
 	# feuilles au plus, ramassées tas par tas ; nommées selon leur arbre. Une feuille : une plaque du feuillage des arbres
@@ -201,13 +211,14 @@ const CATEGORIES := [
 	# 0.0.8.26 (demande de l'utilisateur) : ficelles et cordelettes aussi.
 	# 0.0.8.37 (demande de l'utilisateur) : ficelles et cordelettes dans « Objets transformés ».
 	{"id": "plants", "nom": "Plantes", "objets": ["plante_ortie", "plante_lin", "plante_herbe", "gazon", "fibre_ortie", "fibre_lin", "fibre_herbe", "liane"]},
-	{"id": "made", "nom": "Objets transformés", "objets": ["ficelle_ortie", "ficelle_lin", "ficelle_herbe", "cordelette_ortie", "cordelette_lin", "cordelette_herbe"]},
+	{"id": "made", "nom": "Objets transformés", "objets": ["ficelle_ortie", "ficelle_lin", "ficelle_herbe", "cordelette_ortie", "cordelette_lin", "cordelette_herbe", "ecorce", "ecorce_pin"]},
 	# 0.0.8.26 (demande de l'utilisateur) : équipement : le sac en filet, la navette.
 	# 0.0.8.37 (demandes de l'utilisateur) : l'orbe de retour ; la navette passe dans Outils.
-	{"id": "equipment", "nom": "Équipement", "objets": ["sac_filet", "orbe_retour"]},
+	# 0.0.8.44 : archet à feu, feu de camp, torches.
+	{"id": "equipment", "nom": "Équipement", "objets": ["sac_filet", "orbe_retour", "archet", "feu_camp", "torche", "torche_forte"]},
 ]
 # Pour l'instant une seule version par objet : cailloux de taille 4, pomme rouge de taille 2.
-const CATALOG_MODELS := {"eclat_silex": {"poids": 40.0}, "eclat_pierre": {"poids": 40.0}, "sac_filet": {"lien": 1, "rangees": 10, "bretelle": 0, "poids": 90.0}, "navette": {"essence": 1, "age": 3, "souplesse": 3, "epaisseur": 1.8, "fin": 1.5, "longueur": 0.3, "poids": 60.0}, "caillou": {"taille": 4}, "caillou_calcaire": {"taille": 4}, "caillou_silex": {"taille": 4}, "pomme": {"taille": 2, "couleur": 1}, "tete_hache": {"pierre": 1, "taille": 5, "poids": 420.0}, "tete_pioche": {"pierre": 1, "taille": 5, "poids": 420.0}, "hache_pierre": {"pierre": 1, "taille": 5, "essence": 1, "age": 3, "souplesse": 3, "epaisseur": 3.5, "longueur": 0.6, "lien": 1, "tours": 8, "poids": 700.0}, "pioche_pierre": {"pierre": 1, "taille": 5, "essence": 1, "age": 3, "souplesse": 3, "epaisseur": 3.5, "longueur": 0.6, "lien": 1, "tours": 8, "poids": 700.0}}
+const CATALOG_MODELS := {"archet": {"essence": 1, "age": 3, "souplesse": 4, "epaisseur": 2.0, "fin": 1.6, "longueur": 0.7, "poids": 250.0}, "torche": {"essence": 1, "epaisseur": 3.0, "fin": 2.6, "longueur": 0.55, "poids": 260.0}, "torche_forte": {"essence": 1, "epaisseur": 3.4, "fin": 2.8, "longueur": 0.55, "poids": 300.0}, "feu_camp": {"brule": 120.0}, "eclat_silex": {"poids": 40.0}, "eclat_pierre": {"poids": 40.0}, "sac_filet": {"lien": 1, "rangees": 10, "bretelle": 0, "poids": 90.0}, "navette": {"essence": 1, "age": 3, "souplesse": 3, "epaisseur": 1.8, "fin": 1.5, "longueur": 0.3, "poids": 60.0}, "caillou": {"taille": 4}, "caillou_calcaire": {"taille": 4}, "caillou_silex": {"taille": 4}, "pomme": {"taille": 2, "couleur": 1}, "tete_hache": {"pierre": 1, "taille": 5, "poids": 420.0}, "tete_pioche": {"pierre": 1, "taille": 5, "poids": 420.0}, "hache_pierre": {"pierre": 1, "taille": 5, "essence": 1, "age": 3, "souplesse": 3, "epaisseur": 3.5, "longueur": 0.6, "lien": 1, "tours": 8, "poids": 700.0}, "pioche_pierre": {"pierre": 1, "taille": 5, "essence": 1, "age": 3, "souplesse": 3, "epaisseur": 3.5, "longueur": 0.6, "lien": 1, "tours": 8, "poids": 700.0}}
 
 signal changed
 
@@ -351,7 +362,8 @@ static var current_mode := CREATIVE
 
 # 0.0.8.37 (demande de l'utilisateur) : en Créatif, un sac se pose un par un, comme un outil (pas de pile de 99).
 static func one_at_a_time(id: String) -> bool:
-	return is_tool(id) or ITEMS.get(id, {}).get("forme", "") == "sac"
+	# 0.0.8.44 : archet, feu de camp et torches aussi (chacun son état : allumé, ce qu'il lui reste à brûler).
+	return is_tool(id) or ITEMS.get(id, {}).get("forme", "") in ["sac", "feu"] or id in ["archet", "torche", "torche_forte"]
 
 static func is_tool(id: String) -> bool:
 	var spec: Dictionary = ITEMS.get(id, {})
@@ -1431,6 +1443,11 @@ static func item_name(value: Dictionary) -> String:
 		value = flat(id, value.pile[-1])
 	if id == "rameau" and value.has("essence"):
 		return LEAFY_NAMES[clampi(int(value.essence), 0, LEAFY_NAMES.size() - 1)]
+	# 0.0.8.44 : torche ou feu allumé, et combien de temps encore ; bâton brûlé.
+	if id in ["torche", "torche_forte", "feu_camp"] and int(value.get("allume", 0)) == 1:
+		return "%s allumé%s (%s)" % [ITEMS[id].nom, "e" if id != "feu_camp" else "", burn_text(float(value.get("brule", 0.0)))]
+	if id == "branche" and int(value.get("brulee", 0)) == 1:
+		return "Bâton brûlé"
 	if id == "navette" and value.has("essence"):
 		return "Navette de %s" % ESSENCE_NAMES[clampi(int(value.essence), 0, ESSENCE_NAMES.size() - 1)]
 	if id == "feuilles" and value.has("essence"):
@@ -1664,3 +1681,10 @@ func _ground_load(except: int) -> float:
 		if at != except:
 			total += stack_weight(_store().get("sol", [])[at] if _store().has("sol") else {})
 	return total
+
+# 0.0.8.44 : temps qu'il reste à brûler (minutes de jeu) : « 8 h 20 », « 35 min ».
+static func burn_text(minutes: float) -> String:
+	var left := maxi(ceili(minutes), 0)
+	if left >= 60:
+		return "%d h %02d" % [left / 60, left % 60]
+	return "%d min" % left

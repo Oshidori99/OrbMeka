@@ -3,6 +3,10 @@ Du plus récent au plus ancien. Ce fichier est mis à jour à chaque version.
 
 === Thème « Fabrication et survie » (0.0.8) ===
 
+0.0.8.44 — Le feu et les torches : écorce (Écorcer, ou un pin debout à la hache), archet à feu, feu de camp (cailloux, bois, amadou) allumé à l'archet et nourri au bois ou au charbon, torche (10 h de lumière) et torche forte à l'écorce de pin (2 fois plus de lumière et de portée, 5 h), allumées au feu, lumière en main ; modèles simples
+Génération du terrain : version 34 · Menus : version 17.
+Issues #214 et #209 ; demandes de l'utilisateur.
+
 0.0.8.43 — La nuit et la lune : nuit vraiment noire (un peu de lumière à la pleine lune), la lune et ses phases dans le ciel (pleine lune tous les 28 jours, ou 8), sombre sous terre loin du ciel, réglage « Luminosité la nuit et sous terre » (Vidéo), réglages du monde : jour et nuit ou toujours le jour, durée d'une journée, pleine lune
 Génération du terrain : version 34 · Menus : version 17.
 Issue #214 (première partie) ; demandes de l'utilisateur.
