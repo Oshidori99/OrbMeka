@@ -249,6 +249,10 @@ func _unhandled_input(event: InputEvent) -> void:
 	if event.is_action_pressed("throw") and is_instance_valid(world) and world.has_method("throw_held"):
 		world.throw_held(Controls.throw_all(event))
 	# 0.0.8.35 (#252) : M + R : un point de repère là où l'on est.
+	# 0.0.8.41 : O + V : ouvrir le sac posé au sol qu'on vise.
+	if event.is_action_pressed("open_bag") and is_instance_valid(world) and world.has_method("open_aimed_bag"):
+		if not world.open_aimed_bag(get_target()):
+			world._notify("Visez un sac en filet posé au sol pour l'ouvrir (O + V).")
 	if event.is_action_pressed("waypoint") and is_instance_valid(world) and world.has_method("add_waypoint_here"):
 		world.add_waypoint_here()
 	if event.is_action_pressed("delete_item") and is_instance_valid(world) and world.has_method("delete_held"):

@@ -564,6 +564,24 @@ func _build_screen() -> void:
 	_throw_row(throw_column)
 	var delete_row := _throw_row(throw_column, "Supprimer")
 	delete_row.name = "DeleteRow"
+	# 0.0.8.41 (#210) : le sac en filet posé au sol qu'on a ouvert (O + V) : ses 4 cases, en haut (Survie et Créatif).
+	ground_bag_row = HBoxContainer.new()
+	ground_bag_row.name = "SacAuSol"
+	ground_bag_row.add_theme_constant_override("separation", GAP)
+	column.add_child(ground_bag_row)
+	var bag_picture := _picture(ItemIcons.texture(Inventory.BAG_ID), side)
+	bag_picture.tooltip_text = "Sac au sol"
+	ground_bag_row.add_child(bag_picture)
+	for index in range(Inventory.BAG_SLOTS):
+		var slot := Slot.new(side, true, _text_px())
+		slot.clicked.connect(_on_slot.bind("sol", index))
+		slot.double_clicked.connect(_on_double.bind("sol", index))
+		slot.more_clicked.connect(_toggle_more.bind(slot))
+		ground_bag_row.add_child(slot)
+		ground_bag_slots[index] = slot
+	ground_bag_label = _label("Sac au sol", 14)
+	ground_bag_row.add_child(ground_bag_label)
+	ground_bag_row.visible = false
 	# Survie : ligne des mains, puis ligne des poches ; à droite (0.0.7.7), l'équipement à venir.
 	survival_area = HBoxContainer.new()
 	survival_area.add_theme_constant_override("separation", 24)
@@ -601,6 +619,9 @@ func _build_screen() -> void:
 # bien plus tard). Quand on en portera, leurs cases apparaîtront en bas à gauche (rien pour l'instant).
 const EQUIPMENT := [["sac", "Sac (bientôt)"], ["panier", "Panier (bientôt)"], ["travois", "Travois : deux bâtons qu'on traîne (plus tard)"], ["chariot", "Chariot à roues (bien plus tard)"]]
 var survival_area: HBoxContainer
+var ground_bag_row: HBoxContainer
+var ground_bag_slots := {}
+var ground_bag_label: Label
 var equipment_slots: Array = []
 
 func _build_equipment(parent: Node, side: float) -> void:
@@ -657,7 +678,7 @@ func _on_equipment(_button: int, which: int) -> void:
 	cursor_item = Inventory.single(taken)
 	cursor_from = []
 	_show_cursor()
-	_say("Sac enlevé : posez-le dans une main, ou jetez-le.")
+	_say("Sac enlevé%s : posez-le dans une main, ou au sol (J). Au sol, O + V l'ouvre." % (" avec ses objets" if taken.has("sac_id") else ""))
 
 var _creative_bar_slots := {}
 var _survival_bar_slots := {}
@@ -805,6 +826,15 @@ func refresh() -> void:
 				slot.show_item(value, busy, chosen, _note(index))
 				_set_double(slot, index == heavy)
 				slot.visible = not busy
+	# 0.0.8.41 : le sac ouvert au sol.
+	var ground_open: bool = not inventory.ground_bag.is_empty()
+	ground_bag_row.visible = ground_open
+	if ground_open:
+		var load := 0.0
+		for index in range(Inventory.BAG_SLOTS):
+			ground_bag_slots[index].show_item(inventory.item("sol", index))
+			load += Inventory.stack_weight(inventory.item("sol", index))
+		ground_bag_label.text = "Sac au sol : %s sur %s" % [Inventory.format_weight(load), Inventory.format_weight(Inventory.bag_capacity(inventory.ground_bag))]
 	for index in range(Inventory.GRID_SIZE):
 		grid_slots[index].show_item(inventory.item("grid", index))
 	# 0.0.8.21 (#207) : sacs portés : leurs lignes, leurs cases, leurs places dans l'équipement.
@@ -1120,6 +1150,8 @@ func _mark_drag() -> void:
 func _slot_for(place: Array) -> Slot:
 	if place[0] == "grid":
 		return grid_slots[place[1]] if place[1] < grid_slots.size() else null
+	if place[0] == "sol":
+		return ground_bag_slots.get(place[1])
 	if place[0] == "sac":
 		return sac_slots.get(place[1])
 	var slots: Dictionary = _creative_bar_slots if inventory.mode == Inventory.CREATIVE else _survival_bar_slots

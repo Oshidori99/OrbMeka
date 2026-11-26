@@ -8,6 +8,7 @@ const Catalog = preload("res://scripts/world_catalog.gd")
 const Inventory = preload("res://scripts/inventory.gd")
 const Rules = preload("res://scripts/crafting_rules.gd")
 const Carnet = preload("res://scripts/carnet.gd")
+const Controls = preload("res://scripts/controls.gd")
 var checks := 0
 var failures := 0
 
@@ -46,7 +47,12 @@ func _run() -> void:
 	check(inv.item("bar", 8).is_empty() and inv.last_refusal == "mailles", "fibres too (« mailles »)")
 	inv.select(7)
 	check(inv.held().get("objet") == "caillou", "a bag slot can be chosen: its object is used directly, like a pocket")
-	check(inv.take_off_bag(0).is_empty() and inv.bag_worn(0), "a full bag cannot be taken off")
+	# 0.0.8.41 (#210, demande de l'utilisateur) : un sac plein s'enlève avec ses objets (rangés à part, comptés dans son poids) ;
+	# remis sur l'épaule, il les retrouve.
+	var full_off := inv.take_off_bag(0)
+	check(full_off.has("sac_id") and not inv.bag_worn(0) and Inventory.stored_bags.has(int(full_off.sac_id)) and Inventory.instance_weight("sac_filet", full_off) > float(full_off.get("poids", 90.0)), "a full bag comes off with its things (they count in its weight)")
+	check(inv.wear_bag(pile("sac_filet", [full_off]), 0) == 0 and inv.item("bar", 7).get("objet") == "caillou" and not Inventory.stored_bags.has(int(full_off.sac_id)) and not inv.bag(0).has("sac_id"), "worn again: it finds its things back")
+	inv.select(7)
 	check(inv.wear_bag(pile("sac_filet", [bag.duplicate()])) == 1 and inv.usable("sac", 0) and inv.carried_places().size() == 14, "a second bag: 4 slots in the inventory (zone « sac »)")
 	inv.put("sac", 0, pile("pomme", [{"taille": 2}]))
 	var saved := inv.to_dict()
@@ -170,7 +176,57 @@ func _run() -> void:
 	await process_frame
 	check(world.inventory_ui.survival_rows["Sac"].visible and not world.inventory_ui.survival_rows["Sac 2"].visible and world.inventory_ui.bag_equipment[0].item.get("objet") == "sac_filet", "inventory: the bag row, the bag in Équipement")
 	world.inventory_ui._on_equipment(MOUSE_BUTTON_LEFT, 0)
-	check(items.bag_worn(0), "full: it stays on")
+	# 0.0.8.41 : plein, il s'enlève avec ses objets (sous la souris) ; reposé à sa place, il les retrouve.
+	check(not items.bag_worn(0) and world.inventory_ui.cursor_item.get("objet") == "sac_filet" and world.inventory_ui.cursor_item.pile[0].has("sac_id"), "full: it comes off with its things")
+	world.inventory_ui._on_equipment(MOUSE_BUTTON_LEFT, 0)
+	check(items.bag_worn(0) and items.item("bar", 6).get("objet") == "pomme", "put back on: its things are back")
+	# --- 0.0.8.41 (#210, demandes de l'utilisateur) : le sac posé au sol plein ; O + V l'ouvre ; R le reprend ; enregistré. ---
+	check(Controls.ACTIONS.open_bag.default.key == KEY_O and Controls.ACTIONS.open_bag.default.second.key == KEY_V, "O + V opens a bag on the ground")
+	world.open_inventory()
+	await process_frame
+	world.inventory_ui._on_equipment(MOUSE_BUTTON_LEFT, 0)
+	var bag_held: Dictionary = world.inventory_ui.cursor_item
+	world.inventory_ui.throw_cursor()
+	world.close_inventory(false)
+	await frames(10)
+	var bag_index := -1
+	for at in range(world.ground.entries.size()):
+		if world.ground.entries[at].item.get("objet") == "sac_filet" and world.ground.entries[at].item.has("sac_id"):
+			bag_index = at
+	check(bag_index >= 0 and not items.bag_worn(0), "the full bag lies on the ground (thrown with J, with its things)")
+	if bag_index >= 0:
+		var body: Node3D = world.ground.bodies[bag_index]
+		world.player.camera.look_at(body.global_position)
+		var hit := {"collider": body, "position": body.global_position, "normal": Vector3.UP}
+		check(world.open_aimed_bag(hit) and world.inventory_open and world.inventory_ui.ground_bag_row.visible and items.item("sol", 0).get("objet") == "pomme", "O + V: the inventory opens on the bag's 4 slots, its things inside")
+		var apple: Dictionary = items.take("sol", 0)
+		var pocket: int = (Inventory.HANDS + Inventory.POCKETS).filter(func(index): return items.item("bar", index).is_empty() and items.fit_count("bar", index, apple) > 0)[0]
+		check(items.put("bar", pocket, apple).is_empty() and items.item("sol", 0).is_empty(), "take an apple out of the bag on the ground")
+		items.put("sol", 1, items.take("bar", pocket))
+		check(items.item("sol", 1).get("objet") == "pomme", "and put it back in")
+		world.close_inventory(false)
+		check(items.ground_bag.is_empty() and not world.inventory_ui.ground_bag_row.visible and Inventory.stored_bags.has(int(world.ground.entries[bag_index].item.sac_id)), "closed: its things stay in it")
+		# Enregistré avec les objets du monde, relu.
+		world.objects_dirty = true
+		world._save_objects()
+		var saved_objects: Dictionary = JSON.parse_string(FileAccess.get_file_as_string(world.save_folder.path_join("objets.json")))
+		var read_again := Inventory.valid_stored(saved_objects.get("sacs_contenus"))
+		check(read_again.has(int(world.ground.entries[bag_index].item.sac_id)) and read_again[int(world.ground.entries[bag_index].item.sac_id)][1].get("objet") == "pomme", "saved with the world (objets.json « sacs_contenus ») and read back")
+		# R : repris avec son contenu (et son poids).
+		world.pick_up({"collider": world.ground.bodies[bag_index], "position": world.ground.bodies[bag_index].global_position, "normal": Vector3.UP})
+		var in_hand: Dictionary = {}
+		var bag_place: Array = []
+		for place in items.carried_places():
+			if items.item(place[0], place[1]).get("objet") == "sac_filet":
+				in_hand = items.item(place[0], place[1])
+				bag_place = place
+		# (une place sur l'épaule libre : R le remet directement sur l'épaule, ses objets retrouvés)
+		var back_on: bool = items.bag_worn(0) and Inventory.BAG.any(func(index): return items.item("bar", index).get("objet") == "pomme")
+		check(back_on or (in_hand.get("objet") == "sac_filet" and in_hand.pile[0].has("sac_id") and Inventory.stack_weight(in_hand) > float(in_hand.pile[0].get("poids", 90.0))), "R: picked up with its things (back on the shoulder, or in hand and heavier)")
+		# Remis sur l'épaule : il retrouve ses objets (pour la suite du test).
+		if not bag_place.is_empty():
+			items.wear_bag(items.take(bag_place[0], bag_place[1]), 0)
+	check(not Carnet.node("sac_sol").is_empty(), "a notebook case for the bag on the ground")
 	world.close_inventory(false)
 	var dropped: int = world.drop_all_items(world.player.global_position)
 	check(dropped == 3 and not items.bag_worn(0) and not items.usable("bar", 6) and world.ground.entries.any(func(e): return e.item.get("objet") == "sac_filet"), "at death: the apple, the pebble and the bag fall")
@@ -180,3 +236,8 @@ func _run() -> void:
 			DirAccess.remove_absolute(ProjectSettings.globalize_path(path))
 	print("RESULT: %d net bag checks, %d failures" % [checks, failures])
 	quit(0 if failures == 0 else 1)
+
+func frames(count: int) -> void:
+	for index in range(count):
+		await process_frame
+		await physics_frame
