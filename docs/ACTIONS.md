@@ -69,10 +69,10 @@ puis R encore donne son bois. Une action « Défeuiller » dans O + F n'est donc
 
 | Action manquante | Objet | Résultat voulu |
 |---|---|---|
-| Écorcer | Bâton, bûche | Bois écorcé (plus léger, plus sec) et écorce (liens, plus tard) |
-| Détresser | Ficelle, cordelette | Les fibres ou les ficelles d'origine |
-| Défaire un outil | Hache, pioche, outil à ficeler | La tête, le manche et ce qui reste du lien |
-| Refaire le lien d'un outil usé | Hache, pioche | Moins d'usure, avec des ficelles neuves |
-| Tailler un éclat seul | Caillou + silex ou calcaire | Un éclat tranchant, plus vite qu'une tête |
+| Écorcer (#255) | Bâton, bûche | Bois écorcé (plus léger, plus sec) et écorce (liens, plus tard) |
+| Détresser (#256) | Ficelle, cordelette | Les fibres ou les ficelles d'origine |
+| Défaire un outil (#257) | Hache, pioche, outil à ficeler | La tête, le manche et ce qui reste du lien |
+| Refaire le lien d'un outil usé (#258) | Hache, pioche | Moins d'usure, avec des ficelles neuves |
+| Tailler un éclat seul (#259) | Caillou + silex ou calcaire | Un éclat tranchant, plus vite qu'une tête |
 
 Déjà prévus ailleurs : torche (#214), feu de camp (#209), cultures et planter des graines (#170), coffre (#210).
