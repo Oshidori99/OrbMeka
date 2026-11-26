@@ -4,6 +4,8 @@ Ouvrez project.godot dans Godot, puis utilisez F5. Il n'est pas nécessaire
 d'ouvrir chaque fichier. La version 0.0.2.7 range les fichiers sans modifier
 le fonctionnement du jeu.
 
+docs/ACTIONS.md (0.0.8.38, #254) : tableau de toutes les actions (objet → actions → résultat), et ce qui manque.
+
 LES DOSSIERS
 scenes/ contient main.tscn (accueil et menus) et world.tscn (partie).
 scripts/ contient le code GDScript : app pour les menus (0.0.4.21 : en cinq parties empilées,

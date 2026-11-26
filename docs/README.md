@@ -1,6 +1,15 @@
-# OrbMeka™ — prototype 0.0.8.37
+# OrbMeka™ — prototype 0.0.8.38
 
 Godot 4.7 / GDScript. Formes et couleurs simples ; assets externes seulement sous licence vérifiée (sons CC0, assets/sounds/CREDITS.txt).
+
+## 0.0.8.38 — Liste de toutes les actions (#254)
+Publiée (avec tous les tests sur GitHub). Génération inchangée (version 34). Issue #254.
+- **Tableau de toutes les actions** (objet → actions → résultat) : dans le monde, en main et dans l'inventaire, et la fabrication à la main : **docs/ACTIONS.md**, joint à l'issue #254.
+- **« Défeuiller » est déjà couvert** : depuis 0.0.8.30, une petite branche feuillue coupée donne un bâton de sa longueur et ses feuilles à part ; depuis 0.0.8.23, R fait tomber les feuilles d'une branche couchée. Pas de nouvelle action dans O + F.
+- **Actions qui manquent**, chacune dans son issue (à venir) : écorcer un bâton, détresser une ficelle, défaire un outil, refaire le lien d'un outil usé, tailler un éclat seul. Torche, feu de camp, cultures et coffre ont déjà leur issue.
+- Rien ne change dans le jeu.
+
+Tests réussis : tous, sur GitHub (Action Dev, une version sur cinq) ; en local : prototype, history_resume (+ tests juridiques).
 
 ## 0.0.8.37 — Inventaire et Créatif
 Publiée. Génération inchangée (version 34). Demandes de l'utilisateur.
