@@ -214,6 +214,17 @@ func _run() -> void:
 	check(world.ground.entries.is_empty() and world.inventory.item("bar", 0).objet == "eclat_pierre" and Inventory.count(world.inventory.item("bar", 0)) == 2 and Inventory.stack_weight(world.inventory.item("bar", 0)) == 250.0, "broken stone: its pieces go straight into the chosen slot (left hand), together")
 	world.drop_pieces("charbon", 1, 125.0, world.player.global_position + Vector3.UP)
 	check(world.inventory.item("bar", 1).get("objet") == "charbon" and world.ground.entries.is_empty(), "chosen hand busy: the coal goes to the other (right) hand (0.0.7.10)")
+	# 0.0.8.50 (demande de l'utilisateur) : la pierre du terrain cassée à la pioche donne sa matière (une poignée).
+	var kept_hands: Array = [world.inventory.item("bar", 0).duplicate(true), world.inventory.item("bar", 1).duplicate(true)]
+	world.inventory.put("bar", 0, {})
+	world.inventory.put("bar", 1, {})
+	world.stone_harvest(preload("res://scripts/smooth_terrain.gd").LIMESTONE, 1, world.player.global_position + Vector3.UP)
+	check(world.inventory.item("bar", 0).get("objet") == "calcaire" and Inventory.count(world.inventory.item("bar", 0)) == 1, "limestone broken with a pickaxe: a handful of limestone in hand (0.0.8.50)")
+	for index in range(world.ground.entries.size() - 1, -1, -1):
+		world.ground.remove(index)
+	world.inventory.put("bar", 0, {})
+	world.inventory.put("bar", 0, kept_hands[0])
+	world.inventory.put("bar", 1, kept_hands[1])
 	check(ui.hud_slots[0].title == "" and ui.hud_slots[0].note == "250,0 g" and ui.hud_slots[1].note == "125,0 g" and ui.hud_slots[2].title == "" and ui.hud_slots[2].note == "", "0.0.8.3: only the weight under each slot (name shown above when taken in hand), nothing under an empty one")
 	check(world.inventory.add({"objet": "terre", "nombre": 6}) == 2 and ui.hud_carried.poches[1].text.begins_with("650,0 g / 1,000 kg") and is_equal_approx(ui.panel_bars.Poches[0].share, 0.65) and is_equal_approx(ui.panel_bars.Poches[1].share, 1.0), "pockets: 1 kg in all since 0.0.8.7 (two handfuls of earth of 325 g fill the 0,5 L)")
 	# Reposer un objet tenu (clic droit) : il retourne au sol là où l'on vise.

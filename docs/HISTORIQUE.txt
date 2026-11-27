@@ -3,6 +3,10 @@ Du plus récent au plus ancien. Ce fichier est mis à jour à chaque version.
 
 === Thème « Fabrication et survie » (0.0.8) ===
 
+0.0.8.50 — Pierre à la pioche : la pierre du sol cassée à la pioche donne sa matière (une poignée de pierre, calcaire, pierre sombre ou silex, à reposer comme la terre), et parfois un éclat
+Génération du terrain : version 34 · Menus : version 17.
+Demande de l'utilisateur.
+
 0.0.8.49 — Arbre couché qui suit le sol creusé : un arbre ou un morceau couché se repose quand on creuse sous lui (seulement s'il a perdu un appui, jamais en l'air), sa nouvelle pose enregistrée
 Génération du terrain : version 34 · Menus : version 17.
 Demande de l'utilisateur (restes de la physique).

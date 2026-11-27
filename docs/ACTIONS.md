@@ -11,7 +11,7 @@ Tableau objet → actions → résultat (issue #254). Les touches sont celles pa
 | Sol | Récupérer des matériaux (R + I maintenus, ou mode du clic gauche) | Une poignée de la matière en main |
 | Herbe | Récupérer des matériaux | Une motte de gazon |
 | Sol | Poser (clic droit) ; Aplanir ; Lisser (menu B + T) | Matière posée, sol aplani ou lissé |
-| Pierre du sol | Casser (pioche ; Créatif : à mains nues) | Éclats de pierre |
+| Pierre du sol | Casser (pioche ; Créatif : à mains nues) | Une poignée de sa matière (pierre, calcaire, pierre sombre, silex ; 0.0.8.50), parfois un éclat ; charbon : du charbon |
 | Rocher | Casser (pioche ; Survie à mains nues : maintenu) | Un caillou et un éclat par coup ; un bout qui ne tient plus tombe en cailloux |
 | Caillou au sol | Ramasser (R, clic de la molette) | Le caillou en main (taille 6 et 7 : trop gros) |
 | Caillou au sol | Casser (clic gauche) | Éclats |
