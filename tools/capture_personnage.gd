@@ -73,4 +73,16 @@ func _run() -> void:
 		w.player.body_rig.update(1.0 / 60.0, 3.0, false)
 		await process_frame
 	await shot(folder, "perso_bas")
+	# Un sac porté (Survie) avec une pomme, un caillou et un bâton : vus à travers les mailles, de dos.
+	w.set_game_mode(Inventory.SURVIVAL)
+	w.inventory.wear_bag({"objet": "sac_filet", "pile": [{"lien": 1, "rangees": 10, "bretelle": 0, "poids": 90.0}]})
+	w.inventory.put("bar", 6, {"objet": "pomme", "pile": [{"taille": 2, "couleur": 1}]})
+	w.inventory.put("bar", 7, {"objet": "caillou", "pile": [{"taille": 4}]})
+	w.inventory.put("bar", 8, {"objet": "branche", "pile": [{"essence": 1, "epaisseur": 2.0, "fin": 1.6, "longueur": 0.6, "poids": 120.0}]})
+	w.inventory.changed.emit()
+	w.apply_held()
+	w.player.set_view("back")
+	w.player.view_camera.position = Vector3(0.0, -0.6, 1.1)
+	await walk(0.3, 0.0)
+	await shot(folder, "perso_sac")
 	quit(0)

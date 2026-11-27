@@ -1711,13 +1711,27 @@ func right_hand_item() -> Dictionary:
 		return inventory.held()
 	return right
 
+# 0.0.8.54 (#250) : la case choisie à la dernière mise à jour des mains.
+var _held_slot := -1
+
 func apply_held() -> void:
 	if is_instance_valid(player):
 		player.selected_type = inventory.held_kind()
 		player.show_hands(left_hand_item(), right_hand_item(), game_mode == Inventory.SURVIVAL and inventory.two_handed() >= 0)
-		# 0.0.8.21 (#207) : les sacs portés, sur le personnage.
+		# 0.0.8.21 (#207) : les sacs portés, sur le personnage ; 0.0.8.54 : avec ce qu'ils contiennent (vu à travers).
 		var survival_mode: bool = game_mode == Inventory.SURVIVAL
-		player.show_bags([survival_mode and inventory.bag_worn(0), survival_mode and inventory.bag_worn(1)])
+		var contents := []
+		for which in range(2):
+			contents.append(Inventory.bag_places(which).map(func(place: Array) -> Dictionary: return inventory.item(place[0], place[1])) if survival_mode and inventory.bag_worn(which) else [])
+		player.show_bags([survival_mode and inventory.bag_worn(0), survival_mode and inventory.bag_worn(1)], contents)
+		# 0.0.8.54 (#250) : choisir une case de poche ou du sac : la main va y prendre l'objet.
+		var chosen := inventory.selected()
+		if survival_mode and chosen != _held_slot and not inventory.held().is_empty():
+			if chosen in Inventory.POCKETS:
+				player.fetch_item("poche")
+			elif chosen in Inventory.BAG:
+				player.fetch_item("sac")
+		_held_slot = chosen
 		# 0.0.7.8 : plus lent quand les mains portent lourd.
 		player.carry_slow = inventory.carry_factor()
 

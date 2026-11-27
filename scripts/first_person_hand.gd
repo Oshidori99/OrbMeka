@@ -345,6 +345,8 @@ const POSE_SPEED := 14.0
 const DIG_REACH := Vector3(-0.03, -0.09, -0.12)
 const GRAB_REACH := Vector3(-0.06, -0.16, -0.22)
 const PLACE_REACH := Vector3(-0.02, -0.06, -0.14)
+# 0.0.8.54 (#250) : prendre dans une poche (en bas, sur le côté) ou dans le sac (en bas, en arrière, à la hanche).
+const FETCH_REACH := {"poche": Vector3(0.08, -0.42, 0.12), "sac": Vector3(0.16, -0.38, 0.3)}
 const MOUTH := Vector3(-0.3, 0.12, 0.05)
 var pose_mesh: MeshInstance3D
 var hold_pose := ["", 0.0]
@@ -421,6 +423,12 @@ func dig() -> void:
 func place() -> void:
 	gestured.emit("place")
 	_gesture("ouverte", 0.8, PLACE_REACH, 0.08, 0.15)
+
+# 0.0.8.54 (#250) : prendre un objet dans une poche ou dans le sac : la main y descend (hors de la vue), le prend et le
+# ramène devant soi.
+func fetch(place: String) -> void:
+	gestured.emit("fetch")
+	_gesture("prise", 0.7, FETCH_REACH.get(place, FETCH_REACH.poche), 0.14, 0.22)
 
 # Ramasser : la main s'avance ouverte vers le sol, se ferme sur l'objet, revient.
 func grab() -> void:

@@ -12,7 +12,7 @@ extends RefCounted
 #   bouche).
 const ARM_BONES := ["Epaule", "Bras", "AvantBras", "Main"]
 const LEG_BONES := ["Cuisse", "Jambe", "Pied"]
-const GESTURE_SECONDS := {"dig": 0.45, "place": 0.4, "grab": 0.5, "eat": 0.6}
+const GESTURE_SECONDS := {"dig": 0.45, "place": 0.4, "grab": 0.5, "eat": 0.6, "fetch": 0.38}
 # Balancement en marchant : angle des bras et des jambes (radians) à pleine vitesse de marche, pas par seconde.
 const WALK_ARM := 0.42
 const WALK_LEG := 0.5
@@ -134,6 +134,11 @@ func update(delta: float, speed: float, gestures: bool = true) -> void:
 				"eat":
 					upper = lerpf(upper, 0.6, curve)
 					lower = lerpf(lower, 2.1, curve)
+				"fetch":
+					# Prendre dans une poche ou le sac : la main descend à la hanche, un peu en arrière, puis revient.
+					upper = lerpf(upper, -0.45, curve)
+					lower = lerpf(lower, 0.35, curve)
+					hand = lerpf(hand, 0.3, curve)
 		_turn("Bras." + tag, upper, side * 0.06)
 		_turn("AvantBras." + tag, lower)
 		_turn("Main." + tag, hand)
