@@ -1,6 +1,17 @@
-# OrbMeka™ — prototype 0.0.8.55
+# OrbMeka™ — prototype 0.0.8.56
 
 Godot 4.7 / GDScript. Formes et couleurs simples ; assets externes seulement sous licence vérifiée (sons CC0, assets/sounds/CREDITS.txt).
+
+## 0.0.8.56 — Animaux animés
+Publiée. Génération inchangée (version 34). Demande de l'utilisateur (lot C2 : jambes et pattes ; issue « Animations des pattes des animaux »).
+- **Squelette des animaux** (même script Blender que les humains) : le renard, le lapin, l'écureuil et le chat ont un corps et une tête (la tête trouvée par ses yeux : yeux, oreilles et museau la suivent) ; la tortue bouge d'une seule pièce (sa tête est mêlée à sa carapace).
+- **En marchant**, un animal se dandine (le corps penche d'un côté puis de l'autre), sautille à chaque pas, et sa tête hoche ; à l'arrêt, il tourne et penche un peu la tête. Ce sont des peluches assises ou debout aux pattes minuscules : un vrai pas à quatre pattes ne leur irait pas.
+- **Vitrine de l'accueil** : le renard et le lapin qui courent se dandinent aussi.
+- Pas encore : leurs pattes et leur queue (la queue du renard est en plusieurs morceaux qui se sépareraient) ; l'avertissement du menu Personnage le dit.
+- Les jambes des humains se balancent en marchant depuis 0.0.8.54.
+
+Tests réussis : squelette (nouveau : les 5 animaux, le renard se dandine), character, body, views, menu, menu_style, settings_files, character_voices, sac, inventory, prototype, history_resume.
+À tester : un animal en vue F4 (de dos, de face), en marchant et à l'arrêt ; la vitrine de l'accueil.
 
 ## 0.0.8.55 — Sacs et gestes
 Publiée. Génération inchangée (version 34). Demandes de l'utilisateur (lot C1, partie 3 ; issue « Animations : prendre et ranger un objet »).

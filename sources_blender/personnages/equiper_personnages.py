@@ -27,7 +27,8 @@ def import_character(name):
     before = set(bpy.data.objects)
     bpy.ops.import_scene.gltf(filepath=os.path.join(FOLDER, name + ".glb"))
     made = [o for o in bpy.data.objects if o not in before]
-    mesh = [o for o in made if o.type == "MESH"][0]
+    # La pièce principale (certains fichiers ont une petite forme en plus, cachée) : celle qui a le plus de sommets.
+    mesh = max((o for o in made if o.type == "MESH"), key=lambda o: len(o.data.vertices))
     # Le modèle tel quel (sommets dans le repère du monde de Blender : z vers le haut, le visage vers -y), sans squelette.
     world = mesh.matrix_world.copy()
     mesh.parent = None
@@ -274,11 +275,135 @@ def export(name, mesh, rig):
                               export_skins=True, export_animations=False)
 
 
+# --- 0.0.8.56 (lot C2, demande de l'utilisateur : les pattes des animaux) : squelette des animaux ---
+# Chaque animal est fait de pièces (tête, corps, pattes, queue en plusieurs morceaux, oreilles, yeux…), différentes d'un
+# animal à l'autre : la tête (la grande pièce la plus haute) et ce qui est dessus ; le corps (la plus grande pièce qui
+# reste) et ce qui est dedans ; les pattes (pièces qui touchent le sol : avant ou arrière, gauche ou droite) ; les bras
+# (pièces sur les côtés du corps, au-dessus du sol : animaux assis comme des peluches) ; la queue (pièces derrière le
+# corps). Os : Corps, Tete, Queue (si elle existe) ; pattes et bras suivent le corps (des peluches assises ou debout,
+# aux pattes minuscules : en marchant, le jeu les fait se dandiner, sautiller, hocher la tête, remuer la queue). Le visage
+# regarde -y.
+ANIMALS = ["fox", "rabbit", "squirrel", "turtle", "cat"]
+# Animaux d'une seule pièce pour le jeu (la tortue : sa tête est mêlée à sa carapace) ; et pas de queue qui remue pour
+# l'instant (la queue du renard, en plusieurs morceaux, se séparerait).
+WHOLE_ANIMALS = ["turtle"]
+ANIMAL_TAIL = False
+
+
+def inside(p, box_low, box_high, margin):
+    c = p["center"]
+    return all(box_low[i] - margin <= c[i] <= box_high[i] + margin for i in range(3))
+
+
+def classify_animal(parts):
+    ground = min(p["low"].z for p in parts)
+    top = max(p["high"].z for p in parts)
+    height = top - ground
+    cx = (min(p["low"].x for p in parts) + max(p["high"].x for p in parts)) * 0.5
+    biggest = max(len(p["verts"]) for p in parts)
+    large = [p for p in parts if len(p["verts"]) >= biggest * 0.3]
+    # La tête : la grande pièce où sont les yeux (une queue peut monter plus haut que la tête).
+    eyes = [p for p in parts if any(("Yeux" in k) or ("Iris" in k) or k.startswith("O_") for k in p["kinds"])]
+    head = None
+    if eyes:
+        eye = sum((p["center"] for p in eyes), Vector()) / len(eyes)
+        holders = [p for p in parts if p not in eyes and len(p["verts"]) >= biggest * 0.1 and all(p["low"][i] - 0.03 <= eye[i] <= p["high"][i] + 0.03 for i in range(3))]
+        if holders:
+            head = max(holders, key=lambda p: len(p["verts"]))
+    if head is None:
+        head = max(large, key=lambda p: p["center"].z)
+    head["role"] = "tete"
+    rest = [p for p in parts if p is not head]
+    # Le corps : la grande pièce juste sous la tête (pas une pièce de la queue, derrière).
+    under = [p for p in rest if p in large and p["center"].z < head["center"].z] or rest
+    body = min(under, key=lambda p: abs(p["center"].y - head["center"].y) + abs(p["center"].x - head["center"].x) - len(p["verts"]) * 1e-5)
+    body["role"] = "corps"
+    for p in parts:
+        if "role" in p:
+            continue
+        off = p["center"].x - cx
+        p["side"] = 1 if off >= 0.0 else -1
+        if inside(p, head["low"], head["high"], 0.05) and p["center"].z > head["low"].z - 0.02:
+            p["role"] = "tete"
+        elif p["low"].z <= ground + height * 0.06 and (p["high"].x - p["low"].x) < (body["high"].x - body["low"].x) * 0.7:
+            p["role"] = "patte_avant" if p["center"].y < body["center"].y else "patte_arriere"
+        elif p["center"].y > body["high"].y - (body["high"].y - body["low"].y) * 0.15 and p["low"].z > ground + height * 0.04 and not inside(p, body["low"], body["high"], 0.0):
+            p["role"] = "queue"
+        elif abs(off) > (body["high"].x - body["low"].x) * 0.35 and p["low"].z > ground + height * 0.06 and p["high"].z < head["low"].z + 0.05:
+            p["role"] = "bras"
+        else:
+            p["role"] = "corps"
+    for p in (head, body):
+        p["side"] = 1
+    return {"cx": cx, "ground": ground, "top": top, "head": head, "body": body}
+
+
+def make_animal_armature(name, parts, info):
+    arm_data = bpy.data.armatures.new(name + "_os")
+    rig = bpy.data.objects.new(name + "_squelette", arm_data)
+    bpy.context.scene.collection.objects.link(rig)
+    bpy.context.view_layer.objects.active = rig
+    bpy.ops.object.mode_set(mode="EDIT")
+    made = {}
+
+    def bone(bname, head, tail, parent=None):
+        b = arm_data.edit_bones.new(bname)
+        b.head = Vector(head)
+        b.tail = Vector(tail)
+        if (b.tail - b.head).length < 0.01:
+            b.tail = b.head + Vector((0.0, 0.0, 0.02))
+        if parent:
+            b.parent = made[parent]
+        made[bname] = b
+
+    body = info["body"]
+    head = info["head"]
+    center = body["center"]
+    bone("Corps", (info["cx"], center.y, body["low"].z), (info["cx"], center.y, body["high"].z))
+    if name not in WHOLE_ANIMALS:
+        bone("Tete", (info["cx"], head["center"].y, head["low"].z), (info["cx"], head["center"].y, head["high"].z), "Corps")
+    tail = [p for p in parts if p["role"] == "queue"] if ANIMAL_TAIL else []
+    if tail:
+        low = Vector((min(p["low"].x for p in tail), min(p["low"].y for p in tail), min(p["low"].z for p in tail)))
+        high = Vector((max(p["high"].x for p in tail), max(p["high"].y for p in tail), max(p["high"].z for p in tail)))
+        base = Vector((info["cx"], low.y, (low.z + high.z) * 0.5))
+        tip = Vector((info["cx"], high.y, high.z))
+        bone("Queue", base, tip, "Corps")
+    bpy.ops.object.mode_set(mode="OBJECT")
+    return rig
+
+
+def rig_animal(name):
+    mesh = import_character(name)
+    parts = islands(mesh, name)
+    info = classify_animal(parts)
+    rig = make_animal_armature(name, parts, info)
+    names = {b.name for b in rig.data.bones}
+    groups = {n: mesh.vertex_groups.new(name=n) for n in names}
+    bone_of = {"tete": "Tete" if "Tete" in names else "Corps", "corps": "Corps", "queue": "Queue" if "Queue" in names else "Corps"}
+    for p in parts:
+        tag = "G" if p.get("side", 1) == 1 else "D"
+        target = bone_of.get(p["role"])
+        if target is None:
+            target = {"patte_avant": "PatteAvant.", "patte_arriere": "PatteArriere.", "bras": "Bras."}[p["role"]] + tag
+            if target not in names:
+                target = "Corps"
+        groups[target].add(p["verts"], 1.0, "REPLACE")
+    mesh.parent = rig
+    modifier = mesh.modifiers.new("Squelette", "ARMATURE")
+    modifier.object = rig
+    roles = {}
+    for p in parts:
+        roles[p["role"]] = roles.get(p["role"], 0) + 1
+    print("ANIMAL", name, "pièces", roles, "os", sorted(names))
+    return mesh, rig
+
+
 def run(export_files=True):
-    only = [n for n in os.environ.get("ORBMEKA_PERSOS", "").split(",") if n] or HUMANS
+    only = [n for n in os.environ.get("ORBMEKA_PERSOS", "").split(",") if n] or HUMANS + ANIMALS
     results = {}
     for name in only:
-        mesh, rig = rig_character(name)
+        mesh, rig = rig_animal(name) if name in ANIMALS else rig_character(name)
         if export_files:
             export(name, mesh, rig)
         results[name] = (mesh, rig)

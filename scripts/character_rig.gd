@@ -55,7 +55,33 @@ func setup(model: Node) -> bool:
 			hand.bone_name = "Main." + tag
 			skeleton.add_child(hand)
 			_hands[tag] = hand
-	return _ids.has("Bras.G") and _ids.has("Bras.D")
+	# 0.0.8.56 (lot C2) : un animal (os Corps, Tete) : il se dandine en marchant (update_animal).
+	animal = _ids.has("Corps") and not _ids.has("Bras.G")
+	return animal or (_ids.has("Bras.G") and _ids.has("Bras.D"))
+
+var animal := false
+# Animal qui marche : balancement du corps (de côté), petit saut à chaque pas, la tête qui hoche ; à l'arrêt, la tête
+# bouge un peu (il respire).
+const ANIMAL_WADDLE := 0.16
+const ANIMAL_HOP := 0.035
+const ANIMAL_NOD := 0.1
+var _idle := 0.0
+
+func update_animal(delta: float, speed: float) -> void:
+	_walk = move_toward(_walk, clampf(speed / 3.0, 0.0, 1.0), delta * 4.0)
+	_phase = fmod(_phase + delta * TAU * 2.2 * maxf(_walk, 0.0001), TAU)
+	_idle = fmod(_idle + delta, TAU * 10.0)
+	var step := sin(_phase)
+	if _ids.has("Corps"):
+		var bone: int = _ids["Corps"]
+		var rotation := Quaternion(Vector3.FORWARD, step * ANIMAL_WADDLE * _walk) * Quaternion(Vector3.RIGHT, -0.08 * _walk)
+		skeleton.set_bone_pose_rotation(bone, _rest["Corps"] * rotation)
+		var origin: Vector3 = skeleton.get_bone_rest(bone).origin
+		skeleton.set_bone_pose_position(bone, origin + Vector3(0.0, absf(step) * ANIMAL_HOP * _walk, 0.0))
+	if _ids.has("Tete"):
+		var nod := sin(_phase * 2.0) * ANIMAL_NOD * _walk + sin(_idle * 1.3) * 0.04 * (1.0 - _walk)
+		var look := sin(_idle * 0.5) * 0.12 * (1.0 - _walk)
+		skeleton.set_bone_pose_rotation(_ids["Tete"], _rest["Tete"] * Quaternion(Vector3.RIGHT, nod) * Quaternion(Vector3.UP, look))
 
 func has_bone(bone_name: String) -> bool:
 	return _ids.has(bone_name)
@@ -96,6 +122,9 @@ func _turn(bone_name: String, forward: float, out: float = 0.0, twist: float = 0
 # marche seulement, par exemple pour le corps vu à la première personne).
 func update(delta: float, speed: float, gestures: bool = true) -> void:
 	if skeleton == null:
+		return
+	if animal:
+		update_animal(delta, speed)
 		return
 	_walk = move_toward(_walk, clampf(speed / 4.0, 0.0, 1.0), delta * 4.0)
 	_phase = fmod(_phase + delta * TAU * WALK_STEPS * maxf(_walk, 0.0001) * (0.6 + 0.4 * clampf(speed / 4.0, 0.0, 2.0)), TAU)

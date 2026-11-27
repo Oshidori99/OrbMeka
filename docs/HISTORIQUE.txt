@@ -3,6 +3,10 @@ Du plus récent au plus ancien. Ce fichier est mis à jour à chaque version.
 
 === Thème « Fabrication et survie » (0.0.8) ===
 
+0.0.8.56 — Animaux animés : renard, lapin, écureuil, chat et tortue ont un squelette ; en marchant, ils se dandinent et sautillent, la tête hoche ; à l'arrêt, ils bougent un peu la tête ; aussi ceux qui courent dans la vitrine de l'accueil
+Génération du terrain : version 34 · Menus : version 17.
+Demande de l'utilisateur (lot C2 : jambes et pattes).
+
 0.0.8.55 — Sacs et gestes : ce qu'il y a dans un sac se voit à travers les mailles (porté et posé au sol), choisir une case de poche ou du sac : la main va y prendre l'objet (à la première personne et de dos), avertissement en rouge quand on choisit un animal (menu Personnage)
 Génération du terrain : version 34 · Menus : version 17.
 Demandes de l'utilisateur (lot C1, partie 3).

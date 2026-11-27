@@ -27,7 +27,9 @@ func shot(folder: String, name: String) -> void:
 func walk(seconds: float, speed: float) -> void:
 	var steps := int(seconds * 60.0)
 	for index in range(steps):
-		w.player.shadow_rig.update(1.0 / 60.0, speed, true)
+		var rig: RefCounted = w.player.shadow_rig if w.player.shadow_rig != null else w.player.body_rig
+		if rig != null:
+			rig.update(1.0 / 60.0, speed, true)
 		await process_frame
 
 func _run() -> void:
@@ -70,7 +72,8 @@ func _run() -> void:
 	w.player.camera.rotation.x = -1.25
 	await walk(0.5, 3.0)
 	for index in range(30):
-		w.player.body_rig.update(1.0 / 60.0, 3.0, false)
+		if w.player.body_rig != null:
+			w.player.body_rig.update(1.0 / 60.0, 3.0, false)
 		await process_frame
 	await shot(folder, "perso_bas")
 	# Un sac porté (Survie) avec une pomme, un caillou et un bâton : vus à travers les mailles, de dos.

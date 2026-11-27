@@ -824,7 +824,10 @@ func sync_body() -> void:
 			remove_child(old)
 			old.queue_free()
 	body = _place_body(CharacterModel.build(character, skin), "Body")
-	body_rig = null
+	# 0.0.8.56 : un animal (pas de copie pour l'ombre) bouge aussi : son squelette, tout de suite.
+	body_rig = CharacterRig.new()
+	if not body_rig.setup(body):
+		body_rig = null
 	shadow_rig = null
 	body_shadow = null
 	if not CharacterPreview.is_human(character):
@@ -848,9 +851,6 @@ func sync_body() -> void:
 		# 0.0.8.51 : sa propre couche : la torche tenue (devant lui) ne fait pas d'ombre de son corps (Fire.no_shadow_layers).
 		(node as GeometryInstance3D).layers = BODY_SHADOW_LAYER
 	# 0.0.8.54 : leurs squelettes (bras, jambes), et les objets tenus.
-	body_rig = CharacterRig.new()
-	if not body_rig.setup(body):
-		body_rig = null
 	shadow_rig = CharacterRig.new()
 	if not shadow_rig.setup(body_shadow):
 		shadow_rig = null
