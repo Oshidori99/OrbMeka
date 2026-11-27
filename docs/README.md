@@ -1,6 +1,16 @@
-# OrbMeka™ — prototype 0.0.8.57
+# OrbMeka™ — prototype 0.0.8.58
 
 Godot 4.7 / GDScript. Formes et couleurs simples ; assets externes seulement sous licence vérifiée (sons CC0, assets/sounds/CREDITS.txt).
+
+## 0.0.8.58 — Son corps en baissant la tête
+Publiée. Génération inchangée (version 34). Demande de l'utilisateur (lot X1 : « en voir le plus possible : ventre, jambes, pieds, mais joli »).
+- **Un corps pour la première personne**, fait dans Blender pour chacun des 4 personnages (sources_blender/personnages/corps_premiere_personne.py → assets/characters/<nom>_1p.glb) : sans tête (elle serait devant les yeux) ni bras (les mains du jeu les remplacent). Toutes ses pièces sont fermées : on ne voit plus l'intérieur du tee-shirt (le « disque rouge » de l'essai précédent).
+- **Ombrage doux** calculé dans Blender (occlusion ambiante, dans les couleurs des sommets) : le haut à l'ombre du menton et des bras, le pantalon sous l'ourlet, l'intérieur des jambes.
+- **Sa place** : juste assez en arrière des yeux pour que, la tête baissée au plus, le haut des épaules reste hors de la vue : on voit le ventre (avec l'orbe du tee-shirt), les jambes et les pieds. Elle suit la hauteur des yeux (réglage, se baisser), le champ de vision et la taille du personnage ; l'ombre du corps et les sacs portés suivent.
+- Plus léger qu'avant (environ 2 100 sommets au lieu de 6 000). Les autres vues (F4) et l'ombre gardent le corps entier.
+
+Tests réussis : body (nouveau : corps sans tête, ombrage, épaules hors de la vue), views, character, squelette, menu, settings_files, sac, mains, character_voices, prototype, history_resume. Captures hors écran (tools/capture_corps.gd) : les 4 personnages à 89° et 72°, baissé, de dos.
+À tester : baisser la tête en marchant, avec chaque personnage ; un réglage de hauteur des yeux différent.
 
 ## 0.0.8.57 — Les deux mains
 Publiée. Génération inchangée (version 34). Décisions de l'utilisateur (règles des mains).

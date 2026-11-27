@@ -53,6 +53,16 @@ static func model_scene(id: String) -> PackedScene:
 static func model_loaded(id: String) -> bool:
 	return _scenes.has(id)
 
+# 0.0.8.58 : le corps vu à la première personne (sans tête ni bras, avec un ombrage doux), fait dans Blender
+# (sources_blender/personnages/corps_premiere_personne.py) : <nom>_1p.glb ; null s'il n'existe pas (animaux).
+static func first_person_scene(id: String) -> PackedScene:
+	if not MODELS.has(id):
+		return null
+	var path: String = MODELS[id].replace(".glb", "_1p.glb")
+	if not _scenes.has(path):
+		_scenes[path] = load(path) if ResourceLoader.exists(path) else null
+	return _scenes[path]
+
 static func _take_frame() -> bool:
 	var frame := Engine.get_process_frames()
 	if _busy_frame == frame:
