@@ -172,9 +172,15 @@ func show_item(value: Dictionary) -> void:
 				# 0.0.8.7 (demande de l'utilisateur : le bois paraissait plus petit qu'en vrai) : jusqu'à 10 cm (20 cm à deux mains)
 				# d'épaisseur et 50 cm de long (avant 5 cm, 12 cm et 30 cm).
 				var thick := minf(float(shown.get("epaisseur", 3.0)) / 100.0, 0.1 if not both else 0.2)
-				made.material_override = Trees.material(clampi(int(shown.get("essence", 0)), 0, 3), "bark")
+				# 0.0.8.53 : torche et archet : leur modèle (Blender), avec ses matières.
+				var special: Mesh = load("res://scripts/fire.gd").wood_model({"objet": id, "essence": int(shown.get("essence", 1))})
+				if special != null:
+					made.mesh = special
+				else:
+					made.material_override = Trees.material(clampi(int(shown.get("essence", 0)), 0, 3), "bark")
 				made.scale = Vector3(thick, minf(float(shown.get("longueur", 1.0)), 0.5), thick)
-				made.rotation.z = PI * 0.5
+				# Le bout (tête d'une torche) à droite de la main, là où est sa flamme.
+				made.rotation.z = -PI * 0.5 if special != null else PI * 0.5
 				made.position.y = thick * 0.5
 				# 0.0.8.44 : torche allumée : une flamme au bout (le bout du bâton, à droite de la main).
 				if id in ["torche", "torche_forte"] and int(shown.get("allume", 0)) == 1:

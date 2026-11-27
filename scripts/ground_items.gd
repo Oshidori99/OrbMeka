@@ -367,6 +367,9 @@ func _mesh(value: Dictionary) -> Mesh:
 		return leaf_pile_mesh(clampi(int(value.get("essence", 0)), 0, 3), leaf_pile_step(value))
 	if _kind(value) == "fruit":
 		return Trees._fruit_mesh(Trees.APPLE if value.get("objet") == "pomme" else Trees.HAZEL, _two_tone(value))
+	# 0.0.8.53 : torche et archet : leur modèle (fait dans Blender, fire.gd).
+	if _kind(value) == "bois" and Fire.wood_model(value) != null:
+		return Fire.wood_model(value)
 	if _kind(value) == "bois":
 		var step := taper_step(value)
 		if not _sticks.has(step):
@@ -516,7 +519,9 @@ func _plain_material(value: Dictionary) -> Material:
 	# Fruits : le matériau de leur modèle (celui des arbres), couleur de chaque pomme dans ses données.
 	if _kind(value) == "fruit":
 		return null
-	# Bois : l'écorce de son essence (comme les arbres).
+	# Bois : l'écorce de son essence (comme les arbres) ; 0.0.8.53 : torche et archet : les matières de leur modèle.
+	if _kind(value) == "bois" and Fire.wood_model(value) != null:
+		return null
 	if _kind(value) == "bois":
 		return Trees.material(clampi(int(value.get("essence", 0)), 0, 3), "bark")
 	# 0.0.8.23 : tas de feuilles : le feuillage de son arbre (même image).

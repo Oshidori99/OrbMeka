@@ -3,6 +3,10 @@ Du plus récent au plus ancien. Ce fichier est mis à jour à chaque version.
 
 === Thème « Fabrication et survie » (0.0.8) ===
 
+0.0.8.53 — Modèles du feu, des torches et de l'archet faits dans Blender (pierres, bûches en tipi, braises ; botte de fibres liée ; écorce de pin et résine ; branche courbée et cordelette), et une vraie image pour chaque action de la fabrication (Détresser, Défaire, Refaire le lien, Écorcer, Faire une torche, Faire un archet, Monter un feu)
+Génération du terrain : version 34 · Menus : version 17.
+Demande de l'utilisateur (lot C1, partie 1).
+
 0.0.8.52 — Coins sombres sous terre : dans les grottes et là où on a creusé, les coins (sol contre mur, mur contre plafond, pied d'un pilier) sont assombris, en Performance et sur le Web aussi ; en Beauté sur PC, occlusion à l'écran (le pied des objets et des arbres un peu assombri)
 Génération du terrain : version 34 · Menus : version 17.
 Demande de l'utilisateur (lot Ombres, partie 2).

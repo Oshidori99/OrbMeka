@@ -1,6 +1,16 @@
-# OrbMeka™ — prototype 0.0.8.52
+# OrbMeka™ — prototype 0.0.8.53
 
 Godot 4.7 / GDScript. Formes et couleurs simples ; assets externes seulement sous licence vérifiée (sons CC0, assets/sounds/CREDITS.txt).
+
+## 0.0.8.53 — Modèles du feu, des torches et de l'archet ; images de la fabrication
+Publiée. Génération inchangée (version 34). Demandes de l'utilisateur (lot C1, partie 1).
+- **Feu de camp** (Blender, sources_blender/feu/generer_feu.py) : un lit de cendre, un cercle de 9 pierres irrégulières, des bûches en tipi et du petit bois ; allumé : les bûches noircies, des braises rougeoyantes, et les flammes.
+- **Torche** : son bâton (écorce de son arbre) et une botte de fibres serrée par deux liens ; **torche forte** : des lanières d'écorce de pin enroulées, des gouttes de résine, deux liens. Au sol et en main (la tête du côté de la flamme).
+- **Archet à feu** : une branche souple courbée (écorce de son arbre), une cordelette tendue, nouée aux deux bouts.
+- **Images de la fabrication** (O + F, Blender, dans le style des autres) : plus d'image empruntée. Détresser (une ficelle dont les fibres s'écartent), Défaire (la tête qui sort du manche, la ficelle usée), Refaire le lien (une flèche ronde autour du lien), Écorcer (une branche à moitié écorcée), Faire une torche, Faire un archet, Monter un feu (la torche, l'archet et le feu du jeu).
+
+Tests réussis : modeles_feu (nouveau : modèles trouvés, feu éteint et allumé, torches et archet avec l'écorce de leur arbre, une image pour chaque action), feu, crafting, inventory, menu, sac, sticks, prototype, history_resume ; tous les tests sur GitHub ([tests]).
+À tester : le feu, les torches et l'archet posés et en main ; le menu de fabrication.
 
 ## 0.0.8.52 — Coins sombres sous terre
 Publiée. Génération inchangée (version 34). Demande de l'utilisateur (lot Ombres, partie 2 : de meilleures ombres sous terre, même en Performance).

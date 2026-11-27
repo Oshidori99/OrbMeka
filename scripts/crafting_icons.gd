@@ -5,10 +5,15 @@ extends Button
 # dans le style du menu des actions (B + T). Tresser : trois fibres de lin tressées en ficelle ; Tailler : la main frappe
 # un silex avec un caillou, des éclats sautent ; Fendre : un éclat enfoncé dans le bout fendu d'une branche ;
 # Assembler : la tête taillée qui descend dans la fente du manche ; Ficeler : la tête tenue par les tours de ficelle.
+# 0.0.8.53 (lot C1, demande de l'utilisateur : plus d'images provisoires) : Détresser : une ficelle dont les fibres
+# s'écartent ; Défaire : la tête qui sort du manche, la ficelle usée ; Refaire le lien : une flèche ronde autour du lien ;
+# Écorcer : une branche à moitié écorcée, une lanière qui s'enroule ; Faire une torche, Faire un archet, Monter un feu :
+# la torche, l'archet et le feu du jeu (sources_blender/feu/generer_feu.py).
 const MenuImages = preload("res://scripts/menu_images.gd")
 
 var action := ""
-const STAND_IN := {"detresser": "tresser", "defaire": "assembler", "relier": "ficeler", "ecorcer": "fendre", "torche": "ficeler", "archet": "nouer", "feu": "tailler"}
+# Une action sans image propre prend celle d'une action proche (aucune depuis 0.0.8.53).
+const STAND_IN := {}
 
 func _init(kind: String, side: float) -> void:
 	action = kind
@@ -19,7 +24,7 @@ func _init(kind: String, side: float) -> void:
 	texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS
 
 func _draw() -> void:
-	# 0.0.8.40 : les nouvelles actions reprennent pour l'instant une image proche (leurs images Blender viendront plus tard).
+	# 0.0.8.40 : une action sans image propre prend celle d'une action proche (STAND_IN).
 	var picture := MenuImages.texture(STAND_IN.get(action, action))
 	if picture == null:
 		return
