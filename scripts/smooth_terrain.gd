@@ -309,11 +309,15 @@ static func point_of(position: Vector3) -> Vector3i:
 	return Vector3i(roundi(position.x / STEP), roundi(position.y / STEP), roundi(position.z / STEP))
 
 # Une zone lit les points de son coin − 1 à son coin + 16 : zones qui dépendent d'un point.
+# 0.0.8.52 : de son coin − 3 à son coin + 18 (les coins assombris lisent 2 points de plus autour, surface_job.gd).
+const READ_LOW := 1 + SurfaceJob.OCCLUSION_MARGIN
+const READ_HIGH := POINTS + SurfaceJob.OCCLUSION_MARGIN
+
 static func zones_using(point: Vector3i) -> Array[Vector3i]:
 	var result: Array[Vector3i] = []
-	for x in range(ceili((point.x - POINTS) / float(POINTS)), floori((point.x + 1) / float(POINTS)) + 1):
-		for y in range(ceili((point.y - POINTS) / float(POINTS)), floori((point.y + 1) / float(POINTS)) + 1):
-			for z in range(ceili((point.z - POINTS) / float(POINTS)), floori((point.z + 1) / float(POINTS)) + 1):
+	for x in range(ceili((point.x - READ_HIGH) / float(POINTS)), floori((point.x + READ_LOW) / float(POINTS)) + 1):
+		for y in range(ceili((point.y - READ_HIGH) / float(POINTS)), floori((point.y + READ_LOW) / float(POINTS)) + 1):
+			for z in range(ceili((point.z - READ_HIGH) / float(POINTS)), floori((point.z + READ_LOW) / float(POINTS)) + 1):
 				result.append(Vector3i(x, y, z))
 	return result
 
@@ -682,10 +686,15 @@ func _crevasse_floor(area: Vector2i) -> float:
 
 # Zone plate : aucun point changé parmi ceux qu'elle lit, et pas de colline (0.0.5.14).
 func is_flat(zone: Vector3i) -> bool:
+	# 0.0.8.52 : une grotte voisine compte aussi (les coins assombris lisent un peu chez les voisines).
+	for dx in range(-1, 2):
+		for dz in range(-1, 2):
+			if not caves_in_zone(zone + Vector3i(dx, 0, dz)).is_empty():
+				return false
 	if not caves_in_zone(zone).is_empty():
 		return false
-	var low := zone * POINTS - Vector3i.ONE
-	var high := zone * POINTS + Vector3i.ONE * POINTS
+	var low := zone * POINTS - Vector3i.ONE * READ_LOW
+	var high := zone * POINTS + Vector3i.ONE * READ_HIGH
 	for dx in range(-1, 2):
 		for dy in range(-1, 2):
 			for dz in range(-1, 2):

@@ -12,9 +12,9 @@ extends Node3D
 # 2 ou 3, choisis parmi les nouveautés : liste NEWS_RUNNERS ([id, peau], peau vide pour un animal).
 # Chacun prend son modèle Blender, sinon une forme simple (character_model.gd, partagé avec le jeu).
 # Le reste du fichier (sol, gazon, plage, ciel, caméra) ne change pas d'une version à l'autre.
-const NEWS_VERSION := "0.0.8.51"
-const NEWS_TEXT := "Nouveau : les torches et le feu
-font de vraies ombres !"
+const NEWS_VERSION := "0.0.8.52"
+const NEWS_TEXT := "Nouveau : coins sombres sous terre,
+dans les grottes et les galeries !"
 
 # 0.0.3.25 : les nouveautés en aller-retour sur l'herbe libre, devant la place de sable et pierre (sous le panneau des
 # menus, vers la droite), chacune sur sa rangée.
@@ -337,7 +337,12 @@ func _build_zone(zone: Vector3i, job: RefCounted = null) -> void:
 	arrays[Mesh.ARRAY_CUSTOM0] = surface[5]
 	arrays[Mesh.ARRAY_INDEX] = surface[6]
 	var mesh := ArrayMesh.new()
-	mesh.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arrays, [], {}, Mesh.ARRAY_CUSTOM_RGBA_FLOAT << Mesh.ARRAY_FORMAT_CUSTOM0_SHIFT)
+	var format := Mesh.ARRAY_CUSTOM_RGBA_FLOAT << Mesh.ARRAY_FORMAT_CUSTOM0_SHIFT
+	# 0.0.8.52 : coins et creux assombris (CUSTOM1), comme dans la partie.
+	if surface.size() > 7 and (surface[7] as PackedFloat32Array).size() == (surface[0] as PackedVector3Array).size():
+		arrays[Mesh.ARRAY_CUSTOM1] = surface[7]
+		format |= Mesh.ARRAY_CUSTOM_R_FLOAT << Mesh.ARRAY_FORMAT_CUSTOM1_SHIFT
+	mesh.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arrays, [], {}, format)
 	var piece := MeshInstance3D.new()
 	piece.mesh = mesh
 	piece.material_override = ground_material
