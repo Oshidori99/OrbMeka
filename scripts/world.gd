@@ -1990,7 +1990,7 @@ func step_chop(delta: float, holding: bool) -> bool:
 		# 0.0.7.10 : jamais plus bas que 30 cm au-dessus du pied (l'évasement des racines grossirait la mesure).
 		local.y = maxf(local.y, 0.3)
 		chop_thickness = Trees.wood_thickness(int(tree.get_meta("kind", 0)), int(tree.get_meta("size", 3)), int(tree.get_meta("form", 0)), local) * tree.scale.x
-		chop_seconds = maxf(CHOP_SECONDS * chop_thickness / 0.1, 0.5)
+		chop_seconds = maxf(CHOP_SECONDS * chop_thickness / 0.1 * big_wood_factor(chop_thickness), 0.5)
 	if game_mode == Inventory.SURVIVAL and chop_thickness > max_chop_thickness() + 0.001:
 		_notify(_too_thick_message())
 		return false
@@ -2303,7 +2303,7 @@ func _step_chop_parts(delta: float, hit: Dictionary) -> bool:
 		chop_target = aim.tree
 		chop_time = 0.0
 		chop_thickness = _aim_thickness(aim)
-		chop_seconds = maxf(CHOP_SECONDS * chop_thickness / 0.1, 0.5)
+		chop_seconds = maxf(CHOP_SECONDS * chop_thickness / 0.1 * big_wood_factor(chop_thickness), 0.5)
 	if game_mode == Inventory.SURVIVAL and chop_thickness > max_chop_thickness() + 0.001:
 		_notify(_too_thick_message())
 		return false
@@ -2351,7 +2351,7 @@ func _step_chop_ground(delta: float, index: int, point: Vector3) -> bool:
 		chop_target = null
 		chop_time = 0.0
 		chop_thickness = thickness
-		chop_seconds = ground_wood_seconds(item, thickness)
+		chop_seconds = ground_wood_seconds(item, thickness) * big_wood_factor(thickness)
 	if game_mode == Inventory.SURVIVAL and chop_thickness > max_chop_thickness() + 0.001:
 		_notify(_too_thick_message())
 		return false
@@ -2395,7 +2395,7 @@ func ground_wood_hint(hit: Dictionary) -> String:
 	# 0.0.8.46 : avec une hache, l'indication suit la hache (avant : toujours « trop épais à mains nues » au-delà de 40 cm, durée sans la hache).
 	if game_mode == Inventory.SURVIVAL and thickness > max_chop_thickness() + 0.001:
 		return "%s : trop épais (%d cm, %d cm au plus)" % [Inventory.item_name(item), roundi(thickness * 100.0), roundi(max_chop_thickness() * 100.0)]
-	var seconds := CHOP_SECONDS_CREATIVE if game_mode == Inventory.CREATIVE else ground_wood_seconds(item, thickness) / tool_speed("bois")
+	var seconds := CHOP_SECONDS_CREATIVE if game_mode == Inventory.CREATIVE else ground_wood_seconds(item, thickness) * big_wood_factor(thickness) / tool_speed("bois")
 	return "Casser ici : %d cm et %d cm (%s s)" % [roundi(share * length * 100.0), roundi((1.0 - share) * length * 100.0), String.num(snappedf(seconds, 0.1)).replace(".", ",")]
 
 # Coupe un bois au sol en deux au point visé : chaque moitié garde sa vraie longueur, ses épaisseurs (gros bout, petit
@@ -4252,9 +4252,16 @@ func tool_speed(work: String) -> float:
 	var tool := held_tool()
 	return Inventory.tool_speed(tool, work) if not tool.is_empty() else 1.0
 
-# Le plus gros bois qu'on coupe : 40 cm à mains nues ; une hache : jusqu'à 1 m.
+# Le plus gros bois qu'on coupe : 40 cm à mains nues ; une hache : 80 cm depuis 0.0.8.47 (avant : 1 m ; choix de
+# l'utilisateur : les plus gros arbres, taille 5 et gros tilleuls, restent trop gros).
+const MAX_AXE_THICKNESS := 0.80
 func max_chop_thickness() -> float:
-	return 1.0 if tool_speed("bois") > 1.0 else MAX_HAND_THICKNESS
+	return MAX_AXE_THICKNESS if tool_speed("bois") > 1.0 else MAX_HAND_THICKNESS
+
+# 0.0.8.47 (demande de l'utilisateur) : au-delà de 40 cm (le plus gros à mains nues), la durée est encore multipliée par
+# l'épaisseur / 40 cm : 80 cm à la hache, environ 13 s, plus long que 40 cm à mains nues (10 s). Usure selon la durée.
+static func big_wood_factor(thickness: float) -> float:
+	return maxf(thickness / MAX_HAND_THICKNESS, 1.0)
 
 func _too_thick_message() -> String:
 	return "Trop épais %s : %d cm (%d cm au plus)." % ["pour cette hache" if tool_speed("bois") > 1.0 else "à mains nues", roundi(chop_thickness * 100.0), roundi(max_chop_thickness() * 100.0)]

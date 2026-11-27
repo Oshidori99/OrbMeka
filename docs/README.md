@@ -1,6 +1,15 @@
-# OrbMeka™ — prototype 0.0.8.46
+# OrbMeka™ — prototype 0.0.8.47
 
 Godot 4.7 / GDScript. Formes et couleurs simples ; assets externes seulement sous licence vérifiée (sons CC0, assets/sounds/CREDITS.txt).
+
+## 0.0.8.47 — Hache : limite à 80 cm
+Publiée. Génération inchangée (version 34). Demande de l'utilisateur (issue « Hache : abattre les grands arbres »).
+- **Limite de la hache : 80 cm** (avant : 1 m). Les arbres de taille 1 à 3 et les pommiers et pins de taille 4 s'abattent ; les tilleuls de taille 4 et tous les arbres de taille 5 restent trop gros (mesuré au pied : 7 cm à 1,01 m).
+- **Plus long pour les gros bois** : au-delà de 40 cm, la durée est encore multipliée par l'épaisseur / 40 cm. À la hache, 80 cm prend environ 13 s (avant : 7 s), plus que le plus gros bois cassé à mains nues (40 cm, 10 s). La hache s'use selon la durée. Même règle pour recasser un gros bois au sol.
+- Carnet de route (case Hache) et liste des actions mis à jour.
+
+Tests réussis : tools, sticks, tree_fall, carnet, prototype, history_resume, menu (+ tests juridiques).
+À tester : abattre un arbre de 70 cm à la hache (durée, usure) ; un gros tilleul doit rester trop gros.
 
 ## 0.0.8.46 — Correction : bois au sol et hache
 Publiée. Génération inchangée (version 34).

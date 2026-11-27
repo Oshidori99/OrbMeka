@@ -68,7 +68,7 @@ Choisie pour Ficeler (dans la barre : mains, poches ou sac), on ficelle deux foi
 	{"id": "assembler", "nom": "Assembler", "branche": "droite", "rang": 5, "parent": "fendre", "image": "menu:assembler", "touches": "O + F → Assembler", "objets": ["hache_a_ficeler", "pioche_a_ficeler"],
 		"details": "Assembler : la tête dans la fente de la branche (O + F → Assembler, un clic). L'outil est à ficeler."},
 	{"id": "hache", "nom": "Hache", "branche": "droite", "rang": 6, "decalage": -0.7, "parent": "assembler", "image": "menu:ficeler", "touches": "O + F → Ficeler", "objets": ["hache_pierre"],
-		"details": "Ficeler une hache : 3 ficelles (ou une liane), clic gauche maintenu, un tour à la fois (8 tours : le plus solide). La hache coupe le bois 3 fois plus vite."},
+		"details": "Ficeler une hache : 3 ficelles (ou une liane), clic gauche maintenu, un tour à la fois (8 tours : le plus solide). La hache coupe le bois 3 fois plus vite et abat les arbres jusqu'à 80 cm d'épaisseur (au-delà de 40 cm, c'est plus long et elle s'use plus ; les plus gros arbres restent trop gros)."},
 	{"id": "pioche", "nom": "Pioche", "branche": "droite", "rang": 6, "decalage": 0.7, "parent": "assembler", "image": "objet:pioche_pierre", "touches": "O + F → Ficeler", "objets": ["pioche_pierre"],
 		"details": "Ficeler une pioche, comme la hache. La pioche casse la pierre 4 fois plus vite (avec des éclats) et creuse la terre 2 fois plus vite."},
 	# 0.0.8.44 (#214, #209) : écorce, feu de camp, archet à feu, allumer le feu, torches. Images provisoires.
