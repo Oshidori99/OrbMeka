@@ -184,6 +184,15 @@ func _ready() -> void:
 	# 0.0.8.2 (#231) : orbes de retour du début (Survie, une fois par monde ; ouvert en Créatif : jamais).
 	start_orbs_given = saved_player.get("orbes_depart", false) == true or game_mode != Inventory.SURVIVAL
 	give_start_orbs()
+	# 0.0.8.57 (2,5 kg par case de main, 5 kg à deux) : dans une partie d'avant, ce qui ne tient plus dans les mains est
+	# posé aux pieds du joueur (rien n'est perdu).
+	var spilled := inventory.hands_overflow()
+	for value in spilled:
+		_drop_units(value, 0)
+	if not spilled.is_empty():
+		inventory_unsaved = true
+		_notify("Mains : 2,5 kg par case, 5 kg à deux. Ce qui était trop lourd est posé à vos pieds.")
+		notice_time = 6.0
 	apply_held()
 	_warm_shaders()
 	# 0.0.7.26 : branches mortes et rejets des colonnes déjà construites (les objets au sol n'existaient pas encore).
@@ -1691,25 +1700,33 @@ func held_text() -> String:
 		return "Sac : case vide"
 	return "Poche vide" if game_mode == Inventory.SURVIVAL and inventory.selected() in Inventory.POCKETS else "Main vide"
 
-# 0.0.7.10 (demande de l'utilisateur) : ce que montre chaque main. Créatif : l'objet choisi dans la main droite, la
-# gauche vide. Survie : case 1 dans la main gauche, case 2 dans la main droite ; une poche choisie : son objet sorti dans
-# la main droite si elle est libre ; objet lourd à deux mains : tenu par la main droite, la gauche le soutient (vide).
+# 0.0.7.10 (demande de l'utilisateur) : ce que montre chaque main.
+# 0.0.8.57 (décisions de l'utilisateur : « il faut bien qu'on prenne dans une main ce qu'on sélectionne ») : l'objet
+# choisi (molette, touches), où qu'il soit (main, poche, sac), est toujours dans la main gauche, qui fait les gestes, en
+# Créatif comme en Survie. La main droite porte les deux cases « main » de la barre : elle montre celle qui n'est pas
+# choisie (la plus lourde si les deux sont pleines). Un objet lourd (les deux cases) choisi : tenu à deux mains (la droite
+# le soutient) ; pas choisi : la main droite le porte.
 func left_hand_item() -> Dictionary:
-	if game_mode != Inventory.SURVIVAL or inventory.two_handed() >= 0:
-		return {}
-	return inventory.item("bar", Inventory.HANDS[0])
+	return inventory.held()
 
 func right_hand_item() -> Dictionary:
 	if game_mode != Inventory.SURVIVAL:
-		return inventory.held()
+		return {}
 	var heavy := inventory.two_handed()
 	if heavy >= 0:
-		return inventory.item("bar", heavy)
-	var right: Dictionary = inventory.item("bar", Inventory.HANDS[1])
-	# 0.0.8.21 (#207) : une case du sac choisie : comme une poche.
-	if (inventory.selected() in Inventory.POCKETS or inventory.selected() in Inventory.BAG) and right.is_empty():
-		return inventory.held()
-	return right
+		return {} if inventory.selected() in Inventory.HANDS else inventory.item("bar", heavy)
+	var shown := {}
+	for index in Inventory.HANDS:
+		var there: Dictionary = inventory.item("bar", index)
+		if index == inventory.selected() or there.is_empty():
+			continue
+		if shown.is_empty() or Inventory.stack_weight(there) > Inventory.stack_weight(shown):
+			shown = there
+	return shown
+
+# 0.0.8.57 : objet lourd choisi : porté à deux mains (l'objet entre elles).
+func both_hands_held() -> bool:
+	return game_mode == Inventory.SURVIVAL and inventory.two_handed() >= 0 and inventory.selected() in Inventory.HANDS
 
 # 0.0.8.54 (#250) : la case choisie à la dernière mise à jour des mains.
 var _held_slot := -1
@@ -1717,7 +1734,7 @@ var _held_slot := -1
 func apply_held() -> void:
 	if is_instance_valid(player):
 		player.selected_type = inventory.held_kind()
-		player.show_hands(left_hand_item(), right_hand_item(), game_mode == Inventory.SURVIVAL and inventory.two_handed() >= 0)
+		player.show_hands(left_hand_item(), right_hand_item(), both_hands_held())
 		# 0.0.8.21 (#207) : les sacs portés, sur le personnage ; 0.0.8.54 : avec ce qu'ils contiennent (vu à travers).
 		var survival_mode: bool = game_mode == Inventory.SURVIVAL
 		var contents := []
@@ -1725,12 +1742,15 @@ func apply_held() -> void:
 			contents.append(Inventory.bag_places(which).map(func(place: Array) -> Dictionary: return inventory.item(place[0], place[1])) if survival_mode and inventory.bag_worn(which) else [])
 		player.show_bags([survival_mode and inventory.bag_worn(0), survival_mode and inventory.bag_worn(1)], contents)
 		# 0.0.8.54 (#250) : choisir une case de poche ou du sac : la main va y prendre l'objet.
+		# 0.0.8.57 : la main gauche ; une case de la main droite : elle le prend dans la main droite.
 		var chosen := inventory.selected()
 		if survival_mode and chosen != _held_slot and not inventory.held().is_empty():
 			if chosen in Inventory.POCKETS:
 				player.fetch_item("poche")
 			elif chosen in Inventory.BAG:
 				player.fetch_item("sac")
+			elif chosen in Inventory.HANDS and inventory.two_handed() < 0 and _held_slot >= 0:
+				player.fetch_item("main")
 		_held_slot = chosen
 		# 0.0.7.8 : plus lent quand les mains portent lourd.
 		player.carry_slow = inventory.carry_factor()
@@ -4437,7 +4457,7 @@ func _refused_message(reason: String, value: Dictionary) -> String:
 		"occupee":
 			return "Case choisie occupée : choisissez une case vide (molette ou chiffres)."
 		"lourd":
-			return "Trop lourd (%s) : 4 kg par main, 8 kg à deux mains, 1 kg dans les poches." % Inventory.format_weight(Inventory.unit_weight(value))
+			return "Trop lourd (%s) : 2,5 kg par case de main, 5 kg à deux (plus lourd : à couper), 1 kg dans les poches." % Inventory.format_weight(Inventory.unit_weight(value))
 		# 0.0.7.19 : volume et nombre.
 		"encombrant":
 			var first: Dictionary = value.pile[-1] if value.has("pile") and not value.pile.is_empty() else value

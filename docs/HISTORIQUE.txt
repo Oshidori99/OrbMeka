@@ -3,6 +3,10 @@ Du plus récent au plus ancien. Ce fichier est mis à jour à chaque version.
 
 === Thème « Fabrication et survie » (0.0.8) ===
 
+0.0.8.57 — Les deux mains : l'objet choisi (molette, touches) est toujours pris dans la main gauche, qui fait les gestes ; la main droite porte les deux cases « main » (2,5 kg chacune) ; plus de 2,5 kg : les deux cases, 5 kg au plus (avant 8 kg ; plus lourd : à couper) ; porter ralentit de 6 % par kg
+Génération du terrain : version 34 · Menus : version 17.
+Décisions de l'utilisateur (règles des mains).
+
 0.0.8.56 — Animaux animés : renard, lapin, écureuil, chat et tortue ont un squelette ; en marchant, ils se dandinent et sautillent, la tête hoche ; à l'arrêt, ils bougent un peu la tête ; aussi ceux qui courent dans la vitrine de l'accueil
 Génération du terrain : version 34 · Menus : version 17.
 Demande de l'utilisateur (lot C2 : jambes et pattes).

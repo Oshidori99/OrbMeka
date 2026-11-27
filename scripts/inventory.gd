@@ -5,6 +5,7 @@ extends RefCounted
 # - Survie (0.0.7.3, décision du 15.11.2026, issue #40) : presque pas d'inventaire. Seulement deux mains (case 1 : main
 #   gauche, case 2 : main droite, 1 kg à elles deux) et quatre poches (cases 3 à 6, 500 g en tout ; 0.0.7.4). Plus tard,
 #   sacs et paniers ajouteront des cases (10 au plus dans la barre). Le reste se pose au sol.
+#   0.0.8.57 : les cases 1 et 2 sont celles de la main droite (2,5 kg chacune) ; la main gauche prend l'objet choisi.
 # - 0.0.8.21 (#207, demandes de l'utilisateur) : sac en filet sur l'épaule : ses 4 cases sont les cases 7 à 10 de la barre
 #   (BAG) ; un deuxième sac : ses 4 cases dans l'inventaire (zone « sac »), au-dessus des mains. On se sert d'un objet du
 #   sac comme d'une poche (case choisie), même la main pleine. Les sacs portés : « sacs » (2 places).
@@ -42,8 +43,13 @@ const BAG_ROWS := Vector2i(6, 10)
 # mains, 0,5 L pour les poches (instance_volume : le bois compte par sa longueur, 1 L par mètre). Au-delà de ce que tient
 # une main (poids, volume ou nombre), l'objet se porte à deux mains (l'autre main ne prend plus rien) et on marche plus
 # lentement (carry_factor). Petits objets qui tomberaient : un nombre au plus par main (HAND_COUNTS).
-const HANDS_LIMIT := 8000.0
-const TWO_HANDS := 4000.0
+# 0.0.8.57 (décisions de l'utilisateur) : les deux cases « main » de la barre sont celles de la main droite, qui porte :
+# 2,5 kg par case ; un objet de plus de 2,5 kg prend les deux cases, 5 kg au plus (avant : 4 kg par main, 8 kg à deux) ;
+# au-delà, il faut le couper. L'objet choisi (molette, touches), où qu'il soit, est pris dans la main gauche (world.gd).
+const HANDS_LIMIT := 5000.0
+const TWO_HANDS := 2500.0
+# 0.0.8.57 : porter ralentit toujours un peu, selon le poids des deux cases des mains : 6 % par kg (30 % à 5 kg).
+const CARRY_SLOW_PER_KG := 0.06
 const HAND_VOLUME := 1.5
 const HANDS_VOLUME := 3.0
 # 0.0.8.7 (demande de l'utilisateur) : poches 1 kg (avant 500 g), cailloux plus lourds.
@@ -615,8 +621,8 @@ static func _split(value: Dictionary, amount: int) -> Array:
 		rest.nombre = count(value) - amount
 	return [first if count(first) > 0 else {}, rest if count(rest) > 0 else {}]
 
-# 0.0.7.8 : porté à deux mains (une main au-delà de TWO_HANDS) ; vitesse de marche selon le poids dans les mains :
-# 1 jusqu'à TWO_HANDS, puis jusqu'à 0,6 à HANDS_LIMIT.
+# 0.0.7.8 : porté à deux mains (une main au-delà de TWO_HANDS) ; vitesse de marche selon le poids dans les mains.
+# 0.0.8.57 : 6 % plus lent par kg (CARRY_SLOW_PER_KG ; avant : rien jusqu'à 4 kg, puis jusqu'à 0,6 à 8 kg).
 func two_handed() -> int:
 	if mode != SURVIVAL:
 		return -1
@@ -628,7 +634,27 @@ func two_handed() -> int:
 func carry_factor() -> float:
 	if mode != SURVIVAL:
 		return 1.0
-	return 1.0 - 0.4 * clampf((hands_weight() - TWO_HANDS) / (HANDS_LIMIT - TWO_HANDS), 0.0, 1.0)
+	return 1.0 - CARRY_SLOW_PER_KG * clampf(hands_weight(), 0.0, HANDS_LIMIT) / 1000.0
+
+# 0.0.8.57 : règles des mains plus strictes (2,5 kg par case, 5 kg à deux) : dans une partie d'avant, ce qui ne tient
+# plus dans les mains en sort (rangé de nouveau case après case, autant que les règles le permettent). Rend ce qui reste
+# (piles à poser au sol).
+func hands_overflow() -> Array:
+	if mode != SURVIVAL:
+		return []
+	var values := []
+	for index in HANDS:
+		values.append(item("bar", index))
+		_store().bar[index] = {}
+	var left := []
+	for at in range(HANDS.size()):
+		if values[at].is_empty():
+			continue
+		var rest := _merge_into("bar", HANDS[at], values[at])
+		if not rest.is_empty():
+			left.append(rest)
+	changed.emit()
+	return left
 
 # 0.0.7.19 : remplissage (0 à 1) des mains et des poches : poids et volume (barres de l'inventaire et du jeu).
 func fill(group: String) -> Dictionary:

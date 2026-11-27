@@ -268,15 +268,17 @@ func nudge() -> void:
 # l'écran (l'objet tenu entre elles), puis reviennent à leur place quand on le lâche.
 const TWO_HANDS_REST := Vector3(0.15, -0.25, -0.5)
 var both := false
+# 0.0.8.57 : la main qui prend l'objet choisi (la gauche) : c'est elle qui tient l'objet lourd, entre les deux mains.
+var active := false
 
 func set_both(value: bool) -> void:
 	if value == both:
 		return
 	both = value
 	rest = _rest_for(both)
-	# Main droite : l'objet glisse au milieu, entre les deux mains (repère de la caméra ramené à celui de la main).
-	if is_instance_valid(held) and not left:
-		held.position = PALM + (basis.inverse() * Vector3(-TWO_HANDS_REST.x, 0.03, 0.0) if both else Vector3.ZERO)
+	# L'objet glisse au milieu, entre les deux mains (repère de la caméra ramené à celui de la main).
+	if is_instance_valid(held) and active:
+		held.position = PALM + (basis.inverse() * Vector3(TWO_HANDS_REST.x if left else -TWO_HANDS_REST.x, 0.03, 0.0) if both else Vector3.ZERO)
 	if not is_inside_tree():
 		position = rest
 		return
@@ -346,7 +348,8 @@ const DIG_REACH := Vector3(-0.03, -0.09, -0.12)
 const GRAB_REACH := Vector3(-0.06, -0.16, -0.22)
 const PLACE_REACH := Vector3(-0.02, -0.06, -0.14)
 # 0.0.8.54 (#250) : prendre dans une poche (en bas, sur le côté) ou dans le sac (en bas, en arrière, à la hanche).
-const FETCH_REACH := {"poche": Vector3(0.08, -0.42, 0.12), "sac": Vector3(0.16, -0.38, 0.3)}
+# 0.0.8.57 : « main » : prendre l'objet dans l'autre main (la main gauche va vers la droite, au milieu de l'écran).
+const FETCH_REACH := {"poche": Vector3(0.08, -0.42, 0.12), "sac": Vector3(0.16, -0.38, 0.3), "main": Vector3(-0.3, -0.03, -0.02)}
 const MOUTH := Vector3(-0.3, 0.12, 0.05)
 var pose_mesh: MeshInstance3D
 var hold_pose := ["", 0.0]

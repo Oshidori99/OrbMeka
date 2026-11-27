@@ -807,7 +807,7 @@ func _hint() -> String:
 func _full_hint() -> String:
 	if inventory.mode == Inventory.CREATIVE:
 		return "Clic gauche : prendre ou poser (glisser : partager le tas entre les cases) · clic droit avec un objet tenu : en poser un (glisser : un par case) ; sur un objet du haut : dans la première case libre · « + » : détails (ce qu'on a) ou variantes (en haut) · D + T : détails de l'objet en main · Jeter (au sol) : la croix, hors de la fenêtre ou J (Ctrl + J : tout le tas) · D + E : supprimer le tas · Échap : fermer"
-	return "Clic gauche : prendre ou poser (glisser : partager le tas entre les cases ; mains : 4 kg et 1,5 L chacune, 8 kg et 3 L à deux ; poches : 1 kg et 0,5 L) · clic droit avec un objet tenu : en poser un (glisser : un par case) · « + » : les détails · D + T : détails de l'objet en main · Jeter (au sol) : la croix, hors de la fenêtre ou J (Ctrl + J : tout le tas) · Échap : fermer"
+	return "Clic gauche : prendre ou poser (glisser : partager le tas entre les cases ; mains : 2,5 kg et 1,5 L par case, 5 kg et 3 L à deux ; poches : 1 kg et 0,5 L) · clic droit avec un objet tenu : en poser un (glisser : un par case) · « + » : les détails · D + T : détails de l'objet en main · Jeter (au sol) : la croix, hors de la fenêtre ou J (Ctrl + J : tout le tas) · Échap : fermer"
 
 # Poids écrit sous une case (Survie seulement ; rien sous une case vide).
 func _note(index: int) -> String:
@@ -1050,7 +1050,7 @@ func _say_refusal(value: Dictionary) -> void:
 		"nombre":
 			_say(Inventory.count_rule(value))
 		_:
-			_say("Trop lourd ici : 4 kg par main, 8 kg à deux mains, 1 kg dans les poches.")
+			_say("Trop lourd ici : 2,5 kg par case de main, 5 kg à deux (plus lourd : à couper), 1 kg dans les poches.")
 
 # --- 0.0.7.31 : glisser l'objet tenu sur plusieurs cases ---
 var drag_button := 0
