@@ -12,9 +12,9 @@ extends Node3D
 # 2 ou 3, choisis parmi les nouveautés : liste NEWS_RUNNERS ([id, peau], peau vide pour un animal).
 # Chacun prend son modèle Blender, sinon une forme simple (character_model.gd, partagé avec le jeu).
 # Le reste du fichier (sol, gazon, plage, ciel, caméra) ne change pas d'une version à l'autre.
-const NEWS_VERSION := "0.0.8.53"
-const NEWS_TEXT := "Nouveau : feu, torches et archet
-en vrais modèles !"
+const NEWS_VERSION := "0.0.8.54"
+const NEWS_TEXT := "Nouveau : les personnages bougent bras
+et jambes, l'objet en main se voit !"
 
 # 0.0.3.25 : les nouveautés en aller-retour sur l'herbe libre, devant la place de sable et pierre (sous le panneau des
 # menus, vers la droite), chacune sur sa rangée.
@@ -36,6 +36,8 @@ const CharacterModel = preload("res://scripts/character_model.gd")
 var runners: Array[Node3D] = []
 var runner_ids: Array[String] = []
 var runner_ground: Array[float] = []
+# 0.0.8.54 (#225) : un personnage humain qui court balance les bras et les jambes (character_rig.gd) ; les animaux : plus tard.
+var runner_rigs: Array = []
 
 func _build_news() -> void:
 	for index in range(NEWS_RUNNERS.size()):
@@ -47,6 +49,8 @@ func _build_news() -> void:
 		runners.append(runner)
 		runner_ids.append(id)
 		runner_ground.append(terrain.height_at((RUN_FROM + RUN_TO) * 0.5, NEWS_Z[index]))
+		var rig: RefCounted = load("res://scripts/character_rig.gd").new()
+		runner_rigs.append(rig if rig.setup(runner) else null)
 	_animate_news(0.0)
 
 # 0.0.7.20 : forêt de pins en fond (pins du jeu, trees.gd), seulement du côté que regarde la caméra, sur l'herbe.
@@ -122,6 +126,8 @@ func _animate_news(delta: float) -> void:
 		var forward := fmod(travelled, 2.0 * length) < length
 		runners[index].position = Vector3(x, runner_ground[index], NEWS_Z[index])
 		runners[index].rotation.y = PI / 2.0 if forward else -PI / 2.0
+		if index < runner_rigs.size() and runner_rigs[index] != null:
+			runner_rigs[index].update(delta, speed, false)
 
 # ===== FIN DE LA VITRINE =====
 

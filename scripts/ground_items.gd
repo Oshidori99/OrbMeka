@@ -339,6 +339,39 @@ static func _two_tone(value: Dictionary) -> bool:
 	return value.get("objet") == "pomme" and int(value.get("couleur", 1)) == 4
 
 # 0.0.7.6 : pommes et noisettes au sol avec le même petit modèle que dans les arbres (Trees._fruit_mesh).
+# 0.0.8.54 (lot C1, #230) : un objet à sa vraie taille, pour la main d'un personnage vu de dos ou de face (character_rig.gd) :
+# le même modèle et la même matière qu'au sol ; un bois tenu par son milieu, le long de l'avant-bras (y du modèle). La
+# valeur : une case (pile) ou à plat.
+func held_model(value: Dictionary) -> MeshInstance3D:
+	if value.is_empty() or not Inventory.ITEMS.has(value.get("objet", "")):
+		return null
+	var item: Dictionary = Inventory.flat(value.objet, value.pile[-1]) if value.has("pile") and not value.pile.is_empty() else value.duplicate(true)
+	item.erase("rotation")
+	var made := MeshInstance3D.new()
+	made.name = "ObjetTenu"
+	made.mesh = _mesh(item)
+	var material := _plain_material(item)
+	if material != null:
+		made.material_override = material
+	var shape := _basis(item)
+	if _kind(item) == "bois":
+		# Debout dans la main (le long de y), pas couché comme au sol.
+		var thick := size_of(item)
+		var length := float(item.get("longueur", 1.0))
+		shape = Basis.from_scale(Vector3(thick, length, thick))
+		# Torche allumée : sa flamme au bout (à sa vraie taille malgré l'échelle du bâton).
+		if Fire.is_torch(item) and Fire.is_lit(item):
+			var flame := MeshInstance3D.new()
+			flame.name = "Flamme"
+			flame.mesh = Fire.torch_flame_mesh()
+			flame.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+			var size := 0.45 if item.objet == "torche_forte" else 0.35
+			flame.scale = Vector3(size / thick, size / length, size / thick)
+			flame.position = Vector3(0.0, 0.5, 0.0)
+			made.add_child(flame)
+	made.transform = Transform3D(shape, Vector3.ZERO)
+	return made
+
 func _mesh(value: Dictionary) -> Mesh:
 	if _kind(value) == "fibre":
 		return Fibers.bundle_mesh()

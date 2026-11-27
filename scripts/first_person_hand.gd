@@ -1,4 +1,7 @@
 extends Node3D
+# 0.0.8.54 (lot C1, #224, #225) : chaque geste (creuser, poser, ramasser, manger) est aussi joué par le corps du
+# personnage (vu de dos, de face, son ombre : character_rig.gd).
+signal gestured(name: String)
 # 0.0.7.6 (demande de l'utilisateur, issue #201) : main droite vue à la première personne, en bas à droite, petite pour
 # laisser voir le jeu. Elle tient l'objet choisi dans la barre : petit tas de la matière (terre, sable…), caillou, éclat,
 # pomme ou noisette ; main vide : la main seule. La pioche garde son propre dessin (player.gd), la main est alors cachée.
@@ -411,14 +414,17 @@ func _gesture(pose: String, amount: float, reach: Vector3, out_seconds: float, b
 
 # Creuser, casser à la main : les doigts en griffe grattent vers soi.
 func dig() -> void:
+	gestured.emit("dig")
 	_gesture("griffe", 1.0, DIG_REACH, 0.09, 0.16, -0.35)
 
 # Poser : la main s'ouvre et pousse vers l'avant.
 func place() -> void:
+	gestured.emit("place")
 	_gesture("ouverte", 0.8, PLACE_REACH, 0.08, 0.15)
 
 # Ramasser : la main s'avance ouverte vers le sol, se ferme sur l'objet, revient.
 func grab() -> void:
+	gestured.emit("grab")
 	_go_pose("ouverte", 0.9)
 	_gesture_left = 0.45
 	if not is_inside_tree() or pulling:
@@ -443,6 +449,8 @@ func eat(share: float) -> void:
 			position = rest
 			rotation.x = 0.0
 		return
+	if not eating:
+		gestured.emit("eat")
 	if not eating and _tween != null:
 		_tween.kill()
 	eating = true

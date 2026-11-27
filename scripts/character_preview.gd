@@ -170,7 +170,7 @@ func _sync_model() -> void:
 			var mesh_instance := node as MeshInstance3D
 			for surface in range(mesh_instance.mesh.get_surface_count()):
 				var material := mesh_instance.mesh.surface_get_material(surface)
-				if material and material.resource_name == "Skin":
+				if material and material.resource_name.get_slice(".", 0) == "Skin":
 					mesh_instance.set_surface_override_material(surface, skin_material)
 	_frame_model()
 

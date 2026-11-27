@@ -1,6 +1,17 @@
-# OrbMeka™ — prototype 0.0.8.53
+# OrbMeka™ — prototype 0.0.8.54
 
 Godot 4.7 / GDScript. Formes et couleurs simples ; assets externes seulement sous licence vérifiée (sons CC0, assets/sounds/CREDITS.txt).
+
+## 0.0.8.54 — Personnages animés
+Publiée. Génération inchangée (version 34). Demandes de l'utilisateur (lot C1, partie 2 ; issues « Objet en main visible en troisième personne », « Animations des bras de son personnage », « … des autres personnages »).
+- **Squelette** pour les 4 personnages humains (garçon et fille de 9 et 14 ans), fait par un script Blender (sources_blender/personnages/equiper_personnages.py) : 19 os (bassin, dos, poitrine, cou, tête, épaules, bras, avant-bras, mains, cuisses, jambes, pieds) placés aux jonctions des pièces du modèle (manche/avant-bras : coude…). Mêmes modèles, même aspect.
+- **Vu de dos et de face (F4)** : l'objet choisi est dans la main du personnage (un outil ou une torche debout dans le poing, un peu écarté du corps ; une torche allumée avec sa flamme), l'avant-bras levé ; les gestes de la main du jeu sont faits par le corps : frapper ou creuser (le bras monte au-dessus de la tête puis s'abat), poser, ramasser, manger ; en marchant, bras et jambes se balancent.
+- **Son ombre** fait les mêmes gestes et tient le même objet, même à la première personne ; le corps vu en regardant vers le bas marche seulement (ses bras ne gênent pas les mains du jeu).
+- **Vitrine de l'accueil** : un personnage humain qui y court balance les bras et les jambes (aujourd'hui, ce sont deux animaux : leur squelette viendra avec les pattes).
+- Les animaux et les personnages simples (homme, femme) n'ont pas encore de squelette : ils restent comme avant.
+
+Tests réussis : squelette (nouveau : 19 os des 4 personnages, animal sans squelette, objet tenu, geste, marche, le joueur vu de dos et à la première personne, geste relayé), body, character, views, bras, inventory, menu, menu_style, settings_files, fixes_089, fibers, character_voices, modeles_feu, feu, crafting, prototype, history_resume.
+À tester : la vue F4 (de dos, de face) avec un outil, une torche ; frapper, poser, ramasser, manger ; marcher.
 
 ## 0.0.8.53 — Modèles du feu, des torches et de l'archet ; images de la fabrication
 Publiée. Génération inchangée (version 34). Demandes de l'utilisateur (lot C1, partie 1).
