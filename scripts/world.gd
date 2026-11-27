@@ -4168,6 +4168,30 @@ func drop_pieces(id: String, pieces: int, weight: float, from: Vector3) -> void:
 			continue
 		ground.drop({"objet": id, "poids": weight}, from, _beside_player(), _rest_height)
 
+# 0.0.8.50 (demande de l'utilisateur) : la pierre du terrain cassée à la pioche donne sa matière, comme la terre ou le
+# sable : une poignée par sous-cellule (Pierre, Calcaire, Pierre sombre, Silex), dans la main choisie (sinon ailleurs) ;
+# et une fois sur STONE_CHIP_CHANCE, un éclat en plus (pour fabriquer). Le charbon donne toujours du charbon. Mains et
+# poches pleines : deux éclats comme avant (rien n'est perdu). Créatif : comme avant (matières illimitées).
+const STONE_MATTER := {SmoothTerrain.STONE: "pierre", SmoothTerrain.DARK_STONE: "pierre_sombre", SmoothTerrain.LIMESTONE: "calcaire", SmoothTerrain.FLINT: "silex"}
+const STONE_CHIP_CHANCE := 0.25
+
+func stone_harvest(kind: int, cells: int, at: Vector3) -> void:
+	if not STONE_MATTER.has(kind) or not survival():
+		drop_pieces(STONE_PIECES.get(kind, "eclat_pierre"), 2 * cells, STONE_PIECE_WEIGHT, at)
+		return
+	var id: String = STONE_MATTER[kind]
+	var taken := 0
+	for index in range(cells):
+		if inventory.add_to_selected({"objet": id, "nombre": 1}).added > 0:
+			taken += 1
+		else:
+			drop_pieces(STONE_PIECES[kind], 2, STONE_PIECE_WEIGHT, at)
+	if randf() < STONE_CHIP_CHANCE:
+		drop_pieces(STONE_PIECES[kind], 1, STONE_PIECE_WEIGHT, at)
+	if taken > 0:
+		show_choice("%s (%s)" % [handful_text(id) + (" × %d" % taken if taken > 1 else ""), Inventory.format_weight(Inventory.unit_weight({"objet": id}) * taken)])
+	inventory_unsaved = true
+
 # 0.0.7.4 : poser au sol l'objet en main (clic droit), un à la fois, là où l'on vise (à portée de pose).
 # 0.0.7.5 : c'est le dernier objet pris dans la case, avec toutes ses caractéristiques (forme, taille, orientation…).
 func put_down_held(hit: Dictionary) -> bool:
@@ -5326,7 +5350,7 @@ func step_dig(delta: float, holding: bool, aimed: Dictionary = {}) -> bool:
 		if plan.stone:
 			_impact_sound(hit.position)
 		if pick and STONE_PIECES.has(stone_kind):
-			drop_pieces(STONE_PIECES[stone_kind], 2, STONE_PIECE_WEIGHT, hit.position)
+			stone_harvest(stone_kind, maxi(last_gesture_points, 1), hit.position)
 		use_tool(work, seconds)
 	return done
 
@@ -7901,7 +7925,7 @@ func _strike_stone(point: Vector3i, at: Vector3) -> bool:
 	var done := _apply_terrain({point: [SmoothTerrain.DUG, -1]})
 	# 0.0.7.3 : la sous-cellule cassée donne deux morceaux (250 g en tout), qui tombent à côté du joueur.
 	if done:
-		drop_pieces(STONE_PIECES.get(kind, "eclat_pierre"), 2, STONE_PIECE_WEIGHT, at)
+		stone_harvest(kind, 1, at)
 	return done
 
 # 0.0.6 : rocher creusé à la pioche, une sous-cellule de 50 cm par coup (cubes alignés sur le terrain) ;

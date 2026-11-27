@@ -1,6 +1,15 @@
-# OrbMeka™ — prototype 0.0.8.49
+# OrbMeka™ — prototype 0.0.8.50
 
 Godot 4.7 / GDScript. Formes et couleurs simples ; assets externes seulement sous licence vérifiée (sons CC0, assets/sounds/CREDITS.txt).
+
+## 0.0.8.50 — Pierre à la pioche
+Publiée. Génération inchangée (version 34). Demande de l'utilisateur.
+- **La pierre du sol cassée à la pioche** (Survie) donne sa matière, comme la terre ou le sable : une poignée par morceau de 50 cm (Pierre, Calcaire, Pierre sombre, Silex), dans la main choisie, à reposer ensuite comme la terre. Avant : seulement deux éclats.
+- **Un éclat en plus une fois sur 4** (pour fabriquer). Le charbon donne toujours du charbon. Mains et poches pleines : deux éclats comme avant (rien n'est perdu). Créatif : inchangé.
+- Carnet de route (case Pioche) et liste des actions mis à jour.
+
+Tests réussis : inventory (nouveau : calcaire cassé à la pioche), smooth_terrain, tools, carnet, prototype, history_resume.
+À tester : casser de la pierre à la pioche, puis reposer la poignée.
 
 ## 0.0.8.49 — Arbre couché qui suit le sol creusé
 Publiée. Génération inchangée (version 34). Demande de l'utilisateur (restes de la physique).
