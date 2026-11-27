@@ -1,6 +1,6 @@
 extends SceneTree
 # 0.0.8.10 (#202, demandes de l'utilisateur) : outils utiles et usure. Hache en pierre : le bois 3 fois plus vite, troncs
-# jusqu'à 1 m ; pioche en pierre : la pierre 4 fois plus vite (avec des éclats), la terre 2 fois ; selon la qualité.
+# jusqu'à 80 cm (0.0.8.47 ; avant 1 m) ; pioche en pierre : la pierre 4 fois plus vite (avec des éclats), la terre 2 fois ; selon la qualité.
 # Usure : 50 à 300 coups selon la fabrication ; à 0, l'outil casse (tête et manche au sol) ; barre verte → rouge ;
 # détails : « Usure : N coups restants sur M ».
 const Settings = preload("res://scripts/user_settings.gd")
@@ -62,7 +62,8 @@ func _run() -> void:
 	axe.usure = 3
 	world.inventory.put("bar", 0, {})
 	world.inventory.put("bar", 0, {"objet": "hache_pierre", "pile": [axe.duplicate()]})
-	check(world.tool_speed("bois") > 3.0 and is_equal_approx(world.max_chop_thickness(), 1.0), "an axe in hand: wood 3 times faster, trunks up to 1 m")
+	check(world.tool_speed("bois") > 3.0 and is_equal_approx(world.max_chop_thickness(), 0.8), "an axe in hand: wood 3 times faster, trunks up to 80 cm (0.0.8.47)")
+	check(is_equal_approx(world.big_wood_factor(0.3), 1.0) and is_equal_approx(world.big_wood_factor(0.8), 2.0), "beyond 40 cm the time grows faster (80 cm: twice)")
 	axe.usure = 100
 	world.inventory.put("bar", 0, {})
 	world.inventory.put("bar", 0, {"objet": "hache_pierre", "pile": [axe.duplicate()]})

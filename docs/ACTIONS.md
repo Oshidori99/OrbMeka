@@ -19,7 +19,7 @@ Tableau objet → actions → résultat (issue #254). Les touches sont celles pa
 | Plante | Arracher (clic gauche maintenu, « Casser / Arracher ») | La plante entière, à replanter (clic droit) |
 | Mauvaise herbe | Arracher | Elle reste au sol |
 | Liane d'un tilleul | Récolter (R) | Une liane |
-| Arbre debout | Abattre (clic gauche maintenu près du pied ; hache : 3 fois plus vite) | L'arbre tombe et se couche |
+| Arbre debout | Abattre (clic gauche maintenu près du pied ; hache : 3 fois plus vite, jusqu'à 80 cm ; au-delà de 40 cm, plus long) | L'arbre tombe et se couche |
 | Branche, tige de noisetier | Couper (clic gauche maintenu) | Elle tombe entière, couchée avec ses feuilles |
 | Branche ou arbre couché | Recouper (clic gauche maintenu) | Seul le bout coupé change ; un bout nu devient son bois au sol |
 | Branche ou arbre couché | R (une fois) | Ses feuilles tombent en tas (Défeuiller) |
