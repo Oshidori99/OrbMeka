@@ -12,6 +12,8 @@ varying vec4 tint;
 varying vec3 ore_share;
 // 0.0.6.15 : litière d'aiguilles de pin (CUSTOM0.a).
 varying float litter_share;
+// 0.0.8.52 (lot Ombres) : coins et creux assombris près des grottes et de ce qui a été creusé (CUSTOM1.r, surface_job.gd : 0 à 0,75).
+varying float occlusion;
 // 0.0.6.17 : seul le sol (pièces de terrain) porte CUSTOM0 ; dans le rendu Web, un canal absent vaut (0, 0, 0, 1) :
 // sans ce réglage, rochers et cailloux y prenaient l'aspect de la litière d'aiguilles.
 uniform bool terrain_layers = false;
@@ -83,6 +85,7 @@ void vertex() {
 	tint = COLOR;
 	ore_share = terrain_layers ? CUSTOM0.rgb : vec3(0.0);
 	litter_share = terrain_layers ? CUSTOM0.a : 0.0;
+	occlusion = terrain_layers ? clamp(CUSTOM1.r, 0.0, 1.0) : 0.0;
 	kind_value = kind_per_instance ? INSTANCE_CUSTOM.r : float(rock_kind);
 }
 void fragment() {
@@ -317,7 +320,8 @@ void fragment() {
 		albedo *= mix(1.0, 1.25, litter);
 		albedo *= mix(1.0, 1.45, mud);
 	}
-	ALBEDO = albedo;
+	// 0.0.8.52 : dans un coin, au fond d'une galerie ou d'une grotte, moins de lumière arrive (soleil, ciel, torche).
+	ALBEDO = albedo * (1.0 - occlusion);
 	ROUGHNESS = mix(mix(mix(mix(mix(mix(mix(mix(mix(earth ? 0.96 : (sand ? 0.93 : 0.86), 0.62, clay_wet), 0.72, mud), (compat_look ? 0.6 : 0.12), puddle), 0.55, snow), 0.9, gravel), 0.92, ore.x), 0.8 - coal_glint * 0.45, ore.y), 0.6, flint_gloss), 0.95, ore.z - flint_gloss);
 	SPECULAR = mix(mix(mix(mix(mix(mix(mix(earth ? 0.12 : (sand ? 0.18 + (fine_fade > 0.0 ? step(0.985,noise3(p*240.0))*fine_fade : 0.0)*0.6 : 0.25), 0.22, mud), 0.5, puddle), 0.35 + sparkle * 0.6, snow), 0.2, gravel), 0.15, ore.x), 0.25 + coal_glint * 0.55, ore.y), 0.25, flint_gloss);
 	// 0.0.7.23 : sans relief fin en qualité Performance.

@@ -1,6 +1,16 @@
-# OrbMeka™ — prototype 0.0.8.51
+# OrbMeka™ — prototype 0.0.8.52
 
 Godot 4.7 / GDScript. Formes et couleurs simples ; assets externes seulement sous licence vérifiée (sons CC0, assets/sounds/CREDITS.txt).
+
+## 0.0.8.52 — Coins sombres sous terre
+Publiée. Génération inchangée (version 34). Demande de l'utilisateur (lot Ombres, partie 2 : de meilleures ombres sous terre, même en Performance).
+- **Coins assombris** dans les grottes et là où on a creusé ou posé de la matière : sol contre mur, mur contre plafond, pied d'un pilier, fond d'une galerie. Calculés avec le terrain (part de roche pleine dans 2 m autour de chaque point) : aussi en Performance et sur le Web, sans coût pour la carte graphique. Le sol naturel de la graine reste comme avant.
+- **Mesuré** : calculé partout, la construction du terrain prenait 5 fois plus de temps ; seulement près des grottes et des changements : l'ouverture d'un monde prend 0,06 à 0,1 s de plus (+3 %), et refaire une zone après un coup de pelle dans une galerie environ 7 ms de plus.
+- **Pas de couture** : deux zones voisines donnent la même valeur à leurs points communs (vérifié par un test).
+- **Beauté (ombres « Loin ») sur PC** : en plus, l'occlusion à l'écran : le pied des objets posés, des arbres et des rochers, et chaque coin un peu assombris, aussi à la lumière d'une torche. Pas en Équilibré ni en Performance : 8,5 ms de plus par image sur une petite carte graphique (Radeon 610M). Pas sur le Web (le rendu du Web ne l'a pas).
+
+Tests réussis : coins_sombres (nouveau : sol naturel sans changement, coin d'une salle creusée assombri, même valeur des deux côtés d'une limite de zone, zones relues, occlusion à l'écran en Beauté seulement), smooth_terrain, workers, gravite, cliff_fall, feu, web_speed, quality, menu, display_settings, jour_nuit, prototype, history_resume.
+À tester : une galerie creusée et une grotte, avec une torche ; le réglage Beauté sur PC.
 
 ## 0.0.8.51 — Ombres des torches et du feu
 Publiée. Génération inchangée (version 34). Demande de l'utilisateur (lot Ombres, partie 1 : de vraies ombres, surtout sous terre et la nuit).

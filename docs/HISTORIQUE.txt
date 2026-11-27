@@ -3,6 +3,10 @@ Du plus récent au plus ancien. Ce fichier est mis à jour à chaque version.
 
 === Thème « Fabrication et survie » (0.0.8) ===
 
+0.0.8.52 — Coins sombres sous terre : dans les grottes et là où on a creusé, les coins (sol contre mur, mur contre plafond, pied d'un pilier) sont assombris, en Performance et sur le Web aussi ; en Beauté sur PC, occlusion à l'écran (le pied des objets et des arbres un peu assombri)
+Génération du terrain : version 34 · Menus : version 17.
+Demande de l'utilisateur (lot Ombres, partie 2).
+
 0.0.8.51 — Ombres des torches et du feu : la torche tenue, les feux et les torches posés font de vraies ombres (leur lumière ne traverse plus la terre ni les murs), un peu de lumière renvoyée dans l'ombre, la lune fait des ombres du premier au dernier quartier ; le bois posé sous terre est dessiné au bon endroit
 Génération du terrain : version 34 · Menus : version 17.
 Demande de l'utilisateur (lot Ombres, partie 1).

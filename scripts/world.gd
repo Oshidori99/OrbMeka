@@ -711,6 +711,26 @@ func _apply_light_shadows() -> void:
 	if is_instance_valid(ground):
 		ground.set_shadow_lights(int(PLACED_LIGHT_SHADOWS.get(shadow_quality, 0)) if now else 0)
 
+# 0.0.8.52 (lot Ombres) : ombres « Loin » (Beauté) sur PC : en plus, l'occlusion à l'écran (SSAO) : chaque coin, chaque
+# objet posé, le pied des arbres et des rochers un peu assombris, aussi à la lumière d'une torche (part SSAO_LIGHT).
+# Mesuré sur une petite carte graphique (Radeon 610M, 720p) : 8,5 ms de plus par image même au plus bas : seulement en
+# Beauté. Pas sur le Web (le rendu Compatibility ne l'a pas).
+const SSAO_RADIUS := 1.2
+const SSAO_INTENSITY := 2.2
+const SSAO_POWER := 1.5
+const SSAO_LIGHT := 0.35
+
+func _apply_screen_occlusion() -> void:
+	if not is_instance_valid(environment):
+		return
+	var on := shadow_quality == "far" and not is_compat()
+	environment.ssao_enabled = on
+	if on:
+		environment.ssao_radius = SSAO_RADIUS
+		environment.ssao_intensity = SSAO_INTENSITY
+		environment.ssao_power = SSAO_POWER
+		environment.ssao_light_affect = SSAO_LIGHT
+
 # 0.0.7.21 : ombres du soleil : Loin (64 m, deux niveaux : comme avant), Moyennes (48 m), Proches (32 m, un seul niveau).
 # Rendu Compatibility (Web) : toujours un seul niveau, 40 m au plus (0.0.6.19).
 const SHADOW_DISTANCES := {"near": 32.0, "medium": 48.0, "far": 64.0}
@@ -764,6 +784,7 @@ func set_shadows(quality: String) -> void:
 	# beaucoup : chaque objet est dessiné une fois de plus pour elles).
 	sun_light.shadow_enabled = shadow_quality != "off"
 	_apply_light_shadows()
+	_apply_screen_occlusion()
 	if shadow_quality == "off":
 		return
 	var distance: float = SHADOW_DISTANCES[shadow_quality]
@@ -1533,7 +1554,12 @@ func rebuild_terrain_piece(zone: Vector3i, flat_for_now: bool = false, ready_sur
 		arrays[Mesh.ARRAY_CUSTOM0] = surface[5]
 		arrays[Mesh.ARRAY_INDEX] = surface[6]
 		var mesh := ArrayMesh.new()
-		mesh.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arrays, [], {}, Mesh.ARRAY_CUSTOM_RGBA_FLOAT << Mesh.ARRAY_FORMAT_CUSTOM0_SHIFT)
+		var format := Mesh.ARRAY_CUSTOM_RGBA_FLOAT << Mesh.ARRAY_FORMAT_CUSTOM0_SHIFT
+		# 0.0.8.52 (lot Ombres) : coins et creux assombris (CUSTOM1, surface_job.gd).
+		if surface.size() > 7 and (surface[7] as PackedFloat32Array).size() == (surface[0] as PackedVector3Array).size():
+			arrays[Mesh.ARRAY_CUSTOM1] = surface[7]
+			format |= Mesh.ARRAY_CUSTOM_R_FLOAT << Mesh.ARRAY_FORMAT_CUSTOM1_SHIFT
+		mesh.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arrays, [], {}, format)
 		instance.mesh = mesh
 		faces = [surface[0], surface[6]]
 	body.add_child(instance)

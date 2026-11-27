@@ -60,6 +60,38 @@ var known_kinds := PackedInt32Array()
 var used := PackedInt32Array()
 var triangle := PackedInt32Array()
 var axes := [Vector3i(1, 0, 0), Vector3i(0, 1, 0), Vector3i(0, 0, 1)]
+# 0.0.8.52 (lot Ombres, partie 2, demande de l'utilisateur : de meilleures ombres sous terre, même en Performance) : coins
+# et creux assombris dans les grottes et là où on a creusé ou posé. Pour chaque sommet, la part de matière pleine dans un
+# cube de 2 m autour de lui (5 × 5 × 5 points, lue dans des sommes cumulées : 8 lectures) ; un sol plat ou une pente en
+# ont la moitié : rien ; un coin, un fond de galerie en ont plus : assombris (de 0 à OCCLUSION_MAX ; shader du sol,
+# CUSTOM1). Seulement près des points « mêlés » (grotte, changement) : le sol de la graine ailleurs ne coûte rien (mesuré :
+# calculé partout, la construction du terrain prenait 5 fois plus de temps). Les points sont lus comme le sol (graine,
+# grottes, changements), OCCLUSION_MARGIN points autour de la zone : deux zones voisines donnent la même valeur à leurs
+# sommets communs (pas de couture). Sommet par sommet : à sa place dans sa sous-cellule (pas de bandes).
+const OCCLUSION_RADIUS := 2
+const OCCLUSION_MARGIN := 2
+const OCCLUSION_DEAD := 0.03
+const OCCLUSION_GAIN := 3.2
+const OCCLUSION_MAX := 0.75
+const BOX_POINTS := 125.0
+# Points mêlés dans le cube pour l'assombrissement entier (moins : en partie, pour un passage doux vers le sol naturel).
+const MIXED_FULL := 6.0
+static var occlusion_on := true
+var occ_active := false
+var occ := PackedFloat32Array()
+var occ_mixed := PackedFloat32Array()
+var occ_sums := PackedFloat32Array()
+var mixed_sums := PackedFloat32Array()
+var occ_box := PackedFloat32Array()
+var mixed_box := PackedFloat32Array()
+var occ_nodes: Array = []
+var ox := 0
+var oy := 0
+var oz := 0
+var ostart: Vector3i
+var _occ_x := 0
+var cell_occlusion := PackedFloat32Array()
+var occlusions := PackedFloat32Array()
 
 func _init(terrain, which: Vector3i) -> void:
 	t = terrain
@@ -98,6 +130,10 @@ func _advance() -> void:
 			_cells_row()
 		5:
 			_faces_row()
+		6:
+			_occlusion_slab()
+		7:
+			_occlusion_sum()
 
 # Étape 0 : points changés autour, hauteurs extrêmes, grottes, tableaux.
 func _prepare() -> void:
@@ -237,6 +273,164 @@ func _tables() -> void:
 	known_kinds.fill(t.UNKNOWN_KIND)
 	_x = 0
 	_stage = 4
+	if occlusion_on:
+		_occlusion_prepare()
+
+# --- 0.0.8.52 : coins assombris près des grottes et de ce qui a été creusé ou posé ---
+# Seulement là où le sol n'est plus celui de la graine (grottes, changements) : ailleurs, aucun calcul (le sol naturel
+# reste comme avant ; l'ouverture d'un monde ne ralentit pas). La grille ne couvre que ces endroits, avec leur marge.
+func _occlusion_prepare() -> void:
+	_occ_x = 0
+	var read_low := start - Vector3i.ONE * OCCLUSION_MARGIN
+	var read_high := start + Vector3i(size - 1, height - 1, size - 1) + Vector3i.ONE * OCCLUSION_MARGIN
+	var low := Vector3i(1 << 30, 1 << 30, 1 << 30)
+	var high := -low
+	for point: Vector3i in nearby:
+		if point.x >= read_low.x and point.y >= read_low.y and point.z >= read_low.z and point.x <= read_high.x and point.y <= read_high.y and point.z <= read_high.z:
+			low = low.min(point)
+			high = high.max(point)
+	var seen := {}
+	for dx in range(-1, 2):
+		for dy in range(-1, 2):
+			for dz in range(-1, 2):
+				for node in t.caves_in_zone(zone + Vector3i(dx, dy, dz)):
+					var key := str(node.at)
+					if seen.has(key):
+						continue
+					seen[key] = true
+					var reach: float = (node.radius + 1.0) / t.STEP
+					var middle: Vector3 = node.at / t.STEP
+					var node_low := Vector3i(floori(middle.x - reach), floori(middle.y - reach), floori(middle.z - reach)).max(read_low)
+					var node_high := Vector3i(ceili(middle.x + reach), ceili(middle.y + reach), ceili(middle.z + reach)).min(read_high)
+					if node_low.x > node_high.x or node_low.y > node_high.y or node_low.z > node_high.z:
+						continue
+					occ_nodes.append(node)
+					low = low.min(node_low)
+					high = high.max(node_high)
+	if low.x > high.x:
+		_stage = 4
+		return
+	# Les sommets assombris : à OCCLUSION_RADIUS + 1 de ces points ; leur cube : encore OCCLUSION_RADIUS autour.
+	var spread := Vector3i.ONE * (2 * OCCLUSION_RADIUS + 1)
+	ostart = (low - spread).max(read_low)
+	var oend := (high + spread).min(read_high)
+	ox = oend.x - ostart.x + 1
+	oy = oend.y - ostart.y + 1
+	oz = oend.z - ostart.z + 1
+	occ.resize(ox * oy * oz)
+	occ_mixed.resize(ox * oy * oz)
+	occ_mixed.fill(0.0)
+	# Sol de la graine, colonne par colonne (valeurs du terrain lues une fois : plus rapide).
+	var step: float = t.STEP
+	var rock_top: int = t.mother_rock_top
+	for x in range(ox):
+		for z in range(oz):
+			var top: float = t.ground_height(Vector2i(ostart.x + x, ostart.z + z))
+			var base := (x * oy) * oz + z
+			for y in range(oy):
+				occ[base + y * oz] = clampf(top - (ostart.y + y) * step, -1.0, 1.0)
+	# Grottes (comme base_density) : là où une boule creuse, le point est « mêlé ».
+	for node in occ_nodes:
+		var radius: float = node.radius
+		var reach: float = (radius + 1.0) / step
+		var middle: Vector3 = node.at / step
+		for x in range(maxi(0, floori(middle.x - reach) - ostart.x), mini(ox, ceili(middle.x + reach) - ostart.x + 1)):
+			for y in range(maxi(0, floori(middle.y - reach) - ostart.y), mini(oy, ceili(middle.y + reach) - ostart.y + 1)):
+				if ostart.y + y <= rock_top:
+					continue
+				for z in range(maxi(0, floori(middle.z - reach) - ostart.z), mini(oz, ceili(middle.z + reach) - ostart.z + 1)):
+					var index := (x * oy + y) * oz + z
+					var carved: float = clampf(Vector3(ostart.x + x, ostart.y + y, ostart.z + z).distance_to(middle) * step - radius, -1.0, 1.0)
+					if carved < occ[index]:
+						occ[index] = carved
+						occ_mixed[index] = 1.0
+	# Changements (creusé, posé).
+	for point: Vector3i in nearby:
+		var local := point - ostart
+		if local.x >= 0 and local.y >= 0 and local.z >= 0 and local.x < ox and local.y < oy and local.z < oz:
+			var index := (local.x * oy + local.y) * oz + local.z
+			occ[index] = t.changes[point]
+			occ_mixed[index] = 1.0
+	occ_sums.resize((ox + 1) * (oy + 1) * (oz + 1))
+	occ_sums.fill(0.0)
+	mixed_sums.resize((ox + 1) * (oy + 1) * (oz + 1))
+	mixed_sums.fill(0.0)
+	occ_box.resize(ox * oy * oz)
+	occ_box.fill(-1.0)
+	mixed_box.resize(ox * oy * oz)
+	occ_active = true
+	_stage = 6
+
+# Une tranche (x) : matière pleine (1), vide (0) ou entre les deux près de la surface ; sommes cumulées sur y et z.
+func _occlusion_slab() -> void:
+	var inverse: float = 1.0 / t.STEP
+	var i := _occ_x
+	var row := oz + 1
+	var base := (i + 1) * (oy + 1) * row
+	for z in range(oz):
+		var running := 0.0
+		var running_mixed := 0.0
+		for y in range(oy):
+			var index := (i * oy + y) * oz + z
+			running += clampf(0.5 + occ[index] * inverse, 0.0, 1.0)
+			running_mixed += occ_mixed[index]
+			var at := base + (y + 1) * row + z + 1
+			occ_sums[at] = occ_sums[at - 1] + running
+			mixed_sums[at] = mixed_sums[at - 1] + running_mixed
+	_occ_x += 1
+	if _occ_x >= ox:
+		_occ_x = 1
+		_stage = 7
+
+# Sommes cumulées sur x (une tranche à la fois) ; puis le maillage reprend (sous-cellules).
+func _occlusion_sum() -> void:
+	var plane := (oy + 1) * (oz + 1)
+	var to := (_occ_x + 1) * plane
+	var from := _occ_x * plane
+	for index in range(plane):
+		occ_sums[to + index] += occ_sums[from + index]
+		mixed_sums[to + index] += mixed_sums[from + index]
+	_occ_x += 1
+	if _occ_x >= ox:
+		_stage = 4
+
+# Somme d'un cube de 5 × 5 × 5 points dans une grille de sommes cumulées.
+func _box_sum(sums: PackedFloat32Array, x: int, y: int, z: int) -> float:
+	var row := oz + 1
+	var plane := (oy + 1) * row
+	var x0 := (x - OCCLUSION_RADIUS) * plane
+	var x1 := (x + OCCLUSION_RADIUS + 1) * plane
+	var y0 := (y - OCCLUSION_RADIUS) * row
+	var y1 := (y + OCCLUSION_RADIUS + 1) * row
+	var z0 := z - OCCLUSION_RADIUS
+	var z1 := z + OCCLUSION_RADIUS + 1
+	return sums[x1 + y1 + z1] - sums[x0 + y1 + z1] - sums[x1 + y0 + z1] - sums[x1 + y1 + z0] \
+		+ sums[x0 + y0 + z1] + sums[x0 + y1 + z0] + sums[x1 + y0 + z0] - sums[x0 + y0 + z0]
+
+# Part pleine et nombre de points mêlés du cube autour d'un point de la grille (gardés).
+func _occlusion_box(x: int, y: int, z: int) -> Vector2:
+	var index := (x * oy + y) * oz + z
+	if occ_box[index] < 0.0:
+		occ_box[index] = _box_sum(occ_sums, x, y, z) / BOX_POINTS
+		mixed_box[index] = _box_sum(mixed_sums, x, y, z)
+	return Vector2(occ_box[index], mixed_box[index])
+
+# Assombrissement d'un sommet de la sous-cellule « cell » (repère du maillage) : 0 hors des endroits mêlés.
+func _vertex_occlusion(cell: Vector3i, place: Vector3) -> float:
+	if not occ_active:
+		return 0.0
+	var corner := start + cell - ostart
+	if corner.x < OCCLUSION_RADIUS or corner.y < OCCLUSION_RADIUS or corner.z < OCCLUSION_RADIUS or corner.x + 1 + OCCLUSION_RADIUS >= ox or corner.y + 1 + OCCLUSION_RADIUS >= oy or corner.z + 1 + OCCLUSION_RADIUS >= oz:
+		return 0.0
+	var f: Vector3 = (place / t.STEP - Vector3(start + cell)).clamp(Vector3.ZERO, Vector3.ONE)
+	var c00 := _occlusion_box(corner.x, corner.y, corner.z).lerp(_occlusion_box(corner.x + 1, corner.y, corner.z), f.x)
+	var c10 := _occlusion_box(corner.x, corner.y + 1, corner.z).lerp(_occlusion_box(corner.x + 1, corner.y + 1, corner.z), f.x)
+	var c01 := _occlusion_box(corner.x, corner.y, corner.z + 1).lerp(_occlusion_box(corner.x + 1, corner.y, corner.z + 1), f.x)
+	var c11 := _occlusion_box(corner.x, corner.y + 1, corner.z + 1).lerp(_occlusion_box(corner.x + 1, corner.y + 1, corner.z + 1), f.x)
+	var both := c00.lerp(c10, f.y).lerp(c01.lerp(c11, f.y), f.z)
+	if both.y <= 0.0:
+		return 0.0
+	return clampf((both.x - 0.5 - OCCLUSION_DEAD) * OCCLUSION_GAIN, 0.0, OCCLUSION_MAX) * clampf(both.y / MIXED_FULL, 0.0, 1.0)
 
 # Étape 4 : une ligne de sous-cellules traversées : leur sommet, sa normale, ses couleurs.
 func _cells_row() -> void:
@@ -266,6 +460,7 @@ func _cells_row() -> void:
 			var cell := Vector3i(x, y, z)
 			cell_slot[base] = cell_vertex.size()
 			cell_vertex.append((Vector3(start + cell) + sum / count) * t.STEP)
+			cell_occlusion.append(_vertex_occlusion(cell, cell_vertex[cell_vertex.size() - 1]) if occlusion_on else 0.0)
 			var slope := Vector3(
 				corners[1] + corners[3] + corners[5] + corners[7] - corners[0] - corners[2] - corners[4] - corners[6],
 				corners[2] + corners[3] + corners[6] + corners[7] - corners[0] - corners[1] - corners[4] - corners[5],
@@ -367,10 +562,11 @@ func _faces_row() -> void:
 						uvs.append(cell_uv[slot])
 						uvs2.append(cell_uv2[slot])
 						ore_colors.append(cell_ores[slot])
+						occlusions.append(cell_occlusion[slot])
 					indices.append(mapped)
 	_x += 1
 	if _x >= size - 1:
 		_x = 1
 		_axis += 1
 		if _axis >= 3:
-			_finish([vertices, normals, colors, uvs, uvs2, ore_colors.to_byte_array().to_float32_array(), indices])
+			_finish([vertices, normals, colors, uvs, uvs2, ore_colors.to_byte_array().to_float32_array(), indices, occlusions])
