@@ -1,6 +1,18 @@
-# OrbMeka™ — prototype 0.0.8.56
+# OrbMeka™ — prototype 0.0.8.57
 
 Godot 4.7 / GDScript. Formes et couleurs simples ; assets externes seulement sous licence vérifiée (sons CC0, assets/sounds/CREDITS.txt).
+
+## 0.0.8.57 — Les deux mains
+Publiée. Génération inchangée (version 34). Décisions de l'utilisateur (règles des mains).
+- **Main gauche** : l'objet choisi à la molette ou aux touches, où qu'il soit (case « main », poche, sac), est toujours pris dans la main gauche : on ne pose, ne mange ni n'utilise jamais rien sans l'avoir en main. C'est elle qui fait les gestes (creuser, poser, ramasser, manger, récolter), à la première personne, de dos et dans l'ombre. En Créatif aussi.
+- **Main droite** : elle porte les deux cases « main » de la barre (2,5 kg chacune) : elle montre celle qui n'est pas choisie. Choisir une de ces cases : la main gauche va y prendre l'objet.
+- **Objets lourds** : plus de 2,5 kg, l'objet prend les deux cases ; 5 kg au plus (avant 8 kg) : plus lourd, il faut le couper (bûche recoupée au sol). Choisi, il est tenu à deux mains ; sinon, la main droite le porte.
+- **Ralentissement** : 6 % plus lent par kg dans les mains (30 % à 5 kg ; avant, rien jusqu'à 4 kg).
+- Barre, inventaire et fabrication (O + F) : inchangés. Le premier sac pend maintenant à la hanche gauche.
+- Partie d'avant : ce qui ne tient plus dans les mains est posé aux pieds (message).
+
+Tests réussis : mains (nouveau, 16 vérifications), inventory, sac, squelette, carnet, inventory_more, hands_eat, bras, crafting, tools, fibers, fixes_089, death, health, action_timing, tree_fall, bois, feu, return_orb, feuilles, fiche_outil, settings_files, prototype, history_resume. Captures hors écran (tools/capture_mains.gd).
+À tester : les deux mains en jouant (Survie et Créatif), un objet lourd, la vitesse en portant.
 
 ## 0.0.8.56 — Animaux animés
 Publiée. Génération inchangée (version 34). Demande de l'utilisateur (lot C2 : jambes et pattes ; issue « Animations des pattes des animaux »).

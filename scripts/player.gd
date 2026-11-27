@@ -183,17 +183,19 @@ func _ready() -> void:
 	view_camera.name = "ViewCamera"
 	camera.add_child(view_camera)
 	_make_pickaxe()
-	# 0.0.7.6 : main droite à la première personne, qui tient l'objet choisi (first_person_hand.gd).
+	# 0.0.7.6 : main à la première personne, qui tient l'objet choisi (first_person_hand.gd). 0.0.7.10 : l'autre main, la
+	# même en miroir. 0.0.8.57 (décision de l'utilisateur) : c'est la main gauche (hand_view) qui prend l'objet choisi et
+	# fait les gestes ; la main droite (right_hand_view) porte ce qui est dans les cases « main ».
 	hand_view = FirstPersonHand.new()
 	camera.add_child(hand_view)
-	hand_view.setup(skin, Callable(world, "_kind_material") if world.has_method("_kind_material") else Callable())
-	# 0.0.7.10 : main gauche, la même en miroir.
-	left_hand_view = FirstPersonHand.new()
-	camera.add_child(left_hand_view)
-	left_hand_view.setup(skin, Callable(world, "_kind_material") if world.has_method("_kind_material") else Callable(), true)
+	hand_view.setup(skin, Callable(world, "_kind_material") if world.has_method("_kind_material") else Callable(), true)
+	hand_view.active = true
+	right_hand_view = FirstPersonHand.new()
+	camera.add_child(right_hand_view)
+	right_hand_view.setup(skin, Callable(world, "_kind_material") if world.has_method("_kind_material") else Callable())
 	# 0.0.8.54 : leurs gestes, le corps les fait aussi (vu de dos, de face, son ombre).
-	hand_view.gestured.connect(func(name: String) -> void: _body_gesture(name, "D"))
-	left_hand_view.gestured.connect(func(name: String) -> void: _body_gesture(name, "G"))
+	hand_view.gestured.connect(func(name: String) -> void: _body_gesture(name, "G"))
+	right_hand_view.gestured.connect(func(name: String) -> void: _body_gesture(name, "D"))
 	set_fov(camera.fov)
 	# Capture only after the player explicitly clicks in the game.
 	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
@@ -314,8 +316,9 @@ func cycle_block(direction: int) -> void:
 
 # Pioche tenue en main, en vue à la première personne, quand elle est choisie.
 var pickaxe: Node3D
-const PICKAXE_REST := Vector3(-0.35, 0.45, 0.02)
-const PICKAXE_PLACE := Vector3(0.34, -0.32, -0.6)
+# 0.0.8.57 : dans la main gauche (en miroir).
+const PICKAXE_REST := Vector3(-0.35, -0.45, -0.02)
+const PICKAXE_PLACE := Vector3(-0.34, -0.32, -0.6)
 # 0.0.8.7 (demande de l'utilisateur) : champ de vision par défaut 60° (avant 75° : tout paraissait plus petit et plus
 # loin qu'en vrai). Les mains et la pioche se placent selon lui (set_fov).
 const DEFAULT_FOV := 60.0
@@ -350,21 +353,22 @@ func _make_pickaxe() -> void:
 	camera.add_child(pickaxe)
 	_update_pickaxe()
 
+# 0.0.8.57 : hand_view : la main gauche (objet choisi, gestes) ; right_hand_view : la main droite.
 var hand_view: Node3D
-var left_hand_view: Node3D
+var right_hand_view: Node3D
 var _left_item := {}
 const PICKAXE_KIND := 3
 
-# 0.0.7.6 : objet montré dans la main (world.apply_held).
+# 0.0.7.6 : objet montré dans la main qui le prend (world.apply_held).
 func show_held(value: Dictionary) -> void:
 	if is_instance_valid(hand_view):
 		hand_view.show_item(value)
 		hand_view.visible = view == "first" and value.get("objet", "") != "pioche"
-	if is_instance_valid(left_hand_view):
-		left_hand_view.visible = view == "first"
+	if is_instance_valid(right_hand_view):
+		right_hand_view.visible = view == "first"
 
 # 0.0.8.21 (#207) : sacs en filet portés : le premier pend à la hanche droite (bretelle sur l'épaule gauche), le
-# deuxième à la hanche gauche. Modèle : net_bag.gd (Blender). Ils suivent le corps (vue F4, autres vues).
+# deuxième à la hanche gauche (0.0.8.57 : l'inverse). Modèle : net_bag.gd (Blender). Ils suivent le corps (vue F4, autres vues).
 const NetBag = preload("res://scripts/net_bag.gd")
 var bag_views: Array = []
 
@@ -385,7 +389,8 @@ func show_bags(worn: Array, contents: Array = []) -> void:
 		var view_node: MeshInstance3D = bag_views[which]
 		view_node.visible = shown
 		if shown:
-			var side := 1.0 if which == 0 else -1.0
+			# 0.0.8.57 : le premier sac à la hanche gauche (la main gauche y prend les objets), le deuxième à droite.
+			var side := -1.0 if which == 0 else 1.0
 			view_node.position = Vector3(side * height * 0.15, height * 0.42, BODY_BACK + 0.02)
 			view_node.rotation = Vector3(0.0, PI + side * 0.25, side * 0.08)
 		_fill_bag(view_node, contents[which] if shown and which < contents.size() else [])
@@ -429,17 +434,18 @@ func fetch_item(place: String) -> void:
 	if is_instance_valid(hand_view):
 		hand_view.fetch(place)
 
-# 0.0.7.10 : ce que tient chaque main (main gauche à gauche de l'écran, main droite à droite).
+# 0.0.7.10 : ce que tient chaque main (main gauche à gauche de l'écran, main droite à droite). 0.0.8.57 : left_value :
+# l'objet choisi (main gauche) ; right_value : ce que porte la main droite.
 func show_hands(left_value: Dictionary, right_value: Dictionary, both_hands: bool = false) -> void:
 	_left_item = left_value
 	_right_item = right_value
 	_both_items = both_hands
-	if is_instance_valid(left_hand_view):
-		left_hand_view.show_item(left_value)
-		left_hand_view.set_both(both_hands)
+	if is_instance_valid(right_hand_view):
+		right_hand_view.show_item(right_value)
+		right_hand_view.set_both(both_hands)
 	if is_instance_valid(hand_view):
 		hand_view.set_both(both_hands)
-	show_held(right_value)
+	show_held(left_value)
 	_refresh_body_items()
 
 func _update_pickaxe() -> void:
@@ -447,8 +453,8 @@ func _update_pickaxe() -> void:
 		pickaxe.visible = selected_type == world.PICKAXE and view == "first"
 	if is_instance_valid(hand_view):
 		hand_view.visible = view == "first" and selected_type != PICKAXE_KIND
-	if is_instance_valid(left_hand_view):
-		left_hand_view.visible = view == "first"
+	if is_instance_valid(right_hand_view):
+		right_hand_view.visible = view == "first"
 
 # Coup de pioche : elle s'abat puis revient (0,25 s).
 func swing_pickaxe() -> void:
@@ -817,8 +823,8 @@ func sync_body() -> void:
 	body_key = key
 	if is_instance_valid(hand_view):
 		hand_view.set_skin(skin)
-	if is_instance_valid(left_hand_view):
-		left_hand_view.set_skin(skin)
+	if is_instance_valid(right_hand_view):
+		right_hand_view.set_skin(skin)
 	for old in [body, body_shadow]:
 		if is_instance_valid(old):
 			remove_child(old)
@@ -1229,7 +1235,7 @@ func set_fov(fov: float) -> void:
 	if is_instance_valid(view_camera):
 		view_camera.fov = fov
 	var scale := FirstPersonHand.scale_for_fov(fov)
-	for hand in [hand_view, left_hand_view]:
+	for hand in [hand_view, right_hand_view]:
 		if is_instance_valid(hand):
 			hand.set_view_scale(scale)
 	if is_instance_valid(pickaxe):

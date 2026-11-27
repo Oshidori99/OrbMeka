@@ -98,7 +98,7 @@ func _run() -> void:
 	# Bug signalé par l'utilisateur : un tronc posé (porté à deux mains, l'autre main choisie) restait aussi en main.
 	var trunk := Inventory.new()
 	trunk.set_mode(Inventory.SURVIVAL)
-	trunk.put("bar", Inventory.HANDS[0], pile("tronc", [{"epaisseur": 15.0, "longueur": 0.5, "poids": 6600.0, "essence": 0}]))
+	trunk.put("bar", Inventory.HANDS[0], pile("tronc", [{"epaisseur": 15.0, "longueur": 0.5, "poids": 4600.0, "essence": 0}]))
 	trunk.select(Inventory.HANDS[0])
 	trunk._store().selected = Inventory.HANDS[1]
 	var put_down := trunk.pop_held()
