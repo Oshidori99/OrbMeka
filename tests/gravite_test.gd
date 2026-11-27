@@ -471,6 +471,24 @@ func _run() -> void:
 	check(deepest_wood <= 0.05, "no wood of a felled tree in the ground: %.1f cm at most (before 0.0.8.33: 14 to 17 cm across the slope, up to 119 cm uphill)" % (deepest_wood * 100.0))
 	check(highest_low <= 0.08, "no felled tree in the air: its lowest point is %.1f cm above the ground at most" % (highest_low * 100.0))
 	check(restored_gap < 0.01, "reopened: the felled tree lies in the same pose (%.3f)" % restored_gap)
+	# --- H2. 0.0.8.49 : le sol creusé sous le pied d'un arbre couché : il se repose (plus en l'air), pose enregistrée. ---
+	var dug_id := "gravite-abattu-creuse"
+	w.player.global_position = Vector3(slope_site.x + 4.0, w.terrain.height_at(slope_site.x + 4.0, slope_site.z), slope_site.z)
+	await frames(3)
+	var dug_tree := plant(dug_id, Trees.PINE, 3, slope_site)
+	await frames(2)
+	w.fell_tree(dug_tree)
+	await settle(dug_id)
+	if is_instance_valid(dug_tree):
+		var foot_before: float = dug_tree.global_position.y
+		var foot: Vector3 = dug_tree.global_position
+		dig(SmoothTerrain.point_of(Vector3(foot.x, w.terrain.height_at(foot.x, foot.z), foot.z)), 3, 4)
+		await frames(40)
+		var dug_fit := tree_fit(dug_tree)
+		var saved: Array = w.fallen_trees.get(dug_id, {}).get("position", [])
+		check(dug_tree.global_position.y < foot_before - 0.2 and dug_fit.lowest <= 0.08 and dug_fit.wood >= -0.08, "ground dug under a lying tree's foot: it comes down %.2f m, lowest point %.1f cm above the ground, %.1f cm in at most" % [foot_before - dug_tree.global_position.y, dug_fit.lowest * 100.0, -dug_fit.wood * 100.0])
+		check(saved.size() == 3 and absf(float(saved[1]) - dug_tree.global_position.y) < 0.01, "its new pose is saved")
+	unplant_all(dug_id)
 	# --- I. Sur un gros rocher : une branche qui tombe dessus, un arbre abattu dessus : jamais dans le rocher. ---
 	var big: Node3D = null
 	for place in [Vector3(0, 0, 0), Vector3(48, 0, 0), Vector3(0, 0, 48), Vector3(-48, 0, -48), Vector3(96, 0, 96)]:

@@ -50,7 +50,7 @@ Suivi du travail : GitHub Project https://github.com/users/Oshidori99/projects/1
 - Gravité (0.0.8.29 à 0.0.8.34, tests/gravite_test.gd et cliff_fall_test.gd) : rien ne reste en l'air sans appui (rochers taillés,
   cailloux, objets, bois, arbres couchés : posés sur le sol réel, rochers compris) ; le sol d'origine ne tombe que si le joueur
   creuse à 1 m, jamais en chaîne ; sable à 34° au plus, jamais en plafond ; terre en pente raide, petit plafond de 1 m ; la
-  pierre ne tombe pas. Pour plus tard : poutres pour soutenir la terre ; un arbre couché qui suit le sol creusé dessous.
+  pierre ne tombe pas. Pour plus tard : poutres pour soutenir la terre (un arbre couché suit le sol creusé depuis 0.0.8.49).
 
 ## Ordre des séries
 0.0.7 — Inventaire (porter, ramasser, modes Créatif et Survie), 0.0.8 — Fabrication et survie (bâtons, fibres,

@@ -8424,6 +8424,7 @@ func _settle_objects() -> void:
 		object_settle.erase(column)
 		_snap_pebbles(column)
 		_rest_items_again(column)
+		_rest_trees_again(column)
 
 # Sol dessiné (collision du terrain seulement) sous un point, entre « above » au-dessus et « below » au-dessous d'une
 # hauteur attendue ; NAN sans mesure.
@@ -8474,6 +8475,38 @@ func _snap_pebbles(column: Vector2i) -> void:
 		changed = true
 	if changed:
 		_pebble_block_changed(column)
+
+# 0.0.8.49 (demande de l'utilisateur, reste de la physique) : un arbre couché (ou un morceau couché) au-dessus d'une
+# colonne où le sol a changé se repose sur ses appuis (_rest_rigid, « keep_if_held » : il ne bouge que s'il a vraiment
+# perdu un appui, jamais en l'air) ; sa nouvelle pose est enregistrée.
+func _rest_trees_again(column: Vector2i) -> void:
+	if not is_inside_tree() or not _near_collision(Vector3i(column.x, 0, column.y)):
+		return
+	var center := Vector2((column.x + 0.5) * SmoothTerrain.ZONE_SIZE, (column.y + 0.5) * SmoothTerrain.ZONE_SIZE)
+	for node: Node in get_tree().get_nodes_in_group("trees"):
+		var tree := node as Node3D
+		if tree == null or tree.get_node_or_null("Modele") == null or tree.has_meta("falling") or not _tree_is_lying(tree):
+			continue
+		# Le long de l'arbre couché (du pied vers la cime) : touche-t-il cette colonne ?
+		var foot := Vector2(tree.global_position.x, tree.global_position.z)
+		var along := _lying_direction(tree)
+		var tip := foot + Vector2(along.x, along.z) * _tree_length(tree)
+		if Geometry2D.get_closest_point_to_segment(center, foot, tip).distance_to(center) > SmoothTerrain.ZONE_SIZE * 0.75:
+			continue
+		var before := tree.global_transform
+		_rest_rigid(tree, true)
+		if tree.global_transform.is_equal_approx(before):
+			continue
+		_bend_into_ground(tree, _lying_direction(tree))
+		var id := str(tree.get_meta("id", ""))
+		if int(tree.get_meta("part", 0)) == 0 and fallen_trees.has(id):
+			var place := tree.global_position
+			var lying := tree.global_basis
+			fallen_trees[id].position = [place.x, place.y, place.z]
+			fallen_trees[id].base = [lying.x.x, lying.x.y, lying.x.z, lying.y.x, lying.y.y, lying.y.z, lying.z.x, lying.z.y, lying.z.z]
+			tree.set_meta("lie_base", place)
+			objects_dirty = true
+		_save_part(tree)
 
 # Objets au sol d'une colonne proche : reposés sur le sol (terrain, rochers) s'il a bougé de plus de 2 cm sous eux.
 func _rest_items_again(column: Vector2i) -> void:

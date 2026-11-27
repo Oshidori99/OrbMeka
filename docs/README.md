@@ -1,6 +1,14 @@
-# OrbMeka™ — prototype 0.0.8.48
+# OrbMeka™ — prototype 0.0.8.49
 
 Godot 4.7 / GDScript. Formes et couleurs simples ; assets externes seulement sous licence vérifiée (sons CC0, assets/sounds/CREDITS.txt).
+
+## 0.0.8.49 — Arbre couché qui suit le sol creusé
+Publiée. Génération inchangée (version 34). Demande de l'utilisateur (restes de la physique).
+- **Creuser sous un arbre couché** (abattu, ou un morceau coupé couché) : il se repose sur ses appuis, comme les cailloux, rochers et objets depuis 0.0.8.29. Il ne bouge que s'il a vraiment perdu un appui (posé sur ses deux bouts au-dessus d'un trou, il reste comme un pont) ; jamais en l'air, jamais dans le sol. Sa nouvelle pose est enregistrée avec le monde.
+- Mesuré : sol creusé sous le pied d'un pin couché : il descend de 58 cm, son point le plus bas à 3 cm du nouveau sol.
+
+Tests réussis : gravite (nouveau : arbre couché sur sol creusé, pose enregistrée), tree_fall, cliff_fall, sticks, workers, prototype, history_resume.
+À tester : creuser sous un arbre abattu.
 
 ## 0.0.8.48 — Usure des sacs
 Publiée. Génération inchangée (version 34). Demande de l'utilisateur (issue « Usure des sacs selon leur remplissage »).
