@@ -570,7 +570,10 @@ func _wood_pose(entry: Dictionary) -> Vector2:
 	for index in range(count):
 		var share := float(index) / (count - 1)
 		var spot := center + axis * ((share - 0.5) * length)
-		var ground: float = ground_at.call(Vector3(spot.x, center.y, spot.z))
+		# 0.0.8.51 : mesuré depuis la hauteur où ce bout peut être (pente la plus forte), pas plus haut (sous terre : le
+		# sol du dessus).
+		var reach := absf(share - 0.5) * length * WOOD_MAX_SLOPE
+		var ground: float = ground_at.call(Vector3(spot.x, center.y + reach, spot.z))
 		points.append(Vector2((share - 0.5) * length, ground + lerpf(big, small, share)))
 	var best := Vector2(INF, 0.0)
 	for first in range(count):
@@ -809,6 +812,17 @@ func from_array(data: Variant) -> void:
 # --- 0.0.8.44 : feux de camp et torches posés (fire.gd) ---
 const Fire = preload("res://scripts/fire.gd")
 var _glows: Array = []
+# 0.0.8.51 (lot Ombres) : nombre de feux et torches posés (les plus proches) dont la lumière fait des ombres (réglage
+# Ombres de Vidéo, world.gd set_shadows) ; revu chaque seconde (le joueur bouge : les plus proches changent).
+var shadow_lights := 0
+
+func set_shadow_lights(count: int) -> void:
+	shadow_lights = count
+	_update_glows()
+
+func refresh_glows() -> void:
+	if not _glows.is_empty():
+		_update_glows()
 
 # Change un objet posé (feu allumé, nourri…) : redessiné, enregistré.
 func set_item(index: int, value: Dictionary) -> void:
@@ -841,9 +855,11 @@ func _update_glows() -> void:
 		if not entry.get("hidden", false) and Fire.is_lit(entry.item):
 			lit.append(entry)
 	var camera := get_viewport().get_camera_3d() if is_inside_tree() else null
-	if camera != null and lit.size() > Fire.MAX_LIGHTS:
+	# 0.0.8.51 : toujours du plus proche au plus loin (les shadow_lights plus proches font des ombres).
+	if camera != null and lit.size() > 1:
 		var eye := camera.global_position
 		lit.sort_custom(func(a, b): return eye.distance_squared_to(a.position) < eye.distance_squared_to(b.position))
+	if lit.size() > Fire.MAX_LIGHTS:
 		lit = lit.slice(0, Fire.MAX_LIGHTS)
 	while _glows.size() > lit.size():
 		var gone: Array = _glows.pop_back()
@@ -864,6 +880,7 @@ func _update_glows() -> void:
 		var spec := Fire.light_spec(entry.item)
 		light.omni_range = spec.x
 		light.light_energy = spec.y
+		Fire.set_shadow(light, index < shadow_lights)
 		if Fire.is_fire(entry.item):
 			light.position = entry.position + Vector3.UP * 0.5
 			flame.visible = false
