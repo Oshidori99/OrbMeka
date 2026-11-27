@@ -97,7 +97,9 @@ const INSTANCE_FIELDS := {"taille": TYPE_INT, "poids": TYPE_FLOAT, "forme": TYPE
 	# 0.0.8.10 : coups restants d'un outil (absent : neuf).
 	"usure": TYPE_INT, "ecorce": TYPE_INT,
 	# 0.0.8.44 : torche ou feu allumé (1), minutes de jeu qu'il brûle encore ; bâton brûlé (une torche finie).
-	"allume": TYPE_INT, "brule": TYPE_FLOAT, "brulee": TYPE_INT}
+	"allume": TYPE_INT, "brule": TYPE_FLOAT, "brulee": TYPE_INT,
+	# 0.0.8.48 : solidité d'un sac porté, en % (absent : neuf, 100).
+	"solidite": TYPE_FLOAT}
 # Matières : valeurs de smooth_terrain.gd (SAND 0, STONE 1, DIRT 2, CLAY 4, MUD 5, DARK_STONE 6, GRAVEL 8, LIMESTONE 9,
 # FLINT 11). Poids : une poignée. 0.0.7.6 (plus réaliste, accepté par l'utilisateur) : une grosse poignée d'environ 0,25 L × la
 # densité de la matière ; elle compte toujours pour une sous-cellule de 50 cm (règle de jeu).
@@ -155,6 +157,8 @@ const ITEMS := {
 	"cordelette_lin": {"nom": "Cordelette de lin", "forme": "ficelle", "poids": 18.0, "couleur": Color("#b9a66c")},
 	"cordelette_herbe": {"nom": "Cordelette d'herbe", "forme": "ficelle", "poids": 18.0, "couleur": Color("#7f8d45")},
 	"sac_filet": {"nom": "Sac en filet", "forme": "sac", "poids": 90.0, "couleur": Color("#b9a66c")},
+	# 0.0.8.48 : sac usé jusqu'au bout : il ne porte plus rien (réparer : plus tard).
+	"sac_casse": {"nom": "Sac cassé", "forme": "sac", "poids": 90.0, "couleur": Color("#7d7258")},
 	"tete_hache": {"nom": "Tête de hache", "forme": "tete", "couleur": Color("#2e2e33")},
 	"tete_pioche": {"nom": "Tête de pioche", "forme": "tete", "couleur": Color("#2e2e33")},
 	# 0.0.8.6 (#211) : tête glissée dans un bâton fendu (à ficeler), puis outil ficelé (#145 : pierre et taille de la tête,
@@ -741,7 +745,64 @@ static func bag_lines(value: Dictionary) -> Array:
 	var cord: String = ["d'ortie", "de lin", "d'herbe"][clampi(int(value.get("lien", 0)), 0, 2)]
 	return ["Mailles : cordelettes %s, %d rangées" % [cord, clampi(int(value.get("rangees", 8)), BAG_ROWS.x, BAG_ROWS.y)],
 		"Bretelle : %s" % ("liane" if int(value.get("bretelle", 0)) == 1 else "cordelette"),
-		"Porte : %s et %s" % [format_weight(bag_capacity(value)), format_volume(BAG_VOLUME)]]
+		"Porte : %s et %s" % [format_weight(bag_capacity(value)), format_volume(BAG_VOLUME)],
+		"Solidité : %d %%" % ceili(bag_solidity(value))]
+
+# --- 0.0.8.48 (#262, demande de l'utilisateur) : usure des sacs selon leur remplissage, en minutes réelles (Survie) ---
+# Remplissage (le plus haut du poids et du volume) : moins de 5 % : aucune usure ; 5 à 55 % : 1 % de sa solidité par
+# minute (environ 100 min) ; plus de 55 % : 2 % par minute (environ 50 min). À 0 : « Sac cassé », son contenu au sol.
+const BAG_WEAR_STEPS := [[0.05, 0.0], [0.55, 1.0], [INF, 2.0]]
+
+static func bag_solidity(value: Dictionary) -> float:
+	return float(value.get("solidite", 100.0))
+
+func bag_fill(which: int) -> float:
+	var share := fill("sac" if which == 0 else "sac2")
+	return maxf(float(share.poids), float(share.volume))
+
+static func bag_wear_per_minute(share: float) -> float:
+	for step in BAG_WEAR_STEPS:
+		if share < float(step[0]):
+			return float(step[1])
+	return 0.0
+
+# Use les sacs portés de « minutes » minutes réelles ; rend les places (0, 1) des sacs arrivés à 0 (à casser).
+func wear_bags(minutes: float) -> Array:
+	var broken := []
+	if mode != SURVIVAL:
+		return broken
+	for which in range(2):
+		if not bag_worn(which):
+			continue
+		var rate := bag_wear_per_minute(bag_fill(which))
+		if rate <= 0.0:
+			continue
+		var before := bag_solidity(bag(which))
+		var left := before - rate * minutes
+		_store().sacs[which].solidite = maxf(left, 0.0)
+		# La barre d'usure redessinée à chaque pour cent perdu (pas à chaque fois : léger).
+		if ceili(left) != ceili(before) and left > 0.0:
+			changed.emit()
+		if left <= 0.0:
+			broken.append(which)
+	return broken
+
+# Casse un sac porté : rend son contenu (liste de cases) ; le sac devient un « Sac cassé » (rendu à plat, à ranger).
+func break_bag(which: int) -> Dictionary:
+	var contents := []
+	for place in bag_places(which):
+		var there: Dictionary = _store()[place[0]][place[1]]
+		if not there.is_empty():
+			contents.append(there.duplicate(true))
+		_store()[place[0]][place[1]] = {}
+	var broken := bag(which).duplicate(true)
+	broken.objet = "sac_casse"
+	broken.erase("solidite")
+	_store().sacs[which] = {}
+	if which == 0 and selected() in BAG:
+		_store().selected = HANDS[0]
+	changed.emit()
+	return {"sac": broken, "contenu": contents}
 
 # 0.0.7.8 : un tronc ou une branche (#212), à plat {"objet": …, caractéristiques} : épaisseur (cm), longueur (m),
 # essence, âge (1 très jeune à 5 vieux, un peu pourri) et souplesse (1 cassant à 5 très souple : surtout le bois jeune ;

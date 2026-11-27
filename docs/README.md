@@ -1,6 +1,16 @@
-# OrbMeka™ — prototype 0.0.8.47
+# OrbMeka™ — prototype 0.0.8.48
 
 Godot 4.7 / GDScript. Formes et couleurs simples ; assets externes seulement sous licence vérifiée (sons CC0, assets/sounds/CREDITS.txt).
+
+## 0.0.8.48 — Usure des sacs
+Publiée. Génération inchangée (version 34). Demande de l'utilisateur (issue « Usure des sacs selon leur remplissage »).
+- **Un sac porté s'use** en Survie, en minutes réelles, selon son remplissage (le plus haut du poids et du volume) : moins de 5 % : aucune usure ; 5 à 55 % : 1 % de sa solidité par minute (environ 100 min) ; plus de 55 % : 2 % par minute (environ 50 min). Posé au sol, il ne s'use pas.
+- **Barre d'usure** verte à rouge sur le sac porté (Équipement), comme les outils ; « Solidité : X % » dans ses détails ; enregistrée avec le monde.
+- **Usé jusqu'au bout** : il devient un « Sac cassé » (dans l'inventaire, ou au sol s'il n'y a pas de place) ; il ne porte plus rien et son contenu tombe au sol devant soi (rien n'est perdu). Réparer un sac : plus tard.
+- **Créatif** : pas d'usure. Carnet de route (case Sac en filet) mis à jour.
+
+Tests réussis : sac (usure, enregistrement, sac cassé, Créatif), carnet, inventory_more, prototype, history_resume ; tous les tests sur GitHub ([tests]).
+À tester : la durée de vie d'un sac en jouant (assez longue pour rester agréable ? réglable).
 
 ## 0.0.8.47 — Hache : limite à 80 cm
 Publiée. Génération inchangée (version 34). Demande de l'utilisateur (issue « Hache : abattre les grands arbres »).

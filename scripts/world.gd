@@ -6809,6 +6809,7 @@ func _process(delta: float) -> void:
 	_update_ring()
 	_update_day(delta)
 	_update_fire(delta)
+	_update_bags(delta)
 	_update_map(delta)
 	_update_looked(delta)
 	_update_health(delta)
@@ -6956,6 +6957,7 @@ func _process_measured(delta: float) -> void:
 	_update_ring()
 	_update_day(delta)
 	_update_fire(delta)
+	_update_bags(delta)
 	_update_map(delta)
 	_update_health(delta)
 	if not sliding_trees.is_empty():
@@ -8736,6 +8738,36 @@ func do_fire_use(use: String) -> bool:
 	inventory_unsaved = true
 	objects_dirty = true
 	return true
+
+# 0.0.8.48 (#262) : toutes les BAG_WEAR_EVERY s réelles, les sacs portés s'usent selon leur remplissage (Survie,
+# Inventory.wear_bags) ; un sac à 0 casse : son contenu tombe au sol devant soi, le « Sac cassé » va dans l'inventaire
+# (ou au sol s'il n'y a pas de place). Rien n'est perdu.
+const BAG_WEAR_EVERY := 5.0
+var _bag_wear_wait := BAG_WEAR_EVERY
+
+func _update_bags(delta: float) -> void:
+	_bag_wear_wait -= delta
+	if _bag_wear_wait > 0.0:
+		return
+	_bag_wear_wait = BAG_WEAR_EVERY
+	if not survival() or not is_instance_valid(inventory) or get_tree().paused:
+		return
+	for which in inventory.wear_bags(BAG_WEAR_EVERY / 60.0):
+		break_worn_bag(which)
+	inventory_unsaved = true
+
+func break_worn_bag(which: int) -> void:
+	var result: Dictionary = inventory.break_bag(which)
+	for value: Dictionary in result.contenu:
+		drop_items(value)
+	var broken := Inventory.single(result.sac)
+	if inventory.add(broken) < 1:
+		drop_items(broken)
+	if is_instance_valid(player):
+		_impact_sound(player.global_position)
+	_notify("Le sac en filet s'est usé jusqu'au bout : c'est un « Sac cassé ». Son contenu est au sol devant vous.")
+	notice_time = 5.0
+	inventory_unsaved = true
 
 # Chaque seconde : les torches et les feux allumés brûlent (dans l'inventaire et au sol) ; une torche finie devient un
 # bâton brûlé, un feu sans rien à brûler s'éteint. La lumière de la torche tenue en main.
