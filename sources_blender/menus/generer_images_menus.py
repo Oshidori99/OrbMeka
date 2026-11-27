@@ -1322,6 +1322,141 @@ def img_nouer(skin=None):
     assign(knot, bpy.data.materials["Cordelette"])
 
 
+# --- 0.0.8.53 (lot C1, demande de l'utilisateur : remplacer les images provisoires des actions de la fabrication) ---
+
+def round_arrow(name, center, axis, radius, start_angle, sweep, width=0.0045):
+    """Flèche blanche en arc de cercle autour de axis (centre center, rayon radius), de start_angle sur sweep degrés."""
+    axis = Vector(axis).normalized()
+    helper = Vector((1.0, 0.0, 0.0)) if abs(axis.x) < 0.9 else Vector((0.0, 1.0, 0.0))
+    u = axis.cross(helper).normalized()
+    v = axis.cross(u)
+    points = []
+    for index in range(28):
+        a = math.radians(start_angle + sweep * index / 27)
+        points.append(Vector(center) + (u * math.cos(a) + v * math.sin(a)) * radius)
+    body = tube(name, points, width, width, sides=10)
+    assign(body, mat_white())
+    tangent = (points[-1] - points[-2]).normalized()
+    bm = bmesh.new()
+    bmesh.ops.create_cone(bm, cap_ends=True, segments=20, radius1=width * 2.6, radius2=0.0, depth=width * 5.0)
+    tip = mesh_object(name + "_pointe", bm)
+    tip.matrix_world = Matrix.Translation(points[-1] + tangent * width * 2.0) @ tangent.to_track_quat("Z", "Y").to_matrix().to_4x4()
+    assign(tip, mat_white())
+    return body, tip
+
+
+def img_feu(skin=None):
+    """Fabrication « Monter un feu » : le feu de camp du jeu (../feu/generer_feu.py), éteint : le cercle de pierres, les
+    bûches en tipi sur la cendre, le petit bois."""
+    fire = import_model("feu_camp")
+    fire.rotation_euler = Euler((0.0, 0.0, math.radians(18.0)))
+
+
+def img_torche(skin=None):
+    """Fabrication « Faire une torche » : la torche du jeu en diagonale : le bâton, la botte de fibres serrée par deux
+    liens."""
+    torch = import_model("torche")
+    torch.matrix_world = stick_frame(40.0, 90.0) @ Matrix.Translation((0.0, 0.0, -0.3))
+
+
+def img_archet(skin=None):
+    """Fabrication « Faire un archet » : l'archet à feu du jeu : la branche souple courbée, la cordelette tendue et nouée
+    aux deux bouts."""
+    bow = import_model("archet")
+    bow.matrix_world = stick_frame(30.0, 90.0) @ Matrix.Rotation(math.radians(90.0), 4, "Z") @ Matrix.Translation((0.0, 0.0, -0.35))
+
+
+def img_ecorcer(skin=None):
+    """Fabrication « Écorcer » : une branche à moitié écorcée (le bois clair dessous), une lanière d'écorce qui se soulève
+    et s'enroule, l'éclat de silex au bord de l'écorce."""
+    matrix = stick_frame(28.0, 90.0)
+    radius = 0.014
+    a = matrix @ Vector((0.0, 0.0, -0.1))
+    m = matrix @ Vector((0.0, 0.0, 0.0))
+    b = matrix @ Vector((0.0, 0.0, 0.1))
+    stick("Branche_ecorce", a, m, radius, radius * 0.98)
+    assign(stick("Branche_nue", m, b, radius * 0.88, radius * 0.78), mat_wood())
+    right, up, forward = view_axes()
+    axis = (b - a).normalized()
+    side = (matrix.to_3x3() @ Vector((0.0, 1.0, 0.0))).normalized()
+    points = []
+    for index in range(20):
+        t = index / 19
+        angle = t * math.radians(320.0)
+        r = radius * (1.02 + 1.5 * t)
+        points.append(m + axis * (0.004 + 0.045 * t) + (side * math.cos(angle) - forward * math.sin(angle)) * r)
+    assign(tube("Laniere", points, 0.0038, 0.003, sides=6), mat_bark())
+    piece = flake("Eclat", 0.046, 18, thick=0.4)
+    piece.location = m - side * radius * 1.3 - forward * 0.012
+    piece.rotation_euler = Euler((0.5, 1.0, 0.3))
+    assign(piece, mat_flint_inside())
+
+
+def img_detresser(skin=None):
+    """Fabrication « Détresser » : une ficelle dont le bout se défait : ses trois fibres s'écartent en éventail ; une flèche
+    montre le sens (le contraire de Tresser)."""
+    fiber = lin(COLORS["objets"]["fibre_lin"])
+    tones = [tuple(min(1.0, c * k) for c in fiber) for k in (0.82, 1.0, 1.18)]
+    length = 0.13
+    for strand in range(3):
+        phase = math.tau * strand / 3 + 0.5
+        points = []
+        for index in range(70):
+            t = index / 69
+            x = -length / 2 + length * t
+            twist = min(1.0, max(0.0, (0.68 - t) / 0.22))
+            spread = (1.0 - twist) * 0.03 * max(0.0, (t - 0.46) / 0.54) ** 1.2
+            angle = phase + t * math.tau * 3.6 * twist
+            radius = 0.0048 * twist
+            points.append((x, math.cos(angle) * radius + math.cos(phase) * spread, math.sin(angle) * radius + math.sin(phase) * spread))
+        obj = tube("Brin_%d" % strand, points, 0.0042, 0.004, sides=10)
+        assign(obj, noisy("Fibre_%d" % strand, tuple(c * 0.75 for c in tones[strand]), tones[strand], scale=180.0,
+                          roughness=0.85, bump=0.2))
+    knot = blob("Noeud", 0.0085, 31, rough=0.15)
+    knot.location = (-length / 2 - 0.003, 0.0, 0.0)
+    assign(knot, bpy.data.materials["Fibre_1"])
+    arrow("Fleche", (0.0, 0.0, 0.045), (0.06, 0.0, 0.045), 0.009)
+    turn = stick_frame(28.0, 0.0) @ Matrix.Rotation(math.radians(90.0), 4, "Y")
+    for obj in bpy.context.scene.objects:
+        if obj.get("sujet"):
+            obj.matrix_world = turn @ obj.matrix_world
+
+
+def img_defaire(skin=None):
+    """Fabrication « Défaire » : la tête taillée sort de la fente du manche (flèche vers le haut) ; la ficelle usée, défaite,
+    pend à côté (le contraire d'Assembler)."""
+    matrix = stick_frame(80.0, 90.0, (0.0, 0.0, 0.0))
+    split_stick("Manche", 0.2, 0.012, 0.07, 24.0, matrix)
+    right, up, forward = view_axes()
+    axis = matrix.to_3x3() @ Vector((0.0, 0.0, 1.0))
+    across = axis.cross(forward).normalized()
+    top = matrix @ Vector((0.0, 0.0, 0.2))
+    facing = (forward - axis * forward.dot(axis)).normalized()
+    basis = Matrix.Rotation(math.radians(28.0), 3, axis) @ Matrix((-across, facing, axis)).transposed()
+    head = stone_head("Tete", 0, Matrix.Translation(top + axis * 0.1) @ basis.to_4x4())
+    head.data.transform(Matrix.Scale(0.83, 4))
+    arrow("Fleche", top + axis * 0.035 - across * 0.088, top + axis * 0.15 - across * 0.088, 0.011)
+    worn = tuple(c * 0.7 for c in lin(COLORS["liens"][1]))
+    cord = tube("Ficelle_usee", curve_points(top - axis * 0.02 + across * 0.018, top - axis * 0.12 + across * 0.05, across * 0.02 - forward * 0.01, 18, 0.002, 9), 0.0024, 0.002, sides=8)
+    assign(cord, noisy("Ficelle_usee", tuple(c * 0.75 for c in worn), worn, scale=300.0, roughness=0.95, bump=0.25))
+
+
+def img_relier(skin=None):
+    """Fabrication « Refaire le lien » : le haut de la hache du jeu ; une flèche ronde tourne autour du lien : on le refait
+    avec une ficelle neuve (dont un bout pend encore)."""
+    tool = import_model("hache_ficelee_0")
+    tool.rotation_euler = Euler((math.radians(-14.0), math.radians(-24.0), 0.0))
+    tool["cadre_axe"] = 2
+    tool["cadre_min"] = 0.43
+    bind = lin(COLORS["liens"][1])
+    start = Vector((0.006, -0.012, 0.478))
+    end_cord = tube("Bout", curve_points(start, Vector((0.032, -0.05, 0.432)), Vector((0.016, -0.01, 0.0)), 14, 0.0008, 4), 0.0022, 0.002, sides=8)
+    end_cord.parent = tool
+    assign(end_cord, noisy("Ficelle", tuple(c * 0.78 for c in bind), bind, scale=300.0, roughness=0.9, bump=0.2))
+    for part in round_arrow("Fleche_ronde", (0.0, 0.0, 0.432), (0.0, 0.25, 1.0), 0.058, 120.0, 300.0, 0.0085):
+        part.parent = tool
+
+
 def img_poche(skin=None):
     """Inventaire : la poche : poche de tissu cousue, un peu gonflée, un caillou qui dépasse."""
     width, height = 0.12, 0.13
@@ -1434,6 +1569,13 @@ IMAGES = {
     "ficeler": img_ficeler,
     "nouer": img_nouer,
     "sac_filet": img_sac_filet,
+    "feu": img_feu,
+    "torche": img_torche,
+    "archet": img_archet,
+    "ecorcer": img_ecorcer,
+    "detresser": img_detresser,
+    "defaire": img_defaire,
+    "relier": img_relier,
 }
 WITH_HAND = {"main", "recuperer_materiaux", "creuser", "casser_objets", "arracher", "tailler"}
 

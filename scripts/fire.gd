@@ -126,11 +126,93 @@ static var _meshes := {}
 static func _part(tool: SurfaceTool, mesh: PrimitiveMesh, place: Transform3D) -> void:
 	tool.append_from(mesh, 0, place)
 
+# --- 0.0.8.53 (lot C1, demande de l'utilisateur) : modèles faits dans Blender (sources_blender/feu/generer_feu.py) ---
+# Feu de camp (éteint : bûches neuves ; allumé : bûches noircies et braises, plus les flammes du jeu), têtes de torche
+# (botte de fibres liée ; torche forte : lanières d'écorce de pin et résine) et archet à feu (branche courbée et
+# cordelette). Têtes et archet dans le repère du bâton (rayon 0,5, hauteur 1, bout à +0,5) : à la taille de chaque objet,
+# leur bois avec l'écorce de son essence. Sans les fichiers (tests sans fenêtre) : les modèles simples d'avant.
+const CAMPFIRE_MODELS := {false: "res://assets/items/feu_camp.glb", true: "res://assets/items/feu_camp_braise.glb"}
+const TORCH_HEADS := {"torche": "res://assets/items/torche_tete.glb", "torche_forte": "res://assets/items/torche_forte_tete.glb"}
+const BOW_MODEL := "res://assets/items/archet.glb"
+# Matière du bois de l'archet dans son modèle (remplacée par l'écorce de son essence).
+const BOW_WOOD := "Archet_bois"
+
+static func _model_mesh(path: String) -> Mesh:
+	if _meshes.has(path):
+		return _meshes[path]
+	var found: Mesh = null
+	if ResourceLoader.exists(path):
+		var scene: PackedScene = load(path)
+		if scene != null:
+			var root := scene.instantiate()
+			found = _first_mesh(root)
+			root.free()
+	_meshes[path] = found
+	return found
+
+static func _first_mesh(node: Node) -> Mesh:
+	if node is MeshInstance3D and (node as MeshInstance3D).mesh != null:
+		return (node as MeshInstance3D).mesh
+	for child in node.get_children():
+		var found := _first_mesh(child)
+		if found != null:
+			return found
+	return null
+
+# Copie les surfaces d'un modèle (avec leurs matières) dans « made » ; « wood » : matière à la place de BOW_WOOD.
+static func _copy_surfaces(made: ArrayMesh, model: Mesh, wood: Material = null) -> void:
+	for surface in range(model.get_surface_count()):
+		made.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, model.surface_get_arrays(surface))
+		var paint: Material = model.surface_get_material(surface)
+		if wood != null and paint != null and paint.resource_name == BOW_WOOD:
+			paint = wood
+		made.surface_set_material(made.get_surface_count() - 1, paint)
+
+# Torche (tête de son modèle sur un bâton) ou archet (son modèle) pour un objet « bois » ; null pour les autres.
+static func wood_model(value: Dictionary) -> Mesh:
+	var id: String = value.get("objet", "")
+	if not TORCH_HEADS.has(id) and id != "archet":
+		return null
+	var essence := clampi(int(value.get("essence", 1)), 0, 3)
+	var key := "bois/%s/%d" % [id, essence]
+	if _meshes.has(key):
+		return _meshes[key]
+	var bark: Material = load("res://scripts/trees.gd").material(essence, "bark")
+	var made: ArrayMesh = null
+	if id == "archet":
+		var bow := _model_mesh(BOW_MODEL)
+		if bow != null:
+			made = ArrayMesh.new()
+			_copy_surfaces(made, bow, bark)
+	else:
+		var head := _model_mesh(TORCH_HEADS[id])
+		if head != null:
+			made = ArrayMesh.new()
+			var stick := CylinderMesh.new()
+			stick.top_radius = 0.42
+			stick.bottom_radius = 0.5
+			stick.height = 1.0
+			stick.radial_segments = 10
+			stick.rings = 1
+			made.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, stick.get_mesh_arrays())
+			made.surface_set_material(0, bark)
+			_copy_surfaces(made, head)
+	_meshes[key] = made
+	return made
+
 # Feu de camp : un cercle de pierres, trois bûches croisées ; allumé : des flammes au milieu.
 static func campfire_mesh(lit: bool) -> ArrayMesh:
 	var key := "feu/%d" % int(lit)
 	if _meshes.has(key):
 		return _meshes[key]
+	var model := _model_mesh(CAMPFIRE_MODELS[lit])
+	if model != null:
+		var built := ArrayMesh.new()
+		_copy_surfaces(built, model)
+		if lit:
+			_add_flame(built, Vector3(0.0, 0.08, 0.0), 0.34)
+		_meshes[key] = built
+		return built
 	var made := ArrayMesh.new()
 	var stones := SurfaceTool.new()
 	stones.begin(Mesh.PRIMITIVE_TRIANGLES)
