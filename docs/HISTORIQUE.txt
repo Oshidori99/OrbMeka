@@ -3,6 +3,10 @@ Du plus récent au plus ancien. Ce fichier est mis à jour à chaque version.
 
 === Thème « Fabrication et survie » (0.0.8) ===
 
+0.0.8.48 — Usure des sacs : un sac porté s'use selon son remplissage (presque vide : rien, jusqu'à la moitié : environ 100 min, plus plein : environ 50 min, en minutes réelles), barre verte à rouge, usé il devient un « Sac cassé » et son contenu tombe au sol
+Génération du terrain : version 34 · Menus : version 17.
+Demande de l'utilisateur (issue « Usure des sacs selon leur remplissage »).
+
 0.0.8.47 — Hache : abat les arbres jusqu'à 80 cm (avant 1 m : les plus gros restent trop gros), au-delà de 40 cm la coupe est plus longue et use plus la hache
 Génération du terrain : version 34 · Menus : version 17.
 Demande de l'utilisateur.

@@ -127,6 +127,12 @@ class Slot extends Control:
 				var bar := Rect2(Vector2(3.0, 3.0), Vector2(width - 6.0 - (more_rect().size.x + 3.0 if more else 0.0), maxf(3.0, side * 0.07)))
 				draw_rect(bar, Color(0, 0, 0, 0.55))
 				draw_rect(Rect2(bar.position, Vector2(bar.size.x * share, bar.size.y)), wear_color(share))
+			# 0.0.8.48 (#262) : usure d'un sac porté, même barre.
+			elif Inventory.is_bag(item) and item.has("solidite") and Inventory.current_mode != Inventory.CREATIVE:
+				var share := clampf(Inventory.bag_solidity(item) / 100.0, 0.0, 1.0)
+				var bar := Rect2(Vector2(3.0, 3.0), Vector2(width - 6.0, maxf(3.0, side * 0.07)))
+				draw_rect(bar, Color(0, 0, 0, 0.55))
+				draw_rect(Rect2(bar.position, Vector2(bar.size.x * share, bar.size.y)), wear_color(share))
 			# 0.0.8.24 : objet du catalogue (Créatif) : 99.
 			var amount := Inventory.shown_count(item)
 			if amount > 1 and not in_catalog:
