@@ -3,6 +3,10 @@ Du plus récent au plus ancien. Ce fichier est mis à jour à chaque version.
 
 === Thème « Fabrication et survie » (0.0.8) ===
 
+0.0.8.55 — Sacs et gestes : ce qu'il y a dans un sac se voit à travers les mailles (porté et posé au sol), choisir une case de poche ou du sac : la main va y prendre l'objet (à la première personne et de dos), avertissement en rouge quand on choisit un animal (menu Personnage)
+Génération du terrain : version 34 · Menus : version 17.
+Demandes de l'utilisateur (lot C1, partie 3).
+
 0.0.8.54 — Personnages animés : un squelette pour les 4 personnages humains (fait par un script Blender) ; vus de dos et de face, ils tiennent l'objet choisi (outil debout dans le poing, torche avec sa flamme), font les gestes de la main (frapper, poser, ramasser, manger) et balancent bras et jambes en marchant ; leur ombre aussi, même à la première personne
 Génération du terrain : version 34 · Menus : version 17.
 Demande de l'utilisateur (lot C1, partie 2 ; issue « Objet en main visible en troisième personne »).

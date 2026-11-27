@@ -137,6 +137,8 @@ func _sync_slider(key: String) -> void:
 
 # Onglet Personnage (0.0.3.16), entre Contrôles et Attributs : quatre personnages simples,
 # un aperçu et un bouton chacun. Le choix est enregistré aussitôt et vaut pour la partie.
+var animal_warning: RichTextLabel
+
 func _build_character_section(parent: Node) -> void:
 	var box := VBoxContainer.new()
 	box.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -153,6 +155,14 @@ func _build_character_section(parent: Node) -> void:
 	reset.tooltip_text = "Rétablir le défaut : " + UserSettings.CHOICES.character.options[UserSettings.CHOICES.character.default] + ", " + UserSettings.CHOICES.skin.options[UserSettings.CHOICES.skin.default].to_lower()
 	setting_resets["character"] = reset
 	setting_resets["skin"] = reset
+	# 0.0.8.54 (lot C1, demande de l'utilisateur) : un animal choisi : avertissement en rouge (pas encore de squelette :
+	# pas d'animations avec les sacs, beaucoup d'autres manquent).
+	animal_warning = _text_label()
+	animal_warning.text = "Attention : avec un animal, pas d'animations avec les sacs, et beaucoup d'animations manquent encore (les bras et les jambes ne bougent pas)."
+	animal_warning.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	animal_warning.add_theme_color_override("default_color", Color("#ff6b6b"))
+	animal_warning.visible = false
+	box.add_child(animal_warning)
 	# 0.0.3.22 : une rangée par ton de peau (claire, brune, foncée), puis les animaux tout en bas (0.0.3.23 : six par rangée).
 	# Carte « boy9:light » : personnage et ton choisis ensemble ; un animal garde le ton enregistré.
 	var cards := GridContainer.new()
@@ -237,6 +247,8 @@ func _refresh_character_cards() -> void:
 	var selected := id + ":" + skin if CharacterPreview.is_human(id) else id
 	for card_id in character_buttons:
 		character_buttons[card_id].set_pressed_no_signal(card_id == selected)
+	if is_instance_valid(animal_warning):
+		animal_warning.visible = CharacterPreview.CHARACTERS.has(id) and not CharacterPreview.is_human(id)
 
 func _add_setting_category(parent: Node, category: String, data: Dictionary) -> void:
 	# Espace avant chaque catégorie : titres et ↻ de catégorie bien détachés des champs.

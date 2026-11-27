@@ -788,11 +788,53 @@ func _redraw() -> void:
 				multi.set_instance_color(at, Color.WHITE if _two_tone(entry.item) or entry.item.objet != "pomme" else _color(entry.item))
 	_update_orb_lights()
 	_update_glows()
+	_update_bag_contents()
 
 # 0.0.8.3 (demande de l'utilisateur) : chaque orbe de retour posée luit et éclaire un peu autour d'elle (au plus
 # MAX_ORB_LIGHTS, pour rester léger).
 const MAX_ORB_LIGHTS := 16
 var _orb_lights: Array = []
+
+# 0.0.8.54 (lot C1, demande de l'utilisateur) : un sac posé plein : ce qu'il contient se voit à travers les mailles
+# (une petite copie par case, 4 au plus, couchées dans le sac). Refait avec les objets au sol.
+const BAG_GROUND_SPOTS := [Vector3(-0.07, 0.035, 0.02), Vector3(0.0, 0.04, -0.03), Vector3(0.07, 0.035, 0.015), Vector3(0.03, 0.06, 0.04)]
+var _bag_contents: Array = []
+
+func _update_bag_contents() -> void:
+	for node in _bag_contents:
+		if is_instance_valid(node):
+			node.queue_free()
+	_bag_contents.clear()
+	for entry: Dictionary in entries:
+		if entry.get("hidden", false) or not Inventory.is_bag(entry.item) or not entry.item.has("sac_id"):
+			continue
+		var slots: Array = Inventory.stored_bags.get(int(entry.item.sac_id), [])
+		var holder := Node3D.new()
+		holder.name = "ContenuSac"
+		holder.transform = place_of(entry, _basis(entry.item).orthonormalized())
+		var placed := 0
+		for value: Dictionary in slots:
+			if value.is_empty() or placed >= BAG_GROUND_SPOTS.size():
+				continue
+			var wood: bool = Inventory.ITEMS.get(value.get("objet", ""), {}).get("forme", "") == "bois"
+			var shown: Dictionary = value
+			if wood and value.has("pile"):
+				shown = value.duplicate(true)
+				shown.pile[-1].longueur = minf(float(shown.pile[-1].get("longueur", 0.3)), 0.3)
+			var item := held_model(shown)
+			if item == null:
+				continue
+			if wood:
+				item.transform.basis = Basis(Vector3.RIGHT, PI * 0.5) * item.transform.basis
+			item.position = BAG_GROUND_SPOTS[placed]
+			item.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+			holder.add_child(item)
+			placed += 1
+		if placed == 0:
+			holder.free()
+			continue
+		add_child(holder)
+		_bag_contents.append(holder)
 
 func _update_orb_lights() -> void:
 	var spots: Array = []

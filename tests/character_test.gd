@@ -75,6 +75,11 @@ func _run() -> void:
 	check(cards["boy14:light"].button_pressed and cards.values().filter(func(button): return button.button_pressed).size() == 1, "saved character shown selected")
 	cards["woman:brown"].pressed.emit()
 	check(settings.values.character == "woman" and settings.values.skin == "brown" and cards["woman:brown"].button_pressed and not cards["boy14:light"].button_pressed and not cards["woman:light"].button_pressed, "choosing saves character and skin at once")
+	# 0.0.8.54 : un animal choisi : avertissement en rouge (pas d'animations avec les sacs, beaucoup manquent).
+	check(not app.animal_warning.visible, "a human: no warning")
+	cards["fox"].pressed.emit()
+	check(app.animal_warning.visible and app.animal_warning.text.contains("sacs"), "an animal: a red warning (no animations with bags, many missing)")
+	cards["woman:brown"].pressed.emit()
 	# 0.0.3.27 : un clic sur l'aperçu choisit aussi le personnage ; le clavier suit.
 	var preview: Control = app.character_previews["girl9:dark"]
 	var scroll := preview.get_parent()

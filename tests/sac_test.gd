@@ -194,8 +194,15 @@ func _run() -> void:
 	check(world.player.bag_views.size() == 2 and world.player.bag_views[0].visible and not world.player.bag_views[1].visible, "the bag hangs on the character")
 	items.put("bar", 6, pile("pomme", [{"taille": 2}]))
 	items.put("bar", Inventory.HANDS[1], pile("caillou", [{"taille": 2}]))
+	var fetched := []
+	world.player.hand_view.gestured.connect(func(name: String) -> void: fetched.append(name))
 	items.select(6)
 	check(world.held_text() == "Pomme" and world.right_hand_item().get("objet") == "caillou", "the hand still holds the pebble; the apple in the bag is the chosen object")
+	# 0.0.8.54 (lot C1) : ce qui est dans le sac porté se voit à travers les mailles ; le prendre : la main va au sac.
+	world.apply_held()
+	var worn_view: MeshInstance3D = world.player.bag_views[0]
+	check(worn_view.visible and worn_view.get_child_count() >= 1, "the worn bag shows what is inside (%d)" % worn_view.get_child_count())
+	check(fetched.has("fetch"), "choosing the bag's slot: the hand goes to the bag to take the apple (#250)")
 	world.open_inventory()
 	await process_frame
 	check(world.inventory_ui.survival_rows["Sac"].visible and not world.inventory_ui.survival_rows["Sac 2"].visible and world.inventory_ui.bag_equipment[0].item.get("objet") == "sac_filet", "inventory: the bag row, the bag in Équipement")
@@ -218,6 +225,12 @@ func _run() -> void:
 		if world.ground.entries[at].item.get("objet") == "sac_filet" and world.ground.entries[at].item.has("sac_id"):
 			bag_index = at
 	check(bag_index >= 0 and not items.bag_worn(0), "the full bag lies on the ground (thrown with J, with its things)")
+	for wait in range(120):
+		if bag_index < 0 or not world.ground.entries[bag_index].has("hidden"):
+			break
+		await process_frame
+	await frames(3)
+	check(not world.ground._bag_contents.is_empty() and world.ground._bag_contents[0].get_child_count() >= 1, "the bag on the ground shows what is inside (0.0.8.54)")
 	if bag_index >= 0:
 		var body: Node3D = world.ground.bodies[bag_index]
 		world.player.camera.look_at(body.global_position)

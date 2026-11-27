@@ -368,7 +368,8 @@ func show_held(value: Dictionary) -> void:
 const NetBag = preload("res://scripts/net_bag.gd")
 var bag_views: Array = []
 
-func show_bags(worn: Array) -> void:
+# contents (0.0.8.54, lot C1) : ce que contient chaque sac (ses cases) : on le voit à travers les mailles.
+func show_bags(worn: Array, contents: Array = []) -> void:
 	while bag_views.size() < 2:
 		var made := MeshInstance3D.new()
 		made.name = "Sac%d" % (bag_views.size() + 1)
@@ -387,6 +388,46 @@ func show_bags(worn: Array) -> void:
 			var side := 1.0 if which == 0 else -1.0
 			view_node.position = Vector3(side * height * 0.15, height * 0.42, BODY_BACK + 0.02)
 			view_node.rotation = Vector3(0.0, PI + side * 0.25, side * 0.08)
+		_fill_bag(view_node, contents[which] if shown and which < contents.size() else [])
+
+# 0.0.8.54 (lot C1, demande de l'utilisateur) : les objets dans le sac, vus à travers les mailles : une petite copie de
+# chacun (un par case, 4 au plus : léger), à sa vraie taille (un bois long dépasse un peu, raccourci à BAG_STICK m),
+# dans le fond du sac. Refait seulement quand le contenu change.
+const BAG_SPOTS := [Vector3(-0.04, -0.24, 0.01), Vector3(0.045, -0.22, -0.01), Vector3(0.0, -0.16, 0.025), Vector3(0.01, -0.2, -0.035)]
+const BAG_STICK := 0.38
+
+func _fill_bag(view_node: MeshInstance3D, items: Array) -> void:
+	var key := str(items)
+	if str(view_node.get_meta("contenu", "")) == key:
+		return
+	view_node.set_meta("contenu", key)
+	for child in view_node.get_children():
+		child.queue_free()
+	var ground: Node = world.ground if is_instance_valid(world) and "ground" in world and is_instance_valid(world.ground) else null
+	if ground == null:
+		return
+	var placed := 0
+	for value: Dictionary in items:
+		if value.is_empty() or placed >= BAG_SPOTS.size():
+			continue
+		var shown: Dictionary = value
+		if Inventory.ITEMS.get(value.get("objet", ""), {}).get("forme", "") == "bois" and value.has("pile"):
+			shown = value.duplicate(true)
+			shown.pile[-1].longueur = minf(float(shown.pile[-1].get("longueur", 0.5)), BAG_STICK)
+		var item: MeshInstance3D = ground.held_model(shown)
+		if item == null:
+			continue
+		item.position = BAG_SPOTS[placed]
+		item.rotate_object_local(Vector3.FORWARD, 0.6 * (placed - 1.5))
+		item.layers = BODY_SHADOW_LAYER
+		view_node.add_child(item)
+		placed += 1
+
+# 0.0.8.54 (lot C1, #250) : prendre un objet dans une poche ou dans le sac : la main y va et le ramène (à la première
+# personne et de dos).
+func fetch_item(place: String) -> void:
+	if is_instance_valid(hand_view):
+		hand_view.fetch(place)
 
 # 0.0.7.10 : ce que tient chaque main (main gauche à gauche de l'écran, main droite à droite).
 func show_hands(left_value: Dictionary, right_value: Dictionary, both_hands: bool = false) -> void:

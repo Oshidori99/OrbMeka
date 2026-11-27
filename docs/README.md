@@ -1,6 +1,15 @@
-# OrbMeka™ — prototype 0.0.8.54
+# OrbMeka™ — prototype 0.0.8.55
 
 Godot 4.7 / GDScript. Formes et couleurs simples ; assets externes seulement sous licence vérifiée (sons CC0, assets/sounds/CREDITS.txt).
+
+## 0.0.8.55 — Sacs et gestes
+Publiée. Génération inchangée (version 34). Demandes de l'utilisateur (lot C1, partie 3 ; issue « Animations : prendre et ranger un objet »).
+- **Le contenu des sacs se voit** à travers les mailles : sac porté (une petite copie de chaque objet, 4 au plus, dans le fond ; un bâton long dépasse un peu) et sac posé au sol plein (les objets couchés dedans).
+- **Prendre dans une poche ou dans le sac** : en choisissant une case de poche ou du sac (molette, chiffres), la main y descend et ramène l'objet devant soi, à la première personne comme de dos (le bras va à la hanche).
+- **Menu Personnage** : choisir un animal affiche un avertissement en rouge : pas d'animations avec les sacs, et beaucoup d'animations manquent encore (son squelette viendra avec les pattes).
+
+Tests réussis : sac (3 nouveaux : sac porté et sac au sol montrent leur contenu, la main va au sac), character (avertissement), squelette, body, views, inventory, menu, prototype, history_resume.
+À tester : un sac porté et un sac posé avec des objets ; prendre un objet dans une poche et dans le sac (première personne, de dos).
 
 ## 0.0.8.54 — Personnages animés
 Publiée. Génération inchangée (version 34). Demandes de l'utilisateur (lot C1, partie 2 ; issues « Objet en main visible en troisième personne », « Animations des bras de son personnage », « … des autres personnages »).
