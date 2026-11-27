@@ -6,10 +6,11 @@ extends RefCounted
 const CharacterPreview = preload("res://scripts/character_preview.gd")
 const CAT_SCALE := 1.4
 
-static func build(id: String, skin: String) -> Node3D:
+# first_person (0.0.8.58) : le corps vu à la première personne (CharacterPreview.first_person_scene), s'il existe.
+static func build(id: String, skin: String, first_person: bool = false) -> Node3D:
 	var data: Dictionary = CharacterPreview.CHARACTERS[id]
 	if CharacterPreview.MODELS.has(id) or MODELS.has(id):
-		return _blender_model(id, skin if not skin.is_empty() else "light")
+		return _blender_model(id, skin if not skin.is_empty() else "light", first_person)
 	if data.get("lying", false):
 		return _brioche_model()
 	if data.get("plush", false):
@@ -24,9 +25,12 @@ const MODELS := {
 }
 
 # La matière « Skin » du modèle prend la couleur de peau choisie ; les animaux sont agrandis.
-static func _blender_model(id: String, skin: String) -> Node3D:
+static func _blender_model(id: String, skin: String, first_person: bool = false) -> Node3D:
 	var model := Node3D.new()
-	var scene: Node3D = (CharacterPreview.model_scene(id) if CharacterPreview.MODELS.has(id) else load(MODELS[id])).instantiate()
+	var packed: PackedScene = CharacterPreview.first_person_scene(id) if first_person else null
+	if packed == null:
+		packed = CharacterPreview.model_scene(id) if CharacterPreview.MODELS.has(id) else load(MODELS[id])
+	var scene: Node3D = packed.instantiate()
 	model.add_child(scene)
 	if not CharacterPreview.is_human(id):
 		model.scale = Vector3.ONE * CAT_SCALE

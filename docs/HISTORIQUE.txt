@@ -3,6 +3,10 @@ Du plus récent au plus ancien. Ce fichier est mis à jour à chaque version.
 
 === Thème « Fabrication et survie » (0.0.8) ===
 
+0.0.8.58 — Son corps en baissant la tête : à la première personne, un corps fait dans Blender pour chaque personnage (sans tête ni bras, ombré en douceur) : on voit le ventre, les jambes et les pieds, plus jamais le dessus du tee-shirt
+Génération du terrain : version 34 · Menus : version 17.
+Demande de l'utilisateur (lot X1).
+
 0.0.8.57 — Les deux mains : l'objet choisi (molette, touches) est toujours pris dans la main gauche, qui fait les gestes ; la main droite porte les deux cases « main » (2,5 kg chacune) ; plus de 2,5 kg : les deux cases, 5 kg au plus (avant 8 kg ; plus lourd : à couper) ; porter ralentit de 6 % par kg
 Génération du terrain : version 34 · Menus : version 17.
 Décisions de l'utilisateur (règles des mains).

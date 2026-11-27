@@ -48,11 +48,28 @@ func _run() -> void:
 		check(absf(box.position.y) < 0.01 and absf(box.get_center().x) < 0.05 and box.get_center().z > 0.0, "feet on the ground, centred just behind the camera: " + id)
 		check(is_equal_approx(body.rotation.y, PI), "body faces forward (-Z): " + id)
 		var meshes: Array = body.find_children("*", "MeshInstance3D", true, false)
-		if CharacterPreview.is_human(id):
+		if CharacterPreview.is_human(id) and CharacterPreview.first_person_scene(id) == null:
+			# Humain en volumes simples : coupé au cou pour l'œil (comme avant 0.0.8.58).
 			var cut := meshes.all(func(mesh): return mesh.cast_shadow == GeometryInstance3D.SHADOW_CASTING_SETTING_OFF and range(mesh.mesh.get_surface_count()).all(func(surface): return mesh.get_surface_override_material(surface) is ShaderMaterial))
 			var neck: float = meshes[0].get_surface_override_material(0).get_shader_parameter("neck")
 			check(cut and neck < box.end.y * 0.6 and neck + body.position.y < eye - 0.4, "human head hidden from the eye, cut at the neck: " + id)
+		elif CharacterPreview.is_human(id):
+			# 0.0.8.58 : le corps fait pour la première personne (Blender : sans tête ni bras, ombrage dans ses couleurs).
+			var own := meshes.all(func(mesh): return mesh.cast_shadow == GeometryInstance3D.SHADOW_CASTING_SETTING_OFF and range(mesh.mesh.get_surface_count()).all(func(surface): return mesh.get_surface_override_material(surface) is ShaderMaterial and mesh.get_surface_override_material(surface).shader == player.body_1p_shader))
 			var shadow: Node3D = player.body_shadow
+			var whole := bounds(player, shadow)
+			check(CharacterPreview.first_person_scene(id) != null and own and box.end.y < whole.end.y - 0.2 and box.end.y < eye - 0.2, "first-person body without head (%.2f m, whole %.2f m): %s" % [box.end.y, whole.end.y, id])
+			var darkest := 1.0
+			for mesh in meshes:
+				for surface in range(mesh.mesh.get_surface_count()):
+					var colors: Variant = mesh.mesh.surface_get_arrays(surface)[Mesh.ARRAY_COLOR]
+					if colors is PackedColorArray:
+						for color: Color in colors:
+							darkest = minf(darkest, color.r)
+			check(darkest < 0.8 and darkest > 0.3, "soft shading in its vertex colours (darkest %.2f): %s" % [darkest, id])
+			# Tête baissée au plus (89°) : le haut des épaules reste sous le bas de la vue.
+			var below: float = (eye - box.end.y) * tan(deg_to_rad(player.camera.fov * 0.5 - 1.0))
+			check(box.position.z >= below - 0.005 and shadow.position.is_equal_approx(body.position), "looking straight down, the top of the shoulders stays out of view (front %.2f m behind, needs %.2f m), its shadow copy with it: %s" % [box.position.z, below, id])
 			check(is_instance_valid(shadow) and shadow.find_children("*", "GeometryInstance3D", true, false).all(func(mesh): return mesh.cast_shadow == GeometryInstance3D.SHADOW_CASTING_SETTING_SHADOWS_ONLY), "whole body still casts its shadow: " + id)
 		else:
 			check(box.end.y < eye - 0.3 and player.body_shadow == null and meshes.all(func(mesh): return mesh.cast_shadow != GeometryInstance3D.SHADOW_CASTING_SETTING_OFF), "animal whole under the camera, with its shadow: " + id)
@@ -68,10 +85,12 @@ func _run() -> void:
 	await process_frame
 	check(player.body != first and not is_instance_valid(first) and player.find_children("Body*", "", false, false).size() == 2, "new skin rebuilds the body, old one removed")
 	var skin_found := false
-	for node in player.body.find_children("*", "MeshInstance3D", true, false):
+	# 0.0.8.58 : le corps de la première personne de boy14 n'a plus de peau visible (pantalon, pas de bras) : son corps entier.
+	for node in player.body.find_children("*", "MeshInstance3D", true, false) + player.body_shadow.find_children("*", "MeshInstance3D", true, false):
 		for surface in range(node.mesh.get_surface_count()):
 			var material: Material = node.get_surface_override_material(surface)
-			if material is ShaderMaterial and material.get_shader_parameter("albedo").is_equal_approx(CharacterPreview.tone_color("dark")):
+			var color: Variant = material.get_shader_parameter("albedo") if material is ShaderMaterial else (material.albedo_color if material is StandardMaterial3D else null)
+			if color is Color and color.is_equal_approx(CharacterPreview.tone_color("dark")):
 				skin_found = true
 	check(skin_found, "body takes the chosen skin")
 	# Le corps n'arrête pas le regard : la cible reste devant, pas sur soi.

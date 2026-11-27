@@ -27,6 +27,8 @@ Les fichiers Blender (.blend) sont rangés hors du dépôt, dans ../Archives Orb
 personnages.blend contient les modèles des personnages et les
 scripts qui les construisent (textes orbmeka_*.py dans Blender) ; ils sont
 exportés en .glb dans assets/characters/, lus par le jeu.
+sources_blender/personnages/ : equiper_personnages.py (squelette des personnages et des animaux, 0.0.8.54 et 0.0.8.56) et
+corps_premiere_personne.py (0.0.8.58 : <nom>_1p.glb, le corps vu à la première personne, sans tête ni bras, ombré).
 sources_blender/arbres/ contient les scripts des arbres (pommier, noisetier) : generer_arbres.py (construit les
 modèles détaillés et enregistre arbres_detail.blend dans les archives Blender), version_jeu.py (version légère exportée dans assets/trees/, lue par
 scripts/trees.gd), presentation.py (rendu d'aperçu) ; voir son README.md.

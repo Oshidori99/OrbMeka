@@ -72,10 +72,24 @@ void fragment() {
 	ROUGHNESS = roughness;
 	EMISSION = emission;
 }"
+# 0.0.8.58 : corps de la première personne (sans tête ni bras, pièces fermées : cull_back) : sa couleur × son ombrage doux
+# (couleurs des sommets, calculées dans Blender : corps_premiere_personne.py).
+const BODY_1P_SHADER := "shader_type spatial;
+render_mode cull_back;
+uniform vec4 albedo : source_color = vec4(1.0);
+uniform sampler2D albedo_texture : source_color, hint_default_white;
+uniform float roughness = 0.8;
+uniform vec3 emission = vec3(0.0);
+void fragment() {
+	ALBEDO = albedo.rgb * texture(albedo_texture, UV).rgb * COLOR.rgb;
+	ROUGHNESS = roughness;
+	EMISSION = emission;
+}"
 var body: Node3D
 var body_shadow: Node3D
 var body_key := ""
 var body_shader: Shader
+var body_1p_shader: Shader
 var crouch_forward := CROUCH_SPEED
 var crouch_side := CROUCH_SPEED
 var crouch_back := CROUCH_SPEED
@@ -382,8 +396,10 @@ func show_bags(worn: Array, contents: Array = []) -> void:
 		add_child(made)
 		bag_views.append(made)
 	var height := 1.4
-	if is_instance_valid(body):
-		height = maxf(_body_bounds(body).size.y * body.scale.y, 0.6)
+	# 0.0.8.58 : mesuré sur le corps entier (celui de la première personne n'a pas de tête).
+	var whole_body: Node3D = body_shadow if is_instance_valid(body_shadow) else body
+	if is_instance_valid(whole_body):
+		height = maxf(_body_bounds(whole_body).size.y * whole_body.scale.y, 0.6)
 	for which in range(2):
 		var shown: bool = which < worn.size() and bool(worn[which])
 		var view_node: MeshInstance3D = bag_views[which]
@@ -391,7 +407,7 @@ func show_bags(worn: Array, contents: Array = []) -> void:
 		if shown:
 			# 0.0.8.57 : le premier sac à la hanche gauche (la main gauche y prend les objets), le deuxième à droite.
 			var side := -1.0 if which == 0 else 1.0
-			view_node.position = Vector3(side * height * 0.15, height * 0.42, BODY_BACK + 0.02)
+			view_node.position = Vector3(side * height * 0.15, height * 0.42, BODY_BACK + 0.02 + body_shift)
 			view_node.rotation = Vector3(0.0, PI + side * 0.25, side * 0.08)
 		_fill_bag(view_node, contents[which] if shown and which < contents.size() else [])
 
@@ -667,6 +683,8 @@ var _both_items := false
 # gestes et tient les objets. Le corps coupé au cou (body, première personne) marche seulement.
 func _update_rigs(delta: float) -> void:
 	var speed := Vector2(velocity.x, velocity.z).length() if not flying else 0.0
+	# 0.0.8.58 : la place du corps suit la hauteur des yeux (se baisser, réglage) et le champ de vision.
+	_place_first_person_body()
 	if body_rig != null:
 		body_rig.update(delta, speed, false)
 	if shadow_rig != null:
@@ -811,6 +829,7 @@ func _sync_body_view() -> void:
 	body.visible = not whole
 	for node in body_shadow.find_children("*", "GeometryInstance3D", true, false):
 		(node as GeometryInstance3D).cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_ON if whole else GeometryInstance3D.SHADOW_CASTING_SETTING_SHADOWS_ONLY
+	_place_first_person_body()
 
 # Corps en première personne (0.0.3.26) : le modèle du personnage, aux pieds du joueur, tourné avec lui.
 # La caméra garde la hauteur des yeux réglée, même pour un petit personnage ou un animal.
@@ -829,13 +848,17 @@ func sync_body() -> void:
 		if is_instance_valid(old):
 			remove_child(old)
 			old.queue_free()
-	body = _place_body(CharacterModel.build(character, skin), "Body")
+	# 0.0.8.58 : humain : le corps fait pour la première personne (sans tête ni bras), s'il existe.
+	var first_person: bool = CharacterPreview.is_human(character) and CharacterPreview.first_person_scene(character) != null
+	body = _place_body(CharacterModel.build(character, skin, first_person), "Body")
 	# 0.0.8.56 : un animal (pas de copie pour l'ombre) bouge aussi : son squelette, tout de suite.
 	body_rig = CharacterRig.new()
 	if not body_rig.setup(body):
 		body_rig = null
 	shadow_rig = null
 	body_shadow = null
+	body_top = 0.0
+	body_shift = 0.0
 	if not CharacterPreview.is_human(character):
 		return
 	var bounds := _body_bounds(body)
@@ -850,16 +873,24 @@ func sync_body() -> void:
 			var base: Material = mesh_instance.get_surface_override_material(surface)
 			if base == null:
 				base = whole if whole else mesh_instance.mesh.surface_get_material(surface)
-			mesh_instance.set_surface_override_material(surface, _cut_material(base, to_body, neck))
+			mesh_instance.set_surface_override_material(surface, _first_person_material(base) if first_person else _cut_material(base, to_body, neck))
 	body_shadow = _place_body(CharacterModel.build(character, skin), "BodyShadow")
 	for node in body_shadow.find_children("*", "GeometryInstance3D", true, false):
 		(node as GeometryInstance3D).cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_SHADOWS_ONLY
 		# 0.0.8.51 : sa propre couche : la torche tenue (devant lui) ne fait pas d'ombre de son corps (Fire.no_shadow_layers).
 		(node as GeometryInstance3D).layers = BODY_SHADOW_LAYER
+	# 0.0.8.58 : le corps de la première personne exactement à la place du corps entier (même squelette, mêmes mesures :
+	# le haut de ses épaules et sa profondeur servent à le placer, _first_person_shift).
+	body_base = body_shadow.position
+	body.position = body_base
+	if first_person:
+		body_top = (bounds.end.y - bounds.position.y) * body.scale.y
+		body_half_depth = bounds.size.z * 0.5 * body.scale.z
 	# 0.0.8.54 : leurs squelettes (bras, jambes), et les objets tenus.
 	shadow_rig = CharacterRig.new()
 	if not shadow_rig.setup(body_shadow):
 		shadow_rig = null
+	_place_first_person_body()
 	_refresh_body_items()
 
 # Tourné vers l'avant du joueur (-Z), semelles posées au sol, centré un peu en arrière de la caméra.
@@ -898,6 +929,51 @@ func _cut_material(base: Material, to_body: Transform3D, neck: float) -> ShaderM
 	material.shader = body_shader
 	material.set_shader_parameter("to_body", Projection(to_body))
 	material.set_shader_parameter("neck", neck)
+	_copy_standard(base, material)
+	return material
+
+# 0.0.8.58 : matière du corps de la première personne : la couleur du modèle × son ombrage (couleurs des sommets).
+func _first_person_material(base: Material) -> ShaderMaterial:
+	if body_1p_shader == null:
+		body_1p_shader = Shader.new()
+		body_1p_shader.code = BODY_1P_SHADER
+	var material := ShaderMaterial.new()
+	material.shader = body_1p_shader
+	_copy_standard(base, material)
+	return material
+
+# 0.0.8.58 : à la première personne, le corps et sa copie pour l'ombre (sinon elle ferait de l'ombre sur lui) reculent
+# juste assez pour que, la tête baissée au plus (89°), le haut des épaules reste sous le bas de la vue : on voit le ventre,
+# les jambes et les pieds, jamais le dessus du tee-shirt. Selon la hauteur des yeux (réglable, plus basse baissé), le
+# champ de vision et la taille du personnage. Les sacs portés suivent.
+const BODY_1P_MARGIN := 0.04
+var body_base := Vector3.ZERO
+var body_top := 0.0
+var body_half_depth := 0.12
+var body_shift := 0.0
+
+func _first_person_shift() -> float:
+	if view != "first" or body_top <= 0.0:
+		return 0.0
+	var reach := tan(deg_to_rad(camera.fov * 0.5 - 1.0))
+	var back := (camera.position.y - body_top) * reach + body_half_depth + BODY_1P_MARGIN
+	return maxf(back - BODY_BACK, 0.0)
+
+func _place_first_person_body() -> void:
+	if not is_instance_valid(body_shadow):
+		return
+	var shift := _first_person_shift()
+	if absf(shift - body_shift) < 0.0005 and body_shadow.position.is_equal_approx(body_base + Vector3(0.0, 0.0, shift)):
+		return
+	body_shift = shift
+	for node in [body, body_shadow]:
+		if is_instance_valid(node):
+			node.position = body_base + Vector3(0.0, 0.0, shift)
+	for view_node: Node3D in bag_views:
+		view_node.position.z = BODY_BACK + 0.02 + shift
+	# Les objets tenus par le corps entier (son ombre) suivent d'eux-mêmes (ils sont dans ses mains).
+
+func _copy_standard(base: Material, material: ShaderMaterial) -> void:
 	if base is StandardMaterial3D:
 		var standard := base as StandardMaterial3D
 		material.set_shader_parameter("albedo", standard.albedo_color)
@@ -906,7 +982,6 @@ func _cut_material(base: Material, to_body: Transform3D, neck: float) -> ShaderM
 			material.set_shader_parameter("albedo_texture", standard.albedo_texture)
 		if standard.emission_enabled:
 			material.set_shader_parameter("emission", standard.emission * standard.emission_energy_multiplier)
-	return material
 
 # Se baisser (0.0.3.18) : Maintenir = tant que la touche est enfoncée ;
 # Basculer = chaque appui change l'état, gardé même touche relâchée.
