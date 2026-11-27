@@ -158,7 +158,7 @@ func _build_character_section(parent: Node) -> void:
 	# 0.0.8.54 (lot C1, demande de l'utilisateur) : un animal choisi : avertissement en rouge (pas encore de squelette :
 	# pas d'animations avec les sacs, beaucoup d'autres manquent).
 	animal_warning = _text_label()
-	animal_warning.text = "Attention : avec un animal, pas d'animations avec les sacs, et beaucoup d'animations manquent encore (les bras et les jambes ne bougent pas)."
+	animal_warning.text = "Attention : avec un animal, pas d'animations avec les sacs, et beaucoup d'animations manquent encore (il se dandine seulement : ses bras et ses pattes ne bougent pas)."
 	animal_warning.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	animal_warning.add_theme_color_override("default_color", Color("#ff6b6b"))
 	animal_warning.visible = false

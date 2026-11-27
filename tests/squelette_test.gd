@@ -1,7 +1,7 @@
 extends SceneTree
 # 0.0.8.54 (lot C1, #224, #225, #230, demandes de l'utilisateur) : squelette des personnages humains et leurs gestes
 # (character_rig.gd ; squelettes faits par sources_blender/personnages/equiper_personnages.py) :
-# - les 4 personnages humains ont leurs 19 os ; un animal (pas encore de squelette) : rien, sans erreur ;
+# - les 4 personnages humains ont leurs 19 os ; les animaux (0.0.8.56) : corps et tête, ils se dandinent en marchant ;
 # - objet tenu : l'avant-bras se lève ; geste « frapper » : le bras monte haut ; en marchant, les jambes se balancent ;
 # - le joueur : le corps entier (vu de dos ou de face) tient l'objet choisi, ombre seule à la première personne.
 const CharacterModel = preload("res://scripts/character_model.gd")
@@ -40,10 +40,21 @@ func _run() -> void:
 		var ready: bool = rig.setup(model)
 		check(ready and BONES.all(func(name: String) -> bool: return rig.has_bone(name)), "%s: a skeleton with its 19 bones" % id)
 		model.queue_free()
-	var fox := CharacterModel.build("fox", "")
-	root.add_child(fox)
-	check(not CharacterRig.new().setup(fox), "an animal: no skeleton yet (nothing moves, no error)")
-	fox.queue_free()
+	# 0.0.8.56 (lot C2) : les animaux : un corps et une tête (la tortue : son corps seulement) ; en marchant, il se
+	# dandine et sautille, la tête hoche.
+	for id in ["fox", "rabbit", "squirrel", "cat", "turtle"]:
+		var beast := CharacterModel.build(id, "")
+		root.add_child(beast)
+		var beast_rig: RefCounted = CharacterRig.new()
+		var has_rig: bool = beast_rig.setup(beast)
+		check(has_rig and beast_rig.animal and beast_rig.has_bone("Corps") and (id == "turtle" or beast_rig.has_bone("Tete")), "%s: an animal skeleton (body%s)" % [id, "" if id == "turtle" else ", head"])
+		if id == "fox":
+			var sways := []
+			for step in range(30):
+				beast_rig.update(0.05, 3.0)
+				sways.append(bent(beast_rig, "Corps"))
+			check(sways.max() > 0.08, "fox walking: it waddles (%.2f rad)" % sways.max())
+		beast.queue_free()
 	var boy := CharacterModel.build("boy14", "light")
 	root.add_child(boy)
 	var rig: RefCounted = CharacterRig.new()
