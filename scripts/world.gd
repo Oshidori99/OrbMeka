@@ -264,6 +264,8 @@ func _warm_shaders() -> void:
 
 # Couche des copies du préchauffage (seule dessinée derrière l'écran de chargement, rendu Compatibility).
 const WARM_LAYER := 1 << 19
+# 0.0.8.51 : couche du terrain : il fait des ombres pour les feux et les torches, pas pour le soleil ni la lune.
+const TERRAIN_SHADOW_LAYER := 1 << 17
 const ALL_LAYERS := (1 << 20) - 1
 var warm_seen := {}
 var warm_waiting_late := false
@@ -617,8 +619,9 @@ func _update_day(delta: float) -> void:
 	if is_instance_valid(clock_label):
 		clock_label.text = DayNight.clock_text(day_time)
 
-# Lumière directe (soleil ou lune) et lumière ambiante selon l'heure ; la nuit, pas d'ombres (la lune est faible : plus
-# léger) ; pas pendant la préparation des ombres derrière l'écran de chargement.
+# Lumière directe (soleil ou lune) et lumière ambiante selon l'heure ; la nuit, ombres seulement si la lune éclaire assez
+# (0.0.8.51) ; pas pendant la préparation des ombres derrière l'écran de chargement.
+const MOON_SHADOW_FROM := 0.5
 func apply_day_light() -> void:
 	sun_light.rotation_degrees = DayNight.light_rotation(day_time)
 	var shares := light_factors()
@@ -626,7 +629,8 @@ func apply_day_light() -> void:
 	sun_light.light_color = DayNight.light_color(day_time)
 	environment.ambient_light_energy = ambient_base_energy * shares.y
 	environment.ambient_light_color = DayNight.ambient_color(day_time)
-	var shadows := shadow_quality != "off" and DayNight.daylight(day_time) > 0.05
+	# 0.0.8.51 (lot Ombres) : la nuit, la lune fait des ombres dès qu'elle éclaire assez (du premier au dernier quartier).
+	var shadows := shadow_quality != "off" and (DayNight.daylight(day_time) > 0.05 or moon_lit() >= MOON_SHADOW_FROM)
 	if warm_left <= 0 and sun_light.shadow_enabled != shadows:
 		sun_light.shadow_enabled = shadows
 
@@ -674,6 +678,8 @@ func _setup_environment() -> void:
 		sun.directional_shadow_mode = DirectionalLight3D.SHADOW_ORTHOGONAL
 		sun.directional_shadow_max_distance = 40.0
 	# 0.0.7.21 : distance des ombres selon Paramètres → Vidéo → Ombres (set_shadows).
+	# 0.0.8.51 : le terrain ne fait pas d'ombre au soleil (0.0.8.11, léger) ; seulement aux feux et aux torches.
+	sun.shadow_caster_mask = ALL_LAYERS & ~TERRAIN_SHADOW_LAYER
 	sun_light = sun
 	set_shadows(shadow_quality)
 	apply_compat_light(environment, sun)
@@ -683,6 +689,27 @@ func _setup_environment() -> void:
 	ambient_base_energy = environment.ambient_light_energy
 	add_child(sun)
 
+
+# 0.0.8.51 (lot Ombres, demande de l'utilisateur) : ombres des feux et des torches selon le même réglage : la torche tenue
+# dès « Proches » ; les feux et torches posés les plus proches : 1 (Proches), 2 (Moyennes), 4 (Loin) ; « Aucune » : aucune.
+const PLACED_LIGHT_SHADOWS := {"off": 0, "near": 1, "medium": 2, "far": 4}
+# En plein jour, dehors (ciel bien visible), leurs ombres ne se voient pas sous le soleil : pas calculées (plus léger).
+const LIGHT_SHADOW_DAYLIGHT := 0.6
+const LIGHT_SHADOW_SKY := 0.6
+
+func light_shadows_now() -> bool:
+	return shadow_quality != "off" and (DayNight.daylight(day_time) < LIGHT_SHADOW_DAYLIGHT or sky_open < LIGHT_SHADOW_SKY)
+
+# Revu à chaque réglage et chaque seconde (_update_fire).
+func _apply_light_shadows() -> void:
+	var now := light_shadows_now()
+	hand_light_shadow = now
+	if is_instance_valid(hand_light):
+		Fire.set_shadow(hand_light, hand_light_shadow, true)
+		if not hand_light_shadow:
+			hand_light.position = HAND_LIGHT_SPOT
+	if is_instance_valid(ground):
+		ground.set_shadow_lights(int(PLACED_LIGHT_SHADOWS.get(shadow_quality, 0)) if now else 0)
 
 # 0.0.7.21 : ombres du soleil : Loin (64 m, deux niveaux : comme avant), Moyennes (48 m), Proches (32 m, un seul niveau).
 # Rendu Compatibility (Web) : toujours un seul niveau, 40 m au plus (0.0.6.19).
@@ -721,6 +748,13 @@ static func apply_shadow_atlas(size: int) -> void:
 	if DisplayServer.get_name() == "headless":
 		return
 	RenderingServer.directional_shadow_atlas_set_size(shadow_atlas, ProjectSettings.get_setting("rendering/lights_and_shadows/directional_shadow/16_bits", true))
+	# 0.0.8.51 (lot Ombres) : carte des ombres des feux et des torches : de la même taille, 2048 au moins (la torche tenue
+	# couvre presque tout l'écran : en 1024, son ombre était trop floue), 4096 au plus.
+	var tree := Engine.get_main_loop() as SceneTree
+	if tree != null and tree.root != null:
+		tree.root.positional_shadow_atlas_size = clampi(shadow_atlas, POSITIONAL_ATLAS_MIN, 4096)
+
+const POSITIONAL_ATLAS_MIN := 2048
 
 func set_shadows(quality: String) -> void:
 	shadow_quality = quality if SHADOW_DISTANCES.has(quality) or quality == "off" else "medium"
@@ -729,6 +763,7 @@ func set_shadows(quality: String) -> void:
 	# 0.0.7.23 : « Aucune » (Performance sur le Web) : pas d'ombres du soleil (sur une petite carte graphique, elles coûtent
 	# beaucoup : chaque objet est dessiné une fois de plus pour elles).
 	sun_light.shadow_enabled = shadow_quality != "off"
+	_apply_light_shadows()
 	if shadow_quality == "off":
 		return
 	var distance: float = SHADOW_DISTANCES[shadow_quality]
@@ -1453,7 +1488,10 @@ func rebuild_terrain_piece(zone: Vector3i, flat_for_now: bool = false, ready_sur
 	instance.material_override = ground_material
 	# 0.0.8.11 (rapport Web : les ombres coûtaient 17 ms de GPU ; demande de l'utilisateur : aussi pour les PC bon marché) :
 	# le terrain reçoit les ombres mais n'en projette plus (seuls arbres, rochers et personnages), sur le Web comme sur PC.
-	instance.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	# 0.0.8.51 (lot Ombres) : il en projette de nouveau, mais seulement pour les feux et les torches (sa couche,
+	# TERRAIN_SHADOW_LAYER, n'est pas dans les ombres du soleil) : leur lumière ne traverse plus la terre ni les murs.
+	instance.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_ON
+	instance.layers = TERRAIN_SHADOW_LAYER
 	var collision: CollisionShape3D = null
 	var faces: Array = []
 	if flat_for_now or terrain.is_flat(zone):
@@ -4116,7 +4154,11 @@ func _create_ground_items() -> void:
 	# 0.0.8.9 : pente du sol sous chaque objet (posé à plat sur elle).
 	ground.normal_at = _rest_normal
 	# 0.0.8.31 : sol sous un bois couché, tout du long (terrain creusé ou posé, rochers ; pas les arbres).
-	ground.ground_at = func(spot: Vector3) -> float: return _ground_at(spot)
+	# 0.0.8.51 : mesuré depuis le bois lui-même (_wood_ground) : dans une grotte ou une galerie, il était dessiné sur le sol
+	# du dessus (et la lumière d'une torche posée y était aussi).
+	ground.ground_at = func(spot: Vector3) -> float: return _wood_ground(spot)
+	# 0.0.8.51 : feux et torches posés qui font des ombres (réglage Ombres).
+	ground.shadow_lights = int(PLACED_LIGHT_SHADOWS.get(shadow_quality, 0))
 	add_child(ground)
 	# 0.0.8.41 : ce que contiennent les sacs posés pleins (par numéro).
 	Inventory.stored_bags = Inventory.valid_stored(objects_data.get("sacs_contenus"))
@@ -4126,6 +4168,22 @@ func _create_ground_items() -> void:
 	ground.seed_taken.connect(func(id: String): picked_branches[id] = true)
 
 # Hauteur du sol sous un point (collisions du terrain près du joueur, sinon le sol de la graine).
+# 0.0.8.51 (trouvé avec le lot Ombres) : sol sous un point d'un bois posé : un rayon qui part de WOOD_RAY_UP au-dessus de
+# lui (et non de 6 m : sous terre, il partait au-dessus du sol du monde et trouvait la surface), sans compter les faces vues
+# par-dessous (un plafond bas traversé) ; sans rien trouver : comme avant (_ground_at).
+const WOOD_RAY_UP := 1.5
+
+func _wood_ground(spot: Vector3) -> float:
+	if is_inside_tree():
+		var query := PhysicsRayQueryParameters3D.create(spot + Vector3.UP * WOOD_RAY_UP, spot + Vector3.DOWN * 6.0, 1)
+		query.hit_back_faces = false
+		if is_instance_valid(player):
+			query.exclude = [player.get_rid()]
+		var hit := get_world_3d().direct_space_state.intersect_ray(query)
+		if not hit.is_empty() and not (is_instance_valid(hit.collider) and hit.collider.is_in_group("trees")):
+			return hit.position.y
+	return _ground_at(spot)
+
 func _rest_height(spot: Vector3) -> float:
 	if is_inside_tree():
 		var query := PhysicsRayQueryParameters3D.create(spot + Vector3.UP * 1.5, spot + Vector3.DOWN * 6.0, 1)
@@ -8852,7 +8910,14 @@ func _update_fire(delta: float) -> void:
 			inventory_unsaved = true
 		if is_instance_valid(ground) and ground.burn_all(minutes):
 			objects_dirty = true
+		# 0.0.8.51 : les feux les plus proches font des ombres (le joueur bouge) ; pas en plein jour dehors.
+		_apply_light_shadows()
 	_update_hand_light()
+
+# 0.0.8.51 (lot Ombres) : la torche tenue fait des ombres (réglage Ombres de Vidéo : toutes sauf « Aucune ») ; sa lumière,
+# devant la main, est ramenée devant un mur tout proche (sinon, dans la terre, elle n'éclairait plus rien).
+const HAND_LIGHT_SPOT := Vector3(0.3, 0.35, -0.9)
+var hand_light_shadow := false
 
 func _update_hand_light() -> void:
 	if not is_instance_valid(player):
@@ -8870,12 +8935,27 @@ func _update_hand_light() -> void:
 		hand_light.distance_fade_enabled = false
 		player.camera.add_child(hand_light)
 		# Au-dessus et devant la main : la lumière éclaire le chemin sans éblouir les mains.
-		hand_light.position = Vector3(0.3, 0.35, -0.9)
+		hand_light.position = HAND_LIGHT_SPOT
+	Fire.set_shadow(hand_light, hand_light_shadow, true)
+	if hand_light_shadow:
+		hand_light.position = _hand_light_spot()
 	var spec := Fire.light_spec(held)
 	hand_light.omni_range = spec.x
 	# Une flamme vacille un peu.
 	hand_light.light_energy = spec.y * (0.92 + 0.08 * sin(Time.get_ticks_msec() * 0.013))
 	hand_light.visible = true
+
+# Place de la lumière de la torche (repère de la caméra) : HAND_LIGHT_SPOT, ou juste devant ce qui est plus près.
+func _hand_light_spot() -> Vector3:
+	var eye: Vector3 = player.camera.global_position
+	var wanted: Vector3 = player.camera.global_transform * HAND_LIGHT_SPOT
+	var query := PhysicsRayQueryParameters3D.create(eye, wanted)
+	query.exclude = [player.get_rid()]
+	var hit := get_world_3d().direct_space_state.intersect_ray(query)
+	if hit.is_empty():
+		return HAND_LIGHT_SPOT
+	var share := clampf((eye.distance_to(hit.position) - 0.2) / maxf(eye.distance_to(wanted), 0.01), 0.1, 1.0)
+	return HAND_LIGHT_SPOT * share
 
 const PINE_BARK_SECONDS := 4.0
 

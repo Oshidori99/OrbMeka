@@ -55,6 +55,56 @@ static func make_light(value: Dictionary) -> OmniLight3D:
 	made.distance_fade_length = LIGHT_FADE_LENGTH
 	return made
 
+# 0.0.8.51 (lot Ombres, demande de l'utilisateur : de vraies ombres, surtout sous terre et la nuit) : une lumière de feu ou
+# de torche qui fait des ombres : sa lumière ne traverse plus la terre, les rochers ni les arbres (avant : tout était
+# éclairé, même derrière un mur). Ombres en 2 vues (« double paraboloïde » : 3 fois moins de dessins qu'en cube),
+# un peu floues comme celles d'une flamme. Le corps du joueur (sa copie pour l'ombre) n'en fait pas avec la torche tenue
+# (hand) : elle est devant lui.
+const SHADOW_BIAS := 0.06
+const SHADOW_NORMAL_BIAS := 1.5
+const SHADOW_BLUR := 1.6
+const BODY_SHADOW_LAYER := 1 << 18  # player.gd BODY_SHADOW_LAYER
+const ALL_LAYERS := (1 << 20) - 1
+
+static func set_shadow(light: OmniLight3D, on: bool, hand := false) -> void:
+	var fill: OmniLight3D = light.get_node_or_null("Rebond")
+	if light.shadow_enabled == on:
+		# Déjà réglée : seulement la force et la portée du rebond (la flamme vacille, la torche change).
+		if on and fill != null:
+			fill.omni_range = light.omni_range * FILL_RANGE
+			fill.light_energy = light.light_energy * FILL_SHARE
+		return
+	light.shadow_enabled = on
+	if fill != null:
+		fill.visible = on
+	if not on:
+		return
+	# Le rendu du Web (Compatibility) ne connaît que le cube.
+	light.omni_shadow_mode = OmniLight3D.SHADOW_CUBE if RenderingServer.get_current_rendering_method() == "gl_compatibility" else OmniLight3D.SHADOW_DUAL_PARABOLOID
+	light.shadow_bias = SHADOW_BIAS
+	light.shadow_normal_bias = SHADOW_NORMAL_BIAS
+	light.shadow_blur = SHADOW_BLUR
+	light.shadow_caster_mask = ALL_LAYERS & ~BODY_SHADOW_LAYER if hand else ALL_LAYERS
+	# Lumière renvoyée par les murs et le sol (sans ombre, faible) : dans l'ombre d'un pilier, on devine encore la roche
+	# (sans elle : noir complet, comme jamais dans une vraie grotte éclairée).
+	if fill == null:
+		fill = OmniLight3D.new()
+		fill.name = "Rebond"
+		fill.light_color = FLAME.darkened(0.25)
+		fill.shadow_enabled = false
+		fill.light_specular = 0.0
+		light.add_child(fill)
+	fill.omni_range = light.omni_range * FILL_RANGE
+	fill.light_energy = light.light_energy * FILL_SHARE
+	fill.distance_fade_enabled = light.distance_fade_enabled
+	fill.distance_fade_begin = light.distance_fade_begin
+	fill.distance_fade_length = light.distance_fade_length
+	fill.visible = true
+
+# Part de la lumière renvoyée (rebond) : force et portée par rapport à la lumière du feu ou de la torche.
+const FILL_SHARE := 0.16
+const FILL_RANGE := 0.85
+
 # Une torche allumée qui brûle « minutes » de jeu de plus : elle-même, ou le bâton brûlé quand elle est finie.
 static func burn(value: Dictionary, minutes: float) -> Dictionary:
 	if not is_lit(value):

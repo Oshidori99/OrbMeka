@@ -47,6 +47,8 @@ const CharacterModel = preload("res://scripts/character_model.gd")
 const FirstPersonHand = preload("res://scripts/first_person_hand.gd")
 const MenuImages = preload("res://scripts/menu_images.gd")
 # Part de la hauteur d'un humain gardée sous le cou ; recul du corps derrière la caméra (m).
+# 0.0.8.51 : couche de la copie du corps pour l'ombre (vue par le soleil, pas par la torche tenue).
+const BODY_SHADOW_LAYER := 1 << 18
 const BODY_NECK := 0.52
 const BODY_BACK := 0.3
 const BODY_SHADER := "shader_type spatial;
@@ -733,6 +735,8 @@ func sync_body() -> void:
 	body_shadow = _place_body(CharacterModel.build(character, skin), "BodyShadow")
 	for node in body_shadow.find_children("*", "GeometryInstance3D", true, false):
 		(node as GeometryInstance3D).cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_SHADOWS_ONLY
+		# 0.0.8.51 : sa propre couche : la torche tenue (devant lui) ne fait pas d'ombre de son corps (Fire.no_shadow_layers).
+		(node as GeometryInstance3D).layers = BODY_SHADOW_LAYER
 
 # Tourné vers l'avant du joueur (-Z), semelles posées au sol, centré un peu en arrière de la caméra.
 func _place_body(model: Node3D, node_name: String) -> Node3D:

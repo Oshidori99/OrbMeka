@@ -1,6 +1,18 @@
-# OrbMeka™ — prototype 0.0.8.50
+# OrbMeka™ — prototype 0.0.8.51
 
 Godot 4.7 / GDScript. Formes et couleurs simples ; assets externes seulement sous licence vérifiée (sons CC0, assets/sounds/CREDITS.txt).
+
+## 0.0.8.51 — Ombres des torches et du feu
+Publiée. Génération inchangée (version 34). Demande de l'utilisateur (lot Ombres, partie 1 : de vraies ombres, surtout sous terre et la nuit).
+- **Torches et feux** : la torche tenue, les feux de camp et les torches posés font de vraies ombres. Leur lumière ne traverse plus la terre, les murs, les rochers ni les arbres (avant : tout était éclairé, même derrière un mur). Le terrain fait des ombres pour eux seulement, pas pour le soleil (aussi léger qu'avant le jour).
+- **Lumière renvoyée** : dans l'ombre d'un pilier ou d'un mur, un peu de lumière renvoyée par la roche (jamais noir complet).
+- **La lune** fait des ombres du premier au dernier quartier (avant : jamais la nuit).
+- **Réglage Ombres** (Vidéo) : Aucune (aucune ombre), Proches (la torche tenue et le feu le plus proche), Moyennes (2 feux), Loin (4 feux). En plein jour dehors, les ombres des torches et des feux ne se voient pas : elles ne sont pas calculées.
+- **Correction** : le bois posé dans une grotte ou une galerie était dessiné sur le sol du dessus (et la lumière d'une torche posée aussi) ; il est maintenant au fond.
+- Mesuré sur une petite carte graphique (Radeon 610M, 720p, Équilibré) : la nuit avec une torche ou un feu, 3 à 5 ms de plus par image ; nuit de pleine lune : 10 ms de plus ; jamais plus lent que le jour. Web : ombres des torches et des feux aussi (mode cube).
+
+Tests réussis : feu (6 nouveaux : ombres la nuit, pas en plein jour, aucune avec « Aucune », lune, terrain, torche posée sous terre), web_speed, sticks, gravite, sac, tree_fall, cliff_fall, inventory, body, jour_nuit, quality, smooth_terrain, views, display_settings, settings_files, prototype, history_resume.
+À tester : une nuit avec un feu entre des arbres ; une galerie avec une torche en main et une torche posée.
 
 ## 0.0.8.50 — Pierre à la pioche
 Publiée. Génération inchangée (version 34). Demande de l'utilisateur.

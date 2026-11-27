@@ -49,14 +49,15 @@ func _run() -> void:
 	var light: OmniLight3D = ReturnOrb.light()
 	check(light.distance_fade_enabled and light.distance_fade_begin == ReturnOrb.LIGHT_FADE_BEGIN and light.distance_fade_begin + light.distance_fade_length <= 30.0, "orb light fades out beyond about 28 m")
 	light.free()
-	# Terrain : reçoit les ombres, n'en projette plus.
+	# Terrain : reçoit les ombres ; 0.0.8.51 : n'en projette que pour les feux et les torches (sa couche n'est pas dans les
+	# ombres du soleil : léger comme en 0.0.8.11).
 	var casting := 0
 	for zone in world.terrain_pieces:
 		var piece: Node = world.terrain_pieces[zone]
 		for child in piece.get_children():
-			if child is GeometryInstance3D and child.cast_shadow != GeometryInstance3D.SHADOW_CASTING_SETTING_OFF:
+			if child is GeometryInstance3D and child.cast_shadow != GeometryInstance3D.SHADOW_CASTING_SETTING_OFF and (child.layers & world.sun_light.shadow_caster_mask) != 0:
 				casting += 1
-	check(not world.terrain_pieces.is_empty() and casting == 0, "terrain pieces cast no shadow (%d pieces)" % world.terrain_pieces.size())
+	check(not world.terrain_pieces.is_empty() and casting == 0, "terrain pieces cast no sun shadow (%d pieces)" % world.terrain_pieces.size())
 	# Noisetiers : toutes les tiges solides (jusqu'à 11), avant les branches basses.
 	var all_stems := true
 	for size in range(1, Trees.SIZES + 1):
