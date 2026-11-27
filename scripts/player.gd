@@ -44,6 +44,7 @@ var character := "boy14"
 var skin := "light"
 const CharacterPreview = preload("res://scripts/character_preview.gd")
 const CharacterModel = preload("res://scripts/character_model.gd")
+const Inventory = preload("res://scripts/inventory.gd")
 const FirstPersonHand = preload("res://scripts/first_person_hand.gd")
 const MenuImages = preload("res://scripts/menu_images.gd")
 # Part de la hauteur d'un humain gardée sous le cou ; recul du corps derrière la caméra (m).
@@ -190,6 +191,9 @@ func _ready() -> void:
 	left_hand_view = FirstPersonHand.new()
 	camera.add_child(left_hand_view)
 	left_hand_view.setup(skin, Callable(world, "_kind_material") if world.has_method("_kind_material") else Callable(), true)
+	# 0.0.8.54 : leurs gestes, le corps les fait aussi (vu de dos, de face, son ombre).
+	hand_view.gestured.connect(func(name: String) -> void: _body_gesture(name, "D"))
+	left_hand_view.gestured.connect(func(name: String) -> void: _body_gesture(name, "G"))
 	set_fov(camera.fov)
 	# Capture only after the player explicitly clicks in the game.
 	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
@@ -387,12 +391,15 @@ func show_bags(worn: Array) -> void:
 # 0.0.7.10 : ce que tient chaque main (main gauche à gauche de l'écran, main droite à droite).
 func show_hands(left_value: Dictionary, right_value: Dictionary, both_hands: bool = false) -> void:
 	_left_item = left_value
+	_right_item = right_value
+	_both_items = both_hands
 	if is_instance_valid(left_hand_view):
 		left_hand_view.show_item(left_value)
 		left_hand_view.set_both(both_hands)
 	if is_instance_valid(hand_view):
 		hand_view.set_both(both_hands)
 	show_held(right_value)
+	_refresh_body_items()
 
 func _update_pickaxe() -> void:
 	if is_instance_valid(pickaxe) and is_instance_valid(world):
@@ -502,6 +509,7 @@ func apply_settings(values: Dictionary) -> void:
 		world.inventory_ui.refresh()
 	sync_body()
 	_sync_body_view()
+	_refresh_body_items()
 	eye_height = float(values.get("eye_height", EYE_HEIGHT))
 	camera.position.y = eye_height
 	break_reach = float(values.get("break_reach", REACH))
@@ -596,6 +604,63 @@ func _physics_process(delta: float) -> void:
 	else:
 		step_movement(delta, direction, jump_requested)
 	update_view()
+	_update_rigs(delta)
+
+# --- 0.0.8.54 (lot C1, #224, #225, #230, demandes de l'utilisateur) : le corps bouge ---
+# Bras et jambes du personnage (vu de dos ou de face, et son ombre) : repos, marche, objet tenu et gestes (les mêmes que
+# la main à la première personne) ; l'objet choisi visible dans sa main (character_rig.gd). Vu à la première personne,
+# le corps (regard vers le bas) marche seulement : ses bras ne gênent pas les mains du jeu.
+const CharacterRig = preload("res://scripts/character_rig.gd")
+var body_rig: RefCounted
+var shadow_rig: RefCounted
+var _right_item := {}
+var _both_items := false
+
+# Le corps entier (body_shadow) : montré de dos et de face, ombre seule à la première personne ; c'est lui qui fait les
+# gestes et tient les objets. Le corps coupé au cou (body, première personne) marche seulement.
+func _update_rigs(delta: float) -> void:
+	var speed := Vector2(velocity.x, velocity.z).length() if not flying else 0.0
+	if body_rig != null:
+		body_rig.update(delta, speed, false)
+	if shadow_rig != null:
+		shadow_rig.update(delta, speed, true)
+
+func _body_gesture(name: String, tag: String) -> void:
+	if shadow_rig != null:
+		shadow_rig.play(name, tag)
+
+func _refresh_body_items() -> void:
+	if shadow_rig == null:
+		return
+	var ground: Node = world.ground if is_instance_valid(world) and "ground" in world and is_instance_valid(world.ground) else null
+	shadow_rig.both_hands = _both_items
+	for side in [["D", _right_item], ["G", _left_item]]:
+		var item: MeshInstance3D = ground.held_model(side[1]) if ground != null else null
+		if item != null:
+			item.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_ON if view != "first" else GeometryInstance3D.SHADOW_CASTING_SETTING_SHADOWS_ONLY
+			item.layers = BODY_SHADOW_LAYER
+			# À la première personne, seulement son ombre : pas de flamme qui flotte là où est la main du corps.
+			for child in item.get_children():
+				child.visible = view != "first"
+			_place_in_hand(item, side[1], side[0])
+		shadow_rig.hold(side[0], item)
+
+# Un objet dans la main (repère de l'os de la main : y vers le bout des doigts, z vers le dos de la main ; avant-bras
+# levé devant, -z monte) : un bois ou un outil debout dans le poing (le manche tenu un peu au-dessus de son bout), les
+# autres dans la paume.
+func _place_in_hand(item: MeshInstance3D, value: Dictionary, tag: String = "D") -> void:
+	var spec: Dictionary = Inventory.ITEMS.get(value.get("objet", ""), {})
+	var form: String = spec.get("forme", "")
+	# Le manche le long de -z (vers le haut quand l'avant-bras est levé devant, un peu penché vers l'avant), un peu écarté
+	# du corps (pas devant le visage).
+	var stand_up := Basis(Vector3.UP, 0.3 if tag == "D" else -0.3) * Basis(Vector3.RIGHT, -PI * 0.5 - 0.14)
+	if form == "bois":
+		var length := float((value.pile[-1] if value.has("pile") else value).get("longueur", 0.6))
+		item.transform = Transform3D(stand_up * item.transform.basis, Vector3(0.0, 0.05, -length * 0.3))
+	elif form in ["outil_brut", "outil_pierre"]:
+		item.transform = Transform3D(stand_up * Basis(Vector3.RIGHT, -PI * 0.5) * item.transform.basis, Vector3(0.0, 0.05, 0.26))
+	else:
+		item.transform.origin = Vector3(0.0, 0.06, -0.03)
 
 # 0.0.6.8 : nager. Eau plus haute que SWIM_DEPTH au-dessus des pieds (lacs, eau libre) : on nage. Sans rien toucher,
 # on remonte et on flotte, les yeux juste hors de l'eau (pieds à FLOAT_DEPTH sous la surface). Sauter maintenu : monter ;
@@ -669,6 +734,8 @@ func set_view(name: String) -> void:
 	else:
 		view_camera.current = true
 	_sync_body_view()
+	# 0.0.8.54 : l'objet tenu se voit (de dos, de face) ou seulement dans l'ombre (première personne).
+	_refresh_body_items()
 	_update_pickaxe()
 	update_view()
 
@@ -716,6 +783,8 @@ func sync_body() -> void:
 			remove_child(old)
 			old.queue_free()
 	body = _place_body(CharacterModel.build(character, skin), "Body")
+	body_rig = null
+	shadow_rig = null
 	body_shadow = null
 	if not CharacterPreview.is_human(character):
 		return
@@ -737,6 +806,14 @@ func sync_body() -> void:
 		(node as GeometryInstance3D).cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_SHADOWS_ONLY
 		# 0.0.8.51 : sa propre couche : la torche tenue (devant lui) ne fait pas d'ombre de son corps (Fire.no_shadow_layers).
 		(node as GeometryInstance3D).layers = BODY_SHADOW_LAYER
+	# 0.0.8.54 : leurs squelettes (bras, jambes), et les objets tenus.
+	body_rig = CharacterRig.new()
+	if not body_rig.setup(body):
+		body_rig = null
+	shadow_rig = CharacterRig.new()
+	if not shadow_rig.setup(body_shadow):
+		shadow_rig = null
+	_refresh_body_items()
 
 # Tourné vers l'avant du joueur (-Z), semelles posées au sol, centré un peu en arrière de la caméra.
 func _place_body(model: Node3D, node_name: String) -> Node3D:
